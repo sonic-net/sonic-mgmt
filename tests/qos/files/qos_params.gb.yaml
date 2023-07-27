@@ -943,10 +943,11 @@ qos_params:
                     ecn: 1
                     pg: 3
                     queue: 3
-                    pkts_num_trig_pfc: 262144
-                    pkts_num_trig_ingr_drp: 524288
-                    pkts_num_margin: 13267
+                    pkts_num_trig_pfc: 6411
+                    pkts_num_trig_ingr_drp: 6412
+                    pkts_num_margin: 10000
                     iterations: 100
+                    packet_length: 8192
                 xoff_1:
                     dscp: 3
                     ecn: 1
@@ -998,7 +999,16 @@ qos_params:
                     dscp: 3
                     ecn: 1
                     pg: 3
-                    pkts_num_trig_pfc: 3201
+                    pkts_num_trig_pfc: 6403
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 8156
+                    cell_size: 8192
+                wm_pg_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_trig_pfc: 727
                     pkts_num_fill_min: 0
                     pkts_num_margin: 4
                     packet_size: 8156
@@ -1009,7 +1019,7 @@ qos_params:
                     queue: 3
                     pkts_num_fill_min: 0
                     pkts_num_trig_ingr_drp: 6404
-                    pkts_num_margin: 2048
+                    pkts_num_margin: 4096
                     cell_size: 6144
                     packet_size: 6144
                 wm_q_shared_lossy:
@@ -1029,6 +1039,12 @@ qos_params:
                     pkts_num_trig_pfc: 6404
                     cell_size: 8192
                     packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 2048
+                    cell_size: 6144
+                    pkt_size: 6144
             400000_120000m:
                 pkts_num_leak_out: 0
                 wm_buf_pool_lossless:
@@ -1039,6 +1055,12 @@ qos_params:
                     pkts_num_fill_ingr_min: 181
                     pkts_num_trig_pfc: 23044
                     cell_size: 8192
+                    packet_size: 6144
+                wm_q_wm_all_ports:
+                    ecn: 1
+                    pkt_count: 3000
+                    pkts_num_margin: 19456
+                    cell_size: 6144
                     packet_size: 6144
             wrr:
                 ecn: 1
