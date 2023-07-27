@@ -164,7 +164,7 @@ def generate_background_flows(testbed_config,
         bg_flow_delay_sec (int): delay of background flows in seconds
         bg_flow_pkt_size (int): packet size of background flows
         prio_dscp_map (dict): priority to DSCP mapping
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -208,7 +208,7 @@ def generate_pause_flows(testbed_config,
         pause_flow_name (str): name of pause flow
         pause_prio_list (list): list of pause priorities
         global_pause (bool): global pause or per priority pause
-        snapppi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -275,7 +275,7 @@ def run_traffic(api,
         data_flow_names (list): list of names of data (test and background) flows
         all_flow_names (list): list of names of all the flows
         exp_dur_sec (int): experiment duration in second
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
         per-flow statistics (list)
     """
@@ -381,7 +381,7 @@ def verify_background_flow(flow_metrics,
         bg_flow_pkt_size (int): background data packet size in bytes
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for background flow deviation
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
@@ -425,7 +425,7 @@ def verify_basic_test_flow(flow_metrics,
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for test flow deviation
         test_flow_pause (bool): whether test flow is expected to be paused
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
@@ -467,7 +467,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
     Args:
         duthost (obj): DUT host object
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
@@ -516,7 +516,7 @@ def verify_pause_frame_count(duthost,
 
     Args:
         duthost (obj): DUT host object
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
@@ -537,7 +537,7 @@ def verify_unset_cev_pause_frame_count(duthost,
 
     Args:
         duthost (obj): DUT host object
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
@@ -560,7 +560,7 @@ def verify_egress_queue_frame_count(duthost,
 
     Args:
         duthost (obj): DUT host object
-        snappi_extra_params (obj): snappi extra parameters
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
