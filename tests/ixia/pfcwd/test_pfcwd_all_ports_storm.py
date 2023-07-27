@@ -1,6 +1,6 @@
 '''
-   Tests pfc Pause storms on all Ports 
-''' 
+   Tests pfc Pause storms on all Ports
+'''
 
 import pytest
 
@@ -19,10 +19,10 @@ def test_pfcwd_all_ports_pause_storm(ixia_api,
                                      rand_one_dut_portname_oper_up,
                                      rand_one_dut_lossless_prio,
                                      lossy_prio_list,
-                                     prio_dscp_map): 
+                                     prio_dscp_map):
 
     """
-    Run PFC PAUSE Storm on all ports 
+    Run PFC PAUSE Storm on all ports
 
     Args:
         ixia_api (pytest fixture): IXIA session
@@ -46,7 +46,7 @@ def test_pfcwd_all_ports_pause_storm(ixia_api,
     testbed_config, port_config_list = ixia_testbed_config
     lossless_prio = int(lossless_prio)
 
-    dut_ports_list = conn_graph_facts["device_conn"][dut_hostname].keys() 
+    dut_ports_list = conn_graph_facts["device_conn"][dut_hostname].keys()
 
     run_pfcwd_pause_storm_test(api=ixia_api,
                                testbed_config=testbed_config,

@@ -1,5 +1,5 @@
-import os 
-import time 
+import os
+import time
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -8,11 +8,11 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size, Rate
-from abstract_open_traffic_generator.flow import Duration, Continuous, PortTxRx, PfcPause  
+from abstract_open_traffic_generator.flow import Duration, Continuous, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.control import State, ConfigState, FlowTransmitState
 from abstract_open_traffic_generator.result import FlowRequest
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer 
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 PAUSE_FLOW_NAME = 'PauseStorm'
 IXIA_POLL_DELAY_SEC = 2
@@ -20,8 +20,7 @@ TOLERANCE_THRESHOLD = 0.05
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*" 
-
+EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 
 def run_pfcwd_pause_storm_test(api,
                                testbed_config,
@@ -31,9 +30,9 @@ def run_pfcwd_pause_storm_test(api,
                                duthost,
                                dut_ports_list,
                                pause_prio_list,
-                               prio_dscp_map):  
+                               prio_dscp_map):
     """
-    Run PFC Pause Storm on all ports  
+    Run PFC Pause Storm on all ports
 
     Args:
         api (obj): IXIA session
@@ -54,9 +53,9 @@ def run_pfcwd_pause_storm_test(api,
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
-    flows = [] 
+    flows = []
 
-    for dut_port in dut_ports_list: 
+    for dut_port in dut_ports_list:
         """ Get the ID of the port to test """
         port_id = get_dut_port_id(dut_hostname=duthost.hostname,
                                   dut_port=dut_port,
@@ -75,57 +74,57 @@ def run_pfcwd_pause_storm_test(api,
 
         """ Generate traffic config """
 
-        flow_name = PAUSE_FLOW_NAME + str(port_id)  
+        flow_name = PAUSE_FLOW_NAME + str(port_id)
         pause_flows = __gen_traffic(testbed_config=testbed_config,
                                     port_config_list=port_config_list,
                                     port_id=port_id,
                                     pause_flow_name=flow_name,
                                     pause_prio_list=pause_prio_list,
                                     pfc_storm_dur_sec=pfc_storm_dur_sec,
-                                    prio_dscp_map=prio_dscp_map)  
+                                    prio_dscp_map=prio_dscp_map)
 
-        flows.extend(pause_flows) 
+        flows.extend(pause_flows)
 
     """ Tgen config = testbed config + flow config """
 
-    syslog_marker = "all_port_storm"  
+    syslog_marker = "all_port_storm"
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
 
     loganalyzer.expect_regex = []
 
-    for port in dut_ports_list: 
-        expect_regex = [EXPECT_PFC_WD_DETECT_RE+port]  
+    for port in dut_ports_list:
+        expect_regex = [EXPECT_PFC_WD_DETECT_RE+port]
 
         loganalyzer.expect_regex.extend(expect_regex)
 
-    loganalyzer.match_regex = [] 
+    loganalyzer.match_regex = []
 
-    time.sleep(15) 
+    time.sleep(15)
 
     config = testbed_config
     config.flows = flows
 
     all_flow_names = [flow.name for flow in flows]
 
-    with loganalyzer: 
+    with loganalyzer:
         flow_stats = __run_traffic(api=api,
                                    config=config,
                                    all_flow_names=all_flow_names,
                                    exp_dur_sec=exp_dur_sec)
 
-    time.sleep(10) 
+    time.sleep(10)
 
-    loganalyzer.expect_regex = [] 
+    loganalyzer.expect_regex = []
     for port in dut_ports_list:
 
         expect_regex = [EXPECT_PFC_WD_RESTORE_RE+port]
         loganalyzer.expect_regex.extend(expect_regex)
 
-    with loganalyzer: 
-        flow_stats = __stop_traffic(api=api, config=config, all_flow_names=all_flow_names)  
+    with loganalyzer:
+        flow_stats = __stop_traffic(api=api, config=config, all_flow_names=all_flow_names)
 
-        time.sleep(15) 
+        time.sleep(15)
 
     if not flow_stats:
         pytest_assert('Fail to stop the traffic')
@@ -137,7 +136,7 @@ def __gen_traffic(testbed_config,
                   pause_flow_name,
                   pause_prio_list,
                   pfc_storm_dur_sec,
-                  prio_dscp_map):  
+                  prio_dscp_map):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -256,7 +255,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
 
-def __stop_traffic(api, config, all_flow_names): 
+def __stop_traffic(api, config, all_flow_names):
 
     """ Dump per-flow statistics """
     rows = api.get_flow_results(FlowRequest(flow_names=all_flow_names))
