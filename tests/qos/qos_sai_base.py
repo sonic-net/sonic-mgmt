@@ -370,7 +370,7 @@ class QosSaiBase(QosBase):
 
         return watermarkStatus
 
-    def __getSchedulerParam(self, dut_asic, duthost, dut_nasic, port, queue):
+    def __getSchedulerParam(self, dut_asic, port, queue):
         """
             Get scheduler parameters from Redis db
 
@@ -397,7 +397,7 @@ class QosSaiBase(QosBase):
             schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}|{2}|{3}".format(duthost, dut_nasic, port, queue), "scheduler"
+                    "QUEUE|{0}|{1}|{2}|{3}".format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
                 ]
             )[0])
 
@@ -1683,7 +1683,7 @@ class QosSaiBase(QosBase):
         dut_nasic = get_src_dst_asic_and_duts['src_asic'].get_asic_namespace()
 
         yield self.__getSchedulerParam(
-            dut_asic, duthost, dut_nasic,
+            dut_asic,
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSLESS_QUEUE_SCHED
         )
@@ -1707,7 +1707,7 @@ class QosSaiBase(QosBase):
         duthost = get_src_dst_asic_and_duts['src_dut'].sonichost.hostname
         dut_nasic = get_src_dst_asic_and_duts['src_asic'].get_asic_namespace()
         yield self.__getSchedulerParam(
-            dut_asic, duthost, dut_nasic,
+            dut_asic,
             dutConfig["dutInterfaces"][dutConfig["testPorts"]["src_port_id"]],
             self.TARGET_LOSSY_QUEUE_SCHED
         )
