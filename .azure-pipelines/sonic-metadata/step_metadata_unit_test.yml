@@ -3,6 +3,7 @@ steps:
     # set -x
     cd sonic-metadata
     cd scripts/tests
+    pytest test_reboot.py
     pytest test_cleanup_firmware.py
     pytest eos_to_sonic_test.py
     pytest test_rvtysh.py
