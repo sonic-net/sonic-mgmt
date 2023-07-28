@@ -289,7 +289,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
-    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map'])
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821 
     yield data
 
     # Cleanup code.
@@ -1015,6 +1015,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             self.setup[encap_type]['dest_to_nh_map'],
             ecmp_utils.get_payload_version(encap_type),
             "SET")
+
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
     '''
