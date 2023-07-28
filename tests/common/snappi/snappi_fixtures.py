@@ -18,8 +18,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.snappi.variables import dut_ip_start, snappi_ip_start, prefix_length
 logger = logging.getLogger(__name__)
 
-
-
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
