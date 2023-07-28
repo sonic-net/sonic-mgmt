@@ -55,6 +55,11 @@ steps:
         {
           IMAGE_URL=$1
           IMAGE_TYPE=$2
+
+          if [[ $IMAGE_URL == "custom" ]]; then
+              echo "$IMAGE_URL"
+              return
+          fi
           arrURL=(${IMAGE_URL//.$IMAGE_TYPE/ })
           IMAGE_URL_PREFIX=${arrURL[0]}
 
@@ -66,6 +71,8 @@ steps:
               IMAGE_SUFFIX=20201231
           elif [[ $IMAGE_URL == *"202205"* ]]; then
               IMAGE_SUFFIX=20220531
+          elif [[ $IMAGE_URL == *"202305"* ]]; then
+              IMAGE_SUFFIX=20230531
           fi
           echo "$IMAGE_URL_PREFIX-$IMAGE_SUFFIX"
         }
@@ -95,14 +102,21 @@ steps:
             echo ======== Upgrading to $to_image ========
             from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
             to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
-            if [[ $from_image == *"latest"* ]]; then
-              from_url=${{ parameters.FROM_IMAGE_URL }}
+            if [[ $FROM_IMAGE_URL == "custom" ]]; then
+              from_url=$from_image
+            else
+              if [[ $from_image == *"latest"* ]]; then
+                from_url=${{ parameters.FROM_IMAGE_URL }}
+              elif [[ $from_image == *"prev"* ]]; then
+                from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1 
+              fi
             fi
-            if [[ $from_image == *"prev"* ]]; then
-              from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1 
-            fi
-            if [[ $to_image == *"latest"* ]]; then
-              to_url=${{ parameters.TO_IMAGE_URL }}
+            if [[ $TO_IMAGE_URL == "custom" ]]; then
+              to_url=$to_image
+            else
+              if [[ $to_image == *"latest"* ]]; then
+                to_url=${{ parameters.TO_IMAGE_URL }}
+              fi
             fi
             echo From URL is $from_url
             echo To URL is $to_url
