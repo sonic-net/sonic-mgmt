@@ -1493,14 +1493,23 @@ class ReloadTest(BaseTest):
                 "sudo " + self.reboot_type + " -h", timeout=5)
             if "retry count" in stdout:
                 if self.test_params['neighbor_type'] == "sonic":
-                    stdout, stderr, return_code = self.dut_connection.execCommand(
-                        "sudo " + self.reboot_type + " -N", timeout=10)
+                    reboot_command = self.reboot_type + " -N"
                 else:
-                    stdout, stderr, return_code = self.dut_connection.execCommand(
-                        "sudo " + self.reboot_type + " -n", timeout=10)
+                    reboot_command = self.reboot_type + " -n"
             else:
-                stdout, stderr, return_code = self.dut_connection.execCommand(
-                    "sudo " + self.reboot_type, timeout=10)
+                reboot_command = self.reboot_type
+
+            # create an empty log file to capture output of reboot command
+            reboot_log_file = "/host/{}.log".format(reboot_command.replace(' ', ''))
+            self.dut_connection.execCommand("sudo touch {}; sudo chmod 666 {}".format(
+                reboot_log_file, reboot_log_file))
+
+            # execute reboot command w/ nohup so that when the execCommand times-out:
+            # 1. there is a reader/writer for any bash commands using PIPE
+            # 2. the output and error of CLI still gets written to log file
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "nohup sudo {} -v &> {}".format(
+                    reboot_command, reboot_log_file), timeout=10)
 
         elif self.test_params['other_vendor_flag'] is True:
             ignore_db_integrity_check = " -d"
