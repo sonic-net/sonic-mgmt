@@ -30,7 +30,6 @@ str-7260cx3-11,Ethernet28/1,str-7060cx-32s-21,Ethernet32/1,40000,1979-2008,Trunk
 str-7260cx3-11,Ethernet29/1,str-7060cx-32s-22,Ethernet32/1,40000,"2009,2010",Trunk
 str-7260cx3-11,Ethernet30/1,str-7260-10,Ethernet64,40000,"937-968,1152-1178",Trunk
 str-7260cx3-11,Ethernet31/1,str-7060cx-32s-18,Ethernet32/1,40000,1949-1978,Trunk
-str-7260cx3-11,Ethernet32/1,str-7260-09,Ethernet64,40000,"2153-2180",Trunk
 str-7260cx3-11,Ethernet33/1,str-7060cx-32s-04,Ethernet31/1,40000,"2065-2105,1717-1728,1945-1948",Trunk
 str-7260cx3-11,Ethernet34/1,str-7260-07,Ethernet64,40000,"873-904,1129-1151",Trunk
 str-7260cx3-11,Ethernet35/1,str-7060cx-32s-17,Ethernet32/1,40000,1389-1440,Trunk

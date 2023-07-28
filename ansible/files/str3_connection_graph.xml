@@ -16,6 +16,8 @@
       <Device Hostname="str3-7260cx3-acs-fan-08" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-09" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-10" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-11" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
+      <Device Hostname="str3-7260cx3-acs-fan-12" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-23" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-35" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-7260cx3-acs-fan-37" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
@@ -2694,6 +2696,10 @@
     <DevicesL3Info Hostname="str3-8800-sup-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
     </DevicesL3Info>
+    <DevicesL3Info Hostname="str3-7260cx3-acs-fan-11">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.76/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-7260cx3-acs-fan-11"/>
     <DevicesL3Info Hostname="str3-7260cx3-acs-fan-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.159/23"/>
     </DevicesL3Info>
@@ -2762,6 +2768,10 @@
       <InterfaceVlan mode="Access" portname="Ethernet61/1" vlanids="2395"/>
       <InterfaceVlan mode="Access" portname="Ethernet62/1" vlanids="2396"/>
     </DevicesL2Info>
+    <DevicesL3Info Hostname="str3-7260cx3-acs-fan-12">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.12/23"/>
+    </DevicesL3Info>
+    <DevicesL2Info Hostname="str3-7260cx3-acs-fan-12"/>
     <DevicesL3Info Hostname="str3-7260cx3-acs-fan-06">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.116/23"/>
     </DevicesL3Info>
@@ -3652,6 +3662,14 @@
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-07" EndPort="PSU2" StartDevice="pdu-91" StartPort="9"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-08" EndPort="PSU1" StartDevice="pdu-90" StartPort="10"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-08" EndPort="PSU2" StartDevice="pdu-91" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-09" EndPort="PSU1" StartDevice="pdu-93" StartPort="14"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-09" EndPort="PSU2" StartDevice="pdu-94" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-10" EndPort="PSU1" StartDevice="pdu-93" StartPort="7"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-10" EndPort="PSU2" StartDevice="pdu-94" StartPort="7"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-11" EndPort="PSU1" StartDevice="pdu-97" StartPort="34"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-11" EndPort="PSU2" StartDevice="pdu-96" StartPort="34"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-12" EndPort="PSU1" StartDevice="pdu-102" StartPort="37"/>
+      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-12" EndPort="PSU2" StartDevice="pdu-103" StartPort="37"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU1" StartDevice="pdu-92" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU2" StartDevice="pdu-92" StartPort="13"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU1" StartDevice="pdu-92" StartPort="12"/>
@@ -3704,10 +3722,6 @@
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-1" EndPort="PSU2" StartDevice="pdu-94" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-2" EndPort="PSU1" StartDevice="pdu-93" StartPort="12"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-2" EndPort="PSU2" StartDevice="pdu-94" StartPort="12"/>
-      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-09" EndPort="PSU1" StartDevice="pdu-93" StartPort="14"/>
-      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-09" EndPort="PSU2" StartDevice="pdu-94" StartPort="16"/>
-      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-10" EndPort="PSU1" StartDevice="pdu-93" StartPort="7"/>
-      <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-10" EndPort="PSU2" StartDevice="pdu-94" StartPort="7"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>

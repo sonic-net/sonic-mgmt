@@ -117,8 +117,6 @@ pdu-109,38,str-7060cx-32s-21,PSU1
 pdu-110,38,str-7060cx-32s-21,PSU2
 pdu-105,28,str-7060cx-32s-22,PSU1
 pdu-106,28,str-7060cx-32s-22,PSU2
-pdu-97,34,str-7260-01,PSU1
-pdu-96,34,str-7260-01,PSU2
 pdu-97,22,str-7260-02,PSU1
 pdu-96,22,str-7260-02,PSU2
 pdu-102,34,str-7260-03,PSU1
@@ -133,8 +131,6 @@ pdu-102,19,str-7260-07,PSU1
 pdu-103,19,str-7260-07,PSU2
 pdu-99,19,str-7260-08,PSU1
 pdu-98,19,str-7260-08,PSU2
-pdu-102,11,str-7260-09,PSU1
-pdu-103,11,str-7260-09,PSU2
 pdu-102,5,str-7260-10,PSU1
 pdu-103,5,str-7260-10,PSU2
 pdu-97,12,str-7260-13,PSU1

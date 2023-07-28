@@ -888,8 +888,6 @@ acs_ixia_dscp:
 
 fanout:
   hosts:
-    str-7260-01:
-      ansible_host: 10.3.147.76
     str-7260-05:
       ansible_host: 10.3.146.105
     str-7260-06:
@@ -920,8 +918,6 @@ fanout:
       ansible_host: 10.3.147.169
     str-7260-04:
       ansible_host: 10.3.147.164
-    str-7260-09:
-      ansible_host: 10.3.147.12
     str-7260-07:
       ansible_host: 10.3.147.11
     str-7260-10:

@@ -136,6 +136,10 @@ fanout:
       ansible_host: 10.3.147.158
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.159
+    str3-7260cx3-acs-fan-11:
+      ansible_host: 10.3.147.76
+    str3-7260cx3-acs-fan-12:
+      ansible_host: 10.3.147.12
     str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
     str3-7260cx3-acs-fan-35:

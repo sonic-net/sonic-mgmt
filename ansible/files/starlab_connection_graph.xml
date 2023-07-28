@@ -51,12 +51,10 @@
       <Device Hostname="str-7260-02" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-03" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-04" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
-      <Device Hostname="str-7260-01" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-05" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-06" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-07" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-08" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
-      <Device Hostname="str-7260-09" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260-10" HwSku="Arista-7260QX-64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str-7260cx3-11" HwSku="Arista-7260CX3-64" Os="" Type="FanoutRoot"/>
       <Device Hostname="str-7260cx3-64-16" HwSku="Arista-7260CX3" Os="" Type="FanoutLeaf"/>
@@ -139,7 +137,6 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-22" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet29/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-10" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet30/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-18" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet31/1"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-09" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet32/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-04" EndPort="Ethernet31/1" StartDevice="str-7260cx3-11" StartPort="Ethernet33/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-07" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet34/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-17" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet35/1"/>
@@ -3567,7 +3564,6 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet29/1" vlanids="2009,2010"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet30/1" vlanids="937-968,1152-1178"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="1949-1978"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="2153-2180"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet33/1" vlanids="2065-2105,1717-1728,1945-1948"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet34/1" vlanids="873-904,1129-1151"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet35/1" vlanids="1389-1440"/>
@@ -3598,12 +3594,6 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet62/1" vlanids="777-808,841-864"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet63/1" vlanids="1225-1235,1237-1284"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1944"/>
-    </DevicesL2Info>
-    <DevicesL3Info Hostname="str-7260-09">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.12/23"/>
-    </DevicesL3Info>
-    <DevicesL2Info Hostname="str-7260-09">
-      <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="2153-2180"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-08">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.108/23"/>
@@ -3758,10 +3748,6 @@
       <InterfaceVlan mode="Access" portname="Ethernet39" vlanids="1063"/>
       <InterfaceVlan mode="Access" portname="Ethernet40" vlanids="1064"/>
     </DevicesL2Info>
-    <DevicesL3Info Hostname="str-7260-01">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.76/23"/>
-    </DevicesL3Info>
-    <DevicesL2Info Hostname="str-7260-01"/>
     <DevicesL3Info Hostname="str-7260-07">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.11/23"/>
     </DevicesL3Info>
@@ -4998,8 +4984,6 @@
       <PowerControlLinkInfo EndDevice="str-7060cx-32s-21" EndPort="PSU2" StartDevice="pdu-110" StartPort="38"/>
       <PowerControlLinkInfo EndDevice="str-7060cx-32s-22" EndPort="PSU1" StartDevice="pdu-105" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str-7060cx-32s-22" EndPort="PSU2" StartDevice="pdu-106" StartPort="28"/>
-      <PowerControlLinkInfo EndDevice="str-7260-01" EndPort="PSU1" StartDevice="pdu-97" StartPort="34"/>
-      <PowerControlLinkInfo EndDevice="str-7260-01" EndPort="PSU2" StartDevice="pdu-96" StartPort="34"/>
       <PowerControlLinkInfo EndDevice="str-7260-02" EndPort="PSU1" StartDevice="pdu-97" StartPort="22"/>
       <PowerControlLinkInfo EndDevice="str-7260-02" EndPort="PSU2" StartDevice="pdu-96" StartPort="22"/>
       <PowerControlLinkInfo EndDevice="str-7260-03" EndPort="PSU1" StartDevice="pdu-102" StartPort="34"/>
@@ -5014,8 +4998,6 @@
       <PowerControlLinkInfo EndDevice="str-7260-07" EndPort="PSU2" StartDevice="pdu-103" StartPort="19"/>
       <PowerControlLinkInfo EndDevice="str-7260-08" EndPort="PSU1" StartDevice="pdu-99" StartPort="19"/>
       <PowerControlLinkInfo EndDevice="str-7260-08" EndPort="PSU2" StartDevice="pdu-98" StartPort="19"/>
-      <PowerControlLinkInfo EndDevice="str-7260-09" EndPort="PSU1" StartDevice="pdu-102" StartPort="11"/>
-      <PowerControlLinkInfo EndDevice="str-7260-09" EndPort="PSU2" StartDevice="pdu-103" StartPort="11"/>
       <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU1" StartDevice="pdu-102" StartPort="5"/>
       <PowerControlLinkInfo EndDevice="str-7260-10" EndPort="PSU2" StartDevice="pdu-103" StartPort="5"/>
       <PowerControlLinkInfo EndDevice="str-7260-13" EndPort="PSU1" StartDevice="pdu-97" StartPort="12"/>
