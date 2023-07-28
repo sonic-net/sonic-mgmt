@@ -18,6 +18,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from abc import abstractmethod
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.utilities import check_skip_release
 
 logger = logging.getLogger(__name__)
 
@@ -626,11 +627,12 @@ def skip_sonic_leaf_fanout(fanouthosts):
     """
     for fanouthost in list(fanouthosts.values()):
         if fanouthost.get_fanout_os() == 'sonic':
-            os_version = fanouthost.get_sonic_os_version()
+            # Skips this test if the SONiC image installed on fanout is < 202205
+            is_skip, _ = check_skip_release(fanouthost, ["201811", "201911", "202012", "202106", "202111"])
+            if is_skip:
+                pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if "202205" not in os_version:
-                pytest.skip("Not supporteds on SONiC leaf-fanout with os version is not 202205")
             if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
                 pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
