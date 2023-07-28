@@ -11,7 +11,7 @@ from ptf import testutils
 from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
 from tests.common.utilities import is_ipv4_address
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import skip_release
 
 
@@ -84,7 +84,7 @@ def get_new_vlan_intf_mac_mellanox(dut_vlan_intf_mac):
 
 
 @pytest.fixture(scope="module")
-def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, verify_host_port_vlan_membership):
+def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, verify_host_port_vlan_membership, tbinfo):
     vlan_intf, _ = testbed_params
     duthost = duthosts[rand_one_dut_hostname]
     dut_vlan_mac = duthost.get_dut_iface_mac('%s' % vlan_intf["attachto"])
@@ -98,18 +98,17 @@ def setup_host_vlan_intf_mac(duthosts, rand_one_dut_hostname, testbed_params, ve
 
     yield
 
-    del_vlan_json = json.loads("""
-            [{
-                "VLAN":{
-                    "%s":{
-                        "mac": "%s"
+    if "dualtor" not in tbinfo["topo"]["name"]:
+        del_vlan_json = json.loads("""
+                [{
+                    "VLAN":{
+                        "%s":{
+                            "mac": "%s"
+                        }
                     }
-                }
-            }]
-        """ % (vlan_intf["attachto"], dut_vlan_mac))
-    duthost.copy(content=json.dumps(del_vlan_json, indent=4), dest='/tmp/del_vlan_mac.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_vlan_mac.json"))
-    duthost.shell("rm -rf /tmp/del_vlan_mac.json")
+                }]
+            """ % (vlan_intf["attachto"], dut_vlan_mac))
+        delete_running_config(del_vlan_json, duthost)
 
     wait_until(10, 2, 2, lambda: duthost.get_dut_iface_mac(vlan_intf["attachto"]) == dut_vlan_mac)
 
