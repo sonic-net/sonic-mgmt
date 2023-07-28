@@ -25,7 +25,7 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
@@ -73,7 +73,7 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
         Lossless priorities (list)
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in list(config_facts.keys()):
