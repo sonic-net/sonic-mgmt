@@ -289,6 +289,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map'])
     yield data
 
     # Cleanup code.
@@ -1000,6 +1001,20 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
+        # perform cleanup by removing all the routes added by this test class.
+        # reset to add only the routes added in the setup phase.
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "DEL")
+
+        self.setup[encap_type]['dest_to_nh_map'] = self.setup[encap_type]['dest_to_nh_map_orignal']
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "SET")
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
     '''
