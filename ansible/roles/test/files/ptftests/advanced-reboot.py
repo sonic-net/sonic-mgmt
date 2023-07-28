@@ -1508,7 +1508,7 @@ class ReloadTest(BaseTest):
             # 1. there is a reader/writer for any bash commands using PIPE
             # 2. the output and error of CLI still gets written to log file
             stdout, stderr, return_code = self.dut_connection.execCommand(
-                "nohup sudo {} -vvv &> {} &".format(
+                "nohup sudo {} -v &> {}".format(
                     reboot_command, reboot_log_file), timeout=10)
 
         elif self.test_params['other_vendor_flag'] is True:
