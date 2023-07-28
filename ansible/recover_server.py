@@ -328,8 +328,8 @@ if __name__ == '__main__':
                         help='testbed file(default: testbed.csv)')
     parser.add_argument('--vm-file', default='veos',
                         help='vm inventory file(default: veos)')
-    parser.add_argument('--vm-type', default='veos', choices=[
-                        'veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: veos)')
+    parser.add_argument('--vm-type', default='ceos', choices=[
+                        'veos', 'ceos', 'vsonic'], help='vm type (veos|ceos|vsonic, default: ceos)')
     parser.add_argument(
         '--inventory',
         help='Deprecated. Inventory info is already in testbed.(csv|yaml), no need to specify in argument')
