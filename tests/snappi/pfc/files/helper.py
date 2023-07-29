@@ -20,15 +20,15 @@ from tests.common.snappi.read_pcap import validate_pfc_frame
 
 logger = logging.getLogger(__name__)
 
-flow_port_config = []
+dut_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
-DATA_PKT_SIZE = 1024
+data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 2
-DATA_FLOW_DELAY_SEC = 1
+data_flow_delay_sec = 1
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 
@@ -93,8 +93,8 @@ def run_pfc_test(api,
     if snappi_extra_params.headroom_test_params is not None:
         global DATA_FLOW_DURATION_SEC
         DATA_FLOW_DURATION_SEC = 10
-        global DATA_FLOW_DELAY_SEC
-        DATA_FLOW_DELAY_SEC = 2
+        global data_flow_delay_sec
+        data_flow_delay_sec = 2
 
         # Set up pfc delay parameter
         l1_config = testbed_config.layer1[0]
@@ -134,9 +134,9 @@ def run_pfc_test(api,
                         test_flow_name=TEST_FLOW_NAME,
                         test_flow_prio_list=test_prio_list,
                         test_flow_rate_percent=test_flow_rate_percent,
-                        data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                        data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
-                        data_pkt_size=DATA_PKT_SIZE,
+                        test_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                        test_flow_delay_sec=data_flow_delay_sec,
+                        test_flow_pkt_size=data_flow_pkt_size,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
@@ -145,9 +145,9 @@ def run_pfc_test(api,
                               bg_flow_name=BG_FLOW_NAME,
                               bg_flow_prio_list=bg_prio_list,
                               bg_flow_rate_percent=bg_flow_rate_percent,
-                              data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                              data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
-                              data_pkt_size=DATA_PKT_SIZE,
+                              bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                              bg_flow_delay_sec=data_flow_delay_sec,
+                              bg_flow_pkt_size=data_flow_pkt_size,
                               prio_dscp_map=prio_dscp_map,
                               snappi_extra_params=snappi_extra_params)
 
@@ -172,7 +172,7 @@ def run_pfc_test(api,
                              config=testbed_config,
                              data_flow_names=data_flow_names,
                              all_flow_names=all_flow_names,
-                             exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                             exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
                              snappi_extra_params=snappi_extra_params)
 
     speed_str = testbed_config.layer1[0].speed
@@ -186,6 +186,7 @@ def run_pfc_test(api,
     if valid_pfc_frame_test:
         is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
         pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+        return
 
     # Verify pause flows
     verify_pause_flow(flow_metrics=flow_stats,
@@ -195,8 +196,8 @@ def run_pfc_test(api,
     verify_background_flow(flow_metrics=flow_stats,
                            bg_flow_name=BG_FLOW_NAME,
                            bg_flow_rate_percent=bg_flow_rate_percent,
-                           data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                           data_pkt_size=DATA_PKT_SIZE,
+                           bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                           bg_flow_pkt_size=data_flow_pkt_size,
                            speed_gbps=speed_gbps,
                            tolerance=TOLERANCE_THRESHOLD,
                            snappi_extra_params=snappi_extra_params)
@@ -205,8 +206,8 @@ def run_pfc_test(api,
     verify_basic_test_flow(flow_metrics=flow_stats,
                            test_flow_name=TEST_FLOW_NAME,
                            test_flow_rate_percent=test_flow_rate_percent,
-                           data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                           data_pkt_size=DATA_PKT_SIZE,
+                           test_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                           test_flow_pkt_size=data_flow_pkt_size,
                            speed_gbps=speed_gbps,
                            tolerance=TOLERANCE_THRESHOLD,
                            test_flow_pause=test_traffic_pause,
@@ -217,7 +218,7 @@ def run_pfc_test(api,
         verify_in_flight_buffer_pkts(duthost=duthost,
                                      flow_metrics=flow_stats,
                                      test_flow_name=TEST_FLOW_NAME,
-                                     data_pkt_size=DATA_PKT_SIZE,
+                                     test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
         # Verify PFC pause frame count
         verify_pause_frame_count(duthost=duthost,

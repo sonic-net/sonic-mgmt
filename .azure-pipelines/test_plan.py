@@ -128,9 +128,9 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-def get_scope(testbed_tools_url):
+def get_scope(elastictest_url):
     scope = "api://sonic-testbed-tools-dev/.default"
-    if testbed_tools_url in [
+    if elastictest_url in [
         "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
         "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
         "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
@@ -786,17 +786,17 @@ if __name__ == "__main__":
 
     print("Test plan utils parameters: {}".format(args))
     auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
-    required_env = ["TESTBED_TOOLS_URL"]
+    required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL"]
 
     if args.action in ["create", "cancel"]:
         required_env.extend(auth_env)
 
     env = {
-        "testbed_tools_url": os.environ.get("TESTBED_TOOLS_URL"),
-        "tenant_id": os.environ.get("TENANT_ID"),
-        "client_id": os.environ.get("CLIENT_ID"),
-        "client_secret": os.environ.get("CLIENT_SECRET"),
-        "frontend_url": os.environ.get("FRONTEND_URL", "https://www.testbed-tools.org"),
+        "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
+        "tenant_id": os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
+        "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
+        "client_secret": os.environ.get("ELASTICTEST_MSAL_CLIENT_SECRET"),
+        "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
@@ -805,7 +805,7 @@ if __name__ == "__main__":
 
     try:
         tp = TestPlanManager(
-            env["testbed_tools_url"],
+            env["elastictest_scheduler_backend_url"],
             env["frontend_url"],
             env["tenant_id"],
             env["client_id"],
