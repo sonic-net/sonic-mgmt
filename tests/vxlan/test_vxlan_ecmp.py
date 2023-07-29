@@ -289,7 +289,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
-    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821 
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821
     yield data
 
     # Cleanup code.
