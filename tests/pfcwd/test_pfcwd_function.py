@@ -13,7 +13,8 @@ from .files.pfcwd_helper import start_wd_on_ports
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
@@ -143,20 +144,21 @@ class PfcCmd(object):
         )
 
     @staticmethod
-    def get_mmu_params(dut, port):
+    def get_mmu_params(dut, port, dual_tor_ports):
         """
         Retreive the pg profile for a port and the dynamic threshold used
 
         Args:
             dut(AnsibleHost) : dut instance
             port(string) : port name
+            dual_tor_ports(set): downlink ports on T1 or uplink ports on T0
 
         Returns:
             pg_profile(string), alpha(string)
         """
         logger.info("Retreiving pg profile and dynamic threshold for port: {}".format(port))
-
-        if is_tunnel_qos_remap_enabled(dut):
+        if port in dual_tor_ports:
+            # Queue 2&6 are enabled only on T1 downlink and T0 uplink ports
             queue_range = '2-4'
         else:
             queue_range = '3-4'
@@ -276,8 +278,19 @@ class PfcPktCntrs(object):
 
 
 class SetupPfcwdFunc(object):
+
+    def parse_test_port_info(self):
+        """
+        Parse the test port information into a dict
+        {port_id: port_type}
+        """
+        self.port_id_to_type_map = dict()
+        for _, v in self.test_ports_info.items():
+            self.port_id_to_type_map[v['test_port_id']] = v['test_port_type']
+
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, init=False, mmu_params=False, detect=True, toggle=False):
+    def setup_test_params(self, port, vlan, init=False, mmu_params=False, detect=True, toggle=False,
+                          dual_tor_ports=set()):
         """
         Sets up test parameters associated with a DUT port
 
@@ -287,11 +300,12 @@ class SetupPfcwdFunc(object):
             init(bool) : If the fanout needs to be initialized or not
         """
         logger.info("--- Setting up test params for port {} ---".format(port))
+        self.parse_test_port_info()
         self.setup_port_params(port, init=init, detect=detect)
         if toggle:
             self.update_queue(port)
         if mmu_params:
-            self.setup_mmu_params(port)
+            self.setup_mmu_params(port, dual_tor_ports)
         self.resolve_arp(vlan, self.is_dualtor)
         if not self.pfc_wd['fake_storm']:
             self.storm_setup(init=init, detect=detect)
@@ -323,6 +337,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.pfc_wd['test_port_id']
         self.pfc_wd['test_port_vlan_id'] = self.ports[port].get('test_port_vlan_id')
         self.pfc_wd['rx_port_vlan_id'] = self.ports[port].get('rx_port_vlan_id')
+        self.pfc_wd['port_id_to_type_map'] = self.port_id_to_type_map
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
         if init and detect:
             self.log_handle = dict()
@@ -341,14 +356,14 @@ class SetupPfcwdFunc(object):
         logger.info("Current queue: {}".format(self.pfc_wd['queue_index']))
         self.queue_oid = self.dut.get_queue_oid(port, self.pfc_wd['queue_index'])
 
-    def setup_mmu_params(self, port):
+    def setup_mmu_params(self, port, dual_tor_ports):
         """
         Retrieve the pg profile and alpha values of the port under test
 
         Args:
             port(string) : DUT port
         """
-        self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port)
+        self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port, dual_tor_ports)
 
     def update_mmu_params(self, mmu_action, port):
         """
@@ -430,7 +445,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params):
+    def __init__(self, ptf, router_mac, pfc_params, is_dualtor):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -449,7 +464,12 @@ class SendVerifyTraffic():
         self.pfc_wd_rx_neighbor_addr = pfc_params['rx_neighbor_addr']
         self.pfc_wd_test_port_vlan_id = pfc_params['test_port_vlan_id']
         self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
+        self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
+        if is_dualtor:
+            self.vlan_mac = "00:aa:bb:cc:dd:ee"
+        else:
+            self.vlan_mac = router_mac
 
     def verify_tx_egress(self, action):
         """
@@ -464,12 +484,13 @@ class SendVerifyTraffic():
         if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
         ptf_params = {'router_mac': self.router_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
-                      'port_type': self.port_type,
+                      'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
                       'wd_action': action}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
@@ -494,12 +515,13 @@ class SendVerifyTraffic():
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
         ptf_params = {'router_mac': self.router_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
-                      'port_type': self.port_type,
+                      'port_type': self.port_id_to_type_map[self.pfc_wd_test_port_id],
                       'wd_action': action}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
@@ -526,12 +548,13 @@ class SendVerifyTraffic():
             other_queue = self.pfc_queue_index + 1
 
         ptf_params = {'router_mac': self.router_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': other_queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_test_neighbor_addr,
-                      'port_type': self.port_type,
+                      'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
                       'wd_action': 'forward'}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
@@ -558,12 +581,13 @@ class SendVerifyTraffic():
             other_pg = self.pfc_queue_index + 1
 
         ptf_params = {'router_mac': self.router_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
                       'port_dst': dst_port,
                       'ip_dst': self.pfc_wd_rx_neighbor_addr,
-                      'port_type': self.port_type,
+                      'port_type': self.port_id_to_type_map[self.pfc_wd_test_port_id],
                       'wd_action': 'forward'}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
@@ -580,6 +604,7 @@ class SendVerifyTraffic():
         """
         logger.info("Send packets to {} to fill up the buffer".format(self.pfc_wd_test_port))
         ptf_params = {'router_mac': self.router_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_rx_port_id[0],
@@ -724,7 +749,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = action
 
     def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                           ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                           ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                           pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         PFCwd functional test
 
@@ -746,6 +772,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
@@ -761,7 +788,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
-                self.pfc_wd)
+                self.pfc_wd,
+                self.is_dualtor)
+
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
@@ -789,7 +818,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.dut.command("pfcwd stop")
 
     def test_pfcwd_multi_port(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                              pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Tests pfcwd behavior when 2 ports are under pfc storm one after the other
 
@@ -826,6 +856,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
         self.ports = setup_info['selected_test_ports']
         selected_ports = list(self.ports.keys())[:2]
+        self.test_ports_info = setup_info['test_ports']
         pytest_require(len(selected_ports) == 2, 'Pfcwd multi port test needs at least 2 ports')
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
@@ -846,7 +877,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
                                                           duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
-                                                          self.pfc_wd)
+                                                          self.pfc_wd,
+                                                          self.is_dualtor)
                     self.run_test(self.dut, port, "drop", restore=False)
                 for idx, port in enumerate(selected_ports):
                     logger.info("")
@@ -862,7 +894,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.dut.command("pfcwd stop")
 
     def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa F811
-                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, dualtor_ports, # noqa F811
+                              pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Tests if mmu changes impact Pfcwd functionality
 
@@ -899,6 +932,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
         key, value = list(self.ports.items())[0]
         self.ports = {key: value}
         port = key
@@ -908,7 +942,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.storm_hndle = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         logger.info("---- Testing on port {} ----".format(port))
-        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True)
+        self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True, dual_tor_ports=dualtor_ports)
         self.rx_action = None
         self.tx_action = None
         self.set_traffic_action(duthost, "drop")
@@ -919,7 +953,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
-                    self.pfc_wd)
+                    self.pfc_wd,
+                    self.is_dualtor)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
                 # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
                 self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
@@ -929,7 +964,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
-                    self.pfc_wd)
+                    self.pfc_wd,
+                    self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
 
@@ -946,7 +982,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.dut.command("pfcwd stop")
 
     def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
-                               tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
+                               tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                               pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Test PfCWD functionality after toggling port
 
@@ -979,6 +1016,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fanout = fanouthosts
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
+        self.test_ports_info = setup_info['test_ports']
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
@@ -996,7 +1034,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
-                self.pfc_wd)
+                self.pfc_wd,
+                self.is_dualtor)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
