@@ -257,12 +257,14 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
     yield
 
-    restore_monit_config_files(duthost)
-    restart_monit_service(duthost)
+    try:
+        restore_monit_config_files(duthost)
+    finally:
+        restart_monit_service(duthost)
 
-    restart_container(duthost, container_name)
-    remove_stress_utility(duthost, container_name)
-    postcheck_critical_processes(duthost, container_name)
+        restart_container(duthost, container_name)
+        remove_stress_utility(duthost, container_name)
+        postcheck_critical_processes(duthost, container_name)
 
 
 @pytest.fixture
