@@ -1979,6 +1979,8 @@ class QosSaiBase(QosBase):
         if xor(src_hbm_enabled, dst_hbm_enabled):
             pytest.skip(
                 "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return
 
     @pytest.fixture(scope="function", autouse=False)
     def skip_check_for_hbm_either_asic(self, get_src_dst_asic_and_duts):
@@ -1989,3 +1991,5 @@ class QosSaiBase(QosBase):
         if src_hbm_enabled or dst_hbm_enabled:
             pytest.skip(
                 "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return
