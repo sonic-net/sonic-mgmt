@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Script used to recover testbed servers after reboot/upgrade/black-out.
     - Cleanup server

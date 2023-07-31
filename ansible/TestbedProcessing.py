@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from shutil import copyfile
 import yaml
 import datetime
