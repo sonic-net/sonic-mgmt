@@ -59,7 +59,7 @@ def snappi_api(snappi_api_serv_ip,
     # TODO: Currently extension is defaulted to ixnetwork.
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
-    api = snappi_tests.api(location=location, ext="ixnetwork")
+    api = snappi.api(location=location, ext="ixnetwork")
 
     yield api
 
