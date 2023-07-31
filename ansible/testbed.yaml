@@ -2257,7 +2257,7 @@
 
 - conf-name: vms64-dual-t0-7260-1
   group-name: vms64-2
-  topo: dualtor-aa-120
+  topo: dualtor-aa-56
   ptf_image_name: docker-ptf
   ptf: vms64-2
   ptf_ip: 10.64.246.101/23
