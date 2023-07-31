@@ -1,5 +1,5 @@
 """
-This module contains the snappi fixture
+This module contains the snappi fixture in the snappi_tests directory.
 """
 import pytest
 import logging
