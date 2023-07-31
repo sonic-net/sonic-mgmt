@@ -1133,6 +1133,10 @@ def main():
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
+
+        if not run_result:
+            log_dir = 'logs'
+
         create_report_html(data,log_dir)
         parse_report(data)
         get_report_file(data)
