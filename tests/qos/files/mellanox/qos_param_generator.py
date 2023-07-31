@@ -81,6 +81,10 @@ class QosParamMellanox(object):
             headroom = xon + xoff
             ingress_lossless_size = int(
                 math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
+            if self.asic_type == "spc4":
+                pg_q_alpha = self.ingressLosslessProfile['pg_q_alpha']
+                port_alpha = self.ingressLosslessProfile['port_alpha']
+                pool_size = int(math.ceil(float(self.ingressLosslessProfile['pool_size']) / self.cell_size))
         else:
             headroom = size
             ingress_lossless_size = int(
@@ -88,6 +92,8 @@ class QosParamMellanox(object):
         hysteresis = headroom - (xon + xoff)
 
         egress_lossy_size = int(math.ceil(float(self.egressLossyProfile['static_th']) / self.cell_size))
+
+        ingess_lossy_size = int(math.ceil(float(self.ingressLossyProfile['static_th']) / self.cell_size))
 
         pkts_num_trig_pfc = ingress_lossless_size + xon + hysteresis
         pkts_num_trig_ingr_drp = ingress_lossless_size + headroom
@@ -98,7 +104,8 @@ class QosParamMellanox(object):
         else:
             pkts_num_trig_ingr_drp -= self.headroom_overhead
         pkts_num_dismiss_pfc = ingress_lossless_size + 1
-        pkts_num_trig_egr_drp = egress_lossy_size + 1
+        pkts_num_trig_egr_drp = egress_lossy_size + 1 if egress_lossy_size <= ingess_lossy_size \
+            else ingess_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
             src_testPortIds = self.dutConfig['testPortIds'][self.src_dut_index][self.src_asic_index]
@@ -109,11 +116,25 @@ class QosParamMellanox(object):
             occupancy_per_port = ingress_lossless_size
             self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
-            for i in range(1, ingress_ports_num_shp):
-                for j in range(pgs_per_port):
-                    pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                    occupancy_per_port /= 2
-                ingress_ports_list_shp.append(src_testPortIds[i])
+            occupied_buffer = 0
+            if self.asic_type == "spc4":
+                for i in range(1, ingress_ports_num_shp):
+                    for j in range(pgs_per_port):
+                        pg_occupancy = int(math.ceil(
+                            (pg_q_alpha*port_alpha*(pool_size - occupied_buffer) - pg_q_alpha*occupied_buffer)/(
+                                    1 + pg_q_alpha*port_alpha + pg_q_alpha)))
+                        pkts_num_trig_pfc_shp.append(pg_occupancy + xon + hysteresis)
+                        occupied_buffer += pg_occupancy
+                    # For a new port it should be treated as a smaller pool with the occupancy being 0
+                    pool_size -= occupied_buffer
+                    occupied_buffer = 0
+                    ingress_ports_list_shp.append(src_testPortIds[i])
+            else:
+                for i in range(1, ingress_ports_num_shp):
+                    for j in range(pgs_per_port):
+                        pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
+                        occupancy_per_port //= 2
+                    ingress_ports_list_shp.append(src_testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
             self.qos_parameters['pkts_num_hdrm_full'] = xoff - 2
@@ -155,6 +176,8 @@ class QosParamMellanox(object):
             hdrm_pool_size['pgs_num'] = (2 if not self.dualTor else 4) * len(self.qos_parameters['src_port_ids'])
             hdrm_pool_size['cell_size'] = self.cell_size
             hdrm_pool_size['margin'] = 3
+            if self.asic_type == "spc4":
+                hdrm_pool_size['packet_size'] = 600
         else:
             self.qos_params_mlnx[self.speed_cable_len].pop('hdrm_pool_size')
 
@@ -165,6 +188,8 @@ class QosParamMellanox(object):
         # We need a larger margin on SPC2/3
         xoff['pkts_num_margin'] = 4
         xoff['cell_size'] = self.cell_size
+        if self.asic_type == "spc4":
+            xoff['packet_size'] = 600
         self.qos_params_mlnx[self.speed_cable_len]['xoff_1'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_2'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_3'].update(xoff)
@@ -176,6 +201,8 @@ class QosParamMellanox(object):
         xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         xon['pkts_num_margin'] = 3
         xon['cell_size'] = self.cell_size
+        if self.asic_type == "spc4":
+            xon['packet_size'] = 600
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
         self.qos_params_mlnx['xon_3'].update(xon)
@@ -186,17 +213,23 @@ class QosParamMellanox(object):
         wm_pg_headroom['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_pg_headroom['cell_size'] = self.cell_size
         wm_pg_headroom['pkts_num_margin'] = 3
+        if self.asic_type == "spc4":
+            wm_pg_headroom['packet_size'] = 600
 
         wm_pg_shared_lossless = self.qos_params_mlnx['wm_pg_shared_lossless']
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
         wm_pg_shared_lossless['cell_size'] = self.cell_size
         wm_pg_shared_lossless["pkts_num_margin"] = 3
+        if self.asic_type == "spc4":
+            wm_pg_shared_lossless['packet_size'] = 600
 
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_q_shared_lossless['cell_size'] = self.cell_size
         # It was 8 but recently it failed in rare case. To stabilize the test, increase it to 9
         wm_q_shared_lossless['pkts_num_margin'] = 9
+        if self.asic_type == "spc4":
+            wm_q_shared_lossless['packet_size'] = 600
 
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
@@ -207,7 +240,7 @@ class QosParamMellanox(object):
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
-        wm_shared_lossy["pkts_num_margin"] = 3
+        wm_shared_lossy["pkts_num_margin"] = 4
         if self.asic_type == "spc4":
             wm_shared_lossy["packet_size"] = 600
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
