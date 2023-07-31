@@ -163,6 +163,9 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     if setup['physical_interfaces']:
         interface = sorted(setup['physical_interfaces'])[0]
+        nvidia_platform_support_400G_and_above_list = ["x86_64-nvidia_sn5600-r0"]
+        if duthost.facts['platform'] in nvidia_platform_support_400G_and_above_list:
+            interface = select_interface_for_mellnaox_device(setup, duthost)
         asic_index = duthost.get_port_asic_instance(interface).asic_index
         interface_info['is_portchannel_member'] = False
         for item in minigraph_interfaces:
@@ -181,6 +184,40 @@ def sample_intf(setup, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     interface_info['cli_ns_option'] = duthost.asic_instance(asic_index).cli_ns_option
 
     return interface_info
+
+
+def select_interface_for_mellnaox_device(setup, duthost):
+    """
+    For nvidia device,the headroom size is related to the speed and cable length.
+    When platform is x86_64-nvidia_sn5600-r0 and above,we need to choose interface whose cable length is 40m not 300m.
+    Because this platform supports speeds of 400G and above, if we use 300m cable length
+    it will exceed the headroom limit and cause some log errors like below:
+    ERR syncd#SDK: [COS_SB.ERR] Failed to verify max headroom for port 0x100f1, error:No More Resources
+    ERR syncd#SDK: [COS_SB.ERR] Failed to verify validate of the required configuration, error: No More Resources
+    ERR syncd#SDK: [SAI_BUFFER.ERR] mlnx_sai_buffer.c[6161]- mlnx_sai_buffer_configure_reserved_buffers:
+     Failed to configure reserved buffers. logical port:100f1, number of items:1 sx_status:5, message No More Resources
+    ERR syncd#SDK: [SAI_BUFFER.ERR] mlnx_sai_buffer.c[4083]- mlnx_sai_buffer_apply_buffer_to_pg:
+    Error applying buffer settings to port
+    ERR syncd#SDK: [SAI_BUFFER.ERR] mlnx_sai_buffer.c[1318]- pg_profile_set:
+    Failed to apply buffer profile for port index 60 pg index 3
+    ERR syncd#SDK: [SAI_UTILS.ERR] mlnx_sai_utils.c[2130]- sai_set_attribute: Failed to set the attribute.
+    ERR syncd#SDK: :- sendApiResponse:
+    api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_INSUFFICIENT_RESOURCES
+    ERR syncd#SDK: :- processQuadEvent: VID: oid:0x1a000000000266 RID: oid:0x3c0003001a
+    ERR syncd#SDK: :- processQuadEvent: attr: SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE: oid:0x19000000000b43
+    ERR swss#orchagent: :- processPriorityGroup: Failed to set port:Ethernet0 pg:3 buffer profile attribute, status:-4
+    """
+    selected_interface = ''
+    interface_cable_length_list = duthost.shell('redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE" ')['stdout_lines']
+    support_cable_length_list = ["40m", "5m"]
+    for intf in setup['physical_interfaces']:
+        if intf in interface_cable_length_list:
+            if interface_cable_length_list[interface_cable_length_list.index(intf) + 1] in support_cable_length_list:
+                selected_interface = intf
+                break
+    if not selected_interface:
+        pytest.skip("Skipping test due to not find interface with cable length is 40m or 5m")
+    return selected_interface
 
 
 #############################################################
