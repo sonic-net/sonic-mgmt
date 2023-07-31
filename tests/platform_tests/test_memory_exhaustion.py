@@ -22,7 +22,7 @@ class TestMemoryExhaustion:
     """
     This test case is used to verify that DUT will reboot when it runs out of memory.
     """
-    def wait_lc_healthy_if_sup(duthost, duthosts, localhost):
+    def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost):
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
