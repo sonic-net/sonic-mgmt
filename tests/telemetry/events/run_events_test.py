@@ -31,7 +31,7 @@ def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json
 
 
 def is_gnmi_cli_finished(duthost):
-    last_logs = duthost.shell("sed -n \"/^$(date --date='2 seconds ago' '+%b %_d %H:%M:%S')/,\\$p\" /var/log/syslog",
+    last_logs = duthost.shell("tail -n 2 /var/log/syslog",
                               module_ignore_errors=True)["stdout"]
     matches = re.findall('Set heartbeat_ctrl pause=1', last_logs)
     return len(matches) > 0

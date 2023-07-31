@@ -37,9 +37,10 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 def trigger_mem_threshold_exceeded_alert(duthost):
     logger.info("Invoking memory checker with low threshold")
-    duthost.shell("python /usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
+    duthost.shell("/usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
 
 
 def trigger_kernel_event(duthost):
     logger.info("Invoking logger for kernel events")
+    # syslog at github.com/torvalds/linux/blob/master/fs/squashfs/decompressor_multi.c#L193
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
