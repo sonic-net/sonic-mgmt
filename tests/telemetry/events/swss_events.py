@@ -47,7 +47,7 @@ def generate_pfc_storm(duthost):
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
     duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
                   format(queue_oid))
-    duthost.shell("pfcwd start --action alert {} {} --restoration-time {}".
+    duthost.shell("pfcwd start --action drop {} {} --restoration-time {}".
                   format(PFC_STORM_TEST_PORT, PFC_STORM_DETECTION_TIME, PFC_STORM_RESTORATION_TIME))
     time.sleep(WAIT_TIME)  # give time for pfcwd to detect pfc storm
     duthost.shell("pfcwd stop")
