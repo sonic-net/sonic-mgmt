@@ -7,7 +7,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_dut_base_config, get_multidut_snappi_ports, get_multidut_tgen_peer_port_set                   # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map                                               # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map  # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 
 SNAPPI_POLL_DELAY_SEC = 2
