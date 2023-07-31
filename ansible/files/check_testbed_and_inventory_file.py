@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 """Tool for checking testbed file and related inventory file.
 
 When we may make some mistakes while adding or updating testbed configurations in testbed file and inventory files.
