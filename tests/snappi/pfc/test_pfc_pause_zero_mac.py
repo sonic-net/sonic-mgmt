@@ -9,6 +9,7 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
     snappi_api, snappi_testbed_config # noqa F401
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list # noqa F401
+from tests.common.snappi.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api, # noqa F811
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.pfc_pause_src_mac = "00:00:00:00:00:00"
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -72,7 +76,7 @@ def test_pfc_zero_src_mac_single_lossless_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 pfc_pause_src_mac="00:00:00:00:00:00")
+                 snappi_extra_params=snappi_extra_params)
 
 
 def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api, # noqa F811
@@ -115,6 +119,9 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api, # noqa F811
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.pfc_pause_src_mac = "00:00:00:00:00:00"
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -128,4 +135,4 @@ def test_pfc_zero_src_mac_multi_lossless_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 pfc_pause_src_mac="00:00:00:00:00:00")
+                 snappi_extra_params=snappi_extra_params)

@@ -178,7 +178,7 @@ def get_healthy_psu_num(duthost):
     psus_status = psuutil_status_output["stdout_lines"][2:]
     for iter in psus_status:
         fields = iter.split()
-        if 'OK' in fields:
+        if 'OK' in fields and 'NOT' not in fields:
             healthy_psus += 1
 
     return healthy_psus
@@ -220,7 +220,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
             fields = line.split()
-            psu_test_results[fields[1]] = line
+            if " ".join(fields[2:]) != 'NOT PRESENT':
+                psu_test_results[fields[1]] = line
             if " ".join(fields[2:]) == "NOT OK":
                 power_off_psu_list.append(fields[1])
     else:
@@ -228,7 +229,8 @@ def check_all_psu_on(dut, psu_test_results):
         cli_psu_status = dut.command(CMD_PLATFORM_PSUSTATUS_JSON)
         psu_info_list = json.loads(cli_psu_status["stdout"])
         for psu_info in psu_info_list:
-            psu_test_results[psu_info['name']] = psu_info
+            if psu_info["status"] != 'NOT PRESENT':
+                psu_test_results[psu_info['name']] = psu_info
             if psu_info["status"] == "NOT OK":
                 power_off_psu_list.append(psu_info["index"])
 
@@ -292,7 +294,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         for line in cli_psu_status["stdout_lines"][2:]:
             psu_match = psu_line_pattern.match(line)
             pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(2) != "OK":
+            # also make sure psustatus is not 'NOT PRESENT', which cannot be turned on/off
+            if psu_match.group(2) != "OK" and psu_match.group(2) != "NOT PRESENT":
                 psu_under_test = psu_match.group(1)
             check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
         pytest_assert(psu_under_test is not None, "No PSU is turned off")
