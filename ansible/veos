@@ -142,6 +142,7 @@ all:
           - fullmesh
           - dualtor
           - dualtor-56
+          - dualtor-64
           - cable-test
           - dualtor-120
           - tgen-t0-3
