@@ -66,12 +66,12 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return request.config.getoption('--fake-storm') if not isMellanoxDevice(duthost) else False
 
 
-def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
+def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
     """
     Find out active IP interfaces and use the list to
     remove inactive ports from test_ports
     """
-    ip_ifaces = duthost.asic_instance(asic_index).get_active_ip_interfaces(tbinfo)
+    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
     port_list = []
     for iface in ip_ifaces.keys():
         if iface.startswith("PortChannel"):
@@ -89,8 +89,7 @@ def update_t1_test_ports(duthost, mg_facts, test_ports, asic_index, tbinfo):
 
 @pytest.fixture(scope="module")
 def setup_pfc_test(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,
-    enum_frontend_asic_index
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo
 ):
     """
     Sets up all the parameters needed for the PFC Watchdog tests
@@ -143,7 +142,7 @@ def setup_pfc_test(
     topo = tbinfo["topo"]["name"]
     if topo in SUPPORTED_T1_TOPOS:
         test_ports = update_t1_test_ports(
-            duthost, mg_facts, test_ports, enum_frontend_asic_index, tbinfo
+            duthost, mg_facts, test_ports, tbinfo
         )
     # select a subset of ports from the generated port list
     selected_ports = select_test_ports(test_ports)
@@ -177,8 +176,7 @@ def setup_pfc_test(
 
 @pytest.fixture(scope="module")
 def setup_dut_test_params(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo,     # noqa F811
-    enum_frontend_asic_index
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo     # noqa F811
 ):
     """
     Sets up all the parameters needed for the PFCWD tests

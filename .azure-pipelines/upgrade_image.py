@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 """Script for upgrading SONiC image for nightly tests.
 
 Main purpose of this script is to upgrade SONiC image for nightly tests. Based on the arguments passed in, the script

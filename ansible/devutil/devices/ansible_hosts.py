@@ -27,6 +27,9 @@ import copy
 import inspect
 import json
 import logging
+import os
+
+import six
 
 from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
@@ -38,6 +41,9 @@ from ansible.plugins.callback import CallbackBase
 from ansible.plugins.loader import module_loader
 from ansible import context
 from ansible.module_utils.common.collections import ImmutableDict
+
+if six.PY2:
+    FileNotFoundError = IOError
 
 logger = logging.getLogger("ansible_hosts")
 
@@ -194,6 +200,17 @@ class AnsibleHostsBase(object):
                 of ansible-playbook command line to specify additional host variables. Defaults to {}.
         """
         self.inventories = inventories
+
+        # Check existence of inventories only when host_pattern is not "localhost"
+        if host_pattern != "localhost":
+            if isinstance(self.inventories, list):
+                for inventory in self.inventories:
+                    if not os.path.exists(inventory):
+                        raise FileNotFoundError("Inventory file {} not found.".format(inventory))
+            else:
+                if not os.path.exists(self.inventories):
+                    raise FileNotFoundError("Inventory file {} not found.".format(self.inventories))
+
         self.host_pattern = host_pattern
         if loader:
             self.loader = loader
@@ -201,10 +218,10 @@ class AnsibleHostsBase(object):
             self.loader = DataLoader()
 
         if inventory_manager:
-            if isinstance(inventories, list):
-                sources = inventories
+            if isinstance(self.inventories, list):
+                sources = self.inventories
             else:
-                sources = [inventories]
+                sources = [self.inventories]
             if set(sources) != set(inventory_manager._sources):
                 inventory_manager._sources = sources
                 inventory_manager.parse_sources()
@@ -233,7 +250,7 @@ class AnsibleHostsBase(object):
         self.ans_inv_hosts = self.im.get_hosts(self.host_pattern)
         if len(self.ans_inv_hosts) == 0:
             raise NoAnsibleHostError(
-                "No host '{}' in inventory files '{}'".format(self.hostname, self.inventories)
+                "No host '{}' in inventory files '{}'".format(self.host_pattern, self.inventories)
             )
         self.hostnames = [host.name for host in self.ans_inv_hosts]
         self.hosts_count = len(self.hostnames)

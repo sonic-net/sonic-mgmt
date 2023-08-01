@@ -58,13 +58,13 @@ bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 
 #######################################
@@ -486,6 +486,12 @@ generic_config_updater:
     reason: 'generic_config_updater is not a supported feature for T2'
     conditions:
       - "'t2' in topo_name"
+
+generic_config_updater/test_pfcwd_status.py:
+  skip:
+    reason: "PFC watchdog is not supported on M0/Mx topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####           http              #####
