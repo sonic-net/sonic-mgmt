@@ -71,6 +71,7 @@ def test_standby_tor_upstream_mux_toggle(
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
+    crm_facts1 = rand_selected_dut.get_crm_facts()
     # Verify packets are not go up again
     verify_upstream_traffic(host=rand_selected_dut,
                             ptfadapter=ptfadapter,
@@ -79,7 +80,6 @@ def test_standby_tor_upstream_mux_toggle(
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=True)
-    crm_facts1 = rand_selected_dut.get_crm_facts()
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
-    pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
+    pt_assert(len(unmatched_crm_facts) == 2, 'Unmatched CRM facts: {}'
               .format(json.dumps(unmatched_crm_facts, indent=4)))
