@@ -3,40 +3,39 @@ import logging
 import os
 import yaml
 
-from ansible_hosts import AnsibleHosts, AnsibleHost
-from devutil.ansible_hosts import NoAnsibleHostError, MultipleAnsibleHostsError
+from .ansible_hosts import AnsibleHost
+from .ansible_hosts import AnsibleHosts
+from .ansible_hosts import NoAnsibleHostError
+from .ansible_hosts import MultipleAnsibleHostsError
+from .sonic import SonicHosts
 
 logger = logging.getLogger(__name__)
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
-ansible_path = os.path.realpath(os.path.join(_self_dir, "../"))
+ansible_path = os.path.realpath(os.path.join(_self_dir, "../../"))
 
 
-class SonicHosts(AnsibleHosts):
-    SUPPORTED_UPGRADE_TYPES = ["onie", "sonic"]
-
-    def __init__(self, inventories, host_pattern, options={}, hostvars={}):
-        super(SonicHosts, self).__init__(inventories, host_pattern, options=options.copy(), hostvars=hostvars.copy())
-
-    @property
-    def sonic_version(self):
-        try:
-            output = self.command("cat /etc/sonic/sonic_version.yml")
-            versions = {}
-            for hostname in self.hostnames:
-                versions[hostname] = yaml.safe_load(output[hostname]["stdout"])
-            return versions
-        except Exception as e:
-            logger.error("Failed to run `cat /etc/sonic/sonic_version.yml`: {}".format(repr(e)))
-            return {}
-
-
-def init_localhost(inventories, options={}, hostvars={}):
+def init_localhost(inventories=None, options={}, hostvars={}):
     try:
         return AnsibleHost(inventories, "localhost", options=options.copy(), hostvars=hostvars.copy())
     except (NoAnsibleHostError, MultipleAnsibleHostsError) as e:
         logger.error(
             "Failed to initialize localhost from inventories '{}', exception: {}".format(str(inventories), repr(e))
+        )
+        return None
+
+
+def init_host(inventories, host_pattern, options={}, hostvars={}):
+    try:
+        return AnsibleHost(inventories, host_pattern, options=options.copy(), hostvars=hostvars.copy())
+    except NoAnsibleHostError as e:
+        logger.error(
+            "No host '{}' in inventories '{}', exception: {}".format(host_pattern, inventories, repr(e))
+        )
+        return None
+    except MultipleAnsibleHostsError as e:
+        logger.error(
+            "Multiple hosts '{}' in inventories '{}', exception: {}".format(host_pattern, inventories, repr(e))
         )
         return None
 

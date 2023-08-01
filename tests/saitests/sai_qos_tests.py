@@ -361,7 +361,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
     count = 0
     while (count < num_of_packets):
         ip_Addr = next(IP_ADDR)
-        print("Trying {} => {}, src_ip:{} dstip:{}".format(src_id, dst_id, ip_Addr, dst_ip))
+        logging.info("Trying {} => {}, src_ip:{} dstip:{}".format(src_id, dst_id, ip_Addr, dst_ip))
         pkt_args = {
             'ip_ecn':ecn,
             'ip_ttl':ttl,
@@ -375,7 +375,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
             'tcp_dport':next(TCP_PORT_GEN)}
         if src_vlan:
             pkt_args.update({'dl_vlan_enable':True})
-            pkt_args.update({'vlan_vid':src_vlan})
+            pkt_args.update({'vlan_vid':int(src_vlan)})
         pkt = simple_tcp_packet(**pkt_args)
 
         masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)

@@ -3,11 +3,10 @@
 import json
 import os
 
-from helpers import *
-from common import *
-import strip
-import configlet
-import generic_patch
+from tests.configlet.util import strip, configlet, generic_patch
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
+
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until

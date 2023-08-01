@@ -14,6 +14,14 @@ trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 stages:
 - stage: Pre_test
   variables:
@@ -45,13 +53,13 @@ stages:
     timeoutInMinutes: 240
     continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t0
         MIN_WORKER: $(T0_INSTANCE_NUM)
         MAX_WORKER: $(T0_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: 202012
-        MGMT_BRANCH: 202012
+        KVM_IMAGE_BRANCH: "202012"
+        MGMT_BRANCH: "202012"
 
   - job: t0_2vlans_elastictest
     pool: ubuntu-20.04
@@ -59,15 +67,15 @@ stages:
     timeoutInMinutes: 240
     continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t0
         TEST_SET: t0-2vlans
         MIN_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         MAX_WORKER: $(T0_2VLANS_INSTANCE_NUM)
         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
-        KVM_IMAGE_BRANCH: 202012
-        MGMT_BRANCH: 202012
+        KVM_IMAGE_BRANCH: "202012"
+        MGMT_BRANCH: "202012"
 
   - job: t1_lag_elastictest
     pool: ubuntu-20.04
@@ -75,13 +83,13 @@ stages:
     timeoutInMinutes: 240
     continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: t1-lag
         MIN_WORKER: $(T1_LAG_INSTANCE_NUM)
         MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
-        KVM_IMAGE_BRANCH: 202012
-        MGMT_BRANCH: 202012
+        KVM_IMAGE_BRANCH: "202012"
+        MGMT_BRANCH: "202012"
 
   - job: dualtor_elastictest
     pool: ubuntu-20.04
@@ -89,11 +97,11 @@ stages:
     timeoutInMinutes: 240
     continueOnError: false
     steps:
-    - template: .azure-pipelines/run-test-scheduler-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         TOPOLOGY: dualtor
         MIN_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         MAX_WORKER: $(T0_DUALTOR_INSTANCE_NUM)
         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
-        KVM_IMAGE_BRANCH: 202012
-        MGMT_BRANCH: 202012
+        KVM_IMAGE_BRANCH: "202012"
+        MGMT_BRANCH: "202012"
