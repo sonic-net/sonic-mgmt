@@ -859,11 +859,11 @@ def recreate_acl_table(duthost, ports):
     ]
     duthost.shell_cmds(cmds=cmds)
 
+
 @pytest.fixture
 def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
-    asic_collector = collector[asichost.asic_index]
 
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, "templates")
@@ -881,7 +881,8 @@ def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
             if key != "DEFAULT_RULE":
                 seq_id = key.split('_')[1]
                 acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
-                acl_entry_template = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+                acl_entry_template = \
+                    acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
                 acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
 
                 acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
@@ -899,7 +900,9 @@ def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         logger.info("Applying {}".format(dut_conf_file_path))
         duthost.command("acl-loader update full {}".format(dut_conf_file_path))
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo, recover_acl_rule):
+
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                   collector, tbinfo, recover_acl_rule):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
