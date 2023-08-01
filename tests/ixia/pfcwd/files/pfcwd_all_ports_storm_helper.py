@@ -130,7 +130,7 @@ def run_pfcwd_pause_storm_test(api,
     if not flow_stats:
         pytest_assert('Fail to stop the traffic')
 
-        
+
 def __gen_traffic(testbed_config,
                   port_config_list,
                   port_id,
