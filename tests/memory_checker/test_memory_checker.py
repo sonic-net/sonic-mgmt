@@ -223,10 +223,13 @@ def remove_stress_utility(duthost, container_name):
     duthost.shell("config bgp startup all")
     logger.info("BGP sessions are started up.")
 
+@pytest.fixture(autouse=True)
+def rand_dut_for_all_functions(enum_rand_one_per_hwsku_frontend_hostname):
+   return enum_rand_one_per_hwsku_frontend_hostname
 
 @pytest.fixture
 def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
-                           enum_rand_one_per_hwsku_frontend_hostname, request):
+                           rand_dut_for_all_functions, request):
     """Backups Monit configuration files, customizes Monit configuration files and
     restarts Monit service before testing. Restores original Monit configuration files
     and restart Monit service after testing.
@@ -238,9 +241,9 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
@@ -269,12 +272,12 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
 @pytest.fixture
 def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
-                                 enum_rand_one_per_hwsku_frontend_hostname):
+                                 rand_dut_for_all_functions):
     """Removes and restarts 'telemetry' container from DuT.
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        rand_dut_for_all_functions: The fixture randomly pick up
         a frontend DuT from testbed.
 
 
@@ -282,9 +285,9 @@ def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
@@ -498,23 +501,23 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
                           'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
 def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                        enum_rand_one_per_hwsku_frontend_hostname):
+                        rand_dut_for_all_functions):
     """Checks whether the container can be restarted or not if the memory
     usage of it is beyond its threshold for specfic times within a sliding window.
     The `stress` utility is leveraged as the memory stressing tool.
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        rand_dut_for_all_functions: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
@@ -546,7 +549,7 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
                           'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
 def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                                     enum_rand_one_per_hwsku_frontend_hostname):
+                                     rand_dut_for_all_functions):
     """Checks that Monit was unable to reset its counter. Specifically Monit will restart
     the contanier if memory usage of it is larger than the threshold for specific times within
     a sliding window. However, Monit was unable to restart the container anymore if memory usage is
@@ -556,16 +559,16 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     Args:
         duthosts: The fixture returns list of DuTs.
         test_setup_and_cleanup: Fixture to setup prerequisites before and after testing.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        rand_dut_for_all_functions: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
@@ -601,7 +604,7 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
                           '"/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                          indirect=["test_setup_and_cleanup"])
 def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                          enum_rand_one_per_hwsku_frontend_hostname):
+                          rand_dut_for_all_functions):
     """Checks that new syntax of Monit can mitigate the issue which shows Monit was unable
     to restart container due to failing reset its internal counter. With the help of this syntax,
     the culprit container can be restarted by Monit if memory usage of it is larger than the threshold
@@ -610,16 +613,16 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     Args:
         duthosts: The fixture returns list of DuTs.
         test_setup_and_cleanup: Fixture to setup prerequisites before and after testing.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        rand_dut_for_all_functions: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
@@ -679,7 +682,7 @@ def check_log_message(duthost, container_name):
 
 
 def test_memory_checker_without_container_created(duthosts, enum_dut_feature_container, remove_and_restart_container,
-                                                  enum_rand_one_per_hwsku_frontend_hostname):
+                                                  rand_dut_for_all_functions):
     """Checks whether 'memory_checker' script can log an message into syslog if
     one container is not created during device is booted/reooted. This test case will
     remove a container explicitly to simulate the scenario in which the container was not created
@@ -687,16 +690,16 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
+        rand_dut_for_all_functions: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
         None.
     """
     dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == enum_rand_one_per_hwsku_frontend_hostname,
+    pytest_require(dut_name == rand_dut_for_all_functions,
                    "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, enum_rand_one_per_hwsku_frontend_hostname))
+                   .format(container_name, dut_name, rand_dut_for_all_functions))
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
