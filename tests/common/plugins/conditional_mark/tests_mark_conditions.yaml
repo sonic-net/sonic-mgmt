@@ -100,6 +100,12 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "Skip it due to warm reboot known issue on master and internal image"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+
 bgp/test_bgp_speaker.py:
   skip:
     reason: "Not supported on topology backend."
