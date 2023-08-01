@@ -759,6 +759,15 @@ platform_tests/mellanox/test_reboot_cause.py:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
 
 #######################################
+####    test_advanced_reboot      #####
+#######################################
+platform_tests/test_advanced_reboot.py:
+  xfail:
+    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+
+#######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
