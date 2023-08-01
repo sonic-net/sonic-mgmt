@@ -34,6 +34,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
 )
+from tests.platform_tests.db_migrator import WHITELIST_202012_202305, WHITELIST_201811_202012
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.system_utils import docker
@@ -1962,11 +1963,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
     If so, we will reload the running config after test case running.
     '''
     check_flag = True
+    whitelist_flag = False
     if hasattr(request.config.option, 'enable_macsec') and request.config.option.enable_macsec:
         check_flag = False
     for m in request.node.iter_markers():
         if m.name == "skip_check_dut_health":
             check_flag = False
+        if m.name == "db_migrator_check":
+            whitelist_flag = True
 
     module_name = request.node.name
 
@@ -2070,6 +2074,27 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                     if len(config[table_name]) == 0:
                         config.pop(table_name)
 
+            def _remove_whitelist_entry(table_name, key_name, sub_keys, config):
+                if table_name in config:
+                    if key_name and len(sub_keys) == 0:
+                        if key_name in config[table_name]:
+                            config[table_name].pop(key_name)
+                    else:
+                        keys_to_remove = []
+                        if key_name == "Ethernet*":
+                            for key in config[table_name]:
+                                if "Ethernet" in key:
+                                    keys_to_remove.append(key)
+                        if key_name == "*":
+                            for key in config[table_name]:
+                                keys_to_remove.append(key)
+                        if not keys_to_remove:
+                            keys_to_remove.append(key_name)
+                        for key in keys_to_remove:
+                            for sub_key in sub_keys:
+                                if sub_key in config[table_name][key]:
+                                    config[table_name][key].pop(sub_key)
+
             for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
                 pre_only_config[duthost.hostname][cfg_context] = {}
                 cur_only_config[duthost.hostname][cfg_context] = {}
@@ -2085,6 +2110,15 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         continue
                     _remove_entry(fields[0], fields[1], pre_running_config)
                     _remove_entry(fields[0], fields[1], cur_running_config)
+
+                if whitelist_flag:
+                    for key, sub_key in WHITELIST_202012_202305.items():
+                        logger.info("key: %s, sub_key %s" % (key, sub_key))
+
+                        fields = key.split('|')
+                        logger.info("field0: %s, field1: %s" % (fields[0], fields[1]))
+                        _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
+                        _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
 
                 pre_running_config_keys = set(pre_running_config.keys())
                 cur_running_config_keys = set(cur_running_config.keys())
