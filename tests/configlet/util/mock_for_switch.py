@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 
 from tests.configlet.util.helpers import *
 
@@ -78,7 +79,7 @@ class DutHost:
 
 
     def critical_services_fully_started(self):
-        expected = set(["radv", "snmp", "lldp", "syncd", 
+        expected = set(["radv", "snmp", "lldp", "syncd",
             "teamd", "swss", "bgp", "pmon" ])
         client = docker.from_env()
         ctrs = set()
@@ -138,7 +139,7 @@ def config_reload(duthost, config_source="config_db", wait=60, start_bgp=False):
     log_debug("config_reload cmd: {}".format(cmd))
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "failed to run err:{}".format(str(ret["stderr"]))
-    
+
     if start_bgp:
         duthost.shell("config bgp startup all")
         log_debug("config_reload started BGP")
