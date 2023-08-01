@@ -89,7 +89,7 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
     event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
     event_thread.start()
     event_thread.join(thread_timeout)  # close thread after 30 sec, was not able to find event within reasonable time
-    assert results[0] != "", "No output from PTF docker"
+    assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
     # regex logic and then to write to file
     result = results[0]
     match = re.findall('json_ietf_val: \"(.*)\"', result)
