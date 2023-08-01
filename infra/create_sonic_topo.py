@@ -931,7 +931,7 @@ def overwrite_lab_file(vxr_ports):
     )
 
 # VXR sim failed
-def handle_sim_failure():
+def handle_sim_failure(error_msg):
     SUMMARY_REPORT_FILENAME = "results.json"
     COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
@@ -939,7 +939,11 @@ def handle_sim_failure():
     COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
     # Include sim_status field to indicate failure
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_failure"}
+    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : error_msg}
+
+    if error_msg == "BGP Fact Test Failed":
+        sum['total'] = 1
+        sum['failed'] = 1
 
     for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
         with open(file_path, "w") as output_file:
@@ -1051,7 +1055,7 @@ def main():
 
         # Populate results file with failure data
         if not int(sim_output):
-            handle_sim_failure()
+            handle_sim_failure("sim_failure")
             sys.exit("Sim is not up. Exiting now")
 
         os.system("{} ports > vxr_ports.yaml".format(vxr_path))
@@ -1134,8 +1138,16 @@ def main():
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         delta4 = datetime.datetime.now()
 
+        
+
         if not run_result:
             log_dir = 'logs'
+            report_file = open('full_report.txt', 'r')
+            error_string = "BGP Fact testcase is still failing"
+            content = report_file.read()
+            
+            if error_string in content:
+                handle_sim_failure("BGP Fact Test Failed")
 
         create_report_html(data,log_dir)
         parse_report(data)

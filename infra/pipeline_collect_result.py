@@ -23,6 +23,14 @@ com_f = open(COMMON_REPORT_PATH, "w")
 
 sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
 
+if ("status" in contents and contents["status"] == "BGP Fact Test Failed"):
+    print("BGP Test Failure Detected")
+    json.dump(sum, sum_f)
+    json.dump(sum, com_f)
+    sum_f.close()
+    com_f.close()
+    exit(0)
+
 resultpattern = r'<th class="(passed|skipped|failed)">'
 numberpattern = r'<td>(\d+)</td>'
 
