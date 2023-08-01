@@ -82,7 +82,7 @@ def run_bgp_scalability_v4_v6(cvg_api,
 
     if ipv4_routes == 0 and ipv6_routes == 0:
         assert False, "Both v4 and v6 route counts can't be zero"
-    elif ipv4_routes > 1 and ipv6_routes > 1:
+    elif ipv4_routes > 0 and ipv6_routes > 0:
         dual_stack_flag = 1
     else:
         dual_stack_flag = 0
@@ -94,7 +94,7 @@ def run_bgp_scalability_v4_v6(cvg_api,
                                         ipv6_prefix,
                                         dual_stack_flag,)
 
-    if ipv4_routes + ipv6_routes > 16000:
+    if ipv4_routes + ipv6_routes > 20000:
         limit_flag = 1
     else:
         limit_flag = 0
@@ -199,7 +199,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
     duthost.command("sudo config save -y")
     duthost.command("sudo cp {} {}".format("/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
     temp_tg_port = tgen_ports
-    for i in range(1, port_count + 1):
+    for i in range(0, port_count):
         intf_config = (
             "sudo config interface ip remove %s %s/%s \n"
             "sudo config interface ip remove %s %s/%s \n"
@@ -209,7 +209,7 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
         logger.info('Removing configured IP and IPv6 Address from %s' % (tgen_ports[i]['peer_port']))
         duthost.shell(intf_config)
 
-    for i in range(1, port_count + 1):
+    for i in range(0, port_count):
         portchannel_config = (
             "sudo config portchannel add PortChannel%s \n"
             "sudo config portchannel member add PortChannel%s %s\n"
@@ -231,11 +231,11 @@ def duthost_bgp_scalability_config(duthost, tgen_ports, multipath):
                                            "local_addr": tgen_ports[1]['peer_ip'], "nhopself": "0",
                                            "holdtime": "90", "asn": TGEN_AS_NUM,"keepalive": "30"}}
     '''
-    bgp_neighbors[tgen_ports[2]['ipv6']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                            "local_addr": tgen_ports[2]['peer_ipv6'],
+    bgp_neighbors[tgen_ports[1]['ipv6']] = {"rrclient": "0", "name": "ARISTA08T0",
+                                            "local_addr": tgen_ports[1]['peer_ipv6'],
                                             "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
-    bgp_neighbors[tgen_ports[2]['ip']] = {"rrclient": "0", "name": "ARISTA08T0",
-                                          "local_addr": tgen_ports[2]['peer_ip'],
+    bgp_neighbors[tgen_ports[1]['ip']] = {"rrclient": "0", "name": "ARISTA08T0",
+                                          "local_addr": tgen_ports[1]['peer_ip'],
                                           "nhopself": "0", "holdtime": "90", "asn": TGEN_AS_NUM, "keepalive": "30"}
     cdf = json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
     for neighbor, neighbor_info in list(bgp_neighbors.items()):
@@ -273,18 +273,19 @@ def __tgen_bgp_config(cvg_api,
     cvg_api.enable_scaling(True)
     config = conv_config.config
     p1, p2 = (
-        config.ports.port(name="Source", location=temp_tg_port[1]['location'])
-        .port(name="Destination", location=temp_tg_port[2]['location'])
+        config.ports.port(name="Source", location=temp_tg_port[0]['location'])
+        .port(name="Destination", location=temp_tg_port[1]['location'])
     )
     lag1 = config.lags.lag(name="lag1")[-1]
     lp1 = lag1.ports.port(port_name=p1.name)[-1]
-    lp1.protocol.lacp.actor_system_id = "00:11:03:00:00:03"
+
+    lag1.protocol.lacp.actor_system_id = "00:11:03:00:00:03"
     lp1.ethernet.name = "lag_Ethernet 1"
     lp1.ethernet.mac = "00:13:01:00:00:01"
 
     lag2 = config.lags.lag(name="lag2")[-1]
     lp2 = lag2.ports.port(port_name=p2.name)[-1]
-    lp2.protocol.lacp.actor_system_id = "00:11:03:00:00:04"
+    lag2.protocol.lacp.actor_system_id = "00:11:03:00:00:04"
     lp2.ethernet.name = "lag_Ethernet 2"
     lp2.ethernet.mac = "00:13:01:00:00:02"
 
@@ -306,14 +307,14 @@ def __tgen_bgp_config(cvg_api,
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
     ipv4_1.name = 'IPv4_1'
-    ipv4_1.address = temp_tg_port[1]['ip']
-    ipv4_1.gateway = temp_tg_port[1]['peer_ip']
+    ipv4_1.address = temp_tg_port[0]['ip']
+    ipv4_1.gateway = temp_tg_port[0]['peer_ip']
     ipv4_1.prefix = int(temp_tg_port[1]['prefix'])
     ipv6_1 = eth_1.ipv6_addresses.add()
     ipv6_1.name = 'IPv6_1'
-    ipv6_1.address = temp_tg_port[1]['ipv6']
-    ipv6_1.gateway = temp_tg_port[1]['peer_ipv6']
-    ipv6_1.prefix = int(temp_tg_port[1]['ipv6_prefix'])
+    ipv6_1.address = temp_tg_port[0]['ipv6']
+    ipv6_1.gateway = temp_tg_port[0]['peer_ipv6']
+    ipv6_1.prefix = int(temp_tg_port[0]['ipv6_prefix'])
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
@@ -322,22 +323,22 @@ def __tgen_bgp_config(cvg_api,
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
     ipv4_2.name = 'IPv4_2'
-    ipv4_2.address = temp_tg_port[2]['ip']
-    ipv4_2.gateway = temp_tg_port[2]['peer_ip']
-    ipv4_2.prefix = int(temp_tg_port[2]['prefix'])
+    ipv4_2.address = temp_tg_port[1]['ip']
+    ipv4_2.gateway = temp_tg_port[1]['peer_ip']
+    ipv4_2.prefix = int(temp_tg_port[1]['prefix'])
     ipv6_2 = eth_2.ipv6_addresses.add()
     ipv6_2.name = 'IPv6_2'
-    ipv6_2.address = temp_tg_port[2]['ipv6']
-    ipv6_2.gateway = temp_tg_port[2]['peer_ipv6']
-    ipv6_2.prefix = int(temp_tg_port[2]['ipv6_prefix'])
+    ipv6_2.address = temp_tg_port[1]['ipv6']
+    ipv6_2.gateway = temp_tg_port[1]['peer_ipv6']
+    ipv6_2.prefix = int(temp_tg_port[1]['ipv6_prefix'])
     bgpv4 = config.devices[1].bgp
-    bgpv4.router_id = temp_tg_port[1]['peer_ip']
+    bgpv4.router_id = temp_tg_port[0]['peer_ip']
     bgpv4_int = bgpv4.ipv4_interfaces.add()
     bgpv4_int.ipv4_name = ipv4_2.name
     bgpv4_peer = bgpv4_int.peers.add()
     bgpv4_peer.name = 'BGP_2'
     bgpv4_peer.as_type = BGP_TYPE
-    bgpv4_peer.peer_address = temp_tg_port[2]['peer_ip']
+    bgpv4_peer.peer_address = temp_tg_port[1]['peer_ip']
     bgpv4_peer.as_number = int(TGEN_AS_NUM)
     route_range1 = bgpv4_peer.v4_routes.add(name="IPv4_Routes")
     route_range1.addresses.add(address='200.1.0.1', prefix=32, count=v4_routes)
@@ -346,13 +347,13 @@ def __tgen_bgp_config(cvg_api,
     as_path_segment.type = as_path_segment.AS_SEQ
     as_path_segment.as_numbers = aspaths
     bgpv6 = config.devices[1].bgp
-    bgpv6.router_id = temp_tg_port[2]['peer_ip']
+    bgpv6.router_id = temp_tg_port[1]['peer_ip']
     bgpv6_int = bgpv6.ipv6_interfaces.add()
     bgpv6_int.ipv6_name = ipv6_2.name
     bgpv6_peer = bgpv6_int.peers.add()
     bgpv6_peer.name = r'BGP+_2'
     bgpv6_peer.as_type = BGP_TYPE
-    bgpv6_peer.peer_address = temp_tg_port[2]['peer_ipv6']
+    bgpv6_peer.peer_address = temp_tg_port[1]['peer_ipv6']
     bgpv6_peer.as_number = int(TGEN_AS_NUM)
     route_range2 = bgpv6_peer.v6_routes.add(name="IPv6_Routes")
     route_range2.addresses.add(address='3000::1', prefix=v6_prefix, count=v6_routes)
@@ -371,13 +372,13 @@ def __tgen_bgp_config(cvg_api,
         flow1.metrics.loss = True
 
     if dual_stack_flag == 1:
-        createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 50)
-        createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 50)
+        createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 5)
+        createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 5)
     else:
         if v4_routes == 0:
-            createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 100)
+            createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name, 10)
         elif v6_routes == 0:
-            createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 100)
+            createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name, 10)
     return conv_config
 
 
@@ -542,6 +543,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
         flow.metrics.enable = True
         flow.metrics.loss = True
         return conv_config
+
     for j in range(start_routes, stop_routes, routes_step):
         logger.info('|--------------------CP/DP Test with No.of Routes : {} ----|'.format(j))
         bgp_config = tgen_config(j)
@@ -631,7 +633,7 @@ def run_traffic(cvg_api, duthost):
         restart_traffic(cvg_api)
     finally:
         duthost.shell("sudo cp /var/log/syslog /host/scale_syslog.99")
-        var = duthost.shell("sudo cat /host/scale_syslog.99")['stdout']
+        var = duthost.shell("sudo cat /host/scale_syslog.99 | grep 'ROUTE THRESHOLD_EXCEEDED' || true")['stdout']
         if 'ROUTE THRESHOLD_EXCEEDED' in var:
             logger.info('ROUTE_THRESHOLD_EXCEEDED FOUND in syslog!!!!!!!!')
             warning = 1
@@ -664,6 +666,10 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
         bgp_config: tgen_bgp_config
     """
     cvg_api.set_config(bgp_config)
+    restpy_session = cvg_api._api._assistant.Session
+    ixnet = restpy_session.Ixnetwork
+    if str(ixnet.Locations.find()[0].DeviceType) == 'Optixia XV':
+        ixnet.Traffic.Statistics.CpdpConvergence.EnableDataPlaneEventsRateMonitor = False
     warning = run_traffic(cvg_api, duthost)
     if warning == 1:
         msg = "THRESHOLD_EXCEEDED warning message observed in syslog"
@@ -672,9 +678,10 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     flow_stats = get_flow_stats(cvg_api)
     tx_frame_rate = flow_stats[0].frames_tx_rate
     assert tx_frame_rate != 0, "Traffic has not started"
+    stop_traffic(cvg_api)
     flow_stats = get_flow_stats(cvg_api)
-    logger.info('|---- Tx Frame Rate: {} ----|'.format(flow_stats[0].frames_tx_rate))
-    logger.info('|---- Rx Frame Rate: {} ----|'.format(flow_stats[0].frames_rx_rate))
+    logger.info('|---- Tx Frame: {} ----|'.format(flow_stats[0].frames_tx))
+    logger.info('|---- Rx Frame: {} ----|'.format(flow_stats[0].frames_rx))
     logger.info('|---- Loss % : {} ----|'.format(flow_stats[0].loss))
     if flag == 1:
         assert float(flow_stats[0].loss) > 0.1, "FAIL: Loss must have been observed for greater than 16k routes"
@@ -683,7 +690,6 @@ def get_bgp_scalability_result(cvg_api, localhost, bgp_config, flag, duthost):
     else:
         assert float(flow_stats[0].loss) <= 0.1, "FAIL: Loss observerd in traffic item"
         logger.info('PASSED : No Loss observerd in traffic item and {}'.format(msg))
-    stop_traffic(cvg_api)
 
 
 def cleanup_config(duthost):
