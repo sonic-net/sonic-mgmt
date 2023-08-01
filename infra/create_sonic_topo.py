@@ -1195,9 +1195,9 @@ def main():
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
-    # if cicd_clean:
-    #     print("****** Clearing SIM at the end of CICD run ******** ")
-    #     os.system("{} clean".format(vxr_path))
+    if cicd_clean:
+        print("****** Clearing SIM at the end of CICD run ******** ")
+        os.system("{} clean".format(vxr_path))
 
 
 if __name__ == '__main__':
