@@ -27,9 +27,9 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["Cisco-8102-C64"]
+cisco_hwskus: ["Cisco-8102-C64", "Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gb_hwskus: ["Cisco-8102-C64"]
-
+cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 ## Note:
 ## Docker volumes should be list instead of dict. However, if we want to keep code DRY, we
 ## need to merge dictionaries, and convert them to list
