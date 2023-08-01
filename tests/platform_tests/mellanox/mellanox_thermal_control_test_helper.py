@@ -1365,7 +1365,6 @@ class PsuPowerThresholdMocker(object):
 @mocker('RebootCauseMocker')
 class RebootCauseMocker(object):
     RESET_RELOAD_BIOS = '/var/run/hw-management/system/reset_reload_bios'
-    RESET_FROM_COMEX = '/var/run/hw-management/system/reset_from_comex'
     RESET_FROM_ASIC = '/var/run/hw-management/system/reset_from_asic'
 
     def __init__(self, dut):
@@ -1376,9 +1375,6 @@ class RebootCauseMocker(object):
 
     def mock_reset_reload_bios(self):
         self.mock_helper.mock_value(self.RESET_RELOAD_BIOS, 1)
-
-    def mock_reset_from_comex(self):
-        self.mock_helper.mock_value(self.RESET_FROM_COMEX, 1)
 
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)
