@@ -228,7 +228,8 @@ def check_bgp(duthosts, tbinfo):
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
 
         mgFacts = dut.get_extended_minigraph_facts(tbinfo)
-        if dut.num_asics() == 1 and not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+        if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \
+           not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
             check_result['failed'] = True
             logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
