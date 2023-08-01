@@ -346,7 +346,7 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                                "uplink_mac": str(dhcp_relay['uplink_mac']),
                                "testbed_mode": testbed_mode,
                                "testing_mode": testing_mode},
-                       log_file="/tmp/dhcp_relay_test.DHCPTest.log", is_python=True)
+                       log_file="/tmp/dhcp_relay_test.DHCPTest.log")
             if not skip_dhcpmon:
                 time.sleep(18)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
