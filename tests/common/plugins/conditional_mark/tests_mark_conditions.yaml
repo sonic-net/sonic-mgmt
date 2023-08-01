@@ -102,8 +102,9 @@ bgp/test_bgp_slb.py:
 
 bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
   skip:
-    reason: "Skip it due to warm reboot known issue on master and internal image"
+    reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
     conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
       - https://github.com/sonic-net/sonic-mgmt/issues/9201
 
 bgp/test_bgp_speaker.py:
