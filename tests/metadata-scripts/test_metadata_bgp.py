@@ -26,12 +26,14 @@ logger = logging.getLogger(__name__)
 def upload_metadata_scripts(duthosts, enum_frontend_dut_hostname):
     duthost = duthosts[enum_frontend_dut_hostname]
     base_path = os.path.dirname(__file__)
-    metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
+    metadata_scripts_path = os.path.join(
+        base_path, "../../../sonic-metadata/scripts")
     if os.path.exists(metadata_scripts_path):
         path_exists = duthost.stat(path="/tmp/anpscripts/")
         if not path_exists["stat"]["exists"]:
             duthost.command("mkdir /tmp/anpscripts")
-            duthost.copy(src=metadata_scripts_path + "/", dest="/tmp/anpscripts/")
+            duthost.copy(src=metadata_scripts_path +
+                         "/", dest="/tmp/anpscripts/")
         return True
     return False
 
@@ -135,7 +137,8 @@ def check_bgp_status(duthost, status):
 
 
 def get_neighbor_seq(duthost, log_file):
-    duthost.shell('show logging -f | grep "bgp_neighbor" > {}'.format(log_file))
+    duthost.shell(
+        'show logging -f | grep "bgp_neighbor" > {}'.format(log_file))
 
 
 def bgp_ordered_check(duthost, log_file):
@@ -175,7 +178,8 @@ def bgp_ordered_check(duthost, log_file):
             first = match
 
     pytest_assert(changes <= 1, "BGP oper not ordered")
-    logger.info("{} bgp neighbors, bgp order changed {}".format(ext_bgp, changes))
+    logger.info(
+        "{} bgp neighbors, bgp order changed {}".format(ext_bgp, changes))
     return True
 
 
@@ -219,7 +223,8 @@ def _get_advertised_routes(duthost, peer_ip, ip_ver, asic_id):
             )
 
         res = duthost.command(bgp_nbr_cmd)
-        routes_json.update(json.loads(res["stdout"]).get("advertisedRoutes", {}))
+        routes_json.update(json.loads(
+            res["stdout"]).get("advertisedRoutes", {}))
 
     return routes_json
 
@@ -265,7 +270,11 @@ def routes_adv_done(duthost, orig_routes, check_nei):
             orig_keys = set(orig_routes[key].keys())
             new_keys = set(new_adv_routes[key].keys())
             if orig_keys != new_keys:
-                logger.info("Routes advertised to neighbor changed: {}".format(orig_keys ^ new_keys))
+                logger.info(
+                    "Routes advertised to neighbor changed: {}".format(
+                        orig_keys ^ new_keys
+                    )
+                )
                 return False
     else:
         return False
@@ -456,10 +465,151 @@ def test_bgp_traffic_shift_restore(
             "BGP routes are not equal with previous",
         )
 
-        logger.info("advertised routes to {} neighbors".format(len(orig_adv_routes)))
+        logger.info("advertised routes to {} neighbors".format(
+            len(orig_adv_routes)))
         duthost.command("rm {}".format(log_file))
 
     finally:
+        duthost.command(
+            "python /tmp/anpscripts/bgp_neighbor -m {} startup 0.0.0.0".format(
+                ts_method
+            )
+        )
+
+
+def check_strings_in_file(target_strings, file_path):
+    try:
+        with open(file_path, "r") as file:
+            content = file.read()
+            results = {
+                string: re.search(string, content, re.MULTILINE)
+                for string in target_strings
+            }
+            return results
+    except FileNotFoundError:
+        logger.error("File not found: {}".format(file_path))
+        return {}
+    except Exception as e:
+        logger.error("An error occurred: {}".format(e))
+        return {}
+
+
+@pytest.mark.parametrize("ts_method", ["bgpshut"], ids=["bgpshut"])
+def test_bgp_traffic_shift_away_timeout(
+    duthosts,
+    request,
+    enum_frontend_dut_hostname,
+    ts_method,
+    tbinfo,
+    setup_teardown,
+    upload_metadata_scripts,
+    get_lo_intf,
+    random_bgp_neighbors,
+):
+    metadata_process = request.config.getoption("metadata_process")
+    if not metadata_process:
+        # this test case is only for sonic-metadata script test
+        return
+
+    pytest_assert(upload_metadata_scripts, "Failed to upload script files")
+    # 1. run script to do the isolation with forbidroutempa and bgpshut
+    # 2. check the traffic and bgp routes, if nothing adervertised to all neighbors and bgp status
+    # 3. run script to do the unisolation with forbidroutempa and bgpshut
+    # 4. check the traffic and bgp routes, if adervertised to all neighbors and bgp status
+    try:
+        duthost = duthosts[enum_frontend_dut_hostname]
+        duthost.command("chmod +x /tmp/anpscripts/bgp_neighbor")
+        # hack the script to timeout when run cmd "show ip bgp summary"
+        # back up the bgp_neighbor script in remote dut
+        duthost.command(
+            "cp /tmp/anpscripts/bgp_neighbor /tmp/anpscripts/bgp_neighbor.bak"
+        )
+        # in bgp_neighbor script to search the "show ip bgp sum|grep Admin" and
+        # replace with "show ip bgp sum|grep Admin|sleep 120"
+        duthost.command(
+            "sed -i 's/show ip bgp sum | grep Admin/sleep 120 | show ip bgp sum | grep Admin/g' /tmp/anpscripts/bgp_neighbor"  # noqa
+        )
+        # redefine BGP_CONFIG_TIMEOUT_SECONDS = 60 to EXEC_CMD_TIMEOUT_DEF = 30
+        duthost.command(
+            "sed -i 's/BGP_CONFIG_TIMEOUT_SECONDS = 60/BGP_CONFIG_TIMEOUT_SECONDS = 30/g' /tmp/anpscripts/bgp_neighbor"
+        )
+        # redefine EXEC_CMD_TIMEOUT_ADMIN = 30 to EXEC_CMD_TIMEOUT_ADMIN = 15
+        duthost.command(
+            "sed -i 's/EXEC_CMD_TIMEOUT_ADMIN = 30/EXEC_CMD_TIMEOUT_ADMIN = 15/g' /tmp/anpscripts/bgp_neighbor"
+        )
+
+        check_bgp_status(duthost, "up")
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+
+        log_file = "/tmp/bgp_oper.{}.txt".format(timestamp)
+
+        duthost.shell(
+            "nohup show logging -f > {} &".format(log_file), executable="/bin/bash"
+        )
+        logger.info("Restore traffic start")
+        duthost.command(
+            "python /tmp/anpscripts/bgp_neighbor -m {} shutdown 0.0.0.0".format(
+                ts_method
+            )
+        )
+        logger.info("Restore traffic end")
+        out = duthost.shell(
+            "ps -ef | grep 'show logging -f' | grep -v grep", executable="/bin/bash"
+        )
+        if len(out["stdout"]) >= 1:
+            duthost.command(
+                "kill -9 {}".format(out["stdout"].split()[1]), executable="/bin/bash"
+            )
+        else:
+            logger.error(
+                "show logging -f ended unexpected, may cause ordered check failure"
+            )
+
+        if ts_method == "bgpshut" or "t0" in tbinfo["topo"]["type"]:
+            check_bgp_status(duthost, "down")
+            logger.info("All BGP neighbors are admin down")
+        else:
+            pytest_assert(
+                check_bgp_adervertised_routes(
+                    duthost, "away", get_lo_intf, random_bgp_neighbors
+                ),
+                "BGP routes are not withdrawed",
+            )
+            logger.info("All BGP routes are withdrawed")
+
+        duthost.fetch(src=log_file, dest="/tmp/fib")
+        if ts_method == "bgpshut" and "t1" in tbinfo["topo"]["type"]:
+            pytest_assert(
+                bgp_ordered_check(
+                    duthost,
+                    "/tmp/fib/{}/tmp/bgp_oper.{}.txt".format(
+                        duthost.hostname, timestamp
+                    ),
+                ),
+                "BGP is not ordered shutdown",
+            )
+
+        expect_strings = [
+            r"sleep 120 | show ip bgp sum | grep Admin cmd timeout after 30 seconds",
+            r"sleep 120 | show ip bgp sum | grep Admin$",
+            r"sleep 120$",
+        ]
+        match_results = check_strings_in_file(expect_strings,
+                                              "/tmp/fib/{}/tmp/bgp_oper.{}.txt".format(duthost.hostname, timestamp))
+        pytest_assert(match_results)
+
+        for string, found in match_results.items():
+            pytest_assert(
+                found, "The string '{}' is not found in the file.".format(
+                    string)
+            )
+
+        duthost.command("rm {}".format(log_file))
+
+    finally:
+        duthost.command(
+            "mv /tmp/anpscripts/bgp_neighbor.bak /tmp/anpscripts/bgp_neighbor"
+        )
         duthost.command(
             "python /tmp/anpscripts/bgp_neighbor -m {} startup 0.0.0.0".format(
                 ts_method
