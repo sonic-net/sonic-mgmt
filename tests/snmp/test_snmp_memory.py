@@ -114,7 +114,9 @@ def test_snmp_memory_load(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     sysTotalFreeMemory_OID = "1.3.6.1.4.1.2021.4.11.0"
     cmds = [
         # Command to retrieve free memory from SNMP
-        "snmpget -v 2c -c {} {} {}".format(creds_all_duts[duthost.hostname]["snmp_rocommunity"], host_ip,
+        "docker exec snmp snmpget -v 2c -c {} {} {}".format(
+                                           creds_all_duts[duthost.hostname]["snmp_rocommunity"],
+                                           host_ip,
                                            sysTotalFreeMemory_OID) + "| awk '{print $4}'",
         # Command to read free memory from meminfo
         "grep MemFree /proc/meminfo | awk '{print $2}'",
