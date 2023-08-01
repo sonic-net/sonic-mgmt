@@ -22,13 +22,13 @@ x86_64-mlnx_msn2.*-r0:
   default:
     valid_timeout: 10
     greater_timeout: 20
-    too_big_timeout: 100
+    too_big_timeout: 66000
 
 # Mellanox watchdog type 2
 x86_64-mlnx_msn3.*-r0:
   default:
     greater_timeout: 100
-    too_big_timeout: 300
+    too_big_timeout: 66000
 
 # Mellanox watchdog type 3
 x86_64-mlnx_msn4.*-r0:
