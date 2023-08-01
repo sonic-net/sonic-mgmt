@@ -910,8 +910,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if duthost.facts["asic_type"] == "marvell":
         # Remove DATA ACL Table and add it again with ports in same port group
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = mg_facts["minigraph_ports"].keys()
-        tmp_ports.sort(key=lambda x: int(x[8:]))
+        tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
         for i in range(4):
             if i == 0:
                 ports = ",".join(tmp_ports[17:19])
