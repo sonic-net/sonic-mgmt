@@ -711,6 +711,15 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
+###############################################
+## counterpoll/test_counterpoll_watermark.py ##
+###############################################
+platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue_watermark_pg_drop:
+  skip:
+    reason: "Unsupported topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 #######################################
 #####  daemon/test_syseepromd.py  #####
 #######################################
@@ -748,6 +757,15 @@ platform_tests/mellanox/test_reboot_cause.py:
     reason: "Does not support platform_tests/mellanox/test_reboot_cause.py"
     conditions:
       - "platform in ['x86_64-mlnx_msn2010-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2100-r0', 'x86_64-mlnx_msn2410-r0', 'x86_64-nvidia_sn2201-r0']"
+
+#######################################
+####    test_advanced_reboot      #####
+#######################################
+platform_tests/test_advanced_reboot.py:
+  xfail:
+    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -800,6 +818,12 @@ platform_tests/test_platform_info.py::test_turn_on_off_psu_and_check_psustatus:
 #######################################
 #####        test_reboot.py       #####
 #######################################
+platform_tests/test_power_off_reboot.py:
+  skip:
+    reason: "Skip power off reboot test for Wistron/Nokia-7215"
+    conditions:
+      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
+
 platform_tests/test_reboot.py::test_cold_reboot:
   xfail:
     reason: "case failed and waiting for fix"
@@ -824,12 +848,6 @@ platform_tests/test_reboot.py::test_fast_reboot:
     conditions:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
-platform_tests/test_reboot.py::test_power_off_reboot:
-  skip:
-    reason: "Skip power off reboot test for Wistron/Nokia-7215"
-    conditions:
-      - "(hwsku in ['Celestica-E1031-T48S4']) or ('sw_to3200k' in hwsku) or (platform in ['armhf-nokia_ixs7215_52x-r0']) or (is_multi_asic==True and release in ['201911'])"
 
 platform_tests/test_reboot.py::test_soft_reboot:
   skip:
