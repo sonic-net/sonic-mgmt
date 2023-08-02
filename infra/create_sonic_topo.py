@@ -1131,10 +1131,16 @@ def main():
         print("Upload Sanity Script file")
         upload_sanity_file(data,script_file)
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-        run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
-        delta4 = datetime.datetime.now()
-
+        try:
+            run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
+        except SystemExit as e:
+            run_result = False
+            error_string = "BGP Fact testcase is still failing"
+            if error_string in e.args[0]:
+                print("PASSED Test 1")
+                handle_sim_failure("BGP Fact Test Failed")
         
+        delta4 = datetime.datetime.now()
 
         if not run_result:
             log_dir = 'logs'
@@ -1143,14 +1149,6 @@ def main():
         parse_report(data)
         get_report_file(data)
         get_log_files(data,log_dir)
-
-        report_file = open('full_report.txt', 'r')
-        error_string = "BGP Fact testcase is still failing"
-        content = report_file.read()
-        
-        if error_string in content:
-            print("PASSED Test 1")
-            handle_sim_failure("BGP Fact Test Failed")
             
 
     sim_time_delta = (delta2 - delta1).total_seconds()
