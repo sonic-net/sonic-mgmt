@@ -31,6 +31,7 @@ if bgp_failure:
     print("BGP Test Failure Detected")
     sum["total"] = 1
     sum["failed"] = 1
+    sum["status"] = "bgp_failure"
     json.dump(sum, sum_f)
     json.dump(sum, com_f)
     sum_f.close()
