@@ -52,10 +52,10 @@ stages:
                 echo 'AGENT_POOL nightly' 
 
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly'
+                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:
@@ -98,10 +98,10 @@ stages:
                 echo 'AGENT_POOL nightly-bjw' 
  
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly-bjw'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly-bjw' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly-bjw'
+                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly-bjw' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:
@@ -144,10 +144,10 @@ stages:
                 echo 'AGENT_POOL nightly-svc' 
  
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly-svc'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -p 'nightly-svc' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly-svc'
+                    python3 nightly_hawk_autoRecovery.py -v -g -p 'nightly-svc' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:

@@ -420,6 +420,11 @@ class Testbeds_auto_recovery(object):
         if self.verbose :
             logger.info("autoRecovery_testbeds_list {} ".format(autoRecovery_testbeds_list))
 
+        if self.excluded_testbed_keywords:
+            skip_testbeds_list.extend(self.excluded_testbed_keywords)
+        
+        logger.info("skip_testbeds_list {} ".format(skip_testbeds_list))
+
         # move testbeds which in unhealthy table into unhealthy testbeds dict, 
         for testbed in unhealthy_testbeds_table.keys() :
             # skip testbed which in skip list
@@ -1143,11 +1148,22 @@ if __name__ == '__main__':
         required=True, default='nightly'
     )
 
+    parser.add_argument(
+        '-extb', "--exclude_testbeds", help="The list of testbeds to be excluded.", type=str,
+        required=False, default=None
+    )
+
     args = parser.parse_args()
-    logger.info("verbose {} debug mode {} sanity check {} testbedName {} golden_image {} agent_pool {}".format(args.verbose, args.debug, args.sanity_check, args.testbedName, args.golden_image, args.agent_pool))
+    logger.info("verbose {} debug mode {} sanity check {} testbedName {} golden_image {} agent_pool {} exclude_testbeds {}".format(args.verbose, args.debug, args.sanity_check, args.testbedName, args.golden_image, args.agent_pool, args.exclude_testbeds))
 
     autoRecovery = Testbeds_auto_recovery(verbose = args.verbose, debug_mode = args.debug, sanity_check = args.sanity_check, golden_image = args.golden_image, agent_pool = args.agent_pool)
     autoRecovery.start_time = time.time()
+
+    # add skip testbeds in lib
+    if args.exclude_testbeds == None:
+        autoRecovery.excluded_testbed_keywords = None
+    else:
+        autoRecovery.excluded_testbed_keywords = args.exclude_testbeds.split(",")
 
     # collect unhealthy testbeds
     rst = AUTO_RECOVERY_RC.COLLECT_UNHEALTHY_TESTBED

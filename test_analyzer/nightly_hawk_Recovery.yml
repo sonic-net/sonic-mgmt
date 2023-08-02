@@ -57,10 +57,10 @@ stages:
                 echo '${{ parameters.TESTBEDS_NAME }}'
 
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly'
+                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:
@@ -104,10 +104,10 @@ stages:
                 echo '${{ parameters.TESTBEDS_NAME }}'
 
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}'  -p 'nightly-bjw'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}'  -p 'nightly-bjw' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-bjw'
+                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-bjw' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:
@@ -151,10 +151,10 @@ stages:
                 echo '${{ parameters.TESTBEDS_NAME }}'
 
                 if [[ ${{ parameters.SANITY_CHECK }} == True ]]; then
-                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc'
+                    python3 nightly_hawk_autoRecovery.py -v -s -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 else
                     echo "skip do sanity check"
-                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc'
+                    python3 nightly_hawk_autoRecovery.py -v -g -n '${{ parameters.TESTBEDS_NAME }}' -p 'nightly-svc' -extb $(EXCLUDED_TESTBED_KEYWORDS)
                 fi
                 
             env:
