@@ -2,8 +2,9 @@ import pytest
 
 from tests.common import reboot
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.dualtor.mux_simulator_control import (
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m  # noqa F401
+)
 from tests.common.utilities import wait_until, delete_running_config
 
 
@@ -22,9 +23,9 @@ def reboot_type(request):
 
 
 @pytest.fixture
-def slb_neighbor_asn(duthosts, rand_one_dut_hostname, tbinfo):
+def slb_neighbor_asn(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """Get the slb neighbor asn based on the deployment id."""
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     constants_stat = duthost.stat(path="/etc/sonic/constants.yml")
     if constants_stat["stat"]["exists"]:
         res = duthost.shell("sonic-cfggen -m -d -y /etc/sonic/constants.yml -v \"constants\
@@ -39,8 +40,8 @@ def slb_neighbor_asn(duthosts, rand_one_dut_hostname, tbinfo):
 
 
 @pytest.fixture
-def bgp_slb_neighbor(duthosts, rand_one_dut_hostname, setup_interfaces, ptfhost, slb_neighbor_asn):
-    duthost = duthosts[rand_one_dut_hostname]
+def bgp_slb_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup_interfaces, ptfhost, slb_neighbor_asn):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)["ansible_facts"]
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
@@ -62,8 +63,8 @@ def bgp_slb_neighbor(duthosts, rand_one_dut_hostname, setup_interfaces, ptfhost,
 
 @pytest.mark.disable_loganalyzer
 def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
-    duthosts, rand_one_dut_hostname, bgp_slb_neighbor,
-    toggle_all_simulator_ports_to_rand_selected_tor, reboot_type, localhost     # noqa F811
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, bgp_slb_neighbor,
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, reboot_type, localhost     # noqa F811
 ):
 
     def verify_bgp_session(duthost, bgp_neighbor):
@@ -72,7 +73,7 @@ def test_bgp_slb_neighbor_persistence_across_advanced_reboot(
         return bgp_neighbor.ip in bgp_facts["bgp_neighbors"] and \
             bgp_facts["bgp_neighbors"][bgp_neighbor.ip]["state"] == "established"
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     neighbor = bgp_slb_neighbor
 
     try:
