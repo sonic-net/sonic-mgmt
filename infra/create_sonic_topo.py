@@ -1142,17 +1142,18 @@ def main():
 
         if not run_result:
             log_dir = 'logs'
-            report_file = open('full_report.txt', 'r')
-            error_string = "BGP Fact testcase is still failing"
-            content = report_file.read()
-            
-            if error_string in content:
-                handle_sim_failure("BGP Fact Test Failed")
 
         create_report_html(data,log_dir)
         parse_report(data)
         get_report_file(data)
         get_log_files(data,log_dir)
+
+        report_file = open('full_report.txt', 'r')
+        error_string = "BGP Fact testcase is still failing"
+        content = report_file.read()
+        
+        if error_string in content:
+            handle_sim_failure("BGP Fact Test Failed")
             
 
     sim_time_delta = (delta2 - delta1).total_seconds()
