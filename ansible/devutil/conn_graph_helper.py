@@ -25,8 +25,7 @@ def get_conn_graph_facts(hostnames):
     utils.debug_fname = CONN_GRAPH_LOG
 
     lab_graph = utils.find_graph(hostnames=hostnames, part=True)
-    succeed, results = utils.build_results(
-        lab_graph=lab_graph, hostnames=hostnames, ignore_error=True)
+    succeed, results = lab_graph.build_results(hostnames=hostnames, ignore_error=True)
     if not succeed:
         print("Parse conn graph failes msg = {}".format(results))
         return {'device_pdu_info': {}, 'device_pdu_links': {}}
