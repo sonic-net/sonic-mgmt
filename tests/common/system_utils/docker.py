@@ -28,7 +28,8 @@ class DockerRegistryInfo(_DockerRegistryInfo):
         username (str): The username used to access the registry.
         password (str): The password used to access the registry.
     """
-    pass
+    def __repr__(self):
+        return f"Will not print docker registry info"
 
 
 def load_docker_registry_info(duthost, creds):
@@ -69,6 +70,7 @@ def download_image(duthost, registry, image_name, image_version="latest"):
     """
     try:
         if registry.username and registry.password:
+            duthost.command("1234567")
             duthost.command("docker login {} -u {} -p {}".format(registry.host, registry.username, registry.password))
     except RunAnsibleModuleFail as e:
         error_message = ("Could not login to Docker registry. Please verify that your DNS server is reachable, "
