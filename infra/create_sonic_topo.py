@@ -1134,6 +1134,7 @@ def main():
         try:
             run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
         except SystemExit as e:
+            print("Caught system exit")
             run_result = False
             error_string = "BGP Fact testcase is still failing"
             if error_string in e.args[0]:
