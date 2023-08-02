@@ -223,9 +223,11 @@ def remove_stress_utility(duthost, container_name):
     duthost.shell("config bgp startup all")
     logger.info("BGP sessions are started up.")
 
+
 @pytest.fixture(autouse=True)
 def rand_dut_for_all_functions(enum_rand_one_per_hwsku_frontend_hostname):
    return enum_rand_one_per_hwsku_frontend_hostname
+
 
 @pytest.fixture
 def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
