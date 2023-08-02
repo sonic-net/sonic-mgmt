@@ -1356,14 +1356,14 @@ vms_12:
       ansible_host: 172.16.131.62
     VM12031:
       ansible_host: 172.16.131.63
-    VM12036:
-      ansible_host: 172.16.131.68
-    VM12037:
-      ansible_host: 172.16.131.69
-    VM12038:
-      ansible_host: 172.16.131.70
-    VM12039:
-      ansible_host: 172.16.131.71
+    VM12032:
+      ansible_host: 172.16.131.64
+    VM12033:
+      ansible_host: 172.16.131.65
+    VM12034:
+      ansible_host: 172.16.131.66
+    VM12035:
+      ansible_host: 172.16.131.67
     VM12040:
       ansible_host: 172.16.131.72
     VM12041:
