@@ -226,7 +226,7 @@ def remove_stress_utility(duthost, container_name):
 
 @pytest.fixture(autouse=True)
 def rand_dut_for_all_functions(enum_rand_one_per_hwsku_frontend_hostname):
-   return enum_rand_one_per_hwsku_frontend_hostname
+    return enum_rand_one_per_hwsku_frontend_hostname
 
 
 @pytest.fixture
