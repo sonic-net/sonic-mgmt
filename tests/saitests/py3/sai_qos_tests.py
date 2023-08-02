@@ -4652,7 +4652,8 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num_trig_pfc // cell_occupancy - 1 - pkts_num_margin)
                 time.sleep(8)
                 # Read TX_OK again to calculate leaked packet number
-                tx_counters, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
+                tx_counters, _ = sai_thrift_read_port_counters(
+                    self.dst_client, asic_type, port_list['dst'][dst_port_id])
                 leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
                 # Send packets to compensate the leaked packets
                 send_packet(self, src_port_id, pkt, leaked_packet_number)
