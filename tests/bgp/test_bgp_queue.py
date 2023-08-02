@@ -37,6 +37,7 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
 
     arp_dict = {}
     ndp_dict = {}
+    processed_intfs = set()
     show_arp = duthost.command('show arp')
     show_ndp = duthost.command('show ndp')
     for arp_entry in show_arp['stdout_lines']:
@@ -62,12 +63,15 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 ifname = arp_dict[k].split('.', 1)[0]
             else:
                 ifname = ndp_dict[k].split('.', 1)[0]
+            if ifname in processed_intfs:
+                continue
             if (ifname.startswith("PortChannel")):
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
-                    assert(get_queue_counters(duthost, port, "0") == 0)
-                    assert(get_queue_counters(duthost, port, "7"))
+                    for q in range(0, 7):
+                        assert(get_queue_counters(duthost, port, q) == 0)
             else:
                 logger.info(ifname)
-                assert(get_queue_counters(duthost, ifname, "0") == 0)
-                assert(get_queue_counters(duthost, ifname, "7"))
+                for q in range(0, 7):
+                    assert(get_queue_counters(duthost, ifname, q) == 0)
+            processed_intfs.add(ifname)
