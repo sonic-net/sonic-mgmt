@@ -58,12 +58,6 @@ def setup_telemetry_forpyclient(duthost):
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "TELEMETRY|gnmi" "client_auth"',
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
-    if client_auth == "true":
-        duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"',
-                      module_ignore_errors=False)
-        duthost.service(name="telemetry", state="restarted")
-    else:
-        logger.info('client auth is false. No need to restart telemetry')
     return client_auth
 
 

@@ -184,7 +184,7 @@ function read_file
 function start_vms
 {
   if [[ $vm_type == ceos ]]; then
-    echo "VM type is ceos. No need to run start-vms. Please specify VM type using the -k option. Example: -k veos"
+    echo "VM type is ceos. No need to run start-vms. Please specify VM type using the -k option. Example: -k ceos"
     exit
   fi
   server=$1
@@ -200,7 +200,7 @@ function start_vms
 function stop_vms
 {
   if [[ $vm_type == ceos ]]; then
-    echo "VM type is ceos. No need to run stop-vms. Please specify VM type using the -k option. Example: -k veos"
+    echo "VM type is ceos. No need to run stop-vms. Please specify VM type using the -k option. Example: -k ceos"
     exit
   fi
   server=$1
@@ -215,7 +215,7 @@ function stop_vms
 function start_topo_vms
 {
   if [[ $vm_type == ceos ]]; then
-    echo "VM type is ceos. No need to run start-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    echo "VM type is ceos. No need to run start-topo-vms. Please specify VM type using the -k option. Example: -k ceos"
     exit
   fi
   testbed_name=$1
@@ -233,7 +233,7 @@ function start_topo_vms
 function stop_topo_vms
 {
   if [[ $vm_type == ceos ]]; then
-    echo "VM type is ceos. No need to run stop-topo-vms. Please specify VM type using the -k option. Example: -k veos"
+    echo "VM type is ceos. No need to run stop-topo-vms. Please specify VM type using the -k option. Example: -k ceos"
     exit
   fi
   testbed_name=$1
