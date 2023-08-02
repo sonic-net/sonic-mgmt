@@ -1,0 +1,65 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 17 * * 0,2,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - xuchen3/internal-202205/8101-nightly
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms61-t1-8101-02
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_ABOOT_202205)
+    displayName: "Image URL"
+
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202205)
+    displayName: "py_saithrift URL"
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880    # minutes, totally 48hours
+    displayName: "Nightly Test Timeout"
+
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: ' '
+    displayName: Testbed specific
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
