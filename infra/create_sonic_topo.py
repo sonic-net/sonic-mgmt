@@ -941,10 +941,6 @@ def handle_sim_failure(error_msg):
     # Include sim_status field to indicate failure
     sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : error_msg}
 
-    if error_msg == "BGP Fact Test Failed":
-        sum['total'] = 1
-        sum['failed'] = 1
-
     for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
         with open(file_path, "w") as output_file:
             json.dump(sum, output_file)
@@ -1153,6 +1149,7 @@ def main():
         content = report_file.read()
         
         if error_string in content:
+            print("PASSED Test 1")
             handle_sim_failure("BGP Fact Test Failed")
             
 

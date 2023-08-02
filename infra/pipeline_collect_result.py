@@ -20,6 +20,7 @@ if (os.path.isfile(SUMMARY_REPORT_PATH)):
             exit(1)
         if ("status" in contents and contents["status"] == "BGP Fact Test Failed"):
             bgp_failure = True
+            print("PASSED second test")
 
 sum_f = open(SUMMARY_REPORT_PATH, "w")
 com_f = open(COMMON_REPORT_PATH, "w") 
@@ -28,6 +29,8 @@ sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, 
 
 if bgp_failure:
     print("BGP Test Failure Detected")
+    sum["total"] = 1
+    sum["failed"] = 1
     json.dump(sum, sum_f)
     json.dump(sum, com_f)
     sum_f.close()
