@@ -9,6 +9,7 @@ from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_s
     snappi_api, snappi_testbed_config       # noqa F401
 from tests.common.snappi.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa F401
+from tests.common.snappi.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ def test_pfc_single_lossless_headroom(snappi_api,                       # noqa F
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.headroom_test_params = headroom_test_params
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -83,7 +86,7 @@ def test_pfc_single_lossless_headroom(snappi_api,                       # noqa F
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 headroom_test_params=headroom_test_params)
+                 snappi_extra_params=snappi_extra_params)
 
 
 def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa F811
@@ -136,6 +139,8 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa F
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.headroom_test_params = headroom_test_params
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -150,4 +155,4 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa F
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 headroom_test_params=headroom_test_params)
+                 snappi_extra_params=snappi_extra_params)

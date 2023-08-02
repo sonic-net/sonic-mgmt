@@ -2,8 +2,9 @@ import math
 
 
 class QosParamMellanox(object):
-    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile, ingressLossyProfile,
-                 egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize, dualTor):
+    def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile,
+                 ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
+                 dualTor, src_dut_index, src_asic_index, dst_asic_index, dst_dut_index):
         self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,
@@ -51,7 +52,10 @@ class QosParamMellanox(object):
             self.sharedHeadroomPoolSize = None
         self.dutConfig = dutConfig
         self.dualTor = dualTor
-
+        self.src_dut_index = src_dut_index
+        self.src_asic_index = src_asic_index
+        self.dst_dut_index = dst_dut_index
+        self.dst_asic_index = dst_asic_index
         return
 
     def run(self):
@@ -97,18 +101,19 @@ class QosParamMellanox(object):
         pkts_num_trig_egr_drp = egress_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
-            testPortIds = self.dutConfig['testPortIds']
+            src_testPortIds = self.dutConfig['testPortIds'][self.src_dut_index][self.src_asic_index]
+            dst_testPortIds = self.dutConfig['testPortIds'][self.dst_dut_index][self.dst_asic_index]
             ingress_ports_num_shp = 8
             pkts_num_trig_pfc_shp = []
             ingress_ports_list_shp = []
             occupancy_per_port = ingress_lossless_size
-            self.qos_parameters['dst_port_id'] = testPortIds[0]
+            self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
             for i in range(1, ingress_ports_num_shp):
                 for j in range(pgs_per_port):
                     pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                    occupancy_per_port //= 2
-                ingress_ports_list_shp.append(testPortIds[i])
+                    occupancy_per_port /= 2
+                ingress_ports_list_shp.append(src_testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
             self.qos_parameters['pkts_num_hdrm_full'] = xoff - 2

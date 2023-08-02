@@ -122,9 +122,9 @@
         - set_fact:
             base_topo: "{{ topo.split('_') | first }}"
 
-        - name: Require VMs as VEOS by default
+        - name: Require VMs as CEOS by default
           set_fact:
-            vm_type: "veos"
+            vm_type: "ceos"
           when: vm_type is not defined
 
         - name: Check if it is a known topology
