@@ -40,13 +40,17 @@ parameters:
 - name: ENABLE_DATAACL
   type: boolean
   default: true
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
 
 stages:
 - stage: SONiCMetadataUpgradeTest
   dependsOn: []
   jobs:
   - job:
-    pool: nightly
+    pool: ${{ parameters.POOL }}
     displayName: "Test SONiC Metadata Files"
     timeoutInMinutes: 0
     variables:

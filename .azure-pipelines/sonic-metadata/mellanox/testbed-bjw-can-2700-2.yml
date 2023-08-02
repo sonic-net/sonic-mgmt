@@ -1,0 +1,112 @@
+trigger: none
+pr: none
+
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+
+schedules:
+  - cron: "0 0,12 * * *"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  default: testbed-bjw-can-2700-2
+  displayName: "Testbed Name"
+
+- name: UPGRADE_TYPE
+  type: string
+  displayName: "Type of upgrade"
+  default: warm
+  values:
+  - warm
+  - fast
+  - cold
+  - warm,fast
+  - warm,fast,cold
+
+- name: FROM_IMAGE_LIST
+  type: string
+  default: latest
+  displayName: "All base image numbers (space separated)"
+
+- name: FROM_IMAGE_URL
+  displayName: "Base image location"
+  type: string
+  default: $(BJW_IMAGE_MLNX_201911)
+  values:
+  - $(BJW_IMAGE_MLNX_201911)
+  - $(BJW_IMAGE_MLNX_202205)
+  - $(BJW_IMAGE_MLNX_PUBLIC)
+
+- name: TO_IMAGE_LIST
+  type: string
+  default: latest
+  displayName: "All target image numbers (space separated)"
+
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  default: $(BJW_IMAGE_MLNX_202205)
+  values:
+  - $(BJW_IMAGE_MLNX_201911)
+  - $(BJW_IMAGE_MLNX_202205)
+  - $(BJW_IMAGE_MLNX_PUBLIC)
+
+- name: SKIP_REBOOT_CASES
+  default: "test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path"
+  type: string
+  displayName: "Cases to skip running"
+  values:
+  - test_upgrade_path
+  - test_warm_upgrade_sad_path
+  - test_cancelled_upgrade_path
+  - test_cancelled_upgrade_path test_upgrade_path
+  - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
+  - " "
+
+- name: SELECT_SAD_CASES
+  default: "sad,multi_sad,sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+  type: string
+
+- name: ITERATIONS
+  type: string
+  default: "20"
+  values:
+  - "1"
+  - "20"
+  - "100"
+  - "500"
+
+- name: POOL
+  type: string
+  default: nightly-bjw
+  displayName: "Agent pool name"
+
+stages:
+  - template: ../metadata_upgrade_template.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+      FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+      FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+      TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+      TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+      SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
+      SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
+      ITERATIONS : ${{ parameters.ITERATIONS }}
+      POOL: ${{ parameters.POOL }}
