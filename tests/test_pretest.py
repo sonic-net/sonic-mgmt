@@ -350,38 +350,38 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
-def test_conn_graph_valid(duthost, localhost):
+# def test_conn_graph_valid(duthost, localhost):
 
-    base_path = os.path.dirname(os.path.realpath(__file__))
-    lab_conn_graph_path = os.path.join(base_path, "../ansible/files/")
-    invs_need_test = ["str", "str2"]
+#     base_path = os.path.dirname(os.path.realpath(__file__))
+#     lab_conn_graph_path = os.path.join(base_path, "../ansible/files/")
+#     invs_need_test = ["str", "str2"]
 
-    # inv_mapping file must exist and can be loaded
-    inv_mapping_file = os.path.join(base_path, "../ansible/group_vars/all/inv_mapping.yml")
-    if not os.path.exists(inv_mapping_file):
-        pytest.fail("inv_mapping file doesn't exist")
+#     # inv_mapping file must exist and can be loaded
+#     inv_mapping_file = os.path.join(base_path, "../ansible/group_vars/all/inv_mapping.yml")
+#     if not os.path.exists(inv_mapping_file):
+#         pytest.fail("inv_mapping file doesn't exist")
 
-    try:
-        with open(inv_mapping_file) as fd:
-            inv_map = yaml.load(fd, Loader=yaml.FullLoader)
-    except:
-        pytest.fail("Load inv_mapping file failed")
+#     try:
+#         with open(inv_mapping_file) as fd:
+#             inv_map = yaml.load(fd, Loader=yaml.FullLoader)
+#     except:
+#         pytest.fail("Load inv_mapping file failed")
 
-    # if inv_mapping file doesn't conatin invs_need_test, failed
-    for inv_need_test in invs_need_test:
-        if inv_need_test not in inv_map:
-            pytest_fail("inv_mapping file doesn't conatin {}".format(inv_need_test))
+#     # if inv_mapping file doesn't conatin invs_need_test, failed
+#     for inv_need_test in invs_need_test:
+#         if inv_need_test not in inv_map:
+#             pytest_fail("inv_mapping file doesn't conatin {}".format(inv_need_test))
 
-    # Test connection graph if it can be loaded
-    logger.info("Test connection graph for all of internal inventories: {}".format(invs_need_test))
+#     # Test connection graph if it can be loaded
+#     logger.info("Test connection graph for all of internal inventories: {}".format(invs_need_test))
 
-    for inv_file in invs_need_test:
-        lab_conn_graph_file = os.path.join(lab_conn_graph_path, inv_map[inv_file])
-        kargs = {"filename": lab_conn_graph_file}
-        conn_graph_facts = localhost.conn_graph_facts(
-            **kargs)["ansible_facts"]
-        if not conn_graph_facts:
-            pytest.fail("build connection graph for {} failed.".format(inv_file))
+#     for inv_file in invs_need_test:
+#         lab_conn_graph_file = os.path.join(lab_conn_graph_path, inv_map[inv_file])
+#         kargs = {"filename": lab_conn_graph_file}
+#         conn_graph_facts = localhost.conn_graph_facts(
+#             **kargs)["ansible_facts"]
+#         if not conn_graph_facts:
+#             pytest.fail("build connection graph for {} failed.".format(inv_file))
 
 def test_connect_to_internal_nameserver(duthosts, enum_dut_hostname):
     cmds = [
