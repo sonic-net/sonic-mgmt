@@ -1151,7 +1151,7 @@ def main():
         sanity_time_delta = (delta4 - delta3).total_seconds()
 
     print("******************************************************************************************************************************************************************************\n")
-    print("Confirm: Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
     print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
     if run_sanity:
         print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
