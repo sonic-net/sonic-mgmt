@@ -470,6 +470,8 @@ class SendVerifyTraffic():
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
             self.vlan_mac = router_mac
+        # Verify traffic before pfc storm
+        self.verify_rx_ingress("forward")
 
     def verify_tx_egress(self, action):
         """
