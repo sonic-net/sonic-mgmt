@@ -52,7 +52,7 @@ args = parser.parse_args()
 main_file = "group_vars/vm_host/main.yml"
 vmHostCreds_file = "group_vars/vm_host/creds.yml"
 labLinks_file = "files/sonic_lab_links.csv"
-testbed_file = "testbed.csv"
+testbed_file = "testbed.yaml"
 devices_file = "files/sonic_lab_devices.csv"
 eosCred_file = "group_vars/eos/creds.yml"
 fanoutSecrets_file = "group_vars/fanout/secrets.yml"
@@ -239,7 +239,7 @@ def makeSonicLabDevices(data, outfile):
 makeTestbed(data, outfile)
 @:parameter data - the dictionary to look through (devices dictionary)
 @:parameter outfile - the file to write to
-generates /testbed.csv by pulling confName, groupName, topo, ptf_image_name,
+generates /testbed.yaml by pulling confName, groupName, topo, ptf_image_name,
                                   ptf_ip, ptf_ipv6, server, vm_base, dut, and comment
 error handling: checks if attribute values are None type or string "None"
 """
@@ -298,7 +298,7 @@ def makeTestbed(data, outfile):
                     "," + vm_base + "," + dut + "," + comment
                 f.write(row + "\n")
     except IOError:
-        print("I/O error: issue creating testbed.csv")
+        print("I/O error: issue creating testbed.yaml")
 
 
 """
@@ -1024,7 +1024,7 @@ def main():
     # Generate sonic_lab_devices.csv (DEVICES)
     makeSonicLabDevices(devices, args.basedir + devices_file)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
-    # Generate testbed.csv (TESTBED)
+    # Generate testbed.yaml (TESTBED)
     makeTestbed(testbed, args.basedir + testbed_file)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)
     # Generate vm_host\creds.yml (CREDS)

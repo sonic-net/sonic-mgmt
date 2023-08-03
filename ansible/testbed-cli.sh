@@ -23,7 +23,7 @@ function usage
   echo "    $0 [options] collect-show-tech <testbed-name> <inventory> <vault-password-file>"
   echo
   echo "Options:"
-  echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.csv')"
+  echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
   echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
@@ -744,7 +744,7 @@ function deploy_topo_with_cache
 }
 
 vmfile=veos
-tbfile=testbed.csv
+tbfile=testbed.yaml
 vm_type=ceos
 vm_num=0
 msetnumber=1
