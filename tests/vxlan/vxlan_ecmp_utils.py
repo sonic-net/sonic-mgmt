@@ -50,6 +50,8 @@ class Ecmp_Utils(object):
     # in the vnet routes.
     HOST_MASK = {'v4': 32, 'v6': 128}
 
+    OVERLAY_DMAC = "25:35:45:55:65:75"
+
     def create_vxlan_tunnel(self,
                             duthost,
                             minigraph_data,
@@ -321,8 +323,9 @@ class Ecmp_Utils(object):
             config_list.append('''"{}": {{
                 "vxlan_tunnel": "{}",
                 {}"vni": "{}",
-                "peer_list": ""
-            }}'''.format(name, tunnel_name, scope_entry, vni))
+                "peer_list": "",
+                "overlay_dmac" : "{}"
+            }}'''.format(name, tunnel_name, scope_entry, vni, self.OVERLAY_DMAC))
 
             full_config = '{\n"VNET": {' + ",\n".join(config_list) + '\n}\n}'
 
@@ -872,3 +875,48 @@ numprocs=1
                 ",".join(map(str, intf_list)),
                 ",".join(ip_address_list)))
         time.sleep(3)
+
+    def create_and_apply_priority_config(self,
+                                         duthost,
+                                         vnet,
+                                         dest,
+                                         mask,
+                                         nhs,
+                                         primary,
+                                         op):
+        '''
+            Create a single destinatoin->endpoint list mapping, and configure
+            it in the DUT.
+            duthost : AnsibleHost structure for the DUT.
+            vnet    : Name of the Vnet.
+            dest    : IP(v4/v6) address of the destination.
+            mask    : Dest netmask length.
+            nhs     : Nexthop list(v4/v6).
+            primary : list of primary endpoints.
+            op      : Operation to be done : SET or DEL.
+        '''
+        config = self.create_single_priority_route(vnet, dest, mask, nhs, primary, op)
+        str_config = '[\n' + config + '\n]'
+        self.apply_config_in_swss(duthost, str_config, op + "_vnet_route")
+
+    @classmethod
+    def create_single_priority_route(cls, vnet, dest, mask, nhs, primary, op):
+        '''
+            Create a single route entry for vnet, for the given dest, through
+            the endpoints:nhs, op:SET/DEL
+        '''
+        config = '''{{
+        "VNET_ROUTE_TUNNEL_TABLE:{}:{}/{}": {{
+            "endpoint": "{}",
+            "endpoint_monitor": "{}",
+            "primary" : "{}",
+            "monitoring" : "custom",
+            "adv_prefix" : "{}/{}"
+        }},
+        "OP": "{}"
+        }}'''.format(vnet, dest, mask, ",".join(nhs), ",".join(nhs), ",".join(primary), dest, mask, op)
+        return config
+
+    def set_vnet_monitor_state(self, duthost, dest, mask, nh, state):
+        duthost.shell("sonic-db-cli STATE_DB HSET 'VNET_MONITOR_TABLE|{}|{}/{}' 'state' '{}'"
+                      .format(nh, dest, mask, state))
