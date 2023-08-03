@@ -4,7 +4,7 @@
 
 import pytest
 
-from files.pfcwd_all_ports_storm_helper import run_pfcwd_pause_storm_test
+from .files.pfcwd_all_ports_storm_helper import run_pfcwd_pause_storm_test
 
 pytestmark = [pytest.mark.topology('tgen')]
 
