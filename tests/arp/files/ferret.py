@@ -95,6 +95,7 @@ class RestAPI(object):
     PORT = 448
 
     def __init__(self, obj, db, src_ip):
+        SocketServer.TCPServer.allow_reuse_address = True
         self.httpd = SocketServer.TCPServer(("", self.PORT), obj)
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
         self.context.verify_mode = ssl.CERT_NONE
