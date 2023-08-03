@@ -29,7 +29,7 @@ class DockerRegistryInfo(_DockerRegistryInfo):
         password (str): The password used to access the registry.
     """
     def __repr__(self):
-        return f"Will not print docker registry info"
+        return "DockerRegistryInfo(host='{}', username='{}', password='******')".format(self.host, self.username)
 
 
 def load_docker_registry_info(duthost, creds):
