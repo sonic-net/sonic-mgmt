@@ -18,7 +18,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import check_container_state
-from tests.common.helpers.dut_utils import decode_dut_and_container_name
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
@@ -266,7 +265,7 @@ def test_setup_and_cleanup(duthosts, creds, enum_rand_one_per_hwsku_frontend_hos
 
 @pytest.fixture
 def remove_and_restart_container(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostname,
-                           enum_rand_one_asic_index, enum_dut_feature, enum_dut_feature):
+                                 enum_rand_one_asic_index, enum_dut_feature):
     """Removes and restarts 'telemetry' container from DuT.
 
     Args:
@@ -665,7 +664,8 @@ def check_log_message(duthost, container_name):
 
 
 def test_memory_checker_without_container_created(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                  enum_rand_one_asic_index, enum_dut_feature, remove_and_restart_container):
+                                                  enum_rand_one_asic_index, enum_dut_feature,
+                                                  remove_and_restart_container):
     """Checks whether 'memory_checker' script can log an message into syslog if
     one container is not created during device is booted/reooted. This test case will
     remove a container explicitly to simulate the scenario in which the container was not created
