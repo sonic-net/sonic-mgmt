@@ -89,6 +89,8 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         (46, 46),
         (48, 48)
     ]
+    dualtor_meta = dualtor_info(
+        ptfhost, upper_tor_host, lower_tor_host, tbinfo)
     if "cisco-8000" in ptfhost.duthost.facts["asic_type"]:
         DSCP_COMBINATIONS = list(tunnel_qos_maps['inner_dscp_to_outer_dscp_map'].items())
         for dscp_combination in REQUIRED_DSCP_COMBINATIONS:
@@ -96,7 +98,6 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
                 "Required DSCP combination {} not in inner_dscp_to_outer_dscp_map".format(dscp_combination)
     else:
         DSCP_COMBINATIONS = REQUIRED_DSCP_COMBINATIONS
-    dualtor_meta = dualtor_info(ptfhost, upper_tor_host, lower_tor_host, tbinfo)
     active_tor_mac = lower_tor_host.facts['router_mac']
 
     t1_ports = get_t1_active_ptf_ports(upper_tor_host, tbinfo)

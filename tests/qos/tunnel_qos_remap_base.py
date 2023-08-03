@@ -13,8 +13,8 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.system_utils import docker
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
 
 logger = logging.getLogger(__name__)
 
