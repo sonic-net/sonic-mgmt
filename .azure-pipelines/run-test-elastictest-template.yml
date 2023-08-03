@@ -154,8 +154,6 @@ steps:
 
       rm -f new_test_plan_id.txt
 
-      echo "##[group][test_plan.py] create result"
-
       python ./.azure-pipelines/test_plan.py create \
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
@@ -183,8 +181,6 @@ steps:
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
       --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60))
-
-      echo "##[endgroup]"
 
       TEST_PLAN_ID=`cat new_test_plan_id.txt`
 
