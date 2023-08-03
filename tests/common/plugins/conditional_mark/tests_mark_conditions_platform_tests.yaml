@@ -314,6 +314,11 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
 #######################################
 ##### api/test_module.py #####
 #######################################
+platform_tests/api/test_module.py:
+  skip:
+    reason: "Only support T2"
+    conditions:
+      - "topo_type not in ['t2']"
 
 platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
   xfail:
@@ -324,10 +329,10 @@ platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
 
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
-   skip:
-     reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
-     conditions:
-       - "asic_type in ['cisco-8000']"
+  skip:
+    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -761,6 +766,12 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 #####   test_advanced_reboot.py   #####
 #######################################
+platform_tests/test_advanced_reboot.py:
+  xfail:
+    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   xfail:
     reason: "case failed and waiting for fix"
