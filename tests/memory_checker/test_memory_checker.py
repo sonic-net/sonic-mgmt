@@ -224,14 +224,9 @@ def remove_stress_utility(duthost, container_name):
     logger.info("BGP sessions are started up.")
 
 
-@pytest.fixture(autouse=True)
-def rand_dut_for_all_functions(enum_rand_one_per_hwsku_frontend_hostname):
-    return enum_rand_one_per_hwsku_frontend_hostname
-
-
 @pytest.fixture
-def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
-                           rand_dut_for_all_functions, request):
+def test_setup_and_cleanup(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostname,
+                           enum_rand_one_asic_index, enum_dut_feature, request):
     """Backups Monit configuration files, customizes Monit configuration files and
     restarts Monit service before testing. Restores original Monit configuration files
     and restart Monit service after testing.
@@ -242,17 +237,14 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
-
-    duthost = duthosts[dut_name]
 
     install_stress_utility(duthost, creds, container_name)
 
@@ -273,8 +265,8 @@ def test_setup_and_cleanup(duthosts, creds, enum_dut_feature_container,
 
 
 @pytest.fixture
-def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
-                                 rand_dut_for_all_functions):
+def remove_and_restart_container(duthosts, creds, enum_rand_one_per_hwsku_frontend_hostname,
+                           enum_rand_one_asic_index, enum_dut_feature, enum_dut_feature):
     """Removes and restarts 'telemetry' container from DuT.
 
     Args:
@@ -286,17 +278,15 @@ def remove_and_restart_container(duthosts, creds, enum_dut_feature_container,
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
 
-    duthost = duthosts[dut_name]
     remove_container(duthost, container_name)
 
     yield
@@ -502,8 +492,8 @@ def consumes_memory_and_checks_monit(duthost, container_name, vm_workers, new_sy
                          ['    if status == 3 for 1 times within 2 cycles '
                           'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
-def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                        rand_dut_for_all_functions):
+def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                        enum_rand_one_asic_index, enum_dut_feature, test_setup_and_cleanup):
     """Checks whether the container can be restarted or not if the memory
     usage of it is beyond its threshold for specfic times within a sliding window.
     The `stress` utility is leveraged as the memory stressing tool.
@@ -516,17 +506,14 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
-
-    duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
@@ -550,8 +537,8 @@ def test_memory_checker(duthosts, enum_dut_feature_container, test_setup_and_cle
                          ['    if status == 3 for 1 times within 2 cycles '
                           'then exec "/usr/bin/restart_service telemetry"'],
                          indirect=["test_setup_and_cleanup"])
-def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                                     rand_dut_for_all_functions):
+def test_monit_reset_counter_failure(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_rand_one_asic_index, enum_dut_feature, test_setup_and_cleanup):
     """Checks that Monit was unable to reset its counter. Specifically Monit will restart
     the contanier if memory usage of it is larger than the threshold for specific times within
     a sliding window. However, Monit was unable to restart the container anymore if memory usage is
@@ -567,17 +554,14 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
-
-    duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
@@ -605,8 +589,8 @@ def test_monit_reset_counter_failure(duthosts, enum_dut_feature_container, test_
                          ['    if status == 3 for 1 times within 2 cycles then exec '
                           '"/usr/bin/restart_service telemetry" repeat every 2 cycles'],
                          indirect=["test_setup_and_cleanup"])
-def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_cleanup,
-                          rand_dut_for_all_functions):
+def test_monit_new_syntax(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          enum_rand_one_asic_index, enum_dut_feature, test_setup_and_cleanup):
     """Checks that new syntax of Monit can mitigate the issue which shows Monit was unable
     to restart container due to failing reset its internal counter. With the help of this syntax,
     the culprit container can be restarted by Monit if memory usage of it is larger than the threshold
@@ -621,17 +605,14 @@ def test_monit_new_syntax(duthosts, enum_dut_feature_container, test_setup_and_c
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
-
-    duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
@@ -683,8 +664,8 @@ def check_log_message(duthost, container_name):
     logger.info("Found the expected message from syslog!")
 
 
-def test_memory_checker_without_container_created(duthosts, enum_dut_feature_container, remove_and_restart_container,
-                                                  rand_dut_for_all_functions):
+def test_memory_checker_without_container_created(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                                  enum_rand_one_asic_index, enum_dut_feature, remove_and_restart_container):
     """Checks whether 'memory_checker' script can log an message into syslog if
     one container is not created during device is booted/reooted. This test case will
     remove a container explicitly to simulate the scenario in which the container was not created
@@ -698,17 +679,14 @@ def test_memory_checker_without_container_created(duthosts, enum_dut_feature_con
     Returns:
         None.
     """
-    dut_name, container_name = decode_dut_and_container_name(enum_dut_feature_container)
-    pytest_require(dut_name == rand_dut_for_all_functions,
-                   "Skips testing memory_checker of container '{}' on the DuT '{}' since another DuT '{}' was chosen."
-                   .format(container_name, dut_name, rand_dut_for_all_functions))
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_rand_one_asic_index)
+    container_name = asic.get_docker_name(enum_dut_feature)
 
     pytest_require(container_name == "telemetry",
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
-
-    duthost = duthosts[dut_name]
 
     # TODO: Currently we only test 'telemetry' container which has the memory threshold 400MB
     # and number of vm_workers is hard coded. We will extend this testing on all containers after
