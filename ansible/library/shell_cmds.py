@@ -134,7 +134,7 @@ def main():
     results = []
     failed_cmds = []
     for cmd in cmds:
-        result = run_cmd(module, cmd)
+        result = run_cmd(module, cmd, timeout)
         results.append(result)
         if result['rc'] != 0:
             failed_cmds.append(cmd)
