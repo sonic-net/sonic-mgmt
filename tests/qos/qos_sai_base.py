@@ -394,14 +394,31 @@ class QosSaiBase(QosBase):
             else:
                 schedProfile = out.translate({ord(i): None for i in '[]'})
         else:
-            schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
-                argv=[
-                    "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}|{2}|{3}"
-                    .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
-                ]
-            )[0])
-
+            if dut_asic.sonichost.facts['switch_type'] == 'voq':
+                # For VoQ chassis, the scheduler queues config is based on system port
+                if dut_asic.sonichost.is_multi_asic:
+                    schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|{1}|{2}|{3}"
+                            .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
+                        ]
+                    )[0])
+                else:
+                    schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|asic0|{1}|{2}"
+                            .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
+                        ]
+                    )[0])
+            else:
+                schedProfile = "SCHEDULER|" + six.text_type(dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0])
         schedWeight = six.text_type(dut_asic.run_redis_cmd(
             argv=["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
         )[0])
