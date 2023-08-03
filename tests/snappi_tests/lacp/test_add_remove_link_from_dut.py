@@ -1,7 +1,7 @@
 from tests.common.snappi_tests.snappi_fixtures import cvg_api, snappi_api     # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import (                       # noqa F401
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from tests.snappi_tests.lacp.files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
+from .files.lacp_dut_helper import run_lacp_add_remove_link_from_dut
 from tests.common.fixtures.conn_graph_facts import (                    # noqa F401
     conn_graph_facts, fanout_graph_facts)
 import pytest

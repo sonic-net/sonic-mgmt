@@ -10,7 +10,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
-from tests.snappi_tests.pfcwd.files.pfcwd_basic_helper import run_pfcwd_basic_test
+from .files.pfcwd_basic_helper import run_pfcwd_basic_test
 from tests.snappi_tests.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
