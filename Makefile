@@ -24,7 +24,7 @@ t0_run:
 
 run_hw:
 	echo "run T0 testing on HW..."
-	bash -c "cd infra; python3 run_scripts_remote.py  \
+	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
 	--host_address=${HOST_ADDRESS} \
 	--username=${USERNAME} \
 	--password=${PASSWORD} \
