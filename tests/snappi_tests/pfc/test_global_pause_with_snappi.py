@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list                         # noqa F401
 
-from .files.helper import run_pfc_test
+from tests.snappi_tests.pfc.files.helper import run_pfc_test
 
 pytestmark = [pytest.mark.topology('tgen')]
 
