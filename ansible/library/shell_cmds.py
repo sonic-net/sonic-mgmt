@@ -155,8 +155,7 @@ def main():
 
     if output['failed']:
         module.fail_json(
-            msg='At least running one of the commands failed:{}\nfailed command:{}'
-            .format(**output, failed_cmds))
+            msg='Running command(s) failed: {}!'.format(failed_cmds))
     module.exit_json(**output)
 
 
