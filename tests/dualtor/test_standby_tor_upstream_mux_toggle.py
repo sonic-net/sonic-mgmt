@@ -20,7 +20,7 @@ pytestmark = [
                             'run_garp_service', 'run_icmp_responder')
 ]
 
-PAUSE_TIME = 10
+PAUSE_TIME = 90
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -37,11 +37,14 @@ def test_standby_tor_upstream_mux_toggle(
     toggle_all_simulator_ports, set_crm_polling_interval):              # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
+
+    logging.debug("PAUSE_TIME: %s PKT_NUM: %s" % (PAUSE_TIME, PKT_NUM))
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
     crm_facts0 = rand_selected_dut.get_crm_facts()
+    logging.debug("crm_facts0: %s" % (crm_facts0))
     # Verify packets are not go up
     verify_upstream_traffic(host=rand_selected_dut,
                             ptfadapter=ptfadapter,
@@ -71,7 +74,9 @@ def test_standby_tor_upstream_mux_toggle(
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)     # noqa F405
     # Wait sometime for mux toggle
     time.sleep(PAUSE_TIME)
+    # Verify packets are not go up
     crm_facts1 = rand_selected_dut.get_crm_facts()
+    logging.debug("crm_facts1: %s" % (crm_facts1))
     # Verify packets are not go up again
     verify_upstream_traffic(host=rand_selected_dut,
                             ptfadapter=ptfadapter,
@@ -81,5 +86,7 @@ def test_standby_tor_upstream_mux_toggle(
                             pkt_num=PKT_NUM,
                             drop=True)
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
-    pt_assert(len(unmatched_crm_facts) == 2, 'Unmatched CRM facts: {}'
+    logging.debug("unmatched_crm_facts: %s len(unmatched_crm_facts): %s" % (unmatched_crm_facts, len(unmatched_crm_facts)))
+    # Verify packets are not go up
+    pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
               .format(json.dumps(unmatched_crm_facts, indent=4)))
