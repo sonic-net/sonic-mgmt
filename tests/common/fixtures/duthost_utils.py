@@ -354,6 +354,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
+    if 'VLAN_INTERFACE' not in cfg_facts:
+        return vlan_intfs_dict
     for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
