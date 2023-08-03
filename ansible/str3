@@ -1193,6 +1193,55 @@ sonic_arista_400:
   vars:
     iface_speed: 400000
 
+sonic_dell64_40:
+  hosts:
+    str3-s6100-acs-6:
+      ansible_host: 10.3.147.141
+      model: S6100-ON
+      serial: CN06N1J1CES008270065
+      base_mac: d8:9e:f3:bb:c0:20
+      syseeprom_info:
+        "0x21": "S6100-ON"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES008270065"
+        "0x24": "D8:9E:F3:BB:C0:20"
+        "0x25": "02/25/2018 14:13:47"
+        "0x26": "1"
+        "0x27": "A04"
+        "0x28": "x86_64-dell_s6100_c2538-r0"
+        "0x29": "3.15.1.0"
+        "0x2A": "384"
+        "0x2B": "CES00"
+        "0x2C": "CN"
+        "0x2D": "DELL"
+        "0x2E": "3.25.4.1"
+        "0x2F": "D14RG02"
+        "0xFE": "0xD3ED328F"
+    str3-s6100-acs-7:
+      ansible_host: 10.3.147.171
+      model: S6100-ON
+      serial: CN06N1J1CES0083I0007
+      base_mac: d8:9e:f3:d8:50:60
+      syseeprom_info:
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES0083I0007"
+        "0x24": "D8:9E:F3:D8:50:60"
+        "0x25": "03/19/2018 10:12:12"
+        "0x26": "1"
+        "0x27": "A04"
+        "0x28": "x86_64-dell_s6100_c2538-r0"
+        "0x29": "3.15.1.0"
+        "0x2A": "384"
+        "0x2B": "CES00"
+        "0x2C": "CN"
+        "0x2D": "DELL"
+        "0x2E": "3.25.4.1"
+        "0x2F": "DVWQG02"
+        "0xFE": "0xA30214AA"
+  vars:
+    hwsku: Dell-S6100-ON
+    iface_speed: 400000
+
 server:
   hosts:
     str3-acs-serv-61:

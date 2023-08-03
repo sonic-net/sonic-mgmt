@@ -120,3 +120,7 @@ pdu-93,18,str3-7260cx3-acs-1,PSU1
 pdu-94,18,str3-7260cx3-acs-1,PSU2
 pdu-93,12,str3-7260cx3-acs-2,PSU1
 pdu-94,12,str3-7260cx3-acs-2,PSU2
+pdu-96,31,str3-s6100-acs-6,PSU1
+pdu-97,31,str3-s6100-acs-6,PSU2
+pdu-96,35,str3-s6100-acs-7,PSU1
+pdu-97,35,str3-s6100-acs-7,PSU2

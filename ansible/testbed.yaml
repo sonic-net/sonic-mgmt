@@ -2258,3 +2258,33 @@
   inv_name: str3
   auto_recover: 'True'
   comment: shiyanwang
+
+- conf-name: vms64-t0-s6100-1
+  group-name: vms64-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms64-3
+  ptf_ip: 10.64.246.11
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64164
+  dut:
+    - str3-s6100-acs-6
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zitingguo
+
+- conf-name: vms64-t1-s6100-1
+  group-name: vms64-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms64-4
+  ptf_ip: 10.64.246.84
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64168
+  dut:
+    - str3-s6100-acs-7
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zitingguo
