@@ -280,6 +280,8 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
         print(resp)
     time.sleep(3)
 
+    print("getting docker sonic-mgmt name")
+
     cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1 | sed "s/.*\/sonic\///" | sed "s/\/sonic-test\/.*//"'
 
     chan.send(cmd)
