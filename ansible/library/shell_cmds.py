@@ -132,11 +132,14 @@ def main():
     startd = datetime.datetime.now()
 
     results = []
+    failed_cmds = []
     for cmd in cmds:
-        result = run_cmd(module, cmd, timeout)
+        result = run_cmd(module, cmd)
         results.append(result)
-        if result['rc'] != 0 and not continue_on_fail:
-            break
+        if result['rc'] != 0:
+            failed_cmds.append(cmd)
+            if not continue_on_fail:
+                break
 
     endd = datetime.datetime.now()
     delta = endd - startd
@@ -152,7 +155,8 @@ def main():
 
     if output['failed']:
         module.fail_json(
-            msg='At least running one of the commands failed', **output)
+            msg='At least running one of the commands failed:{}\nfailed command:{}'
+            .format(**output, failed_cmds))
     module.exit_json(**output)
 
 
