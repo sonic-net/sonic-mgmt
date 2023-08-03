@@ -2264,7 +2264,7 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms64-3
-  ptf_ip: 10.64.246.11
+  ptf_ip: 10.64.246.11/23
   ptf_ipv6:
   server: server_64
   vm_base: VM64164
@@ -2279,7 +2279,7 @@
   topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms64-4
-  ptf_ip: 10.64.246.84
+  ptf_ip: 10.64.246.84/23
   ptf_ipv6:
   server: server_64
   vm_base: VM64168
