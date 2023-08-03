@@ -22,7 +22,7 @@ def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
     if isinstance(print_tacacs_creds, dict):
         for tacacs_creds_msg in print_tacacs_creds.values():
             if isinstance(tacacs_creds_msg, dict):
-                if tacacs_creds_msg.get("docker_registry_password", "******"):
+                if tacacs_creds_msg.get("docker_registry_password"):
                     tacacs_creds_msg["docker_registry_password"] = "******"
 
     logger.info('tacacs_creds: {}'.format(str(print_tacacs_creds)))
