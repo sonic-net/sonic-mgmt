@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_testbed_config
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list
 
-from files.helper import run_ecn_test, is_ecn_marked
+from tests.snappi_tests.ecn.files.helper import run_ecn_test, is_ecn_marked
 
 pytestmark = [ pytest.mark.topology('tgen') ]
 
