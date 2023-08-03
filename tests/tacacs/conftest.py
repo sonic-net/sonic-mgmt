@@ -2,6 +2,7 @@ import os
 import logging
 import yaml
 import pytest
+import copy
 from .utils import setup_tacacs_client, setup_tacacs_server, cleanup_tacacs, restore_tacacs_servers
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ def tacacs_creds(creds_all_duts):
 
 @pytest.fixture(scope="module")
 def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
-    print_tacacs_creds = tacacs_creds
+    print_tacacs_creds = copy.deepcopy(tacacs_creds)
     if isinstance(print_tacacs_creds, dict):
         for tacacs_creds_msg in print_tacacs_creds.values():
             if isinstance(tacacs_creds_msg, dict):
