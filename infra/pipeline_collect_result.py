@@ -20,7 +20,6 @@ if (os.path.isfile(SUMMARY_REPORT_PATH)):
             exit(1)
         if ("status" in contents and contents["status"] == "bgp_failure"):
             bgp_failure = True
-            print("PASSED second test")
 
 sum_f = open(SUMMARY_REPORT_PATH, "w")
 com_f = open(COMMON_REPORT_PATH, "w") 
