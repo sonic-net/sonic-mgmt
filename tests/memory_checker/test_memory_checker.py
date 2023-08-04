@@ -270,7 +270,7 @@ def remove_and_restart_container(duthosts, creds, enum_rand_one_per_hwsku_fronte
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        rand_dut_for_all_functions: The fixture randomly pick up
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
         a frontend DuT from testbed.
 
 
@@ -499,7 +499,7 @@ def test_memory_checker(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        rand_dut_for_all_functions: The fixture randomly pick up
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
@@ -547,7 +547,7 @@ def test_monit_reset_counter_failure(duthosts, enum_rand_one_per_hwsku_frontend_
     Args:
         duthosts: The fixture returns list of DuTs.
         test_setup_and_cleanup: Fixture to setup prerequisites before and after testing.
-        rand_dut_for_all_functions: The fixture randomly pick up
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
@@ -598,7 +598,7 @@ def test_monit_new_syntax(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     Args:
         duthosts: The fixture returns list of DuTs.
         test_setup_and_cleanup: Fixture to setup prerequisites before and after testing.
-        rand_dut_for_all_functions: The fixture randomly pick up
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
@@ -673,7 +673,7 @@ def test_memory_checker_without_container_created(duthosts, enum_rand_one_per_hw
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        rand_dut_for_all_functions: The fixture randomly pick up
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
     Returns:
