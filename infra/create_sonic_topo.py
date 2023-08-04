@@ -842,19 +842,28 @@ def create_report_html(data,log_dir):
         print(resp.decode("ascii"))
     time.sleep(3)
 
-    chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
+    commands = []
+
+    commands.append('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
         --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
-    time.sleep(3)
-    
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
-    time.sleep(3)
+    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml\n'.format(log_dir, log_dir))
+    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
+    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
+    i = 0
+    while True:
+        if len(commands) == i:
+            break
 
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
-    time.sleep(3)
-
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
-    time.sleep(3)
-
+        chan.send(commands[i])
+        buff = ''
+        while not buff.endswith(':~$ '):
+            resp = chan.recv(9999)
+            buff += resp.decode("ascii")
+            print(resp.decode("ascii"))
+        time.sleep(3)
+        if chan.recv_ready():
+            print(chan.recv(9999).decode("ascii"))
+        i += 1
     ssh.close()
 
 def get_log_files(data,log_dir):
@@ -909,7 +918,7 @@ def overwrite_lab_file(vxr_ports):
     )
 
 # VXR sim failed
-def handle_sim_failure():
+def handle_sim_failure(error_msg):
     SUMMARY_REPORT_FILENAME = "results.json"
     COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
@@ -917,7 +926,7 @@ def handle_sim_failure():
     COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
     # Include sim_status field to indicate failure
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_failure"}
+    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : error_msg}
 
     for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
         with open(file_path, "w") as output_file:
@@ -1029,7 +1038,7 @@ def main():
 
         # Populate results file with failure data
         if not int(sim_output):
-            handle_sim_failure()
+            handle_sim_failure("sim_failure")
             sys.exit("Sim is not up. Exiting now")
 
         os.system("{} ports > vxr_ports.yaml".format(vxr_path))
@@ -1110,18 +1119,18 @@ def main():
         upload_sanity_file(data,script_file)
         print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
         run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
+        
         delta4 = datetime.datetime.now()
-        if run_result:
-            create_report_html(data,log_dir)
-            parse_report(data)
-            get_report_file(data)
-            get_log_files(data,log_dir)
-        else:
-            report_file = open('full_report.txt', 'w')
-            report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-            report_file.flush()
-            report_file.close()
-            print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
+
+        if not run_result:
+            log_dir = 'logs'
+            handle_sim_failure("bgp_failure")
+
+        create_report_html(data,log_dir)
+        parse_report(data)
+        get_report_file(data)
+        get_log_files(data,log_dir)
+            
 
     sim_time_delta = (delta2 - delta1).total_seconds()
     profile_time_delta = (delta3 - delta2).total_seconds()
