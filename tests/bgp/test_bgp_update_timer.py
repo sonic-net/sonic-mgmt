@@ -10,7 +10,7 @@ import six
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
@@ -181,7 +181,17 @@ def common_setup_teardown(
         ),
     )
 
-    return bgp_neighbors
+    yield bgp_neighbors
+
+    # Cleanup suppress-fib-pending config
+    delete_tacacs_json = [{
+        "DEVICE_METADATA": {
+            "localhost": {
+                "suppress-fib-pending": "disabled"
+            }
+        }
+    }]
+    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture
