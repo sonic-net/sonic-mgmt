@@ -269,31 +269,7 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ssh.close()
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host, ssh_port, username, password)
-    print("connected to host {}".format(host))
-    chan = ssh.invoke_shell()
-    resp = ''
-    while ':~$ ' not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-    time.sleep(3)
-
-    print("getting docker sonic-mgmt name")
-
-    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1 | sed "s/.*\/sonic\///" | sed "s/\/sonic-test\/.*//"'
-
-    chan.send(cmd)
-    resp = ''
-    while ':~$ ' not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-        sonic_test_dir_deduced = resp
     
-    print(f"This is a test. Tried getting sonic-test directory from docker sonic-mgmt container name, container name is {docker_mgmt_container}, the sonic-test directory we got is {sonic_test_dir_deduced}")
-
-    time.sleep(3)
     
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
