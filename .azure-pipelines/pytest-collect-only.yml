@@ -32,7 +32,7 @@ steps:
 - script: |
     set -x
     sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
-      pytest --inventory ../ansible/veos_vtb --host-pattern all \
+      python2 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
       --ignore saitests --ignore ptftests --ignore acstests \
       --ignore scripts --ignore k8s --ignore sai_qualify --ignore common \

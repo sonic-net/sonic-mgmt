@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from files.helper import run_pfc_test
+from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
@@ -42,14 +42,14 @@ def test_pfc_single_lossless_headroom(snappi_api,
         enum_dut_lossless_prio (str): lossless priority to test, e.g., 's6100-1|3'
         all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        enum_pfc_pause_delay_test_params (str): pfc delay value to test, 
+        enum_pfc_pause_delay_test_params (str): pfc delay value to test,
                                                   and delay responses e.g. "200|False"
 
     Returns:
         N/A
     """
 
-    pytest_require(enum_pfc_pause_delay_test_params is not None, 
+    pytest_require(enum_pfc_pause_delay_test_params is not None,
                     "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
@@ -112,14 +112,14 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        enum_pfc_pause_delay_test_params (str): pfc delay value to test, 
+        enum_pfc_pause_delay_test_params (str): pfc delay value to test,
                                                   and delay responses e.g. "200|False"
 
     Returns:
         N/A
     """
 
-    pytest_require(enum_pfc_pause_delay_test_params is not None, 
+    pytest_require(enum_pfc_pause_delay_test_params is not None,
                     "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
