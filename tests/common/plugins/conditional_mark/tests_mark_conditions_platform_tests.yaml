@@ -251,6 +251,15 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
       - "asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
+#####      api/test_module.py     #####
+#######################################
+platform_tests/api/test_module.py:
+  skip:
+    reason: "Only support T2"
+    conditions:
+      - "topo_type not in ['t2']"
+
+#######################################
 #####        api/test_psu.py      #####
 #######################################
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
