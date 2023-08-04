@@ -52,19 +52,19 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 
 #######################################
@@ -100,11 +100,24 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+
 bgp/test_bgp_speaker.py:
   skip:
     reason: "Not supported on topology backend."
     conditions:
       - "'backend' in topo_name"
+
+bgp/test_bgp_suppress_fib.py:
+  skip:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
 
 bgp/test_bgpmon.py:
   skip:
@@ -176,7 +189,7 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
     reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
-      - "build_version > '20220531.27' and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -500,6 +513,12 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+generic_config_updater/test_pfcwd_status.py:
+  skip:
+    reason: "PFC watchdog is not supported on M0/Mx topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 #######################################
 #####           http              #####
 #######################################
@@ -512,11 +531,10 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform or T1 topo. Test does not support dualtor topology."
+    reason: "Not working on non-mellanox platform. Test does not support dualtor topology."
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
-      - "'t1' in topo_name"
       - "'dualtor' in topo_name"
 
 #######################################
@@ -608,7 +626,7 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_bgp:
   skip:
     reason: 'test_bgp skip in Brcm based T2, complete portchannel SAI fix planned for 8.1'
     conditions:
-      - "'t2' in topo_name"
+      - "asic_subtype in ['broadcom-dnx']"
 
 macsec/test_macsec.py:
   skip:
@@ -654,13 +672,22 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####     override_config_table   #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
+    conditions:
+      - is_multi_asic == True
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag and t2 topology"
+    reason: "Only support t1-lag, t1-56-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-56-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
@@ -970,7 +997,7 @@ show_techsupport/test_techsupport.py::test_techsupport:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
 
 #######################################
 #####            snmp             #####
@@ -1050,7 +1077,7 @@ syslog/test_syslog.py:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.33'"
+      - "int(build_version.split('.')[1]) <= 33"
 
 syslog/test_syslog_source_ip.py:
   skip:
@@ -1066,7 +1093,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "build_version <= '20201231.44'"
+      - "int(build_version.split('.')[1]) <= 44"
 
 #######################################
 #####           telemetry         #####

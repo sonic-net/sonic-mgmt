@@ -28,6 +28,8 @@ DHCP6OptOptReq = scapy.layers.dhcp6.DHCP6OptOptReq
 DHCP6OptElapsedTime = scapy.layers.dhcp6.DHCP6OptElapsedTime
 DHCP6OptIA_NA = scapy.layers.dhcp6.DHCP6OptIA_NA
 DUID_LLT = scapy.layers.dhcp6.DUID_LLT
+DHCP6OptIfaceId = scapy.layers.dhcp6.DHCP6OptIfaceId
+DHCP6OptServerId = scapy.layers.dhcp6.DHCP6OptServerId
 
 
 class DataplaneBaseTest(BaseTest):
@@ -262,6 +264,7 @@ class DHCPTest(DataplaneBaseTest):
                                                      peeraddr=self.client_link_local)
         reply_relay_reply_packet /= DHCP6OptRelayMsg(
             message=[DHCP6_Reply(trid=12345)])
+        reply_relay_reply_packet /= DHCP6OptIfaceId(ifaceid=self.vlan_ip)
 
         return reply_relay_reply_packet
 
@@ -276,6 +279,7 @@ class DHCPTest(DataplaneBaseTest):
             msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         relay_forward_packet /= DHCP6OptRelayMsg(
             message=[DHCP6_Solicit(trid=12345)])
+        relay_forward_packet /= DHCP6OptElapsedTime(elapsedtime=0)
 
         return relay_forward_packet
 
@@ -287,6 +291,7 @@ class DHCPTest(DataplaneBaseTest):
         packet_inside = DHCP6_RelayForward(
             msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         packet_inside /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345)])
+        packet_inside /= DHCP6OptElapsedTime(elapsedtime=0)
         relayed_relay_packet /= DHCP6_RelayForward(msgtype=12, hopcount=1, linkaddr=self.relay_linkaddr,
                                                    peeraddr=self.client_link_local)
         relayed_relay_packet /= DHCP6OptRelayMsg(message=[packet_inside])
@@ -304,6 +309,7 @@ class DHCPTest(DataplaneBaseTest):
         packet_inside = DHCP6_RelayReply(
             msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         packet_inside /= DHCP6OptRelayMsg(message=[DHCP6_Reply(trid=12345)])
+        relay_relay_reply_packet /= DHCP6OptServerId(duid=DUID_LLT(lladdr="00:11:22:33:44:55"))
         relay_relay_reply_packet /= DHCP6OptRelayMsg(message=[packet_inside])
 
         return relay_relay_reply_packet

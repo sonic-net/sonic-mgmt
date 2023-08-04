@@ -91,15 +91,15 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 
 # Below M0_VLAN IPs are ip in vlan range
 DOWNSTREAM_DST_IP_VLAN = {
-    "ipv4": "192.168.0.253",
+    "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
 }
 DOWNSTREAM_IP_TO_ALLOW_VLAN = {
-    "ipv4": "192.168.0.252",
+    "ipv4": "192.168.0.122",
     "ipv6": "fc02:1000::6"
 }
 DOWNSTREAM_IP_TO_BLOCK_VLAN = {
-    "ipv4": "192.168.0.251",
+    "ipv4": "192.168.0.121",
     "ipv6": "fc02:1000::7"
 }
 
@@ -684,6 +684,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         """
         acl_facts = defaultdict(dict)
         table_name = acl_table["table_name"]
+        skip_byte_accounting = False
         for duthost in duthosts:
             if duthost.is_supervisor_node():
                 continue
@@ -734,12 +735,20 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     continue
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
+                if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-C32" or
+                        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
+                    skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
                         .format(rule, pprint.pformat(counters_after)))
 
             assert counters_after[PACKETS_COUNT] > counters_before[PACKETS_COUNT]
-            assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            if not skip_byte_accounting:
+                assert counters_after[BYTES_COUNT] > counters_before[BYTES_COUNT]
+            else:
+                logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request):
@@ -941,7 +950,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if ip_version == "ipv6":
                     rule_id = 34
                 else:
-                    rule_id = 2
+                    rule_id = 33
             else:
                 rule_id = 2
         else:
@@ -966,7 +975,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if ip_version == "ipv6":
                     rule_id = 35
                 else:
-                    rule_id = 15
+                    rule_id = 32
             else:
                 rule_id = 15
         else:

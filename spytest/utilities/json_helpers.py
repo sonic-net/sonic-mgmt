@@ -47,4 +47,3 @@ def fix(text, msg="invalid json text", load=False, object_pairs_hook=OrderedDict
         return obj if load else text
     except Exception as exp:
         raise _Exception(text, exp, msg)
-
