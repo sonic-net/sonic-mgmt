@@ -1124,7 +1124,7 @@ def main():
 
         if not run_result:
             log_dir = 'logs'
-            handle_sim_failure("BGP Fact Test Failed")
+            handle_sim_failure("bgp_failure")
 
         create_report_html(data,log_dir)
         parse_report(data)

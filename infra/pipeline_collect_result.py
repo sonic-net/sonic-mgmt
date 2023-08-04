@@ -18,7 +18,7 @@ if (os.path.isfile(SUMMARY_REPORT_PATH)):
         if ("status" in contents and contents["status"] == "sim_failure"):
             print("VXR SIM failure detected!")
             exit(1)
-        if ("status" in contents and contents["status"] == "BGP Fact Test Failed"):
+        if ("status" in contents and contents["status"] == "bgp_failure"):
             bgp_failure = True
             print("PASSED second test")
 
