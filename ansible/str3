@@ -136,9 +136,9 @@ fanout:
       ansible_host: 10.3.147.158
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.159
-    str3-7260cx3-acs-fan-11:
+    str3-7260qx-acs-fan-01:
       ansible_host: 10.3.147.76
-    str3-7260cx3-acs-fan-12:
+    str3-7260qx-acs-fan-02:
       ansible_host: 10.3.147.12
     str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
@@ -218,6 +218,7 @@ sonic:
     sonic_arista64_100:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
+    sonic_dell64_40:
 
 sonic_mlnx_4600C:
   vars:
@@ -1239,8 +1240,8 @@ sonic_dell64_40:
         "0x2F": "DVWQG02"
         "0xFE": "0xA30214AA"
   vars:
-    hwsku: Dell-S6100-ON
-    iface_speed: 400000
+    hwsku: Force10-S6100
+    iface_speed: 40000
 
 server:
   hosts:

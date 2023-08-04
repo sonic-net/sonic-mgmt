@@ -158,7 +158,7 @@ def get_testbed_info(testbed):
             if not console_info:
                 continue
             if console_info['console_type'] == 'ssh':
-                dut_console.append('ssh ' + vars['creds']['username'] + ':p=' + console_info['console_port'] + '@' + console_info['console_host'])
+                dut_console.append("ssh -l {}:{} {}".format(vars['creds']['username'], console_info['console_port'], console_info['console_host']))
             else:
                 dut_console.append(console_info['console_type'] + ' ' + console_info['console_host'] + ' ' + console_info['console_port'])
             get_info = True

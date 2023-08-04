@@ -2261,7 +2261,7 @@
 
 - conf-name: vms64-t0-s6100-1
   group-name: vms64-3
-  topo: t0
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: vms64-3
   ptf_ip: 10.64.246.11/23
