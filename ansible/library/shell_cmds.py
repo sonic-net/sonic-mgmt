@@ -154,8 +154,11 @@ def main():
     )
 
     if output['failed']:
+        for idx in len(failed_cmds):
+            print("Running command failed: {}!.format(failed_cmds))
         module.fail_json(
-            msg='Running command(s) failed: {}!'.format(failed_cmds))
+            msg='At least running one of the commands failed', **output)
+
     module.exit_json(**output)
 
 
