@@ -3,7 +3,7 @@ import pytest
 import re
 
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import wait, wait_until, delete_running_config
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
 
@@ -736,6 +736,13 @@ class TestConfigInterface():
         logger.info('speed: {}'.format(speed))
 
         assert speed == '10000'
+
+        # Remove interface pg config
+        pg_lossless_key = "pg_lossless_" + str(speed) + "_300m_profile"
+        delete_keys_json = [{"BUFFER_PROFILE": {
+            pg_lossless_key: {}
+        }}]
+        delete_running_config(delete_keys_json, duthost)
 
         out = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} sudo config interface {}  speed {} {}'.format(
             ifmode, cli_ns_option, test_intf, native_speed))
