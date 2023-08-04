@@ -111,8 +111,17 @@ The test will be supported on any topology
     - Verify /etc/resolv.conf will be cleaned
 2. Do dhcp renew
    - Verify resolvconf is disabled to receive dynamic DNS configuration(/etc/resolv.conf remains clean)
+3. Add all deleted nameservers back.
 
-### Test cases #4 - Negative test: verify the limitation of the name server count should not excced 3, and the ip address should be correct.
+### Test cases #4 - Verify dynamic DNS will take effect when there is no static dns nameserver is configured and the ip is changed to the dynamic ip..
+1.Check there is no static ip configred
+2.Configure statically the same ip that was provided by dhcp.
+3.Delete all the nameservers from the config db with cli command
+    - Verify /etc/resolv.conf will be cleaned
+4.Remove the static IP
+5.Renew dhcp to restore the dns configuration.
+
+### Test cases #5 - Negative test: verify the limitation of the name server count should not excced 3, and the ip address should be correct.
 
 1. Delete a DNS nameserver which not exist in the config db
    - Verify there is Err msg returned
