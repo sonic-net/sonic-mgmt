@@ -99,7 +99,7 @@ RETURN = '''
             }
 '''
 
-### Default testbed file name
+# Default testbed file name
 TESTBED_FILE = 'testbed.yaml'
 TESTCASE_FILE = 'roles/test/vars/testcases.yml'
 
