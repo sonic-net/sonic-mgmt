@@ -54,7 +54,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     print("connected to host {}".format(host))
     chan = ssh.invoke_shell()
     resp = ''
-    while ':~$ ' not in resp:
+    while ':~$' not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
@@ -62,7 +62,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     print("Going into container '{}' to run tests".format(docker_mgmt_container))
     chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
     resp = ''
-    while ':~$ ' not in resp:
+    while ':~$' not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
@@ -110,7 +110,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
     resp = ''
-    while ':~$ ' not in resp:
+    while ':~$' not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
@@ -164,7 +164,7 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     
     chan = ssh.invoke_shell()
     resp = ''
-    while ':~$ ' not in resp:
+    while ':~$' not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
