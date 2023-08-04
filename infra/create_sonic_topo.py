@@ -864,19 +864,6 @@ def create_report_html(data,log_dir):
         if chan.recv_ready():
             print(chan.recv(9999).decode("ascii"))
         i += 1
-    # chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-    #     --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
-    # time.sleep(3)
-
-    # chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
-    # time.sleep(3)
-
-    # chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
-    # time.sleep(3)
-
-    # chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
-    # time.sleep(3)
-
     ssh.close()
 
 def get_log_files(data,log_dir):
