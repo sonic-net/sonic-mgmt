@@ -32,6 +32,8 @@ console-197,14,str3-7260cx3-acs-fan-05,ssh,admin
 console-197,13,str3-7260cx3-acs-fan-06,ssh,admin
 console-197,12,str3-7260cx3-acs-fan-07,ssh,admin
 console-197,11,str3-7260cx3-acs-fan-08,ssh,admin
+console-81,17,str3-7260qx-acs-fan-01,ssh,admin
+console-178,10,str3-7260qx-acs-fan-02,ssh,admin
 console-197,10,str3-7808-sup-1,ssh,admin
 console-182,5,str3-z9332f-02,ssh,admin
 console-182,20,str3-msn4600c-acs-05,ssh,admin

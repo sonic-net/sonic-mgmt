@@ -64,10 +64,10 @@ pdu-93,14,str3-7260cx3-acs-fan-09,PSU1
 pdu-94,16,str3-7260cx3-acs-fan-09,PSU2
 pdu-93,7,str3-7260cx3-acs-fan-10,PSU1
 pdu-94,7,str3-7260cx3-acs-fan-10,PSU2
-pdu-97,34,str3-7260cx3-acs-fan-11,PSU1
-pdu-96,34,str3-7260cx3-acs-fan-11,PSU2
-pdu-102,37,str3-7260cx3-acs-fan-12,PSU1
-pdu-103,37,str3-7260cx3-acs-fan-12,PSU2
+pdu-97,34,str3-7260qx-acs-fan-01,PSU1
+pdu-96,34,str3-7260qx-acs-fan-01,PSU2
+pdu-102,37,str3-7260qx-acs-fan-02,PSU1
+pdu-103,37,str3-7260qx-acs-fan-02,PSU2
 pdu-92,12,str3-7260cx3-acs-fan-37,PSU1
 pdu-92,13,str3-7260cx3-acs-fan-37,PSU2
 pdu-92,12,str3-7260cx3-acs-fan-37,PSU1
