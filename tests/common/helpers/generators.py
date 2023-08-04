@@ -4,6 +4,7 @@ import json
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
 
+
 def generate_ips(num, prefix, exclude_ips):
     """ Generate random ips within prefix """
     prefix = IPNetwork(prefix)
@@ -54,6 +55,7 @@ def generate_ip_through_default_route(host, exclude_ips=None):
         if route_through_default_routes(host, ip_addr):
             return ip_addr
     return None
+
 
 def generate_ip_through_default_v6_route(host, exclude_ips=None):
     """
