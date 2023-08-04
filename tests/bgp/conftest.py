@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
@@ -661,3 +661,37 @@ def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
         logger.info('Disable BGP suppress fib pending function')
         duthost.shell('sudo config suppress-fib-pending disabled')
         duthost.shell('sudo config save -y')
+
+
+@pytest.fixture(scope="module")
+def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo['topo']['type'] == 't2':
+        # For T2 setup, default route via eBGP is only advertised from T3 VM's which are connected to one of the
+        # linecards and not the other. So, can't use enum_rand_one_per_hwsku_frontend_hostname for T2.
+        dut_to_T3 = None
+        for a_dut in duthosts.frontend_nodes:
+            minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+            minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+            for key, value in list(minigraph_neighbors.items()):
+                if 'T3' in value['name']:
+                    dut_to_T3 = a_dut
+                    break
+            if dut_to_T3:
+                break
+        if dut_to_T3 is None:
+            pytest.skip("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
+        return dut_to_T3
+    else:
+        return duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+
+@pytest.fixture(scope="module")
+def set_timeout_for_bgpmon(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_TIME_FOR_BGPMON
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_bgpmon.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)

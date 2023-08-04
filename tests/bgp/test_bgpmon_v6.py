@@ -11,10 +11,10 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, get_plt_reboot_ctrl
+from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from test_bgpmon import get_default_route_ports, dut_with_default_route, set_timeout_for_bgpmon
+from test_bgpmon import get_default_route_ports
 pytestmark = [
     pytest.mark.topology('t2'),
 ]
@@ -27,7 +27,7 @@ ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def common_v6_setup_teardown(dut_with_default_route, tbinfo, enum_rand_one_frontend_asic_index):
     duthost = dut_with_default_route
     peer_addr = generate_ip_through_default_v6_route(duthost)
@@ -35,10 +35,11 @@ def common_v6_setup_teardown(dut_with_default_route, tbinfo, enum_rand_one_front
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
     peer_ports = get_default_route_ports(duthost, tbinfo, ZERO_V6_ADDR)
-    
-    # Get loopback4096 address    
+
+    # Get loopback4096 address
     if enum_rand_one_frontend_asic_index:
-        cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[enum_rand_one_frontend_asic_index]['ansible_facts']
+        cfg_facts = duthost.config_facts(
+                        source='persistent', asic_index='all')[enum_rand_one_frontend_asic_index]['ansible_facts']
     else:
         cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
 
@@ -48,13 +49,12 @@ def common_v6_setup_teardown(dut_with_default_route, tbinfo, enum_rand_one_front
             lb4096intf = ipaddress.ip_interface(lb4096)
             if lb4096intf.ip.version == 6:
                 if "/" in lb4096:
-                    local_addr = lb4096.split("/")[0] 
+                    local_addr = lb4096.split("/")[0]
                     break
                 else:
                     local_addr = lb4096
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    #local_addr = mg_facts['minigraph_lo_interfaces'][1]['addr']
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
@@ -107,7 +107,7 @@ def build_v6_syn_pkt(local_addr, peer_addr):
 
 
 def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
-                common_v6_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
+                   common_v6_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
@@ -165,7 +165,7 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
 
 
 def test_bgpmon_no_ipv6_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
-                                       common_v6_setup_teardown, ptfadapter):
+                                            common_v6_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
     """
