@@ -78,7 +78,7 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
-    featureCheckResult = nbrhosts[nbrhosts.keys()[0]]['host'].shell(
+    featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].shell(
             "sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC neighbor isn't running supported version of SONiC")
@@ -108,7 +108,7 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
     featureCheckResult = duthost.shell("sudo config portchannel retry-count get {}".format(
-        cfg_facts["PORTCHANNEL"].keys()[0]), module_ignore_errors=True)
+        list(cfg_facts["PORTCHANNEL"].keys())[0]), module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC DUT isn't running supported version of SONiC")
 

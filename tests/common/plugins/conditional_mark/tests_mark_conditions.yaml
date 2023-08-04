@@ -52,19 +52,19 @@ bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0'])"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: "Test not supported for cisco-8102 as it doesnt support single hop BFD. Skipping the test"
     conditions:
-      - "platform in ['x86_64-8102_64h_o-r0']"
+      - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
 
 #######################################
@@ -99,6 +99,13 @@ bgp/test_bgp_slb.py:
     reason: "Skip over topologies which doesn't support slb."
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
+
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -524,11 +531,10 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform or T1 topo. Test does not support dualtor topology."
+    reason: "Not working on non-mellanox platform. Test does not support dualtor topology."
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
-      - "'t1' in topo_name"
       - "'dualtor' in topo_name"
 
 #######################################
