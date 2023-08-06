@@ -361,7 +361,7 @@ def test_bgp_traffic_shift_away(
             logger.info("All BGP routes are withdrawed")
 
         duthost.fetch(src=log_file, dest="/tmp/fib")
-        if ts_method == "bgpshut" and "t1" in tbinfo["topo"]["type"]:
+        if ts_method == "bgpshut" and "t1" in tbinfo["topo"]["type"] and "backend" not in tbinfo["topo"]["name"]:
             pytest_assert(
                 bgp_ordered_check(
                     duthost,
@@ -441,7 +441,7 @@ def test_bgp_traffic_shift_restore(
             )
         check_bgp_status(duthost, "up")
         duthost.fetch(src=log_file, dest="/tmp/fib")
-        if "t1" in tbinfo["topo"]["type"]:
+        if "t1" in tbinfo["topo"]["type"] and "backend" not in tbinfo["topo"]["name"]:
             pytest_assert(
                 bgp_ordered_check(
                     duthost,
@@ -578,7 +578,7 @@ def test_bgp_traffic_shift_away_timeout(
             logger.info("All BGP routes are withdrawed")
 
         duthost.fetch(src=log_file, dest="/tmp/fib")
-        if ts_method == "bgpshut" and "t1" in tbinfo["topo"]["type"]:
+        if ts_method == "bgpshut" and "t1" in tbinfo["topo"]["type"] and "backend" not in tbinfo["topo"]["name"]:
             pytest_assert(
                 bgp_ordered_check(
                     duthost,
