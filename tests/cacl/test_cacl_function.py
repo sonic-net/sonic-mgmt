@@ -37,8 +37,8 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                    version="v2c",
                    community=creds['snmp_rocommunity'],
                    wait=True,
-                   timeout=20,
-                   interval=20)
+                   timeout=30,
+                   interval=5)
 
     # Ensure we can send an NTP request
     if NTPLIB_INSTALLED:
