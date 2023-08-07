@@ -9,7 +9,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4
-from tests.common.utilities import is_ipv4_address
 
 
 logger = logging.getLogger(__name__)
