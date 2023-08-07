@@ -12,6 +12,9 @@
     </DeviceInterfaceLinks>
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
+    <DevicesL3Info Hostname="example-s6100-dut-1">
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.0.0.10/32"/>
+    </DevicesL3Info>
     <DevicesL3Info Hostname="example-ixia-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.0.0.20/32"/>
     </DevicesL3Info>
@@ -21,4 +24,13 @@
       <InterfaceVlan mode="Access" portname="Card1/Port3" vlanids=""/>
     </DevicesL2Info>
   </DataPlaneGraph>
+  <ConsoleGraphDeclaration>
+    <DevicesConsoleInfo/>
+  </ConsoleGraphDeclaration>
+  <BmcGraphDeclaration>
+    <DevicesBmcInfo/>
+  </BmcGraphDeclaration>
+  <PowerControlGraphDeclaration>
+    <DevicesPowerControlInfo/>
+  </PowerControlGraphDeclaration>
 </LabConnectionGraph>

@@ -4794,7 +4794,7 @@
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-nokia-acs-1" Proxy="admin" StartDevice="console-194" StartPort="7"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-5" Proxy="admin" StartDevice="console-194" StartPort="32"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-dx010-acs-4" Proxy="admin" StartDevice="console-194" StartPort="13"/>
-      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-1" Proxy="admin" StartDevice="console-194" StartPort="1"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-1" Proxy="admin" StartDevice="console-194" StartPort="3"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-2" Proxy="admin" StartDevice="console-82" StartPort="25"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-3" Proxy="admin" StartDevice="console-194" StartPort="19"/>
       <ConsoleLinkInfo Console_type="ssh" EndDevice="str-e1031-acs-4" Proxy="admin" StartDevice="console-194" StartPort="20"/>

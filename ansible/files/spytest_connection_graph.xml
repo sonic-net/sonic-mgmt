@@ -2625,6 +2625,7 @@
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-02" EndPort="Ethernet232" StartDevice="str2-7250-lc2-1" StartPort="Ethernet24"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-02" EndPort="Ethernet240" StartDevice="str2-7250-lc2-1" StartPort="Ethernet25"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str2-z9332f-02" EndPort="Ethernet248" StartDevice="str2-7250-lc2-1" StartPort="Ethernet26"/>
+      <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-d10-u21" EndPort="Ethernet5/1" StartDevice="str2-7250-lc1-2" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-d10-u21" EndPort="Ethernet6/1" StartDevice="str2-7250-lc1-2" StartPort="Ethernet5"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-d10-u21" EndPort="Ethernet9/1" StartDevice="str2-7250-lc1-2" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str2-7260cx3-d10-u21" EndPort="Ethernet24/1" StartDevice="str2-7250-lc1-2" StartPort="Ethernet23"/>

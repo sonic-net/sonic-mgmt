@@ -113,21 +113,21 @@ class LabGraph(object):
                 devtype = row['Type'].lower()
                 if 'pdu' in devtype:
                     for key in row:
-                        attrs[key] = row[key].decode('utf-8')
+                        attrs[key] = row[key]
                     etree.SubElement(pdus_root, 'DevicePowerControlInfo', attrs)
                 elif 'consoleserver' in devtype:
                     for key in row:
-                        attrs[key] = row[key].decode('utf-8')
+                        attrs[key] = row[key]
                     etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
                 elif 'mgmttstorrouter' in devtype:
                     for key in row:
-                        attrs[key] = row[key].decode('utf-8')
+                        attrs[key] = row[key]
                     etree.SubElement(cons_root, 'DeviceConsoleInfo', attrs)
                     etree.SubElement(bmc_root, 'DeviceBmcInfo', attrs)
                 else:
                     for key in row:
                         if key.lower() != 'managementip' and key.lower() != 'protocol':
-                            attrs[key] = row[key].decode('utf-8')
+                            attrs[key] = row[key]
                     etree.SubElement(devices_root, 'Device', attrs)
 
     def read_links(self):
@@ -178,7 +178,7 @@ class LabGraph(object):
             attrs = {}
             for key in link:
                 if key.lower() != 'vlanid' and key.lower() != 'vlanmode':
-                    attrs[key] = link[key].decode('utf-8')
+                    attrs[key] = link[key]
             etree.SubElement(links_root, 'DeviceInterfaceLink', attrs)
 
     def read_consolelinks(self):
@@ -190,7 +190,7 @@ class LabGraph(object):
             for cons in csv_cons:
                 attrs = {}
                 for key in cons:
-                    attrs[key] = cons[key].decode('utf-8')
+                    attrs[key] = cons[key]
                 etree.SubElement(conslinks_root, 'ConsoleLinkInfo', attrs)
                 self.consoles.append(cons)
 
@@ -203,7 +203,7 @@ class LabGraph(object):
             for bmc in csv_bmc:
                 attrs = {}
                 for key in bmc:
-                    attrs[key] = bmc[key].decode('utf-8')
+                    attrs[key] = bmc[key]
                 etree.SubElement(bmclinks_root, 'BmcLinkInfo', attrs)
                 self.bmcs.append(bmc)
 
@@ -216,7 +216,7 @@ class LabGraph(object):
             for pdu_link in csv_pdus:
                 attrs = {}
                 for key in pdu_link:
-                    attrs[key] = pdu_link[key].decode('utf-8')
+                    attrs[key] = pdu_link[key]
                 etree.SubElement(pduslinks_root, 'PowerControlLinkInfo', attrs)
                 self.pdus.append(pdu_link)
 
@@ -270,6 +270,10 @@ class LabGraph(object):
         root.append(self.bmcgroot)
         root.append(self.pcgroot)
         result = etree.tostring(root, pretty_print=True)
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')
+        else:
+            result = str(result)
         onexml.write(result)
 
 

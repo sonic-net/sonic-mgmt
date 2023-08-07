@@ -95,3 +95,5 @@ str3-7260cx3-acs-2,10.3.147.157,Arista-7260CX3-C64,DevSonic,,sonic
 str3-dx010-acs-1,10.3.146.236/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 str3-msn4700-01,10.3.146.207,Mellanox-SN4700-O8C48,DevSonic,,sonic
 str3-msn4700-fanout-01,10.3.147.208,Mellanox-SN4700-O8C48,FanoutLeafSonic,,sonic
+str3-s6100-acs-6,10.3.147.141/23,Force10-S6100,DevSonic,,sonic
+str3-s6100-acs-7,10.3.147.171/23,Force10-S6100,DevSonic,,sonic
