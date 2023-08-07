@@ -9,14 +9,14 @@ if bundled_parser:
     vendor_dir = os.path.join(os.path.dirname(__file__), '..', "vendor")
     sys.path.insert(0, os.path.abspath(vendor_dir))
 
-import textfsm
+import textfsm # noqa: E402
 try:
     import clitable
 except Exception:
     from textfsm import clitable
 
-from spytest import env
-import utilities.common as utils
+from spytest import env # noqa: E402
+import utilities.common as utils # noqa: E402
 
 
 class Template(object):
