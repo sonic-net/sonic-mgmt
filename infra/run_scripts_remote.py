@@ -63,6 +63,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
     chan.send(cmd)
     resp = ''
+    time.sleep(3)
     while ':~$' not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
