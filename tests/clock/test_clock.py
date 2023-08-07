@@ -18,9 +18,6 @@ pytestmark = [
 
 
 class ClockConsts:
-    STDOUT = "stdout"
-    STDERR = "stderr"
-
     DATE = "date"
     TIME = "time"
     TIMEZONE = "timezone"
@@ -78,10 +75,10 @@ class ClockUtils:
             logging.info(f'Actual command to run: "{cmd_to_run}"')
 
             try:
-                cmd_output = duthosts.command(cmd_to_run)[dut_hostname][ClockConsts.STDOUT]
+                cmd_output = duthosts.command(cmd_to_run)[dut_hostname]["stdout"]
             except RunAnsibleModuleFail as cmd_err:
-                output = cmd_err.results[ClockConsts.STDOUT]
-                err = cmd_err.results[ClockConsts.STDERR]
+                output = cmd_err.results["stdout"]
+                err = cmd_err.results["stderr"]
                 cmd_output = output if output else err
                 logging.info(f'Command Error!\nError message: "{cmd_output}"')
 
