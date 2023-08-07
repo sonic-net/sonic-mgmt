@@ -2324,7 +2324,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     # get a snapshot of counter values at recv and transmit ports
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
-                        self.client, self.asic_type, port_list[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
+                        self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
 
                 if platform_asic and platform_asic == "broadcom-dnx":
                     pass
@@ -2336,7 +2336,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 if pkt_cnt == 10:
-                    sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
+                    sys.exit("Too many pkts needed to trigger pfc: %d" %
+                             (pkt_cnt))
                 assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
                         recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
