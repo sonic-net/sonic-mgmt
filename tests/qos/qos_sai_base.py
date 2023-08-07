@@ -395,7 +395,7 @@ class QosSaiBase(QosBase):
                     schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
                         argv=[
                             "redis-cli", "-n", "4", "HGET",
-                            "QUEUE|{0}|asic0|{1}|{2}"
+                            "QUEUE|{0}|Asic0|{1}|{2}"
                             .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
                         ]
                     )[0].encode("utf-8")
