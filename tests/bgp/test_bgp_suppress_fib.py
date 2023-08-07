@@ -92,7 +92,8 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
     duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
-            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' \(.* minutes\)*"
+            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
+            "\\(.* minutes\\)*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
