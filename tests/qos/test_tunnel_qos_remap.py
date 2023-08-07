@@ -1,6 +1,5 @@
 import logging
 import pytest
-import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy

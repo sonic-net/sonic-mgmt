@@ -48,6 +48,7 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
 
     return pkt, exp_tunnel_pkt
 
+
 def get_queue_watermark(duthost, port, queue, clear_after_read=False):
     """
     Return the queue watermark for the given port and queue
@@ -77,6 +78,7 @@ def get_queue_watermark(duthost, port, queue, clear_after_read=False):
     if clear_after_read:
         duthost.shell("sonic-clear queue watermark unicast")
     return wmk
+
 
 def get_queue_counter(duthost, port, queue, clear_before_read=False):
     """
