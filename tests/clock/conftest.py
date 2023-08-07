@@ -18,8 +18,7 @@ def ntp_server(request):
     ntp_server_ip = request.config.getoption("ntp_server")
     logging.info(f'NTP server ip from execution parameter: {ntp_server_ip}')
     if ntp_server_ip is None:
-        logging.info('IP of NTP server was not given. Skipping the test')
-        pytest.skip("IP of NTP server was not given. Skipping the test")
+        pytest.fail("IP of NTP server was not given")
     return ntp_server_ip
 
 
