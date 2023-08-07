@@ -34,7 +34,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session      
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT
 )
-from tests.platform_tests.db_migrator import WHITELIST_202012_202305, WHITELIST_201811_202012
+from tests.platform_tests.config_db_whitelist import WHITELIST_201811_202012, WHITELIST_202012_202305
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.system_utils import docker
@@ -2076,18 +2076,20 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
             def _remove_whitelist_entry(table_name, key_name, sub_keys, config):
                 if table_name in config:
+                    keys_to_remove = []
                     if key_name and len(sub_keys) == 0:
                         if key_name in config[table_name]:
                             config[table_name].pop(key_name)
+                        if key_name == "*":
+                            config.pop(table_name)
                     else:
-                        keys_to_remove = []
-                        if key_name == "Ethernet*":
-                            for key in config[table_name]:
-                                if "Ethernet" in key:
-                                    keys_to_remove.append(key)
                         if key_name == "*":
                             for key in config[table_name]:
                                 keys_to_remove.append(key)
+                        elif "*" in key_name:
+                            for key in config[table_name]:
+                                if re.match(key_name, key):
+                                    keys_to_remove.append(key)
                         if not keys_to_remove:
                             keys_to_remove.append(key_name)
                         for key in keys_to_remove:
@@ -2112,13 +2114,23 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                     _remove_entry(fields[0], fields[1], cur_running_config)
 
                 if whitelist_flag:
-                    for key, sub_key in WHITELIST_202012_202305.items():
-                        logger.info("key: %s, sub_key %s" % (key, sub_key))
-
+                    downloaded_image_version = ""
+                    whitelist_data = None
+                    sonic_installer = duthost.shell("sonic_installer list")["stdout"]
+                    next_line = [line for line in sonic_installer.split("\n") if "Next:" in line][0]
+                    if next_line:
+                        downloaded_image_version = next_line.split("Next:")[1].strip()
+                    else:
+                        logger.error("Unable to get target image version")
+                    if "201811" in duthost.os_version and "202012" in downloaded_image_version:
+                        whitelist_data = WHITELIST_201811_202012
+                    elif "202012" in duthost.os_version and "202305" in downloaded_image_version:
+                        whitelist_data = WHITELIST_202012_202305
+                    for key, sub_key in whitelist_data.items():
                         fields = key.split('|')
-                        logger.info("field0: %s, field1: %s" % (fields[0], fields[1]))
                         _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
                         _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
+
 
                 pre_running_config_keys = set(pre_running_config.keys())
                 cur_running_config_keys = set(cur_running_config.keys())
