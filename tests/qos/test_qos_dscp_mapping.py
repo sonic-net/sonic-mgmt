@@ -144,13 +144,13 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
     Base class
     """
 
-    def run_test(self,
-                 ptfadapter,
-                 duthost,
-                 tbinfo,
-                 dutTestParams,
-                 dutConfig,
-                 dut_qos_maps): # noqa F811
+    def _run_test(self,
+                  ptfadapter,
+                  duthost,
+                  tbinfo,
+                  dutTestParams,
+                  dutConfig,
+                  dut_qos_maps): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets
             Args:
@@ -241,4 +241,4 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets
         """
-        self.run_test(ptfadapter, duthost, tbinfo, dutTestParams, dutConfig, dut_qos_maps)
+        self._run_test(ptfadapter, duthost, tbinfo, dutTestParams, dutConfig, dut_qos_maps)
