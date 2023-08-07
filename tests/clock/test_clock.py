@@ -3,10 +3,8 @@ import random
 import string
 import pytest
 import time
-# import allure
 import datetime as dt
 
-from contextlib import contextmanager
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
