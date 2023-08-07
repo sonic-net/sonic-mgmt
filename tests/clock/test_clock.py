@@ -26,11 +26,11 @@ def allure_step(step_msg):
     @param step_msg: The desired step message
     """
     with allure.step(step_msg) as allure_step_context:
-        logging.info('Step start: {}'.format(step_msg))
+        logging.info(f'Step start: {step_msg}')
         try:
             yield allure_step_context
         finally:
-            logging.info('Step end: {}'.format(step_msg))
+            logging.info(f'Step end: {step_msg}')
 
 
 class ClockConsts:
@@ -87,11 +87,11 @@ class ClockUtils:
                 while failure returns an error message
         @return: commands output (str)
         """
-        with allure_step('Run command: "{}" with param "{}"'.format(cmd, param)):
+        with allure_step(f'Run command: "{cmd}" with param "{param}"'):
             dut_hostname = duthosts[0].hostname
 
             cmd_to_run = cmd if param == '' else cmd + ' ' + param
-            logging.info('Actual command to run: "{}"'.format(cmd_to_run))
+            logging.info(f'Actual command to run: "{cmd_to_run}"')
 
             try:
                 cmd_output = duthosts.command(cmd_to_run)[dut_hostname][ClockConsts.STDOUT]
@@ -99,10 +99,10 @@ class ClockUtils:
                 output = cmd_err.results[ClockConsts.STDOUT]
                 err = cmd_err.results[ClockConsts.STDERR]
                 cmd_output = output if output else err
-                logging.info('Command Error!\nError message: "{}"'.format(cmd_output))
+                logging.info(f'Command Error!\nError message: "{cmd_output}"')
 
             cmd_output = str(cmd_output)
-            logging.info('Output: {}'.format(cmd_output))
+            logging.info(f'Output: {cmd_output}')
 
         return cmd_output
 
@@ -120,16 +120,16 @@ class ClockUtils:
         with allure_step('Verify output of show clock'):
             try:
                 timezone_str = show_clock_output.split()[-1].strip()
-                logging.info('Timezone str: "{}"'.format(timezone_str))
+                logging.info(f'Timezone str: "{timezone_str}"')
 
                 date_time_to_parse = show_clock_output.replace(timezone_str, '').strip()
-                logging.info('Time and date to parse: "{}"'.format(date_time_to_parse))
+                logging.info(f'Time and date to parse: "{date_time_to_parse}"')
 
                 datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %d %b %Y %I:%M:%S %p')
-                logging.info('Datetime object: "{}"\t|\tType: {}'.format(datetime_obj, type(datetime_obj)))
+                logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
-                logging.info('Show clock output is not valid.\nOutput: "{}"'.format(show_clock_output))
-                pytest.fail('Show clock output is not valid.\nOutput: "{}"'.format(show_clock_output))
+                logging.info(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
+                pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
 
         with allure_step('Split output of show clock'):
             res = {
@@ -137,7 +137,7 @@ class ClockUtils:
                 ClockConsts.TIME: datetime_obj.strftime("%H:%M:%S"),
                 ClockConsts.TIMEZONE: timezone_str
             }
-            logging.info('res dict: {}'.format(res))
+            logging.info(f'res dict: {res}')
 
             return res
 
@@ -168,13 +168,13 @@ class ClockUtils:
         """
         with allure_step('Parse linux command output into dictionary'):
             rows = [row.strip() for row in linux_cmd_output.split('\n')]  # split by rows
-            logging.info('rows: {}'.format(rows))
+            logging.info(f'rows: {rows}')
             res_dict = {}
             for row in rows:
-                logging.debug('row: "{}"'.format(row))
+                logging.debug(f'row: "{row}"')
                 row_split = row.split(':', 1)
                 res_dict[row_split[0]] = row_split[1].strip()
-            logging.info('Result dict:\n{}'.format(res_dict))
+            logging.info(f'Result dict:\n{res_dict}')
             return res_dict
 
     @staticmethod
@@ -197,7 +197,7 @@ class ClockUtils:
         @param duthosts: duthosts object
         @param expected_tz_name: The expected timezone name
         """
-        with allure_step('Verify that current system timezone is as expected ({})'.format(expected_tz_name)):
+        with allure_step(f'Verify that current system timezone is as expected ({expected_tz_name})'):
             with allure_step('Get timezone details from show clock and timedatectl commands'):
                 show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
                 show_clock_tz_abbr = ClockUtils.verify_and_parse_show_clock_output(
@@ -208,15 +208,14 @@ class ClockUtils:
                 timedatectl_tz_name = timedatectl_tz_split[0].strip()
                 timedatectl_tz_abbr = timedatectl_tz_split[1].split(',', 1)[0].replace('(', '').strip()
 
-            with allure_step('Compare timezone abbreviations of show clock ({}) and timedatectl ({})'.format(
-                    show_clock_tz_abbr, timedatectl_tz_abbr)):
-                assert timedatectl_tz_abbr == show_clock_tz_abbr, 'Expected: {} == {}' \
-                    .format(timedatectl_tz_abbr, show_clock_tz_abbr)
+            with allure_step(f'Compare timezone abbreviations of show clock ({show_clock_tz_abbr}) '
+                             f'and timedatectl ({timedatectl_tz_abbr})'):
+                assert timedatectl_tz_abbr == show_clock_tz_abbr, \
+                    'Expected: {timedatectl_tz_abbr} == {show_clock_tz_abbr}'
 
-            with allure_step('Compare timezone name from timedatectl ({}) to the expected ({})'.format(
-                    timedatectl_tz_name, expected_tz_name)):
-                assert timedatectl_tz_name == expected_tz_name, 'Expected: {} == {}' \
-                    .format(timedatectl_tz_name, expected_tz_name)
+            with allure_step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
+                             f'to the expected ({expected_tz_name})'):
+                assert timedatectl_tz_name == expected_tz_name, f'Expected: {timedatectl_tz_name} == {expected_tz_name}'
 
     @staticmethod
     def select_random_date():
@@ -237,7 +236,7 @@ class ClockUtils:
 
             rand_date_str = rand_date.strftime('%Y-%m-%d')
 
-            logging.info('Selected random date: "{}"'.format(rand_date_str))
+            logging.info(f'Selected random date: "{rand_date_str}"')
             return rand_date_str
 
     @staticmethod
@@ -254,7 +253,7 @@ class ClockUtils:
 
             rand_time_str = time.strftime("%H:%M:%S", rand_time_obj)
 
-            logging.info('Selected random time: "{}"'.format(rand_time_str))
+            logging.info(f'Selected random time: "{rand_time_str}"')
             return rand_time_str
 
     @staticmethod
@@ -268,16 +267,16 @@ class ClockUtils:
         @param allowed_margin: allowed margin between two times (in seconds)
         """
         with allure_step(
-                'Verify that diff between "{}" and "{}" (in seconds) is no longer than {}'.format(expected, actual,
-                                                                                                  allowed_margin)):
-            with allure_step('Calculate diff between "{}" and "{}" in seconds'.format(expected, actual)):
+                f'Verify that diff between "{expected}" and "{actual}" (in seconds) is '
+                f'no longer than {allowed_margin}'):
+            with allure_step(f'Calculate diff between "{expected}" and "{actual}" in seconds'):
                 datetime_obj1 = dt.datetime.strptime(expected, "%Y-%m-%d %H:%M:%S")
                 datetime_obj2 = dt.datetime.strptime(actual, "%Y-%m-%d %H:%M:%S")
 
                 diff_seconds = abs((datetime_obj2 - datetime_obj1).total_seconds())
 
-            with allure_step('Verify that actual diff {} is not larger than {}'.format(diff_seconds, allowed_margin)):
-                assert diff_seconds <= allowed_margin, 'Expected: {} <= {}'.format(diff_seconds, allowed_margin)
+            with allure_step(f'Verify that actual diff {diff_seconds} is not larger than {allowed_margin}'):
+                assert diff_seconds <= allowed_margin, f'Expected: {diff_seconds} <= {allowed_margin}'
 
 
 def test_show_clock(duthosts, init_timezone):
@@ -316,30 +315,30 @@ def test_config_clock_timezone(duthosts, init_timezone):
         while new_timezone == orig_timezone:
             new_timezone = random.choice(valid_timezones)
 
-    with allure_step('Set the new timezone "{}"'.format(new_timezone)):
+    with allure_step(f'Set the new timezone "{new_timezone}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
 
     with allure_step('Verify command success'):
-        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, 'Expected: "{}" == "{}"'.format(output,
-                                                                                         ClockConsts.OUTPUT_CMD_SUCCESS)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
-    with allure_step('Verify timezone changed to "{}"'.format(new_timezone)):
+    with allure_step(f'Verify timezone changed to "{new_timezone}"'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
     with allure_step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
         while invalid_timezone in valid_timezones:
             invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
-        logging.info('Selected invalid timezone: "{}"'.format(invalid_timezone))
+        logging.info(f'Selected invalid timezone: "{invalid_timezone}"')
 
-    with allure_step('Try to set the invalid timezone "{}"'.format(invalid_timezone)):
+    with allure_step(f'Try to set the invalid timezone "{invalid_timezone}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, invalid_timezone)
 
     with allure_step('Verify command failure'):
         expected_err = ClockConsts.ERR_BAD_TIMEZONE.format(invalid_timezone)
         assert expected_err in output, \
-            'Error: The given string does not contain the expected substring.\nExpected substring: "{}"\n' \
-            'Given (whole) string: "{}"'.format(expected_err, output)
+            f'Error: The given string does not contain the expected substring.\n' \
+            f'Expected substring: "{expected_err}"\n' \
+            f'Given (whole) string: "{output}"'
 
     with allure_step('Verify timezone has not changed'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
@@ -361,14 +360,13 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         new_time = ClockUtils.select_random_time()
         new_datetime = new_date + ' ' + new_time
 
-    with allure_step('Set new date and time "{}"'.format(new_datetime)):
+    with allure_step(f'Set new date and time "{new_datetime}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)
 
     with allure_step('Verify command success'):
-        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, 'Expected: "{}" == "{}"'.format(output,
-                                                                                         ClockConsts.OUTPUT_CMD_SUCCESS)
+        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
-    with allure_step('Verify date and time changed to "{}"'.format(new_datetime)):
+    with allure_step(f'Verify date and time changed to "{new_datetime}"'):
         with allure_step('Get datetime from show clock'):
             show_clock_output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
             show_clock_dict = ClockUtils.verify_and_parse_show_clock_output(show_clock_output)
@@ -376,31 +374,31 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
         with allure_step('Verify date-time'):
             cur_date = show_clock_dict[ClockConsts.DATE]
             cur_time = show_clock_dict[ClockConsts.TIME]
-            cur_datetime = '{} {}'.format(cur_date, cur_time)
+            cur_datetime = f'{cur_date} {cur_time}'
 
             ClockUtils.verify_datetime(expected=new_datetime, actual=cur_datetime)
 
     with allure_step('Select random string as invalid input'):
         rand_str = ''.join(random.choice(string.ascii_lowercase) for _ in range(ClockConsts.RANDOM_NUM))
-        logging.info('Selected random string: "{}"'.format(rand_str))
+        logging.info(f'Selected random string: "{rand_str}"')
 
     with allure_step('Try to set invalid inputs'):
         errors = {
             '': ClockConsts.ERR_MISSING_DATE,
             rand_str: ClockConsts.ERR_MISSING_TIME,
-            '{} {}'.format(rand_str, rand_str): '{}\n{}'.format(ClockConsts.ERR_BAD_DATE.format(rand_str),
-                                                                ClockConsts.ERR_BAD_TIME.format(rand_str)),
-            '{} {}'.format(rand_str, new_time): ClockConsts.ERR_BAD_DATE.format(rand_str),
-            '{} {}'.format(new_date, rand_str): ClockConsts.ERR_BAD_TIME.format(rand_str)
+            f'{rand_str} {rand_str}': f'{ClockConsts.ERR_BAD_DATE.format(rand_str)}\n'
+                                      f'{ClockConsts.ERR_BAD_TIME.format(rand_str)}',
+            f'{rand_str} {new_time}': ClockConsts.ERR_BAD_DATE.format(rand_str),
+            f'{new_date} {rand_str}': ClockConsts.ERR_BAD_TIME.format(rand_str)
         }
 
         for invalid_input, err_msg in errors.items():
-            logging.info('Invalid input: "{}"\nExpected error:\n{}'.format(invalid_input, err_msg))
+            logging.info(f'Invalid input: "{invalid_input}"\nExpected error:\n{err_msg}')
 
             with allure_step('Get show clock output before running the config command'):
                 show_clock_output_before = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_SHOW_CLOCK)
 
-            with allure_step('Try to set "{}"'.format(invalid_input)):
+            with allure_step(f'Try to set "{invalid_input}"'):
                 output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, invalid_input)
 
             with allure_step('Get show clock output after running the config command'):
@@ -408,20 +406,21 @@ def test_config_clock_date(duthosts, init_timezone, restore_time):
 
             with allure_step('Verify command failure'):
                 assert err_msg in output, \
-                    'Error: The given string does not contain the expected substring.\nExpected substring: "{}"\n' \
-                    'Given (whole) string: "{}"'.format(err_msg, output)
+                    f'Error: The given string does not contain the expected substring.\n' \
+                    f'Expected substring: "{err_msg}"\n' \
+                    f'Given (whole) string: "{output}"'
 
-            with allure_step('Verify date and time have not changed (still "{}")'.format(new_datetime)):
+            with allure_step(f'Verify date and time have not changed (still "{new_datetime}")'):
                 show_clock_dict_before = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_before)
                 show_clock_dict_after = ClockUtils.verify_and_parse_show_clock_output(show_clock_output_after)
 
                 with allure_step('Verify date-time'):
                     date_before = show_clock_dict_before[ClockConsts.DATE]
                     time_before = show_clock_dict_before[ClockConsts.TIME]
-                    datetime_before = '{} {}'.format(date_before, time_before)
+                    datetime_before = f'{date_before} {time_before}'
 
                     date_after = show_clock_dict_after[ClockConsts.DATE]
                     time_after = show_clock_dict_after[ClockConsts.TIME]
-                    datetime_after = '{} {}'.format(date_after, time_after)
+                    datetime_after = f'{date_after} {time_after}'
 
                     ClockUtils.verify_datetime(expected=datetime_before, actual=datetime_after)
