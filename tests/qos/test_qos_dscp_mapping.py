@@ -12,12 +12,9 @@ from tabulate import tabulate
 
 from tests.common.utilities import wait_until, is_ipv4_address, get_ipv4_loopback_ip, get_dscp_to_queue_value,\
     get_dut_pair_port_from_ptf_port
-from tests.common.config_reload import config_reload
-from tests.common.helpers.assertions import pytest_assert, pytest_require
-from abc import abstractmethod
-from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.duthost_utils import dut_qos_maps
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
-from tests.common.fixtures.duthost_utils import dut_qos_maps # noqa F811
 from tests.qos.qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -173,14 +170,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base(QosSaiBase):
         DUMMY_IP = '8.8.8.8'
 
         router_mac = dutTestParams["basicParams"]['router_mac']
-        test_port_ids = dutConfig["testPortIds"]
-        outer_dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        # test_port_ids = dutConfig["testPortIds"]
+        # outer_dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         outer_dst_pkt_ip = loopback_ip
         outer_src_port_id = dutConfig["testPorts"]["src_port_id"]
         outer_src_pkt_ip = dutConfig["testPorts"]["src_port_ip"]
         inner_dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         inner_dst_pkt_ip = dutConfig["testPorts"]["dst_port_ip"]
-        inner_src_port_id = dutConfig["testPorts"]["src_port_id"]
+        # inner_src_port_id = dutConfig["testPorts"]["src_port_id"]
         inner_src_pkt_ip = DUMMY_IP
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, outer_src_port_id)
         ptf_dst_mac = ptfadapter.dataplane.get_mac(0, inner_dst_port_id)
