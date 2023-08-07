@@ -2,12 +2,8 @@
 Test cases for testing DSCP to Queue mapping for IP-IP packets in SONiC.
 """
 
-
-import os
-import time
 import logging
 import pytest
-import json
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf import mask
@@ -22,6 +18,7 @@ from abc import abstractmethod
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 from tests.common.fixtures.duthost_utils import dut_qos_maps # noqa F811
+from tests.qos.qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +83,11 @@ def create_ipip_packet(outer_src_mac,
     inner_pkt += 1
 
     exp_pkt = mask.Mask(inner_pkt)
-    exp_pkt.set_do_not_care_scapy(scapy.Ether, 'src')
-    exp_pkt.set_do_not_care_scapy(scapy.Ether, 'dst')
-    exp_pkt.set_do_not_care_scapy(scapy.IP, 'id')
-    exp_pkt.set_do_not_care_scapy(scapy.IP, 'ttl')
-    exp_pkt.set_do_not_care_scapy(scapy.IP, 'chksum')
+    exp_pkt.set_do_not_care_scapy(Ether, 'src')
+    exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+    exp_pkt.set_do_not_care_scapy(IP, 'id')
+    exp_pkt.set_do_not_care_scapy(IP, 'ttl')
+    exp_pkt.set_do_not_care_scapy(IP, 'chksum')
 
     return outer_pkt, exp_pkt
 
@@ -139,7 +136,7 @@ def send_and_verify_traffic(duthost,
         output_table.append([inner_dscp, egress_queue, egress_queue_count])
 
 
-class QoSSaiDSCPQueueMapping_IPIP_Base(object):
+class TestQoSSaiDSCPQueueMapping_IPIP_Base(QosSaiBase):
     """
     Base class
     """
