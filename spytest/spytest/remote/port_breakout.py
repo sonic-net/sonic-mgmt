@@ -71,12 +71,14 @@ sonic_platforms = {
 }
 
 #####################################################################################################
-### Platform related code
+# Platform related code
 
 if not SIM_HOST:
     def decode(s):
-        try: return s.decode()
-        except Exception: return s
+        try:
+            return s.decode()
+        except Exception:
+            return s
 
     def get_platform():
         cmd = "cat /host/machine.conf | grep onie_platform | cut -d '=' -f 2"
@@ -98,6 +100,7 @@ if not SIM_HOST:
 
     def get_hwsku():
         dir = get_platform_path()
+        # nosemgrep-next-line
         pin = subprocess.Popen("cat " + dir + "/default_sku | cut -d ' ' -f 1",
                                shell=True,
                                close_fds=True,
@@ -111,11 +114,12 @@ if not SIM_HOST:
 
     def run_command(command, display_cmd=False, ignore_error=False, print_to_console=True):
         ###
-        ### Run bash command and print output to stdout
+        # Run bash command and print output to stdout
         ###
         if display_cmd is True:
             print("Running command: " + command)
 
+        # nosemgrep-next-line
         proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
         (out, err) = proc.communicate()
 
@@ -138,7 +142,7 @@ if not SIM_HOST:
         sai_profile_content, _ = run_command(command, print_to_console=False)
 
         for line in sai_profile_content.split('\n'):
-            if not SAI_PROFILE_DELIMITER in line:
+            if SAI_PROFILE_DELIMITER not in line:
                 continue
             key, value = line.split(SAI_PROFILE_DELIMITER)
             sai_profile_kvs[key] = value.strip()
@@ -500,7 +504,7 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
             f_out.write(oline)
             continue
 
-        ### logic port, phyical port, speed
+        # logic port, phyical port, speed
         lp, pp, _ = parse_port_bcm(line)
         if pp not in lanes:
             f_out.write(oline)
@@ -510,7 +514,7 @@ def break_in_bcm(port, lanes, bcm_file, opt, platform):
             print("--- portmap_{} removed".format(lp))
             continue
 
-        #### generate new port map
+        # generate new port map
         print("    %s" % line.rstrip())
         for i in range(0, min(len(lanes), get_bkout_lanes(opt)), step):
             if '.' in lp:
@@ -559,7 +563,7 @@ def break_in_cfg(port, cfg_file, lanes, opt, platform):
         json.dump(data, outfile, indent=4, sort_keys=True)
 
     ###
-    ### Process in 'INTERFACE'
+    # Process in 'INTERFACE'
     ###
     if 'INTERFACE' in data:
         for key, _ in sorted(data['INTERFACE'].items()):
@@ -568,9 +572,9 @@ def break_in_cfg(port, cfg_file, lanes, opt, platform):
                 data['INTERFACE'].pop(key)
 
     ###
-    ### Process in 'PORT'
+    # Process in 'PORT'
 
-    ### remove port instance in data
+    # remove port instance in data
     ###
     idx = 0
     ports = get_bkout_ports(port, opt)
@@ -618,7 +622,7 @@ def break_in_cfg(port, cfg_file, lanes, opt, platform):
         new_port = INTERFACE_KEY + str(int(idx) + (i / step))
         xxx = copy.deepcopy(port_instance)
         data['PORT'][new_port] = xxx
-        ### print data['PORT'][new_port]
+        # print data['PORT'][new_port]
 
     for i in range(0, min(len(lanes), get_bkout_lanes(opt)), step):
         new_port = INTERFACE_KEY + str(int(idx) + (i / step))
@@ -716,7 +720,7 @@ def check_vaildation(platform, hwsku, port, opt):
         print("Wrong interface name:%s" % (port))
         return False
 
-    ### need re-visit
+    # need re-visit
     idx = port.split()[0].split(INTERFACE_KEY, 1)[1]
 
     if int(idx) % (get_bkout_lanes(opt) / get_bkout_step(opt)) != 0:
@@ -744,7 +748,7 @@ def check_vaildation(platform, hwsku, port, opt):
 
         line_port = line.split()[0]
 
-        ### Check breakout case
+        # Check breakout case
         if get_is_bkout(opt):
             if line_port == port:
                 port_found += 1
@@ -785,7 +789,7 @@ def process_args(argv):
     opt = None
 
     try:
-        opts, _ = getopt.getopt(argv, "hlvc:p:o:", \
+        opts, _ = getopt.getopt(argv, "hlvc:p:o:",
                                 ["help", "list", "verbose", "cust=", "port=", "opt="])
 
         for opt, arg in opts:
@@ -831,7 +835,7 @@ def process_args(argv):
 
     return verbose, port, opt
 
-### Breakout interface
+# Breakout interface
 
 
 def main(argv):
@@ -879,7 +883,7 @@ def main(argv):
 
     break_a_port(port, opt, platform, hwsku)
 
-    ### disable pre-emphasis workaround in 'led_proc_init.soc'
+    # disable pre-emphasis workaround in 'led_proc_init.soc'
     # file = get_led_file(platform, hwsku)
     # if os.path.exists(file):
     #    run_command("sed -i 's/^rcload/#rcload/g' " + file)

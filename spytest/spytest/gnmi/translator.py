@@ -54,9 +54,9 @@ def getAttrValLists(path, var):
                 vList[k] = [v]
         for i, name in enumerate(attrs):
             idx = idxs.get(name, 0)
-            l = vList.get(name, [])
-            if idx < len(l):
-                vals[i] = l[idx]
+            ll = vList.get(name, [])
+            if idx < len(ll):
+                vals[i] = ll[idx]
             else:
                 vals[i] = ''
             idxs[name] = idx + 1
@@ -120,18 +120,21 @@ def cleanGnmiPath(path):
     cmp = re.split(r'(/openconfig-[^/:]+:)', path)
     for i, v in enumerate(cmp):
         if v.startswith('/openconfig-'):
-            if idx: cmp[i] = '/'
+            if idx:
+                cmp[i] = '/'
             idx += 1
     return ''.join(cmp)
 
 
 def toAction(act=''):
     ''' return proper action for gNMI '''
-    if str(act).lower() not in ActionMap and str(act).upper() not in ActionMap.values(): act = 'GET'
+    if str(act).lower() not in ActionMap and str(act).upper() not in ActionMap.values():
+        act = 'GET'
     return ActionMap.get(act.lower(), act)
 
 
 def toMethod(met=''):
     ''' return proper method for Rest '''
-    if str(met).lower() not in MethodMap and str(met).upper() not in MethodMap.values(): met = 'GET'
+    if str(met).lower() not in MethodMap and str(met).upper() not in MethodMap.values():
+        met = 'GET'
     return MethodMap.get(met.lower(), met)

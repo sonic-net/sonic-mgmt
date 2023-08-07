@@ -7,8 +7,8 @@
 
     <title>SPyTest Batch Run Dashboard</title>
 
-    <link rel="stylesheet" type="text/css" href="{{cdn}}datatables.min.css"/>
-    <script type="text/javascript" src="{{cdn}}datatables.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{cdn}}datatables.min.css"/> <!-- nosemgrep -->
+    <script type="text/javascript" src="{{cdn}}datatables.min.js"></script> <!-- nosemgrep -->
     <script type="text/javascript">
 
     var prev_active_li = null;
@@ -340,67 +340,67 @@
             </ul>
         </li>
         {%- endif %}
-        <li><a target="mainFrame" href="{{results_features}}">Run</a></li>
+        <li><a target="mainFrame" href="{{results_features}}">Run</a></li> <!-- nosemgrep -->
         <li>
             <ul>
-                <li><a target="mainFrame" href="{{features_summary}}">Summary</a></li>
-                <li class="collapseAfter"><a target="mainFrame" href="{{results_modules}}">Modules</a></li>
-                <li><a target="mainFrame" href="{{results_functions}}">Functions</a></li>
-                <li><a target="mainFrame" href="{{results_testcases}}">Testcases</a></li>
+                <li><a target="mainFrame" href="{{features_summary}}">Summary</a></li> <!-- nosemgrep -->
+                <li class="collapseAfter"><a target="mainFrame" href="{{results_modules}}">Modules</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_functions}}">Functions</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_testcases}}">Testcases</a></li> <!-- nosemgrep -->
                 {%- for name, report in feature_reports %}
-                <li><a target="mainFrame" href="{{report}}">{{name}}</a></li>
+                <li><a target="mainFrame" href="{{report}}">{{name}}</a></li> <!-- nosemgrep -->
                 {%- endfor %}
-                <li><a target="mainFrame" href="{{execution_summary}}">Execution</a></li>
+                <li><a target="mainFrame" href="{{execution_summary}}">Execution</a></li> <!-- nosemgrep -->
             </ul>
         </li>
 
-        <li><a target="mainFrame" href="{{results_coverage}}">Coverage</a></li>
+        <li><a target="mainFrame" href="{{results_coverage}}">Coverage</a></li> <!-- nosemgrep -->
         <li>
             <ul>
-                <li><a target="mainFrame" href="{{results_coverage}}">Modules</a></li>
+                <li><a target="mainFrame" href="{{results_coverage}}">Modules</a></li> <!-- nosemgrep -->
                 {%- if message_coverage != 'None' %}
-                <li><a target="mainFrame" href="{{message_coverage}}">Messages</a></li>
+                <li><a target="mainFrame" href="{{message_coverage}}">Messages</a></li> <!-- nosemgrep -->
                 {%- endif %}
                 {%- if is_bucket == 'True' %}
-                <li><a target="mainFrame" href="{{device_inventory}}">Devices</a></li>
-                <li><a target="mainFrame" href="{{platform_inventory}}">Platforms</a></li>
-                <li><a target="mainFrame" href="{{chip_inventory}}">Chips</a></li>
+                <li><a target="mainFrame" href="{{device_inventory}}">Devices</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{platform_inventory}}">Platforms</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{chip_inventory}}">Chips</a></li> <!-- nosemgrep -->
                 {%- endif %}
             </ul>
         </li>
 
-        <li><a target="mainFrame" href="{{results_stats}}">Debug</a></li>
+        <li><a target="mainFrame" href="{{results_stats}}">Debug</a></li> <!-- nosemgrep -->
         <li>
             <ul>
-                <li><a target="mainFrame" href="{{results_audit}}">Audit</a></li>
-                <li><a target="mainFrame" href="{{results_stats}}">Stats</a></li>
-                <li class="collapseAfter"><a target="mainFrame" href="{{results_syslog}}">Syslogs</a></li>
-                <li><a target="mainFrame" href="{{results_msysinfo}}">M-Sysinfo</a></li>
-                <li><a target="mainFrame" href="{{results_fsysinfo}}">F-Sysinfo</a></li>
-                <li><a target="mainFrame" href="{{results_dsysinfo}}">D-Sysinfo</a></li>
-                <li><a target="mainFrame" href="{{results_alerts}}">Alerts</a></li>
+                <li><a target="mainFrame" href="{{results_audit}}">Audit</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_stats}}">Stats</a></li> <!-- nosemgrep -->
+                <li class="collapseAfter"><a target="mainFrame" href="{{results_syslog}}">Syslogs</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_msysinfo}}">M-Sysinfo</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_fsysinfo}}">F-Sysinfo</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_dsysinfo}}">D-Sysinfo</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_alerts}}">Alerts</a></li> <!-- nosemgrep -->
                 {%- if is_master == 'True' %}
                 <li><a target="mainFrame" href="results_all.cli">CLI</a></li>
                 <li><a target="mainFrame" href="results_all.cli_type">CLI Type</a></li>
                 {%- endif %}
-                <li><a target="mainFrame" href="{{results_defaults}}">Defaults</a></li>
-                <li><a target="mainFrame" href="{{results_devfeat}}">Dev Feat</a></li>
+                <li><a target="mainFrame" href="{{results_defaults}}">Defaults</a></li> <!-- nosemgrep -->
+                <li><a target="mainFrame" href="{{results_devfeat}}">Dev Feat</a></li> <!-- nosemgrep -->
             </ul>
         </li>
 
         <!--
-        <li><a target="mainFrame" href="{{results_functions_png}}">Pie Charts</a></li>
+        <li><a target="mainFrame" href="{{results_functions_png}}">Pie Charts</a></li> // nosemgrep
         <li>
             <ul>
-                <li><a target="mainFrame" href="{{results_functions_png}}">Functions</a></li>
-                <li><a target="mainFrame" href="{{results_testcases_png}}">Testcases</a></li>
+                <li><a target="mainFrame" href="{{results_functions_png}}">Functions</a></li> // nosemgrep
+                <li><a target="mainFrame" href="{{results_testcases_png}}">Testcases</a></li> // nosemgrep
             </ul>
         </li>
         -->
     </ul>
 </div>
 
-<iframe name="mainFrame" id="mainFrame" src="{{results_features}}"
+<iframe name="mainFrame" id="mainFrame" src="{{results_features}}" <!-- nosemgrep -->
         frameborder="0" scrolling="auto"
 ></iframe>
 

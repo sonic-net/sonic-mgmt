@@ -69,7 +69,8 @@ def get_owner(name):
 
 def get_module_info(path, onload=False):
     name = os.path.basename(path)
-    if g_lock: g_lock.acquire()
+    if g_lock:
+        g_lock.acquire()
     rv = SpyTestDict()
     rv.name = name
     rv.uitype = ""
@@ -87,19 +88,22 @@ def get_module_info(path, onload=False):
         rv = _tcm.module_info[name]
     else:
         _tcm.module_info[name] = rv
-    if g_lock: g_lock.release()
+    if g_lock:
+        g_lock.release()
     return rv
 
 
 def get_function_info(name):
-    if g_lock: g_lock.acquire()
+    if g_lock:
+        g_lock.acquire()
     if "function_info" not in _tcm:
         _tcm.function_info = OrderedDict()
     if name not in _tcm.function_info:
         rv = SpyTestDict()
         rv.maxtime = 0
         _tcm.function_info[name] = rv
-    if g_lock: g_lock.release()
+    if g_lock:
+        g_lock.release()
     return _tcm.function_info[name]
 
 
@@ -169,16 +173,20 @@ def load(do_verify=True, items=None, tcmap_csv=None):
     _tcm.platform_info = read_platform_info()
 
     for row in _load_csvs("SPYTEST_MODULE_OWNERS_CSV_FILENAME", "owners.csv"):
-        if len(row) < 2: continue
+        if len(row) < 2:
+            continue
         name, owner = row[0].strip(), ",".join(row[1:])
-        if name.startswith("#"): continue
+        if name.startswith("#"):
+            continue
         _tcm.owners[name] = owner
 
     # Module,UIType,FasterCLI,TrySSH,MaxTime,TS
     for row in _load_csvs("SPYTEST_MODULE_INFO_CSV_FILENAME", "module_info.csv"):
-        if len(row) < 6: continue
+        if len(row) < 6:
+            continue
         name, uitype, fcli, tryssh, random, maxtime = [str(i).strip() for i in row[:6]]
-        if name.strip().startswith("#"): continue
+        if name.strip().startswith("#"):
+            continue
         ts = "1" if len(row) < 7 else row[6]
         ent = get_module_info(name, True)
         ent.uitype = uitype
@@ -190,9 +198,11 @@ def load(do_verify=True, items=None, tcmap_csv=None):
 
     # Function,MaxTime
     for row in _load_csvs("SPYTEST_FUNCTION_INFO_CSV_FILENAME", "function_info.csv"):
-        if len(row) < 2: continue
+        if len(row) < 2:
+            continue
         name, maxtime = [str(i).strip() for i in row[:2]]
-        if name.strip().startswith("#"): continue
+        if name.strip().startswith("#"):
+            continue
         ent = _tcm.get_function_info(name)
         ent.maxtime = utils.integer_parse(maxtime, 0)
 
@@ -225,7 +235,8 @@ def load(do_verify=True, items=None, tcmap_csv=None):
         _add_entry(release, comp, tcid, func)
 
     # verify the tcmap if required
-    if do_verify: verify(items)
+    if do_verify:
+        verify(items)
 
     return _tcm
 
@@ -247,7 +258,8 @@ def verify(items=None):
         module = _tcm.modules.get(item.location[0], None)
         module = module or basename_map.get(item.location[0], None)
         module = module or fspath_map.get(item.fspath.strpath, None)
-        if not module: continue
+        if not module:
+            continue
         func = item.location[2]
         _add_entry(module.release, module.comp, func, func)
 
@@ -276,7 +288,8 @@ def verify(items=None):
         func = item.location[2]
         tclist = get_tclist(func)
         count = len(tclist)
-        if count > 1: continue
+        if count > 1:
+            continue
         if count == 0 or tclist[0] == func:
             _tcm.non_mapped.append(func)
 
@@ -295,14 +308,16 @@ def parse_module_csv_row(row):
         return "#", 0, 0, 0
 
     tpref = utils.integer_parse(row[2])
-    if tpref is not None: row.pop(2)
+    if tpref is not None:
+        row.pop(2)
     if len(row) < 3:
         print("2. invalid module params: {}".format(row))
         return "#", 0, 0, 0
     topo = row[3:] if len(row) > 3 else []
 
     bucket, order, name0 = [str(i).strip() for i in row[:3]]
-    if bucket.startswith("#"): return "#", 0, 0, 0
+    if bucket.startswith("#"):
+        return "#", 0, 0, 0
     return bucket, order, name0, topo
 
 
@@ -447,7 +462,8 @@ def get_all_chips():
 def validate_chip_disp(chip):
     chip = chip.replace("-NA", "")
     chip = chip.replace("TH3-X7", "TH3")
-    if chip == "TH1": return "TH"
+    if chip == "TH1":
+        return "TH"
     return chip.strip()
 
 

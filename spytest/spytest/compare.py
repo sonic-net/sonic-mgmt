@@ -10,9 +10,12 @@ def cmp_pass_rate(old, new):
     try:
         old = float(old.replace("%", ""))
         new = float(new.replace("%", ""))
-        if new > old: return "Superior"
-        if new < old: return "Inferior"
-    except Exception: pass
+        if new > old:
+            return "Superior"
+        if new < old:
+            return "Inferior"
+    except Exception:
+        pass
     return ""
 
 
@@ -28,18 +31,26 @@ def time_parse(timestr):
 def cmp_exec_time(old, new):
     old = time_parse(old)
     new = time_parse(new)
-    if (new - old) > 60: return "Inferior"
-    if (old - new) > 60: return "Superior"
+    if (new - old) > 60:
+        return "Inferior"
+    if (old - new) > 60:
+        return "Superior"
     return ""
 
 
 def cmp_int(old, new):
-    try: old = int(old)
-    except Exception: old = 0
-    try: new = int(new)
-    except Exception: new = 0
-    if (new - old) > 0: return "Inferior"
-    if (old - new) > 0: return "Superior"
+    try:
+        old = int(old)
+    except Exception:
+        old = 0
+    try:
+        new = int(new)
+    except Exception:
+        new = 0
+    if (new - old) > 0:
+        return "Inferior"
+    if (old - new) > 0:
+        return "Superior"
     return ""
 
 
@@ -73,8 +84,10 @@ def _read(csv_file):
 
 
 def results(old, new, old_suffix=None, new_suffix=None):
-    if not os.path.isdir(old): return "{} is not folder".format(old), None, None, None
-    if not os.path.isdir(new): return "{} is not folder".format(new), None, None, None
+    if not os.path.isdir(old):
+        return "{} is not folder".format(old), None, None, None
+    if not os.path.isdir(new):
+        return "{} is not folder".format(new), None, None, None
     old_bldf = "{}/build.txt".format(old)
     old_fmt1 = "{}/*_modules_all.csv".format(old)
     old_fmt2 = "{}/*_modules.csv".format(old)
@@ -87,8 +100,10 @@ def results(old, new, old_suffix=None, new_suffix=None):
     new_file1 = glob.glob(new_fmt1)
     new_file2 = glob.glob(new_fmt2)
     new_file = new_file1 or new_file2
-    if not old_file: return "{} or {} not found".format(old_fmt1, old_fmt2), None, None, None
-    if not new_file: return "{} or {} not found".format(new_fmt1, new_fmt2), None, None, None
+    if not old_file:
+        return "{} or {} not found".format(old_fmt1, old_fmt2), None, None, None
+    if not new_file:
+        return "{} or {} not found".format(new_fmt1, new_fmt2), None, None, None
 
     old_file_rows = _read(old_file[0])[1]
     new_file_rows = _read(new_file[0])[1]
@@ -148,8 +163,10 @@ def results(old, new, old_suffix=None, new_suffix=None):
 
 
 def syslogs(old, new, old_suffix=None, new_suffix=None):
-    if not os.path.isdir(old): return "{} is not folder".format(old), None, None, None
-    if not os.path.isdir(new): return "{} is not folder".format(new), None, None, None
+    if not os.path.isdir(old):
+        return "{} is not folder".format(old), None, None, None
+    if not os.path.isdir(new):
+        return "{} is not folder".format(new), None, None, None
     old_bldf = "{}/build.txt".format(old)
     old_fmt1 = "{}/*_syslog_all.csv".format(old)
     old_fmt2 = "{}/*_syslog.csv".format(old)
@@ -162,8 +179,10 @@ def syslogs(old, new, old_suffix=None, new_suffix=None):
     new_file1 = glob.glob(new_fmt1)
     new_file2 = glob.glob(new_fmt2)
     new_file = new_file1 or new_file2
-    if not old_file: return "{} or {} not found".format(old_fmt1, old_fmt2), None, None, None
-    if not new_file: return "{} or {} not found".format(new_fmt1, new_fmt2), None, None, None
+    if not old_file:
+        return "{} or {} not found".format(old_fmt1, old_fmt2), None, None, None
+    if not new_file:
+        return "{} or {} not found".format(new_fmt1, new_fmt2), None, None, None
 
     old_file_rows = utils.read_csv(old_file[0])[1:]
     new_file_rows = utils.read_csv(new_file[0])[1:]
@@ -178,8 +197,10 @@ def syslogs(old, new, old_suffix=None, new_suffix=None):
         module[level] = module.setdefault(level, 0) + 1
         module = old_modules.setdefault(None, {})
         module[level] = module.setdefault(level, 0) + 1
-        levels[level] = 1; modules[name] = []
-        levels[level] = 1; modules[name] = []
+        levels[level] = 1
+        modules[name] = []
+        levels[level] = 1
+        modules[name] = []
 
     # read new module counts
     for row in new_file_rows:
@@ -188,7 +209,8 @@ def syslogs(old, new, old_suffix=None, new_suffix=None):
         module[level] = module.setdefault(level, 0) + 1
         module = new_modules.setdefault(None, {})
         module[level] = module.setdefault(level, 0) + 1
-        levels[level] = 1; modules[name] = []
+        levels[level] = 1
+        modules[name] = []
 
     # create report rows
     report_rows = []

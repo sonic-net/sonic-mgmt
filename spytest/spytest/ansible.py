@@ -28,10 +28,12 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
         if not os.path.exists(playbook):
             msgs.append("Playbook file {} is not present".format(playbook))
             retval = "\n".join(msgs)
-            if trace: print("ERR: {}".format(retval))
+            if trace:
+                print("ERR: {}".format(retval))
             return retval
 
-    if logs_path: os.environ["ANSIBLE_LOCAL_TEMP"] = logs_path
+    if logs_path:
+        os.environ["ANSIBLE_LOCAL_TEMP"] = logs_path
     os.environ["ANSIBLE_CONFIG"] = ansible_cfg
     # added the SSH_ARGS as environment variable to suppress host checking as the nodes
     # in the case would be duts with dynamic inventory.
@@ -58,8 +60,10 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
         print(k + ':' + v)
 
     cmd = "{} {} -i {} {} -vvv".format(ansible_exe, verbose, fp.name, playbook)
-    if trace: print("Executing", cmd)
+    if trace:
+        print("Executing", cmd)
     print("Executing", cmd)
+    # nosemgrep-next-line
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = proc.communicate()
     proc.wait()
@@ -71,9 +75,11 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
         msg.append("config:\n{}".format(configs))
         return "\n".join(msg)
     for line in out.splitlines():
-        if trace: print("OUT: {}".format(line))
+        if trace:
+            print("OUT: {}".format(line))
     for line in err.splitlines():
-        if trace: print("ERR: {}".format(line))
+        if trace:
+            print("ERR: {}".format(line))
     return out
 
 

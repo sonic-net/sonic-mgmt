@@ -132,8 +132,10 @@ class Net(object):
         self.addl_mode_change_kwargs["vtysh-config"] = {"conf_terminal": True}
 
     def get_logs_path(self, for_file=None, subdir=None):
-        try: return self.wa.get_logs_path(for_file, subdir)
-        except Exception: return None
+        try:
+            return self.wa.get_logs_path(for_file, subdir)
+        except Exception:
+            return None
 
     def _init_dev(self, devname):
         if devname not in self.topo.duts:
@@ -215,9 +217,11 @@ class Net(object):
         return None
 
     def _check_handle_index(self, devname, index=None):
-        if index is not None: return index
+        if index is not None:
+            return index
         retval = self._check_force_conn(devname)
-        if retval is not None: return retval
+        if retval is not None:
+            return retval
         return self._get_handle_index(devname)
 
     def _get_handle_index(self, devname):
@@ -293,17 +297,23 @@ class Net(object):
 
     def is_filemode(self, devname):
         access = self._get_dev_access(devname)
-        if access["filemode"]: return True
-        if self.is_sonic_device(devname): return False
-        if self.is_any_fastpath_device(devname): return False
-        if self.is_linux_device(devname): return False
-        if self.is_poe_device(devname): return False
+        if access["filemode"]:
+            return True
+        if self.is_sonic_device(devname):
+            return False
+        if self.is_any_fastpath_device(devname):
+            return False
+        if self.is_linux_device(devname):
+            return False
+        if self.is_poe_device(devname):
+            return False
         return True
 
     def _is_console_connection(self, devname, connection_param=None):
         if not connection_param:
             access = self._get_dev_access(devname)
-            if self.is_filemode(devname): return True
+            if self.is_filemode(devname):
+                return True
             connection_param = access["connection_param"]
         if connection_param["access_model"].endswith("_terminal"):
             return True
@@ -376,8 +386,10 @@ class Net(object):
 
     def dut_log(self, devname, msg, lvl=logging.INFO, cond=True,
                 dst=None, prefix="", split_lines=True):
-        if not cond: return
-        if self.dut_log_lock: self.dut_log_lock.acquire()
+        if not cond:
+            return
+        if self.dut_log_lock:
+            self.dut_log_lock.acquire()
         try:
             access = self._get_dev_access(devname)
             conn = self._check_force_conn(devname)
@@ -400,7 +412,8 @@ class Net(object):
             msg = utils.stack_trace(None, True)
             self.logger.trace(msg)
         finally:
-            if self.dut_log_lock: self.dut_log_lock.release()
+            if self.dut_log_lock:
+                self.dut_log_lock.release()
 
     def register_devices(self, _topo):
         for devname in _topo.duts:
@@ -479,10 +492,14 @@ class Net(object):
             os._exit(val)
 
     def _node_fail(self, devname, result, msg, dead=True):
-        if self.wa and result: self.wa.report_env_fail_int(devname, False, result, msg)
-        if msg: self.dut_err(devname, msg)
-        if not dead: return
-        if self.wa: self.wa.set_node_dead(devname, msg, True)
+        if self.wa and result:
+            self.wa.report_env_fail_int(devname, False, result, msg)
+        if msg:
+            self.dut_err(devname, msg)
+        if not dead:
+            return
+        if self.wa:
+            self.wa.set_node_dead(devname, msg, True)
         self.abort_run(15, msg, True)
 
     def _check_prompt_onie(self, devname, prompt):
@@ -516,11 +533,12 @@ class Net(object):
         for i in range(count):
             wait_time = sleep * (i + 1)
             try:
-                ########### Try connecting again #####################
+                # ########## Try connecting again #####################
                 if (i > 0 and not net_connect) or not hndl:
                     if reconnect_attempt < 2:
                         reconnect_attempt = reconnect_attempt + 1
-                        self.dut_log(devname, "Try reading prompt after reconnect {} try {}".format(hndl, reconnect_attempt))
+                        self.dut_log(devname, "Try reading prompt after reconnect {} try {}".format(
+                                     hndl, reconnect_attempt))
                         if not self.reconnect(devname=devname):
                             if sleep > 0:
                                 msg = "Waiting for {} secs before reconnect again..".format(wait_time)
@@ -528,7 +546,7 @@ class Net(object):
                                 time.sleep(wait_time)
                             continue
                         hndl = self._get_handle(devname)
-                ########### Try connecting again #####################
+                # ########## Try connecting again #####################
                 if not hndl:
                     self.dut_warn(devname, "Failed to read prompt: Null handle @{}".format(line))
                 else:
@@ -568,10 +586,12 @@ class Net(object):
                     continue
 
             try:
-                if not hndl: break
+                if not hndl:
+                    break
                 if hndl and not hndl.is_alive():
                     hndl = None
-            except Exception: pass
+            except Exception:
+                pass
 
             if sleep > 0:
                 msg = "Waiting for {} secs before retry..".format(wait_time)
@@ -582,14 +602,18 @@ class Net(object):
                 if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
                     msg = "Trying CTRL+C: attempt {}..".format(i)
                     self.dut_warn(devname, msg)
-                    try: hndl.send_command_timing("\x03")
-                    except Exception: self.dut_err(devname, "Failed to send CTRL+C")
+                    try:
+                        hndl.send_command_timing("\x03")
+                    except Exception:
+                        self.dut_err(devname, "Failed to send CTRL+C")
             elif i % 2 == 1:
                 if env.get("SPYTEST_RECOVERY_CTRL_Q", "1") == "1":
                     msg = "Trying CTRL+Q: attempt {}..".format(i)
                     self.dut_warn(devname, msg)
-                    try: hndl.send_command_timing("\x11")
-                    except Exception: self.dut_err(devname, "Failed to send CTRL+Q")
+                    try:
+                        hndl.send_command_timing("\x11")
+                    except Exception:
+                        self.dut_err(devname, "Failed to send CTRL+Q")
 
         # dump sysrq traces
         if hndl and env.get("SPYTEST_SYSRQ_ENABLE", "0") != "0":
@@ -646,7 +670,8 @@ class Net(object):
                     self._node_fail(devname, None, msg)
             else:
                 # Disconnect the handle
-                if hndl: hndl.disconnect()
+                if hndl:
+                    hndl.disconnect()
                 # Set the ssh handle in access as None
                 self._set_handle(devname, None, 1)
                 # tryssh as False
@@ -659,10 +684,10 @@ class Net(object):
             self.dut_err(devname, str(exp))
 
         self.wa.report_env_fail_int(devname, True, "console_hang_observed")
-        ######################### TODO #############################
-        ###### check the console if not accessible use reset console
-        ###### to recover and if you fail so call os.exit(0)
-        ###########################################################
+        # ######################## TODO #############################
+        # check the console if not accessible use reset console
+        # to recover and if you fail so call os.exit(0)
+        # ##########################################################
         sys.exit(0)
 
     def _find_prompt(self, access, net_connect=None, count=15,
@@ -742,29 +767,60 @@ class Net(object):
             self.dut_warn(devname, "already disconnected")
             return
         if env.get("SPYTEST_RECOVERY_CTRL_C", "1") == "1":
-            try: hndl.send_command_timing("\x03")
-            except Exception: pass
+            try:
+                hndl.send_command_timing("\x03")
+            except Exception:
+                pass
         hndl.disconnect()
         self._set_handle(devname, None, index)
 
     def trace_callback_set(self, devname, val, force=False):
-        if self.is_filemode(devname): return
-        if not self._is_console_connection(devname): return
-        hndl = self._get_handle(devname)
-        if not hndl: return
-        func = getattr(hndl, "trace_callback_set")
-        if not func: return
-        if not val:
-            func(None, None, None)
+
+        if self.trace_callback_support in ["0"]:
+            # support not enabled
             return
 
-        def trace_callback(self, devname, msg):
-            try: self.dut_log(devname, msg, prefix="LIVE: ")
-            except Exception: pass
-        if self.trace_callback_support in ["0"]: return
-        if self.trace_callback_support in ["1"] and not force: return
-        self.dut_log(devname, "LIVE Console {}".format("Enable" if val else "Disable"))
-        func(trace_callback, self, devname)
+        if self.is_filemode(devname):
+            # no need for dry run
+            return
+
+        if not self._is_console_connection(devname):
+            # no need for non console connection
+            return
+
+        hndl = self._get_handle(devname)
+        if not hndl:
+            # will this ever happen ?
+            return
+
+        # check the backend support
+        getfn = getattr(hndl, "trace_callback_get")
+        setfn = getattr(hndl, "trace_callback_set")
+        if not getfn or not setfn:
+            # no support in back end
+            return
+
+        # handle disable
+        if not val:
+            if getfn()[0]:
+                self.dut_log(devname, "LIVE Console Disable")
+            setfn(None, None, None)
+            return
+
+        # checked if on-demand support is enabled
+        if not force and self.trace_callback_support in ["1"]:
+            return
+
+        # handle enable
+        if not getfn()[0]:
+            self.dut_log(devname, "LIVE Console Enable")
+
+        def _trace_callback(self, devname, msg):
+            try:
+                self.dut_log(devname, msg, prefix="LIVE: ")
+            except Exception:
+                pass
+        setfn(_trace_callback, self, devname)
 
     def trace_callback_set_debug(self, devname, value):
         if self.debug_find_prompt:
@@ -812,8 +868,10 @@ class Net(object):
             return
         self.wa.hooks.post_login(devname, **kwargs)
         if self.is_sonic_device(devname):
-            try: self.check_uptime(devname)
-            except Exception: pass
+            try:
+                self.check_uptime(devname)
+            except Exception:
+                pass
 
     def set_login_timeout(self, devname):
         self.fix_hostname(devname)
@@ -1083,10 +1141,12 @@ class Net(object):
                 if not show_ver_output.get("product"):
                     return True
                 exp = self.rest[devname]._get_init_exception()
+                msg1 = "EXITING RUN: Identified an exception"
+                msg2 = "please check the dut and try again"
                 if exp:
-                    msg = "EXITING RUN: Identified an exception : '{}', please check the dut and try again".format(exp)
+                    msg = "{} : '{}', {}".format(msg1, exp, msg2)
                 else:
-                    msg = "EXITING RUN: Identified an exception, something went wrong. please check the dut and try again"
+                    msg = "{}, something went wrong. {}".format(msg1, msg2)
                 self._node_fail(devname, "msg", msg, True)
         return True
 
@@ -1369,7 +1429,8 @@ class Net(object):
         if self.is_sonicvs_device(devname) or self.is_vsonic_device(devname):
             msg = "Disconnect before RPS reboot {}".format(dut_label)
             self.dut_warn(devname, msg)
-            try: self._disconnect_device(devname)
+            try:
+                self._disconnect_device(devname)
             except Exception:
                 msg = utils.stack_trace(None, True)
                 self.dut_warn(devname, msg)
@@ -1450,7 +1511,8 @@ class Net(object):
             self._fetch_mgmt_ip(devname, 5, 2)
 
     def _ensure_ssh_connection(self, devname, conn_index, line=None):
-        if self._get_handle(devname, conn_index): return True
+        if self._get_handle(devname, conn_index):
+            return True
         return self._attempt_ssh_connection(devname, conn_index, line)
 
     def _connect_to_device_ssh(self, devname):
@@ -1514,10 +1576,12 @@ class Net(object):
 
     def _fetch_mgmt_ip(self, devname, try_again=3, wait_for_ip=0):
         if not self.is_sonic_device(devname) and \
-           not self.is_any_fastpath_device(devname): return
+           not self.is_any_fastpath_device(devname):
+            return
 
         access = self._get_dev_access(devname)
-        if self.is_filemode(devname): return
+        if self.is_filemode(devname):
+            return
 
         switched, reconnect = False, True
         try:
@@ -1528,11 +1592,13 @@ class Net(object):
             if old and new and old == new:
                 # no need to reconnect to SSH
                 reconnect = False
-            if switched: self.tryssh_switch(devname, True, reconnect)
+            if switched:
+                self.tryssh_switch(devname, True, reconnect)
         except Exception as e:
             msg = utils.stack_trace(None, True)
             self.dut_warn(devname, msg)
-            if switched: self.tryssh_switch(devname, False)
+            if switched:
+                self.tryssh_switch(devname, False)
             raise e
 
     def _fetch_mgmt_ip2(self, devname, try_again=3, wait_for_ip=0):
@@ -1632,8 +1698,9 @@ class Net(object):
                 msg = utils.stack_trace(None, True)
                 self.dut_warn(devname, msg)
                 self.wa.report_cmd_fail_int(devname, True, "config_cmd_error", cmd)
-        msg = "CMDFAIL: {} Ref: {}/{}/{}/{}".format(cmd, cmd_fail_support,
-                                                    bool(self.module_start_time), bool(self.tc_start_time), skip_error_report)
+        msg = "CMDFAIL: {} Ref: {}/{}/{}/{}"
+        msg = msg.format(cmd, cmd_fail_support, bool(self.module_start_time),
+                         bool(self.tc_start_time), skip_error_report)
         self.dut_dbg(devname, msg)
         raise SPyTestCmdException(cmd)
 
@@ -1646,17 +1713,21 @@ class Net(object):
 
         # handle strip action
         for err, errinfo in list(access["errors"].items()):
-            if not re.compile(errinfo.command).match(cmd): continue
+            if not re.compile(errinfo.command).match(cmd):
+                continue
             for action in utils.make_list(errinfo.action):
-                if action != "strip": continue
+                if action != "strip":
+                    continue
                 output = re.sub(errinfo.search, "", output)
 
         # handle other actions
         for err, errinfo in list(access["errors"].items()):
-            if not re.compile(errinfo.command).match(cmd): continue
+            if not re.compile(errinfo.command).match(cmd):
+                continue
             actions = []
             for action in utils.make_list(errinfo.action):
-                if action != "strip": actions.append(action)
+                if action != "strip":
+                    actions.append(action)
             if re.search(errinfo.search, output):
                 matched_err = err
                 matched_result = errinfo.get("result", None)
@@ -1680,13 +1751,15 @@ class Net(object):
                 self._report_error(devname, matched_result, cmd)
             elif action == "raise":
                 if not self.wa.session_init_completed:
-                    msg = "Skipped error checking in session init but detected pattern: {} command: {}".format(matched_err, cmd)
+                    msg = "Skipped error checking in session init but detected pattern: {} command: {}"
+                    msg = msg.format(matched_err, cmd)
                     self.dut_warn(devname, msg)
                     self.wa.alert(msg, type="IGNORED SESSION INIT ERROR", lvl=logging.WARNING)
                     return output
                 if skip_raise:
                     if env.get("SPYTEST_CHECK_SKIP_ERROR", "0") == "0":
-                        msg = "Skipped error checking but detected pattern: {} command: {}".format(matched_err, cmd)
+                        msg = "Skipped error checking but detected pattern: {} command: {}"
+                        msg = msg.format(matched_err, cmd)
                         self.dut_warn(devname, msg)
                         self.wa.alert(msg, type="IGNORED ERROR", lvl=logging.WARNING)
                         return output
@@ -1695,7 +1768,8 @@ class Net(object):
                         if matched_severity is not None and matched_severity <= 3:
                             skip_flag = 0
                         if skip_flag == 1:
-                            msg = "Skipped error checking but detected pattern:: {} command: {}".format(matched_err, cmd)
+                            msg = "Skipped error checking but detected pattern:: {} command: {}"
+                            msg = msg.format(matched_err, cmd)
                             self.dut_warn(devname, msg)
                             self.wa.alert(msg, type="IGNORED ERROR", lvl=logging.WARNING)
                             return output
@@ -1712,12 +1786,16 @@ class Net(object):
         return ""
 
     def _trace_cli(self, access, cmd):
-        if "spytest-helper.py" in cmd: return
-        if cmd.startswith("date -u +"): return
+        if "spytest-helper.py" in cmd:
+            return
+        if cmd.startswith("date -u +"):
+            return
         # trace the CLI commands in CSV file, to be used to measure coverage
         # module,function,cli-mode,command
-        try: self.wa._trace_cli(access["dut_name"], access["current_prompt_mode"], cmd)
-        except Exception: pass
+        try:
+            self.wa._trace_cli(access["dut_name"], access["current_prompt_mode"], cmd)
+        except Exception:
+            pass
 
     def _cli_lock(self, access, cmd, line=None, delay_factor=1, suffix="cli", trace=True):
         detect = env.get("SPYTEST_DETECT_CONCURRENT_ACCESS")
@@ -1733,14 +1811,17 @@ class Net(object):
             msg = "Thread '{}' is already executing '{}' @{} handle: {}"
             msg = msg.format(lock_data.thread, lock_data.cmd, line, hindex)
             msgs = [msg, utils.get_call_stack_all(0, "CurrentCallStack:"), lock_data.stack]
-            for msg in msgs: self.dut_warn(devname, msg, cond=trace)
+            for msg in msgs:
+                self.dut_warn(devname, msg, cond=trace)
             timeout = utils.max(lock_data.max_time, 300)
             if not lock_data.lock.acquire(timeout=timeout):
                 msg = "CLI LOCK NOT Acquired even after {} secs for '{}' @{}"
                 msgs.insert(0, msg.format(timeout, cmd, line))
-                for msg in msgs: self.dut_err(devname, msg, cond=bool(not trace))
+                for msg in msgs:
+                    self.dut_err(devname, msg, cond=bool(not trace))
                 return False
-        if detect != "1": self.dut_dbg(devname, "CLI LOCK Acquired for '{}' @{}".format(cmd, line))
+        if detect != "1":
+            self.dut_dbg(devname, "CLI LOCK Acquired for '{}' @{}".format(cmd, line))
         self._cli_lock_data_set(access, 1, cmd, delay_factor, suffix=suffix)
         return True
 
@@ -1753,9 +1834,11 @@ class Net(object):
         self._cli_lock_data_set(access, 0, suffix=suffix)
         try:
             access["{}_lock".format(suffix)].lock.release()
-            if detect != "1": self.dut_dbg(devname, "CLI LOCK Released after '{}' @{}".format(cmd, line))
+            if detect != "1":
+                self.dut_dbg(devname, "CLI LOCK Released after '{}' @{}".format(cmd, line))
         except Exception:
-            if detect != "1": self.dut_dbg(devname, "CLI LOCK Release Failed '{}' @{}".format(cmd, line))
+            if detect != "1":
+                self.dut_dbg(devname, "CLI LOCK Release Failed '{}' @{}".format(cmd, line))
         return True
 
     def _cli_lock_data_set(self, access, phase, cmd="", delay_factor=0, suffix="cli"):
@@ -1784,7 +1867,8 @@ class Net(object):
         return msg1
 
     def _log_exception(self, devname, attempt, ex2, msg, prefix, line, cmd):
-        if msg: self.dut_warn(devname, msg)
+        if msg:
+            self.dut_warn(devname, msg)
         t = "Exception: {} occurred {} attempt: {} line: {}\n cmd: {}\n exception: {}"
         msg = t.format(type(ex2).__name__, prefix, attempt, line, cmd, ex2)
         self.dut_warn(devname, msg)
@@ -1802,7 +1886,8 @@ class Net(object):
         try:
             hndl.send_command_timing("\x03")
             hndl.clear_buffer()
-        except Exception: pass
+        except Exception:
+            pass
 
     def _try_recover_ctrl_c(self, devname, hndl, cmd, attempt, expect_disc, ctrl_c_used, line):
         try:
@@ -1822,7 +1907,8 @@ class Net(object):
 
     def _try_recover_cr(self, devname, hndl, cmd, attempt, expect_string,
                         unexpected_prompt, trace_dump, line):
-        if attempt != 0: return False, unexpected_prompt
+        if attempt != 0:
+            return False, unexpected_prompt
         try:
             self._try_send_cr(devname, hndl, cmd, attempt)
             output1 = self._handle_find_prompt(devname, hndl, attempt, use_cache=False)
@@ -1836,7 +1922,8 @@ class Net(object):
                 if self.fix_sonic_51743:
                     unexpected_prompt = True
                 elif not re.search(expect_string, output2):
-                    msg = "Got a prompt '{}' other than required prompt '{}' after trying CR ..".format(output2, expect_string)
+                    msg = "Got a prompt '{}' other than required prompt '{}' after trying CR .."
+                    msg = msg.format(output2, expect_string)
                     self.dut_warn(devname, msg)
                     unexpected_prompt = True
                 return True, unexpected_prompt
@@ -1882,7 +1969,8 @@ class Net(object):
         for attempt in range(3):
             try:
                 hndl = self._try_prepare(devname, attempt, cmd, line)
-                if not hndl: continue
+                if not hndl:
+                    continue
                 if attempt != 0:
                     self._try_send_cr(devname, hndl, cmd, attempt)
                     hndl.clear_buffer()
@@ -1897,7 +1985,8 @@ class Net(object):
                     strip_command = kwargs.pop("strip_command", opts.strip_command)
                     normalize = kwargs.pop("normalize", opts.normalize)
                     remove_prompt = kwargs.pop("remove_prompt", opts.remove_prompt)
-                    for rm in ["use_timing", "on_cr_recover", "use_send_bytes", "conf_terminal", "skip_error_report", "log_file", "new_line"]:
+                    for rm in ["use_timing", "on_cr_recover", "use_send_bytes", "conf_terminal",
+                               "skip_error_report", "log_file", "new_line"]:
                         kwargs.pop(rm, None)
                     if opts.use_send_bytes:
                         output = hndl.send_bytes(cmd, normalize=normalize,
@@ -1920,7 +2009,8 @@ class Net(object):
                     break
                 except Exception as exp:
                     self._cli_unlock(access, cmd)
-                    if self.wa.is_shutting_down() or expect_disc: return ""
+                    if self.wa.is_shutting_down() or expect_disc:
+                        return ""
                     msg = utils.stack_trace(None, True)
                     self._log_exception(devname, attempt, exp, msg, "", line, cmd)
                     self.wa.alert(msg, type="WARN", lvl=logging.ERROR)
@@ -1929,7 +2019,8 @@ class Net(object):
                         self._set_handle(devname, None)
                         continue
             except Exception as ex:
-                if self.wa.is_shutting_down() or expect_disc: return ""
+                if self.wa.is_shutting_down() or expect_disc:
+                    return ""
                 msg = utils.stack_trace(None, True)
                 self._log_exception(devname, attempt, ex, msg, "", line, cmd)
                 if "connection closed" in str(ex):
@@ -1939,7 +2030,8 @@ class Net(object):
 
             # verify handle before trying to recover
             hndl = self._get_handle(devname)
-            if not hndl: continue
+            if not hndl:
+                continue
 
             # try again without faster-cli when we see 'Invalid input detected'
             line2 = utils.get_line_number()
@@ -1971,7 +2063,8 @@ class Net(object):
 
             # recover using CTRL+C
             rv, ctrl_c_used = self._try_recover_ctrl_c(devname, hndl, cmd, attempt, expect_disc, ctrl_c_used, line)
-            if rv == "": return rv
+            if rv == "":
+                return rv
 
         if trace_dump:
             self._check_error(access, cmd, nl.join(trace_dump), False, line)
@@ -2055,8 +2148,10 @@ class Net(object):
         return output
 
     def _get_scope(self):
-        if not self.wa.session_init_completed: return "session"
-        if self.module_start_time: return "module"
+        if not self.wa.session_init_completed:
+            return "session"
+        if self.module_start_time:
+            return "module"
         return "function"
 
     def run_opts(self, opts, **kwargs):
@@ -2261,7 +2356,8 @@ class Net(object):
     def _enter_linux(self, devname, prompt=None, dbg=None):
         for _ in range(10):
             rv, known_prompt = self._enter_linux_once(devname, prompt, dbg)
-            if rv: return known_prompt
+            if rv:
+                return known_prompt
             prompt = known_prompt
         return None
 
@@ -2326,7 +2422,8 @@ class Net(object):
                 output = self._send_command(access, auth[index][0], expect,
                                             strip_prompt=False, ufcli=False, use_cache=False,
                                             on_cr_recover="ignore")
-                if prompt2 in output: return False, known_prompt
+                if prompt2 in output:
+                    return False, known_prompt
                 self.dut_log(devname, "enter password {}".format(auth[index][1]), cond=dbg)
                 sent_pass = auth[index][1]
                 output = self._send_command(access, auth[index][1], expect, ufcli=False,
@@ -2697,11 +2794,14 @@ class Net(object):
                 cmd = cmd + " | no-more"
         return cmd
 
-    def cli_show(self, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False, delay_factor=0, yes_no='y', **kwargs):
+    def cli_show(self, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False,
+                 delay_factor=0, yes_no='y', **kwargs):
         line = utils.get_line_number(3)
-        return self._cli_show(line, devname, cmd, mode, skip_tmpl, skip_error_check, delay_factor, yes_no, **kwargs)
+        return self._cli_show(line, devname, cmd, mode, skip_tmpl, skip_error_check,
+                              delay_factor, yes_no, **kwargs)
 
-    def _cli_show(self, line, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False, delay_factor=0, yes_no='y', **kwargs):
+    def _cli_show(self, line, devname, cmd, mode=None, skip_tmpl=False, skip_error_check=False,
+                  delay_factor=0, yes_no='y', **kwargs):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         prompts = access["prompts"]
@@ -3140,7 +3240,9 @@ class Net(object):
                     self.dut_log(devname, "Pattern '{}' found in onie-nos-install output ".format(onie_msg))
 
             if onie_msg_not_found:
-                msg = "Unable to find the ONIE success message(s) in onie-nos-install output. Device Onie Installation Failed"
+                msg1 = "Unable to find the ONIE success message(s) in onie-nos-install output."
+                msg2 = "Device Onie Installation Failed"
+                msg = "{} {}".format(msg1, msg2)
                 self.dut_err(devname, msg)
                 return False
 
@@ -3197,7 +3299,8 @@ class Net(object):
 
         # Grub commands for image download.
         cmds, errs = self.wa.hooks.get_onie_grub_config(devname, mode)
-        if not cmds: return ""
+        if not cmds:
+            return ""
 
         # Issue the grub commands.
         skip_error_check = False if self.wa.session_init_completed else True
@@ -3232,8 +3335,10 @@ class Net(object):
         self.upgrade_onie_image1_prep(devname)
 
         for try_index in range(0, 5):
-            if self._onie_nos_install(devname, url, try_index): break
-            if self.is_filemode(devname): break
+            if self._onie_nos_install(devname, url, try_index):
+                break
+            if self.is_filemode(devname):
+                break
             msg = "Image download failed using onie-nos-install try {}.".format(try_index + 1)
             self.dut_err(devname, msg)
 
@@ -3440,7 +3545,8 @@ class Net(object):
         skip_error_check = False if self.wa.session_init_completed else True
         for attempt in range(1, max_attempts + 1):
             retval = self.wa.hooks.upgrade_image(devname, url, 1800, skip_error_check, migartion)
-            if self.is_filemode(devname): retval = "success"
+            if self.is_filemode(devname):
+                retval = "success"
             if self.finish_upgrade_image(devname, url, retval, skip_reboot, max_ready_wait):
                 return True
             if attempt >= max_attempts:
@@ -3490,8 +3596,10 @@ class Net(object):
             raise ValueError(msg)
 
     def recover_hard(self, devname, msg):
-        try: return self.recover(devname, msg, "normal")
-        except: return self.recover(devname, msg, "rps")
+        try:
+            return self.recover(devname, msg, "normal")
+        except Exception:
+            return self.recover(devname, msg, "rps")
 
     def reboot(self, devname, method=None, skip_port_wait=False,
                onie=False, skip_exception=False, skip_fallback=False,
@@ -3655,8 +3763,8 @@ class Net(object):
                 self.dut_log(devname, msg)
                 self.wait(self.cfg.reboot_wait)
             if "INFRA_SYS_CHK: system status is not online" in output:
-                err_msg = "INFRA_SYS_CHK: system status is not online even after waiting for {} sec".format(self.cfg.port_init_wait)
-                self.dut_log(devname, err_msg)
+                err_msg = "INFRA_SYS_CHK: system status is not online even after waiting for {} sec"
+                self.dut_log(devname, err_msg.format(self.cfg.port_init_wait))
                 return False
             self._update_device_start(devname)
             return output if ret_logs else True
@@ -3886,7 +3994,8 @@ class Net(object):
         output = self._send_command(access, script_cmd, prompt, False, on_cr_recover="retry5")
         try:
             dst_md5 = re.findall(r"([a-fA-F\d]{32})", output)
-            if dst_md5: dst_md5 = dst_md5[0].strip()
+            if dst_md5:
+                dst_md5 = dst_md5[0].strip()
             src_md5 = utils.md5(src_file)
             if src_md5 == dst_md5:
                 skip_transfer = True
@@ -3905,7 +4014,8 @@ class Net(object):
             self.skip_trans_helper[devname] = dict()
 
         remote_file = self.skip_trans_helper[devname].get(src_file, None)
-        if remote_file: return remote_file
+        if remote_file:
+            return remote_file
 
         prompt = self._get_cli_prompt(devname)
         src_file2 = "%s/%s" % (os.path.basename(os.path.dirname(src_file)),
@@ -4134,11 +4244,15 @@ class Net(object):
     def make_local_file_path(self, devname=None, filepath=None, suffix=None,
                              ts=None, prefix=None, ext=None, dut_label=None):
         parts = []
-        if prefix: parts.append(prefix)
+        if prefix:
+            parts.append(prefix)
         parts.append(time.strftime("%Y%m%d%H%M%S") if not ts else ts)
-        if dut_label or devname: parts.append(dut_label or self._get_dut_label(devname))
-        if filepath: parts.append(filepath.replace(".py", "").replace("/", "_"))
-        if suffix: parts.append(suffix)
+        if dut_label or devname:
+            parts.append(dut_label or self._get_dut_label(devname))
+        if filepath:
+            parts.append(filepath.replace(".py", "").replace("/", "_"))
+        if suffix:
+            parts.append(suffix)
         return os.path.join(self.logger.logdir, "{}{}".format("_".join(parts), ext or ""))
 
     def _upload_helper_file(self, devname, filename):
@@ -4187,7 +4301,8 @@ class Net(object):
         # transfer the python file, which is used to apply the files remotely.
         change_in_tryssh = self.tryssh_switch(devname)
         helper = self._upload_helper_file(devname, "spytest-helper.py")
-        if change_in_tryssh: self.tryssh_switch(devname, True)
+        if change_in_tryssh:
+            self.tryssh_switch(devname, True)
 
         if option_type == "port-defaults" and value_list[0]:
             self._upload_helper_file(devname, "port_breakout.py")
@@ -4220,7 +4335,8 @@ class Net(object):
             for name in value_list[1:]:
                 for src_file in utils.make_list(name):
                     dst_file = self._upload_file2(devname, access, src_file)
-                    if dst_file: dst_file_list.append(dst_file)
+                    if dst_file:
+                        dst_file_list.append(dst_file)
             args_str = '"' + '" "'.join(dst_file_list) + '"'
             args_str = args_str + " --apply-file-method " + method
             args_str = self._add_swss_copp_config(devname, args_str)
@@ -4251,6 +4367,7 @@ class Net(object):
             args_str = self._add_swss_copp_config(devname, args_str)
         elif option_type in ["apply-init-config"]:
             execute_in_console = True
+            live_tracing_force = True
             args_str = self._add_config_method(devname, "")
             args_str = self._add_swss_copp_config(devname, args_str)
         elif option_type in ["apply-base-config", "apply-module-config"]:
@@ -4390,7 +4507,7 @@ class Net(object):
             # enable live tracing for debugging
             self.trace_callback_set(devname, live_tracing, live_tracing_force)
 
-            ################## Execute script and verify Signature #############
+            # ################# Execute script and verify Signature #############
             signature = "################ SPYTEST-HELPER ####################"
             missing_file_errno = "Errno 2"
             invalid_or_unknown_args = "Error: Invalid/Unknown arguments"
@@ -4433,8 +4550,10 @@ class Net(object):
             if failed:
                 self.dut_log(devname, output)
                 if dbg_ipaddr:
-                    try: self.read_mgmt_ip(devname, self.get_mgmt_ifname(devname))
-                    except Exception: pass
+                    try:
+                        self.read_mgmt_ip(devname, self.get_mgmt_ifname(devname))
+                    except Exception:
+                        pass
                 self._report_cmd_fail(devname, script_cmd, utils.get_line_number())
             output = output.replace(signature, "")
             ####################################################################
@@ -4453,7 +4572,8 @@ class Net(object):
                         self.login_again(devname)
 
             # restore to tryssh if we switched to console before executing
-            if change_in_tryssh: self.tryssh_switch(devname, True)
+            if change_in_tryssh:
+                self.tryssh_switch(devname, True)
 
         except Exception as exp:
             msg = utils.stack_trace(None, True)
@@ -4505,7 +4625,8 @@ class Net(object):
                             self.dut_log(devname, retval)
                             self.dut_log(devname, "=" * 50)
                     except Exception:
-                        retval = "Error: Exception occurred while reading the syslog captured file '{}'".format(local_file_path)
+                        retval = "Error: Exception occurred while reading the syslog captured file '{}'"
+                        retval = retval.format(local_file_path)
                         self.dut_warn(devname, retval)
                     return retval
                 else:
@@ -4587,7 +4708,8 @@ class Net(object):
                         break
                 if remote_file_path:
                     # Construct the local file name.
-                    local_file_path = self.make_local_file_path(devname, value_list[0], "gcov.tar.gz", dut_label=devname)
+                    local_file_path = self.make_local_file_path(devname, value_list[0],
+                                                                "gcov.tar.gz", dut_label=devname)
                     # Perform the file download if any files found.
                     retval = self._download_file(access, remote_file_path, local_file_path, False)
                     if re.search("FAIL", retval):
@@ -4729,7 +4851,8 @@ class Net(object):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
         retval = bool(name not in access["flags"] or value != access["flags"][name])
-        if not probe: access["flags"][name] = value
+        if not probe:
+            access["flags"][name] = value
         if not retval and value and not probe:
             self.dut_dbg(devname, "{} already in progress".format(name))
         return retval
@@ -4759,7 +4882,8 @@ class Net(object):
             output = self.wa.hooks.read_tech_support(devname, name)
             if output is None:
                 self.apply_remote(devname, which, [name])
-        except Exception: self.dut_err(devname, "Failed {} {}".format(which, name))
+        except Exception:
+            self.dut_err(devname, "Failed {} {}".format(which, name))
         self.flagit(devname, which, False)
 
     def collect_core_files(self, devname, name):
@@ -4773,23 +4897,31 @@ class Net(object):
             output = self.wa.hooks.read_core(devname, name)
             if output is None:
                 output = self.apply_remote(devname, which, [name])
-        except Exception: self.dut_err(devname, "Failed {} {}".format(which, name))
+        except Exception:
+            self.dut_err(devname, "Failed {} {}".format(which, name))
         self.flagit(devname, which, False)
 
     def fetch_gcov_files_try(self, devname, name):
-        if not self.flagit(devname, "fetch-gcov-files", True): return
+        if not self.flagit(devname, "fetch-gcov-files", True):
+            return
         retval = True
-        try: self.apply_remote(devname, "fetch-gcov-files", [name])
-        except Exception: retval = False
+        try:
+            self.apply_remote(devname, "fetch-gcov-files", [name])
+        except Exception:
+            retval = False
         self.flagit(devname, "fetch-gcov-files", False)
         return retval
 
     def fetch_gcov_files(self, devname, name):
-        if self.fetch_gcov_files_try(devname, name): return
+        if self.fetch_gcov_files_try(devname, name):
+            return
         self.dut_err(devname, "Failed to collect GCOV data {} retry after recovery".format(name))
-        try: self.recover_hard(devname, "Recovering the devices")
-        except Exception: return
-        if self.fetch_gcov_files_try(devname, name): return
+        try:
+            self.recover_hard(devname, "Recovering the devices")
+        except Exception:
+            return
+        if self.fetch_gcov_files_try(devname, name):
+            return
         self.dut_err(devname, "Failed to collect GCOV data {} even after recovery".format(name))
 
     def syslog_check(self, devname, phase, lvl, name):
@@ -5089,7 +5221,8 @@ class Net(object):
             # Handling for worst case when required prompts didn't match.
             self._send_command(access, "\n\n\n", cli_prompt)
 
-            if err_flag == 0: break
+            if err_flag == 0:
+                break
 
         if err_flag == 2:
             return "user not found"
@@ -5297,7 +5430,8 @@ class Net(object):
         access[name] = utils.parse_integer(kwargs.get(key, access[name]), default)
 
     def _set_config_session(self, devname, **kwargs):
-        if "conf_session" not in kwargs: return
+        if "conf_session" not in kwargs:
+            return
         if devname is None:
             putils.exec_foreach(self.cfg.faster_init, self.topo.duts,
                                 self._set_config_session, **kwargs)
@@ -5529,7 +5663,8 @@ class Net(object):
         except Exception as exp:
             self.logger.error(exp)
 
-    def open_config(self, devname, template, var=None, action=None, method=None, data=None, json=None, encoding=None, **kwargs):
+    def open_config(self, devname, template, var=None, action=None, method=None,
+                    data=None, json=None, encoding=None, **kwargs):
         var = var or {}
         from spytest.gnmi.translator import toRest, toGNMI
         ocType = env.get("SPYTEST_OPENCONFIG_API", "GNMI").lower()
@@ -5592,7 +5727,8 @@ class Net(object):
                     self.dut_err(devname, msgs)
             else:
                 access["curr_pwd"] = password
-            if conn_obj: conn_obj.disconnect()
+            if conn_obj:
+                conn_obj.disconnect()
             self.rest[devname]._set_curr_pwd(access.get("curr_pwd"))
             self.rest[devname].reinit(ip, username, password, altpassword, self.cfg.ui_type)
         except Exception as e:
@@ -5673,7 +5809,8 @@ class Net(object):
     def _parse_cli_opts(self, devname, cmd, **kwargs):
         opts = SpyTestDict()
         opts.ctype = kwargs.get("type", "click")
-        if opts.ctype == "gnmi": opts.ctype = "klish"
+        if opts.ctype == "gnmi":
+            opts.ctype = "klish"
         opts.exec_mode = kwargs.get("exec_mode", None)
         opts.expect_mode = kwargs.get("expect_mode", None)
         if opts.ctype == "click" and opts.exec_mode is not None:
@@ -5694,7 +5831,8 @@ class Net(object):
         sudoshell = bool(env.get("SPYTEST_SUDO_SHELL", "1") == "1")
         opts.sudoshell = kwargs.get("sudoshell", sudoshell)
         config_sudo = env.get("SPYTEST_CONFIG_SUDO", None)
-        if config_sudo is not None: config_sudo = bool(config_sudo != '0')
+        if config_sudo is not None:
+            config_sudo = bool(config_sudo != '0')
         opts.sudo = kwargs.get("sudo", config_sudo)
         if opts.sudo is None:
             opts.sudo = True if opts.ctype == "click" else False
@@ -5847,11 +5985,15 @@ class Net(object):
     def _simulate_errors(self, devname, cmd=None):
         # applicable bits 1:session 2:module 3:function 4:abort 5:command
         val = env.getint("SPYTEST_SIMULATE_ERRORS", 0)
-        if val == 0: return cmd
+        if val == 0:
+            return cmd
         scope = self._get_scope()
-        if scope == "session" and not (val & (1 << 1)): return cmd
-        if scope == "module" and not (val & (1 << 2)): return cmd
-        if scope == "function" and not (val & (1 << 3)): return cmd
+        if scope == "session" and not (val & (1 << 1)):
+            return cmd
+        if scope == "module" and not (val & (1 << 2)):
+            return cmd
+        if scope == "function" and not (val & (1 << 3)):
+            return cmd
         rand_value = randint(0, 100)
         if rand_value > 98:
             if (rand_value % 2) == 0 and cmd and (val & (1 << 5)) != 0:
@@ -5865,7 +6007,8 @@ class Net(object):
         return cmd
 
     def show(self, devname, cmd, **kwargs):
-        if not self._cmd_lock(devname, cmd): return None
+        if not self._cmd_lock(devname, cmd):
+            return None
         line = utils.get_line_number(3)
         retval = self._show(line, devname, cmd, **kwargs)
         self._cmd_unlock(devname, cmd)
@@ -5961,7 +6104,8 @@ class Net(object):
             output = self._send_cmd_opts(devname, cmd, expected_prompt, opts)
 
         # switch back from console
-        if change_in_tryssh: self.tryssh_switch(devname, True, True)
+        if change_in_tryssh:
+            self.tryssh_switch(devname, True, True)
 
         output = self._fill_sample_data(devname, cmd, opts.skip_error_check,
                                         opts.skip_tmpl, output, line)
@@ -5971,17 +6115,20 @@ class Net(object):
         return self._tmpl_apply(devname, actual_cmd, output)
 
     def _cmd_unlock(self, devname, cmd):
-        if not self.cmd_lock_support: return True
+        if not self.cmd_lock_support:
+            return True
         access = self._get_dev_access(devname)
         return self._cli_unlock(access, cmd, suffix="cmd")
 
     def _cmd_lock(self, devname, cmd):
-        if not self.cmd_lock_support: return True
+        if not self.cmd_lock_support:
+            return True
         access = self._get_dev_access(devname)
         return self._cli_lock(access, cmd, suffix="cmd", trace=False)
 
     def config(self, devname, cmd, **kwargs):
-        if not self._cmd_lock(devname, cmd): return None
+        if not self._cmd_lock(devname, cmd):
+            return None
         retval = self._config(devname, cmd, **kwargs)
         self._cmd_unlock(devname, cmd)
         return retval
@@ -5998,7 +6145,8 @@ class Net(object):
             cmd_list = self._build_cmd_list(cmd, opts)
         else:
             cmd_list = [cmd]
-        if not cmd_list: return ""
+        if not cmd_list:
+            return ""
 
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -6050,7 +6198,8 @@ class Net(object):
                 return self.run_script(devname, max_run_time, "/tmp/config.sh")
 
             if env.get("SPYTEST_SPLIT_COMMAND_LIST", "0") == "0":
-                if opts.ctype != "klish": cmd_list = [opts.sep.join(cmd_list)]
+                if opts.ctype != "klish":
+                    cmd_list = [opts.sep.join(cmd_list)]
 
         # to bailout early when klish crashed
         if opts.ctype != "click":
@@ -6060,7 +6209,8 @@ class Net(object):
 
         # add confirmation prompts if specified
         expected_prompts = [expected_prompt]
-        if incorrect_mode: expected_prompts.append(incorrect_mode)
+        if incorrect_mode:
+            expected_prompts.append(incorrect_mode)
         confirm_prompts = []
         all_prompts = [prompt for prompt in expected_prompts]
         confirm_prompts = list(opts.confirm.keys())
@@ -6082,9 +6232,10 @@ class Net(object):
                 op_lines.append(op)
 
                 # can't do any thing in case of errors
-                if re.search("Syntax error:", op): continue
+                if re.search("Syntax error:", op):
+                    continue
 
-                ## handle the case of no confirmation
+                # handle the case of no confirmation
                 # if expected_prompt_re.match(op): continue
                 # op2 = op.replace("\\", "")
                 # if expected_prompt_re.match(op2): continue
@@ -6116,7 +6267,8 @@ class Net(object):
                 op_lines.append(op)
 
         # switch back from console
-        if change_in_tryssh: self.tryssh_switch(devname, True, True)
+        if change_in_tryssh:
+            self.tryssh_switch(devname, True, True)
 
         return nl.join(op_lines)
 
@@ -6209,7 +6361,8 @@ class Net(object):
             if prompt not in known_prompts:
                 self._enter_linux(devname, prompt)
                 if not opts.skip_post_reboot and not self.do_common_init(devname):
-                    err_msg = "INFRA_SYS_CHK: system status is not online even after waiting for {} sec".format(self.cfg.port_init_wait)
+                    err_msg = "INFRA_SYS_CHK: system status is not online even after waiting for {} sec"
+                    err_msg = err_msg.format(self.cfg.port_init_wait)
                     output = output + "\n" + err_msg + "\n"
         except Exception as exp:
             raise exp
@@ -6217,14 +6370,17 @@ class Net(object):
 
     def exec_ssh_remote_dut(self, devname, ipaddress, username, password, command=None, timeout=30, **kwargs):
         devname = self._check_devname(devname)
-        if self.is_filemode(devname): return ""
+        if self.is_filemode(devname):
+            return ""
         return self.wa.hooks.exec_ssh_remote_dut(devname, ipaddress, username, password, command, timeout, **kwargs)
 
     def set_hostname(self, devname, hname=None):
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
-        if self.is_filemode(devname): return ""
-        if hname: access["prompts"].add_user_hostname(hname)
+        if self.is_filemode(devname):
+            return ""
+        if hname:
+            access["prompts"].add_user_hostname(hname)
         self.wa.hooks.set_hostname(devname, hname)
 
     def do_ssh(self, ipaddress, username, password, **kwargs):
@@ -6238,16 +6394,22 @@ class Net(object):
         if devname is not None:
             devname = self._check_devname(devname)
             access = self._get_dev_access(devname)
-            if ipaddress is None: ipaddress = self.get_mgmt_ip(devname)
-            if username is None: username = access["username"]
-            if password is None: password = self.get_login_password(devname)
+            if ipaddress is None:
+                ipaddress = self.get_mgmt_ip(devname)
+            if username is None:
+                username = access["username"]
+            if password is None:
+                password = self.get_login_password(devname)
         if ipaddress is None or username is None or password is None:
             return None
-        retval = self._do_ssh_ip(ipaddress, username, password, altpassword, port, devname, blocking_timeout, access_model)[0]
-        if not devname: return retval
+        retval = self._do_ssh_ip(ipaddress, username, password, altpassword,
+                                 port, devname, blocking_timeout, access_model)[0]
+        if not devname:
+            return retval
         self.dut_log(devname, "Additional SSH session to DUT with index {} Created".format(conn_index))
         conn_index = utils.parse_integer(conn_index, 0)
-        if conn_index <= 1: return retval
+        if conn_index <= 1:
+            return retval
         access["user_role"][conn_index] = user_role
         access["user_conn"][conn_index] = retval
         access["user_conn"][retval] = conn_index
@@ -6259,7 +6421,8 @@ class Net(object):
 
     def do_ssh_disconnect(self, devname, conn_index):
         conn_index = utils.parse_integer(conn_index, 0)
-        if conn_index <= 1: return
+        if conn_index <= 1:
+            return
         self.dut_log(devname, "Additional SSH session to DUT with index {} Closed".format(conn_index))
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)

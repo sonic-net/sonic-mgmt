@@ -4,6 +4,11 @@ import re
 import json
 from collections import OrderedDict
 
+bundled_parser = os.getenv("SPYTEST_TEXTFSM_USE_BUNDLED_PARSER")
+if bundled_parser:
+    vendor_dir = os.path.join(os.path.dirname(__file__), '..', "vendor")
+    sys.path.insert(0, os.path.abspath(vendor_dir))
+
 import textfsm
 try:
     import clitable
@@ -25,12 +30,14 @@ class Template(object):
         basedir = os.path.abspath(basedir)
         platform = env.get("SPYTEST_TEXTFSM_PLATFORM", platform)
         self.root = os.path.join(basedir, platform) if platform else basedir
-        if not os.path.exists(self.root): self.root = basedir
+        if not os.path.exists(self.root):
+            self.root = basedir
         self.samples = os.path.join(self.root, 'test')
         index = env.get("SPYTEST_TEXTFSM_INDEX_FILENAME", platform or "index")
         self.cli_tables = OrderedDict()
         for index in index.split(","):
-            if not os.path.exists(os.path.join(self.root, index)): index = "index"
+            if not os.path.exists(os.path.join(self.root, index)):
+                index = "index"
             self.cli_tables[index] = clitable.CliTable(index, self.root)
         self.platform = platform
         self.cli = cli
@@ -70,8 +77,10 @@ class Template(object):
     # find template the given command and apply on given data
     def apply(self, output, cmd):
         attrs = dict(Command=cmd)
-        if self.platform: attrs["Platform"] = self.platform
-        if self.cli: attrs["cli"] = self.cli
+        if self.platform:
+            attrs["Platform"] = self.platform
+        if self.cli:
+            attrs["cli"] = self.cli
         try:
             tmpl_file = self.get_tmpl(cmd)
             if not tmpl_file:

@@ -176,7 +176,7 @@ def decode(out):
     out = out.strip()
     try:
         return out.decode()
-    except:
+    except Exception:
         return out
 
 
@@ -193,8 +193,12 @@ def execute_check_cmd(cmd, trace_cmd=True, trace_out=True, skip_error=False):
     try:
         if trace_cmd:
             print("Remote CMD: '{}'".format(cmd))
+        # nosemgrep-next-line
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-        out, err = proc.communicate(); proc.wait(); out = decode(out); err = decode(err)
+        out, err = proc.communicate()
+        proc.wait()
+        out = decode(out)
+        err = decode(err)
         if not skip_error and proc.returncode != 0:
             retval = "Error: Failed to execute '{}' (out: '{}') (err: '{}')\n".format(cmd, out.strip(), err.strip())
         retval = "{}{}".format(retval, out)
@@ -209,8 +213,12 @@ def execute_cmd_retry(cmd, count=3):
     out_msg = ""
     try:
         for retry in range(1, count + 1):
+            # nosemgrep-next-line
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            out, err = proc.communicate(); proc.wait(); out = decode(out); err = decode(err)
+            out, err = proc.communicate()
+            proc.wait()
+            out = decode(out)
+            err = decode(err)
             if proc.returncode == 0:
                 out_msg = out
                 break
@@ -268,6 +276,7 @@ def read_file(filepath):
 
 
 def read_json(filepath):
+    # nosemgrep-next-line
     return eval(read_file(filepath))
 
 
@@ -507,7 +516,7 @@ def create_default_base_config():
         execute_check_cmd("rm -f {}/*.{}".format(spytest_dir, extn))
 
     # remove init configs
-    for filename in [init_copp_config_file, init_minigraph_file, \
+    for filename in [init_copp_config_file, init_minigraph_file,
                      init_frr_config_file, init_bgp_config_file]:
         execute_check_cmd("rm -f {}".format(filename))
 

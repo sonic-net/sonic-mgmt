@@ -5,7 +5,8 @@ from spytest import env
 
 
 def _get_file_path(results_prefix, suffix, extn, prefix=None, consolidated=False, dot="."):
-    if results_prefix: results_prefix = "{}_".format(results_prefix)
+    if results_prefix:
+        results_prefix = "{}_".format(results_prefix)
     if not consolidated:
         filename = "{}{}{}{}".format(results_prefix, suffix, dot, extn)
     elif suffix:

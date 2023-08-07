@@ -28,23 +28,27 @@ def _get_file_path(prefix):
 
 
 def ftrace_reset():
-    if ftrace_lock: ftrace_lock.acquire()
+    if ftrace_lock:
+        ftrace_lock.acquire()
     for prefix, old_path in ftrace_files.items():
         new_path = _get_file_path(prefix)
         if old_path != new_path:
             rename_file(old_path, new_path)
             ftrace_files[prefix] = new_path
-    if ftrace_lock: ftrace_lock.release()
+    if ftrace_lock:
+        ftrace_lock.release()
 
 
 def ftrace_prefix(prefix, *args, **kwargs):
-    if ftrace_lock: ftrace_lock.acquire()
+    if ftrace_lock:
+        ftrace_lock.acquire()
     if prefix not in ftrace_files:
         ftrace_files[prefix] = _get_file_path(prefix)
         write_file(ftrace_files[prefix], "")
     content = logargs(*args, **kwargs) + "\n"
     write_file(ftrace_files[prefix], content, "a")
-    if ftrace_lock: ftrace_lock.release()
+    if ftrace_lock:
+        ftrace_lock.release()
     return content.strip()
 
 

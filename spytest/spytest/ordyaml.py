@@ -70,7 +70,8 @@ class OrderedYaml(object):
                 obj[k] = self.include_map[v][1]
                 path = []
                 for p in parents:
-                    if p: path.append(p)
+                    if p:
+                        path.append(p)
                 path.append(k)
                 self.include_map[v][2] = path
 
@@ -157,11 +158,14 @@ class OrderedYaml(object):
 
     def dump(self, obj_in=None, expanded=True, use_aliases=True, **kwargs):
         obj = obj_in if obj_in else self.obj
-        if expanded: return self._dump(obj, use_aliases=use_aliases, **kwargs)
-        if not obj_in: obj = copy.deepcopy(obj)
+        if expanded:
+            return self._dump(obj, use_aliases=use_aliases, **kwargs)
+        if not obj_in:
+            obj = copy.deepcopy(obj)
         files = []
         for f, _, path in self.include_map.values():
-            if not path: continue
+            if not path:
+                continue
             obj1, last_index = obj, len(path) - 1
             for index in range(last_index):
                 obj1 = obj1[path[index]]

@@ -7,51 +7,60 @@ import pprint
 from spytest.dicts import SpyTestDict
 from spytest.gnmi.wrapper import _gnmi_get, _gnmi_set, gnmiCreateJsonFile, gnmiCreateProtoFile
 
+
 class gNMI(object):
 
     def __init__(self, logger=None, devName='DUT'):
         self.dev_name = devName
         self.target_addr = os.getenv("SPYTEST_GNMI_ADDRESS")
         self.target_name = os.getenv("SPYTEST_GNMI_NAME")
-        self.logger     = logger
-        self.timeout    = 10
-        self.ip         = None
-        self.inSecure   = True
+        self.logger = logger
+        self.timeout = 10
+        self.ip = None
+        self.inSecure = True
 
     def configure(self, ip=None, port=8080, targetName=None, username='admin',
                   password=None, ca=None, cert=None, inSecure=True, noTls=False,
                   timeout=10, params=None):
         self.target_name = targetName
-        self.username   = username
-        self.password   = password
-        self.ca         = ca
-        self.cert       = cert
-        self.inSecure   = inSecure
-        self.noTls      = noTls
-        self.timeout    = timeout
+        self.username = username
+        self.password = password
+        self.ca = ca
+        self.cert = cert
+        self.inSecure = inSecure
+        self.noTls = noTls
+        self.timeout = timeout
         self.defTimeout = timeout
-        self.params     = params
+        self.params = params
 
         if ip:
-            self.reinit(ip , port=port)
+            self.reinit(ip, port=port)
         return self
 
     def reinit(self, ip, port=8080):
-        self.ip     = ip.decode('utf-8') if type(ip) == bytes else str(ip)
-        self.port   = int(port)
+        self.ip = ip.decode('utf-8') if type(ip) == bytes else str(ip)
+        self.port = int(port)
         self.target_addr = "{}:{}".format(self.ip, self.port)
         return self
 
     def _compose_params(self, action, path, *args):
         param = [action, path]
-        if self.target_addr: param.extend(['-target_addr', self.target_addr])
-        if self.inSecure: param.append( "-insecure")
-        if self.noTls: param.append( "-notls")
-        if self.username: param.extend(['-username', self.username])
-        if self.password: param.extend(['-password', self.password])
-        if self.ca: param.extend(['-ca', self.ca])
-        if self.cert: param.extend(['-cert', self.cert])
-        if self.timeout and self.timeout != 10: param.extend(['-time_out', re.sub(r'\..*|\D', '', str(self.timeout))+'s'])
+        if self.target_addr:
+            param.extend(['-target_addr', self.target_addr])
+        if self.inSecure:
+            param.append("-insecure")
+        if self.noTls:
+            param.append("-notls")
+        if self.username:
+            param.extend(['-username', self.username])
+        if self.password:
+            param.extend(['-password', self.password])
+        if self.ca:
+            param.extend(['-ca', self.ca])
+        if self.cert:
+            param.extend(['-cert', self.cert])
+        if self.timeout and self.timeout != 10:
+            param.extend(['-time_out', re.sub(r'\..*|\D', '', str(self.timeout)) + 's'])
         param.extend(args)
         return param
 
@@ -65,7 +74,7 @@ class gNMI(object):
         if self.logger:
             self.logger.warning(msg)
         else:
-            print("WARNING:: "+str(msg))
+            print("WARNING:: " + str(msg))
 
     def _json(self, retval=''):
         try:
@@ -97,25 +106,26 @@ class gNMI(object):
                 self._warn("GNMI GET with Encoding Path/Data changed:\n... From path='{}'\n...   To path='{}'".format(path, new_path))
             path = new_path
         param = self._compose_params('-xpath', path, "-alsologtostderr")
-        if params: param.extend(params.split())
+        if params:
+            param.extend(params.split())
         self._log("GNMI [GET]: {}".format(path))
         try:
             ret_val = _gnmi_get(param, display=False, encoding=encoding)
 
             if path_change and "return" in ret_val:
-               output = json.loads(ret_val["return"])
-               self._log("GNMI [GET] original : {}".format(output))
+                output = json.loads(ret_val["return"])
+                self._log("GNMI [GET] original : {}".format(output))
 
-               if output:
-                  new_key =  list(output.keys())[0]
-                  output = output[new_key]
-                  ret_val["return"] = {}
-                  if attr in output:
-                     if ":" in attr:
-                        new_key = attr
-                     else:
-                        new_key = new_key.split(":")[0] + ":"+attr
-                     ret_val["return"] = {new_key:output[attr]}
+                if output:
+                    new_key = list(output.keys())[0]
+                    output = output[new_key]
+                    ret_val["return"] = {}
+                    if attr in output:
+                        if ":" in attr:
+                            new_key = attr
+                        else:
+                            new_key = new_key.split(":")[0] + ":" + attr
+                        ret_val["return"] = {new_key: output[attr]}
 
             return self._result('GET', path, ret_val)
         except Exception as e:
@@ -135,9 +145,11 @@ class gNMI(object):
                 data_path = gnmiCreateJsonFile(data, self.dev_name)
                 path = '{}:@{}'.format(path, data_path)
         param = self._compose_params('-{}'.format(action.lower()), path, "-alsologtostderr")
-        if params: param.extend(params.split())
+        if params:
+            param.extend(params.split())
         self._log("GNMI [{}]: {}".format(action.upper(), path))
-        if data: self._log("data:\n{}".format(pprint.pformat(data)))
+        if data:
+            self._log("data:\n{}".format(pprint.pformat(data)))
         try:
             ret_val = _gnmi_set(param, display=False, encoding=encoding)
             return self._result(action.upper(), path, ret_val, data)
@@ -168,16 +180,17 @@ class gNMI(object):
         else:
             return self.get(path, params=params, encoding=encoding)
 
+
 if __name__ == '__main__':
     def _main():
-        r = gNMI().configure(ip='100.94.116.37', password='admin') #'Sonic@Dell')
+        r = gNMI().configure(ip='100.94.116.37', password='admin')  # 'Sonic@Dell')
         pprint.pprint(r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/"))
         pprint.pprint(r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/", encoding='PROTO'))
         r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/mtu",
-            action='replace', data={"openconfig-interfaces:mtu": 1450})
+               action='replace', data={"openconfig-interfaces:mtu": 1450})
         pprint.pprint(r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/"))
         r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/mtu",
-            action='update', data={"openconfig-interfaces:mtu": 9000}, encoding='ANY')
+               action='update', data={"openconfig-interfaces:mtu": 9000}, encoding='ANY')
         pprint.pprint(r.send("/openconfig-interfaces:interfaces/interface[name=Ethernet4]/config/mtu", encoding='PROTO'))
         pprint.pprint(r.send('/openconfig-network-instance:network-instances/network-instance[name=default]/protocols/protocol[identifier=BGP][name=bgp]/bgp/global', encoding='PROTO'))
     _main()

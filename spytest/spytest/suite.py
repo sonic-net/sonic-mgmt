@@ -11,7 +11,8 @@ def _parse(suites, fin, fex, tin, tex, section, is_exclude=False):
 
     errs, lines, args, sin, sex = [], [], [], [], []
     for suite in suites:
-        if not suite: continue
+        if not suite:
+            continue
         fname = os.path.join(os.path.abspath(path), suite)
         if not os.path.exists(fname):
             errs.append("Suite File {} is not found".format(fname))
@@ -24,7 +25,8 @@ def _parse(suites, fin, fex, tin, tex, section, is_exclude=False):
         utils.abort_run(9)
 
     for line in lines:
-        if not line or line.startswith("#"): continue
+        if not line or line.startswith("#"):
+            continue
         if line.startswith("+tree:"):
             for file in utils.list_files(line[6:].strip(), "test_*.py"):
                 utils.list_append(fin, file)
@@ -125,9 +127,12 @@ def parse(sin, sex, section=None, ume=False):
         if t not in infra_tests:
             tclist_csv_exclude.append(t)
 
-    for module in include_modules: opts.extend(["--include-module", module])
-    if tclist_csv: opts.extend(["--tclist-csv", ",".join(tclist_csv)])
-    if tclist_csv_exclude: opts.extend(["--tclist-csv-exclude", ",".join(tclist_csv_exclude)])
+    for module in include_modules:
+        opts.extend(["--include-module", module])
+    if tclist_csv:
+        opts.extend(["--tclist-csv", ",".join(tclist_csv)])
+    if tclist_csv_exclude:
+        opts.extend(["--tclist-csv-exclude", ",".join(tclist_csv_exclude)])
 
     opts.append("--noop")
     for f in fin:
@@ -137,12 +142,18 @@ def parse(sin, sex, section=None, ume=False):
     fin = include_modules or fin
 
     utils.banner("SUITE IN: {} EX: {}".format(sin, sex), func=ftrace)
-    for f in fin: ftrace("+FILE: {}".format(f))
-    for f in fex: ftrace("-FILE: {}".format(f))
-    for t in tclist_csv: ftrace("+TEST: {}".format(t))
-    for t in tclist_csv_exclude: ftrace("-TEST: {}".format(t))
-    for i in ignore: ftrace(" IGN: {}".format(i))
-    for o in opts: ftrace(" OPT: {}".format(o))
+    for f in fin:
+        ftrace("+FILE: {}".format(f))
+    for f in fex:
+        ftrace("-FILE: {}".format(f))
+    for t in tclist_csv:
+        ftrace("+TEST: {}".format(t))
+    for t in tclist_csv_exclude:
+        ftrace("-TEST: {}".format(t))
+    for i in ignore:
+        ftrace(" IGN: {}".format(i))
+    for o in opts:
+        ftrace(" OPT: {}".format(o))
     utils.banner(None, func=ftrace)
 
     return opts, fin, ignore, tclist_csv, tclist_csv_exclude

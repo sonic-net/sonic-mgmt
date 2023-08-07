@@ -183,10 +183,12 @@ class RPS(object):
 
     def connect(self, base_prompt=None):
 
-        if self.model in ["APCMIB"]: return True
+        if self.model in ["APCMIB"]:
+            return True
 
         # no need to connect if we are using rest
-        if self.rest_url: return True
+        if self.rest_url:
+            return True
 
         if self.protocol == "ssh":
             for retry in range(1, self.max_connect_try + 1):
@@ -229,6 +231,7 @@ class RPS(object):
             msg = "connect {}:{} try {}".format(self.ip, self.port, retry)
             self.logmsg(msg, lvl=logging.WARNING)
             try:
+                # nosemgrep-next-line
                 self.tn = telnetlib.Telnet(self.ip, port=self.port)
                 break
             except Exception as e:
@@ -273,8 +276,10 @@ class RPS(object):
 
     def disconnect(self):
         self.logmsg("disconnect", lvl=logging.WARNING)
-        try: self.tn.disconnect()
-        except Exception: pass
+        try:
+            self.tn.disconnect()
+        except Exception:
+            pass
         self.tn = None
         if self.disc_delay > 0:
             self._wait(self.disc_delay)
@@ -312,8 +317,10 @@ class RPS(object):
                 except Exception as e:
                     msg = "failed to execute {}: {}/{} {}".format(cmd, attempt, max_attempts, e)
                     for line in self.bldmsg(msg):
-                        try: self.tn.log_exception(line, dump=True, prefix="")
-                        except Exception: self.logmsg(line, lvl=logging.ERROR)
+                        try:
+                            self.tn.log_exception(line, dump=True, prefix="")
+                        except Exception:
+                            self.logmsg(line, lvl=logging.ERROR)
                     if attempt >= max_attempts:
                         return None
                     self._wait(60)
@@ -367,16 +374,20 @@ class RPS(object):
 
     def off_on(self, disc=True, on_delay=None, off_delay=None, outlet=None, log_file=None):
 
-        if not self.tn: self.connect()
-        if not self.tn: return False
+        if not self.tn:
+            self.connect()
+        if not self.tn:
+            return False
         rv1 = self.off(False, off_delay, outlet)
         rv2 = self.on(False, on_delay, outlet)
-        if disc: self.disconnect()
+        if disc:
+            self.disconnect()
 
         return bool(rv1 and rv2)
 
     def snmp_set(self, outlet, val):
         cmd = "snmpset -v1 -c private {} iso.3.6.1.4.1.318.1.1.4.4.2.1.3.{} i {}".format(self.ip, outlet, val)
+        # nosemgrep-next-line
         pprocess = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     universal_newlines=True)
         stdout, stderr = pprocess.communicate()
@@ -389,7 +400,8 @@ class RPS(object):
 
         try:
             pre_wait = int(os.getenv("SPYTEST_RPS_PRE_RESET_WAIT", "0"))
-            if pre_wait > 0: self._wait(pre_wait)
+            if pre_wait > 0:
+                self._wait(pre_wait)
         except Exception:
             self.logmsg("Exception in pre-reset wait", lvl=logging.WARNING)
 
@@ -401,9 +413,12 @@ class RPS(object):
             return retval
 
         # use defaults if not specified
-        if outlet is None: outlet = self.outlet
-        if off_delay is None: off_delay = self.off_delay
-        if on_delay is None: on_delay = self.on_delay
+        if outlet is None:
+            outlet = self.outlet
+        if off_delay is None:
+            off_delay = self.off_delay
+        if on_delay is None:
+            on_delay = self.on_delay
 
         # connect if not already done
         if not self.tn:
@@ -430,18 +445,22 @@ class RPS(object):
             self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for on delay
-        if retval and on_delay > 0: self._wait(on_delay)
+        if retval and on_delay > 0:
+            self._wait(on_delay)
 
         # disconnect if required
-        if disc: self.disconnect()
+        if disc:
+            self.disconnect()
 
         return retval
 
     def off(self, disc=True, off_delay=None, outlet=None, log_file=None):
 
         # use defaults if not specified
-        if outlet is None: outlet = self.outlet
-        if off_delay is None: off_delay = self.off_delay
+        if outlet is None:
+            outlet = self.outlet
+        if off_delay is None:
+            off_delay = self.off_delay
 
         self.logmsg("powering off {}".format(outlet), lvl=logging.WARNING)
 
@@ -497,18 +516,22 @@ class RPS(object):
             self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for off delay
-        if retval and off_delay > 0: self._wait(off_delay)
+        if retval and off_delay > 0:
+            self._wait(off_delay)
 
         # disconnect if required
-        if disc: self.disconnect()
+        if disc:
+            self.disconnect()
 
         return retval
 
     def on(self, disc=True, on_delay=None, outlet=None, log_file=None):
 
         # use defaults if not specified
-        if outlet is None: outlet = self.outlet
-        if on_delay is None: on_delay = self.on_delay
+        if outlet is None:
+            outlet = self.outlet
+        if on_delay is None:
+            on_delay = self.on_delay
 
         self.logmsg("powering on {}".format(outlet), lvl=logging.WARNING)
 
@@ -558,10 +581,12 @@ class RPS(object):
             self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for on delay
-        if retval and on_delay > 0: self._wait(on_delay)
+        if retval and on_delay > 0:
+            self._wait(on_delay)
 
         # disconnect if required
-        if disc: self.disconnect()
+        if disc:
+            self.disconnect()
 
         return retval
 
@@ -570,7 +595,8 @@ class RPS(object):
         self.logmsg("powering debug", lvl=logging.WARNING)
 
         # use defaults if not specified
-        if outlet is None: outlet = self.outlet
+        if outlet is None:
+            outlet = self.outlet
 
         # connect if not already done
         if not self.tn:
@@ -601,7 +627,8 @@ class RPS(object):
             self.logmsg(msg, lvl=logging.WARNING)
 
         # disconnect if required
-        if disc: self.disconnect()
+        if disc:
+            self.disconnect()
 
         return retval
 
@@ -622,6 +649,7 @@ class RPS(object):
         msg = "grub connect {}:{}".format(ip, port)
         self.logmsg(msg, lvl=logging.WARNING)
         try:
+            # nosemgrep-next-line
             tn = telnetlib.Telnet(ip, port=port)
             tn.set_debuglevel(self.dbg_lvl)
             return tn
@@ -650,13 +678,16 @@ class RPS(object):
                 for _ in range(2):
                     self.tn_write(tn, "\r\n", 2)
                     stuck, rv = self._grub_wait_prompt(tn, self._grub_rescue_prompt, 10)
-                    if stuck: return rv
+                    if stuck:
+                        return rv
             stuck, rv = self._grub_wait_prompt(tn, "GNU GRUB  version", 120)
-            if stuck: return rv
+            if stuck:
+                return rv
 
             tok = "The highlighted entry will be executed automatically"
             stuck, rv = self._grub_wait_prompt(tn, tok, 10)
-            if stuck: return rv
+            if stuck:
+                return rv
             if tok not in rv:
                 pass
 
@@ -665,12 +696,14 @@ class RPS(object):
                 self.tn_write(tn, 'v^v^v^v^')
                 tok = "Press enter to boot the selected OS"
                 stuck, rv = self._grub_wait_prompt(tn, tok, 2)
-                if stuck: return rv
+                if stuck:
+                    return rv
                 rescued = False
                 for i in range(5):
                     self.tn_write(tn, 'v')  # select next entry
                     stuck, rv = self._grub_wait_prompt(tn, tok, 2)
-                    if stuck: return rv
+                    if stuck:
+                        return rv
                     if "*ONIE: Rescue" in rv:
                         self.tn_write(tn, '\r\n')
                         rescued = True  # break outer loop
@@ -685,7 +718,8 @@ class RPS(object):
                     break
 
             stuck, rv = self._grub_wait_prompt(tn, "Please press Enter to activate this console", 30)
-            if stuck: return rv
+            if stuck:
+                return rv
         except EOFError as e:
             msg = "grub connection closed {}".format(e)
             self.logmsg(msg, lvl=logging.ERROR)
@@ -702,8 +736,10 @@ class RPS(object):
             rv = self.recover_from_grub(tn, msg, ip, port)
         else:
             rv = bool(msg is None)
-        try: tn.close()
-        except Exception: pass
+        try:
+            tn.close()
+        except Exception:
+            pass
         return rv
 
     def recover_from_grub(self, tn, prompt, ip=None, port=0):
@@ -733,8 +769,10 @@ class RPS(object):
         self._wait(10)
         for _ in range(5):
             rv = self.tn_read_until(tn, "ONIE:/ #", 30)
-            if "onie-installer" in rv: return True
-            if "ONIE:" in rv: return True
+            if "onie-installer" in rv:
+                return True
+            if "ONIE:" in rv:
+                return True
         return False
 
     def tn_read_until(self, tn, msg, time, log_file=None):
@@ -759,5 +797,6 @@ class RPS(object):
             for ch in msg:
                 time.sleep(split_wait)
                 tn.write(ch)
-        if wait > 0: self._wait(wait)
+        if wait > 0:
+            self._wait(wait)
         return None

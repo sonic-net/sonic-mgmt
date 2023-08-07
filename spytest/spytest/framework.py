@@ -66,12 +66,12 @@ current_test = SpyTestDict()
 current_module = SpyTestDict()
 gWorkArea = None
 
-exec_phases = ['always', 'onfail', "none", "onerror", "session", \
+exec_phases = ['always', 'onfail', "none", "onerror", "session",
                "onfail-epilog", "module-always", "module-onfail", "module-onerror"]
-ui_types = ['click', 'klish', 'click-fallback', 'klish-fallback', \
-            'rest-put', 'rest-patch', 'rest', 'rest-post', \
-            'gnmi', 'gnmi-update', 'gnmi-replace', \
-            'random', 'custom' \
+ui_types = ['click', 'klish', 'click-fallback', 'klish-fallback',
+            'rest-put', 'rest-patch', 'rest', 'rest-post',
+            'gnmi', 'gnmi-update', 'gnmi-replace',
+            'random', 'custom'
             ]
 random_ui_types = ['click', 'klish', 'rest-patch']
 load_image_types = ['installer', 'onie1', 'onie', "installer-without-migration"]
@@ -88,13 +88,18 @@ dtrace_dbg, dtrace_log = False, False
 
 
 def dtrace(*args):
-    if dtrace_log: ftrace(*args)
-    if not dtrace_dbg: return
+    if dtrace_log:
+        ftrace(*args)
+    if not dtrace_dbg:
+        return
     worker_id = batch.get_worker_id()
     wa = get_work_area()
-    if wa: wa.log(args)
-    elif not worker_id: print(args)
-    elif not dtrace_log: ftrace(*args)
+    if wa:
+        wa.log(args)
+    elif not worker_id:
+        print(args)
+    elif not dtrace_log:
+        ftrace(*args)
 
 
 def _get_logs_path(master=False):
@@ -296,10 +301,13 @@ class Context(object):
 
         # verify the build url
         for dut in self.topo.duts:
-            if self.cfg.filemode: continue
-            if self.wa.get_cfg_load_image(dut) == "none": continue
+            if self.cfg.filemode:
+                continue
+            if self.wa.get_cfg_load_image(dut) == "none":
+                continue
             errmsg = self.wa._verify_build_url_dut(dut)[0]
-            if errmsg: global_abort_run(2, errmsg)
+            if errmsg:
+                global_abort_run(2, errmsg)
 
         # simulate node dead and excluded in session init
         batch.simulate_deadnode(0)
@@ -355,7 +363,8 @@ class Context(object):
                 global_abort_run(2, msg)
             with open(fpath, 'r') as fd:
                 for row in csv.reader(fd):
-                    if not row or row[0].startswith("#"): continue
+                    if not row or row[0].startswith("#"):
+                        continue
                     issue, tc = row[0], row[1]
                     desc = ",".join(row[2:])
                     known_issues.append([tc, desc, issue])
@@ -405,8 +414,10 @@ class Context(object):
 
     def _cleanup_registered(self):
         for func, args, kwargs in self.cleanup_calls:
-            try: func(*args, **kwargs)
-            except Exception: pass
+            try:
+                func(*args, **kwargs)
+            except Exception:
+                pass
 
     def _exit_gracefully(self, signum, frame):
         if self.cfg.graceful_exit:
@@ -469,7 +480,8 @@ class Context(object):
         has_non_scapy = False
         for tgen_name in self._tb.get_device_names("TG"):
             tgen_dict = self._tb.get_tg_info(tgen_name)
-            if not tgen_dict: continue
+            if not tgen_dict:
+                continue
             tgen_ports = list()
             tgen_links = self._tb.get_links(tgen_name)
             for linkElem in tgen_links:
@@ -510,9 +522,12 @@ class Context(object):
         pass
 
     def abort_run(self, code, reason, hang, line=None):
-        if self.cfg.gcov == 1: phase = "session"
-        elif self.cfg.gcov == 2: phase = "module"
-        else: phase = None
+        if self.cfg.gcov == 1:
+            phase = "session"
+        elif self.cfg.gcov == 2:
+            phase = "module"
+        else:
+            phase = None
         if self.wa.session_init_completed and not hang and phase:
             if not putil.wait_for_parallel():
                 self.wa.error("Timed out waiting for threads to complete")
@@ -561,10 +576,13 @@ class Context(object):
         self.ensure_tgen(rv1, e1, self.log)
 
     def _disconnect(self):
-        if not self.net: return
+        if not self.net:
+            return
         self.log.warning("Unregistering Topology")
-        try: self.net.unregister_devices()
-        except Exception: pass
+        try:
+            self.net.unregister_devices()
+        except Exception:
+            pass
 
     def email(self, subject=None):
         filepath = os.path.join(self.logs_path, "build.txt")
@@ -578,8 +596,10 @@ class Context(object):
         combinedReport = env.get("SPYTEST_GENERATE_COMBINED_REPORT", "0")
         image_build_path = env.get("SPYTEST_IMAGE_BUILD_PATH", "")
         if image_build_path:
-            try: image_build_path = os.path.realpath(image_build_path)
-            except Exception: pass
+            try:
+                image_build_path = os.path.realpath(image_build_path)
+            except Exception:
+                pass
 
         date = self.execution_start_time.strftime('%b-%d')
 
@@ -638,7 +658,8 @@ class Context(object):
             return
 
         is_master, is_html, add_png, dead = batch.is_master(), True, False, 0
-        if is_master: dead = batch.get_dead_member_count()
+        if is_master:
+            dead = batch.get_dead_member_count()
 
         body_lines = [self.version_msg, self.root_path, self.hostname]
         body_lines.append("Python: {}".format(self.pyver))
@@ -655,7 +676,8 @@ class Context(object):
             body_lines.append("Combined Report: {}".format(combinedReport))
         if dead:
             body_lines.append("Dead: {}".format(dead))
-        if is_html: body_lines = ["<br/>{}".format(line) for line in body_lines]
+        if is_html:
+            body_lines = ["<br/>{}".format(line) for line in body_lines]
         body = "\n".join(body_lines)
 
         attchments = []
@@ -683,7 +705,7 @@ class Context(object):
                     attchments.append(modules_htm)
 
         ###################################################
-        ######### build mail body from report files
+        # build mail body from report files
         ###################################################
         features_htmls = []
         features_htmls.append(paths.get_features_summary_htm(self.logs_path, is_master))
@@ -695,16 +717,16 @@ class Context(object):
             features_htm = paths.get_features_htm(batch.sub_report_path(self.logs_path, name), is_master)
             features_htmls.append(features_htm)
 
-        ### add feature reports
+        # add feature reports
         for features_htm in features_htmls:
             body = append_email_body(body, features_htm)
 
-        ### add summary report
+        # add summary report
         if env.get("SPYTEST_EMAIL_RUN_SUMMARY", "0") != "0":
             reports_htm = paths.get_summary_htm(self.logs_path, is_master)
             body = append_email_body(body, reports_htm)
 
-        ### add module report
+        # add module report
         reports_htm = paths.get_modules_htm(self.logs_path, is_master)
         mini_reports_htm = reports_htm.replace(".html", "-mini.html")
         body = append_email_body(body, mini_reports_htm)
@@ -764,8 +786,10 @@ class Context(object):
         chips = self._tb.get_device_chips("DUT")
         _, desc_def = self.result.get()
         knownIssue = self.get_known_issue(func, tcid, desc or desc_def)
-        try: doc = utils.get_doc_string(item_utils.find(func).function)[1]
-        except Exception: doc = ""
+        try:
+            doc = utils.get_doc_string(item_utils.find(func).function)[1]
+        except Exception:
+            doc = ""
         res = self.result.publish(nodeid, func, tcid, time_taken, comp, result,
                                   desc, rtype, syslogs, fcli, tryssh, dut_list,
                                   models, chips, knownIssue, doc)
@@ -796,8 +820,10 @@ class Context(object):
             if env.get("SPYTEST_REPEAT_MODULE_SUPPORT") == "0":
                 tcid1 = tcid
             else:
-                try: tcid1 = tcid.split("[")[0]
-                except Exception: tcid1 = tcid
+                try:
+                    tcid1 = tcid.split("[")[0]
+                except Exception:
+                    tcid1 = tcid
             if tcid1 not in self.tc_results:
                 comp = tcmap.get_comp(tcid)
                 self.publish2(nodeid, func, tcid, "0:00:00",
@@ -805,10 +831,13 @@ class Context(object):
         for tcid in self.tc_results.keys():
             res, desc = self.tc_results[tcid]
             if env.get("SPYTEST_REPEAT_MODULE_SUPPORT") != "0":
-                try: tcid = "{}[{}]".format(tcid, re.split(r"\[|\]", func)[1])
-                except Exception: pass
+                try:
+                    tcid = "{}[{}]".format(tcid, re.split(r"\[|\]", func)[1])
+                except Exception:
+                    pass
             comp = tcmap.get_comp(tcid) or tcmap.get_comp(func)
-            if not comp: continue
+            if not comp:
+                continue
             self.publish2(nodeid, func, tcid, "0:00:00", comp,
                           res, desc, "SubTest")
 
@@ -995,11 +1024,13 @@ class WorkArea(object):
         return self.net.is_linux_device(dut)
 
     def is_sonicvs(self, dut=None):
-        if not dut: dut = self.get_dut_names()[0]
+        if not dut:
+            dut = self.get_dut_names()[0]
         return self.net.is_sonicvs_device(dut)
 
     def is_vsonic(self, dut=None):
-        if not dut: dut = self.get_dut_names()[0]
+        if not dut:
+            dut = self.get_dut_names()[0]
         return self.net.is_vsonic_device(dut) or \
             self.get_dut_var(dut, "is_vsonic", False)
 
@@ -1011,8 +1042,10 @@ class WorkArea(object):
 
     def get_logs_path(self, for_file=None, subdir=None):
         logs_path = _get_logs_path()[1]
-        if subdir: logs_path = os.path.join(logs_path, subdir)
-        if for_file: for_file = "{0}_{1}".format(self.file_prefix, for_file)
+        if subdir:
+            logs_path = os.path.join(logs_path, subdir)
+        if for_file:
+            for_file = "{0}_{1}".format(self.file_prefix, for_file)
         return os.path.join(logs_path, for_file) if for_file else logs_path
 
     def profiling_start(self, msg, max_time, skip_report=False):
@@ -1039,14 +1072,17 @@ class WorkArea(object):
             msg = msg.strip()
         msg = "\n================== {} ==================".format(msg)
         msg2 = self.hooks.audit("event", None, msg, dst="audit")
-        if not msg2: self.log(msg)
+        if not msg2:
+            self.log(msg)
 
     def log_time(self, name):
         self._context.log_time(name)
 
     def log_lvl(self, lvl, msg, dut=None, split_lines=False, dst=None):
-        if dut: self.dut_log(dut, msg, lvl, dst=dst, split_lines=split_lines)
-        elif self._context: self._context.log.log(lvl, msg, dut, dst=dst, split_lines=split_lines)
+        if dut:
+            self.dut_log(dut, msg, lvl, dst=dst, split_lines=split_lines)
+        elif self._context:
+            self._context.log.log(lvl, msg, dut, dst=dst, split_lines=split_lines)
 
     def log(self, msg, dut=None, split_lines=False, dst=None, lvl=None):
         self.log_lvl(lvl or logging.INFO, msg, dut, split_lines, dst)
@@ -1084,9 +1120,11 @@ class WorkArea(object):
         if not self.net:
             return self._context.log.log(lvl, msg, split_lines=split_lines, dst=dst)
         for d in utils.make_list(dut):
-            try: self.net.dut_log(d, msg, lvl, cond, dst, split_lines=split_lines)
-            except Exception: self._context.log.log(lvl, "{}:{}".format(d, msg),
-                                                    split_lines=split_lines, dst=dst)
+            try:
+                self.net.dut_log(d, msg, lvl, cond, dst, split_lines=split_lines)
+            except Exception:
+                self._context.log.log(lvl, "{}:{}".format(d, msg),
+                                      split_lines=split_lines, dst=dst)
 
     def alert(self, msg, type="", lvl=logging.ERROR, skip_log=True):
         worker_id = batch.get_worker_id() or ""
@@ -1117,8 +1155,10 @@ class WorkArea(object):
         self._context.net.tg_wait(val)
 
     def get_ts_count(self, name):
-        try: return self.module_tscount.get(name, 0)
-        except Exception: return 0
+        try:
+            return self.module_tscount.get(name, 0)
+        except Exception:
+            return 0
 
     def fetch_support(self, dut, scope, res, desc, name):
         if dut is not None:
@@ -1306,8 +1346,10 @@ class WorkArea(object):
         self.pytest_skip(desc)
 
     def set_thread_skip(self, value):
-        try: self.skips[putil.get_thread_name()] = value
-        except Exception as exp: print_ftrace(exp)
+        try:
+            self.skips[putil.get_thread_name()] = value
+        except Exception as exp:
+            print_ftrace(exp)
 
     def pytest_xfail(self, msg):
         abort_method = env.getint("SPYTEST_TEST_ABORT_METHOD", "4")
@@ -1316,11 +1358,15 @@ class WorkArea(object):
         elif abort_method == 1:
             pytest.exit(msg, returncode=1)
         elif abort_method == 2:
-            try: pytest.xfail(msg)
-            finally: raise ValueError(msg)
+            try:
+                pytest.xfail(msg)
+            finally:
+                raise ValueError(msg)
         elif abort_method == 3:
-            try: pytest.xfail(msg)
-            finally: pytest.exit(msg, returncode=1)
+            try:
+                pytest.xfail(msg)
+            finally:
+                pytest.exit(msg, returncode=1)
         elif abort_method == 4:
             self.set_thread_skip(1)
             pytest.xfail(msg)
@@ -1332,11 +1378,15 @@ class WorkArea(object):
         elif abort_method == 1:
             pytest.exit(msg, returncode=1)
         elif abort_method == 2:
-            try: pytest.skip(msg)
-            finally: raise ValueError(msg)
+            try:
+                pytest.skip(msg)
+            finally:
+                raise ValueError(msg)
         elif abort_method == 3:
-            try: pytest.skip(msg)
-            finally: pytest.exit(msg, returncode=1)
+            try:
+                pytest.skip(msg)
+            finally:
+                pytest.exit(msg, returncode=1)
         elif abort_method == 4:
             self.set_thread_skip(2)
             pytest.skip(msg)
@@ -1404,7 +1454,8 @@ class WorkArea(object):
         chip = chip or self.app_vars.get(dut, {}).get("chip", "")
         version = self.app_vars.get(dut, {}).get("version", "")
         module0, func0 = paths.parse_nodeid(get_current_nodeid())
-        module = module or module0 or ""; func = func or func0 or ""
+        module = module or module0 or ""
+        func = func or func0 or ""
         row = ["", dut, name, value, platform, chip, version, module, func]
         Result.write_report_csv(scale_csv, [row], ReportType.SCALE, is_batch=False, append=True)
 
@@ -1414,7 +1465,8 @@ class WorkArea(object):
         chip = chip or self.app_vars.get(dut, {}).get("chip", "")
         version = self.app_vars.get(dut, {}).get("version", "")
         module0, func0 = paths.parse_nodeid(get_current_nodeid())
-        module = module or module0 or ""; func = func or func0 or ""
+        module = module or module0 or ""
+        func = func or func0 or ""
         row = ["", dut, name, value, platform, chip, version, module, func]
         Result.write_report_csv(featcov_csv, [row], ReportType.FEATCOV, is_batch=False, append=True)
 
@@ -1473,7 +1525,8 @@ class WorkArea(object):
         return load_image
 
     def get_ifname_type(self, dut, oper=False):
-        if oper: return self.hooks.get_ifname_type(dut)
+        if oper:
+            return self.hooks.get_ifname_type(dut)
         if self.cfg.ifname_type == "testbed":
             ifname_type = self.get_device_param(dut, "ifname_type", "native")
         else:
@@ -1590,7 +1643,8 @@ class WorkArea(object):
         return True
 
     def _wait_for_ports(self, dut, max_time=0):
-        if self.is_dry_run(): return True
+        if self.is_dry_run():
+            return True
         if dut in self.all_ports:
             last_port = self.all_ports[dut][-1]
             t = time.time() + max_time
@@ -1606,7 +1660,8 @@ class WorkArea(object):
         return self.net.apply_remote(dut, "wait-for-ports", [max_time])
 
     def wait_system_status(self, dut, max_time=0, lvl=0):
-        if self.cfg.pde: return True
+        if self.cfg.pde:
+            return True
 
         line = utils.get_line_number(lvl + 1)
         msg = "Wait for system ready Ref: {}".format(line)
@@ -1797,8 +1852,10 @@ class WorkArea(object):
         return self.upgrade_libsai(dut)
 
     def _load_testbed_config_dut(self, dut, scope):
-        if self.cfg.pde: return
-        if self.cfg.skip_init_config: return
+        if self.cfg.pde:
+            return
+        if self.cfg.skip_init_config:
+            return
 
         # apply configs as given in template
         files = self.get_config(dut, scope)
@@ -1813,13 +1870,15 @@ class WorkArea(object):
     def has_get_tech_support(self, *args):
         runopt = utils.csv2list(self.cfg.get_tech_support)
         for m in args:
-            if m in runopt: return True
+            if m in runopt:
+                return True
         return False
 
     def has_fetch_core_files(self, *args):
         runopt = utils.csv2list(self.cfg.fetch_core_files)
         for m in args:
-            if m in runopt: return True
+            if m in runopt:
+                return True
         return False
 
     def _init_base_config_db(self, dut):
@@ -1832,12 +1891,14 @@ class WorkArea(object):
             self.net.init_clean(dut, any_fetch_core_files, any_get_tech_support, True)
 
         # no need for PDE
-        if self.cfg.pde: return
+        if self.cfg.pde:
+            return
 
-        if self.cfg.skip_init_config and profile in ["na"]: return
+        if self.cfg.skip_init_config and profile in ["na"]:
+            return
 
         # create init config file
-        largs_list = [any_fetch_core_files, any_get_tech_support, \
+        largs_list = [any_fetch_core_files, any_get_tech_support,
                       self.cfg.clear_tech_support, True, profile]
         self.net.apply_remote(dut, "init-ta-config", largs_list)
 
@@ -2078,7 +2139,8 @@ class WorkArea(object):
         dut_list = dut_list or self.get_dut_names()
         errs, failed_devices = [], []
         for dut_index, ex in enumerate(exceptions):
-            if not ex: continue
+            if not ex:
+                continue
             self.dut_log(dut_list[dut_index], str(ex), logging.ERROR)
             errs.extend(ex)
             failed_devices.append(dut_list[dut_index])
@@ -2158,7 +2220,8 @@ class WorkArea(object):
             msg = "invalid ports in topology - please check testbed file"
             failed_duts = []
             for dut, retval in zip(self.get_dut_names(), retvals):
-                if retval: continue
+                if retval:
+                    continue
                 failed_duts.append(dut)
                 self.dut_log(dut, msg, lvl=logging.ERROR)
             if not self.is_dry_run():
@@ -2570,7 +2633,8 @@ class WorkArea(object):
     def _pre_function_epilog(self, name):
         if not batch.is_infra_test(name):
             res, desc = self._context.result.get(False)
-            if not desc or "result already set to" in desc: return
+            if not desc or "result already set to" in desc:
+                return
             self.fetch_support(None, "pre-function-epilog", res, desc, name)
             self.ignore_post_function_epilog = True
 
@@ -2669,7 +2733,8 @@ class WorkArea(object):
         self._fill_sysinfo_data(row, off + 0, 0, entry, "pre-{}-prolog".format(dtype))
         self._fill_sysinfo_data(row, off + 1, 0, entry, "post-{}-epilog".format(dtype))
         self._fill_sysinfo_diff(row, off)
-        if not Result.has_cpu_cols(): return
+        if not Result.has_cpu_cols():
+            return
         self._fill_sysinfo_data(row, off + 3, 1, entry, "pre-{}-prolog".format(dtype))
         self._fill_sysinfo_data(row, off + 4, 1, entry, "post-{}-epilog".format(dtype))
         self._fill_sysinfo_diff(row, off + 3)
@@ -2687,8 +2752,10 @@ class WorkArea(object):
         msysinfo_csv = paths.get_msysinfo_csv(self._context.logs_path)
         Result.write_report_csv(msysinfo_csv, [row], ReportType.MSYSINFO, False, True)
         if not this_row:
-            if not row[1]: self._dbg_sysinfo(nodeid, "MSYSINFO", "module")
-            if not row[3] or not row[4]: self._dbg_sysinfo(nodeid, "MSYSINFO", "values", row)
+            if not row[1]:
+                self._dbg_sysinfo(nodeid, "MSYSINFO", "module")
+            if not row[3] or not row[4]:
+                self._dbg_sysinfo(nodeid, "MSYSINFO", "values", row)
         row.insert(2, " --Module--")
         self._save_fsysinfo(nodeid, row)
         nodeid = "{}::--Module--".format(nodeid)
@@ -3031,9 +3098,12 @@ class WorkArea(object):
         Result.write_report_csv(fsysinfo_csv, [row], ReportType.FSYSINFO, False, True)
         if not this_row:
             self._save_dsysinfo(nodeid)
-            if not row[1]: self._dbg_sysinfo(nodeid, "FSYSINFO", "module")
-            if not row[2]: self._dbg_sysinfo(nodeid, "FSYSINFO", "function")
-            if not row[4] or not row[5]: self._dbg_sysinfo(nodeid, "FSYSINFO", "values", row)
+            if not row[1]:
+                self._dbg_sysinfo(nodeid, "FSYSINFO", "module")
+            if not row[2]:
+                self._dbg_sysinfo(nodeid, "FSYSINFO", "function")
+            if not row[4] or not row[5]:
+                self._dbg_sysinfo(nodeid, "FSYSINFO", "values", row)
 
     def _build_dsysinfo(self, nodeid, dtype="function"):
         module, func = paths.parse_nodeid(nodeid)
@@ -3051,9 +3121,12 @@ class WorkArea(object):
         Result.write_report_csv(dsysinfo_csv, rows, ReportType.DSYSINFO, False, True)
         if not this_rows:
             for row in rows:
-                if not row[1]: self._dbg_sysinfo(nodeid, "DSYSINFO", "module")
-                if not row[2]: self._dbg_sysinfo(nodeid, "DSYSINFO", "function")
-                if not row[4] or not row[5]: self._dbg_sysinfo(nodeid, "DSYSINFO", "values", row)
+                if not row[1]:
+                    self._dbg_sysinfo(nodeid, "DSYSINFO", "module")
+                if not row[2]:
+                    self._dbg_sysinfo(nodeid, "DSYSINFO", "function")
+                if not row[4] or not row[5]:
+                    self._dbg_sysinfo(nodeid, "DSYSINFO", "values", row)
 
     def _dbg_sysinfo(self, nodeid, itype, dtype, row=""):
         # self.error("{}: invalid {} {} {}".format(itype, dtype, nodeid, row))
@@ -3163,8 +3236,10 @@ class WorkArea(object):
                 elif ctype == "TECH_SUPPORT":
                     ofh.write("{}TECH SUPPORT: {}".format(start_msg, cmd))
             ofh.write("\n=========================================================\n")
-        try: self.stats_count = self.stats_count + 1
-        except Exception: self.stats_count = 1
+        try:
+            self.stats_count = self.stats_count + 1
+        except Exception:
+            self.stats_count = 1
         row = [self.stats_count, module, func, res, time_taken, stats.helper_cmd_time,
                stats.tc_cmd_time, stats.tg_cmd_time, stats.tc_total_wait,
                stats.tg_total_wait, stats.pnfound, stats.ts_files, desc.replace(",", " ")]
@@ -3325,7 +3400,8 @@ class WorkArea(object):
 
     def moveto_grub_mode(self, dut):
         retval, rinfo_list = self.do_rps_int(dut, "reset", 1, recon=False)
-        if self.is_dry_run(): return True
+        if self.is_dry_run():
+            return True
         if retval:
             dinfo = self._context._tb.get_dut_access(dut)
             retval = rinfo_list[0].obj.grub_wait(dinfo["ip"], dinfo["port"])
@@ -3344,7 +3420,8 @@ class WorkArea(object):
         :return: True if the operation is successful else False
         """
         retval, rinfo_list = False, self.get_rps(dut)
-        if self.is_dry_run(): return True, None
+        if self.is_dry_run():
+            return True, None
 
         # build list of RPS operations
         if op == "reset" and len(rinfo_list) > 1:
@@ -3356,10 +3433,12 @@ class WorkArea(object):
 
         # create RPS object
         for rinfo in rinfo_list:
-            if "port" not in rinfo: rinfo.port = 23
+            if "port" not in rinfo:
+                rinfo.port = 23
             rps = RPS(rinfo.model, rinfo.ip, rinfo.port, rinfo.outlet,
                       rinfo.username, rinfo.password, dut=str(dut), logger=self.get_logger())
-            if "pdu_id" in rinfo: rps.set_pdu_id(rinfo.pdu_id)
+            if "pdu_id" in rinfo:
+                rps.set_pdu_id(rinfo.pdu_id)
             rinfo.obj = rps
 
         # perform operations
@@ -3437,7 +3516,8 @@ class WorkArea(object):
         pass
 
     def _process_testbed_properties(self, tbvars, properties):
-        if not properties: return
+        if not properties:
+            return
         if None in properties and "CONSOLE_ONLY" in properties[None]:
             self.net.set_console_only(True)
         for dut in tbvars.dut_list:
@@ -3646,8 +3726,10 @@ class WorkArea(object):
                 count = count + 1
                 if count >= max_ports:
                     break
-        if name is None: return rv
-        if name in rv: return rv[name]
+        if name is None:
+            return rv
+        if name in rv:
+            return rv[name]
         return (None, None)
 
     def get_run_config(self):
@@ -3687,7 +3769,8 @@ class WorkArea(object):
         _, ui_type = generate._get_module_ui(current_module.name, self.cfg)
         dut = utils.make_list(dut)[0]
         cli_type = kwargs.get('cli_type', '')
-        if cli_type: cli_type = cli_type.strip()
+        if cli_type:
+            cli_type = cli_type.strip()
         if not cli_type:
             dut_ui_type = self.dut_ui_type.get(dut, '')
             if not dut_ui_type:
@@ -3698,12 +3781,16 @@ class WorkArea(object):
             else:
                 cli_type = dut_ui_type
                 msg = "CLI-TYPE Forced to {} From Topology".format(cli_type)
-                if dut: self.dut_log(dut, msg, logging.DEBUG)
-                else: self.debug(msg)
+                if dut:
+                    self.dut_log(dut, msg, logging.DEBUG)
+                else:
+                    self.debug(msg)
         elif cli_type != ui_type:
             msg = "CLI-TYPE Forced to {} From caller".format(cli_type)
-            if dut: self.dut_log(dut, msg, logging.DEBUG)
-            else: self.debug(msg)
+            if dut:
+                self.dut_log(dut, msg, logging.DEBUG)
+            else:
+                self.debug(msg)
         if cli_type == "custom":
             cli_type = self.hooks.get_custom_ui(dut)
         return self._record_cli_type(dut, cli_type)
@@ -3764,7 +3851,8 @@ class WorkArea(object):
 
             # get the breakout info from testbed file
             breakout_info = self._context._tb.get_breakout(dut, section=section)
-            if not breakout_info: breakout_info = []
+            if not breakout_info:
+                breakout_info = []
 
             for [l_port, l_breakout] in breakout_info:
                 all_ports.append(l_port)
@@ -3776,7 +3864,8 @@ class WorkArea(object):
 
             # get the speed info from testbed file
             speed_info = self._context._tb.get_speed(dut)
-            if not speed_info: speed_info = dict()
+            if not speed_info:
+                speed_info = dict()
 
             for l_port, l_speed in speed_info.items():
                 all_ports.append(l_port)
@@ -3802,7 +3891,8 @@ class WorkArea(object):
         if env.match("SPYTEST_BREAKOUT_USING_SSH", "1", "0"):
             change_in_tryssh = self.net.tryssh_switch(dut, True)
             retval_1 = self.hooks.set_port_defaults(dut, apply_args[0], apply_args[1])
-            if change_in_tryssh: self.net.tryssh_switch(dut)
+            if change_in_tryssh:
+                self.net.tryssh_switch(dut)
         else:
             retval_1 = self.hooks.set_port_defaults(dut, apply_args[0], apply_args[1])
 
@@ -3985,8 +4075,10 @@ class WorkArea(object):
     def gen_net_tech_support(self, dut_list, name):
         self._foreach(dut_list, self.net.generate_tech_support, name)
         mname = current_module.name
-        try: self.module_tscount[mname] = self.get_ts_count(mname) + len(dut_list)
-        except Exception: pass
+        try:
+            self.module_tscount[mname] = self.get_ts_count(mname) + len(dut_list)
+        except Exception:
+            pass
 
     def generate_tech_support_1(self, dut, name, force=False):
         if not force and self.has_get_tech_support("none"):
@@ -4013,7 +4105,8 @@ class WorkArea(object):
             self.net.collect_core_files(dut, name)
 
     def gen_rps_debug_info(self, dut):
-        if not env.match("SPYTEST_RPS_DEBUG", "1", "1"): return
+        if not env.match("SPYTEST_RPS_DEBUG", "1", "1"):
+            return
         dut = utils.make_list(dut or self.get_dut_names())[0]
         if not self.is_sonicvs(dut) and not self.is_vsonic(dut):
             # no need to fetch for non VS runs
@@ -4064,13 +4157,20 @@ class WorkArea(object):
             cmd = cmd.replace("\r", "\\r")
             module, func = paths.parse_nodeid(current_test.nodeid)
             module = current_module.name
-            if current_test.phase == "test_module_begin": phase = "module-prolog"
-            elif current_test.phase == "test_class_begin": phase = "class-prolog"
-            elif current_test.phase == "test_function_begin": phase = "function-prolog"
-            elif current_test.phase == "test_function_end": phase = "function-or-epilog"
-            elif current_test.phase == "global_function_finish": phase = "module-or-class-epilog"
-            elif current_test.phase == "test_class_finish": phase = "module-epilog"
-            else: phase = "framework"
+            if current_test.phase == "test_module_begin":
+                phase = "module-prolog"
+            elif current_test.phase == "test_class_begin":
+                phase = "class-prolog"
+            elif current_test.phase == "test_function_begin":
+                phase = "function-prolog"
+            elif current_test.phase == "test_function_end":
+                phase = "function-or-epilog"
+            elif current_test.phase == "global_function_finish":
+                phase = "module-or-class-epilog"
+            elif current_test.phase == "test_class_finish":
+                phase = "module-epilog"
+            else:
+                phase = "framework"
             entry = [phase, module, func, dut, mode, cmd]
             self.cli_records[dut].append(entry)
 
@@ -4107,17 +4207,22 @@ class WorkArea(object):
     def check_skips(self, threads):
         for thread in threads:
             skip = self.skips.get(putil.get_thread_name(thread))
-            if skip: return True
+            if skip:
+                return True
         return False
 
     def handle_skips(self, result):
         retvals, exceptions, threads = result
         for thread in threads:
-            if not thread: continue
+            if not thread:
+                continue
             skip = self.skips.get(putil.get_thread_name(thread))
-            if not skip: continue
-            if skip == 1: pytest.xfail("xfail")
-            if skip == 2: pytest.skip("skip")
+            if not skip:
+                continue
+            if skip == 1:
+                pytest.xfail("xfail")
+            if skip == 2:
+                pytest.skip("skip")
             break
         return [retvals, exceptions]
 
@@ -4158,7 +4263,8 @@ class WorkArea(object):
                 msg = "Failed to init config DB - trying to recover using {} reboot".format(method)
                 self.dut_log(dut, msg, lvl=logging.ERROR)
                 rv = self.net.reboot(dut, method, skip_exception=True)
-                if rv: return
+                if rv:
+                    return
                 msg = "Failed to init config DB - failed to recover using {} reboot".format(method)
                 self.dut_log(dut, msg, logging.ERROR)
                 raise ValueError(msg)
@@ -4260,7 +4366,8 @@ def add_option(group, name, **kwargs):
     default = cmdargs.get_default_1(name, default)
     help = kwargs.pop("help", "")
     if default not in [None, ""]:
-        if help: help = help + " -- "
+        if help:
+            help = help + " -- "
         help = help + " default: {}".format(default)
     group.addoption(name, default=default, help=help, **kwargs)
 
@@ -4549,22 +4656,26 @@ def read_cfg_dict(config, group, name, default):
 def _create_work_area2(config):
     missing, missing_msg = [], ""
     for arg in config.args:
-        if os.path.isfile(arg): continue
-        if os.path.isdir(arg): continue
+        if os.path.isfile(arg):
+            continue
+        if os.path.isdir(arg):
+            continue
         missing.append(arg)
     if missing:
         missing_msg = utils.banner("Missing Paths: {}".format(",".join(missing)))
     cfg = SpyTestDict()
     cfg.filemode = config.getoption("--file-mode")
     cfg.dryrun = config.getoption("--dryrun", 0)
-    if cfg.dryrun: cfg.filemode = True
+    if cfg.dryrun:
+        cfg.filemode = True
     cfg.testbed = config.getoption("--testbed-file")
     cfg.logs_path = config.getoption("--logs-path")
     cfg.log_lvl = config.getoption("--log-level")
     cfg.test_suite = config.getoption("--test-suite")
     cfg.tclist_bucket = config.getoption("--tclist-bucket", None)
     cfg.email_csv = config.getoption("--email")
-    if cfg.email_csv: cfg.email_csv = ",".join(cfg.email_csv)
+    if cfg.email_csv:
+        cfg.email_csv = ",".join(cfg.email_csv)
     email_subject_args = " ".join(config.getoption("--email-subject-nargs", []))
     cfg.email_subject = email_subject_args or config.getoption("--email-subject", "Run Report")
     cfg.email_attachments = bool(config.getoption("--email-attachments", 0))
@@ -4709,7 +4820,8 @@ def _create_work_area2(config):
 
     wa = get_work_area()
     if not wa:
-        try: wa = WorkArea(cfg)
+        try:
+            wa = WorkArea(cfg)
         except Exception:
             for msg in utils.stack_trace(None, True):
                 print_ftrace(msg)
@@ -4718,8 +4830,10 @@ def _create_work_area2(config):
 
     if missing_msg:
         print_ftrace(missing_msg)
-        try: wa.warn(missing_msg)
-        except Exception: pass
+        try:
+            wa.warn(missing_msg)
+        except Exception:
+            pass
 
     return wa
 
@@ -4756,8 +4870,10 @@ def _delete_work_area():
 
     set_work_area(None)
 
-    try: bg_results.stop()
-    except Exception: pass
+    try:
+        bg_results.stop()
+    except Exception:
+        pass
 
 
 def log_test_exception(excinfo, hook='test_function'):
@@ -4825,7 +4941,8 @@ def _build_tclist_file(config, option="--tclist-file"):
 
 def _build_tclist_csv(config, option="--tclist-csv"):
     tclist_csv_list = config.getoption(option, None)
-    if not tclist_csv_list: return None
+    if not tclist_csv_list:
+        return None
     test_names_list = []
     for tclist_csv in tclist_csv_list:
         test_names = tclist_csv.replace(",", ' ').split()
@@ -4991,7 +5108,8 @@ def generate_tests(config, metafunc):
         metafunc.parametrize('global_repeat_request', [repeat],
                              indirect=True, ids=repeat_ids, scope="module")
     scope, count = config.option.repeat_test
-    if count <= 1: return
+    if count <= 1:
+        return
 
     def range_ids(a):
         return '{0}.{1}'.format(a + 1, count)
@@ -5001,12 +5119,14 @@ def generate_tests(config, metafunc):
 
 def global_repeat_request(request):
     _, count = request.config.option.repeat_test
-    if count <= 1: return None
+    if count <= 1:
+        return None
     return request.param
 
 
 def _add_repeat_tests(test_names, items):
-    if not test_names: return
+    if not test_names:
+        return
     test_names_list = []
     for testname in test_names:
         regex = r"^{}\[\D\S+\]".format(testname)
@@ -5019,7 +5139,8 @@ def _add_repeat_tests(test_names, items):
 
 def _remove_excluded_modules(config, items):
     excluded_modules = config.getoption("--exclude-module", None)
-    if not excluded_modules: return None
+    if not excluded_modules:
+        return None
     new_items = []
     for item in items:
         module = item.location[0].split(':')[0]
@@ -5444,7 +5565,8 @@ def log_report_worker(report, wa):
                 wa._test_log_finish(nodeid, func_name, res, desc, min_time)
             else:
                 res, desc = get_current_result("module")
-                if res == "Pass": res = "ConfigFail"
+                if res == "Pass":
+                    res = "ConfigFail"
                 desc = "{} @{}".format(desc, utils.get_line_number())
                 desc = wa._context._report(res, "module_config_failed", desc)
                 wa._save_fsysinfo(nodeid)
@@ -5474,8 +5596,10 @@ def session_start(session):
 def consolidate_results(progress=None, thread=False, count=None, add_nes=False, ident=None):
 
     ident = ident or ""
-    try: msg = "{} {}".format(ident, threading.get_native_id())
-    except Exception: msg = ident
+    try:
+        msg = "{} {}".format(ident, threading.get_native_id())
+    except Exception:
+        msg = ident
 
     ftrace("{} comparison report".format(msg))
     generate.compare_report()
@@ -5566,7 +5690,8 @@ def unconfigure(config):
 def parse_batch_args(numprocesses, buckets_csv, append_modules_csv, change_modules_csv):
     logs_path = _get_logs_path()[1]
     if env.match("SPYTEST_DEBUG_FTRACE_LOG", "1", "0"):
-        global dtrace_log; dtrace_log = True
+        global dtrace_log
+        dtrace_log = True
     return batch.parse_args(numprocesses, buckets_csv, logs_path, append_modules_csv, change_modules_csv)
 
 
@@ -5603,7 +5728,8 @@ def format_nodeid(nodeid):
 
 def get_request_id(request):
     rid = request.node.nodeid
-    if not rid: rid = request.node.name
+    if not rid:
+        rid = request.node.name
     retval = format_nodeid(rid)
     return item_utils.map_nodeid(retval)
 
@@ -5633,7 +5759,8 @@ def fixture_post_finalizer(fixturedef, request):
     dtrace("fixture_post_finalizer", fixturedef, request, current_test)
 
     wa = get_work_area()
-    if not wa: return None
+    if not wa:
+        return None
 
     if fixturedef.argname == "global_session_request":
         pass
@@ -5884,7 +6011,8 @@ def pyfunc_call(pyfuncitem, after):
 
 def fixture_callback(request, scope, isend):
     if scope == "session":
-        if isend: return _delete_work_area()
+        if isend:
+            return _delete_work_area()
         _create_work_area(request)
         return None
 

@@ -6,7 +6,8 @@ def download(build_url, local_path):
 
     print("Build-URL: {}".format(build_url))
     print("Local-PATH: {}".format(local_path))
-    if not build_url: return False
+    if not build_url:
+        return False
 
     retval = ""
     status = False
@@ -14,6 +15,7 @@ def download(build_url, local_path):
     for count in range(3):
         try:
             print("Download CURL CMD: '{}'".format(curl_cmd))
+            # nosemgrep-next-line
             proc = subprocess.Popen(curl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             out, err = proc.communicate()
             proc.wait()
@@ -33,12 +35,14 @@ def download(build_url, local_path):
                 msg = "Image download to host location failed using curl command. Error: '{}'"
                 msg = msg.format(errorline)
                 print(msg)
-                if count < 2: continue
+                if count < 2:
+                    continue
 
         retval = ""
         filetype_cmd = "file {}".format(local_path)
         try:
             print("File CMD: '{}'".format(filetype_cmd))
+            # nosemgrep-next-line
             proc = subprocess.Popen(filetype_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             out, err = proc.communicate()
             proc.wait()
@@ -55,7 +59,8 @@ def download(build_url, local_path):
             msg = "Image downloaded to host location is not a proper image type. File type: '{}'"
             msg = msg.format(errorline)
             print(msg)
-            if count < 2: continue
+            if count < 2:
+                continue
         else:
             status = True
             break

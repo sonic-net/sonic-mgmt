@@ -104,7 +104,8 @@ def load_module_csv():
 
 def load_coverage_history():
     coverage_history_url = env.get("SPYTEST_COVERAGE_HISTORY_URL", "")
-    if not coverage_history_url: return
+    if not coverage_history_url:
+        return
     csv_file = os.path.join(wa.logs_path, "coverage_history.csv")
     utils.download_url(coverage_history_url, csv_file)
     wa.chip_coverate_history, wa.platform_coverate_history = \
@@ -143,7 +144,8 @@ def init_type_nodes():
         wa.rerun_nodes = int(rerun_nodes)
 
     batch_rerun = env.get("SPYTEST_BATCH_RERUN", None)
-    if batch_rerun: wa.rerun_list = batch_rerun.split(",")
+    if batch_rerun:
+        wa.rerun_list = batch_rerun.split(",")
 
 
 def is_deadnode_recovery():
@@ -192,8 +194,10 @@ def level_trace_try(lvl, *args, **kwargs):
 
 
 def level_trace(lvl, *args, **kwargs):
-    try: level_trace_try(lvl, *args, **kwargs)
-    except Exception: pass
+    try:
+        level_trace_try(lvl, *args, **kwargs)
+    except Exception:
+        pass
 
 
 def trace(*args, **kwargs):
@@ -209,9 +213,12 @@ def check_worker_status(node_modules, collection):
         max_time = env.getint("SPYTEST_BATCH_DEAD_NODE_MAX_TIME", "0")
         skip_testbed_info_update = False
         for worker in wa.workers.values():
-            if worker.pid == 0: continue
-            if worker.completed is not False: continue
-            if not worker.started: continue
+            if worker.pid == 0:
+                continue
+            if worker.completed is not False:
+                continue
+            if not worker.started:
+                continue
             if worker.last_report:
                 elapsed = get_elapsed(worker.last_report, False)
             else:
@@ -232,12 +239,15 @@ def check_worker_status(node_modules, collection):
                     finish_node_locked(None, worker.name, True, None, "Zombie")
                 elif worker.terminated:
                     trace("Kill Stuck Node {} PID {}".format(worker.name, worker.pid))
-                    try: os.kill(int(worker.pid), signal.SIGKILL)
-                    except Exception: pass
+                    try:
+                        os.kill(int(worker.pid), signal.SIGKILL)
+                    except Exception:
+                        pass
                     finish_node_locked(None, worker.name, True, None, "Stuck")
                     skip_testbed_info_update = True
                 elif max_time > 0 and elapsed > max_time:
-                    trace("Terminate Stuck Node {} PID {} elapsed {} {}".format(worker.name, worker.pid, elapsed, executing))
+                    trace("Terminate Stuck Node {} PID {} elapsed {} {}".format(
+                          worker.name, worker.pid, elapsed, executing))
                     psutil.Process(int(worker.pid)).terminate()
                     worker.terminated = True
             except Exception:
@@ -261,10 +271,14 @@ def save_running_report():
     all_modules, all_functions, all_testcases, all_nodes = {}, {}, {}, {}
     for nodeid in wa.executed:
         [node_name, status] = wa.executed[nodeid]
-        if status != "Queued": continue
-        if not node_name or is_infra_test(nodeid): continue
+        if status != "Queued":
+            continue
+        if not node_name or is_infra_test(nodeid):
+            continue
         module, func = paths.parse_nodeid(nodeid)
-        all_modules[module] = 1; all_functions[func] = 1; all_nodes[node_name] = 1
+        all_modules[module] = 1
+        all_functions[func] = 1
+        all_nodes[node_name] = 1
         for tcid in _get_tclist(func):
             all_testcases[tcid] = 1
             rows.append([len(rows) + 1, module, func, tcid, node_name, status])
@@ -280,7 +294,8 @@ def save_running_report():
     utils.write_csv_file(header, rows, filepath)
     filepath = os.path.splitext(filepath)[0] + '.html'
     align = {col: True for col in ["Module", "Function", "TestCase"]}
-    links["Node"].append(None); links["Status"].append(None)
+    links["Node"].append(None)
+    links["Status"].append(None)
     rows.append(["", len(all_modules), len(all_functions), len(all_testcases), len(all_nodes), ""])
     utils.write_html_table3(header, rows, filepath, links=links, align=align)
 
@@ -291,9 +306,12 @@ def save_progress_report():
     all_modules, all_functions, all_testcases, all_nodes = {}, {}, {}, {}
     for nodeid in wa.executed:
         [node_name, status] = wa.executed[nodeid]
-        if not node_name or is_infra_test(nodeid): continue
+        if not node_name or is_infra_test(nodeid):
+            continue
         module, func = paths.parse_nodeid(nodeid)
-        all_modules[module] = 1; all_functions[func] = 1; all_nodes[node_name] = 1
+        all_modules[module] = 1
+        all_functions[func] = 1
+        all_nodes[node_name] = 1
         for tcid in _get_tclist(func):
             all_testcases[tcid] = 1
             rows.append([len(rows) + 1, module, func, tcid, node_name, status])
@@ -309,7 +327,8 @@ def save_progress_report():
     utils.write_csv_file(header, rows, filepath)
     filepath = os.path.splitext(filepath)[0] + '.html'
     align = {col: True for col in ["Module", "Function", "TestCase"]}
-    links["Node"].append(None); links["Status"].append(None)
+    links["Node"].append(None)
+    links["Status"].append(None)
     rows.append(["", len(all_modules), len(all_functions), len(all_testcases), len(all_nodes), ""])
     utils.write_html_table3(header, rows, filepath, links=links, align=align)
 
@@ -320,10 +339,12 @@ def save_pending_report():
     all_modules, all_functions, all_testcases = {}, {}, {}
     for nodeid in wa.executed:
         [node_name, _] = wa.executed[nodeid]
-        if node_name or is_infra_test(nodeid): continue
+        if node_name or is_infra_test(nodeid):
+            continue
         module, func = paths.parse_nodeid(nodeid)
         nodes = wa.sched.find_matching_nodes(module)
-        all_modules[module] = 1; all_functions[func] = 1
+        all_modules[module] = 1
+        all_functions[func] = 1
         for tcid in _get_tclist(func):
             all_testcases[tcid] = 1
             rows.append([len(rows) + 1, module, func, tcid, nodes])
@@ -343,10 +364,12 @@ def save_rerun_report():
     header, rows = ['#', "Module", "Function", "TestCase", "Nodes"], []
     all_modules, all_functions, all_testcases = {}, {}, {}
     for nodeid in wa.rerun_nodeids:
-        if is_infra_test(nodeid): continue
+        if is_infra_test(nodeid):
+            continue
         module, func = paths.parse_nodeid(nodeid)
         nodes = wa.sched.find_matching_nodes(module)
-        all_modules[module] = 1; all_functions[func] = 1
+        all_modules[module] = 1
+        all_functions[func] = 1
         for tcid in _get_tclist(func):
             all_testcases[tcid] = 1
             rows.append([len(rows) + 1, module, func, tcid, nodes])
@@ -364,7 +387,8 @@ def save_finished_testbeds():
 
     # 0: disable 1: save free pods 2: save free devices
     cfg = env.get("SPYTEST_BATCH_SAVE_FREE_DEVICES", "1")
-    if cfg not in ["1", "2"]: return
+    if cfg not in ["1", "2"]:
+        return
 
     all_workers = list(wa.workers.values())
 
@@ -404,8 +428,10 @@ def save_finished_testbeds():
     # save the free pod devices into file
     if cfg == "1" and free_pod_devices:
         filepath = os.path.join(wa.logs_path, "batch_free_devices.txt")
-        old = utils.read_lines(filepath); old.sort()
-        free_pod_devices.sort(); content = "\n".join(free_pod_devices)
+        old = utils.read_lines(filepath)
+        old.sort()
+        free_pod_devices.sort()
+        content = "\n".join(free_pod_devices)
         if old == free_pod_devices:
             debug("SKIP update free pod devices {}".format(free_pod_devices))
         else:
@@ -415,8 +441,10 @@ def save_finished_testbeds():
     # save the free pod devices into file
     if cfg == "1" and free_pod_devices2:
         filepath = os.path.join(wa.logs_path, "batch_free_devices2.txt")
-        old = utils.read_lines(filepath); old.sort()
-        free_pod_devices2.sort(); content = "\n".join(free_pod_devices2)
+        old = utils.read_lines(filepath)
+        old.sort()
+        free_pod_devices2.sort()
+        content = "\n".join(free_pod_devices2)
         if old == free_pod_devices2:
             debug("SKIP update free pod devices {}".format(free_pod_devices2))
         else:
@@ -438,9 +466,11 @@ def save_finished_testbeds():
     # save the free devices into file
     if cfg == "2" and free_devices:
         filepath = os.path.join(wa.logs_path, "batch_free_devices.txt")
-        old = utils.read_lines(filepath); old.sort();
+        old = utils.read_lines(filepath)
+        old.sort()
         free_devices_list = [k for k, v in free_devices.items() if v]
-        free_devices_list.sort(); content = "\n".join(free_devices_list)
+        free_devices_list.sort()
+        content = "\n".join(free_devices_list)
         if old == free_devices_list:
             debug("SKIP update free devices {}".format(free_devices_list))
         else:
@@ -524,7 +554,8 @@ class SpyTestScheduling(object):
 
     def _load_buckets(self):
         for row in wa.module_rows or load_module_csv()[0]:
-            if not row or row[0].startswith("#"): continue
+            if not row or row[0].startswith("#"):
+                continue
             if len(row) < 3:
                 print("1. Invalid module params: {}".format(row))
                 continue
@@ -537,9 +568,11 @@ class SpyTestScheduling(object):
                 print("2. Invalid module params: {}".format(row))
                 continue
             topo = self.default_topo
-            if len(row) > 3: topo = ",".join([str(i).strip() for i in row[3:]])
+            if len(row) > 3:
+                topo = ",".join([str(i).strip() for i in row[3:]])
             bucket, order, name0 = [str(i).strip() for i in row[:3]]
-            if bucket.startswith("#"): continue
+            if bucket.startswith("#"):
+                continue
             verbose("3. Module params: {} {} {} {}".format(bucket, order, name0, topo))
             for name in self._list_files(name0, "test_*.py"):
                 md = self.get_module_data(name, tpref)
@@ -589,10 +622,14 @@ class SpyTestScheduling(object):
     def _is_active_locked(self, node):
         gid = get_gw_name(node.gateway)
         worker = self.wa.workers[gid]
-        if worker.excluded: retval = False
-        elif not worker.completed: retval = True
-        elif not worker.started: retval = True
-        else: retval = False
+        if worker.excluded:
+            retval = False
+        elif not worker.completed:
+            retval = True
+        elif not worker.started:
+            retval = True
+        else:
+            retval = False
         verbose("================ active({}) = {} ===========".format(gid, retval))
         return retval
 
@@ -631,13 +668,15 @@ class SpyTestScheduling(object):
 
     def _get_topo_pref(self, mname, default=None):
         default = default or wa.default_topo_pref
-        if mname not in self.module_data: return [default]
+        if mname not in self.module_data:
+            return [default]
         all_tpref = list(self.module_data[mname].keys())
         random_tpref = [tpref for tpref in all_tpref]
         seed = utils.get_random_seed()
         Random(seed).shuffle(random_tpref)
         user_tpref = env.get("SPYTEST_BATCH_TOPO_PREF", "0").split(",")
-        if default not in user_tpref: user_tpref.append(default)
+        if default not in user_tpref:
+            user_tpref.append(default)
         retval = []
         for tpref in user_tpref:
             tpref_int = utils.integer_parse(tpref)
@@ -717,7 +756,8 @@ class SpyTestScheduling(object):
             self.add_restarted_node(node)
             return
 
-        if self.collection_is_completed: return
+        if self.collection_is_completed:
+            return
 
         nodes = list(self.collections.keys())
         indexes = list(self.collections.values())
@@ -725,7 +765,8 @@ class SpyTestScheduling(object):
         for i in range(1, len(indexes)):
             if indexes[0] != indexes[i]:
                 all_ok = False
-                warn("node {} collection differs from {} Counts {} vs {}".format(nodes[0], nodes[i], len(indexes[0]), len(indexes[i])))
+                warn("node {} collection differs from {} Counts {} vs {}".format(
+                     nodes[0], nodes[i], len(indexes[0]), len(indexes[i])))
                 if len(indexes[0]) == len(indexes[i]):
                     for j, (first, second) in enumerate(zip(indexes[0], indexes[i])):
                         if first != second:
@@ -813,14 +854,19 @@ class SpyTestScheduling(object):
                         md = self.get_module_data(mname, tpref)
                         trace("TRY-1 {} {} {} {}".format(mname, md.bucket, tpref, md.topo))
                         for worker in wa.workers.values():
-                            if wa.largest_bucket == worker.bucket: continue
+                            if wa.largest_bucket == worker.bucket:
+                                continue
                             if md.bucket <= worker.bucket and md.bucket >= worker.min_bucket:
-                                if only_exact_match and md.bucket != worker.bucket: continue
-                                debug("MATCH-1 {} {} {} {} with {} {} {} {}".format(mname, md.bucket, tpref, md.topo,\
-                                                                                    worker.name, worker.bucket, worker.min_bucket, worker.tb_obj.get_topo(name0=False)))
+                                if only_exact_match and md.bucket != worker.bucket:
+                                    continue
+                                msg = "MATCH-1 {} {} {} {} with {} {} {} {}"
+                                msg = msg.format(mname, md.bucket, tpref, md.topo, worker.name, worker.bucket,
+                                                 worker.min_bucket, worker.tb_obj.get_topo(name0=False))
+                                debug(msg)
                                 if md.topo:
                                     dbg = env.getint("SPYTEST_BATCH_DEBUG_ENSURE_MIN_TOPOLOGY")
-                                    [errs, _] = worker.tb_obj.ensure_min_topology_norandom(md.topo, match_dut_name=1, debug=dbg)
+                                    errs = worker.tb_obj.ensure_min_topology_norandom(md.topo, match_dut_name=1,
+                                                                                      debug=dbg)[0]
                                     worker.tb_obj.reset_derived()
                                     if errs:
                                         msg = "non matching testbed {} to execute bucket {} {} {}"
@@ -858,13 +904,16 @@ class SpyTestScheduling(object):
                         md = self.get_module_data(mname, tpref)
                         trace("TRY-3 {} {} {}".format(mname, tpref, md.topo))
                         for bucket in range(md.bucket + 1, self.wa.largest_bucket):
-                            if minfo.nodes: break
+                            if minfo.nodes:
+                                break
                             for worker in wa.workers.values():
-                                if worker.bucket != bucket: continue
+                                if worker.bucket != bucket:
+                                    continue
                                 dbg = env.getint("SPYTEST_BATCH_DEBUG_ENSURE_MIN_TOPOLOGY")
                                 [errs, _] = worker.tb_obj.ensure_min_topology_norandom(md.topo, debug=dbg)
                                 worker.tb_obj.reset_derived()
-                                if errs: continue
+                                if errs:
+                                    continue
                                 if not minfo.nodes:
                                     msg = "Using higher bucket {} testbed {} to execute {} {}"
                                     trace(msg.format(worker.bucket, worker.name, mname, md.topo))
@@ -963,7 +1012,8 @@ class SpyTestScheduling(object):
             orders = reversed(orders)
         for order in orders:
             for mname, minfo in modules.items():
-                if name not in minfo.nodes: continue
+                if name not in minfo.nodes:
+                    continue
                 md = self.get_module_data(mname, minfo.used_tpref)
                 if self.order_support and md.order != order:
                     continue
@@ -985,11 +1035,13 @@ class SpyTestScheduling(object):
     def _pending_count(self, worker, modules=None, dbg=False):
         count, modules = 0, modules or self.main_modules
         for mname, minfo in modules.items():
-            if not minfo.nodes: continue
+            if not minfo.nodes:
+                continue
             if not worker or worker.name in minfo.nodes:
                 pending = len(minfo.node_indexes)
                 count = count + pending
-                if not dbg or pending < 1: continue
+                if not dbg or pending < 1:
+                    continue
                 debug("Pending: {} {} {}".format(mname, minfo.node_indexes, minfo.nodes))
         return count
 
@@ -1072,7 +1124,8 @@ class SpyTestScheduling(object):
 
     def unfinished_count(self, node, name=None):
         node, funcs = self.unfinished_tests(node, name)
-        if not node: return 0
+        if not node:
+            return 0
         name = get_gw_name(node.gateway)
         worker = self.wa.workers[name]
         if worker.assigned > 0:
@@ -1105,7 +1158,8 @@ class SpyTestScheduling(object):
             for item_index in modules:
                 nodeid = self.collection[item_index]
                 report("remove", nodeid, gid)
-                if is_infra_test(nodeid): continue
+                if is_infra_test(nodeid):
+                    continue
                 lines.append(nodeid)
             if worker.assigned <= len(funcs):
                 non_infra_count = 0
@@ -1158,15 +1212,18 @@ def _show_testbed_topo(show=True):
         topo = worker.tb_obj.get_topo()
         rows.append([worker.name, topo])
     retval = utils.sprint_vtable(header, rows)
-    if show: trace(retval)
+    if show:
+        trace(retval)
     return retval
 
 
 def _read_pid(wa):
     for worker in wa.workers.values():
         filepath = paths.get_pid_log(os.path.join(wa.logs_path, worker.name))
-        try: worker.pid = utils.read_lines(filepath)[0]
-        except Exception: pass
+        try:
+            worker.pid = utils.read_lines(filepath)[0]
+        except Exception:
+            pass
 
 
 def _show_testbed_devices(show=False):
@@ -1215,9 +1272,12 @@ def _show_testbed_devices(show=False):
     rows = sorted(rows, key=sort_func, reverse=True)
 
     retval = utils.sprint_vtable(header, rows)
-    if show: trace("\n" + retval)
+    if show:
+        trace("\n" + retval)
 
     # save the devices status
+    filepath = os.path.join(wa.logs_path, "batch_devices.csv")
+    utils.write_csv_file(header, rows, filepath)
     filepath = os.path.join(wa.logs_path, "batch_devices.html")
     align = {col: True for col in ["Nodes"]}
     utils.write_html_table3(header, rows, filepath, align=align, total=None)
@@ -1228,8 +1288,10 @@ def _get_tclist(func):
         if env.get("SPYTEST_REPEAT_MODULE_SUPPORT") == "0":
             func1 = func
         else:
-            try: func1 = func.split("[")[0]
-            except Exception: func1 = func
+            try:
+                func1 = func.split("[")[0]
+            except Exception:
+                func1 = func
         tclist = wa.tcmap.get("tclist", {})
         func2 = func1.replace("::", ".")
         if func1 in tclist:
@@ -1242,7 +1304,8 @@ def _get_tclist(func):
 
 
 def testbed_display(fname):
-    if not fname: return fname
+    if not fname:
+        return fname
     fname = fname.replace("testbed_", "")
     fname = fname.replace(".yaml", "")
     return fname
@@ -1269,7 +1332,8 @@ def _show_testbed_info(show=True):
     # handle NES when no applicable testbeds are available
     for nes in wa.nes_nodeids:
         module, func = paths.parse_nodeid(nes)
-        if is_infra_test(func): continue
+        if is_infra_test(func):
+            continue
         all_nes_nodes[""], all_nes_modules[module] = 1, 1
         for tcid in _get_tclist(func):
             all_nes_functions[func], all_nes_testcases[tcid] = 1, 1
@@ -1283,20 +1347,30 @@ def _show_testbed_info(show=True):
         fname_disp = testbed_display(fname)
 
         # build status
-        if worker.excluded == 1: status = "Exclude0"
-        elif worker.excluded == 2: status = "Exclude1"
-        elif worker.errored: status = "Error"
-        elif worker.completed is None: status = "Dead"
-        elif worker.completed: status = "Completed"
-        elif worker.started: status = "Running"
-        else: status = "Waiting"
-        if status == "Running": total_run_count = total_run_count + 1
-        if status == "Waiting": total_wait_count = total_wait_count + 1
+        if worker.excluded == 1:
+            status = "Exclude0"
+        elif worker.excluded == 2:
+            status = "Exclude1"
+        elif worker.errored:
+            status = "Error"
+        elif worker.completed is None:
+            status = "Dead"
+        elif worker.completed:
+            status = "Completed"
+        elif worker.started:
+            status = "Running"
+        else:
+            status = "Waiting"
+        if status == "Running":
+            total_run_count = total_run_count + 1
+        if status == "Waiting":
+            total_wait_count = total_wait_count + 1
 
         dut_list = worker.tb_obj.get_device_names("DUT")
         topology = worker.tb_obj.get_topo().replace(",", " ")
         parent_testbed = worker.parent_testbed
-        if parent_testbed: parent_testbed = os.path.basename(parent_testbed)
+        if parent_testbed:
+            parent_testbed = os.path.basename(parent_testbed)
         parent_testbed_disp = testbed_display(parent_testbed)
         min_bucket = 1 if worker.min_bucket == 0 else worker.min_bucket
         if min_bucket == worker.bucket:
@@ -1342,11 +1416,13 @@ def _show_testbed_info(show=True):
         nes = 0
         for nodeid in worker.nes_full:
             _, func = paths.parse_nodeid(nodeid)
-            if is_infra_test(func): continue
+            if is_infra_test(func):
+                continue
             nes = nes + 1
         for nodeid in worker.nes_partial:
             _, func = paths.parse_nodeid(nodeid)
-            if is_infra_test(func): continue
+            if is_infra_test(func):
+                continue
             nes = nes + 1
         total_nes = total_nes + nes
 
@@ -1383,7 +1459,8 @@ def _show_testbed_info(show=True):
         node3 = "<a href='{}'>{}</a>".format(session_log, worker.name)
         for nodeid in worker.nes_full:
             module, func = paths.parse_nodeid(nodeid)
-            if is_infra_test(func): continue
+            if is_infra_test(func):
+                continue
             all_nes_nodes[node3], all_nes_modules[module] = 1, 1
             for tcid in _get_tclist(func):
                 all_nes_functions[func], all_nes_testcases[tcid] = 1, 1
@@ -1391,7 +1468,8 @@ def _show_testbed_info(show=True):
             nes_funcs.append(func)
         for nodeid in worker.nes_partial:
             module, func = paths.parse_nodeid(nodeid)
-            if is_infra_test(func): continue
+            if is_infra_test(func):
+                continue
             all_nes_nodes[node3], all_nes_modules[module] = 1, 1
             for tcid in _get_tclist(func):
                 all_nes_functions[func], all_nes_testcases[tcid] = 1, 1
@@ -1423,7 +1501,8 @@ def _show_testbed_info(show=True):
         filepath = os.path.join(wa.logs_path, "batch_nes_functions.txt")
         utils.write_file(filepath, "\n".join(nes_funcs))
         _show_testbed_devices()
-    elif show: trace("\n" + retval)
+    elif show:
+        trace("\n" + retval)
 
     return retval
 
@@ -1464,7 +1543,8 @@ def sub_report_path(logs_path, name):
 
 
 def update_dashboard_html():
-    if is_worker(): return
+    if is_worker():
+        return
     logs_path = wa.logs_path
     wa.j2dict.feature_reports = []
     if not tcmap.get_current_releases():
@@ -1489,7 +1569,8 @@ def update_dashboard_html():
 
 
 def create_dashboard():
-    if is_worker(): return
+    if is_worker():
+        return
     logs_path = wa.logs_path
     wa.j2dict.is_batch = is_batch()
     wa.j2dict.is_bucket = str(bool(wa.workers))
@@ -1623,9 +1704,12 @@ def get_node_prefix():
 def parse_node_index(name, default=None):
     prefix = get_node_prefix()
     gw = re.search(r'{}([0-9]+)'.format(prefix), name)
-    if not gw: gw = re.search(r'gw([0-9]+)', name)
-    try: return int(gw.group(1))
-    except Exception: return default
+    if not gw:
+        gw = re.search(r'gw([0-9]+)', name)
+    try:
+        return int(gw.group(1))
+    except Exception:
+        return default
 
 
 def build_node_name(index, prefix=""):
@@ -1636,7 +1720,8 @@ def build_node_name(index, prefix=""):
 
 def configure_nodes(config, specs):
     debug("============== batch configure_nodes =====================")
-    if not specs: return
+    if not specs:
+        return
     for spec in specs:
         index = parse_node_index(spec.id)
         if index is not None:
@@ -1650,13 +1735,16 @@ def ensure_gw_name(gateway, func=""):
     if name in wa.get_gw_name:
         return wa.get_gw_name[name]
     if name not in wa.workers:
-        try: old_id = gateway.spec.env.get("OLD_ID", None)
-        except Exception: old_id = None;
+        try:
+            old_id = gateway.spec.env.get("OLD_ID", None)
+        except Exception:
+            old_id = None
         if old_id not in wa.workers:
             trace("[{}]: ===== {} unknown".format(name, func))
             return None
         trace("[{}]: ===== {} restarted as {}".format(old_id, func, name))
-        clone_worker(wa.workers[old_id], name); old_id = name
+        clone_worker(wa.workers[old_id], name)
+        old_id = name
         wa.get_gw_name[old_id] = name
         return old_id
     return None
@@ -1668,9 +1756,11 @@ def get_gw_name(gateway, func=""):
 
 def configure_node(node):
     debug("============== batch configure_node =====================")
-    if not wa.custom_scheduling: return
+    if not wa.custom_scheduling:
+        return
     name = get_gw_name(node.gateway, "configure_node")
-    if not name: return
+    if not name:
+        return
     worker = wa.workers[name]
     debug("[{}]: ===== configure_node testbed: {}".format(name, worker.testbed))
     worker.completed = False
@@ -1680,9 +1770,11 @@ def configure_node(node):
 
 def begin_node(gateway):
     debug("============== batch begin_node =====================")
-    if not wa.custom_scheduling: return
+    if not wa.custom_scheduling:
+        return
     name = ensure_gw_name(gateway, "begin_node")
-    if not name: return
+    if not name:
+        return
     debug("begin_node {}".format(gateway))
     worker = wa.workers[name]
     worker.completed = False
@@ -1690,11 +1782,13 @@ def begin_node(gateway):
     worker.complete_time = None
 
 
-def slist_add(l, sl, ex=[]):
+def slist_add(ll, sl, ex=[]):
     for e in sl:
-        if e in ex: continue
-        if e in l: continue
-        l.append(e)
+        if e in ex:
+            continue
+        if e in ll:
+            continue
+        ll.append(e)
 
 
 def finish_node(node, error, reader):
@@ -1712,7 +1806,8 @@ def rerun_these_nodeids(worker, nodeids, is_nes=False):
     if not wa.rerun_list or worker.gw_node_index >= wa.testbed_count:
         return change
     for nodeid in nodeids:
-        if nodeid in wa.sched.rerun_nodeids: continue
+        if nodeid in wa.sched.rerun_nodeids:
+            continue
         wa.sched.rerun_nodeids[nodeid] = 1
         trace("============== Rerun {} {}".format(worker.name, nodeid))
         if wa.sched.add_nodeid(nodeid, "Rerun", wa.sched.rerun_modules):
@@ -1753,7 +1848,8 @@ def finish_node_locked(gw, gid, error, reader, status=None):
         rows = reader(results_file) if reader else []
         nodeids = []
         for row in rows:
-            if row[2] not in wa.rerun_list: continue
+            if row[2] not in wa.rerun_list:
+                continue
             func = row[1].replace(".", "::")
             if func:
                 nodeid = "{}::{}".format(row[0], func)
@@ -1762,9 +1858,12 @@ def finish_node_locked(gw, gid, error, reader, status=None):
 
     # mark the worker as excluded if node_dead file is present
     file_path = os.path.join(wa.logs_path, worker.name, "node_dead")
-    try: excluded_devices = utils.read_lines(file_path)[0].split()
-    except Exception: excluded_devices = []
-    if excluded_devices: worker.excluded = 1
+    try:
+        excluded_devices = utils.read_lines(file_path)[0].split()
+    except Exception:
+        excluded_devices = []
+    if excluded_devices:
+        worker.excluded = 1
 
     # read node_dead_reason file is present
     file_path = os.path.join(wa.logs_path, worker.name, "node_dead_reason")
@@ -1859,6 +1958,21 @@ def finish_node_locked(gw, gid, error, reader, status=None):
             debug(msg)
             continue
 
+        # finish the nodes that does not have potential tests to be executed
+        if worker.applicable == 0 and env.get("SPYTEST_FINISH_NODES_WITHOUT_APPLICABLE", "1") != "0":
+            worker.started = True
+            worker.start_time = time_now
+            worker.last_report = time_now
+            worker.completed = True
+            worker.complete_time = time_now
+            freed_devices = []
+            for device in devices:
+                if device in pdevices:
+                    freed_devices.append(device)
+            slist_add(wa.free_devices[ptestbed], freed_devices, [])
+            debug("[{}]: Finish the node early".format(name))
+            continue
+
         # search if all devices in the current worker are in free pool
         worker.started = all(dut in pdevices for dut in devices)
         worker.start_time = time_now if worker.started else None
@@ -1909,8 +2023,10 @@ def normalize_nodeid(nodeid):
 
 def log_report_master(report):
     nodeid = normalize_nodeid(report.nodeid)
-    if is_infra_test(nodeid): return
-    if not is_deadnode_recovery(): return
+    if is_infra_test(nodeid):
+        return
+    if not is_deadnode_recovery():
+        return
     name = get_gw_name(report.node.gateway)
     try:
         worker = wa.workers[name]
@@ -1982,8 +2098,10 @@ def _create_bucket_testbeds(tb_objs, buckets, logs_path):
     # create mini testbed files for each bucket
     for i, bucket in enumerate(buckets):
         # trace("============> create mini testbed files for {} bucket".format(bucket))
-        try: min_bucket = buckets[i + 1] + 1
-        except Exception: min_bucket = 1
+        try:
+            min_bucket = buckets[i + 1] + 1
+        except Exception:
+            min_bucket = 1
         if bucket not in topologies:
             msg = "bucket {} is not found in supported, using higher bucket {} testbed"
             warn(msg.format(bucket, prev_bucket))
@@ -2032,7 +2150,8 @@ def _create_bucket_testbeds(tb_objs, buckets, logs_path):
             prev_bucket = bucket
 
         # trace error message if any
-        if errmsg: warn(errmsg)
+        if errmsg:
+            warn(errmsg)
 
     return ret_list
 
@@ -2045,7 +2164,8 @@ def parse_args(numprocesses, buckets_csv, logs_path, append_modules_csv, change_
     batch_init_env(wa)
     init_type_nodes()
 
-    if get_worker_id(): return []
+    if get_worker_id():
+        return []
 
     filename = env.get("SPYTEST_TESTBED_FILE", "testbed.yaml")
     parts = filename.split(",")
@@ -2250,11 +2370,13 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
         else:
             type_nodes = wa.rerun_nodes
             nodes_multiplier = wa.rerun_nodes_multiplier
-        if type_nodes is None: continue
+        if type_nodes is None:
+            continue
         for bucket in range(max_bucket, min_bucket - 1, -1):
             new_bucket_workers = []
             for worker in wa.workers.values():
-                if worker.bucket != bucket: continue
+                if worker.bucket != bucket:
+                    continue
                 for type_node in range(type_nodes or nodes_multiplier):
                     new_worker = create_worker(node_index, worker.testbed_index, node_type)
                     debug("Create {} node {} for {} {}".format(node_type, type_node, worker.name, new_worker.name))
@@ -2358,14 +2480,19 @@ def is_infra_test(name):
 
 def simulate_deadnode(*args, **kwargs):
     enval = utils.integer_parse(env.get("SPYTEST_BUCKETS_DEADNODE_SIMULATE", "0"), 0)
-    if enval <= 0 or not is_batch(): return
+    if enval <= 0 or not is_batch():
+        return
     # enval applicable bits 1:session 2:module 3:function 4:exclude
     for scope in args:
-        if not (enval & (1 << scope)): continue
+        if not (enval & (1 << scope)):
+            continue
         dead_node = False
-        if scope == 0 and randint(0, 100) > 80: dead_node = True
-        elif scope == 1 and randint(0, 100) > 90: dead_node = True
-        elif scope == 2 and randint(0, 100) > 95: dead_node = True
+        if scope == 0 and randint(0, 100) > 80:
+            dead_node = True
+        elif scope == 1 and randint(0, 100) > 90:
+            dead_node = True
+        elif scope == 2 and randint(0, 100) > 95:
+            dead_node = True
         elif scope == 3 and randint(0, 100) > 90:
             dut = kwargs.get("dut", "D1")
             file_path = os.path.join(wa.logs_path, "node_dead")

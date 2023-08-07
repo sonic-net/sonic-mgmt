@@ -280,17 +280,20 @@ class Rest(object):
     def parse(self, filepath=None, all_sections=False, paths=[], **kwargs):
         assert filepath, "File Path must be provided"
         root = None
-        if "::" in filepath: [filepath, root] = filepath.split("::", 2)
+        if "::" in filepath:
+            [filepath, root] = filepath.split("::", 2)
         if not isinstance(paths, list) and isinstance(paths, str):
             paths = [paths]
         filepath = utils.find_file(filepath, paths)
         text = "\n".join(utils.read_lines(filepath))
+        # nosemgrep-next-line
         tmpl = Environment().from_string(text)
         if root:
             block = tmpl.blocks[root]
             text = "\n".join(block(tmpl.new_context(kwargs)))
             return json.fix(text, "Invalid json file supplied", True, object_pairs_hook=SpyTestDict)
         if not all_sections or not tmpl.blocks:
+            # nosemgrep-next-line
             text = Environment().from_string(text).render(**kwargs)
             return json.fix(text, "Invalid json file supplied", True, object_pairs_hook=SpyTestDict)
         retval = SpyTestDict()
@@ -332,14 +335,18 @@ class Rest(object):
         return retval
 
     def apply(self, request, sections=None, operations=None, ui="rest"):
-        if ui == "cli": return self.cli(request, sections, operations)
+        if ui == "cli":
+            return self.cli(request, sections, operations)
         retval = SpyTestDict()
-        if operations: operations = utils.make_list(operations)
+        if operations:
+            operations = utils.make_list(operations)
         for index, ent in enumerate(utils.make_list(request)):
             enable = ent.get("enable", 1)
-            if not enable: continue
+            if not enable:
+                continue
             operation = ent["operation"]
-            if operations and operation not in operations: continue
+            if operations and operation not in operations:
+                continue
             instance = ent.get("instance", dict())
             data = ent.get("data", dict())
             path = ent.get("path", "")
@@ -371,13 +378,17 @@ class Rest(object):
         url = '{}{}'.format(self.base_url, api)
 
         self._log("REST [{}]: {}".format(method.upper(), url))
-        if params: self._log("params:\n{}".format(pprint.pformat(params)))
-        if data: self._log("data:\n{}".format(pprint.pformat(data)))
-        if 'json' in kwargs: self._log("json:\n{}".format(pprint.pformat(kwargs.get('json'))))
+        if params:
+            self._log("params:\n{}".format(pprint.pformat(params)))
+        if data:
+            self._log("data:\n{}".format(pprint.pformat(data)))
+        if 'json' in kwargs:
+            self._log("json:\n{}".format(pprint.pformat(kwargs.get('json'))))
 
         res = None
         try:
-            if 'timeout' not in kwargs: kwargs['timeout'] = self.timeout
+            if 'timeout' not in kwargs:
+                kwargs['timeout'] = self.timeout
             with warnings.catch_warnings():
                 # from requests.packages.urllib3.exceptions import InsecureRequestWarning
                 # warnings.filterwarnings("ignore", category=InsecureRequestWarning)

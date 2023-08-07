@@ -42,17 +42,23 @@ cpu_cols = ["CPU-INITIAL", "CPU-FINAL", "CPU-DIFF"]
 worker_cols0 = ['#', 'Module', 'TestFunction', 'Result', 'TimeTaken',
                 'ExecutedOn', 'Syslogs', 'FCLI', "TSSH", "DCNT",
                 'Description', "Devices", "Models", "Chips", "KnownIssue", "Doc"]
-if hide_models: worker_cols0.remove("Models")
-if hide_chips: worker_cols0.remove("Chips")
+if hide_models:
+    worker_cols0.remove("Models")
+if hide_chips:
+    worker_cols0.remove("Chips")
 worker_cols1 = ['#', 'Feature', 'TestCase', 'Result', 'ResultType', 'ExecutedOn',
                 'Description', 'Function', 'Module', "Devices",
                 "Models", "Chips", "KnownIssue"]
-if hide_models: worker_cols1.remove("Models")
-if hide_chips: worker_cols1.remove("Chips")
+if hide_models:
+    worker_cols1.remove("Models")
+if hide_chips:
+    worker_cols1.remove("Chips")
 worker_cols2 = ["#", "Device", "Module", "TestFunction", "Result", "LogDate",
                 "LogHost", "LogLevel", "LogModule", "LogMessage", "LogText"]
-if hide_log_text: worker_cols2.remove("LogText")
-if hide_log_host: worker_cols2.remove("LogHost")
+if hide_log_text:
+    worker_cols2.remove("LogText")
+if hide_log_host:
+    worker_cols2.remove("LogHost")
 worker_cols3 = ["#", "Module", "Function", "Result", "Test Time", "Helper Time", "CMD Time",
                 "TG Time", "Wait", "TGWait", "PROMPT NFOUND", "TECH SUPPORT", "Description"]
 worker_cols4 = ["#", "Module", "DUTs", "MEM-INITIAL", "MEM-FINAL", "MEM-DIFF"]
@@ -170,7 +176,8 @@ class Result(object):
             self.default_desc = None
         else:
             self.default_desc, msg_ok = self.msg(code, *args)
-            if not msg_ok: self.default_result = "Fail"
+            if not msg_ok:
+                self.default_result = "Fail"
         return self.default_desc
 
     def set(self, res, code, *args):
@@ -180,7 +187,8 @@ class Result(object):
                 return msg
         self.result = res
         self.desc, msg_ok = self.msg(code, *args)
-        if not msg_ok: self.result = "Fail"
+        if not msg_ok:
+            self.result = "Fail"
         return self.desc
 
     def msg(self, code, *args):
@@ -239,8 +247,10 @@ class Result(object):
                 "KnownIssue": knownIssue,
                 "Doc": doc,
             }
-        if hide_models: rcdict.pop("Models")
-        if hide_chips: rcdict.pop("Chips")
+        if hide_models:
+            rcdict.pop("Models")
+        if hide_chips:
+            rcdict.pop("Chips")
         return rcdict
 
     def publish(self, nodeid, func, tcid, time_taken, comp, result=None,
@@ -272,8 +282,10 @@ class Result(object):
                     "LogMessage": msg,
                     "LogText": text,
                 }
-                if hide_log_text: d.pop("LogText")
-                if hide_log_host: d.pop("LogHost")
+                if hide_log_text:
+                    d.pop("LogText")
+                if hide_log_host:
+                    d.pop("LogHost")
                 self.write_csv(d, index)
 
         return rcdict
@@ -448,7 +460,8 @@ class Result(object):
                 if pass_rate >= r:
                     color = c
                     break
-        except Exception: pass
+        except Exception:
+            pass
         return color
 
     @staticmethod
@@ -456,8 +469,10 @@ class Result(object):
         color = "white"
         try:
             pass_rate = float(str(pass_rate).replace("%", ""))
-            if pass_rate > threshold: color = "red"
-        except Exception: pass
+            if pass_rate > threshold:
+                color = "red"
+        except Exception:
+            pass
         return color
 
     @staticmethod

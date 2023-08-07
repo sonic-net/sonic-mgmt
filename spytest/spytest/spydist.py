@@ -244,9 +244,11 @@ class BatchWorker(object):
         while 1:
             self.wait_for_work()
             nodeids = getattr(self.conn.root, "get_tests")(self.name)
-            if not nodeids: break
+            if not nodeids:
+                break
             items = self.search_nodeids(self.items, nodeids)
-            if items: return items
+            if items:
+                return items
         return []
 
     def wait_for_master(self):
@@ -301,7 +303,8 @@ class BatchWorker(object):
 
                 # get the item and next for the current execution
                 item, nextitem = item_list.pop(0), None
-                if item_list: nextitem = item_list[-1]
+                if item_list:
+                    nextitem = item_list[-1]
 
                 wa.debug("worker: pytest_runtestloop", item, nextitem)
                 self.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
@@ -318,15 +321,18 @@ class BatchWorker(object):
 
 def get_impl_type():
     new_bach_run = env.get("SPYTEST_BATCH_RUN_NEW")
-    if new_bach_run == "2": return 2
+    if new_bach_run == "2":
+        return 2
     return 1 if bool(new_bach_run) else 0
 
 
 def shutdown():
     if get_impl_type() == 0:
         return
-    if wa.server: wa.server.stop()
-    if wa.service: wa.service.close()
+    if wa.server:
+        wa.server.stop()
+    if wa.service:
+        wa.service.close()
 
 
 def worker_main(index, testbed_file, logs_path):
@@ -373,8 +379,8 @@ def configure(config, logs_path, is_worker, pwa=None):
         config.pluginmanager.register(master, "batch.master")
 
 
-def parse_args(count, l):
+def parse_args(count, ll):
     if get_impl_type() == 0:
-        return l
+        return ll
     wa.count = count
     return []

@@ -149,8 +149,10 @@ class Logger(object):
             os.makedirs(logdir)
 
         if not append:
-            try: os.remove(logfile)
-            except Exception: pass
+            try:
+                os.remove(logfile)
+            except Exception:
+                pass
         file_handler = logging.FileHandler(logfile, "a")
         fmt = self.fmt[show_lvl]
         file_handler.setFormatter(fmt)
@@ -283,8 +285,10 @@ class Logger(object):
         # add DUT log
         if self.dut_log_support and "dut" in dst:
             msg1 = "{}{}".format(prefix, ctrl_chars.tostring(msg))
-            if conn: msg2 = "[{}] {}".format(conn, msg1)
-            else: msg2 = "{}".format(msg1)
+            if conn:
+                msg2 = "[{}] {}".format(conn, msg1)
+            else:
+                msg2 = "{}".format(msg1)
             self.dut_loggers[dut].log(lvl, msg2, exc_info=exc_info)
             self.flush_handlers(self.dut_loggers[dut])
 
@@ -295,8 +299,10 @@ class Logger(object):
 
         if dut:
             msg1 = "{}{}".format(prefix, ctrl_chars.tostring(msg))
-            if conn: msg = "[{}-{}] {}".format(dut, conn, msg1)
-            else: msg = "[{}] {}".format(dut, msg1)
+            if conn:
+                msg = "[{}-{}] {}".format(dut, conn, msg1)
+            else:
+                msg = "[{}] {}".format(dut, msg1)
 
         # add main log
         if "all" in dst and (not self.module_logger or self.module_log_support != 2):
@@ -325,9 +331,11 @@ class Logger(object):
         return None
 
     def tc_log_init(self, test_name):
-        if not self.tc_log_support: return
+        if not self.tc_log_support:
+            return
         self.tc_log_handler = self.close_handler(self.tc_log_handler)
-        if not test_name: return
+        if not test_name:
+            return
         logfile_path = "{}.log".format(test_name)
         rv = self.add_file_handler(self.logger, logfile_path)
         self.tc_log_handler = rv

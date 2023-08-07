@@ -180,7 +180,8 @@ def validate_exec_phase(exec_phases):
                     message = "unknown sub-option {}".format(value)
                     raise argparse.ArgumentError(self, message)
             all_values = list(set(all_values))
-            if "none" in all_values: all_values = ["none"]
+            if "none" in all_values:
+                all_values = ["none"]
             setattr(namespace, self.dest, ",".join(all_values))
     return ArgValidateExecPhase
 
@@ -197,14 +198,16 @@ def validate_exec_scope(multiple, exec_scopes=None):
 
         def __call__(self, parser, namespace, values, option_string=None):
             all_values = csv2list(getattr(namespace, self.dest))
-            if not multiple: all_values = []
+            if not multiple:
+                all_values = []
             all_values.extend(csv2list(values))
             if not multiple and len(all_values) > 1:
                 self._check_(values)
             for value in all_values:
                 self._check_(value)
             all_values = list(set(all_values))
-            if "none" in all_values: all_values = ["none"]
+            if "none" in all_values:
+                all_values = ["none"]
             setattr(namespace, self.dest, ",".join(all_values))
     return ArgValidateExecScope
 

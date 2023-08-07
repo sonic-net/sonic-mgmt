@@ -12,7 +12,7 @@ from spytest.ftrace import ftrace_prefix
 
 from utilities.common import filter_and_select
 
-__all__ = ['st','tgapi', 'mutils', 'cutils', 'putils', 'monitor',
+__all__ = ['st', 'tgapi', 'mutils', 'cutils', 'putils', 'monitor',
            'SpyTestDict', 'poll_wait', 'filter_and_select',
            'ftrace_prefix'
-          ]
+           ]

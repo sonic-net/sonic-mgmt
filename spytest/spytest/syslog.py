@@ -17,8 +17,10 @@ def add_sample_syslog(msg):
 
 
 def clear_sample_syslogs():
-    try: sample_syslogs.clear()
-    except Exception: del sample_syslogs[:]
+    try:
+        sample_syslogs.clear()
+    except Exception:
+        del sample_syslogs[:]
 
 
 def _append_sample_entry(entries, dut_name, msgtype, lvl, msg):
@@ -70,11 +72,13 @@ def parse(phase, lvl, msgtype, dut_name, output, filemode=False):
         cre_list.append(re.compile(r"^\s*({0}):\s*(.*)".format(chars)))
         for line in output.split("\n"):
             rv = cre.search(line)
-            if not rv: continue
+            if not rv:
+                continue
             entry = [dut_name, msgtype]
             off = 0 if len(rv.groups()) == 6 else 1
             date = re.split(r" |\+", rv.group(1))
-            if len(date) > 4: date.pop(3)
+            if len(date) > 4:
+                date.pop(3)
             entry.append(" ".join(date))  # date
             entry.append(rv.group(4 + off))  # host
             entry.append(rv.group(5 + off))  # level

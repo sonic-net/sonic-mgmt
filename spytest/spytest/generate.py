@@ -44,10 +44,10 @@ g_results_map = OrderedDict([
     ("TOPOFAIL", "Topo Fail"),
 ])
 
-report_cols = ["Execution Started", "Execution Completed", "Execution Time", \
+report_cols = ["Execution Started", "Execution Completed", "Execution Time",
                "Session Init Time", "Tests Time"]
-report_cols.extend(["Module Count", "Function Count", "Test Count", \
-                   "SysLog Count", "GCOV Count", "DUT Count", "Pass Count", \
+report_cols.extend(["Module Count", "Function Count", "Test Count",
+                   "SysLog Count", "GCOV Count", "DUT Count", "Pass Count",
                     "Pass Rate", "Software Versions"])
 #######################################################
 # No need for individual fail counts in summary
@@ -114,14 +114,17 @@ def concat_files(target, files, add_prefix=True):
 def get_header_info(index, cols, is_batch=True):
     links, indexes = {}, {}
     hdr = Result.get_header(index, is_batch)
-    for col in cols: links[col] = []
-    for col in cols: indexes[col] = hdr.index(col) - 1
+    for col in cols:
+        links[col] = []
+    for col in cols:
+        indexes[col] = hdr.index(col) - 1
     return links, indexes
 
 
 def _get_ts_count(name):
     wa = get_work_area()
-    if not wa: return 0
+    if not wa:
+        return 0
     return wa.get_ts_count(name)
 
 
@@ -247,10 +250,11 @@ def compare_syslogs(src, dst, cmp_csv, printerr, src_suffix=None, dst_suffix=Non
         total = rows[-1]
         for index in range(1, 3):
             if url_prefix and "href" not in str(total[index]):
+                msg = "<a href='{}{}/results_modules_all.html'>{}</a>"
                 if index == 1:
-                    total[index] = "<a href='{}{}/results_modules_all.html'>{}</a>".format(url_prefix, src, total[index])
+                    total[index] = msg.format(url_prefix, src, total[index])
                 elif index == 2:
-                    total[index] = "<a href='{}{}/results_modules_all.html'>{}</a>".format(url_prefix, dst, total[index])
+                    total[index] = msg.format(url_prefix, dst, total[index])
         for index, col in enumerate(cols):
             if "CMP" in col:
                 if row[index] == "Superior":
@@ -314,7 +318,8 @@ def email_report_files(files, nodes, report_html):
         if os.path.exists(report_file):
             lines = utils.read_lines(report_file)
             for line in lines:
-                if "=" not in line: continue
+                if "=" not in line:
+                    continue
                 (key, val) = line.split('=')
                 key = key.strip()
                 val = val.strip()
@@ -404,7 +409,8 @@ def email_report_files(files, nodes, report_html):
 
     if len(all_reports) < len(reports_header):
         rows, cols = [], [""]
-        for row in all_reports: cols.append(row[0])
+        for row in all_reports:
+            cols.append(row[0])
         for col_index in range(1, len(reports_header)):
             new_row = [reports_header[col_index]]
             for row in all_reports:
@@ -487,7 +493,8 @@ def module_report(func_rows, tc_rows, results_csv, tcresults_csv,
         module["Pass Rate"] = 0
         module["FCNT"] = 0
         for res in results_map.values():
-            if res: module[res] = 0
+            if res:
+                module[res] = 0
         if offset:
             module["Node"] = ""
             module["TS"] = 0
@@ -569,10 +576,14 @@ def module_report(func_rows, tc_rows, results_csv, tcresults_csv,
         module["CDT"] = module["Exec Time"] * module["DCNT"]
         for col in module:
             try:
-                if col not in total: total[col] = module[col]
-                elif col in ["UI", "RO", "Node"]: total[col] = ""
-                else: total[col] = total[col] + module[col]
-            except Exception: pass
+                if col not in total:
+                    total[col] = module[col]
+                elif col in ["UI", "RO", "Node"]:
+                    total[col] = ""
+                else:
+                    total[col] = total[col] + module[col]
+            except Exception:
+                pass
         total["Pass Rate"] = get_rate(total["Pass"], total["FCNT"])
         total["TC Pass Rate"] = get_rate(total["TC Pass"], total["TC Count"])
 
@@ -596,7 +607,8 @@ def module_report(func_rows, tc_rows, results_csv, tcresults_csv,
         modules = sorted_modules
         modules[report_total_col] = OrderedDict()
 
-    if not total: total = init_module(report_total_col, False, False)
+    if not total:
+        total = init_module(report_total_col, False, False)
     modules[report_total_col] = total
     module_logs[report_total_col] = None
     tgen_logs[report_total_col] = None
@@ -647,6 +659,21 @@ def module_report(func_rows, tc_rows, results_csv, tcresults_csv,
     return modules
 
 
+def read_unused_platforms_chips(logs_path, all_platforms, all_chips):
+    rows = utils.read_csv(os.path.join(logs_path, "batch_devices.csv"))
+    for index, row in enumerate(rows):
+        if index == 0:
+            continue
+        platform = row[5].strip()
+        if platform and platform not in all_platforms:
+            all_platforms.append(platform)
+        chip, rev = row[6].strip(), row[7].strip()
+        if chip:
+            chip = "{}-{}".format(chip, rev or "NA")
+        if chip and chip not in all_chips:
+            all_chips.append(chip)
+
+
 def consolidated_results(logs_path, add_nes=False):
 
     neid = "--NE--"
@@ -683,12 +710,17 @@ def consolidated_results(logs_path, add_nes=False):
         already_added = []
         for nes_row in nes_rows:
             nes_id, nes_module, nes_func, nes_testcase, nes_node = nes_row[0:5]
-            if nes_id == "#": continue
-            if nes_func in already_added: continue
+            if nes_id == "#":
+                continue
+            if nes_func in already_added:
+                continue
             already_added.append(nes_func)
-            try: nes_node = nes_node.split(">")[-2].split("<")[0]
-            except Exception: pass
-            tmp2 = tmp[:]; tmp2[0], tmp2[1], tmp2[2] = nes_node, nes_module, nes_func
+            try:
+                nes_node = nes_node.split(">")[-2].split("<")[0]
+            except Exception:
+                pass
+            tmp2 = tmp[:]
+            tmp2[0], tmp2[1], tmp2[2] = nes_node, nes_module, nes_func
             if nes_node:
                 tmp2[10] = "{} Check if {} is Dead".format(neid, nes_node)
             else:
@@ -697,10 +729,10 @@ def consolidated_results(logs_path, add_nes=False):
 
     results_csv = paths.get_results_csv(logs_path, True)
     Result.write_report_csv(results_csv, consolidated, ReportType.FUNCTIONS)
-    ############## REMOVE ME ##########################
+    # ############# REMOVE ME ##########################
     results_csv2 = paths.get_file_path("result", "csv", logs_path, True)
     shutil.copy2(results_csv, results_csv2)
-    ###################################################
+    # ##################################################
     links, indexes = get_header_info(ReportType.FUNCTIONS, ["Node", "Module", "Result", "Syslogs"])
     for row in consolidated:
         node_name = row[indexes["Node"]]
@@ -736,11 +768,16 @@ def consolidated_results(logs_path, add_nes=False):
             "", neid, neid, "2022-01-03 14:20:27", neid, ""
         for nes_row in nes_rows:
             nes_id, nes_module, nes_func, nes_testcase, nes_node = nes_row[0:5]
-            if nes_id == "#": continue
-            if nes_testcase in tcdict: continue
-            try: nes_node = nes_node.split(">")[-2].split("<")[0]
-            except Exception: pass
-            tmp2 = tmp[:]; tmp2[0], tmp2[2], tmp2[7], tmp2[8] = nes_node, nes_testcase, nes_func, nes_module
+            if nes_id == "#":
+                continue
+            if nes_testcase in tcdict:
+                continue
+            try:
+                nes_node = nes_node.split(">")[-2].split("<")[0]
+            except Exception:
+                pass
+            tmp2 = tmp[:]
+            tmp2[0], tmp2[2], tmp2[7], tmp2[8] = nes_node, nes_testcase, nes_func, nes_module
             if nes_node:
                 tmp2[6] = "{} Check if {} is Dead".format(neid, nes_node)
             else:
@@ -748,11 +785,12 @@ def consolidated_results(logs_path, add_nes=False):
             consolidated.append(tmp2)
     tcresults_csv = paths.get_tc_results_csv(logs_path, True)
     Result.write_report_csv(tcresults_csv, consolidated, ReportType.TESTCASES)
-    ############## REMOVE ME ##########################
+    # ############# REMOVE ME ##########################
     tcresults_csv2 = paths.get_file_path("tcresult", "csv", logs_path, True)
     shutil.copy2(tcresults_csv, tcresults_csv2)
-    ###################################################
-    links, indexes = get_header_info(ReportType.TESTCASES, ["Node", "Result", "Module", "ResultType", "ExecutedOn", "KnownIssue"])
+    # ##################################################
+    imp_cols = ["Node", "Result", "Module", "ResultType", "ExecutedOn", "KnownIssue"]
+    links, indexes = get_header_info(ReportType.TESTCASES, imp_cols)
     for row in consolidated:
         node_name = row[indexes["Node"]]
         results_htm = paths.get_tc_results_htm(node_name)
@@ -808,8 +846,10 @@ def consolidated_results(logs_path, add_nes=False):
         analisys_htm = paths.get_analisys_htm(logs_path, True)
         Result.write_report_html(analisys_htm, consolidated, ReportType.ANALYSIS, True, row_index=False, links=links)
     except Exception:
-        if wa: wa.error("Failed to generate analisys report")
-        else: print("Failed to generate analisys report")
+        if wa:
+            wa.error("Failed to generate analisys report")
+        else:
+            print("Failed to generate analisys report")
 
     # syslogs
     results = read_all_results(logs_path, "syslog")
@@ -830,8 +870,10 @@ def consolidated_results(logs_path, add_nes=False):
     Result.write_report_html(syslog_htm, consolidated, ReportType.SYSLOGS, True, links=links, align=align)
 
     # save syslog excel report
-    try: generate_excel_syslog_report(syslog_csv)
-    except Exception as exp: print(exp)
+    try:
+        generate_excel_syslog_report(syslog_csv)
+    except Exception as exp:
+        print(exp)
 
     # stats
     consolidated = read_all_results(logs_path, "stats")
@@ -930,6 +972,14 @@ def consolidated_results(logs_path, add_nes=False):
             old = chip_tests.get(chip, 0)
             chip_tests[chip] = old + count
 
+    # build all platforms and chips
+    all_platforms = list(platform_tests.keys())
+    all_chips = list(chip_tests.keys())
+    try:
+        read_unused_platforms_chips(logs_path, all_platforms, all_chips)
+    except Exception:
+        pass
+
     # inventory - devices
     inventory_name = paths.get_device_inventory_name()
     consolidated = read_all_results(logs_path, inventory_name)
@@ -937,8 +987,6 @@ def consolidated_results(logs_path, add_nes=False):
     rows, duts = [], {}
     for row in consolidated:
         dut, platform, chip, build = row[1:]
-        platform_tests.setdefault(platform, 0)
-        chip_tests.setdefault(chip, 0)
         if dut not in duts:
             duts[dut] = 1
             rows.append([dut, platform, chip, build])
@@ -950,7 +998,8 @@ def consolidated_results(logs_path, add_nes=False):
     # inventory - platform
     inventory_name = paths.get_platform_inventory_name()
     rows, uncovered = [], []
-    for platform, count in platform_tests.items():
+    for platform in all_platforms:
+        count = platform_tests.get(platform, 0)
         rows.append([platform, count])
         if count == 0:
             uncovered.append(platform)
@@ -964,7 +1013,8 @@ def consolidated_results(logs_path, add_nes=False):
     # inventory - chip
     inventory_name = paths.get_chip_inventory_name()
     rows, uncovered = [], []
-    for chip, count in chip_tests.items():
+    for chip in all_chips:
+        count = chip_tests.get(chip, 0)
         rows.append([chip, count])
         if count == 0:
             uncovered.append(chip)
@@ -1072,7 +1122,7 @@ def save_failed_function_list(csv_file, offset=0):
     func_list = []
     for row in Result.read_report_csv(csv_file):
         res = row[offset + 2].upper()
-        if not res in ["", "PASS"]:
+        if res not in ["", "PASS"]:
             func_list.append(row[offset + 1])
     out_file = os.path.splitext(csv_file)[0] + '_fails.txt'
     utils.write_file(out_file, "\n".join(func_list))
@@ -1309,7 +1359,8 @@ def features_summary(logs_path, cols, offset, srs={}):
         fpaths.append(paths.get_regression_features_csv(logs_path, bool(offset)))
 
     for name, fpath in srs.items():
-        names.append(name); fpaths.append(fpath)
+        names.append(name)
+        fpaths.append(fpath)
 
     totals = []
     for name, fpath in zip(names, fpaths):
@@ -1510,7 +1561,8 @@ def update_reports(execution_start, execution_end, session_init_time,
         else:
             tc_count, tc_pass, time = "", "", ""
         pass_rate = get_rate(tc_pass, tc_count)
-        if len(row) <= 5: row.extend(["", "", "", ""])
+        if len(row) <= 5:
+            row.extend(["", "", "", ""])
         row[5], row[6], row[7], row[8] = tc_count, tc_pass, pass_rate, time
         mlog = paths.get_mlog_path(row[indexes["Module"]])
         links["Module"].append(mlog)
@@ -1753,8 +1805,10 @@ def generate_excel_syslog_report(csv_file):
     pivot_messages, uniq_messages, total, lvls = {}, {}, 1, []
     for row in utils.read_csv(csv_file):
         lvl, module, msg = row[7:10]
-        if lvl == "LogLevel": continue
-        if lvl not in lvls: lvls.append(lvl)
+        if lvl == "LogLevel":
+            continue
+        if lvl not in lvls:
+            lvls.append(lvl)
         module = module.split("[")[0]
         pivot_messages.setdefault(module, {})
         pivot_messages[module].setdefault(lvl, 0)
@@ -1794,7 +1848,8 @@ def combine_results(args):
         return
     is_combined_input = env.match("SPYTEST_GENERATE_COMBINED_INPUT", "1", "1")
     report_files = combined_report(args.path, args.run, is_combined_input)
-    if not args.email: return
+    if not args.email:
+        return
     server = {"sendor": args.email_from, "host": args.email_host}
     recipients = utils.split_byall(args.email)
     subject, body = "Combined Report: ", ""
@@ -1836,7 +1891,8 @@ def main():
     parser.add_argument("--action", action="store", default="combine", choices=actions)
 
     args, unknown = parser.parse_known_args()
-    if unknown: parser.error("unknown arguments: {}".format(unknown))
+    if unknown:
+        parser.error("unknown arguments: {}".format(unknown))
 
     tcmap.load()
 

@@ -54,7 +54,7 @@ GNMI_SET = os.path.join(BASE_DIR, "gnmi_set")
 VAL_SECT = "val: <"
 VAL_ANY = r"any_val: <([^>]+)>"
 VAL_JSON = "json_ietf_val"  # expected return with successfull GET
-OP_KEY = "op:"  #expected return with successfull SET operation
+OP_KEY = "op:"  # expected return with successfull SET operation
 CONFIG_YAML = os.path.join(BASE_DIR, "conf.yaml")
 TEMP_FILE_PATH = "/tmp/"
 
@@ -85,9 +85,12 @@ def gnmiSend(action="GET", xpath="", target_addr="", inSecure=True, encoding=Non
                 print("GNMI GET with Encoding Path/Data changed:\n... From path='{}'\n...   To path='{}'".format(xpath, new_path))
             xpath = new_path
         param = ['-xpath', xpath, "-alsologtostderr"]
-        if target_addr != "": param.extend(['-target_addr', target_addr])
-        if inSecure is True: param.append("-insecure")
-        if parameters != "": param.extend(parameters.split())
+        if target_addr != "":
+            param.extend(['-target_addr', target_addr])
+        if inSecure is True:
+            param.append("-insecure")
+        if parameters != "":
+            param.extend(parameters.split())
         # print( "@gnmiSend parameters: %s"%param)
         ret_val = _gnmi_get(param, display=False, encoding=encoding)
     else:
@@ -102,8 +105,10 @@ def gnmiSend(action="GET", xpath="", target_addr="", inSecure=True, encoding=Non
             param = ["-replace", xpath]
 
         param.extend(["-target_addr", target_addr, "-alsologtostderr"])
-        if inSecure is True: param.append("-insecure")
-        if parameters != "": param.extend(parameters.split())
+        if inSecure is True:
+            param.append("-insecure")
+        if parameters != "":
+            param.extend(parameters.split())
 
         # print( "@gnmiSend to _gnmi_set parameters: %s"%param)
         ret_val = _gnmi_set(param, display=False, encoding=encoding)
@@ -289,7 +294,8 @@ def _returnVal(output, file=None):
     path = ''.join(['/' + x['name'][0] for x in sects['getRequest']['path'][0]['elem']])
     for line in txt.splitlines():
         ln = line.strip()
-        if VAL_SECT == ln: val_sect_found = True
+        if VAL_SECT == ln:
+            val_sect_found = True
         if val_sect_found:
             if not (file and os.path.exists(file)) and ln.startswith(VAL_JSON + ':'):
                 js.update(json.loads(json.loads(ln.replace(VAL_JSON + ':', '', 1))))

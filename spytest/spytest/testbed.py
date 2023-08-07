@@ -424,8 +424,8 @@ class Testbed(object):
 
     def _override_link_params(self):
         if self.cfg and self.cfg.link_param:
-            for d, l, k, v in self.cfg.link_param:
-                self._override_link_param(d, l, k, v)
+            for d, ll, k, v in self.cfg.link_param:
+                self._override_link_param(d, ll, k, v)
 
     def _override_link_param(self, d, ll, k, v):
         profile = self.get_profile()
@@ -2088,7 +2088,7 @@ class Testbed(object):
         if not need0:
             return dut_list
         if "|" in need0:
-            speedup = env.getint("SPYTEST_TESTBED_SPEEDUP_NAMES_GROUP_MATCH", 1)
+            speedup = env.getint("SPYTEST_TESTBED_SPEEDUP_NAMES_GROUP_MATCH", 0)
             if not speedup:
                 return dut_list
         for need in need0.split("|"):

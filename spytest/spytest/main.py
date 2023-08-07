@@ -123,10 +123,12 @@ def _parse_args(pre_parse=False):
     bucket_list = []
     for bucket in range(1, env.max_buckets + 1):
         value = argsdict["bucket_{}".format(bucket)]
-        if value is None: continue
+        if value is None:
+            continue
         bucket_list.append(str(bucket))
         tclist_bucket_csv = ",".join(bucket_list)
-        if not value: continue
+        if not value:
+            continue
         os.environ["SPYTEST_TOPO_{}".format(bucket)] = " ".join(value)
 
     # update sys.argv with arguments from suite args
@@ -249,8 +251,10 @@ def _parse_args(pre_parse=False):
 
     try:
         version_tuple = [int(s) for s in re.findall(r'\d+', pytest.__version__)]
-        if version_tuple[0] >= 7: os.environ["SPYTEST_USE_FULL_NODEID"] = "1"
-    except Exception: pass
+        if version_tuple[0] >= 7:
+            os.environ["SPYTEST_USE_FULL_NODEID"] = "1"
+    except Exception:
+        pass
 
     seed = utils.get_random_seed()
     print_ftrace("SPYTEST_RANDOM_SEED used = {}".format(seed))
