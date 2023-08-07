@@ -25,7 +25,7 @@ def get_queue_counters(duthost, port, queue):
         fields = line.split()
         if fields[1] == txq:
             return int(fields[2])
-    return 0
+    return -1
 
 
 def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
