@@ -60,8 +60,25 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     time.sleep(3)
 
     print("check which folder the container is coming from=")
-    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1 \n'
+    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
     chan.send(cmd)
+    resp = ''
+    while ':~$' not in resp:
+        resp = chan.recv(9999).decode("ascii")
+        print(resp)
+    time.sleep(3)
+
+    print(f"resp for docker inspect is {resp}")
+
+    for s in resp.split("/"):
+        if s == "sonic-test":
+            break
+        tmp_sonic_test_dir = s
+
+    
+    print("sonic-test dir is: ", tmp_sonic_test_dir)
+
+
 
     print("Going into container '{}' to run tests".format(docker_mgmt_container))
     chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
