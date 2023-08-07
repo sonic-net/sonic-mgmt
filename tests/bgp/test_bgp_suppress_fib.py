@@ -78,6 +78,25 @@ TRAFFIC_DATA_DROP = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors during TC execution
+
+       Args:
+            duthosts: list of DUTs.
+            rand_one_dut_hostname: Hostname of a random chosen dut
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # When loganalyzer is disabled, the object could be None
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' \(.* minutes\)*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
 @pytest.fixture(scope="function")
 def restore_bgp_suppress_fib(duthost):
     """
