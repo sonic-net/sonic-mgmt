@@ -155,14 +155,3 @@ def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("crm config polling interval {}".format(original_crm_polling_interval))["stdout"]
     logger.info("Waiting {} sec for CRM counters to become updated".format(wait_time))
     time.sleep(wait_time)
-
-
-@pytest.fixture(scope="module")
-def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """ Fixture for sharing variables beatween test cases """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    data = {}
-    for asic in duthost.asics:
-        data[asic.asic_index] = {}
-
-    yield data
