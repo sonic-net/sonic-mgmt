@@ -936,3 +936,58 @@ def delete_running_config(config_entry, duthost, is_json=True):
         duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
     duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
     duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get ipv4 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv4_address(ip):
+                    loopback_ip = ip
+                    break
+
+    return loopback_ip
+
+
+def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
+    """
+    Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
+    corresponding queue value.
+
+    Args:
+        dscp_value (int): DSCP value
+        dscp_to_tc_map (str dict): DSCP to TC map
+        tc_to_queue_map (str dict): TC to queue map
+    Returns:
+        int: queue value
+    """
+    if dscp_value not in dscp_to_tc_map:
+        return None
+
+    tc_value = dscp_to_tc_map[str(dscp_value)]
+    if tc_value not in tc_to_queue_map:
+        return None
+
+    return int(tc_to_queue_map[tc_value])
+
+
+def get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_port_id):
+    """
+    Given a ptf port ID, find the corresponding port name on the DUT ex. Ethernet0
+    """
+    ext_minig_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    for dut_port, ptf_port in ext_minig_facts['minigraph_ptf_indices'].items():
+        if ptf_port == ptf_port_id:
+            return dut_port
+
+    return None
