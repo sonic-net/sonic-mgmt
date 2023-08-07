@@ -21,7 +21,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from abc import abstractmethod
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module
+from tests.common.fixtures.duthost_utils import dut_qos_maps # noqa F811
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
                  tbinfo,
                  dutTestParams,
                  dutConfig,
-                 dut_qos_maps_module): # noqa F811
+                 dut_qos_maps): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets
             Args:
@@ -160,7 +160,7 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
-                dut_qos_maps_module(Fixture): A fixture, return qos maps on DUT host
+                dut_qos_maps(Fixture): A fixture, return qos maps on DUT host
             Returns:
                 None
             Raises:
@@ -189,7 +189,7 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
         ptf_dst_mac = ptfadapter.dataplane.get_mac(0, inner_dst_port_id)
         outer_dscp = 4
 
-        pytest_assert(dut_qos_maps_module.get("dscp_to_tc_map") and dut_qos_maps_module.get("tc_to_queue_map"),
+        pytest_assert(dut_qos_maps.get("dscp_to_tc_map") and dut_qos_maps.get("tc_to_queue_map"),
                       "No QoS map found on DUT")
 
         for inner_dscp in range(0, 64):
@@ -204,8 +204,8 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
                                               inner_dst_pkt_ip=inner_dst_pkt_ip,
                                               inner_dscp=inner_dscp)
 
-            queue_val = get_dscp_to_queue_value(inner_dscp, dut_qos_maps_module.get("dscp_to_tc_map"),
-                                                dut_qos_maps_module.get("tc_to_queue_map"))
+            queue_val = get_dscp_to_queue_value(inner_dscp, dut_qos_maps.get("dscp_to_tc_map"),
+                                                dut_qos_maps.get("tc_to_queue_map"))
             dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, inner_dst_port_id)
             pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(inner_dst_port_id))
 
@@ -236,3 +236,9 @@ class QoSSaiDSCPQueueMapping_IPIP_Base(object):
         logger.info("DSCP to queue mapping test results:\n{}"
                     .format(tabulate(output_table,
                                      headers=["Inner Packet DSCP Value", "Egress Queue", "Egress Queue Count"])))
+
+    def test_dscp_to_queue_mapping(self, ptfadapter, duthost, tbinfo, dutTestParams, dutConfig, dut_qos_maps): # noqa F811
+        """
+            Test QoS SAI DSCP to queue mapping for IP-IP packets
+        """
+        self.run_test(ptfadapter, duthost, tbinfo, dutTestParams, dutConfig, dut_qos_maps)
