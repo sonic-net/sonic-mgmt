@@ -445,7 +445,7 @@
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/1" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/2" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet1"/>
       <DeviceInterfaceLink BandWidth="10000" EndDevice="bjw-can-7060-fanout-1" EndPort="Ethernet7/3" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet2"/>
-      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-7215-2" EndPort="Ethernet50" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet3"/>
+      <DeviceInterfaceLink BandWidth="1000" EndDevice="bjw-can-z9332f-2" EndPort="Ethernet257" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet3"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet0" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet4" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet8"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="bjw-can-slx-8" EndPort="Ethernet8" StartDevice="bjw-can-7050qx-2" StartPort="Ethernet12"/>
@@ -1074,8 +1074,8 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet9/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet10/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet11/1" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="433-480,587"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="485-516"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet31/1" vlanids="433-480"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="485-516,587"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet14/1" vlanids="517-547"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet15/1" vlanids="553-583"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet16/1" vlanids="588-618"/>
@@ -1205,8 +1205,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet45" vlanids="478"/>
       <InterfaceVlan mode="Access" portname="Ethernet46" vlanids="479"/>
       <InterfaceVlan mode="Access" portname="Ethernet47" vlanids="480"/>
-      <InterfaceVlan mode="Access" portname="Ethernet50" vlanids="587"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="433-480,587"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet48" vlanids="433-480"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7215-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.110/23"/>
@@ -2057,7 +2056,8 @@
       <InterfaceVlan mode="Access" portname="Ethernet232" vlanids="514"/>
       <InterfaceVlan mode="Access" portname="Ethernet240" vlanids="515"/>
       <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="516"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet256" vlanids="485-516"/>
+      <InterfaceVlan mode="Access" portname="Ethernet257" vlanids="587"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet256" vlanids="485-516,587"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="bjw-can-7050qx-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.150.22.117/23"/>
