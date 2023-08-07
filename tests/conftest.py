@@ -2247,7 +2247,7 @@ if not hasattr(Mask, "set_do_not_care_scapy"):
 
 @pytest.fixture(scope="module")
 def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """ Fixture for sharing variables beatween test cases """
+    """ Fixture for sharing variables between test cases """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     data = {}
     for asic in duthost.asics:
