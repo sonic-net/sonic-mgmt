@@ -173,21 +173,25 @@ def test_downstream_ecmp_nexthops(
         check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
                                        tbinfo, nexthop_interfaces)
 
+        nexthop_interfaces_copy = nexthop_interfaces.copy()
+
         # Sequentially set four mux states to standby
         for index, interface in enumerate(nexthop_interfaces):
             logging.info("Simulate {} mux state change to Standby".format(nexthop_servers[index]))
             set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+            nexthop_interfaces_copy.remove(interface)
             logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
             check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
-                                           tbinfo, nexthop_interfaces)
+                                           tbinfo, nexthop_interfaces_copy)
 
         # Revert two mux states to active
         for index, interface in reversed(list(enumerate(nexthop_interfaces))):
             logging.info("Simulate {} mux state change back to Active".format(nexthop_servers[index]))
             set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)
+            nexthop_interfaces_copy.append(interface)
             logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
             check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
-                                           tbinfo, nexthop_interfaces)
+                                           tbinfo, nexthop_interfaces_copy)
     finally:
         # Remove the nexthop route
         remove_static_routes(rand_selected_dut, dst_server_addr)
