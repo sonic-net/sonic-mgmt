@@ -4,6 +4,7 @@ import time
 import os
 import re
 import argparse
+import sys
 
 def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port=22):
     ssh = paramiko.SSHClient()
@@ -72,6 +73,8 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         if s == "sonic-test":
             break
         tmp_sonic_test_dir = s
+
+    sys.stdout.flush()
 
     
     print("sonic-test dir is: ", tmp_sonic_test_dir)
