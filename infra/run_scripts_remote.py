@@ -60,7 +60,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     time.sleep(3)
 
     print("check which folder the container is coming from=")
-    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1'
+    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep "\"Destination\": \"/data\"," -B 1 | head -1 \n'
     chan.send(cmd)
 
     print("Going into container '{}' to run tests".format(docker_mgmt_container))
