@@ -112,7 +112,6 @@ class ClockUtils:
                 datetime_obj = dt.datetime.strptime(date_time_to_parse, '%a %d %b %Y %I:%M:%S %p')
                 logging.info(f'Datetime object: "{datetime_obj}"\t|\tType: {type(datetime_obj)}')
             except ValueError:
-                logging.info(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
                 pytest.fail(f'Show clock output is not valid.\nOutput: "{show_clock_output}"')
 
         with allure.step('Split output of show clock'):
@@ -211,15 +210,10 @@ class ClockUtils:
         with allure.step('Select a random date'):
             start_date = dt.date.fromisoformat(ClockConsts.MIN_SYSTEM_DATE)
             end_date = dt.date.fromisoformat(ClockConsts.MAX_SYSTEM_DATE)
-
             diff_days = (end_date - start_date).days
-
             rand_num_of_days = random.randint(0, diff_days)
-
             rand_date = start_date + dt.timedelta(days=rand_num_of_days)
-
             rand_date_str = rand_date.strftime('%Y-%m-%d')
-
             logging.info(f'Selected random date: "{rand_date_str}"')
             return rand_date_str
 
@@ -301,9 +295,9 @@ def test_config_clock_timezone(duthosts, init_timezone):
 
     with allure.step(f'Set the new timezone "{new_timezone}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_TIMEZONE, new_timezone)
-
-    with allure.step('Verify command success'):
-        assert output == ClockConsts.OUTPUT_CMD_SUCCESS, f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
+        with allure.step('Verify command success'):
+            assert output == ClockConsts.OUTPUT_CMD_SUCCESS, \
+                f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure.step(f'Verify timezone changed to "{new_timezone}"'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
