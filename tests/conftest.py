@@ -2146,7 +2146,6 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                             _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
                             _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
 
-
                 pre_running_config_keys = set(pre_running_config.keys())
                 cur_running_config_keys = set(cur_running_config.keys())
 
