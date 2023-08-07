@@ -19,6 +19,8 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from abc import abstractmethod
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.utilities import check_skip_release
+from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -744,16 +746,15 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         self._teardown_arp_responder(ptfhost)
 
     def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         cfg = {}
         cfg['stage'] = EGRESS
         cfg['vlan_id'] = 10     # Dummy inner vlan id
         cfg['dst_mac'] = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
         # We will inject packet with vlan from portchannel. The packet will egress from the
         # interface we setup
-        minigraph_portchannels = mg_facts['minigraph_portchannels']
-        member = list(minigraph_portchannels.values())[-1]['members'][-1]
-        cfg['src_port'] = mg_facts['minigraph_ptf_indices'][member]
+        upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
+        ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
+        cfg['src_port'] = ptf_src_ports[-1]
         if TYPE_TAGGED == tagged_mode:
             cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
             cfg['outer_vlan_id'] = 100
