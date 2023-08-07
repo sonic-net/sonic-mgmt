@@ -61,17 +61,14 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     print("check which folder the container is coming from=")
     cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
-    chan.send(cmd)
-    resp = ''
-    time.sleep(3)
-    while ':~$' not in resp:
-        resp = chan.recv(9999).decode("ascii")
-        print(resp)
-    time.sleep(3)
 
-    print(f"resp for docker inspect is {resp}")
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    stdout.channel.recv_exit_status()
+    out = stdout.read().decode("ascii").strip()
 
-    for s in resp.split("/"):
+    print(f"resp for docker inspect is {out}")
+
+    for s in out.split("/"):
         if s == "sonic-test":
             break
         tmp_sonic_test_dir = s
