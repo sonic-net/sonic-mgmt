@@ -2097,6 +2097,21 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                                 if sub_key in config[table_name][key]:
                                     config[table_name][key].pop(sub_key)
 
+            def _get_downloaded_image_version(sonic_installer_output):
+                next_line = next((line for line in sonic_installer_output.split("\n") if "Next:" in line), None)
+                if next_line:
+                    return next_line.split("Next:")[1].strip()
+                else:
+                    logger.error("Unable to get target image version")
+                    return None
+
+            def _get_whitelist_data(duthost_os_version, downloaded_image_version):
+                if "201811" in duthost_os_version and "202012" in downloaded_image_version:
+                    return WHITELIST_201811_202012
+                elif "202012" in duthost_os_version and "202305" in downloaded_image_version:
+                    return WHITELIST_202012_202305
+                return None
+
             for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
                 pre_only_config[duthost.hostname][cfg_context] = {}
                 cur_only_config[duthost.hostname][cfg_context] = {}
@@ -2114,22 +2129,22 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                     _remove_entry(fields[0], fields[1], cur_running_config)
 
                 if whitelist_flag:
-                    downloaded_image_version = ""
-                    whitelist_data = None
-                    sonic_installer = duthost.shell("sonic_installer list")["stdout"]
-                    next_line = [line for line in sonic_installer.split("\n") if "Next:" in line][0]
-                    if next_line:
-                        downloaded_image_version = next_line.split("Next:")[1].strip()
-                    else:
-                        logger.error("Unable to get target image version")
-                    if "201811" in duthost.os_version and "202012" in downloaded_image_version:
-                        whitelist_data = WHITELIST_201811_202012
-                    elif "202012" in duthost.os_version and "202305" in downloaded_image_version:
-                        whitelist_data = WHITELIST_202012_202305
-                    for key, sub_key in whitelist_data.items():
-                        fields = key.split('|')
-                        _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
-                        _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
+                    sonic_installer_output = duthost.shell("sonic_installer list")["stdout"]
+                    downloaded_image_version = _get_downloaded_image_version(sonic_installer_output)
+
+                    if downloaded_image_version:
+                        duthost_os_version = duthost.os_version
+                        whitelist_data = _get_whitelist_data(duthost_os_version, downloaded_image_version)
+
+                        if not whitelist_data:
+                            return
+
+                        for key, sub_key in whitelist_data.items():
+                            fields = key.split('|')
+                            if len(fields) != 2:
+                                continue
+                            _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
+                            _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
 
 
                 pre_running_config_keys = set(pre_running_config.keys())
