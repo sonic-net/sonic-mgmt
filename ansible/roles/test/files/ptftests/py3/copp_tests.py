@@ -75,7 +75,7 @@ class ControlPlaneBaseTest(BaseTest):
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if (debug and self.verbose) or (not debug):
-            print("%s : %s" % (current_time, message))
+            print(("%s : %s" % (current_time, message)))
         self.log_fp.write("%s : %s\n" % (current_time, message))
 
     def setUp(self):
@@ -83,7 +83,7 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.my_mac = {}
         self.peer_mac = {}
-        for port_id, port in self.dataplane.ports.items():
+        for port_id, port in list(self.dataplane.ports.items()):
             if port_id[0] == 0:
                 self.my_mac[port_id[1]] = port.mac()
             elif port_id[0] == 1:
@@ -216,7 +216,7 @@ class ControlPlaneBaseTest(BaseTest):
     def one_port_test(self, port_number):
         packet = self.contruct_packet(port_number)
         send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps = \
-            self.copp_test(str(packet), (0, port_number), (1, port_number))
+            self.copp_test(bytes(packet), (0, port_number), (1, port_number))
 
         self.printStats(send_count, recv_count, time_delta, tx_pps, rx_pps)
         self.check_constraints(send_count, recv_count, time_delta_ms, rx_pps)
@@ -588,13 +588,13 @@ class IP2METest(PolicyTest):
         self.run_suite()
 
     def one_port_test(self, port_number):
-        for port in self.dataplane.ports.iterkeys():
+        for port in self.dataplane.ports.keys():
             if port[0] == 0:
                 continue
 
             packet = self.contruct_packet(port[1])
             send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps = \
-                self.copp_test(str(packet), (0, port_number), (1, port_number))
+                self.copp_test(bytes(packet), (0, port_number), (1, port_number))
 
             self.printStats(send_count, recv_count, time_delta, tx_pps, rx_pps)
             self.check_constraints(

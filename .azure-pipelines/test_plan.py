@@ -276,12 +276,7 @@ class TestPlanManager(object):
                 "pull_request_id": pr_id,
                 "build_id": build_id
             },
-            "extra_params": {
-                "secrets": {
-                    "azp_access_token": kwargs["azp_access_token"],
-                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
-                }
-            },
+            "extra_params": {},
             "priority": 10
         })
         print('Creating test plan with payload: {}'.format(payload))
@@ -546,22 +541,6 @@ if __name__ == "__main__":
         default=1,
         required=False,
         help="The asic number of dut"
-    )
-    parser_create.add_argument(
-        "--azp-access-token",
-        type=str,
-        dest="azp_access_token",
-        default="",
-        required=False,
-        help="Token to download the artifacts of Azure Pipelines"
-    )
-    parser_create.add_argument(
-        "--azp-repo-access-token",
-        type=str,
-        dest="azp_repo_access_token",
-        default="",
-        required=False,
-        help="Token to download the repo from Azure DevOps"
     )
     parser_create.add_argument(
         "--azp-pr-id",
@@ -857,8 +836,6 @@ if __name__ == "__main__":
                 specified_params=args.specified_params,
                 specific_param=specific_param,
                 vm_type=args.vm_type,
-                azp_access_token=args.azp_access_token,
-                azp_repo_access_token=args.azp_repo_access_token,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
                 hwsku=args.hwsku,
