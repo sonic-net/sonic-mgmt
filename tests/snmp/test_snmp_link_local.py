@@ -37,6 +37,7 @@ def test_snmp_link_local_ip(duthosts,
     ip_cmd = 'ip addr show eth0 | grep "inet6" | grep "link"\
               | awk "{print $2}" | cut -d/ -f1'
     link_local_ips = duthost.shell(ip_cmd)['stdout_lines']
+    sysdescr_oid = '1.3.6.1.2.1.1.1.0'
     # configure link local IP in config_db
     for ip in link_local_ips:
         if ip.split()[1].lower().startswith('fe80'):
@@ -44,16 +45,18 @@ def test_snmp_link_local_ip(duthosts,
             break
     # configure link local IP in config_db
     duthost.shell(
-            'redis-cli -n 4 hset "MGMT_INTERFACE|eth0|{}" "gwaddr" "fe80::1"'
+            'sonic-db-cli CONFIG_DB hset "MGMT_INTERFACE|eth0|{}" \
+            "gwaddr" "fe80::1"'
             .format(link_local_ip))
     # Restart snmp service to regenerate snmpd.conf with
     # link local IP configured in MGMT_INTERFACE
     duthost.shell("systemctl restart snmp")
     stdout_lines = duthost.shell("docker exec snmp snmpget \
-                                 -v2c -c {} {}%eth0 1.3.6.1.2.1.1.1.0"
+                                 -v2c -c {} {}%eth0 {}"
                                  .format(creds_all_duts[duthost.hostname]
                                          ['snmp_rocommunity'],
-                                         link_local_ip))['stdout_lines'][0]
+                                         link_local_ip,
+                                         sysdescr_oid))['stdout_lines'][0]
     assert "SONiC Software Version" in stdout_lines,\
         "Sysdescr not found in SNMP result from Link Local IP {}".format(
                 link_local_ip)
