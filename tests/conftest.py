@@ -2039,6 +2039,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
+                base_dir = os.path.dirname(os.path.realpath(__file__))
+                for new_core_dump in new_core_dumps[duthost.hostname]:
+                    duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
