@@ -3184,18 +3184,6 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             self.packet_length = 64
         self.ttl = 64
 
-    def _build_testing_pkt(self, udp_dport):
-        return simple_udp_packet(pktlen=self.packet_length,
-                                 eth_dst=self.dst_port_mac,
-                                 eth_src=self.src_port_mac,
-                                 ip_src=self.src_port_ip,
-                                 ip_dst=self.dst_port_ip,
-                                 ip_tos=((self.dscp << 2) | self.ecn),
-                                 udp_sport=1024,
-                                 udp_dport=udp_dport,
-                                 ip_ecn=self.ecn,
-                                 ip_ttl=self.ttl)
-
     def runTest(self):
         print("dst_port_id: {}, src_port_id: {}".format(
             self.dst_port_id, self.src_port_id), file=sys.stderr)
@@ -3204,8 +3192,15 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sonic_version)
 
         # craft first udp packet with unique udp_dport for traffic to go through different flows
-        flow_1_udp = 2048
-        pkt = self._build_testing_pkt(flow_1_udp)
+        src_details = []
+        src_details.append((int(self.src_port_id),
+            self.src_port_ip,
+            self.dataplane.get_mac(0, int(self.src_port_id))))
+
+        pkt_list = get_multiple_flows(self, self.dst_port_mac, self.dst_port_id, 
+                                      self.dst_port_ip, None, self.dscp, self.ecn, 
+                                      self.ttl, 
+                                      self.packet_length,src_details, 20)[int(self.src_port_id)]
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                               port_list['dst'][self.dst_port_id])
@@ -3219,14 +3214,16 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
 
         self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+        # First input packet of the list for src_port_id
+        first_pkt = pkt_list[0][0]
         try:
             # send packets to begin egress drop on flow1, requires sending the "single"
             # flow packet count to cause a drop with 1 flow.
-            assert fill_leakout_plus_one(self, self.src_port_id, self.dst_port_id, pkt,
+            assert fill_leakout_plus_one(self, self.src_port_id, self.dst_port_id, first_pkt,
                                          int(self.test_params['pg']), self.asic_type), \
                 "Failed to fill leakout on dest port {}".format(
                     self.dst_port_id)
-            send_packet(self, self.src_port_id, pkt,
+            send_packet(self, self.src_port_id, first_pkt,
                         self.pkts_num_trig_egr_drp)
             time.sleep(2)
             # Verify egress drop
@@ -3238,13 +3235,10 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.dst_port_id)
             xmit_counters_base = xmit_counters
             # Find a separate flow that uses alternate queue
-            max_iters = 50
-            for i in range(max_iters):
+            for index, (second_pkt, _) in enumerate(pkt_list):
                 # Start out with i=0 to match flow_1 to confirm drop
-                flow_2_udp = flow_1_udp + (10 * i)
-                pkt2 = self._build_testing_pkt(flow_2_udp)
                 xmit_counters_base = xmit_counters
-                send_packet(self, self.src_port_id, pkt2, 1)
+                send_packet(self, self.src_port_id, second_pkt, 1)
                 time.sleep(2)
                 xmit_counters, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                                  port_list['dst'][self.dst_port_id])
@@ -3253,15 +3247,15 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                     "Egress drop counters were different at port {}, counts: {}".format(
                         self.dst_port_id, drop_counts)
                 drop_count = drop_counts[0]
-                if flow_2_udp == flow_1_udp:
+                if second_pkt == first_pkt:
                     assert drop_count == 1, "Failed to reproduce drop to detect alternate flow"
                 else:
                     assert drop_count in [0, 1], \
                         "Unexpected drop count when sending a single packet, drops {}".format(
                             drop_count)
                     if drop_count == 0:
-                        print("Second flow detected on udp_dport {} in mode '{}'".format(
-                            flow_2_udp, self.flow_config), file=sys.stderr)
+                        print("Second flow detected on packet index {} in mode '{}'".format(
+                             index, self.flow_config), file=sys.stderr)
                         assert self.flow_config == "separate", \
                             "Identified a second flow despite being in mode '{}'"\
                             .format(self.flow_config)
@@ -3281,7 +3275,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                                                                   port_list['src'][self.src_port_id])
             xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                                   port_list['dst'][self.dst_port_id])
-            assert fill_leakout_plus_one(self, self.src_port_id, self.dst_port_id, pkt,
+            assert fill_leakout_plus_one(self, self.src_port_id, self.dst_port_id, second_pkt,
                                          int(self.test_params['pg']), self.asic_type), \
                 "Failed to fill leakout on dest port {}".format(
                     self.dst_port_id)
@@ -3295,8 +3289,8 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                 multi_flow_drop_pkt_count - 1 - margin
             print("Sending {} packets on each of 2 streams to approach drop".format(
                 short_of_drop_npkts), file=sys.stderr)
-            send_packet(self, self.src_port_id, pkt, short_of_drop_npkts)
-            send_packet(self, self.src_port_id, pkt2, short_of_drop_npkts)
+            send_packet(self, self.src_port_id, first_pkt, short_of_drop_npkts)
+            send_packet(self, self.src_port_id, second_pkt, short_of_drop_npkts)
             # allow enough time for counters to update
             time.sleep(2)
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type,
@@ -3321,8 +3315,8 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
             npkts = 1 + 2 * margin
             print("Sending {} packets on 2 streams to trigger drop".format(
                 npkts), file=sys.stderr)
-            send_packet(self, self.src_port_id, pkt, npkts)
-            send_packet(self, self.src_port_id, pkt2, npkts)
+            send_packet(self, self.src_port_id, first_pkt, npkts)
+            send_packet(self, self.src_port_id, second_pkt, npkts)
             # allow enough time for counters to update
             time.sleep(2)
             recv_counters, _ = sai_thrift_read_port_counters(
