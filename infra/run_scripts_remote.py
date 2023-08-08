@@ -121,9 +121,9 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     delta1 = datetime.datetime.now()
     if create_allure_report:
-        chan.send('./run_scripts.py  -u -s {} -v {} -l {} -d {} -t {} -g {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name))
+        chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name))
     else:
-        chan.send('./run_scripts.py  -u -s {} -v {} -l {} -d {} -t {} -g {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name))
+        chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name))
     time.sleep(3)
     resp = chan.recv(9999)
 
@@ -143,6 +143,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         time.sleep(3)
         resp = chan.recv(9999)
         print(resp.decode("ascii"))
+        sys.stdout.flush()
 
         if script_file in resp.decode("ascii"):
             time.sleep(150)
