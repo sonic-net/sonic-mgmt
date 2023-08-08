@@ -60,27 +60,6 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         print(resp)
     time.sleep(3)
 
-    print("check which folder the container is coming from=")
-    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
-
-    stdin, stdout, stderr = ssh.exec_command(cmd)
-    stdout.channel.recv_exit_status()
-    out = stdout.read().decode("ascii").strip()
-
-    print(f"resp for docker inspect is {out}")
-
-    for s in out.split("/"):
-        if s == "sonic-test":
-            break
-        tmp_sonic_test_dir = s
-
-    sys.stdout.flush()
-
-    
-    print("sonic-test dir is: ", tmp_sonic_test_dir)
-
-
-
     print("Going into container '{}' to run tests".format(docker_mgmt_container))
     chan.send('docker exec -it {} /bin/bash \n'.format(docker_mgmt_container))
     resp = ''
@@ -292,13 +271,40 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ssh.close()
 
 def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
-    
-    
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
     print("Script file: {}, drop version: {}, log_dir {}, sonic-test directory: {}, docker-mgmt container name: '{}', create-allure-report: {}".format(script_file, drop_version, log_dir, sonic_test_dir, docker_mgmt_container, create_allure_report))
     print("Upload Sanity Script file")
+
+
+    print("determine sonic_test_dir from docker_mgmt_container name")
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, ssh_port, username, password)
+    print("connected to host {}".format(host))
+
+    cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
+
+    stdin, stdout, stderr = ssh.exec_command(cmd)
+    stdout.channel.recv_exit_status()
+    out = stdout.read().decode("ascii").strip()
+
+    print(f"resp for docker inspect is {out}")
+
+    tmp_sonic_test_dir = ""
+    for s in out.split("/"):
+        if s == "sonic-test":
+            break
+        tmp_sonic_test_dir = s
+    
+
+    sys.stdout.flush()
+
+    
+    print("sonic-test dir is: ", tmp_sonic_test_dir)
+
+
     upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
     print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
     run_result = run_scripts(host, username, password, script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
