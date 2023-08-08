@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python3
 '''Analyze test result
 
 This tool accept a test result json file parsed from nightly test junit xml files as input.
