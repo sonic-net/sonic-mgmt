@@ -810,25 +810,39 @@ class ReloadTest(BaseTest):
         self.from_t1_exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
 
     def generate_from_vlan(self):
-        packet = simple_tcp_packet(
-            eth_src=self.from_server_src_mac,
-            eth_dst=self.vlan_mac,
-            ip_src=self.from_server_src_addr,
-            ip_dst=self.from_server_dst_addr,
-            tcp_dport=5000
-        )
+        self.from_servers = []
+        for _, from_port in enumerate(self.vlan_host_map):
+            for server_ip in self.vlan_host_map[from_port]:
+                from_server_src_addr = server_ip
+                from_server_src_mac = self.hex_to_mac(self.vlan_host_map[from_port][from_server_src_addr])
+
+                packet = simple_tcp_packet(
+                    eth_src=from_server_src_mac,
+                    eth_dst=self.vlan_mac,
+                    ip_src=from_server_src_addr,
+                    ip_dst=self.from_server_dst_addr,
+                    tcp_dport=5000
+                )
+
+                self.from_servers.append((from_port, str(packet)))
+
         exp_packet = simple_tcp_packet(
-            ip_src=self.from_server_src_addr,
             ip_dst=self.from_server_dst_addr,
             ip_ttl=63,
             tcp_dport=5000,
         )
 
         self.from_vlan_exp_packet = Mask(exp_packet)
+
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "src")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.TCP, "chksum")
+        self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
         self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
         self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        self.from_vlan_packet = str(packet)
+        self.watcher_from_server_iter = itertools.cycle(self.from_servers)
+        self.log("Prepared {} packets from servers".format(len(self.from_servers)))
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
@@ -1699,9 +1713,9 @@ class ReloadTest(BaseTest):
                     break
                 payload = '0' * 60 + str(self.sent_packet_count)
                 if (self.sent_packet_count % 5) == 0:   # From vlan to T1.
-                    packet = scapyall.Ether(self.from_vlan_packet)
+                    from_port, packet = next(self.watcher_from_server_iter)
+                    packet = scapyall.Ether(packet)
                     packet.load = payload
-                    from_port = self.from_server_src_port
                     sent_count_vlan_to_t1 += 1
                 else:   # From T1 to vlan.
                     src_port, packet = next(from_t1_iter)
@@ -2314,9 +2328,9 @@ class ReloadTest(BaseTest):
         self.watcher_is_running.clear()     # Watcher has stopped.
 
     def pingFromServers(self):
-        for i in range(self.nr_pc_pkts):
-            testutils.send_packet(
-                self, self.from_server_src_port, self.from_vlan_packet)
+        for _ in range(self.nr_pc_pkts):
+            entry = next(self.watcher_from_server_iter)
+            testutils.send_packet(self, *entry)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
