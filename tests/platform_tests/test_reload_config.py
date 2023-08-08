@@ -103,7 +103,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # config reload command shouldn't work immediately after system reboot
     assert "Retry later" in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    # after reboot tacacs-config.timer need 5min 30 sec to run , extend timeout to 350 sec .
+    assert wait_until(350, 25, 0, config_system_checks_passed, duthost)
 
     # After the system checks succeed the config reload command should not throw error
     out = duthost.shell("sudo config reload -y",
