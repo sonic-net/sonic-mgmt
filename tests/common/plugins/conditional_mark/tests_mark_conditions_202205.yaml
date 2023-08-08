@@ -28,14 +28,6 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot[wa
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6656
 
-decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
-  xfail:
-    reason: "test issue or image issue, to be RCA'ed"
-    conditions:
-      - "release in ['202205']"
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6657
-
 dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
   xfail:
     reason: "test issue or image issue, to be RCA'ed"
