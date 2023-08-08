@@ -655,6 +655,29 @@ class MultiAsicSonicHost(object):
             )
         return bgp_internal_neighbors
 
+    def get_voq_inband_interfaces(self):
+        """
+        This Function is only applicable on VOQ Chassis.
+        Get VOQ Internal Inband Interfaces. API iterates through frontend ASIC
+        index to get the VOQ Inband Interfaces from running configuration.
+        Not using BGP_VOQ_CHASSIS_NEIGHBOUR peer ips  since they are not referenced in
+        next hops of route.
+        Returns:
+              List of [voq_inband_interfaces]
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        voq_inband_interfaces = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            voq_inband_interfaces.update(
+                config_facts.get("VOQ_INBAND_INTERFACE", {})
+            )
+        return voq_inband_interfaces.keys()
+
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost

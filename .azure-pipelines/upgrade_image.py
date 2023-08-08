@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 """Script for upgrading SONiC image for nightly tests.
 
 Main purpose of this script is to upgrade SONiC image for nightly tests. Based on the arguments passed in, the script
@@ -23,8 +25,8 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 
-from devutil.devices import init_localhost, init_testbed_sonichosts                 # noqa E402
-from devutil.sonic_helpers import upgrade_image                                     # noqa E402
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts         # noqa E402
+from devutil.devices.sonic import upgrade_image                                     # noqa E402
 
 from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory     # noqa E402
 

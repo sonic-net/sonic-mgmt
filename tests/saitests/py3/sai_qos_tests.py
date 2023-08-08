@@ -203,7 +203,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                 'tcp_dport':next(TCP_PORT_GEN)}
             if src_vlan:
                 pkt_args.update({dl_vlan_enable:True})
-                pkt_args.update({vlan_vid:src_vlan})
+                pkt_args.update({vlan_vid:int(src_vlan)})
             pkt = simple_tcp_packet(**pkt_args)
 
             masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
@@ -1017,14 +1017,22 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         cell_size = self.test_params['cell_size']
         PKT_NUM = 100
         # There is background traffic during test, so we need to add error tolerance to ignore such pakcets
+        # and we send 100 packets every 10 seconds, if no backgound traffic impact counter value, and watermark is very
+        #   accurate, expected wartermark increasing value is 100.
+        # So for PG0, we increaset tolerance to 20, make sure it can work well even though background traffic, such as
+        #   LACP, LLDP, is 2 packet per second.
+        # For PG2/3/4/6, usually no background traffic, but watermark value's updating is a little bit inaccurate
+        #   according to previously experiments: after send 100 packets, sometime watermark value is 99, sometime
+        #   is 101. Since worry about worser scenario, we set tolerance to 10 for PG2/3/4/6. When figure out rootcause
+        #   of this symptom, will change to more reasonable value.
         ERROR_TOLERANCE = {
-            0: 10,
+            0: 20,
             1: 0,
-            2: 0,
-            3: 0,
-            4: 0,
+            2: 10,
+            3: 10,
+            4: 10,
             5: 0,
-            6: 0,
+            6: 10,
             7: 0
         }
 
@@ -1342,8 +1350,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg]), \
@@ -4701,12 +4709,15 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_ips = self.test_params['dst_port_ips']
         dst_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in dst_port_ids]
+        dscp_to_q_map = self.test_params['dscp_to_q_map']
 
         asic_type = self.test_params['sonic_asic_type']
         pkt_count = int(self.test_params['pkt_count'])
         cell_size = int(self.test_params['cell_size'])
-        prio_list = [2, 3, 4, 8, 5, 46, 48]
-        queue_list = [1, 3, 4, 0, 2, 5, 6]
+        prio_list = dscp_to_q_map.keys()
+        queue_list = [dscp_to_q_map[p] for p in prio_list]
+        prio_list = [int(x) for x in prio_list]
+        queue_list = [int(x) for x in queue_list]
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
         else:
@@ -4766,9 +4777,10 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             expected_wm = pkt_count * cell_occupancy
             # verification of queue watermark for all ports
             for qwms in dst_q_wm_res_all_port:
-                for qwm in qwms[:-1]:
-                    msg = "queue_wm value is {}, lower limit:{}, upper limit:{}".format(
-                            qwm,
+                for queue in queue_list:
+                    qwm = qwms[queue]
+                    msg = "Queue:{}, queue_wm value is {}, lower limit:{}, upper limit:{}".format(
+                            queue, qwm,
                             (expected_wm - margin) * cell_size,
                             (expected_wm + margin) * cell_size)
 

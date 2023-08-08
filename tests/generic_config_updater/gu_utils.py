@@ -309,6 +309,7 @@ def get_asic_name(duthost):
 
 
 def is_valid_platform_and_version(duthost, table, scenario):
+    return True  # temp fix, will remove after sonic-mgmt issue #8944 is resolved
     asic = get_asic_name(duthost)
     os_version = duthost.os_version
     if asic == "unknown":

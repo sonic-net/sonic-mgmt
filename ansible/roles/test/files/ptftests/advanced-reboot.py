@@ -1,5 +1,6 @@
 #
-# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";peer_ports_file="/tmp/peer_ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+#
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -138,6 +139,8 @@ class ReloadTest(BaseTest):
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('peer_ports_file', '', required=False)
+        self.check_param('dut_mux_status', '', required=False)
         self.check_param('dut_mac', '', required=True)
         self.check_param('vlan_mac', '', required=True)
         self.check_param('default_ip_range', '', required=True)
@@ -247,6 +250,9 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
         platform_type = str(stdout[0]).replace('\n', '')
@@ -275,8 +281,20 @@ class ReloadTest(BaseTest):
 
     def read_port_indices(self):
         port_indices = self.read_json('ports_file')
+        peer_port_indices = {}
+        if self.is_dualtor:
+            peer_port_indices = self.read_json('peer_ports_file')
 
-        return port_indices
+        return port_indices, peer_port_indices
+
+    def read_mux_status(self):
+        active_port_indices = []
+        mux_status = self.read_json('dut_mux_status')
+        for intf, port in self.port_indices.items():
+            if intf in mux_status and mux_status[intf]['status'] == 'active':
+                active_port_indices.append(port)
+        
+        return active_port_indices
 
     def read_vlan_portchannel_ports(self):
         portchannel_content = self.read_json('portchannel_ports_file')
@@ -304,7 +322,17 @@ class ReloadTest(BaseTest):
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
-        return ports_per_vlan, pc_ifaces
+        dualtor_pc_ifaces = []
+        if self.is_dualtor:
+            peer_active_portchannels = list()
+            for neighbor_info in list(self.peer_vm_dut_map.values()):
+                peer_active_portchannels.append(neighbor_info["dut_portchannel"])
+            dualtor_pc_ifaces.extend(pc_ifaces)
+            for pc in portchannel_content.values():
+                if not pc['name'] in pc_in_vlan and pc['name'] in peer_active_portchannels:
+                    dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
+        
+        return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
 
     def check_param(self, param, default, required = False):
         if param not in self.test_params:
@@ -407,6 +435,9 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[key]['dut_ports'] = []
                 self.vm_dut_map[key]['neigh_ports'] = []
                 self.vm_dut_map[key]['ptf_ports'] = []
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[key] = dict()
+                    self.peer_vm_dut_map[key]['dut_ports'] = []
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
@@ -416,6 +447,8 @@ class ReloadTest(BaseTest):
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        if self.is_dualtor:
+                            self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
 
     def get_neigh_port_info(self):
@@ -425,6 +458,8 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
 
     def build_peer_mapping(self):
         '''
@@ -438,6 +473,7 @@ class ReloadTest(BaseTest):
                                     }
         '''
         self.vm_dut_map = {}
+        self.peer_vm_dut_map = {}
         for file in self.test_params['preboot_files'].split(','):
             self.test_params[file] = '/tmp/' + file + '.json'
         self.get_peer_dev_info()
@@ -551,10 +587,19 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
-        self.port_indices = self.read_port_indices()
+        self.dut_mac = self.test_params['dut_mac']
+        self.vlan_mac = self.test_params['vlan_mac']
+        self.lo_prefix = self.test_params['lo_prefix']
+        if self.vlan_mac != self.dut_mac:
+            self.is_dualtor = True
+        else:
+            self.is_dualtor = False
+        self.port_indices, self.peer_port_indices = self.read_port_indices()
+        if self.is_dualtor:
+            self.active_port_indices = self.read_mux_status()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.build_peer_mapping()
-        self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
+        self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
@@ -567,9 +612,6 @@ class ReloadTest(BaseTest):
         self.reboot_type = self.test_params['reboot_type']
         if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
-        self.dut_mac = self.test_params['dut_mac']
-        self.vlan_mac = self.test_params['vlan_mac']
-        self.lo_prefix = self.test_params['lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -598,7 +640,7 @@ class ReloadTest(BaseTest):
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
         self.from_server_src_mac   = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.portchannel_ports
+        self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
 
         self.log("Test params:")
         self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
@@ -752,7 +794,8 @@ class ReloadTest(BaseTest):
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
-        for src_port in self.vlan_host_ping_map:
+        
+        for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
@@ -995,6 +1038,11 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1323,10 +1371,10 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         if not self.kvm_test and\
-            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            self.sender_thr = threading.Thread(target = self.send_in_background)
-            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-            self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
+                (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
+                 self.reboot_type or 'service-warm-restart' in self.reboot_type):
+            # Event for the sniff_in_background status.
+            self.sniffer_started = threading.Event()
             self.sniff_thr.start()
             self.sender_thr.start()
 
@@ -1533,19 +1581,6 @@ class ReloadTest(BaseTest):
         subprocess.call(sniffer_command)
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
-
-    def send_and_sniff(self):
-        """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
-        """
-        self.sender_thr = threading.Thread(target = self.send_in_background)
-        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
 
     def check_tcp_payload(self, packet):
         """
@@ -1986,7 +2021,7 @@ class ReloadTest(BaseTest):
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
-        if self.vlan_mac != self.dut_mac:
+        if self.is_dualtor:
             # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
             # icmp_responder will also generate a response for this ICMP req, ignore that reply
             total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts

@@ -2,6 +2,7 @@ import copy
 import pytest
 import logging
 import time
+import traceback
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.transceiver_utils import parse_transceiver_info

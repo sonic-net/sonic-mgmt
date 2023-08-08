@@ -342,6 +342,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
+    if 'VLAN_INTERFACE' not in cfg_facts:
+        return vlan_intfs_dict
     for k, v in cfg_facts['VLAN'].items():
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
@@ -562,3 +564,23 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
     except:
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
+
+
+def check_bgp_router_id(duthost, mgFacts):
+    """
+    Check bgp router ID is same as Loopback0
+    """
+    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+    try:
+        bgp_summary_json = json.loads(bgp_summary['stdout'])
+        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
+        loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
+        if router_id == loopback0:
+            logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
+            return True
+        else:
+            logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
+            return False
+    except Exception as e:
+        logger.error("Error loading BGP routerID - {}".format(e))

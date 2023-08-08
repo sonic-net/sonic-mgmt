@@ -1,13 +1,12 @@
 #! /usr/bin/env python
 
-import json
-import os
 
-from helpers import *
-from common import *
-import strip
-import configlet
-import generic_patch
+from tests.configlet.util import configlet, strip, generic_patch
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
+
+import os
+import json
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until
@@ -79,11 +78,11 @@ def init(duthost):
     if not os.path.exists(base_dir):
         os.system("mkdir -p {}".format(base_dir))
 
-    for i in [ data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir,
-            patch_add_t0_dir, patch_rm_t0_dir, files_dir ]:
+    for i in [data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir,
+              patch_add_t0_dir, patch_rm_t0_dir, files_dir]:
         os.mkdir(i)
 
-    init_data["files_dir"] = files_dir 
+    init_data["files_dir"] = files_dir
     init_data["data_dir"] = data_dir
     init_data["orig_db_dir"] = orig_db_dir
     init_data["switch_name"] = duthost.hostname
@@ -126,11 +125,11 @@ def restore_orig_minigraph(duthost, skip_load=False):
 
 def load_minigraph(duthost):
     log_info("Loading minigraph")
-    config_reload(duthost, config_source="minigraph", wait=RELOAD_WAIT_TIME, start_bgp=True) 
+    config_reload(duthost, config_source="minigraph", wait=RELOAD_WAIT_TIME, start_bgp=True)
     assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
-            "All critical services should fully started!"
+        "All critical services should fully started!"
     assert wait_until(300, 20, 0, chk_for_pfc_wd, duthost), \
-            "PFC_WD is missing in CONFIG-DB"
+        "PFC_WD is missing in CONFIG-DB"
 
 
 def prepare_for_test(duthost):
@@ -158,7 +157,6 @@ def prepare_for_test(duthost):
 
 
 def apply_clet(duthost, skip_test=False):
-
     pfx_lvl = get_prefix_lvl()
 
     clet_file = managed_files["configlet"]
@@ -194,8 +192,8 @@ def apply_clet(duthost, skip_test=False):
 
     append_log_prefix_msg("checking_dump", pfx_lvl)
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
-            orig_db_dir, "apply_clet"), \
-            "DB compare failed after apply-clet"
+                      orig_db_dir, "apply_clet"), \
+        "DB compare failed after apply-clet"
 
     # Ensure BGP session is up
     chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
@@ -207,8 +205,9 @@ def apply_clet(duthost, skip_test=False):
 
 
 def download_sonic_files(duthost):
-    for f in [ "minigraph.xml", "config_db.json" ]:
+    for f in ["minigraph.xml", "config_db.json"]:
         duthost.fetch(src="/etc/sonic/{}".format(f), dest=data_dir)
+
 
 def files_create(is_mlnx, is_storage_backend):
     init_global_data()
@@ -217,12 +216,11 @@ def files_create(is_mlnx, is_storage_backend):
     configlet.main(init_data["files_dir"], is_mlnx, is_storage_backend)
 
     log_info("Managed files: {}".format(json.dumps(managed_files, indent=4)))
-                                
-                                        
-def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
-        skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False,
-        hack_apply=False, skip_prepare = False):
 
+
+def do_test_add_rack(duthost, is_storage_backend=False, skip_load=False,
+                     skip_clet_test=False, skip_generic_add=False, skip_generic_rm=False,
+                     hack_apply=False, skip_prepare=False):
     global data_dir, orig_db_dir, clet_db_dir, files_dir
 
     init(duthost)
@@ -254,8 +252,8 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         download_sonic_files(duthost)
 
         # Create minigraph w/o a T0 & configlet, apply & take dump
-        files_create(is_mlnx = duthost.facts["asic_type"] == "mellanox",
-                is_storage_backend = is_storage_backend)
+        files_create(is_mlnx=duthost.facts["asic_type"] == "mellanox",
+                     is_storage_backend=is_storage_backend)
 
         # Ensure BGP session is up before we apply stripped minigraph
         chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
@@ -265,9 +263,9 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         prepare_for_test(duthost)
 
         generic_patch.create_patch(no_t0_db_dir, orig_db_dir, patch_add_t0_dir,
-                hack_apply)
+                                   hack_apply)
         generic_patch.create_patch(orig_db_dir, no_t0_db_dir, patch_rm_t0_dir,
-                hack_apply)
+                                   hack_apply)
 
     if not skip_clet_test:
         set_log_prefix_msg("apply clet")
@@ -278,8 +276,8 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         # Reload config w/o t0 if clet test is done (not skipped).
         #
         set_log_prefix_msg("patch_add")
-        generic_patch.generic_patch_add_t0(duthost, skip_load = skip_clet_test,
-                hack_apply=hack_apply)
+        generic_patch.generic_patch_add_t0(duthost, skip_load=skip_clet_test,
+                                           hack_apply=hack_apply)
 
     if not skip_generic_rm:
         # generic_patch_rm_t0 expects T0 added.
@@ -287,9 +285,7 @@ def do_test_add_rack(duthost, is_storage_backend = False, skip_load=False,
         #
         set_log_prefix_msg("patch_rm")
         generic_patch.generic_patch_rm_t0(duthost,
-                skip_load = not (skip_generic_add and skip_clet_test),
-                hack_apply=hack_apply)
+                                          skip_load=not (skip_generic_add and skip_clet_test),
+                                          hack_apply=hack_apply)
 
     log_info("Test run is good!")
-
-

@@ -1,10 +1,10 @@
 #! /usr/bin/env python
 
-import json
-
+from tests.configlet.util.common import *
+from tests.configlet.util.helpers import *
 from tempfile import mkstemp
-from helpers import *
-from common import *
+
+import json
 import strip
 
 orig_config = None

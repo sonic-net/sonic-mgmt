@@ -1,9 +1,11 @@
+#!/usr/bin/env python2
+
 import argparse
 import logging
 import sys
 
-from devutil.devices import init_localhost, init_sonichosts, init_testbed_sonichosts
-from devutil.sonic_helpers import upgrade_image
+from devutil.devices.factory import init_localhost, init_sonichosts, init_testbed_sonichosts
+from devutil.devices.sonic import upgrade_image
 
 logging.basicConfig(
     stream=sys.stdout,
