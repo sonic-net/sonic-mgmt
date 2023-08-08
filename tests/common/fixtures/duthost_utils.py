@@ -5,6 +5,7 @@ import collections
 import ipaddress
 import time
 import json
+import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
@@ -520,11 +521,19 @@ def check_bgp_router_id(duthost, mgFacts):
     """
     Check bgp router ID is same as Loopback0
     """
-    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    if "201811" in duthost.os_version:
+        check_bgp_router_id_cmd = r"show ip bgp sum"
+    else:
+        check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
     bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
     try:
-        bgp_summary_json = json.loads(bgp_summary['stdout'])
-        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
+        if "201811" in duthost.os_version:
+            match = re.search(r'BGP router identifier (\d+\.\d+\.\d+\.\d+)', bgp_summary["stdout"])
+            if match:
+                router_id = match.group(1)
+        else:
+            bgp_summary_json = json.loads(bgp_summary['stdout'])
+            router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
         loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
         if router_id == loopback0:
             logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
