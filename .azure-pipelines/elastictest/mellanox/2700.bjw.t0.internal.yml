@@ -74,7 +74,7 @@ parameters:
 
   - name: REPO_NAME
     type: string
-    default: Networking-acs-buildimage
+    default: "sonic-mgmt-int"
 
   - name: STOP_ON_FAILURE
     type: string
@@ -105,7 +105,7 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-scheduler-template.yml
+    - template: ../../run-test-elastictest-template.yml
       parameters:
         TOPOLOGY: t0
         MIN_WORKER: 2

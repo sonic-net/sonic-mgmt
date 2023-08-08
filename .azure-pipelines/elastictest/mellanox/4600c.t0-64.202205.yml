@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py, vrf/test_vrf.py, vrf/test_vrf_attr.py"
+    default: "vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -71,11 +71,11 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2880
+    default: 1800
 
   - name: REPO_NAME
     type: string
-    default: Networking-acs-buildimage
+    default: "sonic-mgmt-int"
 
   - name: STOP_ON_FAILURE
     type: string
@@ -106,7 +106,7 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-scheduler-template.yml
+    - template: ../../run-test-elastictest-template.yml
       parameters:
         TOPOLOGY: t0-64
         MIN_WORKER: 2

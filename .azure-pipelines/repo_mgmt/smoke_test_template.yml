@@ -171,6 +171,7 @@ stages:
           - task: PythonScript@0
             displayName: Parse Testbed Info
             inputs:
+              pythonInterpreter: /usr/bin/python3
               scriptSource: 'inline'
               script: |
                 from __future__ import print_function
@@ -205,7 +206,7 @@ stages:
               INTERVAL=60
 
               wait_time=0
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest; do
+              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
@@ -540,7 +541,7 @@ stages:
               INTERVAL=60
 
               wait_time=0
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest; do
+              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
@@ -572,12 +573,6 @@ stages:
               script: |
                 set -x
 
-                echo "Activate python3 virtual environment"
-                source /var/AzDevOps/env-python3/bin/activate
-
-                cd test_reporting
-                pip3 install -r requirements.txt
-
                 python3 junit_xml_parser.py -d ../results -o tr.json
             condition: always()
 
@@ -587,12 +582,6 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
-
-                echo "Activate python3 virtual environment"
-                source /var/AzDevOps/env-python3/bin/activate
-
-                cd test_reporting
-                python3 collect_azp_results.py $(Build.BuildId)
 
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} -j tr.json SonicTestData
             condition: eq('${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}', 'false')
@@ -609,10 +598,7 @@ stages:
           - script: |
               set -x
 
-              echo "Activate python3 virtual environment"
-              source /var/AzDevOps/env-python3/bin/activate
-
-              python ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json \
+              python3 ./.azure-pipelines/repo_mgmt/analyze_test_result.py --report test_reporting/tr.json \
               --min-passing-rate ${{ parameters.MIN_PASSING_RATE }} \
               --tolerance ${{ parameters.TOLERANCE }}
             env:
