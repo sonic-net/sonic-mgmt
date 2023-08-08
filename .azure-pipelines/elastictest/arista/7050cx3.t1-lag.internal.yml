@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,1,2,3,4,5"
+  - cron: "0 4 * * 2"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -29,17 +29,17 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms28-t0-4600c-03, vms28-t0-4600c-04"
+    default: "vms20-t1-7050cx3-3"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_INTERNAL)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_MLNX_INTERNAL)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: MGMT_BRANCH
@@ -65,13 +65,13 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "pfc_asym, span, sub_port_interfaces "
     displayName: "Features to be excluded"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 3600
 
   - name: REPO_NAME
     type: string
@@ -101,16 +101,16 @@ stages:
 
   jobs:
   - job:
-    displayName: 4600c.t0-64.internal.NightlyTest_by_Elastictest
+    displayName: 7050cx3.t1-lag.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
-        TOPOLOGY: t0-64
-        MIN_WORKER: 2
-        MAX_WORKER: 2
+        TOPOLOGY: t1-lag
+        MIN_WORKER: 1
+        MAX_WORKER: 1
         TEST_PLAN_TYPE: NIGHTLY
         PLATFORM: PHYSICAL
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -118,7 +118,7 @@ stages:
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+        COMMON_EXTRA_PARAMS: "--topology t1,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
         REPO_NAME: ${{ parameters.REPO_NAME }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
