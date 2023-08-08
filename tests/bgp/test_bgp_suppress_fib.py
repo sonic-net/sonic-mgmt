@@ -81,7 +81,7 @@ TRAFFIC_DATA_DROP = [
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganalyzer):
     """
-       Ignore expected errors during TC execution
+       Ignore expected error during TC execution
 
        Args:
             duthosts: list of DUTs.
