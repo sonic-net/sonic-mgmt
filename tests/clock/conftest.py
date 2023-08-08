@@ -7,7 +7,7 @@ from tests.clock.test_clock import ClockConsts, ClockUtils
 
 
 def pytest_addoption(parser):
-    parser.addoption("--ntp_server", action="store", default=None, help="IP of NTP server to use")
+    parser.addoption("--ntp_server", action="store", default=None, required=True, help="IP of NTP server to use")
 
 
 @pytest.fixture(scope='session', autouse=True)
