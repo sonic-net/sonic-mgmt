@@ -1436,7 +1436,6 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             tc12: modify the underlay default route nexthop/s. send packets to
             route 3's prefix dst.
         '''
-        self.setup = setUp
         '''
         First step: pick one or two of the interfaces connected to t2, and
         bring them down. verify that the encap is still working, and ptf
@@ -1445,6 +1444,27 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
         the ones used in the first step. This will force a modification
         to the underlay default routes nexthops.
         '''
+        self.setup = setUp
+        duthost = self.setup['duthost']
+        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+
+        # setup route with 3 VNET endpoints
+        n_endpoints = 3
+        endpoint_group_C = [
+            ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX)
+            for _ in range(n_endpoints)
+        ]
+        route_prefix = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route_prefix: endpoint_group_C}},
+            ecmp_utils.get_payload_version(encap_type),
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
+        self.setup[encap_type]['dest_to_nh_map'][vnet][route_prefix] = endpoint_group_C
 
         all_t2_intfs = list(ecmp_utils.get_portchannels_to_neighbors(
             self.setup['duthost'],
@@ -1612,6 +1632,27 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
            tc14: add the underlay default route.
         '''
         self.setup = setUp
+        duthost = self.setup['duthost']
+        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+
+        # setup route with 3 VNET endpoints
+        n_endpoints = 3
+        endpoint_group_C = [
+            ecmp_utils.get_ip_address(af=ecmp_utils.get_outer_layer_version(encap_type), netid=NEXTHOP_PREFIX)
+            for _ in range(n_endpoints)
+        ]
+        route_prefix = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type), netid=DESTINATION_PREFIX
+        )
+        ecmp_utils.set_routes_in_dut(
+            duthost,
+            {vnet: {route_prefix: endpoint_group_C}},
+            ecmp_utils.get_payload_version(encap_type),
+            'SET',
+            bfd=self.setup['enable_bfd']
+        )
+        self.setup[encap_type]['dest_to_nh_map'][vnet][route_prefix] = endpoint_group_C
+
         Logger.info(
             "Find all the underlay default routes' interfaces. This means all "
             "T2 interfaces.")
