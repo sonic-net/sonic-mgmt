@@ -26,7 +26,12 @@ import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import test_params_get, simple_icmp_packet, simple_icmpv6_packet, send_packet,\
-    simple_ip_packet, simple_tcpv6_packet, verify_packet_any_port
+    simple_ip_packet, simple_tcpv6_packet, verify_packet_any_port, dp_poll
+
+
+def verify_no_packet_on_all_port(test, pkt, timeout=1):
+    result = dp_poll(test, exp_pkt=pkt, timeout=timeout)
+    return isinstance(result, test.dataplane.PollSuccess)
 
 
 class MtuTest(BaseTest):
@@ -130,14 +135,16 @@ class MtuTest(BaseTest):
                      str(src_port) + " to " + ip_dst)
         dst_port_list = self.src_ptf_port_list
 
-        (matched_index, received) = verify_packet_any_port(
-            self, masked_exp_pkt, dst_port_list)
+        if not self.expect_drop_pkt:
+            (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
-        assert received
+            assert received
 
-        matched_port = dst_port_list[matched_index]
-        logging.info("Received packet at " + str(matched_port))
-
+            matched_port = dst_port_list[matched_index]
+            logging.info("Received packet at " + str(matched_port))
+        else:
+            pkt_recv = verify_no_packet_on_all_port(self, masked_exp_pkt)
+            assert not pkt_recv
         return
 
     # ---------------------------------------------------------------------
@@ -193,14 +200,16 @@ class MtuTest(BaseTest):
                      str(src_port) + " to " + ip_dst)
 
         dst_port_list = self.dst_ptf_port_list
-        (matched_index, received) = verify_packet_any_port(
-            self, masked_exp_pkt, dst_port_list)
+        if not self.expect_drop_pkt:
+            (matched_index, received) = verify_packet_any_port(self, masked_exp_pkt, dst_port_list)
 
-        assert received
+            assert received
 
-        matched_port = dst_port_list[matched_index]
-        logging.info("Received packet at " + str(matched_port))
-
+            matched_port = dst_port_list[matched_index]
+            logging.info("Received packet at " + str(matched_port))
+        else:
+            pkt_recv = verify_no_packet_on_all_port(self, masked_exp_pkt)
+            assert not pkt_recv
         return
 
     # ---------------------------------------------------------------------
