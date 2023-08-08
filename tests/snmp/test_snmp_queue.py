@@ -14,17 +14,24 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
 
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
+    port_name_to_alias_map = {}
 
     for asic_id in duthost.get_asic_ids():
         namespace = duthost.get_namespace_from_asic_id(asic_id)
-        sonic_db_cmd = "sonic-db-cli {}".format("-n " + namespace if namespace else "")
-        q_keys_ns = duthost.shell('{} CONFIG_DB KEYS "QUEUE|*"'.format(sonic_db_cmd),
-                                  module_ignore_errors=False)['stdout_lines']
+        config_facts_ns = duthost.config_facts(host=duthost.hostname, source="running",
+                                               namespace=namespace)['ansible_facts']
+        asic = duthost.asic_instance(asic_id)
+        q_keys_ns = asic.run_sonic_db_cli_cmd('CONFIG_DB KEYS "QUEUE|*"')['stdout_lines']
         if q_keys_ns:
             q_keys.extend(q_keys_ns)
+        if config_facts_ns and 'port_name_to_alias_map' in config_facts_ns:
+            port_name_to_alias_map.update(config_facts_ns['port_name_to_alias_map'])
 
     if not q_keys:
         pytest.skip("No queues configured on interfaces")
+
+    # Get alias : port_name map
+    alias_port_name_map = {k: v for v, k in port_name_to_alias_map.items()}
 
     q_interfaces = set()
     # get interfaces which has configured queues
@@ -33,16 +40,23 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         # 'QUEUE|Ethernet*|2'
         if len(intf) == 3:
             q_interfaces.add(intf[1])
+        # Packet chassis 'QUEUE|<hostname>|<asic_ns>|Ethernet*|2'
+        elif len(intf) == 5:
+            q_interfaces.add(intf[3])
 
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
                                 wait=True)['ansible_facts']
 
-    for k, v in list(snmp_facts['snmp_interfaces'].items()):
-        if "Ethernet" in v['description']:
-            intf = v['description'].split(':')
-            # 'ARISTA*:Ethernet*'
-            if len(intf) == 2:
-                if intf[1] in q_interfaces and 'queues' not in v:
-                    pytest.fail(
-                        "port %s does not have queue counters" % v['name'])
+    snmp_ifnames = [alias_port_name_map[v['name']]
+                    for k, v in list(snmp_facts['snmp_interfaces'].items()) if v['name'] in alias_port_name_map]
+
+    for intf in q_interfaces:
+        assert intf in snmp_ifnames, "Port %s with QUEUE config is not present in snmp interfaces"
+
+    for k, v in snmp_facts['snmp_interfaces'].items():
+        # v['name'] is  alias for example Ethernet1/1
+        if v['name'] in alias_port_name_map:
+            intf = alias_port_name_map[v['name']]
+            if intf in q_interfaces and 'queues' not in v:
+                pytest.fail("port %s does not have queue counters" % v['name'])
