@@ -206,6 +206,8 @@ def enhance_inventory(request):
     This fixture is automatically applied, you don't need to declare it in your test script.
     """
     inv_opt = request.config.getoption("ansible_inventory")
+    if isinstance(inv_opt, list):
+        return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
     try:
         setattr(request.config.option, "ansible_inventory", inv_files)
@@ -436,7 +438,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost, request):
+def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -450,7 +452,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -483,7 +485,7 @@ def k8scluster(k8smasters):
 
 
 @pytest.fixture(scope="session")
-def nbrhosts(ansible_adhoc, tbinfo, creds, request):
+def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
@@ -548,7 +550,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
+def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -582,6 +584,9 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                     fanout_user = creds.get('fanout_sonic_user', None)
                     fanout_password = creds.get('fanout_sonic_password', None)
                 elif os_type == 'eos':
+                    fanout_user = creds.get('fanout_network_user', None)
+                    fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'snappi':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
                 else:
@@ -635,7 +640,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
 
 
 @pytest.fixture(scope="session")
-def vmhost(ansible_adhoc, request, tbinfo):
+def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)

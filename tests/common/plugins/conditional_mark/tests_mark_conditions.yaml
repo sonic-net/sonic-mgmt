@@ -100,6 +100,13 @@ bgp/test_bgp_slb.py:
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
 
+bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
+  skip:
+    reason: "Skip it on dual tor since it got stuck during warm reboot due to known issue on master and internal image"
+    conditions:
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+
 bgp/test_bgp_speaker.py:
   skip:
     reason: "Not supported on topology backend."
@@ -524,11 +531,10 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform or T1 topo. Test does not support dualtor topology."
+    reason: "Not working on non-mellanox platform. Test does not support dualtor topology."
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
-      - "'t1' in topo_name"
       - "'dualtor' in topo_name"
 
 #######################################
