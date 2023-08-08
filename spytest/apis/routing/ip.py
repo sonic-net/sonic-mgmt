@@ -638,7 +638,12 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
         else:
             cmd = "show ipv6 route" + summary_routes
 
-    output = st.show(dut, cmd, type=cli_type)
+    if shell == 'vtysh-multi-asic':
+        cli_type = 'vtysh-multi-asic'
+        asic = kwargs['asic']
+        output = st.show(dut, cmd, type=cli_type,asic=asic)
+    else:
+        output = st.show(dut, cmd, type=cli_type)
     return output
 
 

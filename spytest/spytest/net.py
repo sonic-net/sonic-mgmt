@@ -4724,6 +4724,7 @@ class Net(object):
         opts.expect_ipchange = kwargs.get("expect_ipchange", False)
         opts.max_time = kwargs.get("max_time", 0)
         opts.sudo = kwargs.get("sudo", None)
+        opts.asic = kwargs.get("asic", None)
         if opts.sudo is None:
             opts.sudo = True if opts.ctype == "click" else False
         opts.sep = ";" if opts.ctype == "click" else nl
@@ -4804,6 +4805,30 @@ class Net(object):
                             return ("", op, "vtysh-user")
                         if opts.conf:
                             return ("", op, "vtysh-any-config")
+        elif current_mode.startswith("vtysh-multi-asic"):
+            if opts.ctype == "vtysh-multi-asic":
+                if is_show:
+                    if current_mode == "vtysh-multi-asic-user":
+                        return ("", op, current_mode)
+                    if cmd.startswith("do "):
+                        return ("", op, "vtysh-any-config")
+                    return ("do ", op, "vtyshany-config")
+                else:
+                    if current_mode == "vtysh-multi-asic-user":
+                        if cmd in ["exit"]:
+                            return ("", op, "normal-user")
+                        if not opts.conf:
+                            return ("", op, "vtysh-multi-asic-user")
+                    elif current_mode == "vtysh-multi-asic-config":
+                        if cmd in ["end", "exit"]:
+                            return ("", op, "vtysh-multi-asic-user")
+                        if opts.conf:
+                            return ("", op, "vtysh-any-config")
+                    else:
+                        if cmd in ["end"]:
+                            return ("", op, "vtysh-multi-asic-user")
+                        if opts.conf:
+                            return ("", op, "vtysh-any-config")
 
         # change the mode
         if opts.ctype == "click":
@@ -4814,6 +4839,12 @@ class Net(object):
             return ("", op, "vtysh-user")
         elif opts.ctype == "vtysh":
             op = self._change_prompt(devname, "vtysh-config", startmode=current_mode)
+            return ("", op, "vtysh-any-config")
+        elif opts.ctype == "vtysh-multi-asic" and (is_show or not opts.conf):
+            op = self._change_prompt(devname, "vtysh-multi-asic-user", startmode=current_mode, asic = opts.asic)
+            return ("", op, "vtysh-multi-asic-user")
+        elif opts.ctype == "vtysh-multi-asic":
+            op = self._change_prompt(devname, "vtysh-multi-asic-config", startmode=current_mode, asic = opts.asic)
             return ("", op, "vtysh-any-config")
         elif opts.ctype == "klish" and (is_show or not opts.conf):
             op = self._change_prompt(devname, "mgmt-user", startmode=current_mode)

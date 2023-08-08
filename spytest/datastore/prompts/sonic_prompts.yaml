@@ -21,6 +21,8 @@ patterns:
     # =====================================================================
     vtysh-user: '(sonic|{})#'
     vtysh-config: '(sonic|{})\(config\)#'
+    vtysh-multi-asic-user: '(sonic|{})#'
+    vtysh-multi-asic-config: '(sonic|{})\(config\)#'
     vtysh-intf-config: '(sonic|{})\(config-if\)#'
     vtysh-bfd-config: '(sonic|{})\(config-bfd\)#'
     vtysh-bfd-peer-config: '(sonic|{})\(config-bfd-peer\)#'
@@ -200,6 +202,8 @@ modes:
     # =====================================================================
     vtysh-user: ['normal-user', 'sudo vtysh', 'exit']
     vtysh-config: ['vtysh-user', 'configure terminal', 'exit']
+    vtysh-multi-asic-user: ['normal-user', 'sudo vtysh -n {}', 'exit']
+    vtysh-multi-asic-config: ['vtysh-multi-asic-user', 'configure terminal', 'exit']
     vtysh-intf-config: ['vtysh-config', 'interface {}', 'exit']
     vtysh-bfd-config: ['vtysh-config', 'bfd', 'exit']
     vtysh-bfd-peer-config: ['vtysh-bfd-config', 'peer {}', 'exit']
@@ -353,6 +357,7 @@ modes:
 #    to provide along with the command.
 ##########################################################################
 required_args:
+    vtysh-multi-asic-user: ['asic']
     vtysh-intf-config: ['interface']
     vtysh-bfd-peer-config: ['peer_ip']
     vtysh-key-chain-config: ['key_chain']
@@ -467,4 +472,4 @@ sudo_include_prompts: ['normal-user']
 # do_exclude_prompts:
 #    Prompts where show commands should be not be executed with DO.
 ##########################################################################
-do_exclude_prompts: ['normal-user', 'vtysh-user', 'mgmt-user', 'root-user']
+do_exclude_prompts: ['normal-user', 'vtysh-user', 'vtysh-multi-asic-user',  'mgmt-user', 'root-user']

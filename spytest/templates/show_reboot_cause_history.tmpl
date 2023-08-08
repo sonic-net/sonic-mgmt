@@ -1,0 +1,8 @@
+Value name ([\d\_]+)
+Value cause ([\S\s]+)
+Value time (((Mon|Tue|Wed|Thu|Fri|Sat|Sun)[\s\S]+(AM|PM)\s+\w+)|N\/A)
+Value user (\S+)
+Value comment (\S+)
+
+Start
+  ^\s*${name}\s+${cause}\s+${time}\s+${user}\s+${comment}$$ -> Record
