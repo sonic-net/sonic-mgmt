@@ -228,7 +228,7 @@ Notes:
 ### Test cases #2 - Verify when generic ecmp hash is configured, the traffic can be balanced accordingly.
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Randomly select a hash field and configure it to the ecmp hash list via cli "config switch-hash global ecmp-hash".
-3. Configure the lag hash list to exclude the selected field to verify the lag hash does not affect the hash result.
+3. Configure the lag hash list to exclude the selected field to verify the lag hash configuration does not affect the hash result.
 4. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via multiple nexthops.
 5. Check the traffic is balanced over the nexthops.
 6. If the uplinks are portchannels with multiple members, check the traffic is not balanced over the members.
@@ -236,10 +236,10 @@ Notes:
 ### Test cases #3 - Verify when generic lag hash is configured, the traffic can be balanced accordingly.
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Randomly select a hash field and configure it to the lag hash list via cli "config switch-hash global lag-hash".
-3. Configure the ecmp hash list to exclude the selected field to verify the ecmp hash does not affect the hash result.
+3. Configure the ecmp hash list to exclude the selected field to verify the ecmp hash configuration does not affect the hash result.
 4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, change the topology to allow L2 switching and send L2 traffic in the next step.
 5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via the portchannels.
-6. Check the traffic is forwarded through only one portchannel is balanced over the members.
+6. Check the traffic is forwarded through only one portchannel and is balanced over the members.
 
 ### Test cases #4 - Verify when both generic ecmp and lag hash are configured with all the valid fields, the traffic can be balanced accordingly.
 1. The test is using the default links and routes in a t0/t1 testbed.
@@ -263,27 +263,27 @@ Notes:
 
 ### Test cases #6 - Verify generic hash works properly when there are lag member flaps.
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks
-3. Configure all the supported hash fields for the ecmp and lag hash.
-4. Randomly select one hash field to test.
-5. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, change the topology to allow L2 switching and send L2 traffic in the next step.
-6. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
-7. Check the traffic is balanced over all the uplink ports.
-8. Randomly shutdown 1 member port in all uplink portchannels.
-9. Send the traffic again.
-10. Check the traffic is balance over all remaining uplink ports with no packet loss.
-11. Recover the members and do shutdown/startup on them 3 more times.
-12. Send the traffic again.
-13. Check the traffic is balance over all uplink ports with no packet loss.
+2. Configure all the supported hash fields for the ecmp and lag hash.
+3. Randomly select one hash field to test.
+4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, change the topology to allow L2 switching and send L2 traffic in the next step.
+5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
+6. Check the traffic is balanced over all the uplink ports.
+7. Randomly shutdown 1 member port in all uplink portchannels.
+8. Send the traffic again.
+9. Check the traffic is balance over all remaining uplink ports with no packet loss.
+10. Recover the members and do shutdown/startup on them 3 more times.
+11. Send the traffic again.
+12. Check the traffic is balance over all uplink ports with no packet loss.
 
 ### Test cases #7 - Verify generic hash running configuration persists after fast/warm reboot, and the saved configuration persists after cold reboot.
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Configure all the supported hash fields for the ecmp and lag hash.
 3. Randomly select one hash field to test.
-4. Randomly select a reboot type from fast/warm/cold reboot, if cold reboot, save the config before the reboot.
+4. Randomly select a reboot type from fast/warm/cold reboot, if cold reboot, save the configuration before the reboot.
 5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
 6. Check the traffic is balance over all the uplink ports.
 7. Randomly do fast/warm/cold reboot.
-8. After the reboot, check the generic hash config via cli, it should keep the same as before the reboot.
+8. After the reboot, check the generic hash config via cli, it should keep the same as it was before the reboot.
 9. Send traffic again.
 10. Check the traffic is balance over all the uplink ports.
 
@@ -297,17 +297,17 @@ Notes:
   c. invalid fields combined with valid fields
   d. duplicated valid fields
 
-### Test cases #9 - Verify when a generic hash config key is removed, or updated with invalid values from config_DB via redis cli, there will be warnings printed in the log.
+### Test cases #9 - Verify when a generic hash config key is removed, or updated with invalid values from config_DB via redis cli, there will be warnings printed in the syslog.
 1. Config ecmp and lag hash via cli.
 2. Remove the ecmp hash key via redis cli.
-3. Check there is a warning printed in the log.
+3. Check there is a warning printed in the syslog.
 4. Remove the lag hash key via redis cli.
-5. Check there is a warning printed in the log.
+5. Check there is a warning printed in the syslog.
 6. Re-config the ecmp and lag hash via cli.
 7. Update the ecmp hash fields with an invalid value via redis cli.
-8. Check there is a warning printed in the log.
+8. Check there is a warning printed in the syslog.
 9. Update the lag hash fields with an invalid value via redis cli.
-10. Check there is a warning printed in the log.
+10. Check there is a warning printed in the syslog.
 11. Re-config the ecmp and lag hash via cli.
 12. Remove the generic hash key via redis cli.
-13. Check there is a warning printed in the log.
+13. Check there is a warning printed in the syslog.
