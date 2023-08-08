@@ -45,7 +45,7 @@ stages:
                 pwd
 
                 cd tests
-                pytest --inventory ../ansible/veos_vtb --host-pattern all \
+                python3 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
                   --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
                   --ignore saitests --ignore ptftests --ignore acstests \
                   --ignore scripts --ignore k8s --ignore sai_qualify --ignore common \
