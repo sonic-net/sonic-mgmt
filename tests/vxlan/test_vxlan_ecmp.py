@@ -56,6 +56,7 @@ from datetime import datetime
 import json
 import re
 import pytest
+import copy
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils \
@@ -2006,6 +2007,12 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
+
+        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
+                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
+        loganalyzer.init()
+        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
+        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
