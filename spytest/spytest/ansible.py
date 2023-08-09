@@ -6,8 +6,10 @@ import tempfile
 
 import utilities.common as utils
 
+
 def _fp_write(fp, data):
     fp.write(data.encode())
+
 
 def ansible_playbook(playbook, host_list, username, password, logs_path=None,
                      trace=False, verbose="", **kwargs):
@@ -26,13 +28,15 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
         if not os.path.exists(playbook):
             msgs.append("Playbook file {} is not present".format(playbook))
             retval = "\n".join(msgs)
-            if trace: print("ERR: {}".format(retval))
+            if trace:
+                print("ERR: {}".format(retval))
             return retval
 
-    if logs_path: os.environ["ANSIBLE_LOCAL_TEMP"] = logs_path
+    if logs_path:
+        os.environ["ANSIBLE_LOCAL_TEMP"] = logs_path
     os.environ["ANSIBLE_CONFIG"] = ansible_cfg
-    # added the SSH_ARGS as environment variable to supress host checking as the nodes
-    # in the case would be dut's with dynamic inventory.
+    # added the SSH_ARGS as environment variable to suppress host checking as the nodes
+    # in the case would be duts with dynamic inventory.
     ssh_args = ["-o ControlMaster=auto"]
     ssh_args.append("-o ControlPersist=60s")
     ssh_args.append("-o UserKnownHostsFile=/dev/null")
@@ -49,10 +53,17 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
     for key, value in kwargs.items():
         _fp_write(fp, "{}={}\n".format(key, value))
     fp.close()
-    configs="\n".join(utils.read_lines(fp.name))
+    configs = "\n".join(utils.read_lines(fp.name))
 
-    cmd = "{} {} -i {} {}".format(ansible_exe, verbose, fp.name, playbook)
-    if trace: print("Executing", cmd)
+    print("Environmental variables on server")
+    for k, v in sorted(os.environ.items()):
+        print(k + ':' + v)
+
+    cmd = "{} {} -i {} {} -vvv".format(ansible_exe, verbose, fp.name, playbook)
+    if trace:
+        print("Executing", cmd)
+    print("Executing", cmd)
+    # nosemgrep-next-line
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = proc.communicate()
     proc.wait()
@@ -64,13 +75,16 @@ def ansible_playbook(playbook, host_list, username, password, logs_path=None,
         msg.append("config:\n{}".format(configs))
         return "\n".join(msg)
     for line in out.splitlines():
-        if trace: print("OUT: {}".format(line))
+        if trace:
+            print("OUT: {}".format(line))
     for line in err.splitlines():
-        if trace: print("ERR: {}".format(line))
+        if trace:
+            print("ERR: {}".format(line))
     return out
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='SpyTest ansible helper.')
+    parser = argparse.ArgumentParser(description='SPyTest ansible helper.')
 
     parser.add_argument("--playbook", action="store", default=None,
                         required=True, help="execute given ansible playbook yaml.")
@@ -83,5 +97,6 @@ if __name__ == "__main__":
 
     args, unknown = parser.parse_known_args()
 
-    print(ansible_playbook(args.playbook, args.hosts, args.username, args.password))
-
+    retval = ansible_playbook(args.playbook, args.hosts, args.username, args.password)
+    for line in str(retval).split("\\n"):
+        print(line)
