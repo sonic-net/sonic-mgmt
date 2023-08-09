@@ -189,40 +189,53 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
     for src_tuple in src_details:
         num_of_pkts = 0
         while (num_of_pkts < packets_per_port):
-            ip_Addr = next(IP_ADDR)
-            pkt_args = {
-                'ip_ecn':ecn,
-                'ip_ttl':ttl,
-                'pktlen':pkt_len,
-                'eth_dst':dst_mac or dp.dataplane.get_mac(0, dst_id),
-                'eth_src':dp.dataplane.get_mac(0, src_tuple[0]),
-                'ip_src':ip_Addr,
-                'ip_dst':dst_ip,
-                'ip_dscp':dscp,
-                'tcp_sport':1234,
-                'tcp_dport':next(TCP_PORT_GEN)}
-            if src_vlan:
-                pkt_args.update({dl_vlan_enable:True})
-                pkt_args.update({vlan_vid:int(src_vlan)})
-            pkt = simple_tcp_packet(**pkt_args)
+            attempts = 0
+            while attempts < 20:
+                ip_Addr = next(IP_ADDR)
+                pkt_args = {
+                    'ip_ecn':ecn,
+                    'ip_ttl':ttl,
+                    'pktlen':pkt_len,
+                    'eth_dst':dst_mac or dp.dataplane.get_mac(0, dst_id),
+                    'eth_src':dp.dataplane.get_mac(0, src_tuple[0]),
+                    'ip_src':ip_Addr,
+                    'ip_dst':dst_ip,
+                    'ip_dscp':dscp,
+                    'tcp_sport':1234,
+                    'tcp_dport':next(TCP_PORT_GEN)}
+                if src_vlan:
+                    pkt_args.update({"dl_vlan_enable":True})
+                    pkt_args.update({"vlan_vid":int(src_vlan)})
+                pkt = simple_tcp_packet(**pkt_args)
 
-            masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
-            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+                masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+                masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
-            if src_vlan is not None:
-                masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
-            if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
                 try:
-                    all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt))
-                    num_of_pkts+=1
+                    all_pkts[src_tuple[0]]
                 except KeyError:
                     all_pkts[src_tuple[0]] = []
-                    all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt.exp_pkt))
+                actual_dst_id =  get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt)
+                if actual_dst_id == dst_id:
+                    all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt, dst_id))
                     num_of_pkts+=1
+                    break
+                else:
+                    attempts += 1
+                    if attempts > 20:
+                        # We exceeded the number of attempts to get a
+                        # packet for this particular dest port. This
+                        # means the packets are going to a different port
+                        # consistently. Lets use that other port as dest
+                        # port.
+                        print("Warn: The packets are not going to the dst_port_id.")
+                        all_pkts[src_tuple[0]].append((
+                            pkt, masked_exp_pkt, actual_dst_id))
+
     return all_pkts
 
 
@@ -1528,6 +1541,7 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 src_details,
                 packets_per_port=2)
+        dst_port_id = all_pkts[int(self.test_params['src_port_1_id'])][0][2]
 
         # get a snapshot of counter values at recv and transmit ports
         def collect_counters():
@@ -1904,7 +1918,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkt_dst_mac2 = def_vlan_mac
             pkt_dst_mac3 = def_vlan_mac
 
-        pkt = get_multiple_flows(
+        pkt_s = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -1915,12 +1929,14 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+        pkt = pkt_s[0]
+        dst_port_id = pkt_s[2]
 
         # create packet
-        pkt2 = get_multiple_flows(
+        pkt2_s = get_multiple_flows(
                 self,
-                pkt_dst_mac,
+                pkt_dst_mac2,
                 dst_port_2_id,
                 dst_port_2_ip,
                 src_port_vlan,
@@ -1929,18 +1945,26 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+        pkt2 = pkt2_s[0]
+        dst_port_2_id = pkt2_s[2]
 
         # create packet
-        pkt3 = construct_ip_pkt(packet_length,
-                                pkt_dst_mac3,
-                                src_port_mac,
-                                src_port_ip,
-                                dst_port_3_ip,
-                                dscp,
-                                src_port_vlan,
-                                ecn=ecn,
-                                ttl=ttl)
+        pkt3_s = get_multiple_flows(
+                self,
+                pkt_dst_mac3,
+                dst_port_3_id,
+                dst_port_3_ip,
+                src_port_vlan,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0]
+
+        pkt3 = pkt3_s[0]
+        dst_port_3_id = pkt3_s[2]
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
@@ -2086,7 +2110,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                                xmit_3_counters_base, self, src_port_id, pkt3, 40)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
@@ -2124,7 +2148,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_2_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -2162,7 +2186,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_3_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get new base counter values at recv ports
             # queue counters value is not of our interest here
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
@@ -3521,7 +3545,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         ttl = 64
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         if asic_type in ['cisco-8000']:
-            pkt = get_multiple_flows(
+            pkt_s = get_multiple_flows(
                     self,
                     pkt_dst_mac,
                     dst_port_id,
@@ -3532,7 +3556,9 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     ttl,
                     packet_length,
                     [(src_port_id, src_port_ip)],
-                    packets_per_port=1)[src_port_id][0][0]
+                    packets_per_port=1)[src_port_id][0]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
         else:
             pkt = construct_ip_pkt(packet_length,
                                    pkt_dst_mac,
@@ -4380,7 +4406,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt = get_multiple_flows(
+        pkt_s = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
@@ -4391,7 +4417,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+        pkt = pkt_s[0]
+        dst_port_id = pkt_s[2]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -4725,8 +4753,6 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
         ttl = 64
-        assert(router_mac != '')
-        pkt_dst_mac = router_mac
 
         # Correct any destination ports that may be in a lag
         pkts = {}
@@ -4734,7 +4760,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts[dst_port_ids[i]] = []
             for pri in prio_list:
                 pkts[dst_port_ids[i]].append(get_multiple_flows(self,
-                    router_mac,
+                    router_mac if router_mac else self.dataplane.get_mac(0, dst_port_ids[i]),
                     dst_port_ids[i],
                     dst_port_ips[i],
                     src_port_vlan,
