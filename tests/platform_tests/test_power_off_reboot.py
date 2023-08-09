@@ -2,7 +2,6 @@ import logging
 import pytest
 import time
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.reboot import wait_for_startup, REBOOT_TYPE_POWEROFF
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
@@ -18,7 +17,7 @@ pytestmark = [
 INTERFACE_WAIT_TIME = 300
 
 
-@pytest.fixture
+@pytest.fixture(scope="module", autouse=True)
 def set_max_time_for_interfaces(duthost):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
@@ -31,7 +30,7 @@ def set_max_time_for_interfaces(duthost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def teardown_module(duthosts, enum_supervisor_dut_hostname, xcvr_skip_list):
+def teardown_module(duthosts, enum_supervisor_dut_hostname, conn_graph_facts, xcvr_skip_list):
     duthost = duthosts[enum_supervisor_dut_hostname]
     yield
 
@@ -61,8 +60,8 @@ def _power_off_reboot_helper(kwargs):
         pdu_ctrl.turn_on_outlet(outlet)
 
 
-def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname,
-                          set_max_time_for_interfaces, xcvr_skip_list, pdu_controller, power_off_delay):
+def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
+                          xcvr_skip_list, pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object

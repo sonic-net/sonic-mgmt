@@ -566,11 +566,11 @@ class SonicHost(AnsibleHostBase):
         # Get critical group and process definitions by running cmds in batch to save overhead
         cmds = []
         for service in self.critical_services:
-            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
-                  " && cat /etc/supervisor/critical_processes'".format(service)
+            cmd = 'docker exec {} bash -c "[ -f /etc/supervisor/critical_processes ]' \
+                  ' && cat /etc/supervisor/critical_processes"'.format(service)
 
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -650,7 +650,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -1655,7 +1655,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
                 "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
                 "Broadcom Limited Broadcom BCM56850" in output):
@@ -1953,22 +1953,6 @@ Totals               6450                 6449
         )
 
         return "RUNNING" in service_status
-
-    def remove_ssh_tunnel_sai_rpc(self):
-        """
-        Removes any ssh tunnels if present created for syncd RPC communication
-
-        Returns:
-            None
-        """
-        try:
-            pid_list = self.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
-            )["stdout_lines"]
-        except RunAnsibleModuleFail:
-            return
-        for pid in pid_list:
-            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def get_up_ip_ports(self):
         """
