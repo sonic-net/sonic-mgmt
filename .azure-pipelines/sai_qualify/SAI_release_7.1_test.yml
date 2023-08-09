@@ -13,6 +13,9 @@ resources:
     #       include:
     #       - PRE_SAI_7.1.0_*
     #       - SAI_7.1.0_GA
+   - pipeline: Build.SAI.BRCM.7.0
+     source: Build.SAI.BRCM.7.0
+     project: internal
 
 variables:
   - template: templates/template_variables.yml
@@ -44,9 +47,8 @@ parameters:
     displayName: Testbed specific
     values:
       - '-I "platform_tests copp show_techport acl everflow drop_packets"'
-      - '-I "acl everflow"'
       - '-S "platform_tests copp show_techport acl everflow drop_packets"'
-      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
+      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
 
 
   # Deploy SAI SDK
@@ -58,15 +60,29 @@ parameters:
   - name: ARTIFACT_PROJECT
     type: string
     default: broadcom
+    values:
+      - broadcom
+      - internal
 
   - name: SDK_BUILD_PIPELINE_NAME
     type: string
     default: "bcm_sai_external_sug_7.1"
+    values:
+      - "bcm_sai_external_sug_7.1"
+      - "Build.SAI.BRCM.7.0"
 
   - name: SDK_ARTIFACT_NAME
     displayName: "artifact name"
     type: string
     default: xgs
+    values:
+      - xgs
+      - saibcm.7.0
+
+  - name: SDK_BUILD_ID
+    displayName: "SDK build id"
+    type: string
+    default: ""
 
   # Test report
   - name: UPLOAD_TEST_REPORT
@@ -103,3 +119,4 @@ jobs:
       SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SDK_BUILD_ID: ${{ parameters.SDK_BUILD_ID }}
