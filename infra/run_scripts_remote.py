@@ -303,6 +303,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 
     
     print("sonic-test dir is: ", tmp_sonic_test_dir)
+    sonic_test_dir = tmp_sonic_test_dir
 
 
     upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
