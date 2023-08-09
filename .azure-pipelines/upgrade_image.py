@@ -226,7 +226,7 @@ def main(args):
     else:
         logger.info("Use default docker folder size")
 
-    # Set docker folder size
+    # Force reboot the device to apply changes
     if need_shutdown:
         logger.info("Need to shutdown")
         try:
