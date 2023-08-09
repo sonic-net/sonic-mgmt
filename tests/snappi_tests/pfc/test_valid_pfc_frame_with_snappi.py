@@ -33,8 +33,8 @@ def test_valid_pfc_frame(snappi_api, # noqa F811
     snappi (1) -> DUT -> snappi (2)
 
     Test steps:
-    1) Create congestion on ingress port of ixia (snappi 2). This is done by  create congestion by
-        letting 1 send data traffic to 2, and 2 send PFC pause frames to DUT.
+    1) Create congestion on ingress port of ixia (snappi 2). This is done by letting 1 send data traffic to 2, and 2
+        sending PFC pause frames to DUT.
     2) tgen 2 sends PFC pause frames to DUT.
     3) DUT responds to PFC frames by also sending back PFC pause frames back to tgen 1.
     4) Using packet capture on tgen 1 port, verify PFC pause frames meet IEEE 802.1Qbb code point standards.

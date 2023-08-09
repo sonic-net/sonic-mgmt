@@ -122,6 +122,17 @@ class PFCPacket():
         else:
             self.is_valid_frame = True
 
+    def is_valid(self):
+        """
+        Check if PFC frame is valid.
+
+        Args:
+
+        Returns:
+            True if valid PFC frame, False otherwise
+        """
+        return self.is_valid_frame
+
 
 # Helper methods
 def _num_to_class_enable_vec_array(class_enable_vec_int):

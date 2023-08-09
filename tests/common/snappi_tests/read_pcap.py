@@ -36,7 +36,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=100000, UTIL_THRESHOLD=0.8):
             if dest_mac.lower() != PFC_DEST_MAC:
                 return False
             pfc_packet = PFCPacket(pfc_frame_bytes=bytes(eth.data))
-            if not pfc_packet.is_valid_frame:
+            if not pfc_packet.is_valid():
                 logger.info("PFC frame {} is not valid. Please check the capture file.".format(curPktCount))
                 return False
             curPFCPktCount += 1
