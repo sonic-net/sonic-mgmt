@@ -16,8 +16,7 @@
                                 },
                                 "l2": {
                                     "config": {
-                                        "ethertype": "2048",
-                                        "vlan_id": "1000"
+                                        "ethertype": "2048"
                                     }
                                 }
                             }
