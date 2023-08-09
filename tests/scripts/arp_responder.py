@@ -63,7 +63,7 @@ class ARPResponder(object):
 
         ndp_reply = ARPResponder.generate_neigh_adv(ARPResponder.ip_sets[interface][request_ip],
                                                     remote_mac, request_ip, remote_ip)
-        scapy.sendp(ndp_reply)
+        scapy.sendp(ndp_reply, iface=interface)
 
     @staticmethod
     def generate_arp_reply(local_mac, remote_mac, local_ip, remote_ip, vlan_id):
