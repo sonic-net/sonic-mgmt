@@ -108,11 +108,11 @@ def run_pfc_test(api,
 
     if snappi_extra_params.packet_capture_type != packet_capture.NO_CAPTURE:
         # Setup capture config
-        if snappi_extra_params.is_tgen_ingress_port_cap:
-            # packet capture is required on the ingress tgen port
+        if snappi_extra_params.is_snappi_ingress_port_cap:
+            # packet capture is required on the ingress snappi port
             snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["rx_port_name"]]
         else:
-            # packet capture will be on the egress tgen port
+            # packet capture will be on the egress snappi port
             snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["tx_port_name"]]
 
         snappi_extra_params.packet_capture_file = snappi_extra_params.packet_capture_type.value
