@@ -130,10 +130,10 @@ class DecapPacketTest(BaseTest):
         # Index of current DSCP and TTL value in allowed DSCP_RANGE and TTL_RANGE
         self.dscp_in_idx = 0  # DSCP of inner layer.
         # DSCP of outer layer. Set different initial dscp_in and dscp_out
-        self.dscp_out_idx = len(self.DSCP_RANGE) / 2
+        self.dscp_out_idx = len(self.DSCP_RANGE) // 2
         self.ttl_in_idx = 0  # TTL of inner layer.
         # TTL of outer layer. Set different initial ttl_in and ttl_out
-        self.ttl_out_idx = len(self.TTL_RANGE) / 2
+        self.ttl_out_idx = len(self.TTL_RANGE) // 2
 
         self.summary = {}
 
@@ -600,8 +600,8 @@ class DecapPacketTest(BaseTest):
         self.print_summary()
 
         total = len(outer_pkt_types)*len(inner_pkt_types)
-        passed = len(filter(lambda status: status ==
-                     'Passed', self.summary.values()))
+        passed = len(list(filter(lambda status: status ==
+                     'Passed', self.summary.values())))
 
         # assert all passed
         assert total == passed, "total tests {}, passed: {}".format(
