@@ -2268,9 +2268,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    pass
-                else:
+                if platform_asic != "broadcom-dnx":
                     time.sleep(8)  # wait pfc counter refresh and show the counters
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
@@ -2326,9 +2324,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     recv_counters, _ = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
 
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    pass
-                else:
+                if platform_asic != "broadcom-dnx":
                     time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(
                     self.asic_type, recv_counters_bases, xmit_counters_base,
@@ -2380,9 +2376,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
                 # allow enough time for the dut to sync up the counter values in counters_db
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    pass
-                else:
+                if platform_asic != "broadcom-dnx":
                     time.sleep(8)
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
