@@ -30,7 +30,7 @@ import subprocess
 import sys
 from jinja2 import Environment, FileSystemLoader
 import re
-from run_scripts_remote import run_scripts_remote
+from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -669,21 +669,6 @@ def overwrite_lab_file(vxr_ports):
         "/home/vxr/golden-code/sonic-test/sonic-mgmt/ansible/lab"
     )
 
-# VXR sim failed
-def handle_sim_failure():
-    SUMMARY_REPORT_FILENAME = "results.json"
-    COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
-
-    SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
-    COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
-
-    # Include sim_status field to indicate failure
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_failure"}
-
-    for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
-        with open(file_path, "w") as output_file:
-            json.dump(sum, output_file)
-
 def get_dut_platform(device_type):
     if device_type == 'sherman':
          return "sherman"
@@ -772,7 +757,7 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
 
     # Populate results file with failure data
     if not int(sim_output):
-        handle_sim_failure()
+        handle_sim_failure("sim_failure")
         sys.exit("Sim is not up. Exiting now")
 
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
