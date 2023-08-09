@@ -3091,7 +3091,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                                xmit_counters_base, self, src_port_id, pkt, 10)
                 pkts_num_leak_out = 0
 
-           # send packets short of triggering egress drop
+            # send packets short of triggering egress drop
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +

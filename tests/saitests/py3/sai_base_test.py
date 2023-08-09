@@ -11,6 +11,7 @@ from ptf import config
 import ptf.testutils as testutils
 import json
 import socket
+import time
 
 ################################################################
 #
@@ -187,8 +188,7 @@ class ThriftInterface(BaseTest):
                                                                     cmd)
                     inc += 1
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0,\
-                "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index,self.src_server_ip)
-
+                "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst'):
         inc = 0
