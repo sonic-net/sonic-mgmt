@@ -1,12 +1,15 @@
 
 from spytest.st_time import get_timenow
 from spytest.dicts import SpyTestDict
-import spytest.logger as logger
+
+from utilities.parallel import get_thread_name
+
 
 class Profile(object):
 
-    def __init__(self):
+    def init(self):
         self.pnfound = 0
+        self.ts_files = 0
         self.tg_total_wait = 0
         self.tc_total_wait = 0
         self.tg_total_wait = 0
@@ -20,8 +23,8 @@ class Profile(object):
         self.profile_ids = dict()
         self.canbe_parallel = []
 
-    def init(self):
-        self.__init__()
+    def __init__(self):
+        self.init()
 
     def start(self, msg, dut=None, data=None):
         msg = msg.replace("\r", "")
@@ -34,10 +37,10 @@ class Profile(object):
         [start_time, dut, msg, data] = self.profile_ids[pid]
         delta = get_timenow() - start_time
         cmd_time = int(delta.total_seconds() * 1000)
-        thid = logger.get_thread_name()
+        thid = get_thread_name()
         if dut:
             if pid > 0 and thid == "T0000: ":
-                [_, pdut, pmsg, _] = self.profile_ids[pid-1]
+                [_, pdut, pmsg, _] = self.profile_ids[pid - 1]
                 if pmsg == msg and dut != pdut:
                     self.canbe_parallel.append([start_time, msg, dut, pdut])
             if "spytest-helper.py" in msg:
@@ -56,7 +59,7 @@ class Profile(object):
 
     def wait(self, val, is_tg=False):
         start_time = get_timenow()
-        thid = logger.get_thread_name()
+        thid = get_thread_name()
         if is_tg:
             self.tg_total_wait = self.tg_total_wait + val
             self.cmds.append([start_time, thid, "TGWAIT", None, "TG sleep", val])
@@ -66,9 +69,15 @@ class Profile(object):
 
     def prompt_nfound(self, cmd):
         start_time = get_timenow()
-        thid = logger.get_thread_name()
+        thid = get_thread_name()
         self.pnfound = self.pnfound + 1
         self.cmds.append([start_time, thid, "PROMPT_NFOUND", None, cmd, ""])
+
+    def tech_support(self, cmd):
+        start_time = get_timenow()
+        thid = get_thread_name()
+        self.ts_files = self.ts_files + 1
+        self.cmds.append([start_time, thid, "TECH_SUPPORT", None, cmd, ""])
 
     def get_stats(self):
         stats = SpyTestDict()
@@ -83,24 +92,36 @@ class Profile(object):
         stats.cmds = self.cmds
         stats.canbe_parallel = self.canbe_parallel
         stats.pnfound = self.pnfound
+        stats.ts_files = self.ts_files
         return stats
 
+
 obj = Profile()
+
+
 def init():
     return obj.init()
+
 
 def start(msg, dut=None, data=None):
     return obj.start(msg, dut, data)
 
+
 def stop(pid):
     return obj.stop(pid)
+
 
 def wait(val, is_tg=False):
     return obj.wait(val, is_tg)
 
+
 def get_stats():
     return obj.get_stats()
+
 
 def prompt_nfound(cmd):
     return obj.prompt_nfound(cmd)
 
+
+def tech_support(cmd):
+    return obj.tech_support(cmd)
