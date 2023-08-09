@@ -1331,8 +1331,9 @@ class PsuPowerThresholdMocker(object):
         self.mock_helper.mock_value(
             self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
 
-    def mock_psu_power(self, psu, power):
-        self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))
+    def mock_psu_power(self, power, number_psus):
+        for i in range(number_psus):
+            self.mock_helper.mock_value(self.PSU_POWER.format(i+1), int(power/number_psus))
 
     def mock_fan_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, int(temperature))
@@ -1365,7 +1366,6 @@ class PsuPowerThresholdMocker(object):
 @mocker('RebootCauseMocker')
 class RebootCauseMocker(object):
     RESET_RELOAD_BIOS = '/var/run/hw-management/system/reset_reload_bios'
-    RESET_FROM_COMEX = '/var/run/hw-management/system/reset_from_comex'
     RESET_FROM_ASIC = '/var/run/hw-management/system/reset_from_asic'
 
     def __init__(self, dut):
@@ -1376,9 +1376,6 @@ class RebootCauseMocker(object):
 
     def mock_reset_reload_bios(self):
         self.mock_helper.mock_value(self.RESET_RELOAD_BIOS, 1)
-
-    def mock_reset_from_comex(self):
-        self.mock_helper.mock_value(self.RESET_FROM_COMEX, 1)
 
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)
