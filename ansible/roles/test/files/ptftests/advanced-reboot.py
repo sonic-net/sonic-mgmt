@@ -1370,8 +1370,6 @@ class ReloadTest(BaseTest):
     def reboot_dut(self):
         time.sleep(self.reboot_delay)
 
-        self.log("Rebooting remote side")
-
         if not self.kvm_test and\
                 (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
