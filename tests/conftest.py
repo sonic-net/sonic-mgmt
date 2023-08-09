@@ -1381,6 +1381,19 @@ def pytest_generate_tests(metafunc):
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'vlan_name' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            if tbinfo['topo']['name'] == 'm0-2vlan':
+                metafunc.parametrize('vlan_name', ['Vlan1000', 'Vlan2000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+        # Non M0 topo
+        else:
+            if tbinfo['topo']['type'] in ['t0', 'mx']:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
 
 def parametrise_autoneg_tests():
     folder = 'metadata'
