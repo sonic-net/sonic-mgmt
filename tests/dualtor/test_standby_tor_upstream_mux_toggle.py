@@ -86,7 +86,8 @@ def test_standby_tor_upstream_mux_toggle(
                             pkt_num=PKT_NUM,
                             drop=True)
     unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
-    logging.debug("unmatched_crm_facts: %s len(unmatched_crm_facts): %s" % (unmatched_crm_facts, len(unmatched_crm_facts)))
+    logging.debug("unmatched_crm_facts: %s len(unmatched_crm_facts): %s" \
+                      % (unmatched_crm_facts, len(unmatched_crm_facts)))
     # Verify packets are not go up
     pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
               .format(json.dumps(unmatched_crm_facts, indent=4)))
