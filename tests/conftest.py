@@ -2246,19 +2246,8 @@ if not hasattr(Mask, "set_do_not_care_scapy"):
 
 
 @pytest.fixture(scope="module")
-def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """ Fixture for sharing variables between test cases """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    data = {}
-    for asic in duthost.asics:
-        data[asic.asic_index] = {}
-
-    yield data
-
-
-@pytest.fixture(scope="module")
-def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, collector):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     base_dir = os.path.dirname(os.path.realpath(__file__))
     template_dir = os.path.join(base_dir, "common/templates")
