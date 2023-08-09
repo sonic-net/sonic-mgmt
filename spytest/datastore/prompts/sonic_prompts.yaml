@@ -64,6 +64,8 @@ patterns:
     mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf\w*-if-range-po\*\*\)#'
     mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
     mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
+    mgmt-vlan-vrrp-ipv4-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*-vrrp-ipv4-.*\)#'
+    mgmt-vlan-vrrp-ipv6-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*-vrrp-ipv6-.*\)#'
     # =============================================================
 
     mgmt-mirror-session-config: '--sonic-mgmt--\(config-mirror-.*\)#'
@@ -186,6 +188,12 @@ patterns:
 
     mgmt-policy-map-flow-view : '--sonic-mgmt--\(config-policy-map-flow\)#'
 
+    mgmt-bfd-config: '--sonic-mgmt--\(conf\w*-bfd\)#'
+    mgmt-bfd-profile-config: '--sonic-mgmt--\(conf\w*-bfd-profile\)#'
+
+    mgmt-fields-classmap-config : '--sonic-mgmt--\(config-class-map\)#'
+    mgmt-policy-map-config : '--sonic-mgmt--\(config-policy-map\)#'
+    mgmt-policy-map-flow-config : '--sonic-mgmt--\(config-policy-map-flow\)#'
 
 ##########################################################################
 # MODES:
@@ -314,7 +322,8 @@ modes:
     mgmt-router-bgp-address-family-ipv4-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-address-family-ipv6-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv6 unicast', 'exit']
     mgmt-router-bgp-address-family-l2vpn-evpn-config : ['mgmt-router-bgp-config', 'address-family l2vpn evpn', 'exit']
-    mgmt-router-bgp-config : ['mgmt-config', 'router bgp {}', 'exit']
+    #mgmt-router-bgp-config : ['mgmt-config', 'router bgp {}', 'exit']
+    mgmt-router-bgp-config : ['mgmt-config', 'router bgp {} {}', 'exit']
     mgmt-router-bgp-neighbor-intf-af-ipv4-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-neighbor-subintf-af-ipv4-config : ['mgmt-router-bgp-neighbor-subintf-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-neighbor-intf-af-ipv6-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv6 unicast', 'exit']
@@ -329,6 +338,13 @@ modes:
     mgmt-router-bgp-peer-group-af-ipv6-config : ['mgmt-router-bgp-peer-group-config', 'address-family ipv6 unicast', 'exit']
     mgmt-router-bgp-peer-group-config : ['mgmt-router-bgp-config', 'peer-group {}', 'exit']
     mgmt-tam : ['mgmt-config', 'tam', 'exit']
+    mgmt-bfd-config: ['mgmt-config', 'bfd', 'exit']
+    mgmt-bfd-profile-config: ['mgmt-bfd-config', 'profile {}', 'exit']
+    mgmt-vlan-vrrp-ipv4-config : ['mgmt-intf-vlan-config', 'vrrp {} address-family ipv4', 'exit']
+    mgmt-vlan-vrrp-ipv6-config : ['mgmt-intf-vlan-config', 'vrrp {} address-family ipv6', 'exit']
+    mgmt-fields-classmap-config : ['mgmt-config', 'class-map {} match-type fields match-all', 'exit']
+    mgmt-policy-map-config : ['mgmt-config', 'policy-map {} type {}', 'exit']
+    mgmt-policy-map-flow-config: ['mgmt-policy-map-config', 'class {} priority {}', 'exit']
     # =============================================================
 
     mgmt-vrrp-ipv4-view : ['mgmt-intf-config', 'vrrp {} address-family ipv4', 'exit']
@@ -397,6 +413,11 @@ required_args:
     #mgmt-lag-config: ['portchannel']
     #mgmt-management-config: ['management']
     mgmt-mirror-session-config: ['session_name']
+    mgmt-vlan-vrrp-ipv4-config: ['vrrp_id', 'vlan']
+    mgmt-vlan-vrrp-ipv6-config: ['vrrp_id', 'vlan']
+    mgmt-fields-classmap-config : ['classmap_name']
+    mgmt-policy-map-config : ['policy_map', 'policy_type']
+    mgmt-policy-map-flow-config: ['class_name', 'priority_id']
     # =============================================================
 
     mgmt-evpn-view: ['evpnname']
@@ -460,12 +481,14 @@ required_args:
     # =============================================================
     mgmt-intf-lo-config : ['loopback']
     mgmt-route-map-config : ['tag_name', 'action', 'seq_num']
-    mgmt-router-bgp-config : ['local_asn']
+    #mgmt-router-bgp-config : ['local_asn']
+    mgmt-router-bgp-config : ['local_asn', '?vrf_name']
     mgmt-router-bgp-neighbor-intf-config : ['intf']
     mgmt-router-bgp-neighbor-subintf-config : ['intf']
     mgmt-router-bgp-neighbor-ipv4-config : ['ipv4']
     mgmt-router-bgp-neighbor-ipv6-config : ['ipv6']
     mgmt-router-bgp-peer-group-config : ['peer_group']
+    mgmt-bfd-profile-config: ['profile']
     # =============================================================
 
 ##########################################################################
