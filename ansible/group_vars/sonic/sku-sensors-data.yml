@@ -6860,35 +6860,14 @@ sensors_checks:
   x86_64-8102_64h_o-r0:
     alarms:
       voltage:
-      - tps53679-i2c-21-58/CPU_U17_PVCCIN_VIN/in1_alarm
-
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VIN/in2_alarm
-
       - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_lcrit_alarm
       - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_crit_alarm
-
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VOUT/in4_crit_alarm
-
-      - tps53679-i2c-21-59/CPU_U117_P1P2V_VIN/in1_alarm
-
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VIN/in2_alarm
 
       - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_lcrit_alarm
       - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_crit_alarm
 
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VOUT/in4_crit_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDS_L1_VIN/in1_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VIN/in2_alarm
-
       - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_crit_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VOUT/in4_crit_alarm
 
       - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_min_alarm
       - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_max_alarm
@@ -6900,17 +6879,8 @@ sensors_checks:
       - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_lcrit_alarm
       - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_crit_alarm
 
-      - tps53679-i2c-25-65/MB_3_3V_R_L1_VIN/in1_alarm
-
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VIN/in2_alarm
-
       - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_crit_alarm
-
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VOUT/in4_crit_alarm
-
-      - tps53679-i2c-25-64/MB_3_3V_L_L1_VIN/in1_alarm
 
       - tps53679-i2c-25-64/MB_3_3V_L_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-64/MB_3_3V_L_L1_VOUT/in3_crit_alarm
