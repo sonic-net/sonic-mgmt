@@ -56,6 +56,7 @@ from datetime import datetime
 import json
 import re
 import pytest
+import copy
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils \
@@ -289,6 +290,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821
     yield data
 
     # Cleanup code.
@@ -999,6 +1001,21 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Logger.info("Verify that the new config takes effect and run traffic.")
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
+
+        # perform cleanup by removing all the routes added by this test class.
+        # reset to add only the routes added in the setup phase.
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "DEL")
+
+        self.setup[encap_type]['dest_to_nh_map'] = self.setup[encap_type]['dest_to_nh_map_orignal']
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "SET")
 
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
@@ -1990,6 +2007,12 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
+
+        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
+                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
+        loganalyzer.init()
+        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
+        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]

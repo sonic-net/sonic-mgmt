@@ -20,6 +20,7 @@ class PfcWdTest(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
         self.router_mac = self.test_params['router_mac']
+        self.vlan_mac = self.test_params.get('vlan_mac', self.router_mac)
         self.queue_index = int(self.test_params['queue_index'])
         self.pkt_count = int(self.test_params['pkt_count'])
         self.port_src = int(self.test_params['port_src'])
@@ -106,7 +107,7 @@ class PfcWdTest(BaseTest):
             ip_src = "1.1.1.1"
 
             pkt_args = {
-                'eth_dst': self.router_mac,
+                'eth_dst': self.vlan_mac,
                 'eth_src': src_mac,
                 'ip_src': ip_src,
                 'ip_dst': self.ip_dst,

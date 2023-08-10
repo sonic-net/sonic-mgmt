@@ -21,10 +21,15 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
-SMALL_DISK_SKUS = [
-    "Arista-7060CX-32S-C32",
-    "Arista-7060CX-32S-Q32",
-    "Arista-7060CX-32S-D48C8"
+LOGS_ON_TMPFS_PLATFORMS = [
+    "x86_64-arista_7050_qx32",
+    "x86_64-arista_7050_qx32s",
+    "x86_64-arista_7060_cx32s",
+    "x86_64-arista_7260cx3_64",
+    "x86_64-arista_7050cx3_32s",
+    "x86_64-mlnx_msn2700-r0",
+    "x86_64-dell_s6100_c2538-r0",
+    "armhf-nokia_ixs7215_52x-r0"
 ]
 
 
@@ -452,7 +457,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             name='device_type') for arg in mark.args]
         if 'vs' not in device_marks:
             pytest.skip('Testcase not supported for kvm')
-    hwsku = duthost.facts["hwsku"]
+    platform = duthost.facts["platform"]
     logs_in_tmpfs = list()
 
     loganalyzer = LogAnalyzer(
@@ -486,7 +491,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             True if (log_filesystem and "tmpfs" in log_filesystem) else False)
         base_os_version.append(get_current_sonic_version(duthost))
         bgpd_log = bgpd_log_handler(preboot=True)
-        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+        if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             # For small disk devices, /var/log in mounted in tmpfs.
             # Hence, after reboot the preboot logs are lost.
             # For log_analyzer to work, it needs logs from the shutdown path
@@ -508,7 +513,7 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     def post_reboot_analysis(marker, event_counters=None, reboot_oper=None, log_dir=None):
         bgpd_log_handler()
-        if hwsku in SMALL_DISK_SKUS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
+        if platform in LOGS_ON_TMPFS_PLATFORMS or (len(logs_in_tmpfs) > 0 and logs_in_tmpfs[0] is True):
             restore_backup = "mv /host/syslog.99 /var/log/; " +\
                 "mv /host/sairedis.rec.99 /var/log/swss/; " +\
                 "mv /host/swss.rec.99 /var/log/swss/; " +\
@@ -520,11 +525,27 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             # restore original script. If the ".orig" file does not exist (upgrade path case), ignore the error.
             duthost.shell("mv {} {}".format(reboot_script_path + ".orig", reboot_script_path),
                           module_ignore_errors=True)
-        result = loganalyzer.analyze(marker, fail=False)
+        # For mac jump test, the log message we care about is uaually combined with other messages in one line,
+        # which makes the length of the line longer than 1000 and get dropped by Logananlyzer. So we need to increase
+        # the max allowed length.
+        # The regex library in Python 2 takes very long time (over 10 minutes) to process long lines. In our test,
+        # most of the combined log message for mac jump test is around 5000 characters. So we set the max allowed
+        # length to 6000.
+        result = loganalyzer.analyze(marker, fail=False, maximum_log_length=6000)
         analyze_result = {"time_span": dict(), "offset_from_kexec": dict()}
         offset_from_kexec = dict()
 
-        for key, messages in list(result["expect_messages"].items()):
+        # Parsing sairedis shall happen after parsing syslog because FDB_AGING_DISABLE is required
+        # when analysing sairedis.rec log, so we need to sort the keys
+        key_list = ["syslog", "bgpd.log", "sairedis.rec"]
+        for i in range(0, len(key_list)):
+            for message_key in list(result["expect_messages"].keys()):
+                if key_list[i] in message_key:
+                    key_list[i] = message_key
+                    break
+
+        for key in key_list:
+            messages = result["expect_messages"][key]
             if "syslog" in key:
                 get_kexec_time(duthost, messages, analyze_result)
                 reboot_start_time = analyze_result.get(
