@@ -19,7 +19,7 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
+def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, recover_acl_rule):
     """Test control plane ACL functionality on a SONiC device"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
