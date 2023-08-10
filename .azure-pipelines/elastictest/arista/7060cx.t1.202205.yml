@@ -114,14 +114,13 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.t1-lag.202205.NightlyTest_by_Elastictest
+    displayName: 7050cx3.t1.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
     - template: ../../run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        TOPOLOGY: t1-lag
         MIN_WORKER: 2
         MAX_WORKER: 2
         TEST_PLAN_TYPE: NIGHTLY
