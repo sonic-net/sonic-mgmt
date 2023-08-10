@@ -1,6 +1,7 @@
 parameters:
   - name: TOPOLOGY
     type: string
+    default: ""
 
   - name: POLL_INTERVAL
     type: number
