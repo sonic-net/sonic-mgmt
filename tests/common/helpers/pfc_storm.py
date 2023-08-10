@@ -154,8 +154,12 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
-        self.pfc_start_template = os.path.join(
-            TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
+        if self.dut.topo_type == 't2':
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
+        else:
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_start_template})
 
     def _prepare_stop_template(self):
@@ -163,8 +167,12 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
-        self.pfc_stop_template = os.path.join(
-            TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
+        if self.dut.topo_type == 't2':
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
+        else:
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_stop_template})
 
     def _run_pfc_gen_template(self):
