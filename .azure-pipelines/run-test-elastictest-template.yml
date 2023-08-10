@@ -46,6 +46,10 @@ parameters:
     type: string
     default: ""
 
+  - name: UPGRADE_IMAGE_PARAM
+    type: string
+    default: ""
+
   - name: HWSKU
     type: string
     default: ""
@@ -166,6 +170,7 @@ steps:
       --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
       --image_url ${{ parameters.IMAGE_URL }} \
+      --upgrade-image-param "${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
       --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
       --platform ${{ parameters.PLATFORM }} \
