@@ -44,7 +44,7 @@ class PfcWdTest(BaseTest):
             for port in match.split():
                 dst_port_list.append(int(port))
         src_mac = self.dataplane.get_mac(
-            *random.choice(self.dataplane.ports.keys()))
+            *random.choice(list(self.dataplane.ports.keys())))
 
         if self.port_type == "portchannel":
             for x in range(0, self.pkt_count):
@@ -52,7 +52,7 @@ class PfcWdTest(BaseTest):
                 dport = random.randint(0, 65535)
                 ip_src = socket.inet_ntoa(struct.pack(
                     '>I', random.randint(1, 0xffffffff)))
-                ip_src = ipaddress.IPv4Address(six.text_type(ip_src, 'utf-8'))
+                ip_src = ipaddress.IPv4Address(ip_src)
                 if not isinstance(self.ip_dst, six.text_type):
                     self.ip_dst = six.text_type(self.ip_dst, 'utf-8')
                 ip_dst = ipaddress.IPv4Address(self.ip_dst)
@@ -60,8 +60,7 @@ class PfcWdTest(BaseTest):
                         ip_src.is_global or ip_src.is_reserved:
                     ip_src = socket.inet_ntoa(struct.pack(
                         '>I', random.randint(1, 0xffffffff)))
-                    ip_src = ipaddress.IPv4Address(
-                        six.text_type(ip_src, 'utf-8'))
+                    ip_src = ipaddress.IPv4Address(ip_src)
 
                 ip_src = str(ip_src)
                 pkt_args = {
