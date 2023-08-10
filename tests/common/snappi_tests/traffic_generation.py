@@ -322,13 +322,14 @@ def run_traffic(api,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     if pcap_type != packet_capture.NO_CAPTURE:
-        # Dump captured packets
-        for cap_port in snappi_extra_params.packet_capture_ports:
-            request = api.capture_request()
-            request.port_name = cap_port
-            pcap_bytes = api.get_capture(request)
-            with open(snappi_extra_params.packet_capture_file + "_" + str(cap_port), 'wb') as fid:
-                fid.write(pcap_bytes.getvalue())
+        request = api.capture_request()
+        request.port_name = snappi_extra_params.packet_capture_ports[0]
+        cs = api.capture_state()
+        cs.state = cs.STOP
+        api.set_capture_state(cs)
+        pcap_bytes = api.get_capture(request)
+        with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
+            fid.write(pcap_bytes.getvalue())
 
     # Dump per-flow statistics
     request = api.metrics_request()
@@ -351,7 +352,6 @@ def verify_pause_flow(flow_metrics,
         flow_metrics (list): per-flow statistics
         pause_flow_name (str): name of the pause flow
     Returns:
-
     """
     pause_flow_row = next(metric for metric in flow_metrics if metric.name == pause_flow_name)
     pause_flow_tx_frames = pause_flow_row.frames_tx
