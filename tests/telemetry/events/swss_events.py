@@ -35,7 +35,7 @@ def shutdown_interface(duthost):
     if_state_test_port = next((interface for interface, status in interfaces.items()
                                if status["oper"] == "up" and status["admin"] == "up"), None)
     assert if_state_test_port is not None, "Unable to find valid interface for test"
-    
+
     ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
