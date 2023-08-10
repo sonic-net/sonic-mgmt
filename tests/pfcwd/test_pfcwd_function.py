@@ -501,7 +501,7 @@ class SendVerifyTraffic():
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_rx_ingress(self, action):
         """
@@ -532,7 +532,7 @@ class SendVerifyTraffic():
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_other_pfc_queue(self):
         """
@@ -565,7 +565,7 @@ class SendVerifyTraffic():
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_other_pfc_pg(self):
         """
@@ -598,7 +598,7 @@ class SendVerifyTraffic():
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def fill_buffer(self):
         """
@@ -621,7 +621,7 @@ class SendVerifyTraffic():
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_wd_func(self, action, rx_action, tx_action):
         """
