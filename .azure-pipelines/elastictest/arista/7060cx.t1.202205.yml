@@ -119,7 +119,7 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-elastictest-template.yml@sonic-mgmt
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
         MIN_WORKER: 2
         MAX_WORKER: 2
