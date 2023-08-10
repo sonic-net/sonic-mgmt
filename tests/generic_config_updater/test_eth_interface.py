@@ -37,6 +37,30 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
+def is_valid_fec_state_db(duthost, value):
+    read_supported_fecs_cli = 'redis-cli -n 6 hget "PORT_TABLE|{}" supported_fecs'.format("Ethernet0")
+    supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
+    if supported_fecs_str:
+        if supported_fecs_str != 'N/A':
+            supported_fecs_list = [element.strip() for element in supported_fecs_str.split(',')]
+        else:
+            supported_fecs_list = []
+    else:
+        supported_fecs_list = ['rs', 'fc', 'none']
+    if value.strip() not in supported_fecs_list:
+        return False
+    return True
+
+
+def is_valid_speed_state_db(duthost, value):
+    read_supported_speeds_cli = 'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format("Ethernet0")
+    supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
+    supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
+    if supported_speeds and int(value) not in supported_speeds:
+        return False
+    return True
+
+
 def check_interface_status(duthost, field, interface='Ethernet0'):
     """
     Returns current status for Ethernet0 of specified field
@@ -215,7 +239,10 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        if is_valid_fec_state_db(duthost, fec):
+            expect_op_success(duthost, output)
+        else:
+            expect_op_failure(output)
         current_status_fec = check_interface_status(duthost, "FEC")
         pytest_assert(current_status_fec == fec,
                       "Failed to properly configure interface FEC to requested value {}".format(fec))
@@ -294,7 +321,7 @@ def test_update_speed(duthost, ensure_dut_readiness):
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            if is_valid:
+            if is_valid and is_valid_speed_state_db(duthost, speed):
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
                 current_status_speed = current_status_speed.replace("M", "")
