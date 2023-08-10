@@ -3,6 +3,15 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
+# fake scheduler for nightly_hawk_branch_verify pipeline: https://dev.azure.com/mssonic/internal/_build?definitionId=983
+schedules:
+  - cron: "0 4 * * 0,2,3,4"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: false
+
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
