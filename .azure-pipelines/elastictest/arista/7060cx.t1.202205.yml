@@ -12,10 +12,6 @@ schedules:
         - internal
     always: true
 
-variables:
-  - group: SONIC_IMAGE_URLS
-  - group: SAITHRIFT_URLS
-
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -23,6 +19,11 @@ resources:
       name: sonic-net/sonic-mgmt
       ref: master
       endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
 
 parameters:
   - name: AGENT_POOL

@@ -12,6 +12,14 @@ schedules:
         - internal
     always: true
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -106,9 +114,8 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-elastictest-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        TOPOLOGY: t0-64
         MIN_WORKER: 2
         MAX_WORKER: 2
         TEST_PLAN_TYPE: NIGHTLY

@@ -12,6 +12,14 @@ schedules:
         - internal
     always: true
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -34,17 +42,17 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202305)
+    default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_INTERNAL)
+    default: $(SAITHRIFT_BRCM_202205)
     displayName: "py_saithrift URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202205
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -101,14 +109,13 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.t1-lag.202305.NightlyTest_by_Elastictest
+    displayName: 7050cx3.t1.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-elastictest-template.yml
+    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        TOPOLOGY: t1-lag
         MIN_WORKER: 1
         MAX_WORKER: 1
         TEST_PLAN_TYPE: NIGHTLY
