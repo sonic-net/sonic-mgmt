@@ -2,24 +2,34 @@ import logging
 
 from netmiko import Netmiko
 
+
 class TermServ(object):
 
     def __init__(self, model, ip, cid, username=None,
                  password=None, logger=None, desc=""):
         self.logger = logger or logging.getLogger()
-        self.model = model
+        self.model = model.lower()
         self.ip = ip
         self.cid = cid
         self.desc = desc
-        if self.model.lower() == "digi":
+        self.hndl = None
+        if self.model == "digi":
+            self.username = username or "admin"
+            self.password = password or "admin"
+            self.base_cmd = "configmenu"
+            self.base_prompt = "---->"
+            self._connect = self._connect_digi
+            self._show = self._show_digi_menu
+            self._kill = self._kill_digi_menu
+        elif self.model == "digipassport":
             self.username = username or "admin"
             self.password = password or "admin"
             self.base_cmd = ""
-            self.base_prompt = "---->"
+            self.base_prompt = "$"
             self._connect = self._connect_digi
-            self._show = self._show_digi
-            self._kill = self._kill_digi
-        elif self.model.lower() == "avocent":
+            self._show = self._show_digi_cli
+            self._kill = self._kill_digi_cli
+        elif self.model == "avocent":
             self.username = username or "root"
             self.password = password or "stratax120"
             self.base_cmd = "CLI"
@@ -42,6 +52,7 @@ class TermServ(object):
 
     def do_op(self, op, cid=None):
         retval = False
+        cids = self._get_cids(cid)
         msg = "Failed to perform {}".format(op)
         try:
             if not self._connect():
@@ -49,17 +60,20 @@ class TermServ(object):
             elif op == "show":
                 retval = self._show()
             elif op == "kill":
-                cids = self._get_cids(cid)
                 retval = self._kill(cids)
             elif op == "show-kill":
-                retval = self._show()
-                cids = self._get_cids(cid)
+                self._show()
                 retval = self._kill(cids)
+                self._show()
         except Exception as e:
             msg = "Failed to perform {}: {}".format(op, e)
 
         if not retval:
             self._log(msg, lvl=logging.ERROR)
+
+        if self.hndl:
+            self.hndl.disconnect()
+            self.hndl = None
         return retval
 
     def _log(self, msg, lvl=logging.INFO):
@@ -73,37 +87,58 @@ class TermServ(object):
 
     def _send_escape(self, count=5):
         for _ in range(count):
-            self.hndl.send_command("\x1B")
+            self._send_cmd("\x1B", cr=False, msg="<ESC>")
 
-    def _connect_digi(self):
-        self.hndl = Netmiko(self.ip, username=self.username,
-                            password=self.password, device_type="cisco_ios")
-        self.hndl.send_command(self.base_cmd)
-        self.hndl.base_prompt = self.hndl.find_prompt()
-        self._log("============== INITIAL PROMPT =================")
-        self._log(self.hndl.find_prompt())
-        self._log("===============================================")
-        return self.hndl
-
-    def _show_digi(self):
-        self.hndl.send_command("6")
-        output = self.hndl.send_command_timing("3")
-        self.hndl.send_command("")
-        self._log(output)
+    def _send_cmd(self, cmd, expect_string=None, cr=True, msg="RECV:"):
+        self._log("SEND({}): {}".format(cr, cmd))
+        if cr:
+            output = self.hndl.send_command(cmd, expect_string)
+        else:
+            output = self.hndl.send_command_timing(cmd)
+        self._log("{}\n{}".format(msg, output))
         return output
 
-    def _kill_digi(self, ports):
+    def _connect_digi(self):
+        try:
+            self.hndl = Netmiko(self.ip, username=self.username,
+                                password=self.password, device_type="autodetect",
+                                global_delay_factor=5)
+        except Exception:
+            self._log("Failed to connect to {}".format(self.ip), lvl=logging.ERROR)
+            self.hndl = None
+
+        if self.hndl:
+            prompt = self.hndl.find_prompt(delay_factor=3)
+            self._log("Initial Prompt: {}".format(prompt))
+            if self.base_cmd:
+                self._log("Send base command: {}".format(self.base_cmd))
+            self._send_cmd(self.base_cmd, self.base_prompt, msg="Initial Ouput:")
+            self.hndl.set_base_prompt(self.base_prompt)
+            prompt = self.hndl.find_prompt()
+            self._log("Base Prompt: {}".format(prompt))
+        return self.hndl
+
+    def _show_digi_cli(self):
+        return ""
+
+    def _show_digi_menu(self):
+        self._send_cmd("6", cr=False, msg="Select System Status & Log")
+        return self._send_cmd("3", cr=False)
+
+    def _kill_digi_cli(self, ports):
+        for port in ports:
+            self._send_cmd("portset reset {}".format(port))
+        return True
+
+    def _kill_digi_menu(self, ports):
         self._send_escape()
         if not isinstance(ports, list):
             ports = [ports]
-        output = self.hndl.send_command("2")
-        self._log(output)
+        self._send_cmd("2", cr=False)
         for port in ports:
-            self.hndl.send_command(str(port))
-            self.hndl.send_command("a")
-            output = self.hndl.send_command("1", expect_string="has been reset successfully")
-            self._log("\n" + output)
-            self.hndl.send_command("")
+            self._send_cmd(str(port))
+            self._send_cmd("a", cr=False)
+            self._send_cmd("1", expect_string="has been reset successfully")
             self._send_escape(2)
         return True
 
@@ -111,21 +146,18 @@ class TermServ(object):
         self.hndl = Netmiko(self.ip, username=self.username,
                             password=self.password, device_type="linux")
         if self.hndl:
-            self.hndl.send_command("CLI", self.base_prompt)
+            self._send_cmd(self.base_cmd, self.base_prompt)
             self.hndl.base_prompt = self.hndl.find_prompt()
         return self.hndl
 
     def _show_avocent(self):
-        output = self.hndl.send_command("administration sessions list")
-        self.hndl.send_command_timing("")
-        self._log("\n" + output)
+        output = self._send_cmd("administration sessions list")
+        self._send_cmd("", cr=False)
         return output
 
     def _kill_avocent(self, ports):
         for port in ports:
             self._log("------ Kill Session on {} ------".format(port))
-            output = self.hndl.send_command("administration sessions kill {}".format(port))
-            self._log(output)
-            self.hndl.send_command_timing("")
+            self._send_cmd("administration sessions kill {}".format(port))
+            self._send_cmd("", cr=False)
         return True
-
