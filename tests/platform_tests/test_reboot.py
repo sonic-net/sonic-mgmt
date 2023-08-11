@@ -104,6 +104,9 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     @param dut: The AnsibleHost object of DUT.
     @param interfaces: DUT's interfaces defined by minigraph
     """
+    logging.info("wait for device to boot up for {}sec when reboot_type is known"
+                 .format(interfaces_wait_time))
+    wait_for_startup(dut, localhost, delay=10, timeout=interfaces_wait_time)
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
 
