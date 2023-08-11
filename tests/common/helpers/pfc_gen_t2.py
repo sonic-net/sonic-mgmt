@@ -6,30 +6,21 @@ Script to generate PFC packets.
 """
 import binascii
 import sys
-import os
 import optparse
 import logging
 import logging.handlers
-from socket import socket, AF_PACKET, SOCK_RAW, SHUT_WR
+from socket import socket, AF_PACKET, SOCK_RAW
 import time
-import errno
-from struct import *
 from ctypes import (
     CDLL,
     POINTER,
     Structure,
-    addressof,
-    byref,
-    c_byte,
     c_int,
     c_size_t,
     c_uint,
-    c_uint8,
     c_uint32,
-    c_ushort,
     c_void_p,
     cast,
-    create_string_buffer,
     get_errno,
     pointer,
     sizeof,
@@ -90,52 +81,6 @@ def checksum(msg):
     s = ~s & 0xffff
 
     return s
-
-
-def sendmmsg(sockfd: int, data: bytes, total_packets: int): # noqa E999
-    """
-    Send multiple messages at once, all constructed from the same pkt data.
-
-    """
-    # msghdr_len = total_packets
-    m_msghdr = (struct_mmsghdr * total_packets)()
-
-    iov = struct_iovec(cast(data, c_void_p), len(data))
-    msg_iov = pointer(iov)
-    msg_iovlen = 1
-    msg_control = 0
-    msg_controllen = 0
-
-    msg_namelen = 0
-    ptr_null = None
-    msg_name = cast(None, c_void_p)
-    i = 0
-    """
-    for destination, packets in data.items():
-        msg_namelen = 0
-        msg_name = 0
-        # no scatter/gather support
-        for pkt in packets:
-            iov = struct_iovec(cast(pkt, c_void_p), len(pkt))
-            msg_iov = pointer(iov)
-
-            msghdr = struct_msghdr(
-                msg_name, msg_namelen, msg_iov, msg_iovlen,
-                msg_control, msg_controllen, 0)
-
-            m_msghdr[i] = struct_mmsghdr(msghdr)
-            i += 1
-    """
-
-    for i in range(0, total_packets):
-        msghdr = struct_msghdr(
-                    msg_name, msg_namelen, msg_iov, msg_iovlen,
-                    msg_control, msg_controllen, 0)
-        m_msghdr[i] = struct_mmsghdr(msghdr)
-        i += 1
-
-    ret = _sendmmsg(sockfd, m_msghdr[0], total_packets, 0)
-    return ret
 
 
 def main():
