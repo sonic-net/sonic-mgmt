@@ -15,9 +15,9 @@ clear_acl_counter_fail: Failed to clear acl counter for rule-{} in ACL-{}
 verify_clear_acl_counter_fail: ACL counter for rule-{} in acl-{} is not cleared even after the clear operation
 acl_counter_output_update_fail: The contents in show acl counters are not updated for the ACL rule {}
 verify_acl_rule_delete_fail: ACL rule-{} under the acl-{} is not erased as per the configuration
-traffic_failed_as_per_the_drop_rule: Failed to drop traffic as per the configured  drop rule
+traffic_failed_as_per_the_drop_rule: Failed to drop traffic as per the configured drop rule
 traffic_success_as_per_the_drop_rule: Succesfully dropped the traffic as per the configured ACL rule.
-traffic_failed_as_per_the_allow_rule: Failed to allow traffic as per the configured  allow rule
+traffic_failed_as_per_the_allow_rule: Failed to allow traffic as per the configured allow rule
 old_acl_rule_not_deleted_after_acl_update_full: ACL rule-{} is not deleted in the acl table-{} after acl update full
 new_acl_rule_not_created_after_acl_update_full: ACL rule-{} is not created in the acl table-{} after acl update full
 old_acl_rule_deleted_after_acl_update_incremental: ACL rule-{} is deleted in the acl table-{} after acl update incremental
@@ -33,6 +33,7 @@ acl_rule_table_not_found: Acl Table/Rule not found
 hardware_acl_mode_config_failed: Configuring Hardware ACL mode failed for {}
 acl_config_status: Configuring ACL {} {}
 egress_acl_rate_limit_unsupported_platform: Egress ACL rate limit not supported in this platform {}
+apply_acl_interface_status: Configured ACL {} is {} on interface {}
 
 #### Port priority shaping
 traffic_transmitted_on_the_queue: Traffic {} transmitted on {} at a rate of {}

@@ -27,11 +27,15 @@ empty:
 
 as5712:
     breakout: []
-    current: [as5712_sfp_fixup.sh]
     current: []
     restore: []
 
 breakout_8x:
     breakout: [breakout-8x.sh, __reboot__]
+    current: []
+    restore: []
+
+community-dpb:
+    breakout: [community-dpb.sh, __reboot__]
     current: []
     restore: []
