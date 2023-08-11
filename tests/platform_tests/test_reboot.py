@@ -106,7 +106,7 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, localhost,
     """
     # Here we wait for device to boot up if reboot_type is known, in this case we know
     # it's checking intfs and services after reboot.
-    # in other case, if caller is only shutting down some services, or, it's in some teardown fixture,
+    # In other cases, if caller is only shutting down some services, or, it's in some test teardown
     # we need to call wait_for_startup before calling this function.
     logging.info("wait for device to boot up for {}sec when reboot_type is known"
                  .format(interfaces_wait_time))
