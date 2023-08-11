@@ -1,6 +1,7 @@
 import time
 import threading
 
+
 class Lock(object):
     def __init__(self):
         self.lock = threading.Lock()
@@ -20,4 +21,3 @@ class Lock(object):
 
     def release(self):
         return self.lock.release()
-

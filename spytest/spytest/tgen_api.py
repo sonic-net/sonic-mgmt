@@ -78,8 +78,10 @@ def get_chassis_byname(name):
 
 def is_soft_tgen(vars=None):
     tg = get_chassis(vars)
-    if not tg: return False
-    if tg.tg_type == "scapy": return True
+    if not tg:
+        return False
+    if tg.tg_type == "scapy":
+        return True
     return tg.tg_virtual
 
 
@@ -185,18 +187,21 @@ def get_max(v1, v2):
 
 def normalize_pps(value):
     from utilities.common import get_env_int
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     max_value = get_env_int("SPYTEST_SCAPY_MAX_RATE_PPS", 100)
     return get_min(int(value), max_value)
 
 
 def normalize_mtu(value):
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     return get_min(int(value), 9000)
 
 
 def normalize_hosts(value):
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     return get_min(int(value), 256)
 
 
