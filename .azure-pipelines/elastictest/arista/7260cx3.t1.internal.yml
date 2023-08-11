@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,1,2,3,4,5"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -38,27 +38,27 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms63-t1-7060-3, vms6-t1-7060"
+    default: "vms2-t1-7260-7"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--docker-folder-size 3000M"
+    default: " "
     displayName: "Upgrade image parameter"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -79,13 +79,13 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "pfc_asym, span, sub_port_interfaces, platform_tests, generic_config_updater"
     displayName: "Features to be excluded"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 3600
 
   - name: REPO_NAME
     type: string
@@ -115,15 +115,15 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.t1.202205.NightlyTest_by_Elastictest
+    displayName: 7260cx3.t1.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
     - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
       parameters:
-        MIN_WORKER: 2
-        MAX_WORKER: 2
+        MIN_WORKER: 1
+        MAX_WORKER: 1
         TEST_PLAN_TYPE: NIGHTLY
         PLATFORM: PHYSICAL
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
@@ -132,6 +132,7 @@ stages:
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
         COMMON_EXTRA_PARAMS: "--topology t1,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+        UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
         REPO_NAME: ${{ parameters.REPO_NAME }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
@@ -140,4 +141,3 @@ stages:
         REQUESTER: ${{ parameters.REQUESTER }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}

@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,1,2,3,4,5"
+  - cron: "0 4 * * 1,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -24,7 +24,6 @@ variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
 
-
 parameters:
   - name: AGENT_POOL
     type: string
@@ -38,27 +37,27 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms63-t1-7060-3, vms6-t1-7060"
+    default: "vms3-t1-dx010-1, vms20-t1-dx010-6"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
+    default: $(IMAGE_BRCM_INTERNAL)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--docker-folder-size 3000M"
+    default: "--always-power-cycle"
     displayName: "Upgrade image parameter"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_INTERNAL)
     displayName: "py_saithrift URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -77,9 +76,10 @@ parameters:
     default: "vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
     displayName: "Scripts to be excluded"
 
+
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: " "
     displayName: "Features to be excluded"
 
   # Test timeout
@@ -115,7 +115,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.t1.202205.NightlyTest_by_Elastictest
+    displayName: dx010.t1.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
