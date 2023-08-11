@@ -11,19 +11,19 @@ scp:
   ip: 192.168.1.1
   path: /home/vmuser/scp
   username: vmuser
-  password: broadcom
+  password: company
 
 ssh:
   ip: 192.168.1.1
   path: /tftpboot
   username: admin
-  password: broadcom
+  password: company
 
 sftp:
   ip: 192.168.1.1
   path: /tftpboot
   username: admin
-  password: broadcom
+  password: company
 
 pentest:
   username: pentestusr
@@ -33,7 +33,7 @@ snmptrap:
   ip: 10.193.81.91
   port: 22
   username: brcm
-  password: broadcom
+  password: company
   path: /var/log/snmptrap.log
 
 ldapservers:
@@ -41,7 +41,7 @@ ldapservers:
   server2: 10.52.168.187
 
 tacacs:
-  hosts: [{ip: 10.193.81.61, username: brcm, password: broadcom,
+  hosts: [{ip: 10.193.81.61, username: brcm, password: company,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 3,
           encryptkey: U2FsdGVkX18FU9Gekcx4vVFV6Tiju3yFcOPZj9XfOd8=},
           {ip: 10.52.139.138, username: admin, password: Clearpass#123,
@@ -104,7 +104,7 @@ radius:
          {login_local_radius: 'local radius', login_radius_local: 'radius local'}]
   local: {username: admin, password: YourPaSsWoRd}
   invalid: {username: abcbd1234, password: abcd1234}
-  root_credentials: {username: root, password: broadcom}
+  root_credentials: {username: root, password: company}
   invalid_passkey: {invalid_passkey: '@#_+%^'}
   source_ip: {ipv6: '5001::2', ipv4: '10.5.2.3'}
   logs_path: {path: '/var/log/audit.log'}
@@ -123,40 +123,40 @@ ntp:
   default: [216.239.35.4, 216.239.35.8, 216.239.35.12]
   host: [216.239.35.4,192.111.144.114,216.239.35.12]
   master: 134.214.100.6
-  dns_server: ntp.broadcom.net
+  dns_server: ntp.company.net
   servers: [10.193.81.107, 216.239.35.4, 216.239.35.8, 216.239.35.12, 134.214.100.6]
   not_working_servers: [22.1.1.1, 10.1.2.1, 10.2.1.2, 52.1.1.1]
 
 smtp:
-  host: mailhost.broadcom.net
+  host: mailhost.company.net
   user: TAMAlert
   pass: tamalert
-  domain: broadcom.com
-  sendor: SPyTest@broadcom.com
+  domain: company.com
+  sendor: SPyTest@company.com
 
 ansible:
   ip: 10.130.184.158
   username: qaadmin
-  password: broadcom
+  password: company
   port: 22
   inventory: /etc/ansible/hosts
   bkp_inventory: /etc/ansible/hosts.bkp
-  hosts: {"host1":{username: admin, password: broadcom},
-          "host2":{username: admin, password: broadcom}}
+  hosts: {"host1":{username: admin, password: company},
+          "host2":{username: admin, password: company}}
   playbook_dir: /etc/ansible
   upgrade_path: http://10.130.64.137:4321/sonic-broadcom.bin
 
 ztp:
-  dhcp: {inband: {ip: 10.52.139.224, username: admin, password: [YourPaSsWoRd, broadcom],
+  dhcp: {inband: {ip: 10.52.139.224, username: admin, password: [YourPaSsWoRd, company],
          config_file: /etc/dhcp/dhcpd.conf, static_ip: 176.16.40.210, interface: Ethernet46,
                   home_path: /var/www/html/, port: 0, subnet: 24, client_ip: 176.16.40.1, dir_script: "/var/www/html/sonic-ztp/provisioning_scripts/", dir_json: "/var/www/html/sonic-ztp/json"},
-          outofband: {ip: 10.52.139.212, username: vmuser, password: broadcom,
+          outofband: {ip: 10.52.139.212, username: vmuser, password: company,
                       config_file: /etc/dhcp/dhcpd.conf, static_ip: 192.168.1.1, interface: eth0,
                       home_path: /home/vmuser/www, port: 0, subnet: 24, client_ip: 192.168.1.18}}
-  dhcpv6: {inband: {ip: 10.52.139.224, username: admin, password: [YourPaSsWoRd, broadcom],
+  dhcpv6: {inband: {ip: 10.52.139.224, username: admin, password: [YourPaSsWoRd, company],
                     config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2072::210", interface: Ethernet46,
                     home_path: /var/www/html/, port: 0, subnet: 64, client_ip: "2072::1", dir_script: "/var/www/html/sonic-ztp/provisioning_scripts/", dir_json: "/var/www/html/sonic-ztp/json/"},
-           outofband: {ip: 10.52.139.212, username: vmuser, password: broadcom,
+           outofband: {ip: 10.52.139.212, username: vmuser, password: company,
                        config_file: /etc/dhcp/dhcpd6.conf, static_ip: "2002:db8:aad:aaa::99", interface: eth0,
                        home_path: /home/vmuser/www, port: 0, subnet: 64, client_ip: "2002:db8:aad:aaa::90"}}
   config_path: /sonic-ztp/json
@@ -189,7 +189,7 @@ http:
 chef:
   ip: 10.59.142.232
   username: brcm
-  password: broadcom
+  password: company
   user_home_folder: /home/brcm
   path: /home/brcm/chef-repo
   roles: /home/brcm/chef-repo/roles
@@ -204,7 +204,7 @@ chef:
 vm_server:
   ip: 10.0.0.10
   username: admin
-  password: broadcom
+  password: company
 
 dhcp_relay:
   connected_port: Ethernet45
@@ -228,7 +228,7 @@ dhcp_server_vxlan:
     dhcp_server_ip: 172.16.40.210
     dhcp_server_ipv6: 2072::210
     username: root
-    password: broadcom
+    password: company
 
 fwdl_info:
   server_ip: '10.59.132.240'
@@ -277,7 +277,7 @@ multiradiusserver:
 pac_radius:
   ip: 10.193.81.107
   username: brcm
-  password: broadcom
+  password: company
   radius_server_path: /etc/freeradius/3.0
   radius_server_home_path: /home/brcm
   radius_server_mask: 20
@@ -293,11 +293,11 @@ docker:
 cisco_ise:
   ip: 10.193.82.181
   username: ersadmin
-  password: Broadcom#123
+  password: Company#123
   port_ers: 9060
   port_open_api: 443
   psn_name: Cisco-ISE-Sonic
-  hostname: Cisco-ISE-Sonic.broadcom.net
+  hostname: Cisco-ISE-Sonic.company.net
 
 voice_vlan:
   network_port: 'Ethernet9'
