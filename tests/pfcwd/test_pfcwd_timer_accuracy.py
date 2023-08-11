@@ -273,12 +273,12 @@ class TestPfcwdAllTimer(object):
         self.all_dut_detect_restore_time = list()
         try:
             if self.dut.topo_type == 't2':
-                for i in xrange(1, 11):
+                for i in range(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test()
                 self.verify_pfcwd_timers_t2()
             else:
-                for i in xrange(1, 20):
+                for i in range(1, 20):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test()
                 self.verify_pfcwd_timers()

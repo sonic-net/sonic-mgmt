@@ -23,7 +23,6 @@ from ctypes import (
     cast,
     get_errno,
     pointer,
-    sizeof,
 )
 
 
@@ -217,8 +216,6 @@ def main():
                 packet = packet + binascii.unhexlify(format(options.time, '04x'))
             else:
                 packet = packet + b"\x00\x00"
-
-    packet_bytes = len(packet)
 
     # construct mmsg header to send in bulk for minimal latency
 
