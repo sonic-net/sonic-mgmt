@@ -45,8 +45,6 @@ qos_params:
                     lossless_weight: 30
             400000_5m:
                 pkts_num_leak_out: 0
-            100000_120000m:
-                pkts_num_leak_out: 0
                 pg_drop:
                     dscp: 3
                     ecn: 1
