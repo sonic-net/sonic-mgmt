@@ -4,7 +4,7 @@
 
 | **Document Name** | **Link** |
 |-------------------|----------|
-| SONiC Generic Hash | [https://github.com/sonic-net/SONiC/doc/hash/hash-design.md]|
+| SONiC Generic Hash | [[https://github.com/sonic-net/SONiC/doc/hash/hash-design.md](https://github.com/sonic-net/SONiC/blob/master/doc/hash/hash-design.md)]|
 
 
 ## 1. Overview
@@ -215,11 +215,13 @@ The test supports t0 and t1 topologies, not supports dualtor topology.
 
 ## 4. Test cases
 
-Notes: 
-  1. The hash field is randomly selected in the test cases. Currently these fields are tested: 'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP'.
-  2. DST_MAC, ETHERTYPE, VLAN_ID fields are only tested in lag hash test cases, because L2 traffic is needed to test these fields, and there is no ecmp hash when switching in L2.
+### Notes: 
+  1. The tested hash field in each test case is randomly selected from a pre-defined field list per asic type. Currently these fields are tested as default: 'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP'.
+  2. DST_MAC, ETHERTYPE, VLAN_ID fields are only tested in lag hash test cases, because L2 traffic is needed to test these fields, and there is no ecmp hash when the traffic is fowarded in L2.
   3. IPv4 and IPv6 are covered in the test, but the versions(including the inner version when testing the inner fields) are randomly selected in the test cases.
   4. For the inner fields, three types of encapsulations are covered: IPinIP, VxLAN and NVGRE. For the VxLAN packet, the default port 4789 and a custom port 13330 are covered in the test.
+  5. For the reboot test, reboot type is randomly selected from cold, warm and fast reboot.
+  6. The random selections of hash fields, ip versions, encapsulation types and reboot types can be controlled by pytest options. The user is able to set each of the option as 'random', 'all', or a specific value.
 
 ### Test cases #1 - Verify the “show switch-hash capabilities” gets the supported hash fields.
 1. Get the supported hash fields via cli "show switch-hash capabilities"
