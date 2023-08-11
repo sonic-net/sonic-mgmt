@@ -254,6 +254,7 @@ class TestPlanManager(object):
                 },
                 "image": {
                     "url": image_url,
+                    "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch
@@ -432,7 +433,10 @@ if __name__ == "__main__":
         "-t", "--topology",
         type=str,
         dest="topology",
-        required=True,
+        nargs="?",
+        const="",
+        default="",
+        required=False,
         help="The test topology to be used."
     )
     parser_create.add_argument(
@@ -579,6 +583,16 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Image url"
+    )
+    parser_create.add_argument(
+        "--upgrade-image-param",
+        type=str,
+        dest="upgrade_image_param",
+        nargs="?",
+        const="",
+        default="",
+        required=False,
+        help="Parameter of upgrade image"
     )
     parser_create.add_argument(
         "--hwsku",
@@ -838,6 +852,7 @@ if __name__ == "__main__":
                 vm_type=args.vm_type,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
+                upgrade_image_param=args.upgrade_image_param,
                 hwsku=args.hwsku,
                 test_plan_type=args.test_plan_type,
                 platform=args.platform,
