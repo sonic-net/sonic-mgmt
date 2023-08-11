@@ -16,6 +16,9 @@ SSH_login_using_same_shared_key_success: Verified that SSH login using TACACS+ S
 tacacs_serverkey_config_in_appropriate_mode_success: Verified that user is able to execute the TACACS server key command successfully in appropriate mode
 tacacs_running_config_fail: tacacs config is not seen in running config
 tacacs_config_save_and_reload_success: Verified that TACACS parameters are showing in running config after save and reload
+tacacs_cmd_authorized: command {} authorized by tacacs
+tacacs_audit_logs: authorization logs not found in audit.logs
+tacacs_cmd_auth_config_rest_fail: tacacs command authorization configuration via rest failed
 
 #Radius
 radius_server_config_not_successful: Radius server not configured
@@ -164,4 +167,76 @@ IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_
 IPv4_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Passed: IPv4 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Passed
 IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Failed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Failed
 IPv6_SSH_login_with_NSS_SUDO_LDAP_user_and_PAM_Authorize_LDAP_group_with_TACACS_Auth_Passed: IPv6 SSH login with NSS SUDO ldap user and PAM Authorize LDAP group with TACACS Auth Passed
+Verify_LDAP_protocol_functionality_Default_Configured_Primary_key_Failed: Verify that LDAP protocol functionality  with the Default Configured Primary key Failed
+Verify_LDAP_protocol_functionality_Default_Configured_Primary_key_Passed: Verify that LDAP protocol functionality  with the Default Configured Primary key Passed
+Verify_LDAP_protocol_functionality_User_Configured_Primary_key_Failed: Verify that LDAP  protocol functionality  with the User Configured Primary key Failed
+Verify_LDAP_protocol_functionality_User_Configured_Primary_key_Passed: Verify that LDAP  protocol functionality  with the User Configured Primary key Passed
+Verify_LDAP_protocol_functionality_after_system_boot_User_Configured_Primary_key_Failed: Verify that LDAP protocol functionality  after system boot with the User Configured Primary key Failed
+Verify_LDAP_protocol_functionality_after_system_boot_User_Configured_Primary_key_Passed:  Verify that LDAP protocol functionality  after system boot with the User Configured Primary key Passed
+Verify_RADIUS_protocol_functionality_Default_Configured_Primary_key_Failed: Verify that RADIUS protocol functionality  with the Default Configured Primary key Failed
+Verify_RADIUS_protocol_functionality_Default_Configured_Primary_key_Passed: Verify that RADIUS protocol functionality  with the Default Configured Primary key Passed
+Verify_RADIUS_protocol_functionality_User_Configured_Primary_key_Failed: Verify that RADIUS protocol functionality  with the User Configured Primary key Failed
+Verify_RADIUS_protocol_functionality_User_Configured_Primary_key_Passed: Verify that RADIUS protocol functionality  with the User Configured Primary key Passed
+Verify_RADIUS_protocol_functionality_after_system_boot_User_Configured_Primary_key_Failed: Verify that LDAP protocol functionality  after system boot with the User Configured Primary key Failed
+Verify_RADIUS_protocol_functionality_after_system_boot_User_Configured_Primary_key_Passed: Verify that LDAP protocol functionality  after system boot with the User Configured Primary key Passed
+Verify_TACACS+_protocol_functionality_Default_Configured_Primary_key_Failed: Verify that TACACS+ protocol functionality  with the Default Configured Primary key Failed
+Verify_TACACS+_protocol_functionality_Default_Configured_Primary_key_Passed: Verify that TACACS+ protocol functionality  with the Default Configured Primary key Passed
+Verify_TACACS_protocol_functionality_User_Configured_Primary_key_Failed: Verify that TACACS+  protocol functionality  with the User Configured Primary key Failed
+Verify_TACACS_protocol_functionality_User_Configured_Primary_key_Passed: Verify that TACACS+  protocol functionality  with the User Configured Primary key Passed
+Verify_TACACS_protocol_functionality_after_system_boot_User_Configured_Primary_key_Failed: Verify that RADIUS protocol functionality  after system boot with the User Configured Primary key Failed
+Verify_TACACS_protocol_functionality_after_system_boot_User_Configured_Primary_key_Passed: Verify that RADIUS protocol functionality  after system boot with the User Configured Primary key Passed
 
+#PAC
+pac_config: pac config validation {}
+pac_ingress_egress_traffic_pae_enable_disable: pac {} traffic validation {}
+pac_client_auth: client authentication is {} in {}
+pac_port_control_mode: port control mode {} validation {}
+pac_mac: mac address table validation {} with client authentication
+pac_dynamic_vlan: client authentication with dynamic vlan assignment is {}
+pac_dynamic_vlan_re_auth: client re authentication with dynamic vlan assignment is {}
+pac_dynamic_vlan_traffic: traffic forwarding {} after port vlan assignment
+pac_unauth_vlan: client authentication and unauth vlan assignment is {}
+pac_default_vlan: client authentication with default vlan assignment is {}
+pac_enable_disable: client authentication {} after disable {}
+pac_total_auth_clients: total auth clients check {}
+pac_reauth_timer: client re authentication as per configured reauth timer {}
+pac_max_user: max user authentication check on interface {}
+pac_hostmode_change: Client authentication {} after host mode changes
+pac_intf_shut_no_shut: Client authenticaton {} after interface shut no shut
+pac_auth_history: Client authentication history update {}
+pac_config_reload: Config reload {} with clients authenticated
+pac_docker_restart: macsec docker restart {} with clients authenticated
+pac_reboot: With client authentication {} reboot {}
+pac_force_auth_traffic: traffic forwarding in force-auth mode is {}
+pac_reserve_vlan: pac reserve vlan assignment to port {}
+pac_radius_server_failover: Client authentication after radius server failover is {}
+pac_session_timeout: Client authentication validation with session_timeout is {}
+pac_termination_action: Client authentication validation with termination_action is {}
+pac_incorrect_attribute: Client authentication validation with incorrect attributes is {}
+pac_mac_learn: MAC learning after client authentication is {}
+pac_open_auth: Client authentication in Open auth mode is {}
+pac_monitor_auth: Client authentication in Monitor mode is {}
+pac_mab_client_auth: MAB Client authentication is {} in {}
+pac_mab_dynamic_vlan_traffic: traffic forwarding from MAB client {} after port vlan assignment
+pac_guest_vlan: client authentication and guest vlan assignment is {}
+pac_guest_vlan_traffic: Traffic forwarding in guest vlan is {}
+pac_client_reauth: reauthentication of {} client is {}
+pac_traffic_verify: trafffic verification is {} clients authenticated
+pac_auth_order: authentication order is set to {} with host mode {} is {}
+pac_acl_verification: Verification of {} acls with {} authentication is {}
+pac_mab_req_attribute: Validation of mab client authentication with different attribute formats is {}
+pac_client_syslog: syslog generation for client authentication {}
+pac_dhcp_snooping_acl_verification: Verification of {} client IPv4/IPv6 {} ACLs is {} based on DHCPv4/v6 Snooping entry
+dhcp_snoop_binding_verify: DHCP Snooping binding table verification is {}
+pac_max_clients: validation of max {} {} clients authentication {}
+pac_stp_port_verify_failed: The port {} is not participated in {} mode after assigning the vlan from the radius server
+pac_stp_verify: Verification of {} mode with dot1x/mab cliet is {}
+pac_mirror_session: pac interaction with mirror session is {}
+pac_nw_object_group: Network object-group creation is {} for acl {}
+pac_nw_obj_group_host_ip: Network object-group host ip updation is {} with proper ip address obtained from dhcp
+pac_auth_reject_dynamic_vlan : Client authentication rejection is {} in case of radius vlan not available in DUT.
+pac_auth_untagged_vlan : Client authentication is {} on port untagged vlan in case of no radius vlan provided.
+
+#DAS
+das_request_verify: DAS response verification is {}
+das_request_counter: DAS response counter verification is {}
