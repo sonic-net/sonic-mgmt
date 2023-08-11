@@ -1,6 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
+
 class QosParamCisco(object):
     SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
     LOG_PREFIX = "QosParamCisco: "
@@ -97,8 +98,8 @@ class QosParamCisco(object):
         '''
         assert len(parametrizations) > 0, "Invalid should_autogen invocation with empty list"
         param_in_yaml = [(param in self.qos_params or
-                           param in self.qos_params[self.portSpeedCableLength])
-                          for param in parametrizations]
+                          param in self.qos_params[self.portSpeedCableLength])
+                         for param in parametrizations]
         assert len(set(param_in_yaml)) == 1, \
             "QOS param generator requires params {} to have same qos.yaml presence".format(parametrizations)
         autogen = self.supports_autogen and not param_in_yaml[0]
