@@ -572,7 +572,7 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
-
+                cd test_reporting
                 python3 junit_xml_parser.py -d ../results -o tr.json
             condition: always()
 
@@ -582,7 +582,8 @@ stages:
               targetType: 'inline'
               script: |
                 set -x
-
+                cd test_reporting
+                python3 collect_azp_results.py $(Build.BuildId)
                 python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId)" -t ${{ parameters.TESTBED_NAME }} -i ${{ parameters.IMAGE_URL }} -j tr.json SonicTestData
             condition: eq('${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}', 'false')
             env:
