@@ -290,14 +290,14 @@ class TestNeighborMacNoPtf:
                 # Since neighbor MAC is also changed/updated, check if all the updates have been processed already.
                 # Stop retry if the neighbor MAC in ASIC_DB is what we expect.
                 if neighborMac == expectedMac:
-                    logger.info("Verified MAC of neighbor {} after {} retries".format(self.TEST_INTF[ipVersion]["NeighborIp"],
-                                                                                      retry))
+                    logger.info("Verified MAC of neighbor {} after {} retries".format(
+                        self.TEST_INTF[ipVersion]["NeighborIp"], retry))
                     break
 
-            logger.info("Failed to verify MAC of neighbor {}. Retry cnt: {}".format(self.TEST_INTF[ipVersion]["NeighborIp"],
-                                                                                    retry))
+            logger.info("Failed to verify MAC of neighbor {}. Retry cnt: {}".format(
+                self.TEST_INTF[ipVersion]["NeighborIp"], retry))
             retry += 1
-            time.sleep( 2 )
+            time.sleep(2)
 
         pytest_assert(neighborMac, "Neighbor key NOT found in Redis DB, Redis db Output '{0}'".format(result["stdout"]))
         yield neighborMac
