@@ -679,7 +679,7 @@ def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             if dut_to_T3:
                 break
         if dut_to_T3 is None:
-            pytest.skip("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
+            pytest.fail("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
         return dut_to_T3
     else:
         return duthosts[enum_rand_one_per_hwsku_frontend_hostname]

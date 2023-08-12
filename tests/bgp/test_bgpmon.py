@@ -109,13 +109,10 @@ def build_syn_pkt(local_addr, peer_addr):
 
 
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
-                common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost, tbinfo):
+                common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
-    if tbinfo['topo']['type'] == 't2':
-        pytest.skip("Skipping IPv4-based BGPMON test on T2 topology")
-
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
@@ -168,13 +165,10 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
 
 
 def test_bgpmon_no_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
-                                       common_setup_teardown, ptfadapter, tbinfo):
+                                       common_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
     """
-    if tbinfo['topo']['type'] == 't2':
-        pytest.skip("Skipping IPv4-based BGPMON test on T2 topology")
-
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     local_addr, peer_addr, peer_ports, asn = common_setup_teardown

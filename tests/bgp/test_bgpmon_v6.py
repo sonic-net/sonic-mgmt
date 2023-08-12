@@ -167,7 +167,7 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
 def test_bgpmon_no_ipv6_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
                                             common_v6_setup_teardown, ptfadapter):
     """
-    Verify no syn for BGP is sent when 'ip nht resolve-via-default' is disabled.
+    Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
     """
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
