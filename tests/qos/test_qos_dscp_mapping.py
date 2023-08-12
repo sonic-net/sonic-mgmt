@@ -245,7 +245,6 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             duthost.command("sonic-clear queuecounters")
             time.sleep(2)
 
-
             try:
                 dst_ptf_port_id = send_and_verify_traffic(ptfadapter=ptfadapter,
                                                           pkt=pkt,
