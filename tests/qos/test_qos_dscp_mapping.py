@@ -234,6 +234,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             queue_val = get_dscp_to_queue_value(rotating_dscp, dut_qos_maps.get("dscp_to_tc_map").get("AZURE"),
                                                 dut_qos_maps.get("tc_to_queue_map").get("AZURE"))
 
+            global output_table
+
             if queue_val is None:
                 logger.info("No queue found for dscp {} on DUT".format(inner_dscp))
                 output_table.append([rotating_dscp, "No queue found", "N/A"])
@@ -242,7 +244,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             # Clear queue counters
             duthost.command("sonic-clear queuecounters")
             time.sleep(2)
-            global output_table
+
 
             try:
                 dst_ptf_port_id = send_and_verify_traffic(ptfadapter=ptfadapter,
