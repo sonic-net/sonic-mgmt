@@ -554,9 +554,6 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
-                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
-                                                        self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
@@ -574,6 +571,9 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.postboot_setup:
                     self.postboot_setup()
             except Exception:

@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, wait_tcp_connection
 from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
 
@@ -47,20 +48,33 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    default_client_auth = setup_telemetry_forpyclient(duthost)
+    try:
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        default_client_auth = setup_telemetry_forpyclient(duthost)
 
-    # Wait until telemetry was restarted
-    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
-    logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
+        if default_client_auth == "true":
+            duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"',
+                          module_ignore_errors=False)
+            duthost.shell("systemctl reset-failed telemetry")
+            duthost.service(name="telemetry", state="restarted")
+        else:
+            logger.info('client auth is false. No need to restart telemetry')
 
-    # Wait until the TCP port was opened
-    dut_ip = duthost.mgmt_ip
-    wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+        # Wait until telemetry was restarted
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+        logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
-    # pyclient should be available on ptfhost. If it was not available, then fail pytest.
-    file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
-    py_assert(file_exists["stat"]["exists"] is True)
+        # Wait until the TCP port was opened
+        dut_ip = duthost.mgmt_ip
+        wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+
+        # pyclient should be available on ptfhost. If it was not available, then fail pytest.
+        file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
+        py_assert(file_exists["stat"]["exists"] is True)
+    except RunAnsibleModuleFail as e:
+        logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
+        restore_telemetry_forpyclient(duthost, default_client_auth)
+        raise e
 
     yield
     restore_telemetry_forpyclient(duthost, default_client_auth)

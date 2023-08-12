@@ -1,9 +1,11 @@
 from collections import OrderedDict
 
+
 class SpyTestDict(OrderedDict):
     """
     todo: Update Documentation
     """
+
     def __getattr__(self, name):
         try:
             return self[name]

@@ -56,8 +56,14 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
+
     if loganalyzer:
         for a_dut in get_src_dst_asic_and_duts['all_duts']:
+            hwsku = a_dut.facts["hwsku"]
+            if "7050" in hwsku and "QX" in hwsku.upper():
+                logger.info("ignore memory threshold check for 7050qx")
+                # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
+                ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
 
 

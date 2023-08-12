@@ -225,7 +225,8 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
                                mux_status_from_nic_simulator())
                            },
                    qlen=PTFRUNNER_QLEN,
-                   log_file=log_file)
+                   log_file=log_file,
+                   is_python3=True)
     finally:
         # Remove test decap configuration
         if vxlan != "set_unset":

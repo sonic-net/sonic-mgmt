@@ -300,7 +300,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
                params=params,
                relax=None,
                debug_level=None,
-               device_sockets=device_sockets)
+               device_sockets=device_sockets,
+               is_python3=True)
     return True
 
 

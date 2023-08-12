@@ -48,7 +48,13 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def get_dummay_mac_count(tbinfo):
+def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
+        logger.info("Use dummy mac count {} for BSL test\n".format(DUMMY_MAC_COUNT_SLIM))
+        return DUMMY_MAC_COUNT_SLIM
+
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
     REQUIRED_TOPO = ["t0-116"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
@@ -205,8 +211,7 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         result = duthost.command("show mac", module_ignore_errors=True)
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
-                             "Dest MAC in fdb is {}"
-                             .format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
+                             .format(dest_ports))
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):

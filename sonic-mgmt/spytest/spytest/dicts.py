@@ -1,9 +1,7 @@
 from collections import OrderedDict
 
+
 class SpyTestDict(OrderedDict):
-    """
-    todo: Update Documentation
-    """
     def __getattr__(self, name):
         try:
             return self[name]
@@ -28,7 +26,11 @@ class SpyTestDict(OrderedDict):
 
     # stringify
     def __str__(self):
-        return '{%s}' % ', '.join('%r: %r' % item for item in self.items())
+        try:
+            import json
+            return json.dumps(self)
+        except Exception:
+            return '{%s}' % ', '.join('%r: %r' % item for item in self.items())
 
     # for PrettyPrinter
     __repr__ = OrderedDict.__repr__

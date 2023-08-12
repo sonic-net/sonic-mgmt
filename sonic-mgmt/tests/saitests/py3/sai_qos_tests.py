@@ -187,13 +187,24 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
     pkt = construct_ip_pkt(64, dst_mac, src_port_mac,
                            src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
+    # Send initial packet for any potential ARP resolution, which may cause the LAG
+    # destination to change. Can occur especially when running tests in isolation on a
+    # first test attempt.
+    send_packet(dp, src_port_id, pkt, 1)
+    # Observed experimentally this sleep needs to be at least 0.02 seconds. Setting higher.
+    time.sleep(1)
     send_packet(dp, src_port_id, pkt, 1)
 
     masked_exp_pkt = construct_ip_pkt(
         48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
 
+    pre_result = dp.dataplane.poll(
+        device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     result = dp.dataplane.poll(
         device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if pre_result.port != result.port:
+        logging.debug("During get_rx_port, corrected LAG destination from {} to {}".format(
+            pre_result.port, result.port))
     if isinstance(result, dp.dataplane.PollFailure):
         dp.fail("Expected packet was not received. Received on port:{} {}".format(
             result.port, result.format()))
@@ -4393,6 +4404,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
                 pkts_num = 1
+                expected_wm = pkts_num_fill_min * cell_occupancy
             else:
                 pkts_num = (1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):
