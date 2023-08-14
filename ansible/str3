@@ -92,6 +92,12 @@ all:
         pdu-100:
           ansible_host: 10.3.155.100
           protocol: snmp
+        pdu-96:
+          ansible_host: 10.3.155.96
+          protocol: snmp
+        pdu-97:
+          ansible_host: 10.3.155.97
+          protocol: snmp
         pdu-101:
           ansible_host: 10.3.155.101
           protocol: snmp
@@ -1228,6 +1234,7 @@ sonic_dell64_40:
       serial: CN06N1J1CES0083I0007
       base_mac: d8:9e:f3:d8:50:60
       syseeprom_info:
+        "0x21": "S6100-ON"
         "0x22": "06N1J1"
         "0x23": "CN06N1J1CES0083I0007"
         "0x24": "D8:9E:F3:D8:50:60"
