@@ -94,7 +94,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
             check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
 
 
-def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, localhost,
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                                   interfaces_wait_time=MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
@@ -102,14 +102,6 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list, localhost,
     @param dut: The AnsibleHost object of DUT.
     @param interfaces: DUT's interfaces defined by minigraph
     """
-    # Here we wait for device to boot up if reboot_type is known, in this case we know
-    # it's checking intfs and services after reboot.
-    # In other cases, if caller is only shutting down some services, or, it's in some test teardown
-    # we need to call wait_for_startup before calling this function.
-    logging.info("wait for device to boot up for {}sec when reboot_type is known"
-                 .format(interfaces_wait_time))
-    if reboot_type:
-        wait_for_startup(dut, localhost, delay=10, timeout=interfaces_wait_time)
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
 
