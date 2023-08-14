@@ -1,32 +1,31 @@
 import logging
 import pytest
 
-from tests.snappi_tests.pfc.files.helper import run_pfc_test
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from .files.helper import run_pfc_test
+from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts                      # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config
+    snappi_api, snappi_testbed_config       # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list
-from tests.common.reboot import reboot
-from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.utilities import wait_until
+    lossy_prio_list                         # noqa F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [ pytest.mark.topology('tgen') ]
+pytestmark = [pytest.mark.topology('tgen')]
 
-def test_pfc_single_lossless_headroom(snappi_api,
-                                      snappi_testbed_config,
-                                      conn_graph_facts,
-                                      fanout_graph_facts,
+
+def test_pfc_single_lossless_headroom(snappi_api,                       # noqa F811
+                                      snappi_testbed_config,            # noqa F811
+                                      conn_graph_facts,                 # noqa F811
+                                      fanout_graph_facts,               # noqa F811
                                       duthosts,
                                       rand_one_dut_hostname,
                                       rand_one_dut_portname_oper_up,
                                       enum_dut_lossless_prio,
-                                      all_prio_list,
-                                      prio_dscp_map,
+                                      all_prio_list,                    # noqa F811
+                                      prio_dscp_map,                    # noqa F811
                                       enum_pfc_pause_delay_test_params):
     """
     Test headroom capacity for DUT for a single lossless priority
@@ -50,7 +49,7 @@ def test_pfc_single_lossless_headroom(snappi_api,
     """
 
     pytest_require(enum_pfc_pause_delay_test_params is not None,
-                    "Skip this testcase since pfc pause delay values have not been configured yet")
+                   "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     dut_hostname2, lossless_prio = enum_dut_lossless_prio.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname == dut_hostname2,
@@ -66,10 +65,13 @@ def test_pfc_single_lossless_headroom(snappi_api,
     bg_prio_list.remove(lossless_prio)
 
     """ Populate headroom test params """
-    _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split('|')
+    _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split(
+        '|')
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.headroom_test_params = headroom_test_params
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -84,19 +86,19 @@ def test_pfc_single_lossless_headroom(snappi_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 headroom_test_params=headroom_test_params)
+                 snappi_extra_params=snappi_extra_params)
 
 
-def test_pfc_pause_multi_lossless_headroom(snappi_api,
-                                           snappi_testbed_config,
-                                           conn_graph_facts,
-                                           fanout_graph_facts,
+def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa F811
+                                           snappi_testbed_config,       # noqa F811
+                                           conn_graph_facts,            # noqa F811
+                                           fanout_graph_facts,          # noqa F811
                                            duthosts,
                                            rand_one_dut_hostname,
                                            rand_one_dut_portname_oper_up,
-                                           lossless_prio_list,
-                                           lossy_prio_list,
-                                           prio_dscp_map,
+                                           lossless_prio_list,          # noqa F811
+                                           lossy_prio_list,             # noqa F811
+                                           prio_dscp_map,               # noqa F811
                                            enum_pfc_pause_delay_test_params):
     """
     Test headroom capacity for DUT for multiple lossless priorities
@@ -120,7 +122,7 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
     """
 
     pytest_require(enum_pfc_pause_delay_test_params is not None,
-                    "Skip this testcase since pfc pause delay values have not been configured yet")
+                   "Skip this testcase since pfc pause delay values have not been configured yet")
     dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
     pytest_require(rand_one_dut_hostname == dut_hostname,
                    "Port is not mapped to the expected DUT")
@@ -132,10 +134,13 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
     bg_prio_list = lossy_prio_list
 
     """ Populate headroom test params """
-    _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split('|')
+    _, pfc_pause_delay_str, headroom_test_result_str = enum_pfc_pause_delay_test_params.split(
+        '|')
     pfc_pause_delay = int(pfc_pause_delay_str)
     headroom_test_result = True if headroom_test_result_str == 'True' else False
     headroom_test_params = [pfc_pause_delay, headroom_test_result]
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.headroom_test_params = headroom_test_params
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -150,4 +155,4 @@ def test_pfc_pause_multi_lossless_headroom(snappi_api,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True,
-                 headroom_test_params=headroom_test_params)
+                 snappi_extra_params=snappi_extra_params)

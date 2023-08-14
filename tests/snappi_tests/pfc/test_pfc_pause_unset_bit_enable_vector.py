@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.snappi_tests.pfc.files.helper import run_pfc_test
+from files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts # noqa F401
@@ -9,6 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_testbed_config # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list # noqa F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,9 @@ def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossless_prio)
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.set_pfc_class_enable_vec = False
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -69,7 +73,7 @@ def test_pfc_unset_cev_single_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 set_class_enable_vec=False)
+                 snappi_extra_params=snappi_extra_params)
 
 
 def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
@@ -110,6 +114,9 @@ def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
     test_prio_list = lossless_prio_list
     bg_prio_list = lossy_prio_list
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.set_pfc_class_enable_vec = False
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
@@ -123,4 +130,4 @@ def test_pfc_unset_cev_multi_prio(snappi_api, # noqa F811
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
-                 set_class_enable_vec=False)
+                 snappi_extra_params=snappi_extra_params)
