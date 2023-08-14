@@ -46,7 +46,8 @@ PARENT_ID1 = "13410203"
 PARENT_ID2 = "16726166"
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
 ICM_NUMBER_THRESHOLD = 9
-INCLUDED_BRANCH = ["20201231", "master", "internal", "20220531"]
+INCLUDED_BRANCH = ["20201231", "20220531", "20230531", "master", "internal", ]
+RELEASE_BRANCH = ['20201231', '20220531', '20230531']
 
 TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
 if not TOKEN:
@@ -546,6 +547,7 @@ class BasicAnalyzer(object):
         logger.info(
             "====== initiate target parent relationships into memory list ======")
         # self.init_parent_relations2list([PARENT_ID1, PARENT_ID2])
+        self.collect_sonic_nightly_ado()
         logger.info(
             "Found {} work items for sonic-nightly.".format(len(self.child_standby_list)))
 
@@ -638,6 +640,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         self.platform_limit = self.config_info['icm_limitation']['platform_limit']
         self.icm_20201231_limit = self.config_info['icm_limitation']['icm_20201231_limit']
         self.icm_20220531_limit = self.config_info['icm_limitation']['icm_20220531_limit']
+        self.icm_20230531_limit = self.config_info['icm_limitation']['icm_20230531_limit']
         self.icm_master_limit = self.config_info['icm_limitation']['icm_master_limit']
         self.max_icm_count_per_module = self.config_info['icm_limitation']['max_icm_count_per_module']
         self.active_icm_list, self.icm_count_dict = self.analyze_active_icm()
@@ -832,6 +835,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         count_general = 0
         count_202012 = 0
         count_202205 = 0
+        count_202305 = 0
         count_master = 0
 
         logger.info("limit the number of setup error cases to {}".format(
@@ -844,6 +848,8 @@ class GeneralAnalyzer(BasicAnalyzer):
             self.icm_20201231_limit))
         logger.info("limit the number of 20220531 cases to {}".format(
             self.icm_20220531_limit))
+        logger.info("limit the number of 20230531 cases to {}".format(
+            self.icm_20230531_limit))
         logger.info("limit the number of master cases to {}".format(
             self.icm_master_limit))
 
@@ -929,18 +935,25 @@ class GeneralAnalyzer(BasicAnalyzer):
                                 self.failure_limit, candidator['subject']))
                             candidator['trigger_icm'] = False
                             break
-                    elif failure_type == "202012":
+                    elif failure_type == "20201231":
                         count_202012 += 1
                         if count_202012 > self.icm_20201231_limit:
                             logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
                                 self.icm_20201231_limit, candidator['subject']))
                             candidator['trigger_icm'] = False
                             break
-                    elif failure_type == "202205":
+                    elif failure_type == "20220531":
                         count_202205 += 1
                         if count_202205 > self.icm_20220531_limit:
                             logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
                                 self.icm_20220531_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            break
+                    elif failure_type == "20230531":
+                        count_202305 += 1
+                        if count_202305 > self.icm_20230531_limit:
+                            logger.info("Reach the limit of 202305 case: {}, ignore this IcM {}".format(
+                                self.icm_20230531_limit, candidator['subject']))
                             candidator['trigger_icm'] = False
                             break
                     elif failure_type == "master":
@@ -971,6 +984,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         rearranged_icm_list = []
         icm_202012 = []
         icm_202205 = []
+        icm_202305 = []
         icm_internal = []
         icm_master = []
 
@@ -980,17 +994,20 @@ class GeneralAnalyzer(BasicAnalyzer):
                 icm_202012.append(icm)
             elif icm['branch'] == '202205':
                 icm_202205.append(icm)
+            elif icm['branch'] == '202305':
+                icm_202305.append(icm)
             elif icm['branch'] == 'master':
                 icm_master.append(icm)
             else:
                 icm_internal.append(icm)
         logger.info("There are {} IcMs in 202012 branch".format(len(icm_202012)))
         logger.info("There are {} IcMs in 202205 branch".format(len(icm_202205)))
+        logger.info("There are {} IcMs in 202305 branch".format(len(icm_202305)))
         logger.info("There are {} IcMs in master branch".format(len(icm_master)))
         logger.info("There are {} IcMs in internal branch".format(len(icm_internal)))
 
         # Get upload times
-        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
+        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
 
         # Every branch can upload up to ICM_NUMBER_THRESHOLD IcMs
         for i in range(upload_times):
@@ -1000,6 +1017,8 @@ class GeneralAnalyzer(BasicAnalyzer):
                     temp_icm_list.append(icm_202012.pop(0))
                 if len(icm_202205) > 0:
                     temp_icm_list.append(icm_202205.pop(0))
+                if len(icm_202305) > 0:
+                    temp_icm_list.append(icm_202305.pop(0))
                 if len(icm_master) > 0:
                     temp_icm_list.append(icm_master.pop(0))
                 if len(icm_internal) > 0:
@@ -1392,7 +1411,7 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         # hwsku_topo_results = self.calculate_combined_success_rate(case_branch_df, 'hwsku_topo')
 
-        if branch in ['20201231', '20220531']:
+        if branch in RELEASE_BRANCH:
             # branch_df = case_branch_df[case_branch_df['BranchName'] == branch]
             # latest_osversion = branch_df['OSVersion'].max()
             # branch_df = branch_df[branch_df['OSVersion'] == latest_osversion]
@@ -1412,7 +1431,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             # hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
             # "_" + latest_row['TopologyType']
             os_results["latest_failure_os_version"] = latest_row['OSVersion']
-            if branch in ['20201231', '20220531']:
+            if branch in RELEASE_BRANCH:
                 hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
                     "_" + latest_row['OSVersion']
             latest_failure_timestamp_ori = latest_row['UploadTimestamp']
@@ -1439,7 +1458,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         history_testcases[test_case_branch]['per_asic_info'] = asic_results
         history_testcases[test_case_branch]['per_hwsku_info'] = hwsku_results
         # history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
-        if branch in ['20201231', '20220531']:
+        if branch in RELEASE_BRANCH:
             history_testcases[test_case_branch]['per_hwsku_osversion_info'] = hwsku_osversion_results
         history_testcases[test_case_branch]['per_os_version_info'] = os_results
 
@@ -1593,7 +1612,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        if branch in ['20201231', '20220531']:
+        if branch in RELEASE_BRANCH:
             kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
         kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
@@ -1655,7 +1674,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             keywords = [case_name]
             keywords.extend(kusto_row_data['module_path'].split("."))
             tag = ''
-            if branch in ['20220531', '20201231']:
+            if branch in RELEASE_BRANCH:
                 consistent_failure_os_version = kusto_row_data[
                     'per_os_version_info']["consistent_failure_os_version"]
                 if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
@@ -1732,7 +1751,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             kusto_table.append(kusto_row_data)
         else:
             # Step 2. Check if every os version has success rate lower than threshold
-            # For one specific os version, for 20201231 and 20220531, only check its success rate when total case is higher than 3,
+            # For one specific os version, for release branches, only check its success rate when total case is higher than 3,
             # for internal and master, only check its success rate when total case is higher than 2,
             # otherwise ignore this os version.
             per_os_version_info = history_testcases[case_name_branch]["per_os_version_info"]
@@ -1746,8 +1765,8 @@ class GeneralAnalyzer(BasicAnalyzer):
                 success_rate = os_version_pass_rate.split(":")[1].strip()
                 total_number = int(success_rate.split("/")[2])
                 pass_rate = int(success_rate.split("%")[0])
-                if (internal_version and total_number > total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
-                    if pass_rate < regression_success_rate_threshold:
+                if pass_rate < regression_success_rate_threshold:
+                    if (internal_version and total_number >= total_case_minimum_internal_version) or (not internal_version and total_number > total_case_minimum_release_version):
                         # kusto_row_data['failure_level_info']['is_regression'] = True
                         kusto_row_data['trigger_icm'] = True
                         if is_module_path:
@@ -1760,10 +1779,13 @@ class GeneralAnalyzer(BasicAnalyzer):
                         logger.info("{} os_version {} success_rate {} generate one IcM.".format(
                             case_name_branch, os_version, success_rate))
                         return kusto_table
+                    else:
+                        logger.info("{} os_version {} success_rate {} total case number is lower than threshold, ignore this os version.".format(
+                            case_name_branch, os_version, success_rate))
+                        continue
                 else:
-                    logger.info("{} os_version {} success_rate {} total case number is higher than threshold, ignore this os version.".format(
-                        case_name_branch, os_version, success_rate))
-                    continue
+                    logger.info("{} os_version {} success_rate {} is higher than threshold, ignore this os version.".format(
+                            case_name_branch, os_version, success_rate))
 
             # Step 3. Check asic level
             per_asic_info = history_testcases[case_name_branch]["per_asic_info"]
@@ -1847,7 +1869,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     case_name_branch, len(kusto_table)))
                 return kusto_table
             # Step 5. Check hwsku_osversion level for release branches
-            if branch in ['20201231', '20220531']:
+            if branch in RELEASE_BRANCH:
                 # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion = branch_df['OSVersion'].max()
@@ -1898,7 +1920,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     case_name_branch, len(kusto_table)))
                 return kusto_table
             # # Step 6. Check hwsku_topo level for release branches
-            # if branch in ['20201231', '20220531']:
+            # if branch in RELEASE_BRANCH:
             #     per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
 
             #     for hwsku_topo_pass_rate in per_hwsku_topo_info["success_rate"]:
@@ -2135,23 +2157,22 @@ def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_e
             excluse_failure_dict[key] = failure_info[key]
     logger.info(json.dumps(excluse_failure_dict, indent=4))
 
-    new_icm_table_202012, duplicated_icm_table_202012, failure_info_202012 = general.run_failure(
-        "20201231", exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
+    # Since master pipelines run less, add master into release branch for surfacing more failures
+    branches_wanted = RELEASE_BRANCH + ['master']
+    branches_wanted_dict = {}
+    for branch in branches_wanted:
+        branches_wanted_dict['branch'] = branch
+        new_icm_table, duplicated_icm_table, failure_info = general.run_failure(
+            branch, exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
+        branches_wanted_dict[branch] = {}
+        branches_wanted_dict[branch]["new_icm_table"] = new_icm_table
+        branches_wanted_dict[branch]["duplicated_icm_table"] = duplicated_icm_table
+        branches_wanted_dict[branch]["failure_info"] = failure_info
 
-    new_icm_table_202205, duplicated_icm_table_202205, failure_info_202205 = general.run_failure(
-        "20220531", exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
-
-    new_icm_table_master, duplicated_icm_table_master, failure_info_master = general.run_failure(
-        "master", exclude_error_module_failures=excluse_setup_error_dict, exclude_common_summary_failures=excluse_common_summary_dict, exclude_case_failures=excluse_failure_dict)
-
-    logger.info("=================Exclude the following cases for 20201231 branch=================")
-    logger.info(json.dumps(failure_info_202012, indent=4))
-
-    logger.info("=================Exclude the following cases for 20220531 branch=================")
-    logger.info(json.dumps(failure_info_202205, indent=4))
-
-    logger.info("=================Exclude the following cases for master branch=================")
-    logger.info(json.dumps(failure_info_master, indent=4))
+    for branch in branches_wanted:
+        logger.info("=================Exclude the following cases for {} branch=================".format(
+            branch))
+        logger.info(json.dumps(branches_wanted_dict[branch]["failure_info"], indent=4))
 
     logger.info("=================Setup error cases=================")
     logger.info("Found {} IcM for setup error cases".format(
@@ -2183,43 +2204,24 @@ def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_e
     for index, case in enumerate(failure_duplicated_icm_table):
         logger.info("{}: {}".format(index + 1, case['subject']))
 
-    logger.info("=================202012 failure cases=================")
-    logger.info("Found {} IcM for 202012 failure cases".format(
-        len(new_icm_table_202012)))
-    for index, case in enumerate(new_icm_table_202012):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for 202012 failure cases".format(
-        len(duplicated_icm_table_202012)))
-    for index, case in enumerate(duplicated_icm_table_202012):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    logger.info("=================202205 failure cases=================")
-    logger.info("Found {} IcM for 202205 failure cases".format(
-        len(new_icm_table_202205)))
-    for index, case in enumerate(new_icm_table_202205):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for 202205 failure cases".format(
-        len(duplicated_icm_table_202205)))
-    for index, case in enumerate(duplicated_icm_table_202205):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
-    logger.info("=================master failure cases=================")
-    logger.info("Found {} IcM for master failure cases".format(
-        len(new_icm_table_master)))
-    for index, case in enumerate(new_icm_table_master):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-    logger.info("Found {} duplicated IcM for master failure cases".format(
-        len(duplicated_icm_table_master)))
-    for index, case in enumerate(duplicated_icm_table_master):
-        logger.info("{}: {}".format(index + 1, case['subject']))
-
+    for branch in branches_wanted:
+        logger.info("================={} failure cases=================".format(
+            branch))
+        logger.info("Found {} IcM for {} failure cases".format(
+            len(branches_wanted_dict[branch]["new_icm_table"]), branch))
+        for index, case in enumerate(branches_wanted_dict[branch]["new_icm_table"]):
+            logger.info("{}: {}".format(index + 1, case['subject']))
+        logger.info("Found {} duplicated IcM for {} failure cases".format(
+            len(branches_wanted_dict[branch]["duplicated_icm_table"]), branch))
+        for index, case in enumerate(branches_wanted_dict[branch]["duplicated_icm_table"]):
+            logger.info("{}: {}".format(index + 1, case['subject']))
 
     origin_data = [
-        {"table": failure_new_icm_table, "type": "general"},
-        {"table": new_icm_table_202012, "type": "202012"},
-        {"table": new_icm_table_202205, "type": "202205"},
-        {"table": new_icm_table_master, "type": "master"},
+        {"table": failure_new_icm_table, "type": "general"}
     ]
+    for branch in branches_wanted:
+        origin_data.append(
+            {"table": branches_wanted_dict[branch]["new_icm_table"], "type": branch})
     final_error_list, final_failure_list, uploading_dupplicated_list = general.deduplication(
         setup_error_new_icm_table, common_summary_new_icm_table, origin_data)
     logger.info(
@@ -2236,8 +2238,11 @@ def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_e
     for index, case in enumerate(uploading_dupplicated_list):
         logger.info("{}: {}".format(index + 1, case['subject']))
 
+    duplicated_icm_table_wanted = []
+    for branch in branches_wanted:
+        duplicated_icm_table_wanted += branches_wanted_dict[branch]["duplicated_icm_table"]
     duplicated_icm_table = setup_error_duplicated_icm_table + common_summary_duplicated_icm_table + failure_duplicated_icm_table + \
-        duplicated_icm_table_202012 + duplicated_icm_table_202205 + duplicated_icm_table_master + uploading_dupplicated_list
+        duplicated_icm_table_wanted + uploading_dupplicated_list
     logger.info(
         "=================After deduplication, total duplicated IcMs=================")
     logger.info("Total duplicated cases {}".format(len(duplicated_icm_table)))
