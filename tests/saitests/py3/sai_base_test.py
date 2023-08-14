@@ -168,7 +168,7 @@ class ThriftInterface(BaseTest):
         return stdOut, stdErr, retValue
 
     def sai_thrift_port_tx_enable(self, client, asic_type, port_list, target='dst', last_port=True):
-        inc = 0
+        count = 0
         sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
             # need to enable watchdog on the source asic using cint script
@@ -177,21 +177,23 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            if retValue != 0:
+            if retValue != 0 or 'Success rv = 0' not in stdOut[1]:
                 # Retry credit-wd command max 3 times on failure
-                while inc < 3 and retValue != 0:
+                while count < 3:
                     print("Retrying credit_wd_enable")
                     time.sleep(5)
                     stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
                                                                     self.test_params['dut_username'],
                                                                     self.test_params['dut_password'],
                                                                     cmd)
-                    inc += 1
+                    if stdOut and 'Success rv = 0' in stdOut[1]:
+                        break
+                    count += 1
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0,\
                 "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
     def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst'):
-        inc = 0
+        count = 0
         if self.platform_asic and self.platform_asic == "broadcom-dnx":
             # need to enable watchdog on the source asic using cint script
             cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog disable\"".format(self.src_asic_index)
@@ -199,16 +201,18 @@ class ThriftInterface(BaseTest):
                                                             self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             cmd)
-            if retValue != 0:
+            if retValue != 0 or 'Success rv = 0' not in stdOut[1]:
                 # Retry credit-wd command max 3 times on failure
-                while inc < 3 and retValue != 0:
+                while count < 3:
                     print("Retrying credit_wd_enable")
                     time.sleep(5)
                     stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip,
                                                                     self.test_params['dut_username'],
                                                                     self.test_params['dut_password'],
                                                                     cmd)
-                    inc += 1
+                    if stdOut and 'Success rv = 0' in stdOut[1]:
+                        break
+                    count += 1
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0, \
                 "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
