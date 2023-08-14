@@ -121,9 +121,9 @@ bgp/test_bgp_suppress_fib.py:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported topology backend."
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or 't2' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
