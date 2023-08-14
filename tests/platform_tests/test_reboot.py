@@ -87,8 +87,6 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
     REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
-    # wait for dut to come back before checking critical processes/intfs
-    wait_for_startup(dut, localhost, delay=10, timeout=800)
     check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
     if dut.is_supervisor_node():
         for lc in duthosts.frontend_nodes:
