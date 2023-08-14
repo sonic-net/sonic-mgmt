@@ -5,6 +5,12 @@ from spytest import st, SpyTestDict, cutils
 from spytest.tgen_api import get_chassis
 from spytest.tgen_api import is_soft_tgen
 
+_latest_log_msg = ""
+
+
+def get_latest_log_msg():
+    return _latest_log_msg
+
 
 def _log_call(fname, **kwargs):
     args_list = []
@@ -238,6 +244,8 @@ def _log_validation(cmsg, result, exp_val, real_rx_val, diff, strelem=None, fpel
     if fpelem:
         msg = msg + " filter param: {} value: {}".format(fpelem, fvelem)
     st.log(msg)
+    global _latest_log_msg
+    _latest_log_msg = msg
 
 
 def _verify_aggregate_stats(tr_details, **kwargs):
