@@ -24,7 +24,7 @@ def downstream_links(duthost, tbinfo):
 
     def filter(interface, neighbor, mg_facts, tbinfo):
         if ((tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"])
-                or (tbinfo["topo"]["type"] == "t2" and "T1" in neighbor["name"])):
+                or (tbinfo["topo"]["type"] == "t1" and "T0" in neighbor["name"])):
             port = mg_facts["minigraph_neighbors"][interface]["port"]
             links[interface] = {
                 "name": neighbor["name"],
@@ -52,7 +52,7 @@ def upstream_links(duthost, tbinfo, nbrhosts):
 
     def filter(interface, neighbor, mg_facts, tbinfo):
         if ((tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"])
-                or (tbinfo["topo"]["type"] == "t2" and "T3" in neighbor["name"])):
+                or (tbinfo["topo"]["type"] == "t1" and "T2" in neighbor["name"])):
             for item in mg_facts["minigraph_bgp"]:
                 if item["name"] == neighbor["name"]:
                     if isinstance(ip_address(item["addr"]), IPv4Address):
@@ -112,6 +112,10 @@ def apply_dscp_cfg_teardown(duthost):
     """
     for asic_id in duthost.get_frontend_asic_ids():
         swss = 'swss{}'.format(asic_id if asic_id is not None else '')
+        file_exists = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
+                                    .format(swss))["rc"] == 0
+        if not file_exists:
+            continue
         cmds = [
             'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
             .format(swss)
