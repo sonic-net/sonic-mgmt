@@ -511,7 +511,6 @@ def compare_crm_facts(left, right):
     for k, v in list(left_acl_group.items()):
         lv = v
         rv = right_acl_group[k]
-
     
         # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
         # Hence, the available counter may not increase as per initial value.
