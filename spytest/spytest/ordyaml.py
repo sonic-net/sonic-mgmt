@@ -1,9 +1,11 @@
+import re
 import os
 import copy
 import yaml
 
 from spytest.dicts import SpyTestDict
 import utilities.common as utils
+from utilities.profile import get_cache, set_cache
 
 
 class NoAliasDumper(yaml.SafeDumper):
@@ -25,17 +27,23 @@ class OrderedYaml(object):
     def _load(self, stream, file_dict=dict(), Loader=yaml.Loader,
               object_pairs_hook=SpyTestDict):
         def _yaml_include(loader, node):
-            filename = self._locate(node.value)
-            if not filename:
+            file_path = self._locate(node.value)
+            if not file_path:
                 msg = "Failed to locate included file '{}'".format(node.value)
                 self.errs.append(msg)
                 return None
-            file_dict[filename] = 1
-            with utils.open_file(filename) as inputfile:
-                rv = yaml.load(inputfile, Loader)
+            file_dict[file_path] = 1
+            rv = get_cache("ordyaml.include", file_path, None)
+            if rv:
                 if not self.expand_include:
-                    return self._add_include_map(node, rv)
+                    rv = self._add_include_map(node, rv)
                 return rv
+            text = self.read_file(file_path)
+            rv = yaml.load(text, Loader)
+            set_cache("ordyaml.include", file_path, rv)
+            if not self.expand_include:
+                rv = self._add_include_map(node, rv)
+            return rv
 
         def _construct_mapping(loader, node):
             loader.flatten_mapping(node)
@@ -106,17 +114,34 @@ class OrderedYaml(object):
         else:
             self.init_content(content)
 
-    def init_content(self, content):
+    def init_content(self, content, for_file=None):
         all_files = dict()
         try:
             self.text0 = content
-            self.obj = self._load(self.text0, all_files, yaml.SafeLoader)
-            self.text1 = self._dump(self.obj)
+            rv1 = get_cache("ordyaml.init_content.load", for_file, None) if for_file else None
+            rv2 = get_cache("ordyaml.init_content.dump", for_file, None) if for_file else None
+            if None not in [rv1, rv2]:
+                self.obj = copy.deepcopy(rv1)
+                self.text1 = copy.deepcopy(rv2)
+            else:
+                self.obj = self._load(self.text0, all_files, yaml.SafeLoader)
+                self.text1 = self._dump(self.obj)
+                set_cache("ordyaml.init_content.load", for_file, self.obj)
+                set_cache("ordyaml.init_content.dump", for_file, self.text1)
             self.valid = True
             return all_files
         except Exception as e:
             self.errs.append(e)
             raise (e)
+
+    def read_file(self, file_path):
+        fh = utils.open_file(file_path)
+        if not fh:
+            return None
+        text = fh.read()
+        text = re.sub(r"[\"|']!include (.*).yaml[\"|']", r"!include \1.yaml", text)
+        fh.close()
+        return text
 
     def init_file(self, filename, paths=[]):
         self._init_paths(filename, paths)
@@ -124,14 +149,15 @@ class OrderedYaml(object):
         if not file_path:
             self.errs.append("File {} not found".format(filename))
             return None
-        fh = utils.open_file(file_path)
-        if not fh:
-            self.errs.append("Failed to open {}".format(filename))
-            return None
         try:
-            text0 = fh.read()
-            fh.close()
-            self.all_files = self.init_content(text0)
+            text = get_cache("ordyaml.init", file_path, None)
+            if text is None:
+                text = self.read_file(file_path)
+                if text is None:
+                    self.errs.append("Failed to open {}".format(filename))
+                    return None
+                set_cache("ordyaml.init", file_path, text)
+            self.all_files = self.init_content(text, file_path)
             self.all_files[file_path] = 1
             return file_path
         except Exception as e:

@@ -9,14 +9,14 @@ if bundled_parser:
     vendor_dir = os.path.join(os.path.dirname(__file__), '..', "vendor")
     sys.path.insert(0, os.path.abspath(vendor_dir))
 
-import textfsm # noqa: E402
+import textfsm  # noqa: E402
 try:
     import clitable
 except Exception:
     from textfsm import clitable
 
-from spytest import env # noqa: E402
-import utilities.common as utils # noqa: E402
+from spytest import env  # noqa: E402
+import utilities.common as utils  # noqa: E402
 
 
 class Template(object):
@@ -51,6 +51,14 @@ class Template(object):
                 return cli_table.index.index[row_idx]['Template']
         return None
 
+    def get_table(self, cmd):
+        attrs = dict(Command=cmd)
+        for cli_table in self.cli_tables.values():
+            row_idx = cli_table.index.GetRowMatch(attrs)
+            if row_idx != 0:
+                return cli_table
+        return None
+
     # retrieve template and sample file given the command
     def read_sample(self, cmd):
         tmpl_file = self.get_tmpl(cmd)
@@ -81,16 +89,18 @@ class Template(object):
             attrs["Platform"] = self.platform
         if self.cli:
             attrs["cli"] = self.cli
-        try:
-            tmpl_file = self.get_tmpl(cmd)
-            if not tmpl_file:
-                raise ValueError('Unknown command "%s"' % (cmd))
-            for cli_table in self.cli_tables.values():
-                cli_table.ParseCmd(output, attrs)
-                objs = self.result(cli_table.header, cli_table)
-                return [tmpl_file, objs]
-        except clitable.CliTableError as e:
-            raise ValueError('Unable to parse command "%s" - %s' % (cmd, str(e)))
+
+        tmpl_file = self.get_tmpl(cmd)
+        if not tmpl_file:
+            raise ValueError('Unknown command "%s"' % (cmd))
+
+        cli_table = self.get_table(cmd)
+        if not cli_table:
+            raise ValueError('Unable to parse command "%s"' % (cmd))
+
+        cli_table.ParseCmd(output, attrs)
+        objs = self.result(cli_table.header, cli_table)
+        return [tmpl_file, objs]
 
     def result(self, header, rows):
         objs = []

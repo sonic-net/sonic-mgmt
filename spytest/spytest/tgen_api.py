@@ -4,6 +4,11 @@ def get_counter_name(mode, tg_type, comp_type, direction):
     return tgen_utils.get_counter_name(mode, tg_type, comp_type, direction)
 
 
+def get_latest_log_msg():
+    from spytest.tgen import tgen_utils
+    return tgen_utils.get_latest_log_msg()
+
+
 def validate_tgen_traffic(**kwargs):
     from spytest.tgen import tgen_utils
     return tgen_utils.validate_tgen_traffic(**kwargs)
@@ -175,6 +180,14 @@ def send_verify_traffic(tg, stream, ph_rx, ph_tx, tolerance, stop_time=5, run_ti
         if percent_rx > (0 - tolerance):
             return st.error("Unexpected RX {}/{}".format(percent_rx, (0 - tolerance)))
     return None
+
+
+def report_traffic_verification_fail(msgid=None, line=None):
+    from spytest import st
+    from utilities.common import get_line_number
+    msgid = msgid or "failed_traffic_verification"
+    line = line or get_line_number(1)
+    st.report_fail(msgid, "{} @{}".format(get_latest_log_msg(), line))
 
 
 def get_min(v1, v2):

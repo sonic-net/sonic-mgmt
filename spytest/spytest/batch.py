@@ -23,6 +23,9 @@ from spytest.st_time import parse as time_parse
 from spytest.version import get_git_ver
 import utilities.common as utils
 import utilities.parallel as putils
+from utilities.profile import cprofile_start
+from utilities.profile import cprofile_stop
+from utilities.profile import dbg_cache
 # from utilities.tracer import Tracer
 
 
@@ -38,6 +41,7 @@ def batch_init_env(wa):
 def batch_init():
     # Tracer.register(trace_calls, "batch", include=os.path.abspath(__file__))
     wa = SpyTestDict()
+    wa.start_time = get_timenow()
     wa.j2dict = SpyTestDict()
     wa.context = None
     wa.get_gw_name = {}
@@ -153,15 +157,22 @@ def is_deadnode_recovery():
 
 
 def ftrace(msg):
+    if env.match("SPYTEST_LOGS_TIME_FMT_ELAPSED", "1", "0"):
+        prefix = "{}: ".format(get_elapsed(wa.start_time, True))
+    else:
+        prefix = "{}: ".format(get_timestamp())
+    # prefix = "{} {}".format(get_worker_id(), prefix)
+    # prefix = "{} {}".format(os.getpid(), prefix)
+    if msg:
+        msg = utils.augment_lines(msg, prefix)
     if wa.logs_path:
         if not wa.trace_file:
             wa.trace_file = os.path.join(wa.logs_path, "batch_debug.log")
             utils.write_file(wa.trace_file, "")
         if msg:
-            prefix = "{}: ".format(get_timestamp())
-            # prefix = "{} {}".format(get_worker_id(), prefix)
-            # prefix = "{} {}".format(os.getpid(), prefix)
-            utils.write_file(wa.trace_file, "{}{}\n".format(prefix, msg), "a")
+            utils.write_file(wa.trace_file, msg, "a", "\n")
+    if msg and wa.debug_level >= 100:
+        print(msg)
 
 
 def debug(*args, **kwargs):
@@ -220,7 +231,7 @@ def check_worker_status(node_modules, collection):
             if not worker.started:
                 continue
             if worker.last_report:
-                elapsed = get_elapsed(worker.last_report, False)
+                elapsed = get_elapsed(worker.last_report)
             else:
                 elapsed = 0
             try:
@@ -1206,14 +1217,16 @@ class SpyTestScheduling(object):
 
 
 def _show_testbed_topo(show=True):
-    header = ["Node", "Topology"]
-    rows = []
+    header, rows = ["Node", "Topology"], []
+    lines = utils.banner("TOPOLOGY", func="").strip().split("\n")
     for worker in wa.workers.values():
         topo = worker.tb_obj.get_topo()
         rows.append([worker.name, topo])
+        lines.append("{:5s} = {}".format(worker.name, topo))
     retval = utils.sprint_vtable(header, rows)
     if show:
-        trace(retval)
+        # trace(retval)
+        trace("\n".join(lines))
     return retval
 
 
@@ -2305,6 +2318,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
 
     # create testbed objects for testbed files
     trace("============> Parsing Testbed files")
+    cprofile_start()
     for testbed in testbeds:
         # wa.logger = wa.logger or logging.getLogger()
         tb = Testbed(testbed, logger=wa.logger, flex_dut=True)
@@ -2315,6 +2329,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
         # trace("Testbed: {}".format(testbed))
         # trace("  Devices: {}".format(tb.get_device_names("DUT")))
         tb_objs.append(tb)
+    cprofile_stop(os.path.join(logs_path, "batch_profile_parse_testbed"))
 
     # initialize collected lists
     for key in ["testbeds", "buckets", "min_buckets", "parent_testbeds", "testbed_objs"]:
@@ -2334,6 +2349,7 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
             wa.parent_testbeds.append(parent_testbed)
 
     trace("============> Parse Bucket Testbed files")
+    cprofile_start()
     for testbed in wa.testbeds:
         fname = os.path.basename(testbed)
         tb = Testbed(testbed, logger=wa.logger, flex_dut=True)
@@ -2344,6 +2360,9 @@ def parse_buckets(count, testbeds, buckets_csv, logs_path):
         msg = "Topology({}): {}"
         trace(msg.format(fname, tb.get_topo()))
         wa.testbed_objs.append(tb)
+    cprofile_stop(os.path.join(logs_path, "batch_profile_buckets"))
+    if wa.debug_level >= 100:
+        dbg_cache()
 
     wa.workers.clear()
     wa.testbed_count = len(wa.testbeds)
