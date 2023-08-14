@@ -42,11 +42,13 @@ NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
 
+
 def is_tcpdump_running(duthost, cmd):
     check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
     if cmd in duthost.shell(check_cmd)['stdout']:
         return True
     return False
+
 
 @contextlib.contextmanager
 def log_bgp_updates(duthost, iface, save_path, ns):
