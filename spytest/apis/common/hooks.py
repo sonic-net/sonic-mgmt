@@ -1,185 +1,255 @@
-import re
+from spytest import st, env
 
-from spytest import st
-
-from apis.system import port, basic, ntp
-from apis.system import logging, interface, reboot
-from apis.common import checks, verifiers
-from apis.common import redis
-from apis.common import base_config
-from apis.switching import mac
 
 class Hooks(object):
 
-    def get_vars(self, dut):
+    def __init__(self):
+        self.cache = {}
 
-        # try to read the version info
-        for _ in range(3):
+    def _impl(self, dut):
+        if not dut:
+            for d in self.cache:
+                if d:
+                    dut = d
+                    break
+        if dut not in self.cache:
+            def_dtype = env.get("SPYTEST_DEFAULT_DEVICE_TYPE", "sonic")
             try:
-                version_data = self.show_version(dut)
-                break
+                if not dut:
+                    dtype = def_dtype
+                else:
+                    dtype = st.get_device_type(dut)
             except Exception:
-                st.error("Failed to read version info")
-                version_data = ""
-                st.wait(1)
-                continue
+                dtype, dut = def_dtype, None
+            if dtype in ["fastpath", "icos"]:
+                from apis.common.fastpath_hooks import FastpathHooks
+                self.cache[dut] = FastpathHooks()
+            elif dtype in ["linux"]:
+                from apis.common.linux_hooks import LinuxHooks
+                self.cache[dut] = LinuxHooks()
+            elif dtype in ["poe"]:
+                from apis.common.poe_hooks import PoeHooks
+                self.cache[dut] = PoeHooks()
+            else:
+                from apis.common.sonic_hooks import SonicHooks
+                self.cache[dut] = SonicHooks()
+        return self.cache[dut]
 
-        # use default values when the show _version is failed
-        if not version_data:
-            st.error("Failed to read version info even after retries")
-            version_data = {
-                'product' : 'unknown',
-                'hwsku'   : 'unknown',
-                'version' : 'unknown',
-            }
+    def get_vars(self, dut, phase=None):
+        return self._impl(dut).get_vars(dut, phase)
 
-        retval = dict()
-        retval["product"] = version_data['product']
-        retval["hwsku"] = version_data['hwsku']
-        retval["version"] = version_data['version']
-        retval["constants"] = st.get_datastore(dut, "constants")
+    def is_kdump_supported(self, dut):
+        return self._impl(dut).is_kdump_supported(dut)
 
-        retval["redis_db_cli"] = redis.db_cli_init(dut)
+    def pre_load_image(self, dut):
+        return self._impl(dut).pre_load_image(dut)
 
-        retval["mgmt_ifname"] = st.get_mgmt_ifname(dut)
-        retval["mgmt_ipv4"] = st.get_mgmt_ip(dut)
-        try:
-            retval["mgmt_mac"] = mac.get_sbin_intf_mac(dut, retval["mgmt_ifname"])
-        except Exception:
-            retval["mgmt_mac"] = "unknown"
-
-        output = st.show(dut,'ls /etc/sonic/bcmsim.cfg',skip_tmpl=True)
-        is_vsonic = not bool(re.search(r'No such file or directory',output))
-        retval["is_vsonic"] = is_vsonic
-
-        output = st.config(dut, "fast-reboot -h", skip_error_check=True)
-        if "skip the user confirmation" in output:
-            retval["reboot-confirm"] = True
-        else:
-            retval["reboot-confirm"] = False
-
-        return retval
+    def post_cli_recovery(self, scope, dut, cmd, attempt=0):
+        return self._impl(dut).post_cli_recovery(scope, dut, cmd, attempt)
 
     def post_reboot(self, dut, is_upgrade=False):
-        if is_upgrade:
-            basic.ensure_hwsku_config(dut)
-            if st.getenv("SPYTEST_NTP_CONFIG_INIT", "0") != "0":
-                ntp.ensure_ntp_config(dut)
-        if st.getenv("SPYTEST_GENERATE_CERTIFICATE", "0") != "0":
-            basic.ensure_certificate(dut)
-        base_config.post_reboot(dut, is_upgrade=is_upgrade)
+        return self._impl(dut).post_reboot(dut, is_upgrade)
 
-    def init_base_config(self, dut):
-        base_config.init(dut)
+    def post_config_reload(self, dut):
+        return self._impl(dut).post_config_reload(dut)
 
-    def extend_base_config(self, dut):
-        base_config.extend(dut)
+    def post_login(self, dut, **kwargs):
+        return self._impl(dut).post_login(dut, **kwargs)
+
+    def post_session(self, dut):
+        return self._impl(dut).post_session(dut)
+
+    def init_config(self, dut, type, hwsku=None, profile="na"):
+        return self._impl(dut).init_config(dut, type, hwsku, profile)
+
+    def extend_config(self, dut, type, ifname_type="none"):
+        return self._impl(dut).extend_config(dut, type, ifname_type)
+
+    def verify_config(self, dut, type):
+        return self._impl(dut).verify_config(dut, type)
+
+    def save_config(self, dut, type):
+        return self._impl(dut).save_config(dut, type)
+
+    def apply_config(self, dut, phase):
+        return self._impl(dut).apply_config(dut, phase)
+
+    def clear_config(self, dut, **kwargs):
+        return self._impl(dut).clear_config(dut, **kwargs)
 
     def shutdown(self, dut, portlist):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
-        port.shutdown(dut, portlist, cli_type=cli_type)
+        return self._impl(dut).shutdown(dut, portlist)
 
     def noshutdown(self, dut, portlist):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
-        port.noshutdown(dut, portlist, cli_type=cli_type)
+        return self._impl(dut).noshutdown(dut, portlist)
 
     def get_status(self, dut, port_csv):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_STATUS_UITYPE", "click")
-        return port.get_status(dut, port_csv, cli_type=cli_type)
+        return self._impl(dut).get_status(dut, port_csv)
 
     def get_interface_status(self, dut, port_csv):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_STATUS_UITYPE", "click")
-        return port.get_interface_status(dut, port_csv, cli_type=cli_type)
+        return self._impl(dut).get_interface_status(dut, port_csv)
 
-    def show_version(self, dut):
-        cli_type = st.getenv("SPYTEST_HOOKS_VERSION_UITYPE", "click")
-        return basic.show_version(dut, cli_type=cli_type)
+    def show_version(self, dut, **kwargs):
+        return self._impl(dut).show_version(dut, **kwargs)
 
-    def get_system_status(self, dut, service=None, skip_error_check=False):
-        return basic.get_system_status(dut, service, skip_error_check)
+    def get_system_status(self, dut, service=None, **kwargs):
+        return self._impl(dut).get_system_status(dut, service, **kwargs)
 
-    def verify_topology(self, check_type, threads=True):
-        return checks.verify_topology(self, check_type, threads)
-
-    def get_verifiers(self):
-        return verifiers.get_verifiers()
+    def verify_topology(self, check_type, threads=True, skip_tgen=False):
+        return self._impl(None).verify_topology(self, check_type, threads, skip_tgen)
 
     def set_port_defaults(self, dut, breakout, speed):
-        rv1, rv2 = True, True
-        if breakout:
-            cli_type = st.getenv("SPYTEST_HOOKS_BREAKOUT_UITYPE", "klish")
-            rv1 = port.breakout(dut, breakout, cli_type=cli_type)
-        if speed:
-            cli_type = st.getenv("SPYTEST_HOOKS_SPEED_UITYPE", "")
-            rv2 = port.set_speed(dut, speed, cli_type=cli_type)
-        return bool(rv1 and rv2)
+        return self._impl(dut).set_port_defaults(dut, breakout, speed)
 
-    def set_hwsku(self, dut, hwsku):
-        return basic.set_hwsku(dut, hwsku)
+    def clear_logging(self, dut, **kwargs):
+        return self._impl(dut).clear_logging(dut, **kwargs)
 
-    def sonic_clear_logging(self, dut):
-        logging.sonic_clear(dut)
+    def fetch_syslogs(self, dut, severity=None, since=None):
+        return self._impl(dut).fetch_syslogs(dut, severity, since)
 
     def ifa_enable(self, dut):
-        st.config(dut, "ifa -config -enable -y", expect_reboot=True)
+        return self._impl(dut).ifa_enable(dut)
 
-    def ztp_disable(self, dut):
-        from apis.system.ztp import ztp_operations
-        cli_type = st.getenv("SPYTEST_HOOKS_ZTP_UITYPE", "click")
-        ztp_operations(dut, "disable", cli_type=cli_type, max_time=1200)
+    def ztp_disable(self, dut, **kwargs):
+        return self._impl(dut).ztp_disable(dut, **kwargs)
 
     def kdump_enable(self, dut):
-        cmd = "sudo show kdump status"
-        output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
-        if "Kdump Administrative Mode:  Enabled" in output and \
-           "Kdump Operational State:    Ready"   in output:
-            return False
-        st.config(dut, "config kdump enable")
-        st.config(dut, "config save -y")
-        return True
+        return self._impl(dut).kdump_enable(dut)
 
-    def upgrade_image(self, dut, url, max_time=1800, skip_error_check=False, migartion=False):
-        from apis.system.boot_up import sonic_installer_install2
-        return sonic_installer_install2(dut, url, max_time, skip_error_check, migartion)
+    def upgrade_image(self, dut, url, max_time=1800, skip_error_check=False, migartion=True):
+        return self._impl(dut).upgrade_image(dut, url, max_time, skip_error_check, migartion)
 
-    def set_mgmt_ip_gw(self, dut, ipmask, gw):
-        return basic.set_mgmt_ip_gw(dut, ipmask, gw)
+    def set_mgmt_ip_gw(self, dut, ipmask, gw, **kwargs):
+        return self._impl(dut).set_mgmt_ip_gw(dut, ipmask, gw, **kwargs)
 
-    def get_mgmt_ip(self, dut, interface):
-        return basic.get_mgmt_ip(dut, interface)
+    def get_mgmt_ip(self, dut, interface, **kwargs):
+        return self._impl(dut).get_mgmt_ip(dut, interface, **kwargs)
 
-    def renew_mgmt_ip(self, dut, interface):
-        return basic.renew_mgmt_ip(dut, interface)
+    def renew_mgmt_ip(self, dut, interface, **kwargs):
+        return self._impl(dut).renew_mgmt_ip(dut, interface, **kwargs)
 
     def upgrade_libsai(self, dut, url):
-        path = "/libsai.so"
-        st.config(dut, "sudo curl --retry 15 -o {} {}".format(path, url))
-        st.config(dut, "docker cp {} syncd:/usr/lib/libsai.so.1.0".format(path))
-        st.reboot(dut)
-        st.config(dut, "rm -f {}".format(path))
+        return self._impl(dut).upgrade_libsai(dut, url)
 
-    def config_ifname_type(self, dut, ifname_type):
-        config = "yes" if ifname_type == "alias" else "no"
-        return interface.config_ifname_type(dut, config)
+    def get_ifname_type(self, dut):
+        return self._impl(dut).get_ifname_type(dut)
+
+    def set_ifname_type(self, dut, ifname_type):
+        return self._impl(dut).set_ifname_type(dut, ifname_type)
 
     def get_physical_ifname_map(self, dut):
-        cli_type = st.getenv("SPYTEST_IFNAME_MAP_UITYPE", "click")
-        return interface.get_physical_ifname_map(dut, cli_type)
+        return self._impl(dut).get_physical_ifname_map(dut)
 
-    def set_mgmt_vrf(self, dut, mgmt_vrf):
-        return basic.set_mgmt_vrf(dut, mgmt_vrf)
+    def debug_system_status(self, dut, log_file=None):
+        return self._impl(dut).debug_system_status(dut, log_file)
 
-    def debug_system_status(self, dut):
-        st.config(dut, "ps -ef", skip_error_check=True)
-        st.config(dut, "systemctl --no-pager -a status", skip_error_check=True)
-        st.config(dut, "systemctl --no-pager list-dependencies docker.service", skip_error_check=True)
-        st.config(dut, "systemctl --no-pager list-unit-files", skip_error_check=True)
-        st.config(dut, "ls -l /var/run/docker*", skip_error_check=True)
-
-    def dut_reboot(self, dut, method='normal',cli_type=''):
-        return reboot.dut_reboot(dut, method, cli_type)
+    def dut_reboot(self, dut, **kwargs):
+        return self._impl(dut).dut_reboot(dut, **kwargs)
 
     def get_onie_grub_config(self, dut, mode):
-        from apis.system.boot_up import get_onie_grub_config
-        return get_onie_grub_config(dut, mode)
+        return self._impl(dut).get_onie_grub_config(dut, mode)
 
+    def init_features(self, fgroup, fsupp=None, funsupp=None):
+        return self._impl(None).init_features(fgroup, fsupp, funsupp)
+
+    def init_support(self, cfg, dut=None):
+        return self._impl(dut).init_support(self, cfg, dut)
+
+    def init_prompts(self, model=None, logger=None, dut=None, normal_user_mode=None):
+        return self._impl(dut).init_prompts(model, logger, normal_user_mode)
+
+    def exec_ssh_remote_dut(self, dut, ipaddress, username, password, command=None, timeout=30, **kwargs):
+        return self._impl(dut).exec_ssh_remote_dut(dut, ipaddress, username, password, command, timeout, **kwargs)
+
+    def verify_prompt(self, dut, value):
+        return self._impl(dut).verify_prompt(dut, value)
+
+    def get_base_prompt(self, dut, **kwargs):
+        return self._impl(dut).get_base_prompt(dut, **kwargs)
+
+    def get_hostname(self, dut, **kwargs):
+        return self._impl(dut).get_hostname(dut, **kwargs)
+
+    def set_hostname(self, dut, name):
+        return self._impl(dut).set_hostname(dut, name)
+
+    def verify_device_info(self, dut, phase):
+        return self._impl(dut).verify_device_info(dut, phase)
+
+    def dump_config_db(self, dut):
+        return self._impl(dut).dump_config_db(dut)
+
+    def show_sai_profile(self, dut):
+        return self._impl(dut).show_sai_profile(dut)
+
+    def is_reboot_confirm(self, dut):
+        return self._impl(dut).is_reboot_confirm(dut)
+
+    def show_dut_time(self, dut):
+        return self._impl(dut).show_dut_time(dut)
+
+    def gnmi_cert_config_ensure(self, dut):
+        return self._impl(dut).gnmi_cert_config_ensure(dut)
+
+    def get_mode(self, dut, which):
+        return self._impl(dut).get_mode(dut, which)
+
+    def get_regex(self, dut, which, *args):
+        return self._impl(dut).get_regex(dut, which, *args)
+
+    def get_default_pass(self, dut):
+        return self._impl(dut).get_default_pass(dut)
+
+    def get_templates_info(self, dut, model):
+        return self._impl(dut).get_templates_info(dut, model)
+
+    def get_custom_ui(self, dut):
+        return self._impl(dut).get_custom_ui(dut)
+
+    def get_cli_type_record(self, dut, cli_type):
+        return self._impl(dut).get_cli_type_record(dut, cli_type)
+
+    def verify_ui_support(self, dut, cli_type, cmd):
+        return self._impl(dut).verify_ui_support(dut, cli_type, cmd)
+
+    def audit(self, atype, dut, *args, **kwargs):
+        return self._impl(dut).audit(atype, dut, *args, **kwargs)
+
+    def read_syslog(self, dut, lvl, phase, name):
+        return self._impl(dut).read_syslog(dut, lvl, phase, name)
+
+    def read_core(self, dut, name):
+        return self._impl(dut).read_core(dut, name)
+
+    def read_tech_support(self, dut, name):
+        return self._impl(dut).read_tech_support(dut, name)
+
+    def read_sysinfo(self, dut, scope, name):
+        return self._impl(dut).read_sysinfo(dut, scope, name)
+
+    def get_command(self, dut, which, *args):
+        return self._impl(dut).get_command(dut, which, *args)
+
+    def check_kdump_files(self, dut):
+        return self._impl(dut).check_kdump_files(dut)
+
+    def clear_kdump_files(self, dut):
+        return self._impl(dut).clear_kdump_files(dut)
+
+    def check_core_files(self, dut):
+        return self._impl(dut).check_core_files(dut)
+
+    def clear_core_files(self, dut):
+        return self._impl(dut).clear_core_files(dut)
+
+    def save_config_db(self, dut, scope, name):
+        return self._impl(dut).save_config_db(dut, scope, name)
+
+    def save_running_config(self, dut, scope, name):
+        return self._impl(dut).save_running_config(dut, scope, name)
+
+    def verify_config_replace(self, dut, scope, res, desc):
+        return self._impl(dut).verify_config_replace(dut, scope, res, desc)
+
+    def verify_command(self, dut, cmd, cli_type):
+        return self._impl(dut).verify_command(dut, cmd, cli_type)

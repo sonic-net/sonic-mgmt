@@ -3,21 +3,20 @@ import re
 import logging
 from spytest.dicts import SpyTestDict
 from spytest.ordyaml import OrderedYaml
-import spytest.env as env
+from spytest import env
 
-prompts_root = os.path.join(os.path.dirname(__file__), '..', "datastore", "prompts")
+prompts_root = os.path.join(os.path.dirname(__file__), '..', '..', "datastore", "prompts")
+
 
 class Prompts(object):
-    """
-    todo: Update Documentation
-    """
 
-    def __init__(self, model=None, logger=None):
+    def __init__(self, model=None, logger=None, normal_user_mode=None):
         """
         Construction of Prompts object
         :param logger:
         :type logger:
         """
+        self.normal_user_mode = normal_user_mode or "normal-user"
         self.logger = logger or logging.getLogger()
         self.oyaml = None
         model = "sonic" if not model else re.sub("_(ssh|terminal)$", "", model)
@@ -25,53 +24,115 @@ class Prompts(object):
         filename = env.get("SPYTEST_PROMPTS_FILENAME", filename)
         filename = os.path.join(os.path.abspath(prompts_root), filename)
 
-        self.oyaml = OrderedYaml(filename,[])
+        self.oyaml = OrderedYaml(filename, [])
         prompts_file_data = self.oyaml.get_data() or dict()
 
+        self.normal_user_prompts = []
         self.patterns = prompts_file_data.patterns if "patterns" in prompts_file_data else SpyTestDict()
+        self.normal_user_prompt_tmpl = self.patterns.get(self.normal_user_mode)
         self.modes = prompts_file_data.modes if "modes" in prompts_file_data else SpyTestDict()
         self.required_args = prompts_file_data.required_args if "required_args" in prompts_file_data else SpyTestDict()
         self.sudo_include_prompts = prompts_file_data.sudo_include_prompts if "sudo_include_prompts" in prompts_file_data else []
         self.do_exclude_prompts = prompts_file_data.do_exclude_prompts if "do_exclude_prompts" in prompts_file_data else []
+        self.do_exclude_prompts.append(self.normal_user_mode)
 
         self.stored_values = SpyTestDict()
+        self.hostname = None
 
     def __del__(self):
         pass
 
-    def update_with_hostname(self, hostname, patterns=None):
-        patterns = self.patterns if patterns is None else patterns
-        for pattern in patterns:
-            if isinstance(patterns[pattern], dict):
-                self.update_with_hostname(hostname, patterns[pattern])
-            elif re.search(r"{}", patterns[pattern]):
-                #print("Matched Pattern: '{}' : '{}' : '{}'".format(pattern, patterns[pattern], patterns[pattern].format(hostname)))
-                patterns[pattern] = re.sub(r"{}", hostname, patterns[pattern])
+    def add_user_hostname(self, value, username=None):
+        if not self.normal_user_prompt_tmpl:
+            self.normal_user_prompts = []
+        elif not value and not username:
+            self.normal_user_prompts = []
+        else:
+            value = value or self.hostname or ""
+            value = value.split(".")[0]
+            prompt = re.sub(r"{}", value, self.normal_user_prompt_tmpl)
+            prompt = re.sub(r"{username}", username or "", prompt)
+            if prompt not in self.normal_user_prompts:
+                self.normal_user_prompts.append(prompt)
+        return self.normal_user_prompts
 
-    def get_mode(self, mode, ifname_type='native'):
+    def get_normal_user_prompts(self, index):
+        prompt = self._get_prompt_for_mode(self.normal_user_mode, index=index)
+        prompts = [prompt] if prompt else []
+        prompts.extend(self.normal_user_prompts)
+        return prompts
+
+    def set_normal_user_prompt(self, value, index):
+        self.patterns[self.normal_user_mode] = value
+        self.patterns["{}--{}".format(self.normal_user_mode, index)] = value
+
+    def update_with_hostname(self, username, hostname, index=None):
+        self.hostname = hostname
+        for pattern in self.patterns:
+            if isinstance(self.patterns[pattern], dict):
+                self.update_with_hostname(username, hostname, self.patterns[pattern])
+                continue
+            prompt = self.patterns[pattern]
+            prompt = re.sub(r"{}", hostname or "", prompt)
+            prompt = re.sub(r"{username}", username or "", prompt)
+            self.patterns[pattern] = prompt
+            if index is not None:
+                self.patterns["{}--{}".format(pattern, index)] = prompt
+        return "|".join(self.get_normal_user_prompts(index))
+
+    def _check_ifname_type(self, ifname_type):
+        return ifname_type or 'native'
+
+    def get_mode(self, mode, ifname_type=None):
+        ifname_type = self._check_ifname_type(ifname_type)
         lmode = self.modes[mode]
         if isinstance(lmode, dict):
             lmode = lmode.get(ifname_type, lmode[sorted(list(lmode.keys()))[0]])
         return lmode
 
-    def get_mode_for_prompt(self, prompt):
+    def normalize_mode(self, mode, role=None):
+        if role in ["admin", None]:
+            return mode
+        return mode.replace("vtysh", "mgmt")
+
+    def normalize_prompt(self, prompt, role=None):
+        if role in ["admin", None]:
+            return prompt
+        return prompt.replace("--sonic-mgmt--", "sonic")
+
+    def get_mode_for_prompt(self, prompt, index=0, role=None):
         prompt2 = prompt.replace("\\", "")
         for mode in self.patterns:
-            lpattern = list(self.patterns[mode].values() if isinstance(self.patterns[mode], dict) else [self.patterns[mode]])
-            for ptrn in lpattern:
+            lpattern = self.patterns[mode]
+            lpatterns = list(lpattern.values() if isinstance(lpattern, dict) else [lpattern])
+            for ptrn in lpatterns:
                 if re.search(ptrn, prompt2):
-                    return mode
+                    return self.normalize_mode(mode, role)
+        for ptrn in self.get_normal_user_prompts(index):
+            if ptrn and re.search(ptrn, prompt2):
+                return self.normal_user_mode
         return "unknown-prompt"
 
-    def get_prompt_for_mode(self, mode, ifname_type='native'):
+    def _get_prompt_for_mode(self, mode, ifname_type=None, index=0, role=None):
+        mode = self.normalize_mode(mode, role)
+        ifname_type = self._check_ifname_type(ifname_type)
         if mode in self.patterns:
-            lpattern = self.patterns[mode]
+            mode2 = "{}--{}".format(mode, index)
+            if mode2 in self.patterns:
+                lpattern = self.patterns[mode2]
+            else:
+                lpattern = self.patterns[mode]
             if isinstance(lpattern, dict):
-                return lpattern.get(ifname_type, lpattern[sorted(list(lpattern.keys()))[0]])
-            return lpattern
+                lpattern = lpattern.get(ifname_type, lpattern[sorted(list(lpattern.keys()))[0]])
+            return self.normalize_prompt(lpattern, role)
         return "unknown-mode"
 
-    def check_args_for_req_mode(self, mode, **kwargs):
+    def get_prompt_for_mode(self, mode, ifname_type=None, index=0, role=None):
+        if mode == self.normal_user_mode:
+            return "|".join(self.get_normal_user_prompts(index))
+        return self._get_prompt_for_mode(mode, ifname_type, index, role)
+
+    def check_args_for_req_mode(self, abort, mode, **kwargs):
         missing_args_flag = 0
         args_str = ""
         if mode in self.required_args:
@@ -88,7 +149,7 @@ class Prompts(object):
                 args_str = ", ".join(self.required_args[mode])
             else:
                 for arg in self.required_args[mode]:
-                    argName = arg.replace('?', '');
+                    argName = arg.replace('?', '')
                     if argName not in kwargs.keys() and not arg.startswith('?'):
                         missing_args_flag = 1
                         args_str = ", ".join(self.required_args[mode])
@@ -96,12 +157,21 @@ class Prompts(object):
 
             if missing_args_flag:
                 msg = "{} option(s) must be provided for {}.".format(args_str, mode)
+                if not abort:
+                    return msg
                 raise ValueError(msg)
-        return
+        return None
 
-    def check_move_for_parent_of_frommode(self, prompt, mode, **kwargs):
+    def check_move_for_parent_of_from_mode(self, prompt, mode, **kwargs):
         if mode == "vtysh-intf-config":
             return True
+
+        if mode == "mgmt-config":
+            if "conf_session" in kwargs:
+                return True
+
+            if "conf_terminal" in kwargs:
+                return True
 
         if mode == "vtysh-router-config":
             if "router" not in self.stored_values:
@@ -281,13 +351,13 @@ class Prompts(object):
             else:
                 return True
 
-        #if mode == "mgmt-vlan-config":
-        #    prompt2 = prompt.replace("\\", "")
-        #    intfNum = "-Vlan{})".format(kwargs["vlan"])
-        #    if intfNum in prompt2:
-        #        return False
-        #    else:
-        #        return True
+        if mode == "mgmt-subintf-config":
+            prompt2 = prompt.replace("\\", "")
+            intfNum = "-{})".format(kwargs["interface"])
+            if intfNum in prompt2:
+                return False
+            else:
+                return True
 
         if mode == "mgmt-intf-vlan-config":
             prompt2 = prompt.replace("\\", "")
@@ -297,14 +367,6 @@ class Prompts(object):
             else:
                 return True
 
-        #if mode == "mgmt-lag-config":
-        #    prompt2 = prompt.replace("\\", "")
-        #    intfNum = "-po{})".format(kwargs["portchannel"])
-        #    if intfNum in prompt2:
-        #        return False
-        #    else:
-        #        return True
-
         if mode == "mgmt-intf-po-config":
             prompt2 = prompt.replace("\\", "")
             intfNum = "-po{})".format(kwargs["portchannel"])
@@ -312,14 +374,6 @@ class Prompts(object):
                 return False
             else:
                 return True
-
-        #if mode == "mgmt-management-config":
-        #    prompt2 = prompt.replace("\\", "")
-        #    intfNum = "-eth{})".format(kwargs["management"])
-        #    if intfNum in prompt2:
-        #        return False
-        #    else:
-        #        return True
 
         if mode == "mgmt-intf-management-config":
             prompt2 = prompt.replace("\\", "")
@@ -399,8 +453,16 @@ class Prompts(object):
 
         return False
 
-    def check_move_for_parent_of_tomode(self, prompt, mode, ifname_type, **kwargs):
+    def check_move_for_parent_of_to_mode(self, prompt, mode, ifname_type, **kwargs):
         check_for_parents = False
+
+        if mode == "mgmt-config":
+            if "conf_session" in kwargs:
+                check_for_parents = True
+
+            if "conf_terminal" in kwargs:
+                check_for_parents = True
+
         if mode == "vtysh-router-config":
             if "router" not in self.stored_values:
                 self.stored_values["router"] = kwargs["router"]
@@ -629,14 +691,16 @@ class Prompts(object):
 
         return False
 
-    def get_backward_command_and_prompt(self, mode, ifname_type='native'):
+    def get_backward_command_and_prompt(self, mode, ifname_type=None):
+        ifname_type = self._check_ifname_type(ifname_type)
         if mode not in self.modes:
             return ["", ""]
         cmd = self.get_mode(mode, ifname_type)[2]
         expected_prompt = self.get_prompt_for_mode(self.get_mode(mode, ifname_type)[0], ifname_type)
         return [cmd, expected_prompt]
 
-    def get_forward_command_and_prompt_with_values(self, mode, ifname_type='native', **kwargs):
+    def get_forward_command_and_prompt_with_values(self, mode, ifname_type=None, **kwargs):
+        ifname_type = self._check_ifname_type(ifname_type)
         if mode not in self.modes:
             return ["", ""]
         cmd = self.get_mode(mode, ifname_type)[1]
@@ -649,7 +713,7 @@ class Prompts(object):
                 native_ports = [re.sub(r'.*?(\d+)', r'\1', x) for x in kwargs.get('alt_port_names', {}).keys()]
                 alias_ports = [re.sub(r'.*?(\d+/\d+)', r'\1', x) for x in kwargs.get('alt_port_names', {}).values()]
                 comp = re.split(r'([,-])', kwargs.get('range', '').replace(" ", ""))
-                #print('native_ports = {}\nalias_port = {}\ncomp = {}'.format(native_ports, alias_ports, comp))
+                # print('native_ports = {}\nalias_port = {}\ncomp = {}'.format(native_ports, alias_ports, comp))
                 for i, port in enumerate(comp):
                     if ifname_type == 'native':
                         if port in alias_ports:
@@ -662,7 +726,7 @@ class Prompts(object):
             for arg in self.required_args[mode]:
                 argName = arg.replace('?', '')
                 if argName in kwargs.keys():
-                    if mode == "mgmt-intf-config" and argName == "interface":
+                    if (mode == "mgmt-intf-config" or mode == "mgmt-subintf-config") and argName == "interface":
                         intf_value = re.sub(r"(Ethernet)", r"\1 ", kwargs[argName])
                         values.append(intf_value)
                     elif mode.startswith("mgmt-router-bgp-") and argName == "bgp_vrf_name":
@@ -674,4 +738,3 @@ class Prompts(object):
                     values.append("")
             cmd = cmd.format(*values)
         return [cmd, expected_prompt]
-
