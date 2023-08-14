@@ -16,10 +16,12 @@ log_exp = st.exception
 report_env_fail = st.report_env_fail
 show_files = False
 
+
 def log_file_content(name, content):
     log_info("============ {} ================".format(name))
     log_info(content)
     log_info("========================================")
+
 
 def verify_url(DOCKER_HOST):
     url_info = utils.parse_url(DOCKER_HOST)
@@ -34,13 +36,15 @@ def verify_url(DOCKER_HOST):
         report_env_fail("ip_verification_fail")
     return url_info["ip"]
 
+
 def next_free_port(min_port=40000, max_port=42000, used=[]):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while True:
-        if len(used) >= (max_port-min_port):
+        if len(used) >= (max_port - min_port):
             break
         port = random.randint(min_port, max_port)
-        if port in used: continue
+        if port in used:
+            continue
         used.append(port)
         try:
             addr = os.getenv("DOCKER_HOST_BIND", "")
@@ -51,6 +55,7 @@ def next_free_port(min_port=40000, max_port=42000, used=[]):
             pass
     raise IOError('no free ports')
 
+
 def init_docker_services(log=None, sf=False):
     global log_info, log_error, log_exp, report_env_fail, show_files
     log_info = log.info
@@ -58,6 +63,7 @@ def init_docker_services(log=None, sf=False):
     log_exp = log.exception
     report_env_fail = log.error
     show_files = sf
+
 
 def save_docker_files(entrypoint, dockerfile):
     temp_dir = tempfile.mkdtemp()
@@ -67,6 +73,7 @@ def save_docker_files(entrypoint, dockerfile):
     utils.write_file(os.path.join(temp_dir, "Dockerfile"), dockerfile)
     log_info("Dockerfile: {}".format(dockerfile))
     return temp_dir
+
 
 def start_container(client, tag, *port_list):
     log_info("Starting Container: {}".format(tag))
@@ -82,6 +89,7 @@ def start_container(client, tag, *port_list):
             cont = None
     return cont
 
+
 def remove_docker_container(contid, DOCKER_HOST):
 
     log_info("Removing Docker Container: {}".format(contid))
@@ -92,6 +100,7 @@ def remove_docker_container(contid, DOCKER_HOST):
     if cont:
         cont.stop()
         cont.remove()
+
 
 def cleanup_docker_containers(DOCKER_HOST, days=7):
     verify_url(DOCKER_HOST)
@@ -105,7 +114,7 @@ def cleanup_docker_containers(DOCKER_HOST, days=7):
         except Exception:
             log_error("failed to parse {}".format(date_time_str))
             continue
-        elapsed = int((now-old).total_seconds())
+        elapsed = int((now - old).total_seconds())
         if elapsed > seconds:
             log_info("Removing Docker Container {} Created {} Elapsed {}".format(cont, date_time_str, elapsed))
             cont.stop()
@@ -118,7 +127,7 @@ service ssh start
 service freeradius start
 bash
 """
-radius_username_password = ['admin','YourPaSsWoRd']
+radius_username_password = ['admin', 'YourPaSsWoRd']
 
 radius_dockerfile = r"""
 FROM ubuntu:18.04
@@ -146,9 +155,10 @@ EXPOSE 1812/udp 1813/udp
 ADD ./startup.sh /startup.sh
 
 ENTRYPOINT ["/startup.sh"]
-""".format(radius_username_password[0],radius_username_password[1])
+""".format(radius_username_password[0], radius_username_password[1])
 
 radius_docker_image_tag = "spytest-freeradius:1.4"
+
 
 def create_radius_docker_image(client):
     temp_dir = save_docker_files(radius_entrypoint, radius_dockerfile)
@@ -169,14 +179,17 @@ def create_radius_docker_image(client):
     shutil.rmtree(temp_dir)
     return retval
 
+
 def create_radius_docker_container(DOCKER_HOST):
-    radius_docker_dict={}
+    radius_docker_dict = {}
     ip = verify_url(DOCKER_HOST)
     client = docker.DockerClient(base_url=DOCKER_HOST)
 
     # create the image if not already present
-    try: client.images.get(radius_docker_image_tag)
-    except Exception: create_radius_docker_image(client)
+    try:
+        client.images.get(radius_docker_image_tag)
+    except Exception:
+        create_radius_docker_image(client)
 
     # start the container
     cont = start_container(client, radius_docker_image_tag, '22/tcp', '1812/udp', '1813/udp')
@@ -194,6 +207,7 @@ def create_radius_docker_container(DOCKER_HOST):
     radius_docker_dict['password'] = radius_username_password[1]
     return radius_docker_dict
 
+
 def remove_radius_docker_container(contid, DOCKER_HOST):
     remove_docker_container(contid, DOCKER_HOST)
 
@@ -204,7 +218,7 @@ service ssh start
 service snmptrapd start
 bash
 """
-snmptrapd_username_password = ['admin','YourPaSsWoRd']
+snmptrapd_username_password = ['admin', 'YourPaSsWoRd']
 
 snmptrapd_dockerfile = r"""
 FROM ubuntu:18.04
@@ -227,9 +241,10 @@ EXPOSE 161/udp
 ADD ./startup.sh /startup.sh
 
 ENTRYPOINT ["/startup.sh"]
-""".format(snmptrapd_username_password[0],snmptrapd_username_password[1])
+""".format(snmptrapd_username_password[0], snmptrapd_username_password[1])
 
 snmptrapd_docker_image_tag = "spytest-snmptrapd:1.0"
+
 
 def create_snmptrapd_docker_image(client):
     temp_dir = save_docker_files(snmptrapd_entrypoint, snmptrapd_dockerfile)
@@ -246,14 +261,17 @@ def create_snmptrapd_docker_image(client):
     shutil.rmtree(temp_dir)
     return retval
 
+
 def create_snmptrapd_docker_container(DOCKER_HOST):
-    snmptrapd_docker_dict={}
+    snmptrapd_docker_dict = {}
     verify_url(DOCKER_HOST)
     client = docker.DockerClient(base_url=DOCKER_HOST)
 
     # create the image if not already present
-    try: client.images.get(snmptrapd_docker_image_tag)
-    except Exception: create_snmptrapd_docker_image(client)
+    try:
+        client.images.get(snmptrapd_docker_image_tag)
+    except Exception:
+        create_snmptrapd_docker_image(client)
 
     # start the container
     cont = start_container(client, snmptrapd_docker_image_tag, '22/tcp', '161/udp')
@@ -270,8 +288,10 @@ def create_snmptrapd_docker_container(DOCKER_HOST):
     snmptrapd_docker_dict['password'] = snmptrapd_username_password[1]
     return snmptrapd_docker_dict
 
+
 def remove_snmptrapd_docker_container(contid, DOCKER_HOST):
     remove_docker_container(contid, DOCKER_HOST)
+
 
 tacacs_entrypoint = """\
 #!/bin/bash
@@ -279,7 +299,7 @@ service ssh start
 service tacacs_plus start
 bash
 """
-tacacs_username_password = ['admin','YourPaSsWoRd']
+tacacs_username_password = ['admin', 'YourPaSsWoRd']
 
 tacacs_dockerfile = r"""
 FROM ubuntu:18.04
@@ -301,9 +321,10 @@ EXPOSE 49/tcp
 ADD ./startup.sh /startup.sh
 
 ENTRYPOINT ["/startup.sh"]
-""".format(tacacs_username_password[0],tacacs_username_password[1])
+""".format(tacacs_username_password[0], tacacs_username_password[1])
 
 tacacs_docker_image_tag = "spytest-tacacs:1.0"
+
 
 def create_tacacs_docker_image(client):
     temp_dir = save_docker_files(tacacs_entrypoint, tacacs_dockerfile)
@@ -322,14 +343,17 @@ def create_tacacs_docker_image(client):
     shutil.rmtree(temp_dir)
     return retval
 
+
 def create_tacacs_docker_container(DOCKER_HOST):
-    tacacs_docker_dict={}
+    tacacs_docker_dict = {}
     verify_url(DOCKER_HOST)
     client = docker.DockerClient(base_url=DOCKER_HOST)
 
     # create the image if not already present
-    try: client.images.get(tacacs_docker_image_tag)
-    except Exception: create_tacacs_docker_image(client)
+    try:
+        client.images.get(tacacs_docker_image_tag)
+    except Exception:
+        create_tacacs_docker_image(client)
 
     # start the container
     cont = start_container(client, tacacs_docker_image_tag, '22/tcp', '49/tcp')
@@ -345,6 +369,7 @@ def create_tacacs_docker_container(DOCKER_HOST):
     tacacs_docker_dict['username'] = tacacs_username_password[0]
     tacacs_docker_dict['password'] = tacacs_username_password[1]
     return tacacs_docker_dict
+
 
 def remove_tacacs_docker_container(contid, DOCKER_HOST):
     remove_docker_container(contid, DOCKER_HOST)
