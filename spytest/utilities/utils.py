@@ -19,7 +19,7 @@ from spytest.datamap import DataMap
 import utilities.parallel as pll
 from utilities.common import filter_and_select, dicts_list_values
 from utilities.common import make_list
-from utilities.common import str_encode,str_decode
+from utilities.common import str_encode, str_decode
 
 msgs = DataMap("messages").get()
 test_func_name = None
@@ -31,10 +31,12 @@ def get_supported_ui_type_list(*more):
         retval.extend(make_list(add))
     return retval
 
+
 def force_cli(cli_type, default="click"):
     if cli_type not in ["klish"]:
         return cli_type
     return "klish" if st.is_feature_supported("klish") else "click"
+
 
 def force_klish_ui(*args, **kwargs):
     cli_type = kwargs.get("cli_type", "klish")
@@ -43,18 +45,24 @@ def force_klish_ui(*args, **kwargs):
     return force_cli(cli_type, cli_type)
 
 # use use_cli if the cli_type is one of args
+
+
 def override_ui(*args, **kwargs):
-  cli_type = kwargs.get("cli_type", "klish")
-  use_cli = kwargs.get("use_cli", "klish")
-  default = kwargs.get("default", "click")
-  use_cli = use_cli if cli_type in args else cli_type
-  if use_cli != "klish": return use_cli
-  return use_cli if st.is_feature_supported(use_cli) else default
+    cli_type = kwargs.get("cli_type", "klish")
+    use_cli = kwargs.get("use_cli", "klish")
+    default = kwargs.get("default", "click")
+    use_cli = use_cli if cli_type in args else cli_type
+    if use_cli != "klish":
+        return use_cli
+    return use_cli if st.is_feature_supported(use_cli) else default
 
 # use use_cli if the cli_type is one of args or supported uis
+
+
 def override_supported_ui(*args, **kwargs):
-  new_args = get_supported_ui_type_list(*args)
-  return override_ui(*new_args, **kwargs)
+    new_args = get_supported_ui_type_list(*args)
+    return override_ui(*new_args, **kwargs)
+
 
 def cli_type_for_get_mode_filtering():
     """
@@ -130,12 +138,13 @@ def generate_mac_sequence(base_mac="00:00:00:00:00:00", start=0, end=100, step=1
     """
     mac_address_list = list()
     base_mac = base_mac.replace(":", '').replace(" ", '')
-    mac_int = int("0x"+base_mac, 16)
-    for i in range(mac_int+start, (mac_int+end)*step, step):
+    mac_int = int("0x" + base_mac, 16)
+    for i in range(mac_int + start, (mac_int + end) * step, step):
         mac_address = "{0:0{1}x}".format(i, 12)
-        mac_formated = ":".join([mac_address[i:i+2] for i in range(0, len(mac_address), 2)])
+        mac_formated = ":".join([mac_address[i:i + 2] for i in range(0, len(mac_address), 2)])
         mac_address_list.append(mac_formated)
     return mac_address_list
+
 
 def generate_ip_sequence(type, startip, count=1):
     ipaddr_list = []
@@ -143,10 +152,11 @@ def generate_ip_sequence(type, startip, count=1):
         if type == "ipv4":
             ipaddr_list.append(socket.inet_ntoa(struct.pack('!I', struct.unpack('!I', socket.inet_aton(startip))[0] + (i * 256))))
         else:
-            tmp = int(binascii.hexlify(socket.inet_pton(socket.AF_INET6, startip)), 16) + (i*256)
+            tmp = int(binascii.hexlify(socket.inet_pton(socket.AF_INET6, startip)), 16) + (i * 256)
             tmp = hex(tmp)[2:].replace("L", "")
             ipaddr_list.append(socket.inet_ntop(socket.AF_INET6, binascii.unhexlify(tmp)))
     return ipaddr_list
+
 
 def log_parser(logs):
     """
@@ -164,13 +174,13 @@ def log_parser(logs):
         out = re.findall(pattern, each_log)
         out2 = re.findall(pattern2, each_log)
         if out:
-            temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp['micro_second'],\
-            temp['utc_hours'], temp['utc_minutes'], temp['year'], temp['hostname'], temp['severity'], \
-            temp['message'] = out[0]
+            temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp['micro_second'], \
+                temp['utc_hours'], temp['utc_minutes'], temp['year'], temp['hostname'], temp['severity'], \
+                temp['message'] = out[0]
             rv.append(temp)
         elif out2:
             temp['month'], temp['date'], temp['hours'], temp['minutes'], temp['seconds'], temp['micro_second'], \
-            temp['hostname'], temp['severity'], temp['message'] = out2[0]
+                temp['hostname'], temp['severity'], temp['message'] = out2[0]
             temp['utc_hours'], temp['utc_minutes'], temp['year'] = '', '', ''
             rv.append(temp)
         else:
@@ -246,7 +256,7 @@ def convert_time_to_milli_seconds(days=0, hours=0, minutes=0, seconds=0, milli_s
         hours = int(hours) * 3600
     if minutes:
         minutes = int(minutes) * 60
-    retval = ((days + hours + minutes + seconds)*1000 * 1000) + milli_second
+    retval = ((days + hours + minutes + seconds) * 1000 * 1000) + milli_second
     return retval
 
 
@@ -319,17 +329,17 @@ def banner_log(msg, width=80, delimiter="#", wrap=True):
     import textwrap
     msg = str(msg)
     if wrap:
-        output = ["{0} {1} {0}".format(delimiter, each.center(width-4)) for each in textwrap.wrap(msg, width=width-4)]
+        output = ["{0} {1} {0}".format(delimiter, each.center(width - 4)) for each in textwrap.wrap(msg, width=width - 4)]
     else:
-        output = ["{0} {1:{2}} {0}".format(delimiter, each, (width-4)) for each in textwrap.wrap(msg, width=width-4)]
-    msg_full = "\n" + "{}".format(delimiter)*width + "\n" + "{}".format('\n'.join(output)) + \
-               '\n' + "{}".format(delimiter)*width + "\n"
+        output = ["{0} {1:{2}} {0}".format(delimiter, each, (width - 4)) for each in textwrap.wrap(msg, width=width - 4)]
+    msg_full = "\n" + "{}".format(delimiter) * width + "\n" + "{}".format('\n'.join(output)) + \
+               '\n' + "{}".format(delimiter) * width + "\n"
     for each_line in msg_full.split("\n"):
         st.log(each_line)
 
 
 def get_dut_name_from_no(dut_no):
-    return 'D1'+str(dut_no).zfill(2)
+    return 'D1' + str(dut_no).zfill(2)
 
 
 def get_dut_ports_dict_from_topo(min_req_topo):
@@ -391,7 +401,7 @@ def get_dut_ports_dict_from_topo(min_req_topo):
             (src_dut_no, dst_dut_or_tg, dest_dut_no, link_no) = port_info.groups()
             src_dut = 'D' + str(src_dut_no)
             src_dut = sys_vars[src_dut]
-            dest_dut = dst_dut_or_tg+str(dest_dut_no)
+            dest_dut = dst_dut_or_tg + str(dest_dut_no)
             if dst_dut_or_tg == 'D':
                 dest_dut = sys_vars[dest_dut]
 
@@ -473,13 +483,12 @@ def remove_duplicate_dicts_from_list(list_data):
     result = list()
     if isinstance(list_data, list):
         for i in range(len(list_data)):
-            if list_data[i] not in list_data[i+1:]:
+            if list_data[i] not in list_data[i + 1:]:
                 result.append(list_data[i])
     return result
 
 
 def get_interface_number_from_name(interface_name):
-
     """
     Common function to get the interface number from name using for KLISH CLI
     Author: Chaitanya-vella.kumar@broadcom.com
@@ -510,7 +519,7 @@ def get_dict_from_redis_cli(data):
     id_list = dicts_list_values(data, 'id')
     chunks = [id_list[x:x + 2] for x in range(0, len(id_list), 2)]
     output = {filter_and_select(data, ['name'], {'id': each[0]})[0]['name']:
-                  filter_and_select(data, ['name'], {'id': each[1]})[0]['name'] for each in chunks}
+              filter_and_select(data, ['name'], {'id': each[1]})[0]['name'] for each in chunks}
     return output
 
 
@@ -539,6 +548,7 @@ def util_ip_addr_to_hexa_conv(ipaddr):
     :return:
     """
     return str(str_decode(str_encode(binascii.hexlify(socket.inet_aton(ipaddr))))).upper()
+
 
 def util_ipv6_addr_to_hexa_conv(ip6addr):
     """
@@ -578,11 +588,13 @@ def hex2int(value, w=0):
     """
     return int("0x{}".format(value), w)
 
+
 def int2hex(data):
     try:
         return hex(int(data))
     except Exception:
         return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
+
 
 def fail_on_error(output):
     """
@@ -682,39 +694,43 @@ def bitwise_OR_to_char(char, val):
 
     return str(int(char) | int(val))
 
-def retry_api_base(retry_count, delay, api_result, func, *args,**kwargs):
+
+def retry_api_base(retry_count, delay, api_result, func, *args, **kwargs):
     for i in range(retry_count):
-        st.debug("Attempt {} of {}".format((i+1),retry_count))
+        st.debug("Attempt {} of {}".format((i + 1), retry_count))
         if api_result:
             if func(*args, **kwargs):
                 return api_result
         else:
             if not func(*args, **kwargs):
                 return api_result
-        if retry_count != (i+1):
+        if retry_count != (i + 1):
             st.wait(delay, "before retyring again")
-    return  False if api_result else True
+    return False if api_result else True
 
-def retry_api(func, *args,**kwargs):
+
+def retry_api(func, *args, **kwargs):
     retry_count = kwargs.pop("retry_count", 10)
     delay = kwargs.pop("delay", 3)
     api_result = kwargs.pop("api_result", True)
-    return retry_api_base(retry_count, delay, api_result, func, *args,**kwargs)
+    return retry_api_base(retry_count, delay, api_result, func, *args, **kwargs)
 
-def retry_parallel(func,dict_list=[],dut_list=[],api_result=True,retry_count=3,delay=2):
+
+def retry_parallel(func, dict_list=[], dut_list=[], api_result=True, retry_count=3, delay=2):
     for i in range(retry_count):
-        st.log("Attempt %s of %s" %((i+1),retry_count))
-        result = pll.exec_parallel(True,dut_list,func,dict_list)
+        st.log("Attempt %s of %s" % ((i + 1), retry_count))
+        result = pll.exec_parallel(True, dut_list, func, dict_list)
         if api_result:
             if False not in result[0]:
                 return api_result
         else:
             if True not in result[0]:
                 return api_result
-        if retry_count != (i+1):
-            st.log("waiting for %s seconds before retrying again"%delay)
+        if retry_count != (i + 1):
+            st.log("waiting for %s seconds before retrying again" % delay)
             st.wait(delay)
-    return  False if api_result else True
+    return False if api_result else True
+
 
 def hex_conversion(data):
     try:
@@ -722,12 +738,14 @@ def hex_conversion(data):
     except Exception:
         return hex(int(data.replace('L', '').upper()[2:].zfill(8), 16))
 
+
 def get_portchannel_name_for_rest(interface_name):
     portchanne_name = interface_name
     if "PortChannel" in portchanne_name:
         intf_name = interface_name.split("PortChannel")
         portchanne_name = "PortChannel{}".format(int(intf_name[1]))
     return portchanne_name
+
 
 def is_valid_ipv4_address(address):
     """
@@ -749,6 +767,7 @@ def is_valid_ipv4_address(address):
         return False
     return True
 
+
 def is_valid_ipv6_address(address):
     """
     Validate ipv6 address.
@@ -765,6 +784,7 @@ def is_valid_ipv6_address(address):
     except socket.error:  # not a valid address
         return False
     return True
+
 
 def is_valid_ip_address(address, family, subnet=None):
     """
@@ -808,6 +828,7 @@ def is_valid_ip_address(address, family, subnet=None):
         return False
 
     return True
+
 
 def convert_microsecs_to_time(microseconds):
     from datetime import timedelta
@@ -865,9 +886,7 @@ def erase_file_content(file_name):
         st.error(e)
 
 
-
 def get_intf_short_name(interface_name):
-
     """
     Common function to get the shorter interface notation for Subinterface
     Author: Sooriya.Gajendrababu@broadcom.com
@@ -876,7 +895,7 @@ def get_intf_short_name(interface_name):
     """
     if interface_name and not is_valid_ipv4_address(interface_name) and not is_valid_ipv6_address(interface_name):
         if '.' in interface_name:
-            interface_name = interface_name.replace('Ethernet','Eth').replace('PortChannel','Po')
+            interface_name = interface_name.replace('Ethernet', 'Eth').replace('PortChannel', 'Po')
     return interface_name
 
 
@@ -904,15 +923,15 @@ def report_tc_fail(tc, msg, *args):
                 calling_func_name = each_entry
 
     try:
-        #when this func is called for 2nd time onwards - from test_func_1
+        # when this func is called for 2nd time onwards - from test_func_1
         if test_func_name == calling_func_name:
             collect_tech_support = False
         else:
-            #when this func is called for first time - from test_func_2
+            # when this func is called for first time - from test_func_2
             test_func_name = calling_func_name
             collect_tech_support = True
     except NameError:
-        #when this func is called for first time - from test_func_1
+        # when this func is called for first time - from test_func_1
         test_func_name = calling_func_name
         collect_tech_support = True
 
@@ -1016,7 +1035,8 @@ def convert_intf_range_to_list(intf, range_format=False):
     :param range_format:
     :return:
     """
-    if not isinstance(intf, list): intf=make_list(intf)
+    if not isinstance(intf, list):
+        intf = make_list(intf)
     result = []
     intf_range = ','.join([str(elem) for elem in intf])
     t1_intf_range = re.sub(r'([A-Za-z]+)', '', intf_range)
@@ -1043,6 +1063,7 @@ def convert_intf_range_to_list(intf, range_format=False):
             result.append(intf_name + ea)
     return result
 
+
 def segregate_intf_list_type(intf, range_format=False, log=None):
     """
     segregare_intf_list_type(intf=['Ethernet2','Ethernet6-9','Portchannel12-20','Vlan40-50','Loopback10','Loopback20'], range_format=True)
@@ -1053,8 +1074,8 @@ def segregate_intf_list_type(intf, range_format=False, log=None):
     """
     log = log or st.log
     log('API_NAME: segregate_intf_list_type, API_ARGS: {}'.format(locals()))
-    intf_hash_list = {'range_intf_mgmt' : [],'range_intf_phy' : [],'range_intf_vlan': [],'range_intf_pc' : [],
-                      'intf_list_all':[], 'range_intf_lb':[], 'range_intf_sub_phy':[], 'range_intf_sub_pc':[]}
+    intf_hash_list = {'range_intf_mgmt': [], 'range_intf_phy': [], 'range_intf_vlan': [], 'range_intf_pc': [],
+                      'intf_list_all': [], 'range_intf_lb': [], 'range_intf_sub_phy': [], 'range_intf_sub_pc': []}
     intf_list_phy = list()
     intf_list_vlan = list()
     intf_list_pc = list()
@@ -1111,6 +1132,7 @@ def segregate_intf_list_type(intf, range_format=False, log=None):
 
     return intf_hash_list
 
+
 def is_a_single_intf(intf):
     """
     is_a_single_intf('Ethernet1-4') returns False
@@ -1123,6 +1145,7 @@ def is_a_single_intf(intf):
         return False
     else:
         return True
+
 
 def rif_support_check(dut, platform, sub_intf=False):
     common_constants = st.get_datastore(dut, "constants", "default")
@@ -1139,10 +1162,12 @@ def rif_support_check(dut, platform, sub_intf=False):
     else:
         return False
 
+
 def validate_data_path(dut=None):
     if st.is_sonicvs(dut):
         return False
     return True
+
 
 def validate_link_events(dut=None):
     if not st.is_sonicvs(dut):
@@ -1150,16 +1175,18 @@ def validate_link_events(dut=None):
     linkmon = st.getenv("SPYTEST_SONICVS_LINKMON", "0")
     return bool(linkmon != "0")
 
+
 def get_random_string(N=4):
     """
     Function to generate random string in the given length
     :param N:
     :return:
     """
-    return ''.join(random.sample(string.ascii_uppercase +
-                                 string.digits, k=N))
+    return ''.join(random.sample(string.ascii_uppercase
+                                 + string.digits, k=N))
 
-def get_traffic_loss_duration(tx_count,rx_count,tx_rate):
+
+def get_traffic_loss_duration(tx_count, rx_count, tx_rate):
     '''
 
     :param dut:
@@ -1169,9 +1196,9 @@ def get_traffic_loss_duration(tx_count,rx_count,tx_rate):
     :return:
     '''
     traffic_loss = abs(int(tx_count) - int(rx_count))
-    traffic_loss_duration = traffic_loss/int(tx_rate)
+    traffic_loss_duration = traffic_loss / int(tx_rate)
     st.log("traffic loss is {} PPS".format(traffic_loss))
-    traffic_loss_msec = convert_time_to_milli_seconds(0,0,0,traffic_loss_duration,0)
+    traffic_loss_msec = convert_time_to_milli_seconds(0, 0, 0, traffic_loss_duration, 0)
     st.log("traffic loss duration is {} msec".format(traffic_loss_msec))
     return traffic_loss_msec
 
@@ -1199,6 +1226,7 @@ def compare_lists(list1, list2, equals=True):
     else:
         return False if equals else True
 
+
 def compare_lists_by_count(list_to_be_compared, parent_list, length):
     """
     Author: Chaitanya Vella (chaitanya-kumar.vella@broadcom.com)
@@ -1208,18 +1236,20 @@ def compare_lists_by_count(list_to_be_compared, parent_list, length):
     :return:
     """
     cnt = 0
-    for l in list_to_be_compared:
+    for e in list_to_be_compared:
         for x in parent_list:
-            if l.upper() == x.upper():
+            if e.upper() == x.upper():
                 cnt += 1
     if cnt != length:
         return False
     return True
 
+
 def copy_files_to_dut(dut, src_file_list, dst_folder, cft=0):
     for src_file in make_list(src_file_list):
         dst_file = os.path.join(dst_folder, os.path.basename(src_file))
         st.upload_file_to_dut(dut, src_file, dst_file, cft)
+
 
 def convert_to_timestamp(timedate):
     """
@@ -1234,7 +1264,7 @@ def convert_to_timestamp(timedate):
         output[2] = month_dict[output[2]]
         if output[7] == "PM" and int(output[4]) < 12:
             output[4] = int(output[4]) + 12
-        dt = datetime.datetime(int(output[3]),int(output[2]),int(output[1]),int(output[4]),int(output[5]),int(output[6]))
+        dt = datetime.datetime(int(output[3]), int(output[2]), int(output[1]), int(output[4]), int(output[5]), int(output[6]))
         return int((dt - datetime.datetime(1970, 1, 1)).total_seconds())
     except Exception as e:
         st.error(e)
@@ -1242,7 +1272,6 @@ def convert_to_timestamp(timedate):
 
 
 def convert_intf_name_to_component(dut, intf_list, **kwargs):
-
     '''
     alias-Intf              std/alias                               std-exd
     Eth1/1          kernel/database/Appl:  Ethernet0        kernel:             E1_1
@@ -1296,13 +1325,13 @@ def convert_intf_name_to_component(dut, intf_list, **kwargs):
             ret_intf_list.append(intf)
             continue
         if ifname_type in ['native', 'none']:
-            #No error check, as in native mode intf names are same
+            # No error check, as in native mode intf names are same
             if '.' in intf:
-                ret_intf_list.append(intf.replace('Ethernet', 'Eth').replace('PortChannel','Po'))
+                ret_intf_list.append(intf.replace('Ethernet', 'Eth').replace('PortChannel', 'Po'))
             else:
                 ret_intf_list.append(intf)
         if ifname_type == 'alias':
-            if 'Eth' in intf and '/' not in  intf:
+            if 'Eth' in intf and '/' not in intf:
                 st.log('Intf: {} is not a valid alias/standard name'.format(intf), dut=dut)
                 ret_intf_list.append(intf)
                 continue
@@ -1327,24 +1356,27 @@ def convert_intf_name_to_component(dut, intf_list, **kwargs):
                 ret_intf_list.append(intf)
                 continue
             if component == 'kernel':
-                #For all types of Ethernet interface, replace Eth with E and / with _
-                if 'Eth' in intf: ret_intf_list.append(intf.replace('Eth', 'E').replace('/','_'))
+                # For all types of Ethernet interface, replace Eth with E and / with _
+                if 'Eth' in intf:
+                    ret_intf_list.append(intf.replace('Eth', 'E').replace('/', '_'))
                 if 'PortChannel' in intf:
-                    #For sub interface only, replace PortChannel with Po
+                    # For sub interface only, replace PortChannel with Po
                     if '.' in intf:
-                        ret_intf_list.append(intf.replace('PortChannel','Po'))
+                        ret_intf_list.append(intf.replace('PortChannel', 'Po'))
                     else:
                         ret_intf_list.append(intf)
             elif component == 'frr':
                 if 'PortChannel' in intf and '.' in intf:
-                    ret_intf_list.append(intf.replace('PortChannel','Po'))
+                    ret_intf_list.append(intf.replace('PortChannel', 'Po'))
                 else:
                     ret_intf_list.append(intf)
             else:
                 ret_intf_list.append(intf)
     st.log('Intf-naming: {}, Input Intf: {}, Output Intf: {}'.format(ifname_type, intf_list, ret_intf_list), dut=dut)
-    if len(ret_intf_list) == 1: return ret_intf_list[0]
+    if len(ret_intf_list) == 1:
+        return ret_intf_list[0]
     return ret_intf_list
+
 
 def is_octype_gnmi():
     oc_type = os.getenv('SPYTEST_OPENCONFIG_API')
