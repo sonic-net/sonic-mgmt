@@ -6,8 +6,10 @@ import socket
 import logging
 
 import telnetlib
-try: from time import monotonic as _time
-except Exception: from monotonic import monotonic as _time
+try:
+    from time import monotonic as _time
+except Exception:
+    from monotonic import monotonic as _time
 
 import paramiko
 
@@ -29,7 +31,8 @@ show_trace = int(os.getenv("SPYTEST_DEBUG_DEVICE_CONNECTION", "0"))
 
 
 def init_trace(val):
-    if val <= 0: return None
+    if val <= 0:
+        return None
     logger = logging.getLogger('paramiko_connection')
     logger.setLevel(logging.DEBUG)
     return logger
@@ -102,8 +105,10 @@ class ParamikoConnection:
             raise DeviceConnectionError(msg)
 
     def check_exception(self, e):
-        try: msg = repr(e)
-        except Exception: pass
+        try:
+            msg = repr(e)
+        except Exception:
+            pass
         if "Connection refuse" in msg:
             msg = "Refused.."
         else:
@@ -227,13 +232,17 @@ class ParamikoConnection:
         retval, lines = [], []
         if self.conn:
             for line in self.conn.get_cached_read_lines(clear):
-                if rmctrl: line = ctrl_chars.remove(line)
+                if rmctrl:
+                    line = ctrl_chars.remove(line)
                 lines.append(line)
             for line in re.split('\r|\n', "".join(lines)):
-                if fmt: line = self.dmsg_fmt(line)
-                if not line: continue
+                if fmt:
+                    line = self.dmsg_fmt(line)
+                if not line:
+                    continue
                 line = line.strip()
-                if not line: continue
+                if not line:
+                    continue
                 retval.append(line)
         return retval
 
@@ -309,6 +318,9 @@ class ParamikoConnection:
         self.trace_callback = callback
         self.trace_callback_arg1 = arg1
         self.trace_callback_arg2 = arg2
+
+    def trace_callback_get(self):
+        return self.trace_callback, self.trace_callback_arg1, self.trace_callback_arg2
 
     def is_strip_prompt(self, strip_prompt):
         if self.in_login:
@@ -438,7 +450,8 @@ class DeviceConnection:
         return self.conn.find_prompt(self.patterns_1, use_cache)
 
     def send_command_timing(self, command_string, timeout=5, use_cache=True, wait_time=0):
-        self.log("REMOVE-ME: ", "send_command_timing: {} expect: {} use_cache: {}".format(command_string, self.patterns_1, use_cache))
+        self.log("REMOVE-ME: ", "send_command_timing: {} expect: {} use_cache: {}".format(
+                 command_string, self.patterns_1, use_cache))
         _, output = self.conn.send_cmd_raw(command_string, self.patterns_1, ignore_timeout=True,
                                            use_cache=use_cache, wait_time=wait_time)
         return output
@@ -448,7 +461,8 @@ class DeviceConnection:
             expect_string = self.conn.get_last_prompt()
             expect_string = re.escape(expect_string)
 
-        self.log("REMOVE-ME: ", "send_command: {} expect: {} timeout: {}".format(command_string, expect_string, timeout))
+        self.log("REMOVE-ME: ", "send_command: {} expect: {} timeout: {}".format(
+                 command_string, expect_string, timeout))
         prompt, output = self.conn.send_cmd_cli(command_string.strip(), [re.compile(expect_string)],
                                                 timeout=timeout, ignore_timeout=False,
                                                 use_cache=use_cache, wait_time=wait_time)
@@ -538,7 +552,8 @@ class BaseConnection(object):
         self.cached_read_data = []
 
     def add_cached_read_data(self, output):
-        if output: self.cached_read_data.append(output)
+        if output:
+            self.cached_read_data.append(output)
 
     def clear_cached_read_data(self):
         self.cached_read_data = []
@@ -547,7 +562,8 @@ class BaseConnection(object):
         retval = []
         for line in self.cached_read_data:
             retval.append(line)
-        if clear: self.cached_read_data = []
+        if clear:
+            self.cached_read_data = []
         return retval
 
     @staticmethod
@@ -674,8 +690,10 @@ class BaseConnection(object):
         return -1, None, cooked + text
 
     def decode_string(self, string):
-        try: string = string.decode("ascii", "ignore")
-        except Exception: pass
+        try:
+            string = string.decode("ascii", "ignore")
+        except Exception:
+            pass
         return ctrl_chars.remove(string)
 
     def decode_output(self, data, command, remove_command=True):
@@ -780,7 +798,8 @@ class BaseConnection(object):
             return re.escape(self.last_prompt)
         output = self.send_cmd_raw('', expect, ignore_timeout=True)[1] or ""
         prompt = output.strip().split("\n")[-1]
-        if prompt: self.set_last_prompt(prompt)
+        if prompt:
+            self.set_last_prompt(prompt)
         mylog.verbose("==== find_prompt({}) {} -- {}".format('', prompt, output))
         return re.escape(prompt)
 
