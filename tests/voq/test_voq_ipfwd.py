@@ -961,7 +961,7 @@ def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, po
         log_file = "/tmp/voq.ttl0.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
         logger.info("Call TTL0 PTF runner")
         ptf_runner(ptfhost, 'ptftests', "voq.TTL0", '/root/ptftests', params=params,
-                   log_file=log_file, timeout=10)
+                   log_file=log_file, timeout=10, is_python3=True)
         logger.info("TTL0 PTF runner completed")
 
 
@@ -1193,5 +1193,5 @@ def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, por
     log_file = "/tmp/voq.mtu.v{}.{}.{}.log".format(version, porttype, datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     logger.info("Call MTU PTF runner")
     ptf_runner(ptfhost, 'ptftests', "voq.MtuTest", '/root/ptftests', params=params,
-               log_file=log_file, timeout=10, socket_recv_size=16384)
+               log_file=log_file, timeout=10, socket_recv_size=16384, is_python3=True)
     logger.info("MTU PTF runner completed")
