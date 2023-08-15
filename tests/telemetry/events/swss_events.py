@@ -8,7 +8,6 @@ from run_events_test import run_test
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
 
-IF_STATE_TEST_PORT = "Ethernet0"
 PFC_STORM_TEST_PORT = "Ethernet4"
 PFC_STORM_TEST_QUEUE = "4"
 PFC_STORM_DETECTION_TIME = 100
@@ -31,15 +30,17 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 
 def shutdown_interface(duthost):
-    logger.info("Shutting down an interface")
-    ret = duthost.shell("config interface startup {}".format(IF_STATE_TEST_PORT))
-    assert ret["rc"] == 0, "Failing to startup interface {}".format(IF_STATE_TEST_PORT)
+    logger.info("Shutting down interface")
+    interfaces = duthost.get_interfaces_status()
+    if_state_test_port = next((interface for interface, status in interfaces.items()
+                               if status["oper"] == "up" and status["admin"] == "up"), None)
+    assert if_state_test_port is not None, "Unable to find valid interface for test"
 
-    ret = duthost.shell("config interface shutdown {}".format(IF_STATE_TEST_PORT))
-    assert ret["rc"] == 0, "Failing to shutdown interface {}".format(IF_STATE_TEST_PORT)
+    ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
+    assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
-    ret = duthost.shell("config interface startup {}".format(IF_STATE_TEST_PORT))
-    assert ret["rc"] == 0, "Failing to startup interface {}".format(IF_STATE_TEST_PORT)
+    ret = duthost.shell("config interface startup {}".format(if_state_test_port))
+    assert ret["rc"] == 0, "Failing to startup interface {}".format(if_state_test_port)
 
 
 def generate_pfc_storm(duthost):
