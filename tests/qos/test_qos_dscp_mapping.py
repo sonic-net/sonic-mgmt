@@ -268,7 +268,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         logger.info("DSCP to queue mapping test results:\n{}"
                     .format(tabulate(output_table,
-                                     headers=["Inner Packet DSCP Value", "Egress Queue", "Egress Queue Count", "Result"])))
+                                     headers=["Inner Packet DSCP Value", "Egress Queue",
+                                              "Egress Queue Count", "Result"])))
 
     def _teardown_test(self, duthost):
         """
