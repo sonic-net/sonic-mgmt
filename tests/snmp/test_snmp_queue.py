@@ -11,7 +11,10 @@ pytestmark = [
 def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
                      collect_techsupport_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    if duthost.is_supervisor_node():
+        pytest.skip("interfaces not present on supervisor node")
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
 
     q_keys = redis_get_keys(duthost, "CONFIG_DB", "QUEUE|*")
 
@@ -30,10 +33,11 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
                                 wait=True)['ansible_facts']
 
-    for k, v in snmp_facts['snmp_interfaces'].items():
+    for k, v in list(snmp_facts['snmp_interfaces'].items()):
         if "Ethernet" in v['description']:
             intf = v['description'].split(':')
             # 'ARISTA*:Ethernet*'
             if len(intf) == 2:
                 if intf[1] in q_interfaces and 'queues' not in v:
-                    pytest.fail("port %s does not have queue counters" % v['name'])
+                    pytest.fail(
+                        "port %s does not have queue counters" % v['name'])

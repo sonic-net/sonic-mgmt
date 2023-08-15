@@ -1,11 +1,9 @@
 import pytest
 import logging
 
-from tests.common.utilities import wait
 from tests.common.utilities import wait_until
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from datetime import datetime
 from tests.common.reboot import reboot
 from tests.common import config_reload
 
@@ -18,6 +16,7 @@ BINARY_FILE_ON_DUTHOST = "/tmp/sonic_image_on_duthost.bin"
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 
 @pytest.fixture(scope='function')
 def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
@@ -38,7 +37,7 @@ def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localh
     localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_1))
     localhost.shell("rm -rf {}".format(BINARY_FILE_ON_LOCALHOST_2))
 
-    backup_minigraph_exist = duthost.stat(path = "/etc/sonic/minigraph.xml.backup")["stat"]["exists"]
+    backup_minigraph_exist = duthost.stat(path="/etc/sonic/minigraph.xml.backup")["stat"]["exists"]
     if backup_minigraph_exist:
         logger.info("Apply minigraph from backup")
         duthost.shell("mv /etc/sonic/minigraph.xml.backup /etc/sonic/minigraph.xml")
@@ -60,7 +59,7 @@ class ReadMACMetadata():
         duthost = request.getfixturevalue('duthost')
         localhost = self.request.getfixturevalue('localhost')
 
-        minigraph_exist = duthost.stat(path = "/etc/sonic/minigraph.xml")["stat"]["exists"]
+        minigraph_exist = duthost.stat(path="/etc/sonic/minigraph.xml")["stat"]["exists"]
         if (self.minigraph1 is not None or self.minigraph2 is not None) and minigraph_exist:
             logger.info("Store current minigraph for debug purpose")
             duthost.shell("cp /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.backup")
@@ -73,7 +72,7 @@ class ReadMACMetadata():
 
     def run_test_in_reinstall_loop(self):
         logger.info("Verify MAC in image reinstall loop")
-        duthost  = self.request.getfixturevalue('duthost')
+        duthost = self.request.getfixturevalue('duthost')
         localhost = self.request.getfixturevalue('localhost')
 
         for counter in range(1, self.iteration + 1):
@@ -85,20 +84,21 @@ class ReadMACMetadata():
                 duthost.copy(src=current_minigraph, dest="/etc/sonic/minigraph.xml")
 
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="read_mac_metadata")
-            loganalyzer.match_regex = [ ".*can't parse mac address 'None'*" ]
+            loganalyzer.match_regex = [".*can't parse mac address 'None'*"]
 
             with loganalyzer:
                 self.deploy_image_to_duthost(duthost, counter)
                 reboot(duthost, localhost, wait=120)
                 logger.info("Wait until system is stable")
-                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started")
+                pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
+                              "Not all critical services are fully started")
 
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")
                 config_reload(duthost, config_source='minigraph')
 
             logger.info("Remove old (not current) sonic image")
-            duthost.reduce_and_add_sonic_images(disk_used_pcent = 1)
+            duthost.reduce_and_add_sonic_images(disk_used_pcent=1)
             self.check_mtu_and_interfaces(duthost)
 
     def deploy_image_to_duthost(self, duthost, counter):
@@ -113,7 +113,8 @@ class ReadMACMetadata():
 
     def check_mtu_and_interfaces(self, duthost):
         logger.info("Verify that MAC address fits template XX:XX:XX:XX:XX:XX")
-        mac = duthost.shell("redis-cli -n 4 hget 'DEVICE_METADATA|localhost' mac| grep -io '[0-9a-fA-F:]\{17\}'",  module_ignore_errors=True)['stdout']
+        mac = duthost.shell(r"redis-cli -n 4 hget 'DEVICE_METADATA|localhost' mac| grep -io '[0-9a-fA-F:]\{17\}'",
+                            module_ignore_errors=True)['stdout']
         logger.info("DUT MAC is {}".format(mac))
 
         if not mac:
@@ -127,22 +128,26 @@ class ReadMACMetadata():
             pytest.fail("Interface check failed, not all interfaces are up. Failed: {}".format(failed))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        non_default_ports = [k for k,v in cfg_facts["PORT"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+        non_default_ports = [k for k, v in list(cfg_facts["PORT"].items())
+                             if "mtu" in v and v["mtu"] != "9100" and
+                             "admin_status" in v and v["admin_status"] == "up"]
 
         # Not all topology has portchannel in config, therefore, only verify the status if portchannel exists.
         non_default_portchannel = []
         if "PORTCHANNEL" in cfg_facts:
-            non_default_portchannel = [k for k,v in cfg_facts["PORTCHANNEL"].items() if "mtu" in v and v["mtu"] != "9100" and "admin_status" in v and v["admin_status"] == "up" ]
+            non_default_portchannel = [k for k, v in list(cfg_facts["PORTCHANNEL"].items())
+                                       if "mtu" in v and v["mtu"] != "9100" and
+                                       "admin_status" in v and v["admin_status"] == "up"]
 
         if len(non_default_ports) != 0 or len(non_default_portchannel) != 0:
-            pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}".format(non_default_ports,non_default_portchannel))
+            pytest.fail("There are ports/portchannel with non default MTU:\nPorts: {}\nPortchannel: {}"
+                        .format(non_default_ports, non_default_portchannel))
 
 
 @pytest.mark.disable_loganalyzer
-def test_read_mac_metadata(request,cleanup_read_mac):
+def test_read_mac_metadata(request, cleanup_read_mac):
     """
     Verify that after installing new image on duthost MAC remains valid on interfaces
     """
     read_mac_metadata = ReadMACMetadata(request)
     read_mac_metadata.run_test_in_reinstall_loop()
-

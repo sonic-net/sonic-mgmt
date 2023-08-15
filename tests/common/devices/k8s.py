@@ -81,7 +81,7 @@ class K8sMasterHost(AnsibleHostBase):
         logging.info("Ensuring kubelet is started on {}".format(self.hostname))
         kubelet_status = self.shell("sudo systemctl status kubelet | grep 'Active: '", module_ignore_errors=True)
         for line in kubelet_status["stdout_lines"]:
-            if not "running" in line:
+            if "running" not in line:
                 self.shell("sudo systemctl start kubelet")
 
 
@@ -100,7 +100,7 @@ class K8sMasterCluster(object):
 
         """
         self.backend_masters = []
-        for hostname, k8smaster in k8smasters.items():
+        for hostname, k8smaster in list(k8smasters.items()):
             if k8smaster['host'].is_haproxy:
                 self.haproxy = k8smaster['host']
             else:

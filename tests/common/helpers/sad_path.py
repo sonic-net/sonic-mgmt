@@ -65,10 +65,10 @@ class PhyPropsPortSelector(Selector):
         # If <self.count> is greater then the number of groups start over till we fill
         # the output list with the number of ports requested.
         # Assertion is raised when there are no enough ports.
-        port_items = [(name, attrs) for name, attrs in port_table.items() if name in objlist]
+        port_items = [(name, attrs) for name, attrs in list(port_table.items()) if name in objlist]
         assert len(port_items) >= self.count, "No enough ports to test, required at least {}".format(self.count)
         groups = [list(group) for _, group in groupby(sorted(port_items, key=group_func), key=group_func)]
-        return [name for name, _ in islice(chain.from_iterable(zip(*groups)), self.count)]
+        return [name for name, _ in islice(chain.from_iterable(list(zip(*groups))), self.count)]
 
 
 class DatetimeSelector(Selector):
@@ -98,7 +98,7 @@ class VlanMemberDown(SadOperation):
     def setup(self, test_data):
         vlans = test_data["vlan_interfaces"]
         # Exclude down vlan members
-        for vlan in vlans.values():
+        for vlan in list(vlans.values()):
             vlan["members"] = list(set(vlan["members"]) - set(self.ports))
 
 
@@ -116,7 +116,7 @@ class DutVlanMemberDown(VlanMemberDown):
     def verify(self):
         facts = self.duthost.show_interface(command="status", interfaces=self.ports)
         port_facts = facts["ansible_facts"]["int_status"]
-        assert all([port["admin_state"] == "down" for port in port_facts.values()])
+        assert all([port["admin_state"] == "down" for port in list(port_facts.values())])
 
     def revert(self):
         self.duthost.no_shutdown_multiple(self.ports)
@@ -151,7 +151,7 @@ class NeighVlanMemberDown(VlanMemberDown):
     def verify(self):
         facts = self.duthost.show_interface(command="status", interfaces=self.ports)
         port_facts = facts["ansible_facts"]["int_status"]
-        assert all([port["oper_state"] == "down" for port in port_facts.values()])
+        assert all([port["oper_state"] == "down" for port in list(port_facts.values())])
 
     def revert(self):
         for port in self.ports:
@@ -181,8 +181,8 @@ class LagMemberDown(SadOperation):
         # DUT port to DUT LAG mapping.
         neigh_to_lag = {}
         port_to_lag = {}
-        for dut_port, neigh_info in dut_port_to_neighbor.items():
-            for lag in lags.values():
+        for dut_port, neigh_info in list(dut_port_to_neighbor.items()):
+            for lag in list(lags.values()):
                 if dut_port in lag["members"]:
                     neigh_to_lag[neigh_info["name"]] = lag
                     port_to_lag[dut_port] = lag
@@ -203,7 +203,7 @@ class LagMemberDown(SadOperation):
         peer_dev_info = test_data["peer_dev_info"]
 
         # Exclude down LAG members
-        for lag in lags.values():
+        for lag in list(lags.values()):
             lag["members"] = list(set(lag["members"]) - set(self.ports))
 
         # Exclude VMs corresponding to down LAGs
@@ -258,7 +258,7 @@ class NeighLagMemberDown(LagMemberDown):
         logger.info("Selected ports for neighbor LAG member down case {}".format(self.ports))
 
         mg_facts = self.duthost.minigraph_facts(host=self.duthost.hostname)["ansible_facts"]
-        mg_neighs = mg_facts["minigraph_neighbors"].items()
+        mg_neighs = list(mg_facts["minigraph_neighbors"].items())
 
         self.fanouthosts = fanouthosts
         self.dut_port_to_nbr = {port: nbr_info["name"] for port, nbr_info in mg_neighs}
@@ -287,7 +287,6 @@ class NeighLagMemberDown(LagMemberDown):
                     fanout.no_shutdown(fanport)
                 else:
                     fanout.shutdown(fanport)
-
 
     def __str__(self):
         return "neigh_lag_member_down:{}:{}".format(len(self.vms), len(self.ports))

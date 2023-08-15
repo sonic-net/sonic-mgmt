@@ -11,7 +11,7 @@ echo
 echo "STEP 1: Checking for j2cli package..."
 if ! command -v j2; then
     echo "j2cli not found, installing j2cli"
-    cmd="install j2cli==0.3.10"
+    cmd="install --user j2cli==0.3.10"
     if ! command -v pip &> /dev/null; then
         pip3 $cmd
     else
@@ -46,6 +46,16 @@ if ! ifconfig br1; then
     echo "br1 not found, creating bridge network"
     brctl addbr br1
     brctl show br1
+else
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
+    echo "  br1 exists, possibly lab server, are you sure you want to continue?"
+    echo
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
+    echo
+    echo "Please double check and manually configure IP for br1 to avoid breaking lab server connectivity"
+    exit 0
 fi
 echo
 

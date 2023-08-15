@@ -114,7 +114,7 @@ class TestNeighborMacNoPtf:
         def find_routed_interface():
             for asichost in duthost.asics:
                 intfStatus = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
-                for intf, status in intfStatus.items():
+                for intf, status in list(intfStatus.items()):
                     if "routed" in status["vlan"] and "up" in status["oper_state"]:
                         testRoutedInterface[asichost.asic_index] = intf
             return testRoutedInterface

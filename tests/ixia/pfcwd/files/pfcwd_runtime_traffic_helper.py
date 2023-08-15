@@ -2,7 +2,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                  # noqa F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import start_pfcwd, stop_pfcwd
 from tests.common.ixia.port import select_ports, select_tx_port
@@ -23,6 +23,7 @@ DATA_FLOW_DURATION_SEC = 15
 PFCWD_START_DELAY_SEC = 3
 IXIA_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+
 
 def run_pfcwd_runtime_traffic_test(api,
                                    testbed_config,
@@ -93,6 +94,7 @@ def run_pfcwd_runtime_traffic_test(api,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      data_pkt_size=DATA_PKT_SIZE,
                      tolerance=TOLERANCE_THRESHOLD)
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -171,6 +173,7 @@ def __gen_traffic(testbed_config,
 
     return result
 
+
 def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, exp_dur_sec):
     """
     Start traffic at time 0 and enable PFC watchdog at pfcwd_start_delay_sec
@@ -218,6 +221,7 @@ def __run_traffic(api, config, duthost, all_flow_names, pfcwd_start_delay_sec, e
 
     return rows
 
+
 def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, tolerance):
     """
     Verify if we get expected experiment results
@@ -239,13 +243,13 @@ def __verify_results(rows, speed_gbps, data_flow_dur_sec, data_pkt_size, toleran
         tx_frames = row['frames_tx']
         rx_frames = row['frames_rx']
 
-        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".\
+        pytest_assert(tx_frames == rx_frames, "{} packets of {} are dropped".
                       format(tx_frames-rx_frames, flow_name))
 
-        exp_rx_pkts =  data_flow_rate_percent / 100.0 * speed_gbps \
+        exp_rx_pkts = data_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
         deviation = (rx_frames - exp_rx_pkts) / float(exp_rx_pkts)
         pytest_assert(abs(deviation) < tolerance,
-                      "{} should receive {} packets (actual {})".\
+                      "{} should receive {} packets (actual {})".
                       format(flow_name, exp_rx_pkts, rx_frames))

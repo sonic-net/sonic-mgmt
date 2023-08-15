@@ -9,19 +9,19 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t0'), # BGP Speaker is limited to t0 only
+    pytest.mark.topology('t0'),     # BGP Speaker is limited to t0 only
 ]
 
 logger = logging.getLogger(__name__)
 
-BGPSPEAKER_V4          = "BGPSLBPassive"
-BGPSPEAKER_V6          = "BGPSLBPassiveV6"
+BGPSPEAKER_V4 = "BGPSLBPassive"
+BGPSPEAKER_V6 = "BGPSLBPassiveV6"
 BGPSPEAKER_SRC_ADDR_RE = "neighbor {} update-source {}"
 BGPSPEAKER_IP_RANGE_RE = "bgp listen range {} peer-group {}"
-DUMMY_IP_RANGE_V4      = "10.255.0.0/25"
-DUMMY_IP_RANGE_V6      = "cc98:2008:2012:2022::/64"
-DUMMY_SRC_ADDRESS_V4   = "10.1.0.33"
-DUMMY_SRC_ADDRESS_V6   = "fc00:1::33"
+DUMMY_IP_RANGE_V4 = "10.255.0.0/25"
+DUMMY_IP_RANGE_V6 = "cc98:2008:2012:2022::/64"
+DUMMY_SRC_ADDRESS_V4 = "10.1.0.33"
+DUMMY_SRC_ADDRESS_V6 = "fc00:1::33"
 
 
 @pytest.fixture(scope="module")
@@ -67,9 +67,7 @@ def get_bgp_speaker_runningconfig(duthost):
     """
     cmds = "show runningconfiguration bgp"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     # Sample:
     # neighbor BGPSLBPassive update-source 10.1.0.32
@@ -111,9 +109,7 @@ def bgp_speaker_config_cleanup(duthost):
     """
     cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "bgp speaker config cleanup failed."
-    )
+    pytest_assert(not output['rc'], "bgp speaker config cleanup failed.")
 
 
 def show_bgp_running_config(duthost):

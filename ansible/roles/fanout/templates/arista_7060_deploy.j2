@@ -29,93 +29,29 @@ vlan {{ device_vlan_range[inventory_hostname] | list | join(',') }}
 vrf definition management
    rd 1:1
 !
-{% for i in range(1, device_port_vlans[inventory_hostname]|length + 1) %}
-{% set intf =  'Ethernet' + i|string + '/1'  %}
-{% if intf not in device_port_vlans[inventory_hostname] %}
-{% set intf =  'Ethernet' + i|string  %}
-{% endif %}
+interface defaults
+   ethernet
+      shutdown
+!
+{% for intf in device_port_vlans[inventory_hostname] %}
 interface {{ intf }}
-{% if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
-{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
    description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 100gfull
-   error-correction encoding reed-solomon
-   no switchport mac address learning
-   no shutdown
-{%     elif device_conn[inventory_hostname][intf]['speed'] == "40000" %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 40gfull
-   no switchport mac address learning
-   no shutdown
-{%     elif device_conn[inventory_hostname][intf]['speed'] == "50000" %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 50gfull
-   no error-correction encoding
-   no switchport mac address learning
-   no shutdown
-{% set intf =  'Ethernet' + i|string + '/3'  %}
-interface {{ intf }}
-{%         if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 50gfull
-   no error-correction encoding
-   no switchport mac address learning
-   no shutdown
-{%         else %}
-   shutdown
-{%         endif %}
-{%     elif device_conn[inventory_hostname][intf]['speed'] == "10000" %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 10gfull
-   no error-correction encoding
-   no switchport mac address learning
-   no shutdown
-{%         for j in range(2,5) %}
-{% set intf =  'Ethernet' + i|string + '/' + j|string %}
-interface {{ intf }}
-{%             if intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] != "Trunk" %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
-   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
-   switchport mode dot1q-tunnel
-   spanning-tree portfast
-   speed forced 10gfull
-   no error-correction encoding
-   no switchport mac address learning
-   no shutdown
-{%             else %}
-   shutdown
-{%             endif %}
-{%         endfor %}
-{%     else %}
-{#        Not valid speed value #}
-   shutdown
-{%     endif %}
-{% elif intf in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
-   description {{ device_conn[inventory_hostname][intf]['peerdevice'] }}-{{ device_conn[inventory_hostname][intf]['peerport'] }}
+   speed force {{ device_conn[inventory_hostname][intf]['speed'] }}full
+{%   if device_port_vlans[inventory_hostname][intf]['mode'] == 'Trunk' %}
    switchport mode trunk
    switchport trunk allowed vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+{%   else %}
+   switchport mode dot1q-tunnel
+   switchport access vlan {{ device_port_vlans[inventory_hostname][intf]['vlanids'] }}
+{%     if device_conn[inventory_hostname][intf]['speed'] == "100000" %}
+   error-correction encoding reed-solomon
+{%     else %}
+   no error-correction encoding
+{%     endif %}
+{%   endif %}
    spanning-tree portfast
-   speed force 40gfull
    no switchport mac address learning
    no shutdown
-{% else %}
-   shutdown
-{% endif %}
 !
 {% endfor %}
 !

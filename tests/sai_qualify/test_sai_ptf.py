@@ -1,12 +1,12 @@
 import pytest
 import logging
 
-from cases_sai_ptf import TEST_CASE
-from conftest import get_sai_test_container_name
-from conftest import stop_and_rm_sai_test_container
-from sai_infra import run_case_from_ptf, store_test_result
-from sai_infra import *  # noqa: F403 F401
-from conftest import *  # noqa: F403 F401
+from .cases_sai_ptf import TEST_CASE
+from .conftest import get_sai_test_container_name
+from .conftest import stop_and_rm_sai_test_container
+from .sai_infra import run_case_from_ptf, store_test_result
+from .sai_infra import *  # noqa: F403 F401
+from .conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +47,12 @@ def test_sai(sai_testbed,
         run_case_from_ptf(
             duthost, dut_ip, ptfhost,
             ptf_sai_test_case, sai_test_interface_para, request)
-        if request.config.option.always_stop_sai_test_container:
-            stop_and_rm_sai_test_container(
-                duthost, get_sai_test_container_name(request))
     except BaseException as e:
         logger.info("Test case [{}] failed, \
             trying to restart sai test container, \
                 failed as {}.".format(ptf_sai_test_case, e))
-        stop_and_rm_sai_test_container(
-            duthost, get_sai_test_container_name(request))
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
+        stop_and_rm_sai_test_container(
+            duthost, get_sai_test_container_name(request))
         store_test_result(ptfhost)

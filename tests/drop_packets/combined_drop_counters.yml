@@ -28,9 +28,11 @@ l2_l3:
     - "x86_64-8.*"
     - "x86_64-cel_midstone-r0"
     - "x86_64-wistron_sw_to3200k-r0"
+    - "x86_64-nokia.*"
 
 acl_l2:
     - "x86_64-mlnx"
     - "x86_64-dell.*"
     - "x86_64-arista.*"
     - "x86_64-cel_seastone.*"
+    - "x86_64-nokia.*"

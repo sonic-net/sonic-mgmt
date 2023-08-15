@@ -64,6 +64,7 @@ from ptf.mask import Mask
 VARS = {}
 VARS['tcp_sport'] = 1234
 VARS['tcp_dport'] = 5000
+VARS['udp_sport'] = 1234
 
 Logger = logging.getLogger(__name__)
 
@@ -125,6 +126,7 @@ class VXLAN(BaseTest):
         Testcase for VxLAN. Currently implements encap testcase.
         decap is TBD.
     '''
+
     def __init__(self):
         BaseTest.__init__(self)
 
@@ -208,7 +210,7 @@ class VXLAN(BaseTest):
             vni = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination, nexthops in \
-                        self.config_data['dest_to_nh_map'][vnet].iteritems():
+                        self.config_data['dest_to_nh_map'][vnet].items():
                     self.test_encap(
                         ptf_port,
                         vni,
@@ -395,6 +397,261 @@ class VXLAN(BaseTest):
                             ip_src=self.loopback_ipv4,
                             ip_dst=host_address,
                             ip_ttl=128,
+                            udp_sport=udp_sport,
+                            udp_dport=udp_dport,
+                            with_udp_chksum=False,
+                            vxlan_vni=vni,
+                            inner_frame=exp_pkt,
+                            **options)
+                        encap_pkt[scapy.IP].flags = 0x2
+                    elif isinstance(ip_address(host_address), IPv6Address):
+                        encap_pkt = simple_vxlanv6_packet(
+                            eth_src=self.dut_mac,
+                            eth_dst=self.random_mac,
+                            ipv6_src=self.loopback_ipv6,
+                            ipv6_dst=host_address,
+                            udp_sport=udp_sport,
+                            udp_dport=udp_dport,
+                            with_udp_chksum=False,
+                            vxlan_vni=vni,
+                            inner_frame=exp_pkt,
+                            **options_v6)
+                    send_packet(self, ptf_port, str(pkt))
+
+                # After we sent all packets, wait for the responses.
+                if expect_success:
+                    wait_timeout = 2
+                    loop_timeout = max(packet_count * 5, 1000)   # milliseconds
+                    start_time = datetime.now()
+                    vxlan_count = 0
+                    Logger.info("Loop time:out %s milliseconds", loop_timeout)
+                    while (datetime.now() - start_time).total_seconds() *\
+                            1000 < loop_timeout and vxlan_count < packet_count:
+                        result = dp_poll(
+                            self, timeout=wait_timeout
+                        )
+                        if isinstance(result, self.dataplane.PollSuccess):
+                            if not isinstance(
+                                result, self.dataplane.PollSuccess) or \
+                                    result.port not in self.t2_ports or \
+                                    "VXLAN" not in scapy.Ether(result.packet):
+                                continue
+                            else:
+                                vxlan_count += 1
+                                scapy_pkt = scapy.Ether(result.packet)
+                                # Store every destination that was received.
+                                if isinstance(
+                                        ip_address(host_address), IPv6Address):
+                                    dest_ip = scapy_pkt['IPv6'].dst
+                                else:
+                                    dest_ip = scapy_pkt['IP'].dst
+                                try:
+                                    returned_ip_addresses[dest_ip] = \
+                                        returned_ip_addresses[dest_ip] + 1
+                                except KeyError:
+                                    returned_ip_addresses[dest_ip] = 1
+                        else:
+                            Logger.info("No packet came in %s seconds",
+                                        wait_timeout)
+                            break
+                    if not vxlan_count or not returned_ip_addresses:
+                        raise RuntimeError(
+                            "Didnot get any reply for this destination:{}"
+                            " Its active endpoints:{}".format(
+                                destination, test_nhs))
+                    Logger.info(
+                        "Vxlan packets received:%s, loop time:%s "
+                        "seconds", vxlan_count,
+                        (datetime.now() - start_time).total_seconds())
+                    Logger.info("received = {}".format(returned_ip_addresses))
+
+                else:
+                    check_ecmp = False
+                    Logger.info("Verifying no packet")
+
+                    masked_exp_pkt = Mask(encap_pkt)
+                    masked_exp_pkt.set_ignore_extra_bytes()
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+                    if isinstance(ip_address(host_address), IPv4Address):
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IP,
+                                                             "chksum")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "dst")
+                    else:
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
+                                                             "hlim")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
+                                                             "chksum")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
+                                                             "dst")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.UDP,
+                                                             "sport")
+                        masked_exp_pkt.set_do_not_care_scapy(scapy.UDP,
+                                                             "chksum")
+
+                    try:
+                        verify_no_packet_any(
+                            self,
+                            masked_exp_pkt,
+                            self.t2_ports)
+                    except BaseException:
+                        raise RuntimeError(
+                            "Verify_no_packet failed. Args:ports:{} sent:{}\n,"
+                            "expected:{}\n, encap_pkt:{}\n".format(
+                                self.t2_ports,
+                                repr(pkt),
+                                repr(exp_pkt),
+                                repr(encap_pkt)))
+
+            # Verify ECMP:
+            if check_ecmp:
+                self.verify_all_addresses_used_equally(
+                    nhs,
+                    returned_ip_addresses,
+                    packet_count,
+                    self.downed_endpoints)
+
+            pkt.load = '0' * 60 + str(len(self.packets))
+            self.packets.append((ptf_port, str(pkt).encode("base64")))
+
+        finally:
+            Logger.info("")
+
+
+class VxLAN_in_VxLAN(VXLAN):
+    def test_encap(
+            self,
+            ptf_port,
+            vni,
+            ptf_addr,
+            destination,
+            nhs,
+            test_ecn=False,
+            random_dport=True,
+            random_sport=False,
+            random_src_ip=False):
+        '''
+           Test the encapsulation of packets works correctly when the payload
+           itself is a vxlan packet.
+           1. Send a TCP packet to the DUT port.
+           2. Verify that the DUT returns an encapsulated packet correctly.
+           3. Optionally: Perform if the ECMP is working(all nexthops are used
+           equally).
+        '''
+        pkt_len = 100
+        pkt_opts = {
+            "pktlen": pkt_len,
+            "eth_dst": "aa:bb:cc:dd:ee:ff",
+            "eth_src": "ff:ee:dd:cc:bb:aa",
+            "ip_dst": "1.1.1.1",
+            "ip_src": "2.2.2.2",
+            "ip_id": 105,
+            "ip_ttl": 64,
+            "tcp_sport": 3000,
+            "tcp_dport": 5000}
+        innermost_frame = simple_tcp_packet(**pkt_opts)
+
+        try:
+            pkt_len = 100
+            udp_dport = self.vxlan_port
+
+            options = {'ip_ecn': 0}
+            options_v6 = {'ipv6_ecn': 0}
+            if test_ecn:
+                ecn = random.randint(0, 3)
+                options = {'ip_ecn': ecn}
+                options_v6 = {'ipv6_ecn': ecn}
+
+            # ECMP support, assume it is a string of comma seperated list of
+            # addresses.
+            check_ecmp = False
+            working_nhs = list(set(nhs) - set(self.downed_endpoints))
+            expect_success = self.expect_encap_success
+            test_nhs = working_nhs
+            packet_count = self.packet_count
+            if not working_nhs:
+                # Since there is no NH that is up for this destination,
+                # we can't expect success here.
+                expect_success = False
+                test_nhs = nhs
+                # Also reduce the packet count, since this script has to wait
+                # 1 second per packet(1000 packets is 20 minutes).
+                packet_count = 4
+            returned_ip_addresses = {}
+            for host_address in test_nhs:
+                check_ecmp = True
+                # This will ensure that every nh is used atleast once.
+                Logger.info(
+                    "Sending %s packets from port %s to %s",
+                    packet_count,
+                    str(ptf_port),
+                    destination)
+                for _ in range(packet_count):
+                    udp_sport = get_incremental_value('udp_sport')
+                    if isinstance(ip_address(destination), IPv4Address) and \
+                            isinstance(ip_address(ptf_addr), IPv4Address):
+                        if random_src_ip:
+                            ptf_addr = get_ip_address(
+                                "v4", hostid=3, netid=170)
+                        pkt_opts = {
+                            'eth_src': self.random_mac,
+                            'eth_dst': self.dut_mac,
+                            'ip_id': 0,
+                            'ip_ihl': 5,
+                            'ip_src': ptf_addr,
+                            'ip_dst': destination,
+                            'ip_ttl': 63,
+                            'udp_sport': udp_sport,
+                            'udp_dport': udp_dport,
+                            'with_udp_chksum': False,
+                            'vxlan_vni': vni,
+                            'inner_frame': innermost_frame}
+                        pkt_opts.update(**options)
+                        pkt = simple_vxlan_packet(**pkt_opts)
+
+                        pkt_opts['ip_ttl'] = 62
+                        pkt_opts['eth_dst'] = self.random_mac
+                        pkt_opts['eth_src'] = self.dut_mac
+                        exp_pkt = simple_vxlan_packet(**pkt_opts)
+                    elif isinstance(ip_address(destination), IPv6Address) and \
+                            isinstance(ip_address(ptf_addr), IPv6Address):
+                        if random_src_ip:
+                            ptf_addr = get_ip_address(
+                                "v6", hostid=4, netid=170)
+                        pkt_opts = {
+                            "pktlen": pkt_len,
+                            "eth_dst": self.dut_mac,
+                            "eth_src": self.ptf_mac_addrs['eth%d' % ptf_port],
+                            "ipv6_dst": destination,
+                            "ipv6_src": ptf_addr,
+                            "ipv6_hlim": 64,
+                            "udp_sport": udp_sport,
+                            "udp_dport": udp_dport,
+                            'inner_frame': innermost_frame}
+                        pkt_opts.update(**options_v6)
+
+                        pkt = simple_vxlanv6_packet(**pkt_opts)
+                        pkt_opts.update(options_v6)
+
+                        pkt_opts['eth_dst'] = self.random_mac
+                        pkt_opts['eth_src'] = self.dut_mac
+                        pkt_opts['ipv6_hlim'] = 63
+                        exp_pkt = simple_vxlanv6_packet(**pkt_opts)
+                    else:
+                        raise RuntimeError(
+                            "Invalid mapping of destination and PTF address.")
+                    udp_sport = 1234    # it will be ignored in the test later.
+                    udp_dport = self.vxlan_port
+                    if isinstance(ip_address(host_address), IPv4Address):
+                        encap_pkt = simple_vxlan_packet(
+                            eth_src=self.dut_mac,
+                            eth_dst=self.random_mac,
+                            ip_id=0,
+                            ip_ihl=5,
+                            ip_src=self.loopback_ipv4,
+                            ip_dst=host_address,
+                            ip_ttl=63,
                             udp_sport=udp_sport,
                             udp_dport=udp_dport,
                             with_udp_chksum=False,

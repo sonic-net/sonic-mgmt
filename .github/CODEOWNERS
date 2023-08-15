@@ -7,7 +7,7 @@
 # These owners will be the default owners for everything in the repo.
 # Unless a later match takes precedence, # @Azure/sonic-fundamentals
 # will be requested for review when someone opens a pull request.
-*       @Azure/sonic-fundamentals
+#       @Azure/sonic-fundamentals
 
 # Ansible
 
@@ -21,18 +21,32 @@ spytest @ramakristipati @lolyu @yxieca
 test_reporting  @wangxin
 
 # tests
-tests/platform_tests    @sujinmkang
+tests/platform_tests    @prgeor
 tests/platform_tests/mellanox @keboliu @Junchao-Mellanox
-tests/platform_tests/fwutil @sujinmkang @alexrallen
-tests/platform_tests/files @sujinmkang @Junchao-Mellanox
-tests/platform_tests/test_auto_negotiation.py @sujinmkang @Junchao-Mellanox
-tests/platform_tests/thermal_control_test_helper.py @sujinmkang @Junchao-Mellanox
-tests/system_health @sujinmkang @Junchao-Mellanox
+tests/platform_tests/fwutil @prgeor @alexrallen
+tests/platform_tests/files @prgeor @Junchao-Mellanox
+tests/platform_tests/test_auto_negotiation.py @prgeor @Junchao-Mellanox
+tests/platform_tests/thermal_control_test_helper.py @prgeor @Junchao-Mellanox
+tests/system_health @prgeor @Junchao-Mellanox
 tests/show_techsupport @yxieca @noaOrMlnx
+tests/qos @XuChen-MSFT @wsycqyz
 tests/qos/test_buffer.py @neethajohn @stephenxs
 tests/qos/test_buffer_traditional.py @neethajohn @stephenxs
 tests/qos/files/dynamic_buffer_param.json @neethajohn @stephenxs
 tests/qos/files/mellanox @stephenxs @keboliu
 tests/qos/args @neethajohn @stephenxs
 tests/common/mellanox_data.py @keboliu @Junchao-Mellanox
-
+tests/dhcp_relay @jcaiMR
+tests/bgp @jcaiMR @StormLiangMS
+tests/route @jcaiMR
+tests/fib @jcaiMR
+tests/ip @jcaiMR
+tests/ipfwd @jcaiMR
+tests/radv @jcaiMR
+tests/fdb @jcaiMR
+tests/pfcwd @lipxu @neethajohn
+tests/lldp @ZhaohuiS
+tests/cacl @ZhaohuiS
+tests/dualtor @lolyu @wsycqyz
+tests/dualtor_io @lolyu @wsycqyz
+tests/dualtor_mgmt @lolyu @wsycqyz

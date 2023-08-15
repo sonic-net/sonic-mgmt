@@ -886,8 +886,8 @@ def verify_static_nat_entry(dut, port=None, prot=None, global_ip=None, global_po
     else:
         match = {"target": "DNAT", "prot": prot, "destination": global_ip, "trans_ip": local_ip}
         match1 = {"target": "SNAT", "prot": prot, "source": local_ip, "trans_ip": global_ip}
-    print (match)
-    print (match1)
+    print(match)
+    print(match1)
 
     entries = filter_and_select(output, None, match)
     print(entries)

@@ -122,6 +122,10 @@ class EverflowPolicerTest(BaseTest):
         self.dataplane = ptf.dataplane_instance
         self.hwsku = self.test_params['hwsku']
         self.asic_type = self.test_params['asic_type']
+        # The router MAC is the VLAN MAC for upstream traffic on dualtor testbed
+        self.dualtor_upstream = self.test_params.get('dualtor_upstream', False)
+        if self.dualtor_upstream:
+            self.vlan_mac = self.test_params['vlan_mac']
         self.router_mac = self.test_params['router_mac']
         self.mirror_stage = self.test_params['mirror_stage']
         self.session_src_ip = self.test_params['session_src_ip']
@@ -147,7 +151,7 @@ class EverflowPolicerTest(BaseTest):
 
         self.min_rx_pps, self.max_rx_pps = self.cbs * (1 - self.tolerance/100.), self.cbs * (1 + self.tolerance/100.)
 
-        self.base_pkt = testutils.simple_tcp_packet(eth_dst=self.router_mac,
+        self.base_pkt = testutils.simple_tcp_packet(eth_dst=self.vlan_mac if self.dualtor_upstream else self.router_mac,
                                                     eth_src=self.dataplane.get_mac(0, 0),
                                                     ip_src="20.0.0.1",
                                                     ip_dst="30.0.0.1",
@@ -246,6 +250,8 @@ class EverflowPolicerTest(BaseTest):
 
         if self.asic_type in ["innovium"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
+        if self.asic_type in ["marvell"]:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
 
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")

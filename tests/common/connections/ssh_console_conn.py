@@ -3,10 +3,11 @@ import re
 from .base_console_conn import BaseConsoleConn, CONSOLE_SSH
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
+
 class SSHConsoleConn(BaseConsoleConn):
     def __init__(self, **kwargs):
-        if not kwargs.has_key("console_username") \
-                or not kwargs.has_key("console_password"):
+        if "console_username" not in kwargs \
+                or "console_password" not in kwargs:
             raise ValueError("Either console_username or console_password is not set")
 
         # Console via SSH connection need two groups of user/passwd
@@ -31,15 +32,15 @@ class SSHConsoleConn(BaseConsoleConn):
             # Since we have attempted all passwords in __init__ of base class until successful login
             # So self.username and self.password must be the correct ones
             self.login_stage_2(username=self.username,
-                                password=self.password,
-                                menu_port=self.menu_port,
-                                pri_prompt_terminator=r".*login")
+                               password=self.password,
+                               menu_port=self.menu_port,
+                               pri_prompt_terminator=r".*login")
         # Attempt all sonic password
         for i in range(0, len(self.sonic_password)):
             password = self.sonic_password[i]
             try:
                 self.login_stage_2(username=self.sonic_username,
-                                password=password)
+                                   password=password)
             except NetMikoAuthenticationException as e:
                 if i == len(self.sonic_password) - 1:
                     raise e
@@ -150,4 +151,3 @@ class SSHConsoleConn(BaseConsoleConn):
         # and any other login is prevented
         self.remote_conn.close()
         del self.remote_conn
-

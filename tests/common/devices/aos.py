@@ -5,8 +5,10 @@ import os
 from tests.common.devices.base import AnsibleHostBase
 import re
 
+
 def _raise_err(msg):
-        raise Exception(msg)
+    raise Exception(msg)
+
 
 class AosHost(AnsibleHostBase):
     """
@@ -21,7 +23,7 @@ class AosHost(AnsibleHostBase):
 
         self.admin_conn_props = {
             'ansible_connection': 'network_cli',
-            'ansible_network_os':'aos',
+            'ansible_network_os': 'aos',
             'ansible_become_method': 'enable',
             'ansible_user': user,
             'ansible_password': passwd
@@ -71,26 +73,27 @@ class AosHost(AnsibleHostBase):
     def shutdown(self, interface_name):
         out = self.aos_config(lines=['shutdown'], parents=['interface {}'.format(interface_name)])
         logging.info('Shut interface {}'.format(interface_name))
-        return {self.hostname : out }
+        return {self.hostname: out}
 
     def no_shutdown(self, interface_name):
         out = self.aos_config(lines=['no shutdown'], parents=['interface {}'.format(interface_name)])
         logging.info('No shut interface {}'.format(interface_name))
-        return {self.hostname : out }
+        return {self.hostname: out}
 
     def command(self, cmd):
         task_name = 'Execute command \'{}\''.format(cmd)
         out = self._exec_jinja_template(task_name, cmd)
         logging.info('Exec command: \'{}\''.format(cmd))
-        return {self.hostname : out }
+        return {self.hostname: out}
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
         """
         Execute ansible playbook with specified parameters
         """
-        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} --extra-vars \'{extra_vars}\' -vvv'
+        playbook_template = 'cd {ansible_path}; ansible-playbook {playbook} -i {inventory} -l {fanout_host} \
+                            --extra-vars \'{extra_vars}\' -vvv'
         cli_cmd = playbook_template.format(ansible_path=ansible_root, playbook=ansible_playbook, inventory=inventory,
-            fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
+                                           fanout_host=self.hostname, extra_vars=json.dumps(kwargs))
         res = self.localhost.shell(cli_cmd)
 
         if res["localhost"]["rc"] != 0:
@@ -124,7 +127,7 @@ class AosHost(AnsibleHostBase):
                 lines=['no negotiation'],
                 parents=['interface {}'.format(port)])
         return not self._has_cli_cmd_failed(out)
-    
+
     def get_speed(self, port):
         output = self.cli_command('show interfaces status {}'.format(port))
 
@@ -153,7 +156,7 @@ class AosHost(AnsibleHostBase):
         return list(map(speed_gb_to_mb, speed_list))
 
     def set_speed(self, interface_name, speed):
-        
+
         if not speed:
             # other set_speed implementations advertise port speeds when speed=None
             # but in AOS autoneg activation and speeds advertisement is done via a single CLI cmd
@@ -165,6 +168,7 @@ class AosHost(AnsibleHostBase):
                 parents='interface %s' % interface_name)
         return not self._has_cli_cmd_failed(out)
 
+
 def speed_gb_to_mb(speed):
     res = re.search(r'(\d+)(\w)', speed)
     if not res:
@@ -172,8 +176,10 @@ def speed_gb_to_mb(speed):
     speed = res.groups()[0]
     return speed + '000'
 
+
 def speed_mb_to_gb(val):
     return '{}Gfull'.format(int(val) // 1000)
+
 
 def extract_val(prop_name, output):
     found_txt = re.search(r'{}\s+:\s+(.+)'.format(prop_name), output)

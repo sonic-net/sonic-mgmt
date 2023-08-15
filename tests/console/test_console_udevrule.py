@@ -6,6 +6,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 def test_console_port_mapping(duthost):
     """
     Test udev rule are working as expect.
@@ -15,7 +16,7 @@ def test_console_port_mapping(duthost):
     ttys = set(out.split())
     pytest_assert(len(ttys) > 0, "No console tty devices been created by udev rule")
 
-    out = duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys()
+    out = list(duthost.console_facts()["ansible_facts"]["console_facts"]["lines"].keys())
     for i in out:
         expected_console_tty = "/dev/C0-{}".format(i)
         pytest_assert(

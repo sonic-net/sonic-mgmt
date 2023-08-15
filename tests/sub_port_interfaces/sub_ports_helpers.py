@@ -12,6 +12,9 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
+from scapy.layers.l2 import Dot1Q
+from scapy.all import Ether
+
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.pkt_filter.filter_pkt_in_buffer import FilterPktBuffer
@@ -33,7 +36,8 @@ BALANCING_TEST_TIMES = 625
 DEFAULT_BALANCING_RANGE = 0.25
 
 
-def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_vlan_enable=False, icmp_type=8, pktlen=100, ip_tunnel=None):
+def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_vlan_enable=False,
+                  icmp_type=8, pktlen=100, ip_tunnel=None):
     """
     Generate packet to send.
 
@@ -53,29 +57,34 @@ def create_packet(eth_dst, eth_src, ip_dst, ip_src, vlan_vid, tr_type, ttl, dl_v
     Returns: simple packet
     """
     if 'TCP' in tr_type:
-        return testutils.simple_tcp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT,
-                                           vlan_vid=vlan_vid, dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
+        return testutils.simple_tcp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src,
+                                           tcp_sport=TCP_PORT, tcp_dport=TCP_PORT, vlan_vid=vlan_vid,
+                                           dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
     elif 'UDP' in tr_type:
-        return testutils.simple_udp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, udp_sport=UDP_PORT, udp_dport=UDP_PORT,
-                                           vlan_vid=vlan_vid, dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
+        return testutils.simple_udp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src,
+                                           udp_sport=UDP_PORT, udp_dport=UDP_PORT, vlan_vid=vlan_vid,
+                                           dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
     elif 'ICMP' in tr_type:
-        return testutils.simple_icmp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src, icmp_type=icmp_type, vlan_vid=vlan_vid,
+        return testutils.simple_icmp_packet(eth_dst=eth_dst, eth_src=eth_src, ip_dst=ip_dst, ip_src=ip_src,
+                                            icmp_type=icmp_type, vlan_vid=vlan_vid,
                                             dl_vlan_enable=dl_vlan_enable, ip_ttl=ttl, pktlen=pktlen)
     elif 'decap' in tr_type:
-        inner_dscp = random.choice(range(0, 33))
-        inner_ttl = random.choice(range(3, 65))
+        inner_dscp = random.choice(list(range(0, 33)))
+        inner_ttl = random.choice(list(range(3, 65)))
 
-        inner_packet = testutils.simple_tcp_packet(ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT, ip_ttl=inner_ttl,
-                                                   ip_dscp=inner_dscp)[packet.IP]
+        inner_packet = testutils.simple_tcp_packet(ip_dst=ip_dst, ip_src=ip_src, tcp_sport=TCP_PORT, tcp_dport=TCP_PORT,
+                                                   ip_ttl=inner_ttl, ip_dscp=inner_dscp)[packet.IP]
 
-        return testutils.simple_ipv4ip_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src='1.1.1.1', ip_dst=ip_tunnel, ip_dscp=inner_dscp, ip_ttl=64,
-                                              vlan_vid=vlan_vid, dl_vlan_enable=dl_vlan_enable, inner_frame=inner_packet)
+        return testutils.simple_ipv4ip_packet(eth_dst=eth_dst, eth_src=eth_src, ip_src='1.1.1.1',
+                                              ip_dst=ip_tunnel, ip_dscp=inner_dscp, ip_ttl=64, vlan_vid=vlan_vid,
+                                              dl_vlan_enable=dl_vlan_enable, inner_frame=inner_packet)
 
     return None
 
 
-def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost=None, ip_src='', ip_dst='', pkt_action=None,
-                                type_of_traffic='ICMP', ttl=64, pktlen=100, ip_tunnel=None, **kwargs):
+def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost=None, ip_src='', ip_dst='',
+                                pkt_action=None, type_of_traffic='ICMP', ttl=64, pktlen=100, ip_tunnel=None,
+                                **kwargs):
     """
     Send packet from PTF to DUT and
     verify that DUT sends/doesn't packet to PTF.
@@ -98,13 +107,18 @@ def generate_and_verify_traffic(duthost, ptfadapter, src_port, dst_port, ptfhost
 
     for tr_type in type_of_traffic:
         if 'TCP' in tr_type or 'UDP' in tr_type:
-            generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, pktlen, ttl)
+            generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type,
+                                                pktlen, ttl)
         elif 'ICMP' in tr_type:
-            generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl, untagged_icmp_request=kwargs.pop("untagged_icmp_request", False))
+            generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port,
+                                             ip_src, ip_dst, pkt_action, tr_type, ttl,
+                                             untagged_icmp_request=kwargs.pop("untagged_icmp_request", False))
         elif 'decap' in tr_type:
-            generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, ip_tunnel)
+            generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type,
+                                              ip_tunnel)
         elif 'balancing' in tr_type:
-            generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pktlen, ttl)
+            generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port, dst_port, ip_src, ip_dst,
+                                                  pktlen, ttl)
         else:
             pytest.skip('Unsupported type of traffic')
 
@@ -173,7 +187,8 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
                                  dst_port_numbers=dst_port_number,
-                                 match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"), ("IP", "src"), ("IP", "dst"), (tr_type, "dport")],
+                                 match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"),
+                                               ("IP", "src"), ("IP", "dst"), (tr_type, "dport")],
                                  ignore_fields=[])
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
@@ -181,7 +196,8 @@ def generate_and_verify_tcp_udp_traffic(duthost, ptfadapter, src_port, dst_port,
     pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
-def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type, ttl=64, untagged_icmp_request=False):
+def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pkt_action, tr_type,
+                                     ttl=64, untagged_icmp_request=False):
     """
     Send ICMP request packet from PTF to DUT and
     verify that DUT sends/doesn't send ICMP reply packet to PTF.
@@ -250,7 +266,8 @@ def generate_and_verify_icmp_traffic(duthost, ptfadapter, src_port, dst_port, ip
         testutils.verify_no_packet_any(ptfadapter, masked_exp_pkt, dst_port_list)
 
 
-def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type, ip_tunnel=None):
+def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, ip_src, ip_dst, tr_type,
+                                      ip_tunnel=None):
     """
     Send encapsulated packet from PTF to DUT and
     verify that DUT sends/doesn't send TCP/UDP packet to PTF.
@@ -286,7 +303,8 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     # Build expected packet
     inner_packet = pkt[packet.IP].payload[packet.IP].copy()
-    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) / Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
+    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) \
+        / Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
     exp_pkt['IP'].ttl -= 1
 
     update_dut_arp_table(duthost, ip_dst)
@@ -298,7 +316,8 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
     pkt_filter = FilterPktBuffer(ptfadapter=ptfadapter,
                                  exp_pkt=exp_pkt,
                                  dst_port_numbers=dst_port_number,
-                                 match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"), ("IP", "src"), ("IP", "dst")],
+                                 match_fields=[("802.1Q", "vlan"), ("Ethernet", "src"), ("Ethernet", "dst"),
+                                               ("IP", "src"), ("IP", "dst")],
                                  ignore_fields=[])
 
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
@@ -306,7 +325,8 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
     pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
 
 
-def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port, dst_port, ip_src, ip_dst, pktlen, ttl):
+def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port, dst_port, ip_src, ip_dst,
+                                          pktlen, ttl):
     """
     Send TCP packets and verify balancing range between sub-ports.
     Args:
@@ -363,10 +383,10 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
                             pktlen=pktlen)
 
     ifaces_map = ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
-    config_port_indices = {v: k for k, v in ifaces_map.items()}
+    config_port_indices = {v: k for k, v in list(ifaces_map.items())}
     dst_port_numbers = [config_port_indices[k] for k in config_port_indices if k in dst_port]
 
-    ignore_fields=[("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")]
+    ignore_fields = [("Ether", "dst"), ("IP", "src"), ("IP", "chksum"), ("TCP", "chksum")]
     if dl_vlan_enable:
         ignore_fields.append(("Ether", "type"))
 
@@ -379,7 +399,8 @@ def generate_and_verify_balancing_traffic(duthost, ptfhost, ptfadapter, src_port
     pkt_in_buffer = pkt_filter.filter_pkt_in_buffer()
 
     pytest_assert(pkt_in_buffer is True, "Expected packet not available:\n{}".format(pkt_in_buffer))
-    pytest_assert(check_balancing(pkt_filter.matched_index), "Balancing error:\n{}".format(pkt_filter.matched_index))
+    pytest_assert(check_balancing(pkt_filter.matched_index),
+                  "Balancing error:\n{}".format(pkt_filter.matched_index))
 
 
 def shutdown_port(duthost, interface):
@@ -594,24 +615,28 @@ def create_lag_port(duthost, config_port_indices):
         Dictonary of lag ports on the DUT
     """
     lag_port_map = {}
-    portchannels = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL', {}).keys()
+    portchannels = list(duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts'].get('PORTCHANNEL', {}).keys())
     port_list_idx = 0
     port_list = list(config_port_indices.values())
+    cmds = []
 
-    for portchannel_idx in range(1, 10000): # Max len of portchannel index can be '9999'
+    for portchannel_idx in range(1, 10000):  # Max len of portchannel index can be '9999'
         lag_port = 'PortChannel{}'.format(portchannel_idx)
 
         if lag_port not in portchannels:
             port_name = port_list[port_list_idx]
             remove_ip_from_port(duthost, port_name)
             remove_member_from_vlan(duthost, '1000', port_name)
-            duthost.shell('config portchannel add {}'.format(lag_port))
-            duthost.shell('config portchannel member add {} {}'.format(lag_port, port_name))
+            cmds.append('config portchannel add {}'.format(lag_port))
+            cmds.append('config portchannel member add {} {}'.format(lag_port, port_name))
             lag_port_map[portchannel_idx] = lag_port
             port_list_idx += 1
 
         if len(lag_port_map) == len(config_port_indices):
             break
+
+    duthost.shell_cmds(cmds=cmds)
 
     return lag_port_map
 
@@ -628,21 +653,42 @@ def create_bond_port(ptfhost, ptf_ports):
         Dictonary of bond ports and slave ports on the PTF
     """
     bond_port_map = OrderedDict()
-    for port_index, port_name in ptf_ports.items():
+    cmds = []
+
+    for port_index, port_name in list(ptf_ports.items()):
         bond_port = 'bond{}'.format(port_index)
-        ptfhost.shell("ip link add {} type bond".format(bond_port))
-        ptfhost.shell("ip link set {} type bond miimon 100 mode 802.3ad".format(bond_port))
-        ptfhost.shell("ip link set {} down".format(port_name))
-        ptfhost.shell("ip link set {} master {}".format(port_name, bond_port))
-        ptfhost.shell("ip link set dev {} up".format(bond_port))
-        ptfhost.shell("ifconfig {} mtu 9216 up".format(bond_port))
+        cmds.append("ip link add {} type bond".format(bond_port))
+        cmds.append("ip link set {} type bond miimon 100 mode 802.3ad".format(bond_port))
+        cmds.append("ip link set {} down".format(port_name))
+        cmds.append("ip link set {} master {}".format(port_name, bond_port))
+        cmds.append("ip link set dev {} up".format(bond_port))
+        cmds.append("ifconfig {} mtu 9216 up".format(bond_port))
 
         bond_port_map[bond_port] = port_name
 
+    ptfhost.shell_cmds(cmds=cmds)
     ptfhost.shell("supervisorctl restart ptf_nn_agent")
     time.sleep(5)
 
     return bond_port_map
+
+
+def create_sub_port_on_dut(duthost, sub_port_name, sub_port_ip):
+    """
+    Create sub-port on the DUT
+
+    Args:
+        duthost: DUT host object
+        sub_port_name: Sub-port name
+        sub_port_ip: IP address of sub-port
+
+    """
+    cmds = []
+    vlan_vid = int(sub_port_name.split('.')[1])
+    cmds.append("config subinterface add {} {}".format(sub_port_name, vlan_vid))
+    cmds.append("config interface ip add {} {}".format(sub_port_name, sub_port_ip))
+
+    duthost.shell_cmds(cmds=cmds)
 
 
 def create_sub_port_on_ptf(ptfhost, sub_port_name, sub_port_ip):
@@ -654,10 +700,13 @@ def create_sub_port_on_ptf(ptfhost, sub_port_name, sub_port_ip):
         sub_port_name: Sub-port name
         sub_port_ip: IP address of sub-port
     """
+    cmds = []
     port, vlan = sub_port_name.split(".")
-    ptfhost.shell("ip link add link {} name {} type vlan id {}".format(port, sub_port_name, vlan))
-    ptfhost.shell("ip address add {} dev {}".format(sub_port_ip, sub_port_name))
-    ptfhost.shell("ip link set {} up".format(sub_port_name))
+    cmds.append("ip link add link {} name {} type vlan id {}".format(port, sub_port_name, vlan))
+    cmds.append("ip address add {} dev {}".format(sub_port_ip, sub_port_name))
+    cmds.append("ip link set {} up".format(sub_port_name))
+
+    ptfhost.shell_cmds(cmds=cmds)
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
@@ -670,13 +719,16 @@ def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
         port_name: Port of the PTF
         port_ip: IP address of the port
     """
+    cmds = []
     if not check_namespace(ptfhost, name_of_namespace):
-        ptfhost.shell('ip netns add {}'.format(name_of_namespace))
-        ptfhost.shell('ip -n {} link set lo up'.format(name_of_namespace))
+        cmds.append('ip netns add {}'.format(name_of_namespace))
+        cmds.append('ip -n {} link set lo up'.format(name_of_namespace))
 
-    ptfhost.shell('ip link set {} netns {}'.format(port_name, name_of_namespace))
-    ptfhost.shell('ip -n {} addr add {} dev {}'.format(name_of_namespace, port_ip, port_name))
-    ptfhost.shell('ip -n {} link set {} up'.format(name_of_namespace, port_name))
+    cmds.append('ip link set {} netns {}'.format(port_name, name_of_namespace))
+    cmds.append('ip -n {} addr add {} dev {}'.format(name_of_namespace, port_ip, port_name))
+    cmds.append('ip -n {} link set {} up'.format(name_of_namespace, port_name))
+
+    ptfhost.shell_cmds(cmds=cmds)
 
 
 def add_static_route_to_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
@@ -746,20 +798,21 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
     # if port_type is port channel, filter out those ports that has vlan sub interface
-    sub_interface_ports = set([_.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in cfg_facts.get('VLAN_SUB_INTERFACE', {}).keys()])
+    sub_interface_ports = set([_.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]
+                               for _ in list(cfg_facts.get('VLAN_SUB_INTERFACE', {}).keys())])
 
     portchannel_members = []
-    for member in cfg_facts.get('PORTCHANNEL_MEMBER', {}).values():
-        portchannel_members += member.keys()
+    for member in list(cfg_facts.get('PORTCHANNEL_MEMBER', {}).values()):
+        portchannel_members += list(member.keys())
 
     config_vlan_members = cfg_facts['port_index_map']
     port_status = cfg_facts['PORT']
     config_port_indices = OrderedDict()
-    for port, port_id in config_vlan_members.items():
+    for port, port_id in list(config_vlan_members.items()):
         if ((port not in portchannel_members) and
-            (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
-            (port_status[port].get('admin_status', 'down') == 'up') and
-            (port not in ports_to_exclude)):
+                (not (('port_in_lag' in port_type or exclude_sub_interface_ports) and port in sub_interface_ports)) and
+                (port_status[port].get('admin_status', 'down') == 'up') and
+                (port not in ports_to_exclude)):
             config_port_indices[port_id] = port
             if len(config_port_indices) == interface_num:
                 break
@@ -778,7 +831,7 @@ def get_port(duthost, ptfhost, interface_num, port_type, ports_to_exclude=None, 
 
         return (lag_port_map, bond_port_map)
 
-    return (config_port_indices, ptf_ports.values())
+    return (config_port_indices, list(ptf_ports.values()))
 
 
 def remove_acl_table(duthost, config_port_indices):
@@ -790,9 +843,9 @@ def remove_acl_table(duthost, config_port_indices):
         config_port_indices: Dictionary of port on the DUT
     """
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
-    port_list = config_port_indices.values()
+    port_list = list(config_port_indices.values())
 
-    for table_name in acl_facts.keys():
+    for table_name in list(acl_facts.keys()):
         acl_ports = acl_facts[table_name].get("ports", [])
         if set(acl_ports).intersection(port_list):
             duthost.shell('config acl remove table {}'.format(table_name))
@@ -807,8 +860,11 @@ def remove_sub_port(duthost, sub_port, ip):
         sub_port: Sub-port name
         ip: IP address of port
     """
-    duthost.shell('config interface ip remove {} {}'.format(sub_port, ip))
-    duthost.shell('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
+    cmds = []
+    cmds.append('config interface ip remove {} {}'.format(sub_port, ip))
+    cmds.append('redis-cli -n 4 del "VLAN_SUB_INTERFACE|{}"'.format(sub_port))
+
+    duthost.shell_cmds(cmds=cmds)
 
 
 def remove_lag_port(duthost, cfg_facts, lag_port):
@@ -820,7 +876,7 @@ def remove_lag_port(duthost, cfg_facts, lag_port):
         cfg_facts: Ansible config_facts
         lag_port: lag-port name
     """
-    lag_members = cfg_facts['PORTCHANNEL_MEMBER'][lag_port].keys()
+    lag_members = list(cfg_facts['PORTCHANNEL_MEMBER'][lag_port].keys())
     for port in lag_members:
         duthost.shell('config portchannel member del {} {}'.format(lag_port, port))
     duthost.shell('config portchannel del {}'.format(lag_port))
@@ -835,10 +891,14 @@ def remove_bond_port(ptfhost, bond_port, port_name):
         bond_port: bond-port name
         port_name: member name of bond-port
     """
-    ptfhost.shell("ip link set {} nomaster".format(bond_port))
-    ptfhost.shell("ip link set {} nomaster".format(port_name))
-    ptfhost.shell("ip link set {} up".format(port_name))
-    ptfhost.shell("ip link del {}".format(bond_port))
+    cmds = []
+
+    cmds.append("ip link set {} nomaster".format(bond_port))
+    cmds.append("ip link set {} nomaster".format(port_name))
+    cmds.append("ip link set {} up".format(port_name))
+    cmds.append("ip link del {}".format(bond_port))
+
+    ptfhost.shell_cmds(cmds=cmds)
 
 
 def remove_ip_from_port(duthost, port, ip=None):
@@ -850,7 +910,8 @@ def remove_ip_from_port(duthost, port, ip=None):
         port: port name
         ip: IP address
     """
-    ip_addresses = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'].get('INTERFACE', {}).get(port, {})
+    ip_addresses = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts'] \
+        .get('INTERFACE', {}).get(port, {})
     if ip_addresses:
         for ip in ip_addresses:
             duthost.shell('config interface ip remove {} {}'.format(port, ip))
@@ -858,17 +919,26 @@ def remove_ip_from_port(duthost, port, ip=None):
         duthost.shell('config interface ip remove {} {}'.format(port, ip))
 
 
-def remove_namespace(ptfhost, name_of_namespace):
+def remove_namespace(ptfhost, name_of_namespace, port_name, port_ip):
     """
     Remove namespace from the PTF
 
     Args:
         ptfhost: PTF host object
         name_of_namespace: Name of namespace
+        port_name: member name of namespace
+        port_ip: IP address of the port
     """
     if check_namespace(ptfhost, name_of_namespace):
-        ptfhost.shell('ip -n {} link set lo down'.format(name_of_namespace))
-        ptfhost.shell('ip netns del {}'.format(name_of_namespace))
+        cmds = []
+
+        cmds.append('ip netns exec {} ip link set {} netns 1'.format(name_of_namespace, port_name))
+        cmds.append('ip address add {} dev {}'.format(port_ip, port_name))
+        cmds.append('ip link set {} up'.format(port_name))
+        cmds.append('ip -n {} link set lo down'.format(name_of_namespace))
+        cmds.append('ip netns del {}'.format(name_of_namespace))
+
+        ptfhost.shell_cmds(cmds=cmds)
 
 
 def remove_static_route_from_ptf(ptfhost, network_ip, next_hop_ip, name_of_namespace=None):
@@ -976,8 +1046,12 @@ def remove_sub_port_from_ptf(ptfhost, sub_port, ip):
         sub_port: Sub-port name
         ip: IP address of port
     """
-    ptfhost.shell("ip address del {} dev {}".format(ip, sub_port))
-    ptfhost.shell("ip link del {}".format(sub_port))
+    cmds = []
+
+    cmds.append("ip address del {} dev {}".format(ip, sub_port))
+    cmds.append("ip link del {}".format(sub_port))
+
+    ptfhost.shell_cmds(cmds=cmds)
 
 
 def update_dut_arp_table(duthost, ip):
@@ -997,7 +1071,7 @@ def check_balancing(port_hit_cnt):
     Args:
         port_hit_cnt: Dictionary of matched packets on different sub-ports
     """
-    for pkt_cnt in port_hit_cnt.values():
+    for pkt_cnt in list(port_hit_cnt.values()):
         percentage = (pkt_cnt - BALANCING_TEST_TIMES) / float(BALANCING_TEST_TIMES)
         if not abs(percentage) <= DEFAULT_BALANCING_RANGE:
             break

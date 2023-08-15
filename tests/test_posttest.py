@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.posttest,
-    pytest.mark.topology('util'),
+    pytest.mark.topology('util', 'any'),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
@@ -53,7 +53,7 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # We don't want to fail here because it's an util
         logging.warn("Failed to retrieve feature status")
         return
-    for feature_name, state in features_dict.items():
+    for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')

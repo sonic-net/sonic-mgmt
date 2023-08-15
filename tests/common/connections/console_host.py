@@ -8,6 +8,7 @@ ConsoleTypeMapper = {
     CONSOLE_SSH_MENU_PORTS: SSHConsoleConn
 }
 
+
 def ConsoleHost(console_type,
                 console_host,
                 console_port,
@@ -16,7 +17,7 @@ def ConsoleHost(console_type,
                 console_username=None,
                 console_password=None,
                 timeout_s=100):
-    if not ConsoleTypeMapper.has_key(console_type):
+    if console_type not in ConsoleTypeMapper:
         raise ValueError("console type {} is not supported yet".format(console_type))
     params = {
         "console_host": console_host,
@@ -29,4 +30,3 @@ def ConsoleHost(console_type,
         "timeout": timeout_s
     }
     return ConsoleTypeMapper[console_type](**params)
-

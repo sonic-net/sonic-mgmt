@@ -9,6 +9,7 @@ pytestmark = [
     pytest.mark.device_type("vs")
 ]
 
+
 @pytest.mark.parametrize("target_line", ["1", "2", "3", "4"])
 def test_console_availability(duthost, creds, target_line):
     """
@@ -22,7 +23,7 @@ def test_console_availability(duthost, creds, target_line):
     res = duthost.shell("which socat", module_ignore_errors=True)
     if res["rc"] != 0:
         # install socat to DUT host
-        duthost.copy(src="./console/socat", dest="/usr/local/bin/socat", mode=0755)
+        duthost.copy(src="./console/socat", dest="/usr/local/bin/socat", mode=755)
 
     out = pexpect.run("ssh {}@{} -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null 'which socat'".format(
         hostuser, hostip))
@@ -39,8 +40,8 @@ def test_console_availability(duthost, creds, target_line):
     out = pexpect.run("ssh {0}@{1} -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
                       "'sudo killall -q socat;"
                       "sudo lsof -i:{3} > /dev/null &&"
-                      "sudo socat TCP-LISTEN:{2},fork,reuseaddr TCP:127.0.0.1:{3} & echo $?'".format(
-        hostuser, hostip, 2000 + int(target_line), 7000 + int(target_line) - 1))
+                      "sudo socat TCP-LISTEN:{2},fork,reuseaddr TCP:127.0.0.1:{3} & echo $?'"
+                      .format(hostuser, hostip, 2000 + int(target_line), 7000 + int(target_line) - 1))
     pytest_assert(int(out.strip()) == 0, "Failed to start socat on KVM host")
 
     try:

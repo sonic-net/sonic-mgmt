@@ -21,9 +21,7 @@ def get_bgp_monitor_runningconfig(duthost):
     """
     cmds = "show runningconfiguration bgp"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     # Sample:
     # neighbor 11.0.0.1 description BGPMonitor
@@ -77,9 +75,7 @@ def bgpmon_cleanup_config(duthost):
     """
     cmds = 'sonic-db-cli CONFIG_DB keys "BGP_MONITORS|*" | xargs -r sonic-db-cli CONFIG_DB del'
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "bgpmon cleanup config failed"
-    )
+    pytest_assert(not output['rc'], "bgpmon cleanup config failed")
 
 
 def check_bgpmon_with_addr(duthost, addr):
@@ -87,9 +83,7 @@ def check_bgpmon_with_addr(duthost, addr):
     """
     cmds = "show ip bgp summary | grep -w {}".format(addr)
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "BGPMonitor with addr {} is not being setup.".format(addr)
-    )
+    pytest_assert(not output['rc'], "BGPMonitor with addr {} is not being setup.".format(addr))
 
 
 def bgpmon_tc1_add_init(duthost, bgpmon_setup_info):
@@ -187,8 +181,7 @@ def bgpmon_tc1_admin_change(duthost, bgpmon_setup_info):
         cmds = "show ip bgp summary | grep -w {}".format(peer_addr)
         output = duthost.shell(cmds)
         pytest_assert(not output['rc'] and "Idle (Admin)" in output['stdout'],
-            "BGPMonitor with addr {} failed to admin down.".format(peer_addr)
-        )
+                      "BGPMonitor with addr {} failed to admin down.".format(peer_addr))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -250,12 +243,8 @@ def bgpmon_tc1_remove(duthost):
         expect_op_success(duthost, output)
 
         output = duthost.shell("show ip bgp summary")
-        pytest_assert(not output['rc'],
-            "Failed to get info from BGP summary"
-        )
-        pytest_assert("BGPMonitor" not in output['stdout'],
-            "Failed to remove BGPMonitor"
-        )
+        pytest_assert(not output['rc'], "Failed to get info from BGP summary")
+        pytest_assert("BGPMonitor" not in output['stdout'], "Failed to remove BGPMonitor")
     finally:
         delete_tmpfile(duthost, tmpfile)
 

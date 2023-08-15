@@ -16,6 +16,7 @@ from mclag_helpers import DEFAULT_SESSION_TIMEOUT, NEW_SESSION_TIMEOUT
 from mclag_helpers import MCLAG_DOMAINE_ID
 from tests.common.ptf_agent_updater import PtfAgentUpdater
 
+
 def pytest_addoption(parser):
     """
         Adds options to pytest that are used by the mclag test.
@@ -48,7 +49,7 @@ def duthost2(duthosts):
 
 @pytest.fixture(scope='module')
 def mg_facts(duthosts, tbinfo):
-    return {dut.hostname:dut.get_extended_minigraph_facts(tbinfo) for dut in duthosts}
+    return {dut.hostname: dut.get_extended_minigraph_facts(tbinfo) for dut in duthosts}
 
 
 @pytest.fixture(scope='module')
@@ -97,8 +98,10 @@ def get_routes(duthost1, duthost2, collect, mg_facts):
     dut2_routes_all = get_dut_routes(duthost2, collect, mg_facts)
     dut_1_diff_routes = list(set(dut1_routes_all).difference(set(dut2_routes_all)))
     dut_2_diff_routes = list(set(dut2_routes_all).difference(set(dut1_routes_all)))
-    res1 = natsorted([route for route in dut_1_diff_routes if ipaddress.ip_network(route).subnet_of(ipaddress.ip_network(SUBNET_CHECK))])
-    res2 = natsorted([route for route in dut_2_diff_routes if ipaddress.ip_network(route).subnet_of(ipaddress.ip_network(SUBNET_CHECK))])
+    res1 = natsorted([route for route in dut_1_diff_routes if
+                      ipaddress.ip_network(route).subnet_of(ipaddress.ip_network(SUBNET_CHECK))])
+    res2 = natsorted([route for route in dut_2_diff_routes if
+                      ipaddress.ip_network(route).subnet_of(ipaddress.ip_network(SUBNET_CHECK))])
     return {duthost1.hostname: res1, duthost2.hostname: res2}
 
 
@@ -119,11 +122,15 @@ def collect(duthosts, tbinfo):
         res[dut_hostname]['vm_links'] = get_vm_links(tbinfo, dut_indx)
         host_interfaces = tbinfo['topo']['ptf_map'][str(dut_indx)]
         res[dut_hostname]['vm_link_on_ptf'] = host_interfaces[res[dut_hostname]['vm_links'][0]]
-        _ = [host_interfaces.pop(vm) for vm in res[dut_hostname]['vm_links'] if vm in host_interfaces.keys()]
+        _ = [host_interfaces.pop(vm) for vm in res[dut_hostname]['vm_links'] if vm in list(host_interfaces.keys())]
         res[dut_hostname]['host_interfaces'] = natsorted(host_interfaces)
         res[dut_hostname]['ptf_map'] = host_interfaces
-        res[dut_hostname]['all_links'] = natsorted(res[dut_hostname]['host_interfaces'] + res[dut_hostname]['devices_interconnect_interfaces'] + res[dut_hostname]['vm_links'])
-        res[dut_hostname]['mclag_interfaces'] = natsorted([PC_NAME_TEMPLATE.format(indx + 1) for indx, _ in enumerate(res[dut_hostname]['host_interfaces'][:-2])])
+        res[dut_hostname]['all_links'] = natsorted(res[dut_hostname]['host_interfaces'] +
+                                                   res[dut_hostname]['devices_interconnect_interfaces'] +
+                                                   res[dut_hostname]['vm_links'])
+        res[dut_hostname]['mclag_interfaces'] = natsorted(
+            [PC_NAME_TEMPLATE.format(indx + 1)
+             for indx, _ in enumerate(res[dut_hostname]['host_interfaces'][:-2])])
     return res
 
 
@@ -182,7 +189,9 @@ def keep_and_peer_link_member(duthosts, collect, mg_facts):
     """
     res = defaultdict(dict)
     for dut in duthosts:
-        port_indices = {mg_facts[dut.hostname]['minigraph_port_indices'][k]:k for k in mg_facts[dut.hostname]['minigraph_port_indices']}
+        port_indices = {
+            mg_facts[dut.hostname]['minigraph_port_indices'][k]: k
+            for k in mg_facts[dut.hostname]['minigraph_port_indices']}
         keep_alive_interface = port_indices[int(collect[dut.hostname]['devices_interconnect_interfaces'][0])]
         peer_link_member = port_indices[int(collect[dut.hostname]['devices_interconnect_interfaces'][-1])]
         res[dut.hostname]['keepalive'] = keep_alive_interface
@@ -198,4 +207,4 @@ def check_topo(tbinfo):
         tbinfo: Testbed object
     """
     if tbinfo['topo']['name'] != 't0-mclag':
-       pytest.skip("test requires t0-mclag topo to run, current topo - {}".format(tbinfo['topo']['name']))
+        pytest.skip("test requires t0-mclag topo to run, current topo - {}".format(tbinfo['topo']['name']))

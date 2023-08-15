@@ -54,7 +54,8 @@ def get_lag_id_from_chassis_db(duthosts):
 
 def verify_lag_interface(duthost, asic, portchannel, expected=True):
     """Verify lag interface status"""
-    if duthost.interface_facts(namespace=asic.namespace)['ansible_facts']['ansible_interface_facts'][portchannel]['link'] == expected:
+    if duthost.interface_facts(namespace=asic.namespace)['ansible_facts'][
+            'ansible_interface_facts'][portchannel]['link'] == expected:
         return True
     return False
 
@@ -91,7 +92,7 @@ def add_lag(duthost, asic, portchannel_members=None, portchannel_ip=None,
         pytest_assert(int_facts['ansible_interface_facts']
                       [portchannel]['ipv4']['address'] == portchannel_ip.split('/')[0])
 
-        pytest_assert(wait_until(30,5, 0, verify_lag_interface, duthost, asic, portchannel),
+        pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel),
                       'For added Portchannel {} link is not up'.format(portchannel))
 
 
@@ -199,6 +200,10 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
     """
     deletes lag members and ip
     """
+    if portchannel_ip:
+        duthost.shell("config interface {} ip remove {} {}"
+                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
+
     logging.info('Deleting lag members {} from lag {} on dut {}'
                  .format(portchannel_members, portchannel, duthost.hostname))
     for member in portchannel_members:
@@ -206,12 +211,8 @@ def delete_lag_members_ip(duthost, asic, portchannel_members,
                       .format(asic.cli_ns_option, portchannel, member))
 
     if portchannel_ip:
-        duthost.shell("config interface {} ip remove {} {}"
-                      .format(asic.cli_ns_option, portchannel, portchannel_ip))
-
-        pytest_assert(wait_until(30,5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
+        pytest_assert(wait_until(30, 5, 0, verify_lag_interface, duthost, asic, portchannel, expected=False),
                       'For deleted Portchannel {} ip link is not down'.format(portchannel))
-
 
 
 def verify_lag_id_deleted_in_chassis_db(duthosts, duthost, asic, lag_id):
@@ -284,7 +285,7 @@ def verify_lag_member_in_asic_db(asics, lag_id, pc_members, deleted=False):
                 if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
                     pytest.fail("lag members {} still exist in lag member table on {},"
                                 " Expected was should be deleted"
-                                 .format(pc_members, asic.sonichost.hostname))
+                                .format(pc_members, asic.sonichost.hostname))
             logging.info('Lag members are deleted from {} on {}'.format(asic.asic_index,
                                                                         asic.sonichost.hostname))
 
@@ -297,7 +298,7 @@ def verify_lag_member_in_asic_db(asics, lag_id, pc_members, deleted=False):
             for lag_member in asic_db_lag_member_list:
                 if asicdb.hget_key_value(lag_member, "SAI_LAG_MEMBER_ATTR_LAG_ID") == lag_oid:
                     logging.info('Lag members exist in {} on {}'
-                                  .format(asic.asic_index, asic.sonichost.hostname))
+                                 .format(asic.asic_index, asic.sonichost.hostname))
                     return
 
             pytest.fail('Lag members {} does not exist in {} on {}'
@@ -351,6 +352,7 @@ def verify_lag_member_in_chassis_db(duthosts, members, deleted=False):
                 if not exist:
                     pytest.fail('lag member {} not found in system lag member table {}'
                                 .format(member, lag_member_list))
+
 
 def is_lag_in_app_db(asic):
     """

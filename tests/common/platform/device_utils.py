@@ -1,8 +1,10 @@
+import re
 from tests.common.helpers.dut_ports import encode_dut_port_name
 
 """
 Helper script for fanout switch operations
 """
+
 
 def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
     """
@@ -20,7 +22,7 @@ def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
             FanoutHost, Portname(str) if found
     """
     dut_host_port = encode_dut_port_name(dut_name, dut_port)
-    for _, fanout in fanout_switches.items():
+    for _, fanout in list(fanout_switches.items()):
         if dut_host_port in fanout.host_to_fanout_port_map:
             return fanout, fanout.host_to_fanout_port_map[dut_host_port]
 
@@ -65,7 +67,7 @@ def list_dut_fanout_connections(dut, fanouthosts):
 
     status = dut.show_interface(command='status')['ansible_facts']['int_status']
 
-    for dut_port in status.keys():
+    for dut_port in list(status.keys()):
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_port)
 
         if fanout and fanout_port and status[dut_port]['admin_state'] != 'down':

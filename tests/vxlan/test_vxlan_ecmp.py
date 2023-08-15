@@ -45,7 +45,6 @@
                                       for the DUT. Default: 4789
         bfd                         : Set it to True if you want to run all
                                       VXLAN cases with BFD Default: False
-        include_crm                 : Include the CRM testcases. Default:False
         include_long_tests          : Include the entropy, random-hash
                                       testcases, that take longer time.
                                       Default: False
@@ -55,7 +54,9 @@ import time
 import logging
 from datetime import datetime
 import json
+import re
 import pytest
+import copy
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils \
@@ -63,6 +64,7 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -76,9 +78,8 @@ DESTINATION_PREFIX = 150
 NEXTHOP_PREFIX = 100
 
 pytestmark = [
-    # This script supports any T1 topology: t1, t1-64-lag, t1-lag.
-    pytest.mark.topology("t1", "t1-64-lag", "t1-lag"),
-    pytest.mark.sanity_check(post_check=True)
+    # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
+    pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag")
 ]
 
 
@@ -91,11 +92,11 @@ def fixture_encap_type(request):
         This fixture forces the script to perform one encap_type at a time.
         So this script doesn't support multiple encap types at the same.
     '''
-    yield request.param
+    return request.param
 
 
 @pytest.fixture(autouse=True)
-def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
+def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
         loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
@@ -108,6 +109,20 @@ def ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*Vnet Route Mismatch reported.*"
             ])
     return
+
+
+def setup_crm_interval(duthost, interval):
+    crm_stdout = duthost.shell("crm show summary")['stdout_lines']
+    match = re.search("Polling Interval: ([0-9]*) second", "".join(crm_stdout))
+
+    if match:
+        current_polling_seconds = match.group(1)
+    else:
+        raise RuntimeError(
+            "Couldn't parse the crm polling "
+            "interval. output:{}".format(crm_stdout))
+    duthost.shell("crm config polling interval {}".format(interval))
+    return current_polling_seconds
 
 
 @pytest.fixture(name="setUp", scope="module")
@@ -133,10 +148,14 @@ def fixture_setUp(duthosts,
 
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type == "cisco-8000":
+    if asic_type in ["cisco-8000", "mellanox"]:
         data['tolerance'] = 0.03
     else:
         raise RuntimeError("Pls update this script for your platform.")
+
+    platform = duthosts[rand_one_dut_hostname].facts['platform']
+    if platform == 'x86_64-mlnx_msn2700-r0' and encap_type in ['v4_in_v6', 'v6_in_v6']:
+        pytest.skip("Skipping test. v6 underlay is not supported on Mlnx 2700")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
@@ -154,7 +173,6 @@ def fixture_setUp(duthosts,
     Logger.info("Constants to be used in the script:%s", ecmp_utils.Constants)
 
     data['enable_bfd'] = request.config.option.bfd
-    data['include_crm'] = request.config.option.include_crm
     data['include_long_tests'] = request.config.option.include_long_tests
     data['monitor_file'] = '/tmp/bfd_responder_monitor_file.txt'
     data['ptfhost'] = ptfhost
@@ -164,6 +182,9 @@ def fixture_setUp(duthosts,
         data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     data['vxlan_port'] = request.config.option.vxlan_port
+    data['original_crm_interval'] = setup_crm_interval(data['duthost'],
+                                                       interval=3)
+    time.sleep(4)
     data['crm'] = data['duthost'].get_crm_resources()['main_resources']
     ecmp_utils.configure_vxlan_switch(
         data['duthost'],
@@ -211,7 +232,7 @@ def fixture_setUp(duthosts,
 
     encap_type_data['vnet_intf_map'] = ecmp_utils.setup_vnet_intf(
         selected_interfaces=encap_type_data['selected_interfaces'],
-        vnet_list=encap_type_data['vnet_vni_map'].keys(),
+        vnet_list=list(encap_type_data['vnet_vni_map'].keys()),
         minigraph_data=minigraph_facts)
     encap_type_data['intf_to_ip_map'] = ecmp_utils.assign_intf_ip_address(
         selected_interfaces=encap_type_data['selected_interfaces'],
@@ -225,7 +246,7 @@ def fixture_setUp(duthosts,
         minigraph_data=minigraph_facts,
         af=payload_version)
     encap_type_data['dest_to_nh_map'] = ecmp_utils.create_vnet_routes(
-        data['duthost'], encap_type_data['vnet_vni_map'].keys(),
+        data['duthost'], list(encap_type_data['vnet_vni_map'].keys()),
         nhs_per_destination=request.config.option.ecmp_nhs_per_destination,
         number_of_available_nexthops=request.config.option.
         total_number_of_endpoints,
@@ -237,14 +258,14 @@ def fixture_setUp(duthosts,
         bfd=request.config.option.bfd)
 
     data[encap_type] = encap_type_data
-    for vnet in encap_type_data['dest_to_nh_map'].keys():
-        for dest in encap_type_data['dest_to_nh_map'][vnet].keys():
+    for vnet in list(encap_type_data['dest_to_nh_map'].keys()):
+        for dest in list(encap_type_data['dest_to_nh_map'][vnet].keys()):
             data['list_of_bfd_monitors'] = data['list_of_bfd_monitors'] |\
                 set(encap_type_data['dest_to_nh_map'][vnet][dest])
 
     # Setting up bfd responder is needed only once per script run.
     loopback_addresses = \
-        [str(x['addr']) for x in minigraph_facts[u'minigraph_lo_interfaces']]
+        [str(x['addr']) for x in minigraph_facts['minigraph_lo_interfaces']]
     if request.config.option.bfd:
         ecmp_utils.start_bfd_responder(
             data['ptfhost'],
@@ -269,6 +290,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821
     yield data
 
     # Cleanup code.
@@ -294,17 +316,58 @@ def fixture_setUp(duthosts,
     # This script's setup code re-uses same vnets for v4inv4 and v6inv4.
     # There will be same vnet in multiple encap types.
     # So remove vnets *after* removing the routes first.
-    for vnet in data[encap_type]['vnet_vni_map'].keys():
+    for vnet in list(data[encap_type]['vnet_vni_map'].keys()):
         data['duthost'].shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
     time.sleep(5)
-    for tunnel in tunnel_names.values():
+    for tunnel in list(tunnel_names.values()):
         data['duthost'].shell(
             "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
 
     time.sleep(1)
     if request.config.option.bfd:
         ecmp_utils.stop_bfd_responder(data['ptfhost'])
+
+    setup_crm_interval(data['duthost'], int(data['original_crm_interval']))
+
+
+@pytest.fixture(scope="module")
+def default_routes(setUp, encap_type):
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    return setUp[encap_type]['dest_to_nh_map'][vnet]
+
+
+@pytest.fixture(scope="module")
+def routes_for_cleanup(setUp, encap_type):
+    routes = {}
+
+    yield routes
+
+    # prepare for route cleanup by setUp on module finish
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+    setUp[encap_type]['dest_to_nh_map'][vnet] = routes
+
+
+@pytest.fixture(autouse=True)
+def _reset_test_routes(
+        setUp,
+        encap_type,
+        default_routes,
+        routes_for_cleanup):
+    """
+    The fixture makes sure each test uses the same route config
+    not affected by previous test runs
+    """
+    vnet = list(setUp[encap_type]['vnet_vni_map'].keys())[0]
+
+    test_routes = {}
+    test_routes.update(default_routes)
+    setUp[encap_type]['dest_to_nh_map'][vnet] = test_routes
+
+    yield
+
+    test_made_routes = setUp[encap_type]['dest_to_nh_map'][vnet]
+    routes_for_cleanup.update(test_made_routes)
 
 
 class Test_VxLAN():
@@ -321,7 +384,8 @@ class Test_VxLAN():
                                    random_dport=True,
                                    random_sport=False,
                                    random_src_ip=False,
-                                   tolerance=None):
+                                   tolerance=None,
+                                   payload=None):
         '''
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
@@ -378,7 +442,8 @@ class Test_VxLAN():
 
         ptf_runner(self.setup['ptfhost'],
                    "ptftests",
-                   "vxlan_traffic.VXLAN",
+                   "vxlan_traffic.VxLAN_in_VxLAN" if payload == 'vxlan'
+                   else "vxlan_traffic.VXLAN",
                    platform_dir="ptftests",
                    params=ptf_params,
                    qlen=1000,
@@ -430,6 +495,7 @@ class Test_VxLAN_route_tests(Test_VxLAN):
     '''
         Common class for the basic route test cases.
     '''
+
     def test_vxlan_single_endpoint(self, setUp, encap_type):
         '''
             tc1:Create a tunnel route to a single endpoint a.
@@ -437,6 +503,8 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         '''
         self.setup = setUp
         self.dump_self_info_and_run_ptf("tc1", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc1", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_modify_route_different_endpoint(
             self, setUp, request, encap_type):
@@ -446,10 +514,11 @@ class Test_VxLAN_route_tests(Test_VxLAN):
         '''
         self.setup = setUp
         Logger.info("Choose a vnet")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Choose a destination, which is already present.")
-        tc2_dest = self.setup[encap_type]['dest_to_nh_map'][vnet].keys()[0]
+        tc2_dest = list(self.setup[encap_type]
+                        ['dest_to_nh_map'][vnet].keys())[0]
 
         Logger.info("Create a new endpoint, or endpoint-list.")
         tc2_new_end_point_list = []
@@ -521,6 +590,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Class for all the ECMP (multiple nexthops per destination)
         create testcases.
     '''
+
     def test_vxlan_configure_route1_ecmp_group_a(self, setUp, encap_type):
         '''
             tc4:create tunnel route 1 with two endpoints a = {a1, a2...}. send
@@ -530,7 +600,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoint(s).")
         tc4_end_point_list = []
@@ -563,6 +633,9 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         Logger.info("Verify that the new config takes effect and run traffic.")
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
+        # Add vxlan payload testing as well.
+        self.dump_self_info_and_run_ptf("tc4", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_remove_ecmp_route1(self, setUp, encap_type):
         '''
@@ -572,7 +645,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         backup_dest = self.setup[encap_type]['dest_to_nh_map'][vnet].copy()
 
@@ -648,11 +721,11 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         if self.setup[encap_type].get('tc5_dest', None):
             return
         Logger.info("Choose a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Select an existing endpoint.")
         tc5_end_point_list = \
-            self.setup[encap_type]['dest_to_nh_map'][vnet].values()[0]
+            list(self.setup[encap_type]['dest_to_nh_map'][vnet].values())[0]
 
         Logger.info("Create a new destination to use.")
         tc5_new_dest = ecmp_utils.get_ip_address(
@@ -690,7 +763,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup_route2_ecmp_group_b(encap_type)
 
         Logger.info("Choose a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoints.")
         tc6_end_point_list = []
@@ -737,7 +810,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
@@ -790,7 +863,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
@@ -843,7 +916,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
@@ -893,7 +966,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
@@ -929,11 +1002,27 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
 
         self.dump_self_info_and_run_ptf("tc4", encap_type, True)
 
+        # perform cleanup by removing all the routes added by this test class.
+        # reset to add only the routes added in the setup phase.
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "DEL")
+
+        self.setup[encap_type]['dest_to_nh_map'] = self.setup[encap_type]['dest_to_nh_map_orignal']
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "SET")
+
 
 class Test_VxLAN_NHG_Modify(Test_VxLAN):
     '''
        Class for all the next-hop group modification testcases.
     '''
+
     def setup_route2_single_endpoint(self, encap_type):
         '''
             Function to handle dependency of tc9 on tc8.
@@ -942,11 +1031,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             return
 
         Logger.info("Pick a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info(
             "Choose a route 2 destination and a new single endpoint for it.")
-        tc8_new_dest = self.setup[encap_type]['dest_to_nh_map'][vnet].keys()[0]
+        tc8_new_dest = list(
+            self.setup[encap_type]['dest_to_nh_map'][vnet].keys())[0]
         tc8_new_nh = ecmp_utils.get_ip_address(
             af=ecmp_utils.get_outer_layer_version(encap_type),
             netid=NEXTHOP_PREFIX)
@@ -983,7 +1073,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info(
             "Select 2 already existing destinations. "
@@ -992,7 +1082,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         nh1 = self.setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1][0]
 
         nh2 = None
-        for dest in self.setup[encap_type]['dest_to_nh_map'][vnet].keys():
+        for dest in list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys()):
             nexthops = self.setup[encap_type]['dest_to_nh_map'][vnet][dest]
             for nh in nexthops:
                 if nh == nh1:
@@ -1045,7 +1135,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info(
             "Select 2 already existing destinations. "
@@ -1056,7 +1146,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
 
         nh1 = None
         nh2 = None
-        for dest in self.setup[encap_type]['dest_to_nh_map'][vnet].keys():
+        for dest in list(self.setup[encap_type]['dest_to_nh_map'][vnet].keys()):
             nexthops = self.setup[encap_type]['dest_to_nh_map'][vnet][dest]
             for nh in nexthops:
                 if nh == old_nh:
@@ -1110,7 +1200,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Pick a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info(
             "Setup: Create two destinations with the same endpoint group.")
@@ -1129,7 +1219,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         Logger.info("Map the new destinations to the same endpoint list.")
         for i in range(2):
             dest_nh_map[vnet][tc7_destinations[i]] = \
-                    tc7_end_point_list
+                tc7_end_point_list
 
         Logger.info("Apply the setup configs to the DUT.")
         payload_af = ecmp_utils.get_payload_version(encap_type)
@@ -1178,6 +1268,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup = setUp
         self.setup_route2_single_endpoint(encap_type)
         self.dump_self_info_and_run_ptf("tc8", encap_type, True)
+        self.dump_self_info_and_run_ptf("tc8", encap_type, True,
+                                        payload="vxlan")
 
     def test_vxlan_route2_shared_nh(self, setUp, encap_type):
         '''
@@ -1206,7 +1298,7 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         self.setup = setUp
         self.setup_route2_shared_endpoints(encap_type)
         Logger.info("Backup the current route config.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
         full_map = self.setup[encap_type]['dest_to_nh_map'][vnet].copy()
         payload_af = ecmp_utils.get_payload_version(encap_type)
 
@@ -1277,6 +1369,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
     '''
         Class for testing different tcp ports for payload.
     '''
+
     def test_vxlan_random_hash(self, setUp, encap_type):
         '''
             tc11: set tunnel route 3 to endpoint group c = {c1, c2, c3}.
@@ -1286,7 +1379,7 @@ class Test_VxLAN_ecmp_random_hash(Test_VxLAN):
         self.setup = setUp
 
         Logger.info("Chose a vnet for testing.")
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
         Logger.info("Create a new destination and 3 nhs for it.")
         tc11_new_dest = ecmp_utils.get_ip_address(
@@ -1602,7 +1695,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             Verify c1 packets are received only on the c1's nexthop interface
         '''
         self.setup = setUp
-        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
         endpoint_nhmap = self.setup[encap_type]['dest_to_nh_map'][vnet]
         backup_t2_ports = self.setup[encap_type]['t2_ports']
         # Gathering all T2 Neighbors
@@ -1611,7 +1704,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             "T2")
 
         # Choosing a specific T2 Neighbor to add static route
-        t2_neighbor = all_t2_neighbors.keys()[0]
+        t2_neighbor = list(all_t2_neighbors.keys())[0]
 
         # Gathering PTF indices corresponding to specific T2 Neighbor
         ret_list = ecmp_utils.gather_ptf_indices_t2_neighbor(
@@ -1626,7 +1719,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             endpoint with T2 VM's ip as nexthop
         '''
         gateway = all_t2_neighbors[t2_neighbor][outer_layer_version].lower()
-        for _, nexthops in endpoint_nhmap.items():
+        for _, nexthops in list(endpoint_nhmap.items()):
             for nexthop in nexthops:
                 if outer_layer_version == "v6":
                     vtysh_config_commands = []
@@ -1670,7 +1763,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             True)
         # Deletion of all static routes
         gateway = all_t2_neighbors[t2_neighbor][outer_layer_version].lower()
-        for _, nexthops in endpoint_nhmap.items():
+        for _, nexthops in list(endpoint_nhmap.items()):
             for nexthop in nexthops:
                 if ecmp_utils.get_outer_layer_version(encap_type) == "v6":
                     vtysh_config_commands = []
@@ -1741,7 +1834,7 @@ class Test_VxLAN_underlay_ecmp(Test_VxLAN):
             all_t2_portchannel_members[each_pc] =\
                 minigraph_facts['minigraph_portchannels'][each_pc]['members']
 
-        selected_portchannel = all_t2_portchannel_members.keys()[0]
+        selected_portchannel = list(all_t2_portchannel_members.keys())[0]
 
         try:
             # Shutting down the ethernet interfaces
@@ -1798,6 +1891,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         Class for all test cases that modify the payload traffic
         properties - tcp source port, destination port and source IP address.
     '''
+
     def verify_entropy(
             self,
             encap_type,
@@ -1812,7 +1906,7 @@ class Test_VxLAN_entropy(Test_VxLAN):
         '''
 
         Logger.info("Choose a vnet.")
-        vnet = self.setup[encap_type]['dest_to_nh_map'].keys()[0]
+        vnet = list(self.setup[encap_type]['dest_to_nh_map'].keys())[0]
         Logger.info("Create a new list of endpoint(s).")
         end_point_list = []
         for _ in range(2):
@@ -1896,79 +1990,514 @@ class Test_VxLAN_entropy(Test_VxLAN):
             tolerance=0.03)
 
 
-@pytest.mark.skipif(
-    "config.option.include_crm is False",
-    reason="This test will be run only if "
-           "'--include_crm=True' is provided.")
-class Test_VxLAN_Crm(Test_VxLAN):
+class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
     '''
-        Class for all testcases that verify Critical Resource Monitoring
-        counters.
+        Class for all the Vxlan tunnel cases where primary and secondary next hops are configured.
     '''
-    def test_crm_16k_routes(self, setUp, encap_type):
+    def test_vxlan_priority_single_pri_sec_switchover(self, setUp, encap_type):
         '''
-            Verify that the CRM counter values for ipv4_route, ipv4_nexthop,
-            ipv6_route and ipv6_nexthop are updated as per the vxlan route
-            configs.
+            tc4:create tunnel route 1 with two endpoints a = {a1, b1}. a1 is primary, b1 is secondary.
+            1) both a1,b1 are UP.
+            2) send packets to the route 1's prefix dst. packets are received at a1.
+            3) bring a1 down.
+            4) send packets to the route 1's prefix dst. packets are received at b1.
+            5) bring both a1 and b1 down.
+            6) No traffic is forwarded.
         '''
+        if encap_type in ['v4_in_v6', 'v6_in_v6']:
+            pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
-        vnet = self.setup[encap_type]['dest_to_nh_map'].keys()[0]
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
-        number_of_routes_configured = \
-            len(self.setup[encap_type]['dest_to_nh_map'][vnet].keys())
 
-        # We need the count of unique endpoints.
-        dest_nh_map = self.setup[encap_type]['dest_to_nh_map'][vnet]
-        set_of_unique_endpoints = set()
-        for _, nexthops in dest_nh_map.items():
-            set_of_unique_endpoints = \
-                set_of_unique_endpoints | set(nexthops)
-        number_of_nexthops_configured = len(set_of_unique_endpoints)
+        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
+                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
+        loganalyzer.init()
+        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
+        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
 
-        routes_used = \
-            crm_output['ip{}_route'.format(outer_layer_version)]['used']
-        nhs_used = \
-            crm_output['ip{}_nexthop'.format(outer_layer_version)]['used']
-        old_routes = \
-            self.setup['crm']['ip{}_route'.format(outer_layer_version)]['used']
-        old_nhs = self.setup['crm'][
-            'ip{}_nexthop'.format(outer_layer_version)]['used']
+        Logger.info("Choose a vnet.")
+        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
-        pytest_assert(
-            routes_used >= old_routes + 0.90 * number_of_routes_configured,
-            "CRM:ip{}_route usage didn't increase as needed".format(
-                outer_layer_version))
-        pytest_assert(
-            nhs_used >= old_nhs + 0.90 * number_of_nexthops_configured,
-            "CRM:ip{}_nexthop usage didn't increase as needed".format(
-                outer_layer_version))
+        Logger.info("Create a new list of endpoint(s).")
+        tc1_end_point_list = []
+        for _ in range(2):
+            tc1_end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
 
-    def test_crm_512_nexthop_groups(self, setUp, encap_type):
+        Logger.info("Create a new destination")
+        tc1_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
+
+        Logger.info("Map the new destination and the new endpoint(s).")
+        self.setup[encap_type]['dest_to_nh_map'][vnet][tc1_new_dest] = \
+            tc1_end_point_list
+
+        Logger.info("Create a new priority endpoint config and Copy to the DUT.")
+
+        Logger.info("Create the json and apply the config in the DUT swss.")
+        # The config looks like:
+        # [
+        #   {
+        #     "VNET_ROUTE_TUNNEL_TABLE:vnet:tcx_new_dest/32": {
+        #       "endpoint": "{tcx_end_point_list}"
+        #       "endpoint_monitor": "{tcx_end_point_list}",
+        #       "primary" : "{}",
+        #       "adv_prefix" : "{}/{}",
+        #     },
+        #     "OP": "{}"
+        #   }
+        # ]
+        try:
+            ecmp_utils.create_and_apply_priority_config(
+                self.setup['duthost'],
+                vnet,
+                tc1_new_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc1_end_point_list,
+                [tc1_end_point_list[0]],
+                "SET")
+            # both primary secondary are up.
+            # only primary should recieve traffic.
+            time.sleep(2)
+            down_list = tc1_end_point_list[1]
+            if isinstance(down_list, str):
+                down_list = [down_list]
+            self.setup['list_of_downed_endpoints'] = set(down_list)
+            # setting both primary and secondary as up. only primary will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[1], "up")
+            time.sleep(10)
+            # verifying overlay_dmac
+            result = \
+                self.setup['duthost'].shell("sonic-db-cli APPL_DB HGET 'VNET_MONITOR_TABLE:{}:{}/{}' 'overlay_dmac'"
+                                            .format(
+                                                tc1_end_point_list[0],
+                                                tc1_new_dest,
+                                                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]))
+            assert str(result['stdout']) == ecmp_utils.OVERLAY_DMAC
+
+            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+
+            # Single primary-secondary switchover.
+            # Endpoint list = [A, A`], Primary[A] | Active NH=[A] |
+            # Action: A went Down | Result NH=[A`]
+            # NH has a single primary endpoint which upon failing is replaced by the single Backup endpoint
+            Logger.info("Single primary-secondary switchover.")
+            time.sleep(2)
+            down_list = tc1_end_point_list[0]
+            if isinstance(down_list, str):
+                down_list = [down_list]
+            self.setup['list_of_downed_endpoints'] = set(down_list)
+            # setting primary down. only secondary will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[0], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+
+            # Single primary recovery.
+            # Endpoint list = [A, A`], Primary[A] | Active NH=[A`] |
+            # Action: A is back up | ResultNH=[A]
+            # NH has a single backup endpoint which upon recovery of primary is replaced.
+            Logger.info("Single primary recovery.")
+            time.sleep(2)
+            down_list = tc1_end_point_list[1]
+            if isinstance(down_list, str):
+                down_list = [down_list]
+            self.setup['list_of_downed_endpoints'] = set(down_list)
+            # setting primary up. only primary will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[0], "up")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+
+            # Single primary backup Failure.
+            # Endpoint list = [A, A`]. Primary[A]| Active  NH=[A`]  A is DOWN  |
+            # Action: A` goes Down | result NH=[]
+            # No active Endpoint results in route being removed.
+            Logger.info("Single primary & backup Failure.")
+            down_list = tc1_end_point_list
+            if isinstance(down_list, str):
+                down_list = [down_list]
+            self.setup['list_of_downed_endpoints'] = set(down_list)
+            # setting both down. no traffic is recieved.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[1], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc1_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc1_end_point_list[0], "down")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test1", encap_type, True)
+
+        except Exception:
+            ecmp_utils.create_and_apply_priority_config(
+                self.setup['duthost'],
+                vnet,
+                tc1_new_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc1_end_point_list,
+                [tc1_end_point_list[0]],
+                "DEL")
+
+    def test_vxlan_priority_multi_pri_sec_switchover(self, setUp, encap_type):
         '''
-            Verify that the CRM counter values for nexthop_group is updated as
-            per the vxlan route configs.
+            tc2:create tunnel route 1 with 6 endpoints a = {A, B, A`, B`}. A,B
+            are primary, A`,B` are secondary.
+            1) All eps are up.A,B,A`,B`
+            2) send packets to the route 1's prefix dst. packets are received at A,B.
+            3) bring A down.
+            4) send packets to the route 1's prefix dst. packets are received at B.
+            5) bring B down.
+            6) send packets to the route 1's prefix dst. packets are recieved at A`,B`.
+            7) bring B` down.
+            8) send packets to the route 1's prefix dst. packets are recieved at A`.
+            9) bring A up.
+            10) send packets to the route 1's prefix dst. packets are recieved at A.
+            11) bring B, A`, B` up.
+            12) send packets to the route 1's prefix dst. packets are recieved at A,B.
+            13) Bring all endpoints down.
+            14) no traffic being passed.
+            15) bring A, B, A`,B` up.
+            16) send packets to the route 1's prefix dst. packets are recieved at A,B.
+            17) Bring all endpoints down.
+            18) no traffic being passed.
+            19) bring A`,B` up.
+            20) send packets to the route 1's prefix dst. packets are recieved at A`,B`.
+            21) bring A,B up.
+            22) send packets to the route 1's prefix dst. packets are recieved at A, B.
+
         '''
+        if encap_type in ['v4_in_v6', 'v6_in_v6']:
+            pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
-        Logger.info("Verifying encap_type:%s", encap_type)
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        pytest_assert(
-            crm_output['nexthop_group']['used'] >=
-            self.setup['crm']['nexthop_group']['used'] + 16000,
-            "CRM:nexthop_group usage didn't increase as needed")
 
-    def test_crm_128_group_members(self, setUp, encap_type):
-        '''
-            Verify that the CRM counter values for nexthop_group_member
-            is updated as per the vxlan route configs.
-        '''
-        self.setup = setUp
-        Logger.info("Verifying encap_type:%s", encap_type)
-        crm_output = \
-            self.setup['duthost'].get_crm_resources()['main_resources']
-        pytest_assert(
-            crm_output['nexthop_group_member']['used'] >=
-            self.setup['crm']['nexthop_group_member']['used'] + 16000,
-            "CRM:nexthop_group_member usage didn't increase as needed")
+        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
+                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
+        loganalyzer.init()
+        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
+        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
+
+        Logger.info("Choose a vnet.")
+        vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
+
+        Logger.info("Create a new list of endpoint(s).")
+        tc2_end_point_list = []
+        for _ in range(4):
+            tc2_end_point_list.append(ecmp_utils.get_ip_address(
+                af=ecmp_utils.get_outer_layer_version(encap_type),
+                netid=NEXTHOP_PREFIX))
+
+        Logger.info("Create a new destination")
+        tc2_new_dest = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_payload_version(encap_type),
+            netid=DESTINATION_PREFIX)
+
+        Logger.info("Map the new destination and the new endpoint(s).")
+        self.setup[encap_type]['dest_to_nh_map'][vnet][tc2_new_dest] = \
+            tc2_end_point_list
+
+        Logger.info("Create a new priority endpoint config and Copy to the DUT.")
+
+        Logger.info("Create the json and apply the config in the DUT swss.")
+        # The config looks like:
+        # [
+        #   {
+        #     "VNET_ROUTE_TUNNEL_TABLE:vnet:tcx_new_dest/32": {
+        #       "endpoint": "{tcx_end_point_list}"
+        #       "endpoint_monitor": "{tcx_end_point_list}",
+        #       "primary" : "{tcx_end_point_list[0:len/2]}",
+        #       "adv_prefix" : "{tcx_new_dest}/{32}",
+        #     },
+        #     "OP": "{}"
+        #   }
+        # ]
+        try:
+            primary_nhg = tc2_end_point_list[0:2]
+            secondary_nhg = tc2_end_point_list[2:4]
+
+            ecmp_utils.create_and_apply_priority_config(
+                self.setup['duthost'],
+                vnet,
+                tc2_new_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc2_end_point_list,
+                primary_nhg,
+                "SET")
+
+            time.sleep(5)
+            # Bringing all endpoints UP.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc2_end_point_list[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc2_end_point_list[1], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc2_end_point_list[2], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              tc2_end_point_list[3], "up")
+
+            # check all primary Eps are operational
+            inactive_list = list(secondary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            time.sleep(10)
+            # ensure that the traffic is distributed to all 3 primary Endpoints.
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Single primary failure.
+            # Endpoint list = [A, B, A`, B`], Primary = [A, B] | active NH = [A, B] |
+            # Action: A goes Down | Result NH=[B]
+            # One of the primaries goes down. The others stay active.
+            time.sleep(2)
+            inactive_list = list(secondary_nhg)
+            inactive_list.append(primary_nhg[0])
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting A down. B,C getting traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups.  All primary failure.
+            # Endpoint list = [A, B, A`, B`] Primary = [A, B] | A is Down. active NH = [B] |
+            # Action: B goes Down.  | Result: NH=[A`, B`]
+            # All the primaries are down. The backup endpoints are added to the NH group.
+            time.sleep(2)
+            inactive_list = list(primary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting C down, now all backups are up and recieving traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Backup Failure.
+            # Endpoint list = [A, B, A`, B`] Primary = [A, B] |
+            # A, B already Down. Active NH = [A`, B`] |
+            # Action: B` goes Down. | Result: NH=[A`]
+            # All the primaries are down. Failure of a backup endpoint shall result in its removal from NH.
+            time.sleep(2)
+            inactive_list = list(primary_nhg)
+            inactive_list.append(secondary_nhg[1])
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting C` down, now A` and B` are up and recieving traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Single primary recovery.
+            # Endpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`] |
+            # Action: A is Up. B still Down | Result: NH=[A]
+            # Primary takes precedence and is added to the NH. All the backups are removed.
+            time.sleep(2)
+            inactive_list = list([primary_nhg[1]])
+            inactive_list += secondary_nhg
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting A up. only A will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "up")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A] |
+            # Action: A is Up. B also come up along with A` and B` | Result: NH=[A, B]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(secondary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup all failure.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
+            # Action: All A, B, A`, B`, go down. | Result: NH=[]
+            # Route is removed, No traffic forwarded.
+            time.sleep(2)
+            inactive_list = list(tc2_end_point_list)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
+            # Action: A, B come up along with A` and B` | Result: NH=[A, B]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(secondary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup all failure 2.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A,B] |
+            # Action: All A, B, A`, B`, go down. | Result: NH=[]
+            # Route is removed, No traffic forwarded.
+            time.sleep(2)
+            inactive_list = list(tc2_end_point_list)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "down")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "down")
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery of secondary.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [] |
+            # Action: bring up  A` and B` | Result: NH=[A`, B`]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(primary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              secondary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+            # Multiple primary backups. Multiple primary & backup recovery of primary after secondary.
+            # Edpoint list = [A, B, A`, B`] Primary = [A, B] | Active NH = [A`, B`] |
+            # Action: bring up  A and B | Result: NH=[A, B]
+            # Primary endpoints take precedence and are added to the NH.
+            time.sleep(2)
+            inactive_list = list(secondary_nhg)
+            if isinstance(inactive_list, str):
+                inactive_list = [inactive_list]
+            self.setup['list_of_downed_endpoints'] = set(inactive_list)
+            # setting B, C and C` up. only A,B,C will recieve traffic.
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[0], "up")
+            ecmp_utils.set_vnet_monitor_state(self.setup['duthost'],
+                                              tc2_new_dest,
+                                              ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                                              primary_nhg[1], "up")
+
+            time.sleep(10)
+            self.dump_self_info_and_run_ptf("test2", encap_type, True)
+
+        except Exception:
+            ecmp_utils.create_and_apply_priority_config(
+                self.setup['duthost'],
+                vnet,
+                tc2_new_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc2_end_point_list,
+                primary_nhg,
+                "DEL")

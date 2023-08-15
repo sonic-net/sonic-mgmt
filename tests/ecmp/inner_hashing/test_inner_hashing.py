@@ -1,5 +1,6 @@
 # Summary: Inner packet hashing test
-# How to run this test: sudo ./run_tests.sh -n <tb name> -i <inventory files> -u -m group -e --skip_sanity -l info -c ecmp/test_inner_hashing.py --static_config
+# How to run this test: sudo ./run_tests.sh -n <tb name> -i <inventory files> \
+#   -u -m group -e --skip_sanity -l info -c ecmp/test_inner_hashing.py --static_config
 # parameter "--static_config" used when already exists hashing configurations and will be executed suitable test
 
 import logging
@@ -39,14 +40,15 @@ class TestDynamicInnerHashing():
                      .format(outer_ipver, inner_ipver, str(symmetric_hashing)))
         with allure.step('Run ptf test InnerHashTest'):
             timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
-            log_file = "/tmp/inner_hash_test.DynamicInnerHashTest.{}.{}.{}.log".format(outer_ipver, inner_ipver, timestamp)
+            log_file = "/tmp/inner_hash_test.DynamicInnerHashTest.{}.{}.{}.log"\
+                       .format(outer_ipver, inner_ipver, timestamp)
             logging.info("PTF log file: %s" % log_file)
 
             outer_src_ip_range, outer_dst_ip_range = get_src_dst_ip_range(outer_ipver)
             inner_src_ip_range, inner_dst_ip_range = get_src_dst_ip_range(inner_ipver)
 
             normalize_level = get_function_completeness_level if get_function_completeness_level else 'thorough'
-            
+
             if normalize_level == 'thorough':
                 balancing_test_times = 120
                 balancing_range = 0.3

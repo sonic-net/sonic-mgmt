@@ -41,6 +41,7 @@ class PFCStorm(object):
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
+        self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
         self.peer_info = kwargs.pop('peer_info')
         self._validate_params(expected_args=['pfc_fanout_interface', 'peerdevice'])
         if 'hwsku' not in self.peer_info:
@@ -62,7 +63,7 @@ class PFCStorm(object):
         Validate if all the needed keys are present
         """
         expected_args = params.get('expected_args')
-        peer_info_keys = self.peer_info.keys()
+        peer_info_keys = list(self.peer_info.keys())
         if not all(elem in peer_info_keys for elem in expected_args):
             raise MissingInputError("Peer_info does not contain all the keys,"
                                     "Expected args: {}".format(expected_args))
@@ -135,7 +136,8 @@ class PFCStorm(object):
             "pfc_frames_number": self.pfc_frames_number,
             "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
             "ansible_eth0_ipv4_addr": self.ip_addr,
-            "peer_hwsku": self.peer_info['hwsku']
+            "peer_hwsku": self.peer_info['hwsku'],
+            "send_pfc_frame_interval": self.send_pfc_frame_interval
             }
         if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
@@ -216,11 +218,12 @@ class PFCMultiStorm(object):
             fanout_graph_facts(dict) : fixture that returns the fanouts connection info
             fanouthosts(AnsibleHost) : fanout instance
             peer_params(dict) : contains all the params needed for pfc storm
-               eg. peer_params = { 'peerdevice': { 'pfc_gen_file': pfc_gen_file,
-                                                   'pfc_frames_number': frame count sent on all intf in the inf_list,
-                                                   'pfc_queue_index': q_index for the pfc storm on all intf in the intf list,
-                                                   'intfs': [intf_1, intf_2]
-                                                 }
+               eg. peer_params = {'peerdevice':
+                                     {'pfc_gen_file': pfc_gen_file,
+                                      'pfc_frames_number': frame count sent on all intf in the inf_list,
+                                      'pfc_queue_index': q_index for the pfc storm on all intf in the intf list,
+                                      'intfs': [intf_1, intf_2]
+                                     }
                                  }
             pfc_queue_index(int) : queue on which the PFC storm should be generated. default: 4
             pfc_frames_number(int) : Number of PFC frames to generate. default: 100000000
@@ -267,17 +270,16 @@ class PFCMultiStorm(object):
             peer_dev_info = self.fanout_graph[peer_dev]['device_info']
             peer_info = {'peerdevice': peer_dev,
                          'hwsku': peer_dev_info['HwSku'],
-                         'pfc_fanout_interface': self.peer_params[peer_dev]['intfs']
-                        }
+                         'pfc_fanout_interface': self.peer_params[peer_dev]['intfs']}
 
             q_idx, frames_cnt, gen_file = self._get_pfc_params(peer_dev)
             # get pfc storm handle
             self.storm_handle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
-                                                  self.fanouthosts,
-                                                  pfc_queue_index=q_idx,
-                                                  pfc_frames_number=frames_cnt,
-                                                  pfc_gen_file=gen_file,
-                                                  peer_info=peer_info)
+                                                   self.fanouthosts,
+                                                   pfc_queue_index=q_idx,
+                                                   pfc_frames_number=frames_cnt,
+                                                   pfc_gen_file=gen_file,
+                                                   peer_info=peer_info)
 
             self.storm_handle[peer_dev].deploy_pfc_gen()
 
@@ -294,4 +296,3 @@ class PFCMultiStorm(object):
         """
         for hndle in self.storm_handle:
             self.storm_handle[hndle].stop_storm()
-

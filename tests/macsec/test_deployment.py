@@ -1,18 +1,9 @@
-from time import sleep
 import pytest
 import logging
-import re
-import scapy.all as scapy
-import ptf.testutils as testutils
-from collections import Counter
 
 from tests.common.utilities import wait_until
-from tests.common.devices.eos import EosHost
 from tests.common import config_reload
-from macsec_helper import *
-from macsec_config_helper import *
-from macsec_platform_helper import *
-
+from .macsec_helper import check_appl_db
 logger = logging.getLogger(__name__)
 
 pytestmark = [

@@ -333,7 +333,7 @@ configuration_properties:
   common:
     podset_number: 400
     tor_number: 16
-    tor_subnet_number: 2
+    tor_subnet_number: 8
     max_tor_subnet_number: 32
     tor_subnet_size: 128
     dut_asn: 65100

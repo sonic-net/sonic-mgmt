@@ -61,6 +61,7 @@ def is_replaceable(conn, index):
 # NOTE: The get_change_event() method is not represented here because there is no reliable way
 # to test this method in an automated fashion.
 
+
 def get_transceiver_info(conn, index):
     return sfp_api(conn, index, 'get_transceiver_info')
 

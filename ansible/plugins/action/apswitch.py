@@ -6,6 +6,12 @@ from ansible.module_utils.parsing.convert_bool import boolean
 from ansible.module_utils._text import to_text
 
 import ast
+import sys
+
+# If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
+if sys.version_info[0] >= 3:
+    unicode = str
+
 
 class ActionModule(ActionBase):
 
@@ -18,20 +24,20 @@ class ActionModule(ActionBase):
         result = super(ActionModule, self).run(tmp, task_vars)
 
         _template = self._task.args.get('template', None)
-        _host     = self._task.args.get('host', None)
-        _login    = self._task.args.get('login', None)
-        _enable   = boolean(self._task.args.get('enable', 'yes'))
-        _bash     = boolean(self._task.args.get('bash', 'no'))
-        _su       = boolean(self._task.args.get('su', 'no'))
-        _root     = boolean(self._task.args.get('root', 'no'))
-        _reboot   = boolean(self._task.args.get('reboot', 'no'))
-        _timeout  = self._task.args.get('timeout', None)
-        _os_name  = self._task.args.get('os_name', '')
+        _host = self._task.args.get('host', None)
+        _login = self._task.args.get('login', None)
+        _enable = boolean(self._task.args.get('enable', 'yes'))
+        _bash = boolean(self._task.args.get('bash', 'no'))
+        _su = boolean(self._task.args.get('su', 'no'))
+        _root = boolean(self._task.args.get('root', 'no'))
+        _reboot = boolean(self._task.args.get('reboot', 'no'))
+        _timeout = self._task.args.get('timeout', None)
+        _os_name = self._task.args.get('os_name', '')
 
         if (type(_login) == unicode):
             _login = ast.literal_eval(_login)
 
-        login = { 'user': [], 'enable': _login['enable'] }
+        login = {'user': [], 'enable': _login['enable']}
         for passwd in reversed(_login['passwd']):
             login['user'].append((_login['user'], passwd))
 
@@ -40,9 +46,11 @@ class ActionModule(ActionBase):
 
         if _template is not None:
             if self._task._role is not None:
-                _template = self._loader.path_dwim_relative(self._task._role._role_path, 'templates', _template)
+                _template = self._loader.path_dwim_relative(
+                    self._task._role._role_path, 'templates', _template)
             else:
-                _template = self._loader.path_dwim_relative(self._loader.get_basedir(), 'templates', _template)
+                _template = self._loader.path_dwim_relative(
+                    self._loader.get_basedir(), 'templates', _template)
 
             f = open(_template, 'r')
             template_data = to_text(f.read())
@@ -52,15 +60,14 @@ class ActionModule(ActionBase):
 
         self._display.vvv(self._connection.transport)
         result['stdout'] = self._connection.exec_command(template=_template,
-                                      host=_host,
-                                      login=login,
-                                      enable=_enable,
-                                      bash=_bash,
-                                      su=_su,
-                                      root=_root,
-                                      reboot=_reboot,
-                                      timeout=_timeout,
-                                      os_name=_os_name)
+                                                         host=_host,
+                                                         login=login,
+                                                         enable=_enable,
+                                                         bash=_bash,
+                                                         su=_su,
+                                                         root=_root,
+                                                         reboot=_reboot,
+                                                         timeout=_timeout,
+                                                         os_name=_os_name)
 
         return result
-

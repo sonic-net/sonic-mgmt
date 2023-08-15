@@ -18,18 +18,19 @@ It should be noted that, in general, the IPv6 prefix length should be less than 
 |t2|core|leaf|
 |t0-mclag|leaf|N/A|
 |m0|m1|mx|
+|mc0|m1|mx|
 |mx|m0|N/A|
 
-## M0
+## M0/MC0
 
 ### Design
 
-For M0, we have 2 sets of routes that we are going to advertise:
+For M0/MC0, we have 2 sets of routes that we are going to advertise:
 - 1st set routes are advertised by the upstream VMs (M1 devices).
 - 2nd set routes are advertised by the downstream VMs (MX devices).
 
 The picture below shows how the routes is announces to DUT. The green arrows indicate routes that announced by upstream M1. The blue arrows indicate routes that announced by downstream MX. The yellow line indicates subnets that directly connected to DUT, which need to be skipped when generating routes.
-![](./img/announce_routes_m0.png)
+![](./img/announce_routes_m0_mc0.png)
 
 ### Details
 
@@ -82,9 +83,9 @@ The total number of routes are controlled by the colo_number, m0_number, mx_subn
 Routes announced by M0 can be broken down to 5 sets:
    - 1 default route, prefix: 0.0.0.0/0.
    - 1 loopback route.
-   - Direct subnet routes of M0 connected to DUT, 
+   - Direct subnet routes of M0 connected to DUT,
      count: m0_subnet_number
-   - Subnet routes of MX connected to M0 connected to DUT, 
+   - Subnet routes of MX connected to M0 connected to DUT,
      count: (mx_number - 1) * mx_subnet_number.
    - Upstream routes of M0 connected to DUT,
      count: (colo_number * m0_number - 1) * (mx_number * mx_subnet_number + m0_subnet_number).

@@ -8,18 +8,18 @@ from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfi
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
 pytestmark = [
-    pytest.mark.topology('t1'), #It is a t1 only feature
+    pytest.mark.topology('t1'),     # It is a t1 only feature
 ]
 
 logger = logging.getLogger(__name__)
 
-PREFIXES_V4_INIT  = "10.20.0.0/16"
-PREFIXES_V6_INIT  = "fc01:20::/64"
+PREFIXES_V4_INIT = "10.20.0.0/16"
+PREFIXES_V6_INIT = "fc01:20::/64"
 PREFIXES_V4_DUMMY = "10.30.0.0/16"
 PREFIXES_V6_DUMMY = "fc01:30::/64"
 
-PREFIXES_V4_RE    = "ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
-PREFIXES_V6_RE    = "ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
+PREFIXES_V4_RE = r"ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V4 seq \d+ permit {}"
+PREFIXES_V6_RE = r"ipv6 prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_{}_V6 seq \d+ permit {}"
 
 
 def get_bgp_prefix_runningconfig(duthost):
@@ -27,9 +27,7 @@ def get_bgp_prefix_runningconfig(duthost):
     """
     cmds = "show runningconfiguration bgp"
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
     # Sample:
     # ip prefix-list PL_ALLOW_LIST_DEPLOYMENT_ID_0_COMMUNITY_empty_V4 seq 30 permit 10.20.0.0/16 le 32
@@ -58,8 +56,7 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
         current_bgp_prefix_config = get_bgp_prefix_runningconfig(duthost)
         pytest_assert(set(original_bgp_prefix_config) == set(current_bgp_prefix_config),
-            "bgp prefix config are not suppose to change after test"
-        )
+                      "bgp prefix config are not suppose to change after test")
     finally:
         delete_checkpoint(duthost)
 
@@ -69,9 +66,7 @@ def bgp_prefix_test_setup(duthost):
     """
     cmds = 'sonic-db-cli CONFIG_DB del "BGP_ALLOWED_PREFIXES|*"'
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "bgp prefix test setup failed."
-    )
+    pytest_assert(not output['rc'], "bgp prefix test setup failed.")
 
 
 def show_bgp_running_config(duthost):
@@ -116,11 +111,9 @@ def bgp_prefix_tc1_add_config(duthost, community, community_table):
 
         bgp_config = show_bgp_running_config(duthost)
         pytest_assert(re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_INIT), bgp_config),
-            "Failed to add bgp prefix v4 config."
-        )
+                      "Failed to add bgp prefix v4 config.")
         pytest_assert(re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_INIT), bgp_config),
-            "Failed to add bgp prefix v6 config."
-        )
+                      "Failed to add bgp prefix v6 config.")
 
     finally:
         delete_tmpfile(duthost, tmpfile)
@@ -130,10 +123,10 @@ def bgp_prefix_tc1_xfail(duthost, community_table):
     """ Test input with invalid prefixes
     """
     xfail_input = [
-        ("add", "10.256.0.0/16", PREFIXES_V6_DUMMY),     # Invalid v4 prefix
-        ("add", PREFIXES_V4_DUMMY, "fc01:xyz::/64"),     # Invalid v6 prefix
-        ("remove", PREFIXES_V4_DUMMY, PREFIXES_V6_INIT), # Unexisted v4 prefix
-        ("remove", PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)  # Unexisted v6 prefix
+        ("add", "10.256.0.0/16", PREFIXES_V6_DUMMY),        # Invalid v4 prefix
+        ("add", PREFIXES_V4_DUMMY, "fc01:xyz::/64"),        # Invalid v6 prefix
+        ("remove", PREFIXES_V4_DUMMY, PREFIXES_V6_INIT),    # Unexisted v4 prefix
+        ("remove", PREFIXES_V4_INIT, PREFIXES_V6_DUMMY)     # Unexisted v6 prefix
     ]
     for op, prefixes_v4, prefixes_v6 in xfail_input:
         json_patch = [

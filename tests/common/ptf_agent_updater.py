@@ -45,7 +45,7 @@ class PtfAgentUpdater(object):
         """
         ifaces = [ifaces] if not isinstance(ifaces, list) else ifaces
         ifaces_map = self.ptfhost.host.options['variable_manager'].extra_vars['ifaces_map']
-        config_port_indices = {v: k for k, v in ifaces_map.items()}
+        config_port_indices = {v: k for k, v in list(ifaces_map.items())}
 
         for iface in ifaces:
             self.ptfhost.host.options['variable_manager'].extra_vars['ifaces_map'].pop(config_port_indices[iface])

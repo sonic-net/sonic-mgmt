@@ -112,4 +112,3 @@
   always:
     - name: Clear FDB table
       shell: sonic-clear fdb all
-
