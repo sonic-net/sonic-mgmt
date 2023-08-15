@@ -41,6 +41,7 @@ NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
 
 
 def is_tcpdump_running(duthost, cmd):
@@ -69,8 +70,11 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
     )
     duthost.shell(start_pcap_cmd)
-    if not wait_until(WAIT_TIMEOUT, 5, 20, lambda: is_tcpdump_running(duthost, start_pcap),):
+    # wait until tcpdump process created
+    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
         pytest.fail("Could not start tcpdump")
+    # sleep and waiting for tcpdump start to work (schedualed)
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
 
     try:
         yield
