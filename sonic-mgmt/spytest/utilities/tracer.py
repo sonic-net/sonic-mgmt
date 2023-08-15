@@ -3,12 +3,13 @@ import os
 import sys
 import threading
 
+
 class Tracer(object):
     def __init__(self):
         self.callbacks = []
         self.root = os.path.join(os.path.dirname(__file__), '..')
         self.root = os.path.abspath(self.root)
-        #print("Tracer root={}".format(self.root))
+        # print("Tracer root={}".format(self.root))
         threading.setprofile(self._impl)
         sys.setprofile(self._impl)
 
@@ -20,12 +21,17 @@ class Tracer(object):
         if not obj:
             obj = Tracer()
             globals()[objName] = obj
-        if include and not isinstance(include, list): include = [include]
-        if exclude and not isinstance(exclude, list): exclude = [exclude]
+        if include and not isinstance(include, list):
+            include = [include]
+        if exclude and not isinstance(exclude, list):
+            exclude = [exclude]
         l_include, l_exclude = [], []
-        for loc in include or []: l_include.append(os.path.abspath(loc))
-        for loc in exclude or []: l_exclude.append(os.path.abspath(loc))
-        if root: root = os.path.abspath(root)
+        for loc in include or []:
+            l_include.append(os.path.abspath(loc))
+        for loc in exclude or []:
+            l_exclude.append(os.path.abspath(loc))
+        if root:
+            root = os.path.abspath(root)
         obj.callbacks.append([callback, data, l_exclude, l_include, root])
 
     def _impl(self, frame, event, *args, **kwargs):

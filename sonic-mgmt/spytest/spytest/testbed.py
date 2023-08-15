@@ -16,6 +16,7 @@ from spytest.st_time import get_timenow
 from spytest.st_time import get_elapsed
 
 import utilities.common as utils
+from utilities.profile import get_cache, set_cache
 
 testbeds_root = os.path.join(os.path.dirname(__file__), '..')
 testbeds_root = os.path.join(os.path.abspath(testbeds_root), "testbeds")
@@ -733,10 +734,15 @@ class Testbed(object):
         errs = []
         try:
             user_root = env.get("SPYTEST_USER_ROOT")
-            if user_root:
+            rv = get_cache("testbed.load.yaml", filename, None)
+            if rv:
+                self.oyaml = copy.deepcopy(rv)
+            elif user_root:
                 self.oyaml = OrderedYaml(filename, [user_root, testbeds_root])
+                set_cache("testbed.load.yaml", filename, self.oyaml)
             else:
                 self.oyaml = OrderedYaml(filename, [testbeds_root])
+                set_cache("testbed.load.yaml", filename, self.oyaml)
             if not self.oyaml.is_valid():
                 errs = self.oyaml.get_errors()
                 self.logger.error(errs)
