@@ -6437,6 +6437,12 @@
       <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU4" StartDevice="pdu-111" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU5" StartDevice="pdu-111" StartPort="19"/>
       <PowerControlLinkInfo EndDevice="str2-7250-sup-1" EndPort="PSU6" StartDevice="pdu-111" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU1" StartDevice="pdu-110" StartPort="20"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU2" StartDevice="pdu-110" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU3" StartDevice="pdu-110" StartPort="23"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU4" StartDevice="pdu-110" StartPort="24"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU5" StartDevice="pdu-111" StartPort="16"/>
+      <PowerControlLinkInfo EndDevice="str2-7250-sup-2" EndPort="PSU6" StartDevice="pdu-111" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u19" EndPort="PSU1" StartDevice="pdu-109" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u19" EndPort="PSU2" StartDevice="pdu-110" StartPort="28"/>
       <PowerControlLinkInfo EndDevice="str2-7260cx3-d10-u21" EndPort="PSU1" StartDevice="pdu-109" StartPort="27"/>

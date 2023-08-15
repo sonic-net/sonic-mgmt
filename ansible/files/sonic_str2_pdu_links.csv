@@ -186,6 +186,12 @@ pdu-110,16,str2-7250-sup-1,PSU3
 pdu-111,18,str2-7250-sup-1,PSU4
 pdu-111,19,str2-7250-sup-1,PSU5
 pdu-111,20,str2-7250-sup-1,PSU6
+pdu-110,20,str2-7250-sup-2,PSU1
+pdu-110,22,str2-7250-sup-2,PSU2
+pdu-110,23,str2-7250-sup-2,PSU3
+pdu-110,24,str2-7250-sup-2,PSU4
+pdu-111,16,str2-7250-sup-2,PSU5
+pdu-111,17,str2-7250-sup-2,PSU6
 pdu-109,28,str2-7260cx3-d10-u19,PSU1
 pdu-110,28,str2-7260cx3-d10-u19,PSU2
 pdu-109,27,str2-7260cx3-d10-u21,PSU1
