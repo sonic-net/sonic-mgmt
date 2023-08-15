@@ -16,6 +16,8 @@ import os
 import requests
 import sys
 
+from setuptools import distutils
+
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
@@ -285,17 +287,17 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--always-power-cycle",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="always_power_cycle",
-        default=False,
+        default=0,
         help="Always power cycle DUTs before upgrade."
     )
 
     parser.add_argument(
         "--power-cycle-unreachable",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="power_cycle_unreachable",
-        default=True,
+        default=1,
         help="Only power cycle unreachable DUTs."
     )
 
@@ -319,10 +321,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--enable-fips",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="enable_fips",
         required=False,
-        default=False,
+        default=0,
         help="Enable FIPS."
     )
 
