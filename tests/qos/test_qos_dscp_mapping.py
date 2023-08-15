@@ -206,6 +206,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_pkt_ip = DUMMY_INNER_DST_IP
         inner_src_pkt_ip = DUMMY_INNER_SRC_IP
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
+        failed_once = False
 
         pytest_assert(dut_qos_maps.get("dscp_to_tc_map") and dut_qos_maps.get("tc_to_queue_map"),
                       "No QoS map found on DUT")
@@ -257,13 +258,12 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
             egress_queue_count, _ = get_egress_queue_count(duthost, dut_egress_port, queue_val)
             verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
-            pytest_assert(verification_success, "Received {} packets on queue {} instead of {}".format(
-                    egress_queue_count, queue_val, DEFAULT_PKT_COUNT))
 
             if verification_success:
                 logger.info("Received expected number of packets on queue {}".format(queue_val))
                 output_table.append([rotating_dscp, queue_val, egress_queue_count, "SUCCESS"])
             else:
+                failed_once = True
                 logger.info("Received {} packets on queue {} instead of {}".format(egress_queue_count, queue_val,
                                                                                    DEFAULT_PKT_COUNT))
                 output_table.append([rotating_dscp, queue_val, egress_queue_count, "FAILURE"])
@@ -272,6 +272,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     .format(tabulate(output_table,
                                      headers=["Inner Packet DSCP Value", "Egress Queue",
                                               "Egress Queue Count", "Result"])))
+        pytest_assert(not failed_once, "Received {} packets on queue {} instead of {}".format(
+                    egress_queue_count, queue_val, DEFAULT_PKT_COUNT))
 
     def _teardown_test(self, duthost):
         """
