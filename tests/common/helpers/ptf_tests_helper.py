@@ -110,6 +110,7 @@ def apply_dscp_cfg_teardown(duthost):
     Args:
         duthost: DUT fixture
     """
+    reload_required = False
     for asic_id in duthost.get_frontend_asic_ids():
         swss = 'swss{}'.format(asic_id if asic_id is not None else '')
         file_exists = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
@@ -120,9 +121,11 @@ def apply_dscp_cfg_teardown(duthost):
             'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
             .format(swss)
         ]
+        reload_required = True
         duthost.shell_cmds(cmds=cmds)
 
-    config_reload(duthost, safe_reload=True)
+    if reload_required:
+        config_reload(duthost, safe_reload=True)
 
 
 def find_links(duthost, tbinfo, filter):
