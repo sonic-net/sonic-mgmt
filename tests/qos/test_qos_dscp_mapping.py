@@ -257,6 +257,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
             egress_queue_count, _ = get_egress_queue_count(duthost, dut_egress_port, queue_val)
             verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
+            pytest_assert(verification_success, "Received {} packets on queue {} instead of {}".format(
+                    egress_queue_count, queue_val, DEFAULT_PKT_COUNT))
 
             if verification_success:
                 logger.info("Received expected number of packets on queue {}".format(queue_val))
