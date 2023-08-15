@@ -90,3 +90,18 @@ Test after soft/hard reset IBGP session, DUT would still select right best path
 7. Check these routes are till suppressed and not advertised to EBGP peers.
 8. In ptf, withdraw these routes to DUT.
 9. Check these routes are advertised to EBGP peers.
+
+### Test case # 4 - BGPSentinel send update without no-export community
+BGPSentinel send update without no-export community, after T1 received BGP update, the BGP update will be dropped.
+
+#### Test Objective
+Test after received BGP update without no-export community from BGPSentinel, DUT would still advertise these route to EBGP peers.
+
+#### Test Steps
+1. Setup IBGP V6 session from BGPSentinel (BGPS) host to DUT (Simulated from ptf using exabgp to DUT).
+2. Find V4 and V6 routes advertised from T0.
+3. Check these routes are advertised to EBGP peers.
+4. In ptf, advertise the same routes with higher local-preference to DUT.
+5. Check that BGP updates from BGPSentinel are dropped and route are still advertised to EBGP peers.
+6. In ptf, withdraw these routes to DUT.
+7. Check these routes are advertised to EBGP peers.
