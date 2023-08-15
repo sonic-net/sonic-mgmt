@@ -254,17 +254,17 @@ class TTL0(DataplaneTest):
             version, dst_mac, dst_ip, vm_mac, vm_ip, dut_lb)
         logger.info("sending packet to port %s", src_port)
         send(self, src_port, send_pkt)
-        print("masked packet matched port: %s" % src_port)
+        print(("masked packet matched port: %s" % src_port))
 
         result = dp_poll(self, device_number=0, exp_pkt=masked_pkt, timeout=2)
         self.at_receive(result.packet, device_number=result.device,
                         port_number=result.port)
 
-        print("Found %s ICMP ttl expired packets on ports: %s" %
-              (result, str(src_rx_ports)))
+        print(("Found %s ICMP ttl expired packets on ports: %s" %
+              (result, str(src_rx_ports))))
         logger.info("Found %s ICMP ttl expired packets on ports: %s" %
                     (result, str(src_rx_ports)))
-        print("port: %s" % result.port)
+        print(("port: %s" % result.port))
         if result.port not in src_rx_ports:
             self.fail("Port %s not in %s" % (result.port, src_rx_ports))
 
