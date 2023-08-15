@@ -122,7 +122,6 @@ class MtuTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "tc")
             masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "fl")
-            masked_exp_pkt.set_do_not_care_scapy(scapy.ICMPv6Unknown, "chksum")
 
         src_port = self.src_ptf_port_list[0]
         send_packet(self, src_port, pkt)
