@@ -1,9 +1,0 @@
-Value policy_name (\S+)
-Value stage (\w+)
-Value interface_name (\S+)
-Value policy_type (\w+)
-
-Start
-  ^${interface_name}
-  ^\s*${policy_type}\s*policy\s*${policy_name}\s*at\s*${stage}\s*$$ -> Record
-  ^$$ -> Record
