@@ -540,18 +540,9 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     configure_dut(duthost, cmd)
     time.sleep(3)
 
-    exp_flow_count = {}
-    flows_per_nh = (NUM_FLOWS)/(len(net_ports))
-    for port in net_ports:
-        exp_flow_count[port] = flows_per_nh
-
     partial_ptf_runner(ptfhost, 'net_port_hashing', dst_ip, exp_flow_count)
 
     # Validate that the other 2 prefixes using Fine Grained ECMP were unaffected
-    exp_flow_count = {}
-    flows_per_nh = (NUM_FLOWS)/(len(port_list))
-    for port in port_list:
-        exp_flow_count[port] = flows_per_nh
     for ip in dst_ip_list:
         if ip == dst_ip: continue
         partial_ptf_runner(ptfhost, 'initial_hash_check', ip, exp_flow_count)
