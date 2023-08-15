@@ -167,11 +167,11 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
-      --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
-      --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
+      --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
       --image_url ${{ parameters.IMAGE_URL }} \
-      --upgrade-image-param "${{ parameters.UPGRADE_IMAGE_PARAM }}" \
+      --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
       --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
       --platform ${{ parameters.PLATFORM }} \
