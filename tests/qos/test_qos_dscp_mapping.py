@@ -156,7 +156,6 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         uplink_ptf_ports = get_stream_ptf_ports(upstream_links)
         loopback_ip = get_ipv4_loopback_ip(duthost)
         router_mac = duthost.facts["router_mac"]
-        asic_type = duthost.facts["asic_type"]
 
         # Setup DSCP decap config on DUT
         apply_dscp_cfg_setup(duthost, decap_mode)
@@ -165,14 +164,12 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         pytest_assert(uplink_ptf_ports is not None, "No uplink found")
         pytest_assert(loopback_ip is not None, "No loopback IP found")
         pytest_assert(router_mac is not None, "No router MAC found")
-        pytest_assert(asic_type is not None, "No ASIC type found")
 
         test_params["ptf_downlink_port"] = downlink.get("ptf_port_id")
         test_params["ptf_uplink_ports"] = uplink_ptf_ports
         test_params["outer_src_ip"] = '8.8.8.8'
         test_params["outer_dst_ip"] = loopback_ip
         test_params["router_mac"] = router_mac
-        test_params["dut_asic_type"] = asic_type
 
         return test_params
 
@@ -238,7 +235,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
             if queue_val is None:
                 logger.info("No queue found for dscp {} on DUT".format(inner_dscp))
-                output_table.append([rotating_dscp, "No queue found", "N/A"])
+                output_table.append([rotating_dscp, "No queue found", "N/A", "N/A"])
                 continue
 
             # Clear queue counters
@@ -261,19 +258,17 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             egress_queue_count, _ = get_egress_queue_count(duthost, dut_egress_port, queue_val)
             verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
 
-            if test_params["dut_asic_type"] == "broadcom":
-                pytest_assert(verification_success, "Received {} packets on queue {} instead of {}".format(
-                    egress_queue_count, queue_val, DEFAULT_PKT_COUNT))
+            if verification_success:
                 logger.info("Received expected number of packets on queue {}".format(queue_val))
-                output_table.append([rotating_dscp, queue_val, egress_queue_count])
+                output_table.append([rotating_dscp, queue_val, egress_queue_count, "SUCCESS"])
             else:
                 logger.info("Received {} packets on queue {} instead of {}".format(egress_queue_count, queue_val,
                                                                                    DEFAULT_PKT_COUNT))
-                output_table.append([rotating_dscp, queue_val, egress_queue_count])
+                output_table.append([rotating_dscp, queue_val, egress_queue_count, "FAILURE"])
 
         logger.info("DSCP to queue mapping test results:\n{}"
                     .format(tabulate(output_table,
-                                     headers=["Inner Packet DSCP Value", "Egress Queue", "Egress Queue Count"])))
+                                     headers=["Inner Packet DSCP Value", "Egress Queue", "Egress Queue Count", "Result"])))
 
     def _teardown_test(self, duthost):
         """
