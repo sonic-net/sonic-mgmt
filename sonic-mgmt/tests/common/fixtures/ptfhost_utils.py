@@ -518,10 +518,10 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 ]
 
     disabled_ptf_ports = set()
+    # Data in ptf_map_disabled is {dut_port_index: ptf_port_index}
     for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
-        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
-
+        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.values()))
     router_macs = []
     all_dut_names = [duthost.hostname for duthost in duthosts]
     for a_dut_name in tbinfo['duts']:
@@ -534,10 +534,9 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-
     ports_map = {}
     for ptf_port, dut_intf_map in list(tbinfo['topo']['ptf_dut_intf_map'].items()):
-        if str(ptf_port) in disabled_ptf_ports:
+        if int(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
         asic_idx = 0

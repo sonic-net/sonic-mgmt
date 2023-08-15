@@ -23,7 +23,8 @@ def get_trace_lvl():
 
 
 def init_trace(val):
-    if val <= 0: return None
+    if val <= 0:
+        return None
     logger = logging.getLogger('netmiko_connection')
     logger.setLevel(logging.DEBUG)
     return logger
@@ -61,7 +62,7 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
         self.net_devname = kwargs.pop("net_devname", None)
         self.net_login = kwargs.pop("net_login", None)
         self.change_pass = kwargs.pop("change_pass", None)
-        self.fix_control_chars = bool(os.getenv("SPYTEST_FIX_DEVICE_CONTROL_CHARS", "0") != "0")
+        self.fix_control_chars = bool(os.getenv("SPYTEST_FIX_DEVICE_CONTROL_CHARS", "1") != "0")
 
         logf = logger.warning if logger else None
         access_ip = kwargs.get("ip", None)
@@ -100,8 +101,10 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
                 raise DeviceConnectionError(msg)
 
     def check_exception(self, e):
-        try: msg = repr(e)
-        except Exception: pass
+        try:
+            msg = repr(e)
+        except Exception:
+            pass
         if "Connection refuse" in msg:
             msg = "Refused.."
         else:
@@ -169,11 +172,14 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
     def format_output(self, lines, fmt=False, rmctrl=True):
         retval = []
         for line in lines:
-            if rmctrl: line = ctrl_chars.remove(line)
-            if fmt: line = self.dmsg_fmt(line)
+            if rmctrl:
+                line = ctrl_chars.remove(line)
+            if fmt:
+                line = self.dmsg_fmt(line)
             for msg in re.split('\r|\n', line):
                 msg = msg.strip()
-                if not msg: continue
+                if not msg:
+                    continue
                 retval.append(msg)
         return retval
 
@@ -188,7 +194,8 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
 
     def get_cached_read_lines(self, clear=True, fmt=False, rmctrl=True):
         retval = self.format_output(self.cached_read_data, fmt, rmctrl)
-        if clear: self.cached_read_data = []
+        if clear:
+            self.cached_read_data = []
         return retval
 
     def write_channel(self, out_data):
@@ -204,10 +211,14 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
         return output
 
     def disconnect(self):
-        try: self.clear_buffer()
-        except Exception: pass
-        try: super(LinuxConnection, self).disconnect()
-        except Exception: pass
+        try:
+            self.clear_buffer()
+        except Exception:
+            pass
+        try:
+            super(LinuxConnection, self).disconnect()
+        except Exception:
+            pass
         trace("================== disconnect ============================")
 
     def init_prompt(self, attempts=5):
@@ -239,14 +250,14 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
 
     def strip_ansi_escape_codes(self, string_buffer):
         rv = super(LinuxConnection, self).strip_ansi_escape_codes(string_buffer)
-        if not self.fix_control_chars:
-            trace("================== strip_ansi_escape_codes ============================")
+        if self.fix_control_chars:
             rv = ctrl_chars.remove(rv)
-            try:
-                self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
-            except Exception:
-                trace(rv)
-            trace("=======================================================================")
+        trace("================== strip_ansi_escape_codes ============================")
+        try:
+            self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
+        except Exception:
+            trace(rv)
+        trace("=======================================================================")
         return rv
 
     def trace_callback_set(self, callback, arg1, arg2):
@@ -254,15 +265,23 @@ class LinuxConnection(netmiko.cisco_base_connection.CiscoSSHConnection):
         self.trace_callback_arg1 = arg1
         self.trace_callback_arg2 = arg2
 
+    def trace_callback_get(self):
+        return self.trace_callback, self.trace_callback_arg1, self.trace_callback_arg2
+
     def remove_prompt(self, output, expect_string, duplicate_only=False):
-        if not output: return output
-        if not expect_string: return output
+        if not output:
+            return output
+        if not expect_string:
+            return output
         response_list = output.split(self.RESPONSE_RETURN)
-        if len(response_list) < 2: return output
+        if len(response_list) < 2:
+            return output
         last_line, before_line = response_list[-1], response_list[-2]
-        if not re.match(expect_string, last_line): return output
+        if not re.match(expect_string, last_line):
+            return output
         if duplicate_only:
-            if not re.match(expect_string, before_line): return output
+            if not re.match(expect_string, before_line):
+                return output
         return self.RESPONSE_RETURN.join(response_list[:-1])
 
     # pylint: disable=arguments-differ
