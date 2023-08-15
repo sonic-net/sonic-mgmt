@@ -73,7 +73,7 @@ def log_bgp_updates(duthost, iface, save_path, ns):
     # wait until tcpdump process created
     if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
         pytest.fail("Could not start tcpdump")
-    # sleep and waiting for tcpdump start to work (schedualed)
+    # sleep and wait for tcpdump ready to sniff packets
     time.sleep(TCPDUMP_WAIT_TIMEOUT)
 
     try:
