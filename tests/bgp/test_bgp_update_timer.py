@@ -9,6 +9,7 @@ import time
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.utilities import wait_until
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import mux_server_url
@@ -32,6 +33,15 @@ NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
+WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)['stdout']:
+        return True
+    return False
 
 
 @contextlib.contextmanager
@@ -46,8 +56,14 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd 
     stop_pcap = "sudo pkill -f '%s%s'" % (duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
-    start_pcap = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
-    duthost.shell(start_pcap)
+    start_pcap_cmd = "nohup {}{} &".format(duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap)
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
     try:
         yield
     finally:
