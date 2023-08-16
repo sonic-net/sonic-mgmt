@@ -59,7 +59,7 @@ def mux_server_info(request, tbinfo):
         server = tbinfo['server']
         vmset_name = tbinfo['group-name']
 
-        inv_files = request.config.option.ansible_inventory
+        inv_files = utilities.get_inventory_files(request)
         ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
         _port_map = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')
         port = _port_map[tbinfo['conf-name']]
