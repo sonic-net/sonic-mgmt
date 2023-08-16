@@ -204,7 +204,7 @@ class FgEcmpTest(BaseTest):
             deviation = abs(1-deviation)
             self.log("port "+ str(port) + " exp_flows " + str(exp_flows) + 
                     " num_flows " + str(num_flows) + " deviation " + str(deviation))
-            return deviation <= self.max_deviation
+            return deviation
 
     def fg_ecmp(self):
         ipv4 = isinstance(ipaddress.ip_address(self.dst_ip.decode('utf8')),
@@ -234,8 +234,8 @@ class FgEcmpTest(BaseTest):
             tuple_to_port_map[self.dst_ip] = {}
 
         if self.test_case == 'create_flows':
-            # retry 2 times until test_balancing_no_assert returns true
-            for i in range(0, 2):
+            # try 3 times until test_balancing_no_assert returns true
+            for retry_time in range(0, 3):
                 # Send packets with varying src_ips to create NUM_FLOWS unique flows
                 # and generate a flow to port map
                 self.log("Creating flow to port map ...")
@@ -253,9 +253,10 @@ class FgEcmpTest(BaseTest):
                         in_port, src_port, dst_port, src_ip, dst_ip, self.serv_ports, ipv4)
                     hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
                     tuple_to_port_map[self.dst_ip][src_ip] = port_idx
-                if self.test_balancing_no_assert(hit_count_map):
+                deviation = self.test_balancing_no_assert(hit_count_map)
+                if deviation <= self.max_deviation:
                     break
-            self.test_balancing(hit_count_map)
+            assert deviation <= self.max_deviation
 
         elif self.test_case == 'initial_hash_check':
             self.log("Ensure that flow to port map is maintained when the same flow is re-sent...")
