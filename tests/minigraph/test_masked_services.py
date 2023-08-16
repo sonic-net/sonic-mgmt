@@ -60,7 +60,7 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     try:
         logging.info("Starting load_minigraph")
-        load_minigraph_ret = duthost.shell("config load_minigraph -y")
+        load_minigraph_ret = config_reload(duthost, config_source='minigraph')
         load_minigraph_error_code = load_minigraph_ret['failed']
 
         logging.info("Bring back service if not up")
