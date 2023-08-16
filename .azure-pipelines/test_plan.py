@@ -214,11 +214,6 @@ class TestPlanManager(object):
 
         common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
 
-        # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
-        sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
-        if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
-            sonic_mgmt_repo_url = INTERNAL_SONIC_MGMT_REPO
-
         # If triggered by mgmt repo, use pull request id as the code base
         sonic_mgmt_pull_request_id = ""
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
@@ -260,7 +255,7 @@ class TestPlanManager(object):
                     "kvm_image_branch": kvm_image_branch
                 },
                 "sonic_mgmt": {
-                    "repo_url": sonic_mgmt_repo_url,
+                    "repo_url": kwargs["mgmt_url"],
                     "branch": kwargs["mgmt_branch"],
                     "pull_request_id": sonic_mgmt_pull_request_id
                 },
@@ -501,6 +496,16 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="KVM build id."
+    )
+    parser_create.add_argument(
+        "--mgmt-url",
+        type=str,
+        dest="mgmt_url",
+        nargs='?',
+        const=GITHUB_SONIC_MGMT_REPO,
+        default=GITHUB_SONIC_MGMT_REPO,
+        required=False,
+        help="URL of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
         "--mgmt-branch",
@@ -844,6 +849,7 @@ if __name__ == "__main__":
                 features_exclude=args.features_exclude,
                 output=args.output,
                 source_repo=repo_name,
+                mgmt_url=args.mgmt_url,
                 mgmt_branch=args.mgmt_branch,
                 common_extra_params=args.common_extra_params,
                 num_asic=args.num_asic,
