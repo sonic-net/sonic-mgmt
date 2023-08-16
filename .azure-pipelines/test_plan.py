@@ -823,8 +823,9 @@ if __name__ == "__main__":
 
             scripts = args.scripts
             specific_param = []
-            # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
-            if args.platform == "kvm":
+            # If args.scripts is not None, get test modules form it.
+            # Otherwise, get test modules from pr_test_scripts.yaml.
+            if not args.scripts:
                 args.test_set = args.test_set if args.test_set else args.topology
                 scripts, specific_param = get_test_scripts(args.test_set)
                 scripts = ",".join(scripts)
