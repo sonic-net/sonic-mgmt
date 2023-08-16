@@ -5,6 +5,7 @@ import logging
 import getpass
 import random
 import re
+import tempfile
 
 import pytest
 import yaml
@@ -1467,6 +1468,19 @@ def pytest_generate_tests(metafunc):        # noqa E302
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'vlan_name' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            if tbinfo['topo']['name'] == 'm0-2vlan':
+                metafunc.parametrize('vlan_name', ['Vlan1000', 'Vlan2000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+        # Non M0 topo
+        else:
+            if tbinfo['topo']['type'] in ['t0', 'mx']:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
 
 def get_autoneg_tests_data():
     folder = 'metadata'
@@ -1922,7 +1936,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
 
     if node.is_multi_asic:
@@ -2003,7 +2017,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
             if duthost.is_multi_asic:
@@ -2039,10 +2053,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
+                base_dir = os.path.dirname(os.path.realpath(__file__))
+                for new_core_dump in new_core_dumps[duthost.hostname]:
+                    duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
@@ -2242,3 +2260,43 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+@pytest.fixture(scope="module")
+def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, "common/templates")
+    acl_rules_template = "default_acl_rules.json"
+
+    dut_tmp_dir = "/tmp"
+    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+    pre_acl_rules = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]
+
+    yield
+
+    if pre_acl_rules:
+        for key, value in pre_acl_rules.items():
+            if key != "DEFAULT_RULE":
+                seq_id = key.split('_')[1]
+                acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
+                acl_entry_template = \
+                    acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+                acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
+
+                acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
+                acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
+                acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
+                acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
+                acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
+
+        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
+            json.dump(acl_config, fp)
+            fp.flush()
+            logger.info("Generating config for ACL rule, ACL table - DATAACL")
+            duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
+
+        logger.info("Applying {}".format(dut_conf_file_path))
+        duthost.command("acl-loader update full {}".format(dut_conf_file_path))

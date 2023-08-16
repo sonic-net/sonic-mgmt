@@ -836,13 +836,6 @@ platform_tests/test_reboot.py::test_cold_reboot:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
-platform_tests/test_reboot.py::test_continuous_reboot:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
