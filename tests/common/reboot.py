@@ -4,6 +4,9 @@ import re
 import logging
 from multiprocessing.pool import ThreadPool, TimeoutError
 from collections import deque
+
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.processes_utils import wait_critical_processes
 from utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -96,7 +99,7 @@ def check_warmboot_finalizer_inactive(duthost):
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,\
-    reboot_helper=None, reboot_kwargs=None):
+    reboot_helper=None, reboot_kwargs=None, safe_reboot=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -109,6 +112,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
+    :param safe_reboot: arguments to wait DUT ready after reboot
     :return:
     """
 
@@ -181,7 +185,17 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10, \
     
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
-    time.sleep(wait)
+    if safe_reboot:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+                      "All critical services should be fully started!")
+        wait_critical_processes(duthost)
+
+    else:
+        time.sleep(wait)
     
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
