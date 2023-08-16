@@ -129,12 +129,16 @@ def main():
     length_of_list = len(interfaces)
     sockets = []
 
+    # Configure fanout logging
+    fo_handler = logging.handlers.SysLogHandler()
+    fo_logger.addHandler(fo_handler)
+
     # Only a single socket supported for now
     try:
         for i in range(0, length_of_list):
             mysocket = socket(AF_PACKET, SOCK_RAW)
-            mysocket.setblocking(False)
             sockets.append(mysocket)
+            fo_logger.debug("Socket number : {} {}".format(i, mysocket.getsockname()))
     except Exception:
         print("Unable to create socket for i %i. Check your permissions" % i)
         sys.exit(1)
@@ -143,15 +147,12 @@ def main():
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
     my_logger.addHandler(handler)
 
-    # Configure fanout logging
-    fo_handler = logging.handlers.SysLogHandler()
-    fo_logger.addHandler(fo_handler)
-
     for s, interface in zip(sockets, interfaces):
         # todo: check bind return value for possible errors
         s.bind((interface, 0))
         s.setsockopt(263, 20, 1)  # QDISC_BYPASS
-        # fo_logger.debug(s.getsockname())
+        s.setblocking(False)
+        fo_logger.debug("Socket bound : {}".format(s.getsockname()))
 
     """
     Set PFC defined fields and generate the packet
@@ -249,7 +250,10 @@ def main():
     start_time = time.monotonic()
 
     if options.sendtime > 0:       # send according to requested period of send time
-        num_to_send = 1000
+        if length_of_list > 1:
+            num_to_send = 1
+        else:
+            num_to_send = 1000
         print("Generating Packet(s) over period of %f seconds" % options.sendtime)
         my_logger.debug(pre_str + '_STORM_START')
         while True:
@@ -266,7 +270,7 @@ def main():
                                         ' for socket ' + s.getsockname())
                 # Count across all sockets
                 total_num_sent += num_sent
-                iters += 1
+            iters += 1
             done_time = time.monotonic()
             elapsed_time = done_time - start_time
             if elapsed_time >= options.sendtime:
@@ -277,6 +281,10 @@ def main():
             iters) + ' iterations and elapsed time of ' + str(elapsed_time) + ' secs')
     # send according to requested number of pkts
     else:
+        if length_of_list > 1:
+            num_to_send_max = 1
+        else:
+            num_to_send_max = 1000
         print("Generating %s Packet(s)" % options.num)
         my_logger.debug(pre_str + '_STORM_START')
         num_sockets = len(sockets)
@@ -290,7 +298,7 @@ def main():
                 index = sockets.index(s)
                 if total_pkts_remaining[index] <= 0:
                     continue
-                num_to_send = min(1000, total_pkts_remaining[index])
+                num_to_send = min(num_to_send_max, total_pkts_remaining[index])
                 num_sent = _sendmmsg(s.fileno(), m_msghdr[0], num_to_send, 0)
                 if num_sent < 0:
                     errno = get_errno()
