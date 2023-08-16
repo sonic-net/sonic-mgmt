@@ -229,7 +229,7 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 
 
 @pytest.mark.device_type('physical')
-@pytest.mark.parametrize("fec", ["rs", "fc"])
+@pytest.mark.parametrize("fec", ["rs", "fc", "none"])
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
     json_patch = [
         {
@@ -245,11 +245,11 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_fec_state_db(duthost, fec):
             expect_op_success(duthost, output)
+            current_status_fec = check_interface_status(duthost, "FEC")
+            pytest_assert(current_status_fec == fec,
+                          "Failed to properly configure interface FEC to requested value {}".format(fec))
         else:
             expect_op_failure(output)
-        current_status_fec = check_interface_status(duthost, "FEC")
-        pytest_assert(current_status_fec == fec,
-                      "Failed to properly configure interface FEC to requested value {}".format(fec))
     finally:
         delete_tmpfile(duthost, tmpfile)
 
