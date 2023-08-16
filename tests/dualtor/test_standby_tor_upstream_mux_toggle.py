@@ -92,5 +92,5 @@ def test_standby_tor_upstream_mux_toggle(
     logging.debug(
       "unmatched_crm_facts: %s len: %s" % (unmatched_crm_facts, len(unmatched_crm_facts)))
     # Verify packets are not go up
-    pt_assert(len(unmatched_crm_facts)<=5, 'Unmatched CRM facts: {}'
+    pt_assert(len(unmatched_crm_facts) <= 5, 'Unmatched CRM facts: {}'
               .format(json.dumps(unmatched_crm_facts, indent=4)))
