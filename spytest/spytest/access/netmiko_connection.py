@@ -26,7 +26,8 @@ def get_trace_lvl():
 
 
 def init_trace(val):
-    if val <= 0: return None
+    if val <= 0:
+        return None
     logger = logging.getLogger('netmiko_connection')
     logger.setLevel(logging.DEBUG)
     return logger
@@ -71,7 +72,7 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
         self.prompt_unix_password = None
         self.in_login = False
         self.check_live_connection = bool(os.getenv("SPYTEST_CHECK_DEVICE_LIVE_CONNECTION", "0") != "0")
-        self.fix_control_chars = bool(os.getenv("SPYTEST_FIX_DEVICE_CONTROL_CHARS", "0") != "0")
+        self.fix_control_chars = bool(os.getenv("SPYTEST_FIX_DEVICE_CONTROL_CHARS", "1") != "0")
         self.product = kwargs.pop("product", "sonic")
         self.username = kwargs.get("username", None)
         self.use_keys = kwargs.get("use_keys", False)
@@ -116,8 +117,10 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
                 raise DeviceConnectionError(msg)
 
     def check_exception(self, e):
-        try: msg = repr(e)
-        except Exception: pass
+        try:
+            msg = repr(e)
+        except Exception:
+            pass
         if "Connection refuse" in msg:
             msg = "Refused.."
         else:
@@ -152,7 +155,8 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
             patterns1.append("Enter old password:")
             patterns2.append("Confirm new password:")
             patterns2.append("Incorrect password!")
-        patterns1.extend(patterns0); patterns2.extend(patterns0)
+        patterns1.extend(patterns0)
+        patterns2.extend(patterns0)
         self.change_pwd_ok_prompt = r"({})\s*".format("|".join(patterns0))
         self.prompt_unix_password = r"({})\s*".format("|".join(patterns1))
         self.confirm_new_password_prompt = r"({})\s*".format("|".join(patterns2))
@@ -238,8 +242,10 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
     def set_base_prompt(self, pri_prompt_terminator=None,
                         alt_prompt_terminator=None, delay_factor=1):
         if pri_prompt_terminator is None:
-            try: return self._set_base_prompt(self.pri_prompt_terminator1, alt_prompt_terminator, delay_factor)
-            except Exception: pass
+            try:
+                return self._set_base_prompt(self.pri_prompt_terminator1, alt_prompt_terminator, delay_factor)
+            except Exception:
+                pass
             return self._set_base_prompt(self.pri_prompt_terminator2, alt_prompt_terminator, delay_factor)
         return self._set_base_prompt(pri_prompt_terminator, alt_prompt_terminator, delay_factor)
 
@@ -396,11 +402,14 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
     def format_output(self, lines, fmt=False, rmctrl=True):
         retval = []
         for line in lines:
-            if rmctrl: line = ctrl_chars.remove(line)
-            if fmt: line = self.dmsg_fmt(line)
+            if rmctrl:
+                line = ctrl_chars.remove(line)
+            if fmt:
+                line = self.dmsg_fmt(line)
             for msg in re.split('\r|\n', line):
                 msg = msg.strip()
-                if not msg: continue
+                if not msg:
+                    continue
                 retval.append(msg)
         return retval
 
@@ -415,7 +424,8 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
 
     def get_cached_read_lines(self, clear=True, fmt=False, rmctrl=True):
         retval = self.format_output(self.cached_read_data, fmt, rmctrl)
-        if clear: self.cached_read_data = []
+        if clear:
+            self.cached_read_data = []
         return retval
 
     def sysrq_trace(self):
@@ -496,10 +506,14 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
         return False
 
     def disconnect(self):
-        try: self.clear_buffer()
-        except Exception: pass
-        try: super(NetmikoConnection, self).disconnect()
-        except Exception: pass
+        try:
+            self.clear_buffer()
+        except Exception:
+            pass
+        try:
+            super(NetmikoConnection, self).disconnect()
+        except Exception:
+            pass
         trace("================== disconnect ============================")
 
     def init_prompt(self, attempts=5):
@@ -538,12 +552,14 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
 
     def strip_ansi_escape_codes(self, string_buffer):
         rv = super(NetmikoConnection, self).strip_ansi_escape_codes(string_buffer)
-        if not self.fix_control_chars:
+        if self.fix_control_chars:
             rv = ctrl_chars.remove(rv)
-            if rv: trace("================== strip_ansi_escape_codes ============================")
-            try: self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
-            except Exception: trace(rv)
-            if rv: trace("=======================================================================")
+        if rv:
+            try:
+                self.trace_callback(self.trace_callback_arg1, self.trace_callback_arg2, rv)
+            except Exception:
+                trace(rv)
+            trace("=======================================================================")
         return rv
 
     def trace_callback_set(self, callback, arg1, arg2):
@@ -551,24 +567,33 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
         self.trace_callback_arg1 = arg1
         self.trace_callback_arg2 = arg2
 
+    def trace_callback_get(self):
+        return self.trace_callback, self.trace_callback_arg1, self.trace_callback_arg2
+
     def is_strip_prompt(self, strip_prompt):
         if self.in_login:
             return False
         return strip_prompt
 
     def remove_prompt(self, output, expect_string, duplicate_only=False):
-        if not output: return output
-        if not expect_string: return output
+        if not output:
+            return output
+        if not expect_string:
+            return output
         response_list = output.split(self.RESPONSE_RETURN)
-        if len(response_list) < 2: return output
+        if len(response_list) < 2:
+            return output
         last_line, before_line = response_list[-1], response_list[-2]
-        if not re.match(expect_string, last_line): return output
+        if not re.match(expect_string, last_line):
+            return output
         if duplicate_only:
-            if not re.match(expect_string, before_line): return output
+            if not re.match(expect_string, before_line):
+                return output
         return self.RESPONSE_RETURN.join(response_list[:-1])
 
     def remove_duplicate_prompt(self, output, expect_string):
-        if os.getenv("SPYTEST_NETMIKO_REMOVE_DUPLICATE_PROMPT", "0") == "0": return output
+        if os.getenv("SPYTEST_NETMIKO_REMOVE_DUPLICATE_PROMPT", "0") == "0":
+            return output
         return self.remove_prompt(output, expect_string, True)
 
     def send_bytes(self, command_string, **kwargs):
@@ -579,7 +604,8 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
 
     # pylint: disable=arguments-differ
     def send_command_timing(self, command_string, delay_factor=1, **kwargs):
-        kwargs.pop("expect_string", None); kwargs.pop("auto_find_prompt", None)
+        kwargs.pop("expect_string", None)
+        kwargs.pop("auto_find_prompt", None)
         return super(NetmikoConnection, self).send_command_timing(command_string, **kwargs)
 
     # pylint: disable=arguments-differ
@@ -667,7 +693,7 @@ class NetmikoConnection(netmiko.cisco_base_connection.CiscoBaseConnection):
                             self.dmsg_append(dbg_msg, "Read Data:", self.dmsg_fmt(msg2))
                         raise IOError(self.dmsg_str(dbg_msg, "Connection Lost"))
             else:
-                if not self.fix_control_chars:
+                if self.fix_control_chars:
                     new_data = self.normalize_linefeeds(new_data)
                     new_data = self.strip_ansi_escape_codes(new_data)
                 output += new_data
