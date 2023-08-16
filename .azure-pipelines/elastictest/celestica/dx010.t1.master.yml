@@ -47,7 +47,7 @@ parameters:
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--always-power-cycle"
+    default: "--always-power-cycle=True"
     displayName: "Upgrade image parameter"
 
   - name: PY_SAITHRIFT_URL
