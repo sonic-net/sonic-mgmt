@@ -1654,7 +1654,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
     config_reload(node)
 
@@ -1725,7 +1725,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
     yield
@@ -1757,7 +1757,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
             # The tables that we don't care
