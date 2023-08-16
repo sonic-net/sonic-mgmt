@@ -3866,6 +3866,8 @@
       <DevicePowerControlInfo Hostname="pdu-92" HwSku="ApcRPDU" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-93" HwSku="Sentry" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-94" HwSku="Sentry" ManagementIp="10.3.155.94" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-96" HwSku="Sentry" ManagementIp="10.3.155.96" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-97" HwSku="Sentry" ManagementIp="10.3.155.97" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-100" HwSku="Sentry4" ManagementIp="10.3.155.100" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-101" HwSku="Sentry4" ManagementIp="10.3.155.101" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-115" HwSku="Sentry" ManagementIp="10.3.155.115" Os="" Protocol="snmp" Type="Pdu"/>
