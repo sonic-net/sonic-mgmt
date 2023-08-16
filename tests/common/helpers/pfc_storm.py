@@ -288,12 +288,12 @@ class PFCMultiStorm(object):
                 pfc_send_time = 60
             # get pfc storm handle
             self.storm_handle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
-                                                  self.fanouthosts,
-                                                  pfc_queue_index=q_idx,
-                                                  pfc_frames_number=frames_cnt,
-                                                  pfc_gen_file=gen_file,
-                                                  pfc_send_period=pfc_send_time,
-                                                  peer_info=peer_info)
+                                                   self.fanouthosts,
+                                                   pfc_queue_index=q_idx,
+                                                   pfc_frames_number=frames_cnt,
+                                                   pfc_gen_file=gen_file,
+                                                   pfc_send_period=pfc_send_time,
+                                                   peer_info=peer_info)
 
             self.storm_handle[peer_dev].deploy_pfc_gen()
 
