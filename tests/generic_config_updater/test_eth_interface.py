@@ -38,7 +38,7 @@ def ensure_dut_readiness(duthost):
 
 
 def is_valid_fec_state_db(duthost, value):
-    read_supported_fecs_cli = 'redis-cli -n 6 hget "PORT_TABLE|{}" supported_fecs'.format("Ethernet0")
+    read_supported_fecs_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format("Ethernet0")
     supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
     if supported_fecs_str:
         if supported_fecs_str != 'N/A':
@@ -53,7 +53,7 @@ def is_valid_fec_state_db(duthost, value):
 
 
 def is_valid_speed_state_db(duthost, value):
-    read_supported_speeds_cli = 'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format("Ethernet0")
+    read_supported_speeds_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format("Ethernet0")
     supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
     supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
     if supported_speeds and int(value) not in supported_speeds:
@@ -118,15 +118,19 @@ def get_port_speeds_for_test(duthost):
         duthost: DUT host object
     """
     speeds_to_test = []
-    invalid_speed = ("20a", False)
+    invalid_speed_yang = ("20a", False)
     if duthost.get_facts()['asic_type'] == 'vs':
         valid_speeds = ['20000', '40000']
+        invalid_speed_state_db = ('1999', False)
     else:
         valid_speeds = duthost.get_supported_speeds('Ethernet0')
+        if valid_speeds:
+            invalid_speed_state_db = (str(int(valid_speeds[0]) - 1), False)
     pytest_assert(valid_speeds, "Failed to get any valid port speed to test.")
     valid_speeds_to_test = random.sample(valid_speeds, 2 if len(valid_speeds) >= 2 else len(valid_speeds))
     speeds_to_test = [(speed, True) for speed in valid_speeds_to_test]
-    speeds_to_test.append(invalid_speed)
+    speeds_to_test.append(invalid_speed_yang)
+    speeds_to_test.append(invalid_speed_state_db)
     return speeds_to_test
 
 
