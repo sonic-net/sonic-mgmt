@@ -22,43 +22,43 @@ INFRA_CHECK_ITEMS = [
 # Recover related definitions
 RECOVER_METHODS = {
     "config_reload": {
-        "cmd": "bash -c 'config reload -y &>/dev/null'",
-        "reboot": False,
-        "adaptive": False,
-        'recover_wait': 120
-    },
-    "config_reload_f": {
-        "cmd": "bash -c 'config reload -f -y &>/dev/null'",
+        "cmd": "false",
+        "reload": True,
         "reboot": False,
         "adaptive": False,
         'recover_wait': 120
     },
     "load_minigraph": {
         "cmd": "bash -c 'config load_minigraph -y &>/dev/null'",
+        "reload": False,
         "reboot": False,
         "adaptive": False,
         'recover_wait': 60
     },
     "reboot": {
         "cmd": "reboot",
+        "reload": False,
         "reboot": True,
         "adaptive": False,
         'recover_wait': 120
     },
     "warm_reboot": {
         "cmd": "warm-reboot",
+        "reload": False,
         "reboot": True,
         "adaptive": False,
         'recover_wait': 120
     },
     "fast_reboot": {
         "cmd": "fast_reboot",
+        "reload": False,
         "reboot": True,
         "adaptive": False,
         'recover_wait': 120
     },
     "adaptive": {
         "cmd": None,
+        "reload": False,
         "reboot": False,
         "adaptive": True,
         'recover_wait': 30
