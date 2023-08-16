@@ -6,6 +6,10 @@ import sys
 import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
+
+from .helpers.assertions import pytest_assert
+from .platform.interface_utils import check_interface_status_of_up_ports
+from .platform.processes_utils import wait_critical_processes
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
@@ -188,7 +192,8 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True):
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True,
+           safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -201,6 +206,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
+    :param safe_reboot: arguments to wait DUT ready after reboot
+    :param check_intf_up_ports: arguments to check interface after reboot
     :return:
     """
     pool = ThreadPool()
@@ -233,7 +240,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
-    time.sleep(wait)
+    if safe_reboot:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 300, 20, 0, duthost.critical_services_fully_started),
+                      "All critical services should be fully started!")
+        wait_critical_processes(duthost)
+
+        if check_intf_up_ports:
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up")
+    else:
+        time.sleep(wait)
 
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
