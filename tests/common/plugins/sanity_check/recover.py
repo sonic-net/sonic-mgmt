@@ -1,16 +1,14 @@
 import json
 import logging
 
-from . import constants
-
-from tests.common.utilities import wait
-from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.config_reload import config_force_option_supported
-from tests.common.reboot import reboot
-from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
-from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common import config_reload
 from tests.common.devices.sonic import SonicHost
+from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_FAST, REBOOT_TYPE_COLD
+from tests.common.reboot import reboot
+from tests.common.utilities import wait
+from . import constants
 
 logger = logging.getLogger(__name__)
 

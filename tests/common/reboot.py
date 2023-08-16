@@ -192,8 +192,8 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True
-           , safe_reboot=False, check_intf_up_ports=False):
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True,
+           safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
     :param duthost: DUT host object
