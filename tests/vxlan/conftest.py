@@ -54,7 +54,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--num_vnet",
         action="store",
-        default=1,
+        default=8,
         type=int,
         help="number of VNETs for VNET VxLAN test"
     )
@@ -94,7 +94,7 @@ def pytest_addoption(parser):
     vxlan_group.addoption(
         "--ipv6_vxlan_test",
         action="store",
-        default=True,
+        default=False,
         type=str2bool,
         help="Test IPV6 encap"
     )

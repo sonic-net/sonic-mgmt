@@ -3,8 +3,8 @@
 import json
 
 from tempfile import mkstemp
-from helpers import *
-from common import *
+from tests.configlet.util.helpers import *
+from tests.configlet.util.common import *
 import strip
 
 orig_config = None

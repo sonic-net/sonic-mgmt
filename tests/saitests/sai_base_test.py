@@ -15,6 +15,7 @@ from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.dataplane as dataplane
 import ptf.testutils as testutils
+import socket
 
 ################################################################
 #
@@ -26,6 +27,10 @@ import switch_sai_thrift.switch_sai_rpc as switch_sai_rpc
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
+import socket
+import sys
+import paramiko
+from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
 
 interface_to_front_mapping = {}
 
@@ -41,6 +46,7 @@ class ThriftInterface(BaseTest):
             server = self.test_params['server']
         else:
             server = 'localhost'
+        self.server = server
 
         if self.test_params.has_key("port_map"):
             user_input = self.test_params['port_map']
@@ -72,6 +78,39 @@ class ThriftInterface(BaseTest):
             self.dataplane.stop_pcap()
         BaseTest.tearDown(self)
         self.transport.close()
+
+    def exec_cmd_on_dut(self, hostname, username, password, cmd):
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        if isinstance(cmd, list):
+            cmd = ' '.join(cmd)
+
+        stdOut = stdErr = []
+        retValue = 1
+        try:
+            client.connect(hostname, username=username, password=password, allow_agent=False)
+            si, so, se = client.exec_command(cmd, timeout=20)
+            stdOut = so.readlines()
+            stdErr = se.readlines()
+            retValue = 0
+        except AuthenticationException as authenticationException:
+            sys.stderr.write('SSH Authentication failure with message: %s' % authenticationException)
+        except SSHException as sshException:
+            sys.stderr.write('SSH Command failed with message: %s' % sshException)
+        except BadHostKeyException as badHostKeyException:
+            sys.stderr.write('SSH Authentication failure with message: %s' % badHostKeyException)
+        except socket.timeout as e:
+            # The ssh session will timeout in case of a successful reboot
+            sys.stderr.write('Caught exception socket.timeout: {}, {}, {}'.format(repr(e), str(e), type(e)))
+            retValue = 255
+        except Exception as e:
+            sys.stderr.write('Exception caught: {}, {}, type: {}'.format(repr(e), str(e), type(e)))
+            sys.stderr.write(sys.exc_info())
+        finally:
+            client.close()
+
+        return stdOut, stdErr, retValue
 
 class ThriftInterfaceDataPlane(ThriftInterface):
     """

@@ -247,6 +247,9 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
         platform_type = str(stdout[0]).replace('\n', '')
@@ -959,6 +962,11 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1281,14 +1289,25 @@ class ReloadTest(BaseTest):
 
         if not self.kvm_test and\
             (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type):
-            self.sender_thr = threading.Thread(target = self.send_in_background)
-            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
             self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
             self.sniff_thr.start()
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        reboot_command = self.reboot_type
+        # create an empty log file to capture output of reboot command
+        reboot_log_file = "/host/{}.log".format(reboot_command.replace(' ', ''))
+        self.dut_connection.execCommand("sudo touch {}; sudo chmod 666 {}".format(
+            reboot_log_file, reboot_log_file))
+
+        # execute reboot command w/ nohup so that when the execCommand times-out:
+        # 1. there is a reader/writer for any bash commands using PIPE
+        # 2. the output and error of CLI still gets written to log file
+        stdout, stderr, return_code = self.dut_connection.execCommand(
+            "nohup sudo {} -v &> {}".format(
+                reboot_command, reboot_log_file), timeout=10)
+
+
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
@@ -1449,19 +1468,6 @@ class ReloadTest(BaseTest):
         subprocess.call(sniffer_command)
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
-
-    def send_and_sniff(self):
-        """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
-        """
-        self.sender_thr = threading.Thread(target = self.send_in_background)
-        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
 
     def check_tcp_payload(self, packet):
         """

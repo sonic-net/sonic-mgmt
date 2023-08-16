@@ -1,7 +1,7 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release
+from tests.common.utilities import skip_release, delete_running_config
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,8 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost.shell("sudo config radius default passkey")
 
     # Remove TACACS/Radius keys
-    duthost.copy(src="./show_techsupport/templates/del_keys.json", dest='/tmp/del_keys.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_keys.json"))
+    delete_keys_json = [{"RADIUS": {}}, {"TACPLUS": {}}]
+    delete_running_config(delete_keys_json, duthost)
 
 def check_no_result(duthost, command):
     res = duthost.shell(command)

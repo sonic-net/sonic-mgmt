@@ -15,6 +15,7 @@ from tests.common.helpers.sad_path import SadOperation
 from tests.ptf_runner import ptf_runner
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +460,23 @@ class AdvancedReboot:
         # Handle mellanox platform
         self.__handleMellanoxDut()
 
+    def move_logs_before_reboot(self):
+        source_dir = '/host/logs_before_reboot'
+        target_dir = '/var/log'
+
+        command = "test -d {}".format(source_dir)
+        result = self.duthost.shell(command, module_ignore_errors=True)
+
+        if result["rc"] == 0:
+            command = 'sudo mv ' + source_dir + ' ' + target_dir
+            result = self.duthost.shell(command, module_ignore_errors=True)
+            if result["rc"] == 0:
+                logger.info("Files under /host/logs_before_reboot copied successfully to {}.".format(target_dir))
+            else:
+                logger.info("Failed to copy files under /host/logs_before_reboot successfully to {}.".format(target_dir))
+        else:
+            logger.info("Directory {} does not exist.".format(source_dir))
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -488,6 +506,9 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.postboot_setup:
                     self.postboot_setup()
             except Exception:
@@ -498,6 +519,7 @@ class AdvancedReboot:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 if self.advanceboot_loganalyzer:
+                    self.move_logs_before_reboot()
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:

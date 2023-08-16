@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from helpers import *
+from tests.configlet.util.helpers import *
 
 
 class DutHost:

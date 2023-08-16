@@ -451,19 +451,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
         # and mirror packets can go to same interface, which causes tail drop of
         # police packets and impacts test case cir/cbs calculation.
 
-        everflow_dut = setup_info[dest_port_type]['everflow_dut']
-        remote_dut = setup_info[dest_port_type]['remote_dut']
-
-        vendor = everflow_dut.facts["asic_type"]
-        hostvars = everflow_dut.host.options['variable_manager']._hostvars[everflow_dut.hostname]
-
-        everflow_tolerance = 10
-        if vendor == 'innovium':
-            everflow_tolerance = 11
-
-        rate_limit = 100
-        if vendor == "marvell":
-            rate_limit = rate_limit * 1.25
+        vendor = duthost.facts["asic_type"]
+        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
 
         send_time = "10"
         if vendor == "mellanox":
@@ -530,10 +519,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                dst_mirror_ports=mirror_port_id,
                                dst_ports=tx_port_ptf_id,
                                meter_type="packets",
-                               cir=rate_limit,
-                               cbs=rate_limit,
+                               cir="100",
+                               cbs="100",
                                send_time=send_time,
-                               tolerance=everflow_tolerance)
+                               tolerance="10")
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, config_method)

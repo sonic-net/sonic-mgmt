@@ -215,7 +215,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                 rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
-                && apt-get install -y python-pip build-essential libssl1.1=1.1.1n-0+deb10u4 libssl-dev libffi-dev python-dev python-setuptools wget cmake \
+                && apt-get install -y python-pip build-essential libssl1.1 libssl-dev libffi-dev python-dev python-setuptools wget cmake \
                 && wget https://github.com/nanomsg/nanomsg/archive/1.0.0.tar.gz \
                 && tar xzf 1.0.0.tar.gz && cd nanomsg-1.0.0 \
                 && mkdir -p build && cmake . && make install && ldconfig && cd .. && rm -rf nanomsg-1.0.0 \
