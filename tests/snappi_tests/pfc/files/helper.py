@@ -122,12 +122,12 @@ def run_pfc_test(api,
                            capture_type=snappi_extra_params.packet_capture_type,
                            capture_name=snappi_extra_params.packet_capture_file)
 
-        if snappi_extra_params.packet_capture_type == packet_capture.PFC_CAPTURE:
-            # PFC pause frame capture is requested
-            valid_pfc_frame_test = True
-        else:
-            # PFC pause frame capture is not requested
-            valid_pfc_frame_test = False
+    if snappi_extra_params.packet_capture_type == packet_capture.PFC_CAPTURE:
+        # PFC pause frame capture is requested
+        valid_pfc_frame_test = True
+    else:
+        # PFC pause frame capture is not requested
+        valid_pfc_frame_test = False
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
