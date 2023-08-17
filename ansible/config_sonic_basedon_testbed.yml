@@ -65,6 +65,10 @@
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
 
+    - name: check if testbed is an ixia testbed
+      set_fact:
+        is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
+
     - name: set vm
       set_fact:
         vm_base: "{% if testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
@@ -175,11 +179,11 @@
   - name: gather hwsku for LeafRouter that supports dualtor deployment
     set_fact:
       hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
-  
+
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
-    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1)"
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
 
   - name: set default vm file path
     set_fact:
@@ -505,9 +509,50 @@
           timeout: 600
         changed_when: false
 
+      - name: Sync DUT system time with NTP server
+        block:
+          - name: Wait for ntp.service restart after reload minigraph
+            become: true
+            service: name=ntp state=started
+
+          - name: Stop ntp.service on DUT
+            become: true
+            service: name=ntp state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: ntpd -gq
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start ntp.service on DUT
+            become: true
+            service: name=ntp state=restarted enabled=true
+
+      - name: config static route for trex traffic passthrough
+        become: true
+        command: "{{ item }}"
+        with_items:
+          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
+          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
+        when: topo == "wan-3link-tg"
+
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Configure TACACS
+        become: true
+        shell: "{{ tacacs_config_cmd }}"
+        loop:
+          - config tacacs passkey {{ tacacs_passkey }}
+          - config tacacs authtype pap
+          - config aaa authentication login tacacs+
+        loop_control:
+          loop_var: tacacs_config_cmd
+        ignore_errors: true
+        when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
 
       - name: execute configlet application script, which applies configlets in strict order.
         become: true

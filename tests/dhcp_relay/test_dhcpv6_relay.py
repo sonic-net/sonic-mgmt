@@ -13,6 +13,8 @@ from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F401
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -23,6 +25,14 @@ SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
 
 logger = logging.getLogger(__name__)
+
+
+def wait_all_bgp_up(duthost):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    if not wait_until(60, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+        pytest.fail("not all bgp sessions are up after config change")
+
 
 @pytest.fixture(scope="module", params=[SINGLE_TOR_MODE, DUAL_TOR_MODE])
 def testing_config(request, duthosts, rand_one_dut_hostname, tbinfo):
@@ -160,7 +170,8 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     for dhcp_relay in dut_dhcp_relay_data:
         assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or ("*:*" in output, "dhcp6relay socket is not properly binded")
 
-def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
+def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
+                              toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201911", "202106"])
@@ -185,6 +196,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                           "dut_mac": str(dhcp_relay['uplink_mac']),
                            "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log")
@@ -247,7 +259,7 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Sleep a bit to ensure uplinks are up
-        time.sleep(20)
+        wait_all_bgp_up(duthost)
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,
@@ -302,7 +314,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
             duthost.shell('ifconfig {} up'.format(iface))
 
         # Sleep a bit to ensure uplinks are up
-        time.sleep(20)
+        wait_all_bgp_up(duthost)
 
         # Run the DHCP relay test on the PTF host
         ptf_runner(ptfhost,

@@ -247,6 +247,9 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
+        self.sender_thr = threading.Thread(target=self.send_in_background)
+        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
+
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
         platform_type = str(stdout[0]).replace('\n', '')
@@ -438,7 +441,7 @@ class ReloadTest(BaseTest):
         portchannel_names = [pc['name'] for pc in portchannel_content.values()]
 
         vlan_content = self.read_json('vlan_ports_file')
-        
+
         vlan_if_port = []
         for vlan in self.vlan_ip_range:
             for ifname in vlan_content[vlan]['members']:
@@ -758,7 +761,7 @@ class ReloadTest(BaseTest):
                                     ip_src=self.from_server_src_addr,
                                     ip_dst=dut_lo_ipv4)
 
-        self.ping_dut_exp_packet  = Mask(exp_packet)
+        self.ping_dut_exp_packet = Mask(exp_packet)
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "dst")
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
@@ -959,6 +962,11 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
+        # wait until sniffer and sender threads have started
+        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+            time.sleep(1)
+
+        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1281,14 +1289,25 @@ class ReloadTest(BaseTest):
 
         if not self.kvm_test and\
             (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type):
-            self.sender_thr = threading.Thread(target = self.send_in_background)
-            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
             self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
             self.sniff_thr.start()
             self.sender_thr.start()
 
         self.log("Rebooting remote side")
-        stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+        reboot_command = self.reboot_type
+        # create an empty log file to capture output of reboot command
+        reboot_log_file = "/host/{}.log".format(reboot_command.replace(' ', ''))
+        self.dut_connection.execCommand("sudo touch {}; sudo chmod 666 {}".format(
+            reboot_log_file, reboot_log_file))
+
+        # execute reboot command w/ nohup so that when the execCommand times-out:
+        # 1. there is a reader/writer for any bash commands using PIPE
+        # 2. the output and error of CLI still gets written to log file
+        stdout, stderr, return_code = self.dut_connection.execCommand(
+            "nohup sudo {} -v &> {}".format(
+                reboot_command, reboot_log_file), timeout=10)
+
+
         if stdout != []:
             self.log("stdout from %s: %s" % (self.reboot_type, str(stdout)))
         if stderr != []:
@@ -1321,22 +1340,30 @@ class ReloadTest(BaseTest):
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
-        lacp_pdu_down_times = lacp_pdu_times.get("lacp_down")
-        lacp_pdu_up_times = lacp_pdu_times.get("lacp_up")
-        self.log('lacp_pdu_down_times: IP:{}: {}'.format(ip, lacp_pdu_down_times))
-        self.log('lacp_pdu_up_times: IP:{}: {}'.format(ip, lacp_pdu_up_times))
-        lacp_pdu_before_reboot = float(lacp_pdu_down_times[-1]) if\
-            lacp_pdu_down_times and len(lacp_pdu_down_times) > 0 else None
-        lacp_pdu_after_reboot = float(lacp_pdu_up_times[0]) if\
-            lacp_pdu_up_times and len(lacp_pdu_up_times) > 0 else None
-        if 'warm-reboot' in self.reboot_type and lacp_pdu_before_reboot and lacp_pdu_after_reboot:
-            lacp_time_diff = lacp_pdu_after_reboot - lacp_pdu_before_reboot
-            if lacp_time_diff >= 90 and not self.kvm_test:
+        lacp_pdu_all_times = lacp_pdu_times.get("lacp_all")
+
+        self.log('lacp_pdu_all_times: IP:{}: {}'.format(ip, lacp_pdu_all_times))
+
+        # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
+        max_lacp_session_wait = None
+        if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
+            lacp_pdu_all_times.sort()
+            max_lacp_session_wait = 0
+            prev_time = lacp_pdu_all_times[0]
+            for new_time in lacp_pdu_all_times[1:]:
+                lacp_session_wait = new_time - prev_time
+                if lacp_session_wait > max_lacp_session_wait:
+                    max_lacp_session_wait = lacp_session_wait
+                prev_time = new_time
+
+        if 'warm-reboot' in self.reboot_type:
+            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +\
-                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(lacp_time_diff))
-        else:
-            lacp_time_diff = None
-        self.lacp_session_pause[ip] = lacp_time_diff
+                    " post-reboot lacpdu came after {}s of lacpdu pre-boot".format(max_lacp_session_wait))
+            elif not max_lacp_session_wait and not self.kvm_test:
+                self.fails['dut'].add("LACP session timing not captured")
+
+        self.lacp_session_pause[ip] = max_lacp_session_wait
 
 
     def wait_until_cpu_port_down(self, signal):
@@ -1442,19 +1469,6 @@ class ReloadTest(BaseTest):
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
 
-    def send_and_sniff(self):
-        """
-        This method starts two background threads in parallel:
-        one for sending, another for collecting the sent packets.
-        """
-        self.sender_thr = threading.Thread(target = self.send_in_background)
-        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
-        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
-        self.sniff_thr.start()
-        self.sender_thr.start()
-        self.sniff_thr.join()
-        self.sender_thr.join()
-
     def check_tcp_payload(self, packet):
         """
         This method is used by examine_flow() method.
@@ -1470,12 +1484,15 @@ class ReloadTest(BaseTest):
         """
         This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and (packet[scapyall.Ether].src == self.dut_mac):
+        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
+        (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
+            # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
             self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
             return True
-        elif packet[scapyall.Ether].dst == self.dut_mac:
+        elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
             # This is a sent packet.
+            # for dualtor, t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
             return True
         else:
             return False
@@ -1541,14 +1558,18 @@ class ReloadTest(BaseTest):
             missed_t1_to_vlan = 0
             self.disruption_start, self.disruption_stop = None, None
             for packet in packets:
-                if packet[scapyall.Ether].dst == self.dut_mac:
+                if packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
                     # This is a sent packet - keep track of it as payload_id:timestamp.
+                    # for dualtor both MACs are needed:
+                    #   t1->server sent pkt will have dst MAC as dut_mac, and server->t1 sent pkt will have dst MAC as vlan_mac
                     sent_payload = int(str(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
-                if packet[scapyall.Ether].src == self.dut_mac:
+                if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
                     # This is a received packet.
+                    # for dualtor both MACs are needed:
+                    #   t1->server rcvd pkt will have src MAC as vlan_mac, and server->t1 rcvd pkt will have src MAC as dut_mac
                     received_time = packet.time
                     received_payload = int(str(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0 :   # From vlan to T1.
@@ -1563,6 +1584,8 @@ class ReloadTest(BaseTest):
                     continue
                 if received_payload - prev_payload > 1:
                     # Packets in a row are missing, a disruption.
+                    self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
+                        received_payload, prev_payload, sent_counter, received_counter))
                     lost_id = (received_payload -1) - prev_payload # How many packets lost in a row.
                     disrupt = (sent_packets[received_payload] - sent_packets[prev_payload + 1]) # How long disrupt lasted.
                     # Add disrupt to the dict:
@@ -1673,7 +1696,7 @@ class ReloadTest(BaseTest):
                 up_time = None
 
             if elapsed > warm_up_timeout_secs:
-                raise Exception("Control plane didn't come up within warm up timeout")
+                raise Exception("IO didn't come up within warm up timeout. Control plane: {}, Data plane: {}".format(ctrlplane, dataplane))
             time.sleep(1)
 
         # check until flooding is over. Flooding happens when FDB entry of

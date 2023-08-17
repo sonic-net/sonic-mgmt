@@ -34,6 +34,9 @@ class SonicHost(AnsibleHostBase):
     DEFAULT_ASIC_SERVICES =  ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
 
 
+    """
+    setting either one of shell_user/shell_pw or ssh_user/ssh_passwd pair should yield the same result.
+    """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
                  ssh_user=None, ssh_passwd=None):
@@ -640,7 +643,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF', 'STARTING'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -1231,7 +1234,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1239,8 +1242,38 @@ Totals               6450                 6449
         """
         ipv4_output = self.shell("show ip route sum")["stdout_lines"]
         ipv4_summary = self._parse_route_summary(ipv4_output)
+
+        if skip_kernel_tunnel == True:
+            ipv4_route_kernel_output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_count = 0
+            for string in ipv4_route_kernel_output:
+                if re.search('tun', string):
+                    ipv4_route_kernel_count += 1
+            logging.debug("IPv4 kernel tun route {}, {}".format(ipv4_route_kernel_count, ipv4_route_kernel_output))
+
+            if ipv4_route_kernel_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['kernel']['FIB'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
+                ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
+
+        if skip_kernel_tunnel == True:
+            ipv6_route_kernel_output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_count = 0
+            for string in ipv6_route_kernel_output:
+                if re.search('tun', string):
+                    ipv6_route_kernel_count += 1
+            logging.debug("IPv6 kernel tun route {}, {}".format(ipv6_route_kernel_count, ipv6_route_kernel_output))
+
+            if ipv6_route_kernel_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
+                ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
         return ipv4_summary, ipv6_summary
 
     def get_dut_iface_mac(self, iface_name):
@@ -1519,6 +1552,42 @@ Totals               6450                 6449
                 vlan_intfs.append(intf)
 
         return vlan_intfs
+
+    def get_interfaces_status(self):
+        '''
+        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+
+        Example output:
+            {
+                "Ethernet0": {
+                    "oper": "down",
+                    "lanes": "25,26,27,28",
+                    "fec": "N/A",
+                    "asym pfc": "off",
+                    "admin": "down",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "fortyGigE0/0",
+                    "interface": "Ethernet0",
+                    "speed": "40G"
+                },
+                "PortChannel101": {
+                    "oper": "up",
+                    "lanes": "N/A",
+                    "fec": "N/A",
+                    "asym pfc": "N/A",
+                    "admin": "up",
+                    "type": "N/A",
+                    "vlan": "routed",
+                    "mtu": "9100",
+                    "alias": "N/A",
+                    "interface": "PortChannel101",
+                    "speed": "40G"
+                }
+            }
+        '''
+        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
 
     def get_crm_facts(self):
         """Run various 'crm show' commands and parse their output to gather CRM facts
@@ -1896,3 +1965,77 @@ Totals               6450                 6449
                     }
 
         return ip_ifaces
+
+    def remove_acl_table(self, acl_table):
+        """
+        Remove acl table
+
+        Args:
+            acl_table: name of acl table to be removed
+        """
+        self.command("config acl remove table {}".format(acl_table))
+
+    def del_member_from_vlan(self, vlan_id, member_name):
+        """
+        Del vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface deled from vlan
+        """
+        self.command("config vlan member del {} {}".format(vlan_id, member_name))
+
+    def add_member_to_vlan(self, vlan_id, member_name, is_tagged=True):
+        """
+        Add vlan member
+
+        Args:
+            vlan_id: id of vlan
+            member_name: interface added to vlan
+            is_tagged: True - add tagged member. False - add untagged member.
+        """
+        self.command("config vlan member add {} {} {}".format("" if is_tagged else "-u", vlan_id, member_name))
+
+    def remove_ip_from_port(self, port, ip=None):
+        """
+        Remove ip addresses from port. If get ip from running config successfully, ignore arg ip provided
+
+        Args:
+            port: port name
+            ip: IP address
+        """
+        ip_addresses = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("INTERFACE", {}).get(port, {})
+        if ip_addresses:
+            for ip in ip_addresses:
+                self.command("config interface ip remove {} {}".format(port, ip))
+        elif ip:
+            self.command("config interface ip remove {} {}".format(port, ip))
+
+    def get_port_channel_status(self, port_channel_name):
+        """
+        Collect port channel information by command docker teamdctl
+
+        Args:
+            port_channel_name: name of port channel
+
+        Returns:
+            port channel status, key information example:
+            {
+                "ports": {
+                    "Ethernet28": {
+                        "runner": {
+                            "selected": True,
+                            "state": "current"
+                        },
+                        "link": {
+                            "duplex": "full",
+                            "speed": 10,
+                            "up": True
+                        }
+                    }
+                }
+            }
+        """
+        commond_output = self.command("docker exec -i teamd teamdctl {} state dump".format(port_channel_name))
+        json_info = json.loads(commond_output["stdout"])
+        return json_info

@@ -164,7 +164,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo):
+def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo, topo_scenario):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -379,17 +379,24 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 pytest.fail("ipv4 lo interface not found")
 
             for intf, subnet in zip(random.sample(ipv4_interfaces + ipv4_lag_interfaces + vlan_sub_interfaces, peer_count), subnets):
+                def _get_namespace(minigraph_config, intf):
+                    namespace = DEFAULT_NAMESPACE
+                    if intf in minigraph_config and 'namespace' in minigraph_config[intf] and \
+                            minigraph_config[intf]['namespace']:
+                        namespace = minigraph_config[intf]['namespace']
+                    return namespace
                 conn = {}
                 local_addr, neighbor_addr = [_ for _ in subnet][:2]
                 conn["local_intf"] = "%s" % intf
                 conn["local_addr"] = "%s/%s" % (local_addr, subnet_prefixlen)
                 conn["neighbor_addr"] = "%s/%s" % (neighbor_addr, subnet_prefixlen)
                 conn["loopback_ip"] = loopback_ip
-                conn["namespace"] = DEFAULT_NAMESPACE
+                conn["namespace"] = _get_namespace(mg_facts['minigraph_neighbors'], intf)
+
                 if intf.startswith("PortChannel"):
                     member_intf = mg_facts["minigraph_portchannels"][intf]["members"][0]
                     conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_ptf_indices"][member_intf]
-                    conn["namespace"] = mg_facts["minigraph_portchannels"][intf]["namespace"]
+                    conn["namespace"] = _get_namespace(mg_facts["minigraph_portchannels"], intf)
                 elif constants.VLAN_SUB_INTERFACE_SEPARATOR in intf:
                     orig_intf, vlan_id = intf.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
                     ptf_port_index = str(mg_facts["minigraph_port_indices"][orig_intf])
@@ -440,10 +447,15 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     peer_count = getattr(request.module, "PEER_COUNT", 1)
     if "dualtor" in tbinfo["topo"]["name"]:
         setup_func = _setup_interfaces_dualtor
-    elif tbinfo["topo"]["type"] in ["t0", "m0"]:
+    elif tbinfo["topo"]["type"] in ["t0"]:
         setup_func = _setup_interfaces_t0
     elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
         setup_func = _setup_interfaces_t1_or_t2
+    elif tbinfo["topo"]["type"] == "m0":
+        if topo_scenario == "m0_l3_scenario":
+            setup_func = _setup_interfaces_t1_or_t2
+        else:
+            setup_func = _setup_interfaces_t0
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 

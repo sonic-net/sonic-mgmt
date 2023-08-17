@@ -1292,12 +1292,15 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Route added to {}: {}".format(standby_tor.hostname, route_cmd))
 
 
-def remove_static_routes(standby_tor, active_tor_loopback_ip):
+def remove_static_routes(duthost, route_dst):
     """
-    Remove static routes for active tor
+    Remove static routes for duthost
     """
-    logger.info("Removing dual ToR peer switch static route")
-    standby_tor.shell('ip route del {}/32'.format(active_tor_loopback_ip), module_ignore_errors=True)
+    route_dst = ipaddress.ip_address(route_dst.decode())
+    subnet_mask_len = 32 if route_dst.version == 4 else 128
+
+    logger.info("Removing dual ToR peer switch static route:  {}/{}".format(str(route_dst), subnet_mask_len))
+    duthost.shell('ip route del {}/{}'.format(str(route_dst), subnet_mask_len), module_ignore_errors=True)
 
 
 def increase_linkmgrd_probe_interval(duthosts, tbinfo):
@@ -1316,6 +1319,20 @@ def increase_linkmgrd_probe_interval(duthosts, tbinfo):
                     .format(probe_interval_ms))
     cmds.append("config save -y")
     duthosts.shell_cmds(cmds=cmds)
+
+
+def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
+    '''
+    Temporarily modify linkmgrd probe interval
+    '''
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    logger.info("Increase linkmgrd probe interval on {} to {}ms".format(duthosts, probe_interval_ms))
+    cmds = []
+    cmds.append('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|LINK_PROBER" "interval_v4" "{}"'.format(probe_interval_ms))
+    duthosts.shell_cmds(cmds=cmds)
+
 
 @pytest.fixture(scope='module')
 def dualtor_ports(request, duthosts, rand_one_dut_hostname, enum_frontend_asic_index):

@@ -190,9 +190,13 @@ def check_ebgp_routes(num_v4_routes, num_v6_routes, duthost):
     MAX_DIFF = 5
     sumv4, sumv6 = duthost.get_ip_route_summary()
     rtn_val = True
-    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+    if 'ebgp' in sumv4 and 'routes' in sumv4['ebgp'] and \
+            abs(int(float(sumv4['ebgp']['routes'])) - int(float(num_v4_routes))) >= MAX_DIFF:
+        logger.info("IPv4 ebgp routes: {}".format(float(sumv4['ebgp']['routes'])))
         rtn_val = False
-    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+    if 'ebgp' in sumv6 and 'routes' in sumv6['ebgp'] and \
+            abs(int(float(sumv6['ebgp']['routes'])) - int(float(num_v6_routes))) >= MAX_DIFF:
+        logger.info("IPv6 ebgp routes: {}".format(float(sumv6['ebgp']['routes'])))
         rtn_val = False
     return rtn_val
 
@@ -210,7 +214,7 @@ def shutdown_ebgp(duthosts):
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
-        pytest_assert(wait_until(30, 2, 0, check_ebgp_routes, 0, 0, duthost),
+        pytest_assert(wait_until(60, 2, 5, check_ebgp_routes, 0, 0, duthost),
                       "eBGP routes are not 0 after shutting down all neighbors on {}".format(duthost))
         pytest_assert(wait_until(60, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after shutdown all eBGP"
@@ -510,3 +514,23 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
     except:
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
+
+
+def check_bgp_router_id(duthost, mgFacts):
+    """
+    Check bgp router ID is same as Loopback0
+    """
+    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+    try:
+        bgp_summary_json = json.loads(bgp_summary['stdout'])
+        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
+        loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
+        if router_id == loopback0:
+            logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
+            return True
+        else:
+            logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
+            return False
+    except Exception as e:
+        logger.error("Error loading BGP routerID - {}".format(e))

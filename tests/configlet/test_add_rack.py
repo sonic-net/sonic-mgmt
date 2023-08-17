@@ -3,10 +3,10 @@
 import pytest
 import sys
 
-sys.path.append("./configlet/util")
+from tests.configlet.util.base_test import restore_orig_minigraph, backup_minigraph, do_test_add_rack
+from tests.configlet.util.helpers import log_info
 
-from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from helpers import log_info
+sys.path.append("./configlet/util")
 
 pytestmark = [
         pytest.mark.topology("t1")

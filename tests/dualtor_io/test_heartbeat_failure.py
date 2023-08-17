@@ -15,6 +15,20 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
+
+    ignore_errors = [
+        r".* ERR monit.*: 'container_checker' status failed \(3\) -- Expected containers not running: mux"
+    ]
+
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+
+    return None
+
+
 def test_active_tor_heartbeat_failure_upstream(
     toggle_all_simulator_ports_to_upper_tor,
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,

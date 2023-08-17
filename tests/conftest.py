@@ -147,6 +147,12 @@ def pytest_addoption(parser):
     add_normal_reboot_args(parser)
 
     ############################
+    #   QoS options         #
+    ############################
+    parser.addoption("--public_docker_registry", action="store_true", default=False,
+                     help="To use public docker registry for syncd swap, by default is disabled (False)")
+
+    ############################
     #   loop_times options     #
     ############################
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
@@ -168,6 +174,8 @@ def enhance_inventory(request):
     This fixture is automatically applied, you don't need to declare it in your test script.
     """
     inv_opt = request.config.getoption("ansible_inventory")
+    if isinstance(inv_opt, list):
+        return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
     try:
         setattr(request.config.option, "ansible_inventory", inv_files)
@@ -363,7 +371,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost):
+def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -376,7 +384,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -408,7 +416,7 @@ def k8scluster(k8smasters):
 
 
 @pytest.fixture(scope="module")
-def nbrhosts(ansible_adhoc, tbinfo, creds, request):
+def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
@@ -451,7 +459,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
+def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -459,69 +467,85 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
     # WA for virtual testbed which has no fanout
-    try:
-        for dut_host, value in dev_conn.items():
-            duthost = duthosts[dut_host]
-            mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-            for dut_port in value.keys():
-                fanout_rec = value[dut_port]
-                fanout_host = str(fanout_rec['peerdevice'])
-                fanout_port = str(fanout_rec['peerport'])
+    for dut_host, value in dev_conn.items():
+        duthost = duthosts[dut_host]
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            continue  # skip for kvm platform which has no fanout
+        mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+        for dut_port in value.keys():
+            fanout_rec = value[dut_port]
+            fanout_host = str(fanout_rec['peerdevice'])
+            fanout_port = str(fanout_rec['peerport'])
 
-                if fanout_host in fanout_hosts.keys():
-                    fanout = fanout_hosts[fanout_host]
+            if fanout_host in fanout_hosts.keys():
+                fanout = fanout_hosts[fanout_host]
+            else:
+                host_vars = ansible_adhoc().options[
+                    'inventory_manager'].get_host(fanout_host).vars
+                os_type = host_vars.get('os', 'eos')
+                if 'fanout_tacacs_user' in creds:
+                    fanout_user = creds['fanout_tacacs_user']
+                    fanout_password = creds['fanout_tacacs_password']
+                elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
+                    fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
+                    fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
+                elif os_type == 'sonic':
+                    fanout_user = creds.get('fanout_sonic_user', None)
+                    fanout_password = creds.get('fanout_sonic_password', None)
+                elif os_type == 'eos':
+                    fanout_user = creds.get('fanout_network_user', None)
+                    fanout_password = creds.get('fanout_network_password', None)
                 else:
-                    host_vars = ansible_adhoc().options[
-                        'inventory_manager'].get_host(fanout_host).vars
-                    os_type = host_vars.get('os', 'eos')
+                    # when os is mellanox, not supported
+                    pytest.fail("os other than sonic and eos not supported")
+
+                eos_shell_user = None
+                eos_shell_password = None
+                if os_type == "eos":
                     admin_user = creds['fanout_admin_user']
                     admin_password = creds['fanout_admin_password']
-                    # `fanout_network_user` and `fanout_network_password` are for
-                    # accessing the non-shell CLI of fanout.
-                    # Ansible will use this set of credentail for establishing
-                    # `network_cli` connection with device when applicable.
-                    network_user = creds.get('fanout_network_user', admin_user)
-                    network_password = creds.get('fanout_network_password',
-                                                 admin_password)
-                    shell_user = creds.get('fanout_shell_user', admin_user)
-                    shell_password = creds.get('fanout_shell_pass', admin_password)
-                    if os_type == 'sonic':
-                        shell_user = creds['fanout_sonic_user']
-                        shell_password = creds['fanout_sonic_password']
+                    eos_shell_user = creds.get('fanout_shell_user', admin_user)
+                    eos_shell_password = creds.get('fanout_shell_password', admin_password)
 
-                    fanout = FanoutHost(ansible_adhoc,
-                                        os_type,
-                                        fanout_host,
-                                        'FanoutLeaf',
-                                        network_user,
-                                        network_password,
-                                        shell_user=shell_user,
-                                        shell_passwd=shell_password)
-                    fanout.dut_hostnames = [dut_host]
-                    fanout_hosts[fanout_host] = fanout
-                fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+                fanout = FanoutHost(ansible_adhoc,
+                                    os_type,
+                                    fanout_host,
+                                    'FanoutLeaf',
+                                    fanout_user,
+                                    fanout_password,
+                                    eos_shell_user=eos_shell_user,
+                                    eos_shell_passwd=eos_shell_password)
+                fanout.dut_hostnames = [dut_host]
+                fanout_hosts[fanout_host] = fanout
 
-                # Add port name to fanout port mapping port if dut_port is alias.
-                if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
-                    mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
-                    # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
-                    # it happens when an interface has the same name with another alias, for example:
-                    # Interface     Alias
-                    # --------------------
-                    # Ethernet108   Ethernet32
-                    # Ethernet32    Ethernet13/1
-                    if mapped_port not in value.keys():
-                        fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+                if fanout.os == 'sonic':
+                    ifs_status = fanout.host.get_interfaces_status()
+                    for key, interface_info in ifs_status.items():
+                        fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+                    logging.info("fanout {} fanout_port_alias_to_name {}".format(fanout_host, fanout.fanout_port_alias_to_name))
 
-                if dut_host not in fanout.dut_hostnames:
-                    fanout.dut_hostnames.append(dut_host)
-    except:
-        pass
+            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+
+            # Add port name to fanout port mapping port if dut_port is alias.
+            if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+                mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
+                # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
+                # it happens when an interface has the same name with another alias, for example:
+                # Interface     Alias
+                # --------------------
+                # Ethernet108   Ethernet32
+                # Ethernet32    Ethernet13/1
+                if mapped_port not in value.keys():
+                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+
+            if dut_host not in fanout.dut_hostnames:
+                fanout.dut_hostnames.append(dut_host)
+
     return fanout_hosts
 
 
 @pytest.fixture(scope="session")
-def vmhost(ansible_adhoc, request, tbinfo):
+def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -1110,7 +1134,7 @@ def generate_dut_backend_asics(request, duts_selected):
     for dut in duts_selected:
         mdata = metadata.get(dut)
         if mdata is None:
-            continue
+            dut_asic_list.append([None])
         dut_asic_list.append(mdata.get("backend_asics", [None]))
 
     return dut_asic_list
@@ -1143,6 +1167,36 @@ def generate_priority_lists(request, prio_scope):
             ret.append('{}|{}'.format(dut, p))
 
     return ret if ret else empty
+
+
+def pfc_pause_delay_test_params(request):
+    empty = []
+
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return empty
+
+    folder = 'pfc_headroom_test_params'
+    filepath = os.path.join(folder, tbname + '.json')
+
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+    except IOError:
+        return empty
+
+    if tbname not in info:
+        return empty
+
+    dut_pfc_delay_params = info[tbname]
+    ret = []
+
+    for dut, pfc_pause_delay_params in dut_pfc_delay_params.items():
+        for pfc_delay, headroom_result in pfc_pause_delay_params.items():
+            ret.append('{}|{}|{}'.format(dut, pfc_delay, headroom_result))
+
+    return ret if ret else empty
+
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
@@ -1177,8 +1231,8 @@ def pytest_generate_tests(metafunc):
     asics_selected = None
     asic_fixture_name = None
 
+    tbname, tbinfo = get_tbinfo(metafunc)
     if duts_selected is None:
-        tbname, tbinfo = get_tbinfo(metafunc)
         duts_selected = [tbinfo["duts"][0]]
 
     if "enum_asic_index" in metafunc.fixturenames:
@@ -1244,10 +1298,21 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize(
             "enum_dut_feature_container", generate_dut_feature_container_list(metafunc)
         )
+    if 'enum_dut_all_prio' in metafunc.fixturenames:
+        metafunc.parametrize("enum_dut_all_prio", generate_priority_lists(metafunc, 'all'))
     if 'enum_dut_lossless_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossless_prio", generate_priority_lists(metafunc, 'lossless'))
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
+    if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
+        metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
+
+    if 'topo_scenario' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')
+        else:
+            metafunc.parametrize('topo_scenario', ['default'], scope='module')
+
 
 ### Override enum fixtures for duts and asics to ensure that parametrization happens once per module.
 @pytest.fixture(scope="module")
@@ -1456,7 +1521,7 @@ def duts_running_config_facts(duthosts):
     return cfg_facts
 
 @pytest.fixture(scope='class')
-def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host):
+def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, lower_tor_host, creds):
     """
         Prepares DUT host test params
 
@@ -1486,7 +1551,9 @@ def dut_test_params(duthosts, rand_one_dut_hostname, tbinfo, ptf_portmap_file, l
                     ).vars['ansible_host'],
             "port_map_file": ptf_portmap_file,
             "sonic_asic_type": duthost.facts['asic_type'],
-            "sonic_version": duthost.os_version
+            "sonic_version": duthost.os_version,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         }
     }
 
@@ -1581,17 +1648,42 @@ def collect_db_dump(request, duthosts):
     yield
     collect_db_dump_on_duts(request, duthosts)
 
+
 def __dut_reload(duts_data, node=None, results=None):
     if node is None or results is None:
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"], indent=4),
-                 dest='/etc/sonic/config_db.json', verbose=False)
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
+              dest='/etc/sonic/config_db.json', verbose=False)
     config_reload(node)
 
+
+def compare_running_config(pre_running_config, cur_running_config):
+    if type(pre_running_config) != type(cur_running_config):
+        return False
+    if pre_running_config == cur_running_config:
+        return True
+    else:
+        if type(pre_running_config) is dict:
+            if set(pre_running_config.keys()) != set(cur_running_config.keys()):
+                return False
+            for key in pre_running_config.keys():
+                if not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                    return False
+                return True
+        # We only have string in list in running config now, so we can ignore the order of the list.
+        elif type(pre_running_config) is list:
+            if set(pre_running_config) != set(cur_running_config):
+                return False
+            else:
+                return True
+        else:
+            return False
+
+
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, request):
+def core_dump_and_config_check(duthosts, tbinfo, request):
     '''
     Check if there are new core dump files and if the running config is modified after the test case running.
     If so, we will reload the running config after test case running.
@@ -1615,6 +1707,8 @@ def core_dump_and_config_check(duthosts, request):
     cur_only_config = {}
     config_db_check_pass = True
 
+    check_result = {}
+
     if check_flag:
         for duthost in duthosts:
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
@@ -1626,10 +1720,13 @@ def core_dump_and_config_check(duthosts, request):
                 pre_existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
             duts_data[duthost.hostname]["pre_core_dumps"] = pre_existing_core_dumps
 
+            logger.info("Collecting running config before test on {}".format(duthost.hostname))
+            duts_data[duthost.hostname]["pre_running_config"] = {}
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"] = json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
+            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
+                json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
     yield
 
@@ -1653,93 +1750,115 @@ def core_dump_and_config_check(duthosts, request):
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
+                base_dir = os.path.dirname(os.path.realpath(__file__))
+                for new_core_dump in new_core_dumps[duthost.hostname]:
+                    duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
-            duts_data[duthost.hostname]["cur_running_config"] = \
+            # get running config after running
+            duts_data[duthost.hostname]["cur_running_config"] = {}
+            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
 
             # The tables that we don't care
             EXCLUDE_CONFIG_TABLE_NAMES = set([])
             # The keys that we don't care
             # Current skipped keys:
-            # 1. "MUX_LINKMGR" table is edited by the `run_icmp_responder` fixture to account for the lower performance of the ICMP responder/mux simulator
-            #    compared to real servers and mux cables. It's appropriate to persist this change since the testbed will always be using the ICMP responder
-            #    and mux simulator. Linkmgrd is the only service to consume this table so it should not affect other test cases.
-            EXCLUDE_CONFIG_KEY_NAMES = [
-                'MUX_LINKMGR|LINK_PROBER'
-            ]
-            
+            # 1. "MUX_LINKMGR|LINK_PROBER"
+            # NOTE: this key is edited by the `run_icmp_responder_session` or `run_icmp_responder`
+            # to account for the lower performance of the ICMP responder/mux simulator compared to
+            # real servers and mux cables.
+            # Linkmgrd is the only service to consume this table so it should not affect other test cases.
+            # Let's keep this setting in db and we don't want any config reload caused by this key, so
+            # let's skip checking it.
+            if "dualtor" in tbinfo["topo"]["name"]:
+                EXCLUDE_CONFIG_KEY_NAMES = [
+                    'MUX_LINKMGR|LINK_PROBER'
+                ]
+            else:
+                EXCLUDE_CONFIG_KEY_NAMES = []
+
             def _remove_entry(table_name, key_name, config):
                 if table_name in config and key_name in config[table_name]:
                     config[table_name].pop(key_name)
                     if len(config[table_name]) == 0:
                         config.pop(table_name)
 
-            # Remove ignored keys from base config
-            for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
-                fields = exclude_key.split('|')
-                if len(fields) != 2:
-                    continue
-                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["pre_running_config"])
-                _remove_entry(fields[0], fields[1], duts_data[duthost.hostname]["cur_running_config"])
+            for cfg_context in duts_data[duthost.hostname]['pre_running_config']:
+                pre_only_config[duthost.hostname][cfg_context] = {}
+                cur_only_config[duthost.hostname][cfg_context] = {}
+                inconsistent_config[duthost.hostname][cfg_context] = {}
 
-            # Get common keys in pre running config and cur running config
+                pre_running_config = duts_data[duthost.hostname]["pre_running_config"][cfg_context]
+                cur_running_config = duts_data[duthost.hostname]["cur_running_config"][cfg_context]
 
-            pre_running_config_keys = set(duts_data[duthost.hostname]["pre_running_config"].keys())
-            cur_running_config_keys = set(duts_data[duthost.hostname]["cur_running_config"].keys())
+                # Remove ignored keys from base config
+                for exclude_key in EXCLUDE_CONFIG_KEY_NAMES:
+                    fields = exclude_key.split('|')
+                    if len(fields) != 2:
+                        continue
+                    _remove_entry(fields[0], fields[1], pre_running_config)
+                    _remove_entry(fields[0], fields[1], cur_running_config)
 
-            # Check if there are extra keys in pre running config
-            pre_config_extra_keys = list(pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            for key in pre_config_extra_keys:
-                pre_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["pre_running_config"][key]})
+                pre_running_config_keys = set(pre_running_config.keys())
+                cur_running_config_keys = set(cur_running_config.keys())
 
-            # Check if there are extra keys in cur running config
-            cur_config_extra_keys = list(cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            for key in cur_config_extra_keys:
-                cur_only_config[duthost.hostname].update({key: duts_data[duthost.hostname]["cur_running_config"][key]})
-            
-            common_config_keys = list(pre_running_config_keys & cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
-            # Check if the running config is modified after module running
-            for key in common_config_keys:
-                #TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
-                if key == "FLEX_COUNTER_TABLE":
-                    for sub_key, sub_value in duts_data[duthost.hostname]["pre_running_config"][key].items():
-                        try:
-                            pre_value = duts_data[duthost.hostname]["pre_running_config"][key][sub_key]
-                            cur_value = duts_data[duthost.hostname]["cur_running_config"][key][sub_key]
-                            if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
-                                inconsistent_config[duthost.hostname].update(
+                # Check if there are extra keys in pre running config
+                pre_config_extra_keys = list(
+                    pre_running_config_keys - cur_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in pre_config_extra_keys:
+                    pre_only_config[duthost.hostname][cfg_context].update({key: pre_running_config[key]})
+
+                # Check if there are extra keys in cur running config
+                cur_config_extra_keys = list(
+                    cur_running_config_keys - pre_running_config_keys - EXCLUDE_CONFIG_TABLE_NAMES)
+                for key in cur_config_extra_keys:
+                    cur_only_config[duthost.hostname][cfg_context].update({key: cur_running_config[key]})
+
+                # Get common keys in pre running config and cur running config
+                common_config_keys = list(pre_running_config_keys & cur_running_config_keys -
+                                          EXCLUDE_CONFIG_TABLE_NAMES)
+
+                # Check if the running config is modified after module running
+                for key in common_config_keys:
+                    # TODO: remove these code when solve the problem of "FLEX_COUNTER_DELAY_STATUS"
+                    if key == "FLEX_COUNTER_TABLE":
+                        for sub_key, sub_value in list(pre_running_config[key].items()):
+                            try:
+                                pre_value = pre_running_config[key][sub_key]
+                                cur_value = cur_running_config[key][sub_key]
+                                if pre_value["FLEX_COUNTER_STATUS"] != cur_value["FLEX_COUNTER_STATUS"]:
+                                    inconsistent_config[duthost.hostname][cfg_context].update(
+                                        {
+                                            key: {
+                                                "pre_value": pre_running_config[key],
+                                                "cur_value": cur_running_config[key]
+                                            }
+                                        }
+                                    )
+                            except KeyError:
+                                inconsistent_config[duthost.hostname][cfg_context].update(
                                     {
                                         key: {
-                                            "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                            "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
+                                            "pre_value": pre_running_config[key],
+                                            "cur_value": cur_running_config[key]
                                         }
                                     }
                                 )
-                        except KeyError:
-                            inconsistent_config[duthost.hostname].update(
-                                {
-                                    key: {
-                                        "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                        "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                    }
+                    elif not compare_running_config(pre_running_config[key], cur_running_config[key]):
+                        inconsistent_config[duthost.hostname][cfg_context].update(
+                            {
+                                key: {
+                                    "pre_value": pre_running_config[key],
+                                    "cur_value": cur_running_config[key]
                                 }
-                            )
-                elif duts_data[duthost.hostname]["pre_running_config"][key] != \
-                    duts_data[duthost.hostname]["cur_running_config"][key]:
-                    inconsistent_config[duthost.hostname].update(
-                        {
-                            key: {
-                                "pre_value": duts_data[duthost.hostname]["pre_running_config"][key],
-                                "cur_value": duts_data[duthost.hostname]["cur_running_config"][key]
-                                }
-                        }
-                    )
+                            }
+                        )
 
-            if pre_only_config[duthost.hostname] or \
-                cur_only_config[duthost.hostname] or \
-                inconsistent_config[duthost.hostname]:
-                config_db_check_pass = False
-
+                if pre_only_config[duthost.hostname][cfg_context] or \
+                        cur_only_config[duthost.hostname][cfg_context] or \
+                        inconsistent_config[duthost.hostname][cfg_context]:
+                    config_db_check_pass = False
         if not (core_dump_check_pass and config_db_check_pass):
             check_result = {
                 "core_dump_check": {
@@ -1753,12 +1872,41 @@ def core_dump_and_config_check(duthosts, request):
                     "inconsistent_config": inconsistent_config
                 }
             }
-            logger.warning("Core dump or config check failed for {}, results: {}"\
-                .format(module_name, json.dumps(check_result)))
-            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=300)
+            logger.warning("Core dump or config check failed for {}, results: {}"
+                           .format(module_name, json.dumps(check_result)))
+            results = parallel_run(__dut_reload, (), {"duts_data": duts_data}, duthosts, timeout=360)
             logger.debug('Results of dut reload: {}'.format(json.dumps(dict(results))))
         else:
             logger.info("Core dump and config check passed for {}".format(module_name))
+
+    if check_result:
+        items = request.session.items
+        for item in items:
+            if item.module.__name__ + ".py" == module_name.split("/")[-1]:
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+
+
+@pytest.fixture(scope="function")
+def on_exit():
+    '''
+    Utility to register callbacks for cleanup. Runs callbacks despite assertion
+    failures. Callbacks are executed in reverse order of registration.
+    '''
+    class OnExit():
+        def __init__(self):
+            self.cbs = []
+
+        def register(self, fn):
+            self.cbs.append(fn)
+
+        def cleanup(self):
+            while len(self.cbs) != 0:
+                self.cbs.pop()()
+
+    on_exit = OnExit()
+    yield on_exit
+    on_exit.cleanup()
+
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0):
     """

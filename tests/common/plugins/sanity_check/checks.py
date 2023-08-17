@@ -10,6 +10,7 @@ from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -23,8 +24,8 @@ CHECK_ITEMS = [
     'check_bgp',
     'check_dbmemory',
     'check_monit',
-    'check_mux_simulator',
-    'check_secureboot']
+    'check_secureboot',
+    'check_mux_simulator']
 
 __all__ = CHECK_ITEMS
 
@@ -134,7 +135,7 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
     def _check(*args, **kwargs):
         result = parallel_run(_check_bgp_on_dut, args, kwargs, duthosts.frontend_nodes, timeout=600, init_result=init_result)
@@ -215,6 +216,12 @@ def check_bgp(duthosts):
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \
+           not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -452,69 +459,80 @@ def _check_single_intf_status(intf_status, expected_side):
 
 
 def _check_dut_mux_status(duthosts, duts_minigraph_facts):
+    def _verify_show_mux_status():
+        duts_mux_status = duthosts.show_and_parse("show mux status")
+
+        duts_parsed_mux_status.clear()
+        for dut_hostname, dut_mux_status in duts_mux_status.items():
+            logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
+            if len(dut_mux_status) == 0:
+                err_msg_from_mux_status.append('No mux status in output of "show mux status"')
+                return False
+
+            logger.info('Verify that mux ports match vlan interfaces of DUT.')
+            vlan_intf_names = set()
+            for vlan in duts_minigraph_facts[dut_hostname]['minigraph_vlans'].values():
+                vlan_intf_names = vlan_intf_names.union(set(vlan['members']))
+            dut_mux_intfs = []
+            for row in dut_mux_status:
+                dut_mux_intfs.append(row['port'])
+            if vlan_intf_names != set(dut_mux_intfs):
+                err_msg_from_mux_status.append('Mux ports mismatch vlan interfaces, please check output of "show mux status"')
+                return False
+
+            logger.info('Verify mux status and parse active/standby side')
+            dut_parsed_mux_status = {}
+            for row in dut_mux_status:
+                # Verify that mux status is either active or standby
+                if row['status'] not in ['active', 'standby']:
+                    err_msg_from_mux_status.append('Unexpected mux status "{}", please check output of "show mux status"'.format(row['status']))
+                    return False
+
+                # Parse mux status, transform port name to port index, which is also mux index
+                port_name = row['port']
+                port_idx = duts_minigraph_facts[dut_hostname]['minigraph_port_indices'][port_name]
+
+                # Transform "active" and "standby" to active side which is "upper_tor" or "lower_tor"
+                status = row['status']
+                if dut_hostname == dut_upper_tor.hostname:
+                    # On upper tor, mux status "active" means that active side of mux is upper_tor
+                    # mux status "standby" means that active side of mux is lower_tor
+                    active_side = UPPER_TOR if status == 'active' else LOWER_TOR
+                else:
+                    # On lower tor, mux status "active" means that active side of mux is lower_tor
+                    # mux status "standby" means that active side of mux is upper_tor
+                    active_side = UPPER_TOR if status == 'standby' else LOWER_TOR
+                dut_parsed_mux_status[str(port_idx)] = active_side
+            duts_parsed_mux_status[dut_hostname] = dut_parsed_mux_status
+
+        logger.info('Verify that the mux status on both ToRs are consistent')
+        upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
+        lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
+
+        logger.info('Verify that mux status is consistent on both ToRs.')
+        for port_idx in upper_tor_mux_status:
+            if upper_tor_mux_status[port_idx] != lower_tor_mux_status[port_idx]:
+                err_msg_from_mux_status.append('Inconsistent mux status on dualtors, please check output of "show mux status"')
+                return False
+
+        logger.info('Check passed, return parsed mux status')
+        err_msg_from_mux_status.append("")
+        return True
+
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
 
-    # Run "show mux status" on dualtor DUTs to collect mux status
-    duts_mux_status = duthosts.show_and_parse('show mux status')
-
-    # Parse and basic check
     duts_parsed_mux_status = {}
-    for dut_hostname, dut_mux_status in duts_mux_status.items():
+    err_msg_from_mux_status = []
 
-        logger.info('Verify that "show mux status" has output ON {}'.format(dut_hostname))
-        if len(dut_mux_status) == 0:
-            err_msg = 'No mux status in output of "show mux status"'
-            return False, err_msg, {}
+    if not wait_until(30, 5, 0, _verify_show_mux_status):
+        if err_msg_from_mux_status:
+            err_msg = err_msg_from_mux_status[-1]
+        else:
+            err_msg = "Unknown error occured inside the check"
+        return False, err_msg, {}
 
-        logger.info('Verify that mux ports match vlan interfaces of DUT.')
-        vlan_intf_names = set()
-        for vlan in duts_minigraph_facts[dut_hostname]['minigraph_vlans'].values():
-            vlan_intf_names = vlan_intf_names.union(set(vlan['members']))
-        dut_mux_intfs = []
-        for row in dut_mux_status:
-            dut_mux_intfs.append(row['port'])
-        if vlan_intf_names != set(dut_mux_intfs):
-            err_msg = 'Mux ports mismatch vlan interfaces, please check output of "show mux status"'
-            return False, err_msg, {}
-
-        logger.info('Verify mux status and parse active/standby side')
-        dut_parsed_mux_status = {}
-        for row in dut_mux_status:
-            # Verify that mux status is either active or standby
-            if row['status'] not in ['active', 'standby']:
-                err_msg = 'Unexpected mux status "{}", please check output of "show mux status"'.format(row['status'])
-                return False, err_msg, {}
-
-            # Parse mux status, transform port name to port index, which is also mux index
-            port_name = row['port']
-            port_idx = duts_minigraph_facts[dut_hostname]['minigraph_port_indices'][port_name]
-
-            # Transform "active" and "standby" to active side which is "upper_tor" or "lower_tor"
-            status = row['status']
-            if dut_hostname == dut_upper_tor.hostname:
-                # On upper tor, mux status "active" means that active side of mux is upper_tor
-                # mux status "standby" means that active side of mux is lower_tor
-                active_side = UPPER_TOR if status == 'active' else LOWER_TOR
-            else:
-                # On lower tor, mux status "active" means that active side of mux is lower_tor
-                # mux status "standby" means that active side of mux is upper_tor
-                active_side = UPPER_TOR if status == 'standby' else LOWER_TOR
-            dut_parsed_mux_status[str(port_idx)] = active_side
-        duts_parsed_mux_status[dut_hostname] = dut_parsed_mux_status
-
-    logger.info('Verify that the mux status on both ToRs are consistent')
-    upper_tor_mux_status = duts_parsed_mux_status[dut_upper_tor.hostname]
-    lower_tor_mux_status = duts_parsed_mux_status[dut_lower_tor.hostname]
-
-    logger.info('Verify that mux status is consistent on both ToRs.')
-    for port_idx in upper_tor_mux_status:
-        if upper_tor_mux_status[port_idx] != lower_tor_mux_status[port_idx]:
-            err_msg = 'Inconsistent mux status on dualtors, please check output of "show mux status"'
-            return False, err_msg, {}
-
-    logger.info('Check passed, return parsed mux status')
-    return True, "", upper_tor_mux_status
+    return True, "", duts_parsed_mux_status
 
 
 @pytest.fixture(scope='module')

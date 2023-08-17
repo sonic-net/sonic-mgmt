@@ -21,7 +21,7 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3"]
@@ -75,6 +75,7 @@ class QosBase:
                         if 'mac' in vlan and vlan['mac']:
                             dut_test_params["basicParams"]["def_vlan_mac"] = vlan['mac']
                             break
+            pytest_assert(dut_test_params["basicParams"]["def_vlan_mac"] is not None, "Dual-TOR miss default VLAN MAC address")
 
         yield dut_test_params
 
@@ -93,7 +94,8 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        pytest_assert(ptfhost.shell(
+        try:
+            pytest_assert(ptfhost.shell(
                       argv = [
                           "ptf",
                           "--test-dir",
@@ -120,6 +122,8 @@ class QosBase:
                       ],
                       chdir = "/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
+        except:
+            raise
 
 
 class QosSaiBase(QosBase):
@@ -719,7 +723,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+            self, duthosts, rand_one_dut_hostname, enum_frontend_asic_index,
             swapSyncd, enable_container_autorestart, disable_container_autorestart, get_mux_status,
             tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports): # noqa F811
         """
@@ -757,7 +761,8 @@ class QosSaiBase(QosBase):
                     docker=docker,
                     action=action,
                     service=service
-                )
+                ),
+                module_ignore_errors=True
             )
             logger.info("{}ed {}".format(action, service))
 
@@ -783,8 +788,10 @@ class QosSaiBase(QosBase):
         services = [
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldp-syncd"},
             {"docker": dut_asic.get_docker_name("lldp"), "service": "lldpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpd"},
-            {"docker": dut_asic.get_docker_name("bgp"),  "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpd"},
+            {"docker": dut_asic.get_docker_name("bgp"), "service": "bgpmon"},
+            {"docker": dut_asic.get_docker_name("radv"), "service": "radvd"},
+            {"docker": dut_asic.get_docker_name("swss"), "service": "arp_update"}
         ]
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
@@ -910,23 +917,6 @@ class QosSaiBase(QosBase):
             logger.info(err)
         return bufferConfig
 
-    def dutAsicConfig(self, asic, duthost):
-        asicConfig = {}
-        # Only support to get brcm asic info, so far
-        if 'broadcom' in asic.lower():
-            try:
-                output = duthost.shell('bcmcmd "g THDI_BUFFER_CELL_LIMIT_SP"', module_ignore_errors=True)
-                logger.info('Read ASIC THDI_BUFFER_CELL_LIMIT_SP register, output {}'.format(output))
-                for line in output['stdout'].replace('\r', '\n').split('\n'):
-                    if line:
-                        m = re.match('THDI_BUFFER_CELL_LIMIT_SP\(0\).*\<LIMIT=(\S+)\>', line)
-                        if m:
-                            asicConfig['shared_limit_sp0'] = int(m.group(1), 0)
-                            break
-            except:
-                logger.info('Failed to read and parse ASIC THDI_BUFFER_CELL_LIMIT_SP register')
-        return asicConfig
-
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
         self, duthosts, enum_frontend_asic_index, rand_one_dut_hostname,
@@ -997,7 +987,6 @@ class QosSaiBase(QosBase):
             pytest_assert('BUFFER_PROFILE' in bufferConfig, 'BUFFER_PROFILE is not exist in bufferConfig')
             pytest_assert('BUFFER_QUEUE' in bufferConfig, 'BUFFER_QUEUE is not exist in bufferConfig')
             pytest_assert('BUFFER_PG' in bufferConfig, 'BUFFER_PG is not exist in bufferConfig')
-            asicConfig = self.dutAsicConfig(duthost.facts['asic_type'], duthost)
 
             current_file_dir = os.path.dirname(os.path.realpath(__file__))
             sub_folder_dir = os.path.join(current_file_dir, "files/brcm/")
@@ -1016,7 +1005,7 @@ class QosSaiBase(QosBase):
                                                        dutConfig["dualTor"],
                                                        dutTopo,
                                                        bufferConfig,
-                                                       asicConfig,
+                                                       duthost,
                                                        tbinfo["topo"]["name"])
             qosParams = qpm.run()
 
@@ -1081,7 +1070,7 @@ class QosSaiBase(QosBase):
             duthost.file(path=file["path"], state="absent")
 
     @pytest.fixture(scope='class', autouse=True)
-    def handleFdbAging(self, duthosts, rand_one_dut_hostname):
+    def handleFdbAging(self, tbinfo, duthosts, lower_tor_host, enum_rand_one_per_hwsku_frontend_hostname):
         """
             Disable FDB aging and reenable at the end of tests
 
@@ -1094,7 +1083,10 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-        duthost = duthosts[rand_one_dut_hostname]
+        if 'dualtor' in tbinfo['topo']['name']:
+            duthost = lower_tor_host
+        else:
+            duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         fdbAgingTime = 0
 
         self.__deleteTmpSwitchConfig(duthost)
@@ -1145,6 +1137,10 @@ class QosSaiBase(QosBase):
             duthost = duthosts[rand_one_dut_hostname]
 
         dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
             saiQosTest = "sai_qos_tests.ARPpopulate"
@@ -1159,6 +1155,10 @@ class QosSaiBase(QosBase):
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"]
+            })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
@@ -1502,3 +1502,21 @@ class QosSaiBase(QosBase):
         dut_asic.command("sleep 70")
         dut_asic.command("counterpoll watermark disable")
         dut_asic.command("counterpoll queue disable")
+
+
+    @pytest.fixture(scope='function', autouse=True)
+    def set_static_route(self, duthost, dutConfig, enum_frontend_asic_index):
+        if duthost.facts["asic_type"] != "cisco-8000":
+            yield
+            return
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        dut_asic = duthost.asic_instance(enum_frontend_asic_index)
+        for k in dst_keys:
+            dut_asic.shell("ping -c 3 {}".format(
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
+
+        yield

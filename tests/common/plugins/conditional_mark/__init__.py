@@ -117,6 +117,42 @@ def read_asic_name(hwsku):
     except IOError as e:
         return None
 
+
+def get_http_proxies(inv_name):
+    INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
+    PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
+    base_path = os.path.dirname(__file__)
+    inv_env_path = os.path.join(base_path, INV_ENV_FILE)
+    public_env_path = os.path.join(base_path, PUBLIC_ENV_FILE)
+    proxies = {}
+
+    if os.path.isfile(public_env_path):
+        try:
+            with open(public_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+                else:
+                    proxies = {'http': '', 'https': ''}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(public_env_path, repr(e)))
+
+    if os.path.isfile(inv_env_path):
+        try:
+            with open(inv_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(inv_env_path, repr(e)))
+
+    return proxies
+
+
 def load_dut_basic_facts(session):
     """Run 'ansible -m dut_basic_facts' command to get some basic DUT facts.
 
@@ -147,8 +183,11 @@ def load_dut_basic_facts(session):
             inv_name = tbinfo['inv_name']
         else:
             inv_name = 'lab'
+        proxies = get_http_proxies(inv_name)
+        session.config.cache.set('PROXIES', proxies)
 
-        ansible_cmd = 'ansible -m dut_basic_facts -i ../ansible/{} {} -o'.format(inv_name, dut_name)
+        inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
+        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -231,10 +270,11 @@ def update_issue_status(condition_str, session):
         return condition_str
 
     issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+    proxies = session.config.cache.get('PROXIES', {})
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
-        results = check_issues(unknown_issues)
+        results = check_issues(unknown_issues, proxies=proxies)
         issue_status_cache.update(results)
         session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
@@ -275,25 +315,28 @@ def evaluate_condition(condition, basic_facts, session):
         return False
 
 
-def evaluate_conditions(conditions, basic_facts, session):
+def evaluate_conditions(conditions, basic_facts, session, conditions_logical_operator):
     """Evaluate all the condition strings.
 
-    Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND logical operation
-    to all of them.
+    Evaluate a single condition or multiple conditions. If multiple conditions are supplied, apply AND or OR
+    logical operation to all of them based on conditions_logical_operator(by default AND).
 
     Args:
         conditions (str or list): Condition string or list of condition strings.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         session (obj): Pytest session object, for getting cached data.
+        conditions_logical_operator (str): logical operator which should be applied to conditions(by default 'AND')
 
     Returns:
         bool: True or False based on condition strings evaluation result.
     """
     if isinstance(conditions, list):
-        # Apply 'AND' operation to list of conditions
-        # Personally, I think it makes more sense to apply 'AND' logical operation to a list of conditions.
-        return all([evaluate_condition(c, basic_facts, session) for c in conditions])
+        # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
+        if conditions_logical_operator == 'OR':
+            return any([evaluate_condition(c, basic_facts, session) for c in conditions])
+        else:
+            return all([evaluate_condition(c, basic_facts, session) for c in conditions])
     else:
         if conditions is None or conditions.strip() == '':
             return True
@@ -364,7 +407,8 @@ def pytest_collection_modifyitems(session, config, items):
                             # Unconditionally add mark
                             add_mark = True
                         else:
-                            add_mark = evaluate_conditions(mark_conditions, basic_facts, session)
+                            conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
+                            add_mark = evaluate_conditions(mark_conditions, basic_facts, session, conditions_logical_operator)
 
                     if add_mark:
                         reason = ''

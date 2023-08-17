@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import traceback
+import json
 from io import BytesIO
 
 import pytest
@@ -21,6 +22,7 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -304,8 +306,10 @@ def get_host_visible_vars(inv_files, hostname):
     The variable could be defined in host_vars or in group_vars that the host belongs to.
 
     Args:
-        inv_files (list or string): List of inventory file pathes, or string of a single inventory file path. In tests,
+        inv_files (list or string): List of inventory file paths, or string of a single inventory file path. In tests,
             it can be get from request.config.getoption("ansible_inventory").
+            MUST use the inventory file under the ansible folder, otherwise host_vars and group_vars would not be
+            visible.
         hostname (string): Hostname
 
     Returns:
@@ -564,3 +568,73 @@ def safe_filename(filename, replacement_char='_'):
     """
     illegal_chars_pattern = re.compile("[#%&{}\\<>\*\?/ \$!'\":@\+`|=]")
     return re.sub(illegal_chars_pattern, replacement_char, filename)
+
+
+def get_neighbor_port_list(duthost, neighbor_name):
+    """
+    @summary: Get neighbor port in dut by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @return a list of port name
+        Sample output: ["Ethernet45", "Ethernet46"]
+    """
+    config_facts = duthost.get_running_config_facts()
+    neighbor_port_list = []
+    for port_name, value in list(config_facts["DEVICE_NEIGHBOR"].items()):
+        if neighbor_name.upper() in value["name"].upper():
+            neighbor_port_list.append(port_name)
+
+    return neighbor_port_list
+
+
+def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
+    """
+    @summary: Get neighbor port in ptf by neighbor_name
+    @param duthost: The DUT
+    @param neighbor_name: name or keyword contained in name of neighbor
+    @param tbinfo: testbed information
+    @return a list of port index
+        Sample output: [45, 46]
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    neighbor_port_list = get_neighbor_port_list(duthost, neighbor_name)
+    ptf_port_list = []
+    for neighbor_port in neighbor_port_list:
+        ptf_port_list.append(mg_facts["minigraph_ptf_indices"][neighbor_port])
+
+    return ptf_port_list
+
+
+def get_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in UPSTREAM_NEIGHBOR_MAP:
+        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+def get_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a str
+        Sample output: "mx"
+    """
+    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
+        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+
+    return None
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))

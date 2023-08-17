@@ -10,7 +10,7 @@ from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unuse
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "m0")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -38,7 +38,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         Remove the route as part of cleanup.
         """
         duthost = duthosts[rand_one_dut_hostname]
-        if setup_info['topo'] == 't0':
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
             # On T0 testbed, the collector IP is routed to T1
             namespace = setup_info[UP_STREAM]['namespace']
             tx_port = setup_info[UP_STREAM]["dest_port"][0]

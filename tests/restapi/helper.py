@@ -1,6 +1,7 @@
 import time
 
-RESTAPI_SERVER_START_WAIT_TIME = 15
+# The restapi service requires around 30 seconds to start
+RESTAPI_SERVER_START_WAIT_TIME = 40
 
 def apply_cert_config(duthost):
     # Set client certificate subject name in config DB

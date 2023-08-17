@@ -10,6 +10,7 @@ from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time
 from tests.common.ixia.port import select_ports
+from tests.common.cisco_data import is_cisco_device
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header,Size, Rate,\
     Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
@@ -144,7 +145,8 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
-                     tolerance=TOLERANCE_THRESHOLD)
+                     tolerance=TOLERANCE_THRESHOLD,
+                     duthost=duthost)
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
     """
@@ -514,7 +516,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance):
+                     tolerance,
+                     duthost):
     """
     Verify if we get expected experiment results
 
@@ -531,6 +534,7 @@ def __verify_results(rows,
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
         tolerance (float): maximum allowable deviation
+        duthost (obj): AnsibleHost object for dut.
 
     Returns:
         N/A
@@ -565,8 +569,10 @@ def __verify_results(rows,
             exp_test_flow_rx_pkts =  test_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
 
-            if trigger_pfcwd and\
-               (src_port_id == pause_port_id or dst_port_id == pause_port_id):
+            ports_to_check = [dst_port_id, src_port_id]
+            if is_cisco_device(duthost):
+                ports_to_check = [dst_port_id]
+            if trigger_pfcwd and pause_port_id in ports_to_check:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))

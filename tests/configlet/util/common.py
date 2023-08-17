@@ -7,7 +7,7 @@ import re
 import sys
 import time
 
-from helpers import *
+from tests.configlet.util.helpers import *
 
 CONFIG_DB_FILE = "etc/sonic/config_db.json"
 MINIGRAPH_FILE = "etc/sonic/minigraph.xml"
