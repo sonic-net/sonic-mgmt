@@ -9,12 +9,11 @@ import random
 import snappi_convergence
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis,\
-    get_ipv6_addrs_in_subnet
-from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
-from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
+from tests.common.snappi.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, get_ipv6_addrs_in_subnet
+from tests.common.snappi.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
+from tests.common.snappi.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
-from tests.snappi_tests.variables import dut_ip_start, snappi_ip_start, prefix_length
+from tests.snappi.variables import dut_ip_start, snappi_ip_start, prefix_length
 logger = logging.getLogger(__name__)
 
 
@@ -88,7 +87,8 @@ def __gen_pc_mac(id):
     Returns:
         MAC address (string)
     """
-    return '10:22:33:44:55:{:02d}'.format(id)
+    return '11:22:33:44:55:{:02d}'.format(id)
+
 
 
 def __valid_ipv4_addr(ip):
