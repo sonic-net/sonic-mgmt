@@ -1878,9 +1878,6 @@ class QosSaiBase(QosBase):
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
-        if get_src_dst_asic_and_duts['single_asic_test']:
-            yield
-            return
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
         if not m:
