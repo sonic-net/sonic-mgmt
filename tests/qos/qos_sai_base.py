@@ -1872,3 +1872,21 @@ class QosSaiBase(QosBase):
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
+
+    @pytest.fixture(autouse=False)
+    def _check_ingress_speed_higher_than_backplane(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        if get_src_dst_asic_and_duts['single_asic_test']:
+            yield
+            return
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        if not m:
+            raise RuntimeError(
+                "Format error in portSpeedCableLength:{}".
+                format(portSpeedCableLength))
+        speed = int(m.group(1))
+        if speed >= 400000:
+            pytest.skip("PGDrop test is not supported for 400G port speed.")

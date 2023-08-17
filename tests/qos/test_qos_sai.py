@@ -1511,7 +1511,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        _check_ingress_speed_higher_than_backplane
     ):
         """
             Test QoS SAI PG drop counter
