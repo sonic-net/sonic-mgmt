@@ -5,9 +5,10 @@ import os
 import yaml
 import re
 import requests
-import time
 import ipaddress
+import json
 import sys
+import socket
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -98,18 +99,21 @@ def wait_for_http(host_ip, http_port, timeout=10):
     """
     started = False
     tries = 0
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(2)
     while not started and tries < timeout:
-        if os.system("curl {}:{}".format(host_ip, http_port)) == 0:
+        try:
+            s.connect((host_ip, http_port))
             started = True
-        tries += 1
-        time.sleep(1)
+        except socket.error:
+            tries += 1
 
     return started
 
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|appliance)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -144,8 +148,18 @@ def change_routes(action, ptf_ip, port, routes):
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
-    r = requests.post(url, data=data, timeout=90)
-    assert r.status_code == 200
+    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
+    if r.status_code != 200:
+        raise Exception(
+            "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
+                url,
+                json.dumps(data),
+                r.status_code,
+                r.reason,
+                r.headers,
+                r.text
+            )
+        )
 
 
 # AS path from Leaf router for T0 topology
@@ -942,6 +956,27 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
+def fib_appliance(topo, ptf_ip, action="announce"):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+
+    routes_v4 = []
+    routes_v6 = []
+    routes_v4.append(("0.0.0.0/0", nhipv4, None))
+    routes_v6.append(("::/0", nhipv6, None))
+    vms = topo['topology']['VMs']
+    all_vms = sorted(vms.keys())
+
+    for vm in all_vms:
+        vm_offset = vms[vm]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        change_routes(action, ptf_ip, port, routes_v4)
+        change_routes(action, ptf_ip, port6, routes_v6)
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -986,6 +1021,9 @@ def main():
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
+        elif topo_type == "appliance":
+            fib_appliance(topo, ptf_ip, action=action)
+            module.exit_json(change=True)
         else:
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))

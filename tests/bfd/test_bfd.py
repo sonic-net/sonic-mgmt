@@ -425,7 +425,7 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
         cmd_buffer = ""
         for neighbor in neighbor_addrs:
             cmd_buffer += 'sudo ip route add {} via {} ;'.format(neighbor, nexthop_ip)
-        duthost.shell(cmd_buffer)
+        duthost.shell(cmd_buffer, module_ignore_errors=True)
 
         create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs)
 
@@ -438,6 +438,6 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
         cmd_buffer = ""
         for neighbor in neighbor_addrs:
             cmd_buffer += 'sudo ip route delete {} via {} ;'.format(neighbor, nexthop_ip)
-        duthost.shell(cmd_buffer)
+        duthost.shell(cmd_buffer, module_ignore_errors=True)
         ptfhost.command('supervisorctl stop bfd_responder')
         ptfhost.file(path=BFD_RESPONDER_SCRIPT_DEST_PATH, state="absent")
