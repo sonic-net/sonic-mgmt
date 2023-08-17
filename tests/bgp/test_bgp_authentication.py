@@ -24,8 +24,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_asic_index):
     duthost = duthosts[rand_one_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
-    tor_neighbors = natsorted([neighbor for neighbor in nbrhosts.keys() if neighbor.endswith('T0')])
-    tor1 = tor_neighbors[0]
+    dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
+    tor1 = dut_lldp_table[1]
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     for k, v in bgp_facts['bgp_neighbors'].items():
