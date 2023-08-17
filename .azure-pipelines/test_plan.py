@@ -823,9 +823,10 @@ if __name__ == "__main__":
 
             scripts = args.scripts
             specific_param = []
-            # For kvm platform, if args.features or args.scripts is not None, get test modules form it.
+            # For PR test, if specify test modules explicitly, use them to run PR test.
             # Otherwise, get test modules from pr_test_scripts.yaml.
-            if args.platform == "kvm" and (not args.features and not args.scripts):
+            explicitly_specify_test_module = args.features or args.scripts
+            if args.test_plan_type == "PR" and (not explicitly_specify_test_module):
                 args.test_set = args.test_set if args.test_set else args.topology
                 scripts, specific_param = get_test_scripts(args.test_set)
                 scripts = ",".join(scripts)
