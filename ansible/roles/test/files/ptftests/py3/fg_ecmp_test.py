@@ -217,8 +217,8 @@ class FgEcmpTest(BaseTest):
             num_flows = hit_count_map[port]
             deviation = float(num_flows)/float(exp_flows)
             deviation = abs(1-deviation)
-            self.log("port "+ str(port) + " exp_flows " + str(exp_flows) + 
-                    " num_flows " + str(num_flows) + " deviation " + str(deviation))
+            self.log("port " + str(port) + " exp_flows " + str(exp_flows) +
+                     " num_flows " + str(num_flows) + " deviation " + str(deviation))
             if deviation_max < deviation:
                 deviation_max = deviation
         return deviation_max
