@@ -1,7 +1,7 @@
 # This Playbook would run saiserver-test on all the devices.
 #
 # Examples of running saiserver-test with this playbook:
-# 
+#
 ## Run test sail3.L3IPv4HostTest on saiserver switch str-s6000-acs-9 and ptf_host 10.3.155.177
 # ansible-playbook -i str --limit str-s6000-acs-9 test.yml -b --ask-vault-pass -e "ptf_host=10.3.155.177" --e "tests=sail3.L3IPv4HostTest" --tags saiserver
 
@@ -68,4 +68,3 @@
 
 - fail: msg="Failed test SAI Test"
   when: out.rc != 0
-

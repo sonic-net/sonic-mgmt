@@ -47,7 +47,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, rif_interface, src_port_ind
 
     ip_dst = ip_dst.split('/')[0]
     eth_dst = duthost.facts["router_mac"]
-    eth_src = ptfadapter.dataplane.get_mac(0, src_port_index)
+    eth_src = ptfadapter.dataplane.get_mac(0, src_port_index).decode('utf-8')
     duthost.shell("sudo ip neigh replace {} lladdr {} dev {}".format(ip_dst, eth_src, rif_interface))
     logger.info("Traffic info is: eth_dst- {}, eth_src- {}, ip_src- {}, ip_dst- {}, vlan_vid- {}".format(
         eth_dst, eth_src, ip_src, ip_dst, vlan_vid))

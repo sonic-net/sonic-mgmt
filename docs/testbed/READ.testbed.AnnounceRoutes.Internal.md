@@ -83,9 +83,9 @@ The total number of routes are controlled by the colo_number, m0_number, mx_subn
 Routes announced by M0 can be broken down to 5 sets:
    - 1 default route, prefix: 0.0.0.0/0.
    - 1 loopback route.
-   - Direct subnet routes of M0 connected to DUT, 
+   - Direct subnet routes of M0 connected to DUT,
      count: m0_subnet_number
-   - Subnet routes of MX connected to M0 connected to DUT, 
+   - Subnet routes of MX connected to M0 connected to DUT,
      count: (mx_number - 1) * mx_subnet_number.
    - Upstream routes of M0 connected to DUT,
      count: (colo_number * m0_number - 1) * (mx_number * mx_subnet_number + m0_subnet_number).

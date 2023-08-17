@@ -43,7 +43,8 @@ def check_bgp_neighbors(duthosts, excluded_ips=[]):
             bgp_facts = asic.bgp_facts()['ansible_facts']
 
             for address in bgp_facts['bgp_neighbors']:
-                if address.lower() not in excluded_ips and bgp_facts['bgp_neighbors'][address]['state'] != "established":
+                if address.lower() not in excluded_ips and \
+                        bgp_facts['bgp_neighbors'][address]['state'] != "established":
                     logger.info("BGP neighbor: %s is down: %s." % (
                         address, bgp_facts['bgp_neighbors'][address]['state']))
                     down_nbrs += 1
@@ -118,7 +119,8 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                 check_packet(sonic_ping, ports, 'portB', 'portA', size=size, ttl=ttl, ttl_change=0)
 
                 # local neighbors
-                check_packet(sonic_ping, ports, 'portA', 'portA', dst_ip_fld='nbr_ip', size=size, ttl=ttl, ttl_change=0)
+                check_packet(sonic_ping, ports, 'portA', 'portA',
+                             dst_ip_fld='nbr_ip', size=size, ttl=ttl, ttl_change=0)
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
 
@@ -178,7 +180,8 @@ def test_reboot_supervisor(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_mac
     logger.info("-" * 80)
 
     reboot(duthosts.supervisor_nodes[0], localhost, wait=240)
-    assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started), "Not all critical services are fully started"
+    assert wait_until(300, 20, 2, duthosts.supervisor_nodes[0].critical_services_fully_started),\
+        "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)
 
@@ -224,7 +227,8 @@ def test_reboot_system(duthosts, localhost, all_cfg_facts, nbrhosts, nbr_macs, t
     parallel_run(reboot_node, [localhost], {}, duthosts.nodes, timeout=1000)
 
     for node in duthosts.nodes:
-        assert wait_until(300, 20, 2, node.critical_services_fully_started), "Not all critical services are fully started"
+        assert wait_until(300, 20, 2, node.critical_services_fully_started),\
+            "Not all critical services are fully started"
 
     poll_bgp_restored(duthosts)
 
