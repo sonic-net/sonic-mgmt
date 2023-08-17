@@ -1874,7 +1874,7 @@ class QosSaiBase(QosBase):
         return dualtor_ports_set
 
     @pytest.fixture(autouse=False)
-    def _check_ingress_speed_higher_than_backplane(
+    def _check_ingress_speed_gte_400g(
             self,
             get_src_dst_asic_and_duts,
             dutQosConfig):
