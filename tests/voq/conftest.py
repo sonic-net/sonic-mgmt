@@ -20,7 +20,8 @@ def chassis_facts(duthosts, request):
         if len(duthosts.supervisor_nodes) > 0:
             inv_files = get_inventory_files(request)
             host_vars = get_host_visible_vars(inv_files, a_host.hostname)
-            assert 'slot_num' in host_vars, "Variable 'slot_num' not found in inventory for host {}".format(a_host.hostname)
+            assert 'slot_num' in host_vars, "Variable 'slot_num' not found in inventory for host {}"\
+                .format(a_host.hostname)
             slot_num = host_vars['slot_num']
             a_host.facts['slot_num'] = int(slot_num[len("slot"):])
 

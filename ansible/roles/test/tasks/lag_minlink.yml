@@ -1,5 +1,5 @@
 ### This playbook is part of lag_2.yml test
-### It is to test LACP LAG functionality behave correctly when link flaps. 
+### It is to test LACP LAG functionality behave correctly when link flaps.
 ### In this playbook the neighbor of the selected flap_intf interface is shutdown and playbook validate Portchannel interface status and member
 ### selection status are correct based on port channel min link configuration. Then bring up the remote interface to make sure
 ### Port channel interface is up after peer port is back
@@ -11,7 +11,7 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-    
+
     - name: Set delay
       set_fact:
         delay: 5
@@ -33,9 +33,9 @@
       become: "yes"
       retries: "{{ retries | int }}"
       delay: "{{ delay }}"
-    
+
     - lag_facts: host={{ inventory_hostname }}
-    
+
     - name: Verify all other lag member interfaces are marked selected
       assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['runner']['selected'] }}' == 'True'" }
       with_items: "{{ po_interfaces.keys() }}"
@@ -62,7 +62,7 @@
         host: "{{peer_host}}"
         login: "{{switch_login[hwsku_map[peer_hwsku]]}}"
       connection: switch
-    
+
     - name: "Verify PortChannel interfaces are up correctly"
       shell: bash -c "teamdctl {{ po }} state dump" | python -c "import sys, json; print json.load(sys.stdin)['ports']['{{ item }}']['link']['up']"
       register: out
@@ -71,9 +71,9 @@
       become: "yes"
       retries: "{{ retries | int }}"
       delay: "{{ delay }}"
-    
+
     - lag_facts: host={{ inventory_hostname }}
-    
+
     - name: Verify all interfaces in port_channel  are marked up
       assert: { that: "'{{ lag_facts.lags[po]['po_stats']['ports'][item]['link']['up'] }}' == 'True'" }
       with_items: "{{ po_interfaces.keys() }}"

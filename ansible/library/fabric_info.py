@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from ansible.module_utils.basic import AnsibleModule
 import ipaddress
 
 DOCUMENTATION = '''
@@ -28,6 +29,7 @@ RETURN = '''
       }
 '''
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -43,22 +45,22 @@ def main():
         # num_fabric_asic may not be present for fixed systems which have no Fabric ASIC.
         # Then return empty fabric_info
         if 'num_fabric_asic' not in m_args or int(m_args['num_fabric_asic']) < 1:
-           module.exit_json(ansible_facts={'fabric_info': fabric_info})
-           return
-        num_fabric_asic = int( m_args[ 'num_fabric_asic' ] )
-        v4pfx = str( m_args[ 'asics_host_basepfx' ] ).split("/")
-        v6pfx = str( m_args[ 'asics_host_basepfx6' ] ).split("/")
-        v4base = int( ipaddress.IPv4Address(unicode(v4pfx[0])) )
-        v6base = int( ipaddress.IPv6Address(unicode(v6pfx[0])) )
+            module.exit_json(ansible_facts={'fabric_info': fabric_info})
+            return
+        num_fabric_asic = int(m_args['num_fabric_asic'])
+        v4pfx = str(m_args['asics_host_basepfx']).split("/")
+        v6pfx = str(m_args['asics_host_basepfx6']).split("/")
+        v4base = int(ipaddress.IPv4Address(v4pfx[0].encode().decode()))
+        v6base = int(ipaddress.IPv6Address(v6pfx[0].encode().decode()))
         for asic_id in range(num_fabric_asic):
             key = "ASIC%d" % asic_id
-            next_v4addr = str( ipaddress.IPv4Address(v4base + asic_id) )
-            next_v6addr = str( ipaddress.IPv6Address(v6base + asic_id) )
-            data = { 'asicname': key,
-                     'asic_id' : asic_id,
-                     'ip_prefix': next_v4addr + "/" + v4pfx[-1],
-                     'ip6_prefix': next_v6addr + "/" + v6pfx[-1] }
-            fabric_info.append( data )
+            next_v4addr = str(ipaddress.IPv4Address(v4base + asic_id))
+            next_v6addr = str(ipaddress.IPv6Address(v6base + asic_id))
+            data = {'asicname': key,
+                    'asic_id': asic_id,
+                    'ip_prefix': next_v4addr + "/" + v4pfx[-1],
+                    'ip6_prefix': next_v6addr + "/" + v6pfx[-1]}
+            fabric_info.append(data)
         module.exit_json(ansible_facts={'fabric_info': fabric_info})
     except (IOError, OSError) as e:
         fail_msg = "IO error" + str(e)
@@ -67,6 +69,6 @@ def main():
         fail_msg = "failed to find the correct fabric asic info " + str(e)
         module.fail_json(msg=fail_msg)
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()

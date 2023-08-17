@@ -1,6 +1,4 @@
 import sys
-import os
-import time
 import socket
 import pickle
 import argparse
@@ -12,8 +10,11 @@ sys.path.append('/usr/lib/python2.7/site-packages/python_sdk_api/')
 sys.path.append('/usr/local/lib/python2.7/dist-packages/python_sdk_api/')
 sys.path.append('/usr/local/lib/python2.7/site-packages/python_sdk_api/')
 
-from sx_api import *
-
+from sx_api import sx_api_open, SX_STATUS_SUCCESS, new_sx_fd_t_p, sx_api_host_ifc_open, SX_ACCESS_CMD_REGISTER,\
+    new_sx_user_channel_t_p, SX_USER_CHANNEL_TYPE_FD, sx_api_host_ifc_trap_id_register_set, SX_TRAP_ID_PUDE,\
+    SX_ACCESS_CMD_DEREGISTER, uint32_t_p_value, sx_api_host_ifc_close, sx_api_close, sx_api_port_device_get,\
+    new_uint32_t_p, uint32_t_p_assign, new_uint8_t_arr, new_sx_receive_info_t_p, sx_lib_host_ifc_recv,\
+    SX_PORT_OPER_STATUS_UP, new_sx_port_attributes_t_arr, sx_port_attributes_t_arr_getitem      # noqa E402
 
 g_ptf_host = None
 g_log_fp = None
@@ -22,7 +23,7 @@ g_log_fp = None
 def log(message, output_on_console=False):
     current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if output_on_console:
-        print "%s : %s" % (current_time, message)
+        print("%s : %s" % (current_time, message))
     global g_log_fp
     if g_log_fp is not None:
         g_log_fp.write("%s : %s\n" % (current_time, message))
@@ -185,4 +186,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

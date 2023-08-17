@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import subprocess
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -19,6 +19,8 @@ EXAMPLES = '''
    sonic_release:
 
 '''
+
+
 def main():
 
     module = AnsibleModule(argument_spec=dict())
@@ -26,12 +28,12 @@ def main():
     Gets the SONiC OS version that is running on this device.
     """
     sonic_release = None
-    sonic_qos_db_fv_reference_with_table = false
+    sonic_qos_db_fv_reference_with_table = False
     try:
         process = subprocess.Popen(['sonic-cfggen', '-y', '/etc/sonic/sonic_version.yml', '-v', 'release'],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.stdout, stderr = process.communicate()
-        self.stdout = self.stdout.decode('utf-8')
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        stdout = stdout.decode('utf-8')
         stderr = stderr.decode('utf-8')
         ret_code = process.returncode
     except Exception as e:
@@ -40,15 +42,17 @@ def main():
         if ret_code != 0:
             module.fail_json(msg=stderr)
         else:
-            sonic_release = self.stdout.split('.')[0].strip()
+            sonic_release = stdout.split('.')[0].strip()
     """
     Check for QOS DB format for Field Value refered with tables or not.
     """
     old_format_release_list = ["201811", "201911", "202012", "202106"]
     if any(release == sonic_release for release in old_format_release_list):
-        sonic_qos_db_fv_reference_with_table = true
+        sonic_qos_db_fv_reference_with_table = True
 
-    module.exit_json(ansible_facts={'sonic_release': sonic_release, 'sonic_qos_db_fv_reference_with_table': sonic_qos_db_fv_reference_with_table})
+    module.exit_json(ansible_facts={'sonic_release': sonic_release,
+                     'sonic_qos_db_fv_reference_with_table': sonic_qos_db_fv_reference_with_table})
+
 
 if __name__ == '__main__':
     main()

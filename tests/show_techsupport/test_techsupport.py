@@ -5,7 +5,6 @@ import re
 import time
 import logging
 import tech_support_cmds as cmds
-import re
 from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -281,31 +280,6 @@ def execute_command(duthost, since):
     return True
 
 
-@pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
-    """
-        In Mellanox, when techsupport is taken, it invokes fw dump.
-        While taking the fw dump, the fw is busy and doesn't respond to other calls.
-        The access of sfp eeprom happens through firmware and xcvrd gets the DOM fields
-        every 60 seconds which fails during the fw dump.
-        This is a temporary issue and this log can be ignored.
-        Issue link: https://github.com/sonic-net/sonic-buildimage/issues/12621
-    """
-    ignoreRegex = [
-        ".*ERR kernel:.*Reg cmd access status failed.*",
-        ".*ERR kernel:.*Reg cmd access failed.*",
-        ".*ERR kernel:.*Eeprom query failed.*",
-        ".*ERR kernel:.*Fails to access.*register MCIA.*",
-        ".*ERR kernel:.*Fails to read module eeprom.*",
-        ".*ERR kernel:.*Fails to access.*module eeprom.*",
-        ".*ERR kernel:.*Fails to get module type.*",
-        ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
-    ]
-
-    if loganalyzer:
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
-
-
 def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     test the "show techsupport" command in a loop
@@ -420,17 +394,31 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds":
-            add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
 
+    if '201911' in duthost.os_version:
+        docker_cmds = cmds.docker_cmds_201911
+    elif duthost.facts['router_type'] == 'spinerouter':
+        docker_cmds = cmds.docker_cmds_t2
+    else:
+        docker_cmds = cmds.docker_cmds
+
+    cmds_to_check.update(
+        {
+            "docker_cmds":
+                add_asic_arg("{}", docker_cmds, num)}
+    )
     if duthost.facts["asic_type"] == "broadcom":
+        if duthost.facts.get("platform_asic") == "broadcom-dnx":
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx
+        else:
+            asic_cmds = cmds.broadcom_cmd_bcmcmd_xgs
         cmds_to_check.update(
             {
                 "broadcom_cmd_bcmcmd":
-                    add_asic_arg(" -n {}", cmds.broadcom_cmd_bcmcmd, num),
+                    add_asic_arg(" -n {}", asic_cmds, num),
                 "broadcom_cmd_misc":
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
@@ -515,7 +503,7 @@ def test_techsupport_commands(
     cmd_not_found = defaultdict(list)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    stdout = duthost.shell('sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
+    stdout = duthost.shell(r'sudo generate_dump -n | grep -v "^mkdir\|^rm\|^tar\|^gzip"')
 
     pytest_assert(stdout['rc'] == 0, 'generate_dump command failed')
 

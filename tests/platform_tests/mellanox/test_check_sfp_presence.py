@@ -2,22 +2,22 @@
 Cross check show sfp presence with qsfp_status
 """
 import logging
-import os
 import json
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 
 pytestmark = [
     pytest.mark.asic('mellanox'),
     pytest.mark.topology('any')
 ]
 
-def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts):
+
+def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts):     # noqa F811
     """This test case is to check SFP presence status with CLI and sysfs.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])
+    ports_config = json.loads(duthost.command("sudo sonic-cfggen -d --var-json PORT")["stdout"])    # noqa F841
     check_intf_presence_command = 'show interface transceiver presence {}'
 
     logging.info("Use show interface status information")
@@ -29,4 +29,3 @@ def test_check_sfp_presence(duthosts, rand_one_dut_hostname, conn_graph_facts):
         logging.info(str(presence_list))
         assert intf in presence_list, "Wrong interface name in the output %s" % str(presence_list)
         assert 'Present' in presence_list, "Status is not expected, output %s" % str(presence_list)
-
