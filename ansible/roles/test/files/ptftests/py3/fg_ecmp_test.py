@@ -212,7 +212,7 @@ class FgEcmpTest(BaseTest):
 
     def test_balancing_no_assert(self, hit_count_map):
         deviation_max = 0
-        for port, exp_flows in self.exp_flow_count.items():
+        for port, exp_flows in list(self.exp_flow_count.items()):
             assert port in hit_count_map
             num_flows = hit_count_map[port]
             deviation = float(num_flows)/float(exp_flows)
