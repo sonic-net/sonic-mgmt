@@ -1208,8 +1208,8 @@ sonic_dell64_40:
   hosts:
     str3-s6100-acs-6:
       ansible_host: 10.3.147.141
-      model: S6100-ON
-      serial: CN06N1J1CES008270065
+      model: 06N1J1
+      serial: D14RG02
       base_mac: d8:9e:f3:bb:c0:20
       syseeprom_info:
         "0x21": "S6100-ON"
@@ -1230,8 +1230,8 @@ sonic_dell64_40:
         "0xFE": "0xD3ED328F"
     str3-s6100-acs-7:
       ansible_host: 10.3.147.171
-      model: S6100-ON
-      serial: CN06N1J1CES0083I0007
+      model: 06N1J1
+      serial: DVWQG02
       base_mac: d8:9e:f3:d8:50:60
       syseeprom_info:
         "0x21": "S6100-ON"
