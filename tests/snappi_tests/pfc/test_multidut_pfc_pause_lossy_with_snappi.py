@@ -13,6 +13,7 @@ from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 import logging
 import random
+from tests.common.snappi.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('snappi')]
@@ -33,14 +34,9 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-        enum_dut_lossy_prio (str): name of lossy priority to test, e.g., 's6100-1|2'
-        all_prio_list (pytest fixture): list of all the priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
@@ -81,23 +77,26 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     bg_prio_list = [p for p in all_prio_list]
     bg_prio_list.remove(lossy_prio)
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost1=duthost1,
-                 rx_port=snappi_ports[0],
-                 rx_port_id=snappi_ports[0]["port_id"],
-                 duthost2=duthost2,
-                 tx_port=snappi_ports[1],
-                 tx_port_id=snappi_ports[1]["port_id"],
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=False,
+                 snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
 
@@ -117,14 +116,9 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-        lossless_prio_list (pytest fixture): list of all the lossless priorities
-        lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
@@ -163,23 +157,26 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     test_prio_list = lossy_prio_list
     bg_prio_list = lossless_prio_list
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost1=duthost1,
-                 rx_port=snappi_ports[0],
-                 rx_port_id=snappi_ports[0]["port_id"],
-                 duthost2=duthost2,
-                 tx_port=snappi_ports[1],
-                 tx_port_id=snappi_ports[1]["port_id"],
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=False,
+                 snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
 
@@ -202,15 +199,10 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
-        localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-        rand_lossy_prio (str): lossy priority to test, e.g., 's6100-1|2'
-        all_prio_list (pytest fixture): list of all the priorities
+        localhost (pytest fixture): localhost handle
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         reboot_type (str): reboot type to be issued on the DUT
         line_card_choice: Line card choice to be mentioned in the variable.py file
@@ -258,23 +250,26 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),
                   "Not all critical services are fully started")
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost1=duthost1,
-                 rx_port=snappi_ports[0],
-                 rx_port_id=snappi_ports[0]["port_id"],
-                 duthost2=duthost2,
-                 tx_port=snappi_ports[1],
-                 tx_port_id=snappi_ports[1]["port_id"],
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=False,
+                 snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
 
@@ -302,10 +297,6 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
         fanout_graph_facts (pytest fixture): fanout graph
         localhost (pytest fixture): localhost handle
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
-        lossless_prio_list (pytest fixture): list of all the lossless priorities
-        lossy_prio_list (pytest fixture): list of all the lossy priorities
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         reboot_type (str): reboot type to be issued on the DUT
         line_card_choice: Line card choice to be mentioned in the variable.py file
@@ -352,22 +343,25 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     pytest_assert(wait_until(300, 20, 0, duthost1.critical_services_fully_started),
                   "Not all critical services are fully started")
 
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
                  port_config_list=port_config_list,
                  conn_data=conn_graph_facts,
                  fanout_data=fanout_graph_facts,
-                 duthost1=duthost1,
-                 rx_port=snappi_ports[0],
-                 rx_port_id=snappi_ports[0]["port_id"],
-                 duthost2=duthost2,
-                 tx_port=snappi_ports[1],
-                 tx_port_id=snappi_ports[1]["port_id"],
                  global_pause=False,
                  pause_prio_list=pause_prio_list,
                  test_prio_list=test_prio_list,
                  bg_prio_list=bg_prio_list,
                  prio_dscp_map=prio_dscp_map,
-                 test_traffic_pause=False)
+                 test_traffic_pause=False,
+                 snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
