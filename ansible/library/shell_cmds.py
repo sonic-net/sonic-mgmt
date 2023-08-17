@@ -146,6 +146,7 @@ def main():
 
     output = dict(
         cmds=cmds,
+        failed_cmds=failed_cmds,
         results=results,
         start=str(startd),
         end=str(endd),
@@ -154,8 +155,6 @@ def main():
     )
 
     if output['failed']:
-        for failed_cmd in failed_cmds:
-            print("Running command failed: {}!".format(failed_cmd))
         module.fail_json(
             msg='At least running one of the commands failed', **output)
 
