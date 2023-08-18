@@ -292,7 +292,7 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     # Define encapsulated packet
     pkt = create_packet(eth_dst=router_mac,
-                        eth_src=ptfadapter.dataplane.get_mac(0, src_port_number),
+                        eth_src=ptfadapter.dataplane.get_mac(0, src_port_number).decode(),
                         ip_src=ip_src,
                         ip_dst=ip_dst,
                         ip_tunnel=ip_tunnel,
@@ -303,7 +303,7 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     # Build expected packet
     inner_packet = pkt[packet.IP].payload[packet.IP].copy()
-    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) \
+    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number).decode()) \
         / Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
     exp_pkt['IP'].ttl -= 1
 
