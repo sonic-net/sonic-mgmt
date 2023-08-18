@@ -12,8 +12,8 @@ from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, \
-    EXPECT_EXCEEDED, EXPECT_CLEAR, THR_VERIFY_CMDS
+from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
+     EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
 from tests.common.utilities import wait_until, get_data_acl, recover_acl_rule

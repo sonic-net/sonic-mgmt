@@ -976,7 +976,7 @@ def recover_acl_rule(duthost, data_acl):
     logger.info("Applying {}".format(dut_conf_file_path))
     duthost.command("acl-loader update full {}".format(dut_conf_file_path))
 
-    
+
 def get_ipv4_loopback_ip(duthost):
     """
     Get ipv4 loopback ip address
