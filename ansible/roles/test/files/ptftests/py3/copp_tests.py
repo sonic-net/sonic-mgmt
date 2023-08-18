@@ -63,7 +63,7 @@ class ControlPlaneBaseTest(BaseTest):
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if (debug and self.verbose) or (not debug):
-            print(("%s : %s" % (current_time, message)))
+            print("%s : %s" % (current_time, message))
         self.log_fp.write("%s : %s\n" % (current_time, message))
 
     def setUp(self):
