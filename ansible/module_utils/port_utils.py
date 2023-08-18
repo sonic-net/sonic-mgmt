@@ -171,8 +171,12 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             s100G_ports = [x for x in range(13, 21)]
 
             port_alias_to_name_map = _port_alias_to_name_map_50G(all_ports, s100G_ports)
-        elif hwsku == "Arista-7800R3-48CQ-LC" or hwsku == "Arista-7800R3K-48CQ-LC":
-            for i in range(1, 48):
+        elif hwsku == "Arista-7800R3-48CQ-LC" or\
+             hwsku == "Arista-7800R3K-48CQ-LC" or\
+             hwsku == "Arista-7800R3-48CQM2-C48" or\
+             hwsku == "Arista-7800R3-48CQ2-C48" or\
+             hwsku == "Arista-7800R3K-48CQ2-C48":
+            for i in range(1, 49):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
         elif hwsku == "INGRASYS-S9100-C32":
             for i in range(1, 33):
