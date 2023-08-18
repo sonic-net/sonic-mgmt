@@ -316,7 +316,7 @@ class ReloadTest(BaseTest):
     def read_mux_status(self):
         active_port_indices = []
         mux_status = self.read_json('dut_mux_status')
-        for intf, port in self.port_indices.items():
+        for intf, port in list(self.port_indices.items()):
             if intf in mux_status and mux_status[intf]['status'] == 'active':
                 active_port_indices.append(port)
 
@@ -324,13 +324,13 @@ class ReloadTest(BaseTest):
 
     def read_vlan_portchannel_ports(self):
         portchannel_content = self.read_json('portchannel_ports_file')
-        portchannel_names = [pc['name'] for pc in portchannel_content.values()]
+        portchannel_names = [pc['name'] for pc in list(portchannel_content.values())]
 
         vlan_content = self.read_json('vlan_ports_file')
 
         ports_per_vlan = dict()
         pc_in_vlan = []
-        for vlan in self.vlan_ip_range.keys():
+        for vlan in list(self.vlan_ip_range.keys()):
             ports_in_vlan = []
             for ifname in vlan_content[vlan]['members']:
                 if ifname in portchannel_names:
@@ -344,7 +344,7 @@ class ReloadTest(BaseTest):
             active_portchannels.append(neighbor_info["dut_portchannel"])
 
         pc_ifaces = []
-        for pc in portchannel_content.values():
+        for pc in list(portchannel_content.values()):
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member]
                                  for member in pc['members']])
@@ -355,7 +355,7 @@ class ReloadTest(BaseTest):
             for neighbor_info in list(self.peer_vm_dut_map.values()):
                 peer_active_portchannels.append(neighbor_info["dut_portchannel"])
             dualtor_pc_ifaces.extend(pc_ifaces)
-            for pc in portchannel_content.values():
+            for pc in list(portchannel_content.values()):
                 if not pc['name'] in pc_in_vlan and pc['name'] in peer_active_portchannels:
                     dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
 
@@ -393,7 +393,7 @@ class ReloadTest(BaseTest):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.log_lock:
             if verbose and self.test_params['verbose'] or not verbose:
-                print("%s : %s" % (current_time, message))
+                print(("%s : %s" % (current_time, message)))
             self.log_fp.write("%s : %s\n" % (current_time, message))
             self.log_fp.flush()
 
@@ -415,7 +415,7 @@ class ReloadTest(BaseTest):
         vlan_host_map = defaultdict(dict)
         self.vlan_host_ping_map = defaultdict(dict)
         self.nr_vl_pkts = 0     # Number of packets from upper layer
-        for vlan, prefix in self.vlan_ip_range.items():
+        for vlan, prefix in list(self.vlan_ip_range.items()):
             if not self.ports_per_vlan[vlan]:
                 continue
             _, mask = prefix.split('/')
@@ -430,7 +430,7 @@ class ReloadTest(BaseTest):
                 vlan_host_map[port][addr] = mac
 
             for counter, i in enumerate(
-                    range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan])), start=n_hosts):
+                    list(range(n_hosts+2, n_hosts+2+len(self.ports_per_vlan[vlan]))), start=n_hosts):
                 mac = self.VLAN_BASE_MAC_PATTERN.format(counter)
                 port = self.ports_per_vlan[vlan][i %
                                                  len(self.ports_per_vlan[vlan])]
@@ -460,7 +460,7 @@ class ReloadTest(BaseTest):
 
     def get_peer_dev_info(self):
         content = self.read_json('peer_dev_info')
-        for key in content.keys():
+        for key in list(content.keys()):
             if 'ARISTA' in key:
                 self.vm_dut_map[key] = dict()
                 self.vm_dut_map[key]['mgmt_addr'] = content[key]['mgmt_addr']
@@ -474,9 +474,9 @@ class ReloadTest(BaseTest):
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
-        for key in content.keys():
+        for key in list(content.keys()):
             for member in content[key]['members']:
-                for vm_key in self.vm_dut_map.keys():
+                for vm_key in list(self.vm_dut_map.keys()):
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
@@ -486,8 +486,8 @@ class ReloadTest(BaseTest):
 
     def get_neigh_port_info(self):
         content = self.read_json('neigh_port_info')
-        for key in content.keys():
-            if content[key]['name'] in self.vm_dut_map.keys():
+        for key in list(content.keys()):
+            if content[key]['name'] in list(self.vm_dut_map.keys()):
                 self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
@@ -515,7 +515,7 @@ class ReloadTest(BaseTest):
 
     def build_vlan_if_port_mapping(self):
         portchannel_content = self.read_json('portchannel_ports_file')
-        portchannel_names = [pc['name'] for pc in portchannel_content.values()]
+        portchannel_names = [pc['name'] for pc in list(portchannel_content.values())]
 
         vlan_content = self.read_json('vlan_ports_file')
 
@@ -641,7 +641,7 @@ class ReloadTest(BaseTest):
         self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = \
             self.read_vlan_portchannel_ports()
         self.vlan_ports = []
-        for ports in self.ports_per_vlan.values():
+        for ports in list(self.ports_per_vlan.values()):
             self.vlan_ports += ports
         if self.sad_oper:
             self.test_params['vlan_if_port'] = self.build_vlan_if_port_mapping()
@@ -679,7 +679,7 @@ class ReloadTest(BaseTest):
 
         self.random_vlan = random.choice(self.vlan_ports)
         self.from_server_src_port = self.random_vlan
-        self.from_server_src_addr = random.choice(self.vlan_host_map[self.random_vlan].keys())
+        self.from_server_src_addr = random.choice(list(self.vlan_host_map[self.random_vlan].keys()))
         self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
         self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
@@ -709,7 +709,7 @@ class ReloadTest(BaseTest):
             self.log(self.get_sad_info())
 
         self.dataplane = ptf.dataplane_instance
-        for p in self.dataplane.ports.values():
+        for p in list(self.dataplane.ports.values()):
             port = p.get_packet_source()
             port.socket.setsockopt(
                 socket.SOL_SOCKET, socket.SO_RCVBUF, self.SOCKET_RECV_BUFFER_SIZE)
@@ -849,7 +849,7 @@ class ReloadTest(BaseTest):
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
+            src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
@@ -873,10 +873,10 @@ class ReloadTest(BaseTest):
         self.ping_dut_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
 
     def generate_arp_ping_packet(self):
-        vlan = next(k for k, v in self.ports_per_vlan.items() if v)
+        vlan = next(k for k, v in list(self.ports_per_vlan.items()) if v)
         vlan_ip_range = self.vlan_ip_range[vlan]
 
-        vlan_port_canadiates = range(len(self.ports_per_vlan[vlan]))
+        vlan_port_canadiates = list(range(len(self.ports_per_vlan[vlan])))
         vlan_port_canadiates.remove(0)  # subnet prefix
         vlan_port_canadiates.remove(1)  # subnet IP on dut
         src_idx = random.choice(vlan_port_canadiates)
@@ -1295,17 +1295,17 @@ class ReloadTest(BaseTest):
             self.log("How many packets were received back when control plane was down: %d Expected: %d" % (
                 self.no_cp_replies, self.nr_vl_pkts))
 
-        has_info = any(len(info) > 0 for info in self.info.values())
+        has_info = any(len(info) > 0 for info in list(self.info.values()))
         if has_info:
             self.log("-"*50)
             self.log("Additional info:")
             self.log("-"*50)
-            for name, info in self.info.items():
+            for name, info in list(self.info.items()):
                 for entry in info:
                     self.log("INFO:%s:%s" % (name, entry))
             self.log("-"*50)
 
-        is_good = all(len(fails) == 0 for fails in self.fails.values())
+        is_good = all(len(fails) == 0 for fails in list(self.fails.values()))
 
         errors = ""
         if not is_good:
@@ -1314,7 +1314,7 @@ class ReloadTest(BaseTest):
             self.log("-"*50)
 
             errors = "\n\nSomething went wrong. Please check output below:\n\n"
-            for name, fails in self.fails.items():
+            for name, fails in list(self.fails.items()):
                 for fail in fails:
                     self.log("FAILED:%s:%s" % (name, fail))
                     errors += "FAILED:%s:%s\n" % (name, fail)
@@ -1420,7 +1420,7 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in list(self.vm_dut_map.values())
                                                          if x['mgmt_addr'] == neigh]
             self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
                                                                  None, self.test_params)
@@ -1454,7 +1454,7 @@ class ReloadTest(BaseTest):
         This function tries to extract number of replies from dataplane, when control plane is non working
         """
         # remove all tail zero values
-        non_zero = filter(lambda x: x > 0, arr)
+        non_zero = [x for x in arr if x > 0]
 
         # check that last value is different from previos
         if len(non_zero) > 1 and non_zero[-1] < non_zero[-2]:
@@ -1624,7 +1624,7 @@ class ReloadTest(BaseTest):
 
     def peer_state_check(self, ip, queue):
         self.log('SSH thread for VM {} started'.format(ip))
-        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+        self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in list(self.vm_dut_map.values())
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
@@ -1679,7 +1679,7 @@ class ReloadTest(BaseTest):
             time.sleep(self.TIMEOUT)
 
     def apply_filter_all_ports(self, filter_expression):
-        for p in self.dataplane.ports.values():
+        for p in list(self.dataplane.ports.values()):
             port = p.get_packet_source()
             scapyall.attach_filter(port.socket, filter_expression)
 
@@ -2035,11 +2035,11 @@ class ReloadTest(BaseTest):
             # Find the longest loss with the longest time:
             max_disrupt_from_id, (self.max_lost_id, self.max_disrupt_time,
                                   self.no_routing_start, self.no_routing_stop) = \
-                max(self.lost_packets.items(), key=lambda item: item[1][0:2])
+                max(list(self.lost_packets.items()), key=lambda item: item[1][0:2])
             self.total_disrupt_packets = sum(
-                [item[0] for item in self.lost_packets.values()])
+                [item[0] for item in list(self.lost_packets.values())])
             self.total_disrupt_time = sum(
-                [item[1] for item in self.lost_packets.values()])
+                [item[1] for item in list(self.lost_packets.values())])
             self.log("Disruptions happen between %s and %s after the reboot." %
                      (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
         else:
