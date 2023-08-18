@@ -928,7 +928,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Reduce ACL to one rule (plus default)
     crm_stats_acl_entry_used = 2
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=1)
-    if duthost.facts["platform_asic"] == "broadcom-dnx":
+    if duthost.facts.get("platform_asic", None) == "broadcom-dnx":
         # Each ACL rule consumes an acl entry per bind point
         asicAclBindings = set()
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
