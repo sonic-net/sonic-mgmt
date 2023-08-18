@@ -5,7 +5,6 @@ import logging
 import pytest
 import time
 
-from natsort import natsorted
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 logger = logging.getLogger(__name__)
