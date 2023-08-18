@@ -56,8 +56,14 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
+
     if loganalyzer:
         for a_dut in get_src_dst_asic_and_duts['all_duts']:
+            hwsku = a_dut.facts["hwsku"]
+            if "7050" in hwsku and "QX" in hwsku.upper():
+                logger.info("ignore memory threshold check for 7050qx")
+                # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
+                ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
 
 
@@ -919,7 +925,8 @@ class TestQosSai(QosSaiBase):
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
             buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
         elif "wm_buf_pool_lossy" in bufPool:
-            qosConfig = dutQosConfig["param"]
+            baseQosConfig = dutQosConfig["param"]
+            qosConfig = baseQosConfig.get(portSpeedCableLength, baseQosConfig)
             triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_egr_min"]
             buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
@@ -1528,21 +1535,13 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
-        pgDropKey = "pg_drop"
+        testParams.update(qosConfig['pg_drop'])
         testParams.update({
-            "dscp": qosConfig[pgDropKey]["dscp"],
-            "ecn": qosConfig[pgDropKey]["ecn"],
-            "pg": qosConfig[pgDropKey]["pg"],
-            "queue": qosConfig[pgDropKey]["queue"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "pkts_num_trig_pfc": qosConfig[pgDropKey]["pkts_num_trig_pfc"],
-            "pkts_num_trig_ingr_drp": qosConfig[pgDropKey]["pkts_num_trig_ingr_drp"],
-            "pkts_num_margin": qosConfig[pgDropKey]["pkts_num_margin"],
-            "iterations": qosConfig[pgDropKey]["iterations"],
             "hwsku": dutTestParams['hwsku']
         })
 

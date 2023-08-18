@@ -10,7 +10,7 @@ import six
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
@@ -41,6 +41,14 @@ NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)['stdout']:
+        return True
+    return False
 
 
 @contextlib.contextmanager
@@ -58,10 +66,16 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         duthost.asic_instance_from_namespace(ns).ns_arg,
         start_pcap,
     )
-    start_pcap = "nohup {}{} &".format(
+    start_pcap_cmd = "nohup {}{} &".format(
         duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
     )
-    duthost.shell(start_pcap)
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
     try:
         yield
     finally:
@@ -181,7 +195,17 @@ def common_setup_teardown(
         ),
     )
 
-    return bgp_neighbors
+    yield bgp_neighbors
+
+    # Cleanup suppress-fib-pending config
+    delete_tacacs_json = [{
+        "DEVICE_METADATA": {
+            "localhost": {
+                "suppress-fib-pending": "disabled"
+            }
+        }
+    }]
+    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture

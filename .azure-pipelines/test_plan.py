@@ -128,9 +128,9 @@ class FinishStatus(AbstractStatus):
         super(FinishStatus, self).__init__(TestPlanStatus.FINISHED)
 
 
-def get_scope(testbed_tools_url):
+def get_scope(elastictest_url):
     scope = "api://sonic-testbed-tools-dev/.default"
-    if testbed_tools_url in [
+    if elastictest_url in [
         "http://sonic-testbed2-scheduler-backend.azurewebsites.net",
         "https://sonic-testbed2-scheduler-backend.azurewebsites.net",
         "http://sonic-elastictest-prod-scheduler-backend-webapp.azurewebsites.net",
@@ -254,6 +254,7 @@ class TestPlanManager(object):
                 },
                 "image": {
                     "url": image_url,
+                    "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch
@@ -276,12 +277,7 @@ class TestPlanManager(object):
                 "pull_request_id": pr_id,
                 "build_id": build_id
             },
-            "extra_params": {
-                "secrets": {
-                    "azp_access_token": kwargs["azp_access_token"],
-                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
-                }
-            },
+            "extra_params": {},
             "priority": 10
         })
         print('Creating test plan with payload: {}'.format(payload))
@@ -437,7 +433,10 @@ if __name__ == "__main__":
         "-t", "--topology",
         type=str,
         dest="topology",
-        required=True,
+        nargs="?",
+        const="",
+        default="",
+        required=False,
         help="The test topology to be used."
     )
     parser_create.add_argument(
@@ -548,22 +547,6 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--azp-access-token",
-        type=str,
-        dest="azp_access_token",
-        default="",
-        required=False,
-        help="Token to download the artifacts of Azure Pipelines"
-    )
-    parser_create.add_argument(
-        "--azp-repo-access-token",
-        type=str,
-        dest="azp_repo_access_token",
-        default="",
-        required=False,
-        help="Token to download the repo from Azure DevOps"
-    )
-    parser_create.add_argument(
         "--azp-pr-id",
         type=str,
         dest="azp_pr_id",
@@ -600,6 +583,16 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Image url"
+    )
+    parser_create.add_argument(
+        "--upgrade-image-param",
+        type=str,
+        dest="upgrade_image_param",
+        nargs="?",
+        const="",
+        default="",
+        required=False,
+        help="Parameter of upgrade image"
     )
     parser_create.add_argument(
         "--hwsku",
@@ -786,17 +779,17 @@ if __name__ == "__main__":
 
     print("Test plan utils parameters: {}".format(args))
     auth_env = ["TENANT_ID", "CLIENT_ID", "CLIENT_SECRET"]
-    required_env = ["TESTBED_TOOLS_URL"]
+    required_env = ["ELASTICTEST_SCHEDULER_BACKEND_URL"]
 
     if args.action in ["create", "cancel"]:
         required_env.extend(auth_env)
 
     env = {
-        "testbed_tools_url": os.environ.get("TESTBED_TOOLS_URL"),
-        "tenant_id": os.environ.get("TENANT_ID"),
-        "client_id": os.environ.get("CLIENT_ID"),
-        "client_secret": os.environ.get("CLIENT_SECRET"),
-        "frontend_url": os.environ.get("FRONTEND_URL", "https://www.testbed-tools.org"),
+        "elastictest_scheduler_backend_url": os.environ.get("ELASTICTEST_SCHEDULER_BACKEND_URL"),
+        "tenant_id": os.environ.get("ELASTICTEST_MSAL_TENANT_ID"),
+        "client_id": os.environ.get("ELASTICTEST_MSAL_CLIENT_ID"),
+        "client_secret": os.environ.get("ELASTICTEST_MSAL_CLIENT_SECRET"),
+        "frontend_url": os.environ.get("ELASTICTEST_FRONTEND_URL", "https://elastictest.org"),
     }
     env_missing = [k.upper() for k, v in env.items() if k.upper() in required_env and not v]
     if env_missing:
@@ -805,7 +798,7 @@ if __name__ == "__main__":
 
     try:
         tp = TestPlanManager(
-            env["testbed_tools_url"],
+            env["elastictest_scheduler_backend_url"],
             env["frontend_url"],
             env["tenant_id"],
             env["client_id"],
@@ -857,10 +850,9 @@ if __name__ == "__main__":
                 specified_params=args.specified_params,
                 specific_param=specific_param,
                 vm_type=args.vm_type,
-                azp_access_token=args.azp_access_token,
-                azp_repo_access_token=args.azp_repo_access_token,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
+                upgrade_image_param=args.upgrade_image_param,
                 hwsku=args.hwsku,
                 test_plan_type=args.test_plan_type,
                 platform=args.platform,

@@ -32,7 +32,8 @@ from switch import (switch_init,
                     sai_thrift_read_pg_shared_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
-                    sai_thrift_read_queue_occupancy)
+                    sai_thrift_read_queue_occupancy,
+                    sai_thrift_read_pg_occupancy)
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
                                       sai_thrift_attribute_t)
 from switch_sai_thrift.sai_headers import (SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID)
@@ -187,13 +188,24 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
     pkt = construct_ip_pkt(64, dst_mac, src_port_mac,
                            src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
+    # Send initial packet for any potential ARP resolution, which may cause the LAG
+    # destination to change. Can occur especially when running tests in isolation on a
+    # first test attempt.
+    send_packet(dp, src_port_id, pkt, 1)
+    # Observed experimentally this sleep needs to be at least 0.02 seconds. Setting higher.
+    time.sleep(1)
     send_packet(dp, src_port_id, pkt, 1)
 
     masked_exp_pkt = construct_ip_pkt(
         48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
 
+    pre_result = dp.dataplane.poll(
+        device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     result = dp.dataplane.poll(
         device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if pre_result.port != result.port:
+        logging.debug("During get_rx_port, corrected LAG destination from {} to {}".format(
+            pre_result.port, result.port))
     if isinstance(result, dp.dataplane.PollFailure):
         dp.fail("Expected packet was not received. Received on port:{} {}".format(
             result.port, result.format()))
@@ -228,6 +240,37 @@ def fill_leakout_plus_one(test_case, src_port_id, dst_port_id, pkt, queue, asic_
                     packet_i + 1, queue_counters_base[queue], queue_counters[queue]), file=sys.stderr)
                 return True
     return False
+
+
+def overflow_egress(test_case, src_port_id, pkt, queue, asic_type):
+    # Attempts to queue 1 packet while compensating for a varying packet
+    # leakout and egress queues. Returns pkts_num_egr_mem: number of packets
+    # short of filling egress memory and leakout.
+    # Returns extra_bytes_occupied:
+    #    extra number of bytes occupied in source port
+    pkts_num_egr_mem = 0
+    extra_bytes_occupied = 0
+    if asic_type not in ['cisco-8000']:
+        return pkts_num_egr_mem, extra_bytes_occupied
+
+    pg_cntrs_base = sai_thrift_read_pg_occupancy(
+        test_case.src_client, port_list['src'][src_port_id])
+    max_cycles = 1000
+    for cycle_i in range(max_cycles):
+        send_packet(test_case, src_port_id, pkt, 1000)
+        pg_cntrs = sai_thrift_read_pg_occupancy(
+            test_case.src_client, port_list['src'][src_port_id])
+        if pg_cntrs[queue] > pg_cntrs_base[queue]:
+            print("get_pkts_num_egr_mem: Success, sent %d packets, "
+                  "SQ occupancy bytes rose from %d to %d" % (
+                      (cycle_i + 1) * 1000, pg_cntrs_base[queue],
+                      pg_cntrs[queue]), file=sys.stderr)
+            pkts_num_egr_mem = cycle_i * 1000
+            extra_bytes_occupied = pg_cntrs[queue] - pg_cntrs_base[queue]
+            print("overflow_egress:pkts_num_egr_mem:{}, extra_bytes_occupied:{}".format(
+                pkts_num_egr_mem, extra_bytes_occupied))
+            return pkts_num_egr_mem, extra_bytes_occupied
+    raise RuntimeError("Couldn't overflow the egress memory after 1000 iterations.")
 
 
 def get_peer_addresses(data):
@@ -2268,12 +2311,26 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)  # wait pfc counter refresh and show the counters
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
-                time.sleep(8)   # wait pfc counter refresh
-                self.show_port_counter(
-                    self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                    .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)  # wait pfc counter refresh and show the counters
+                for i in range(0, self.pgs_num):
+                    if self.pkts_num_trig_pfc:
+                        pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                    else:
+                        pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+
+                    pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -2309,7 +2366,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
-                time.sleep(8)   # wait pfc counter refresh
+
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(
                     self.asic_type, recv_counters_bases, xmit_counters_base,
                     'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
@@ -2355,17 +2414,27 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - \
-                    1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
+                    else self.pkts_num_hdrm_partial // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
                 # allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
+                                           'to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
-                self.show_port_counter(
-                    self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                    .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)
+                for i in range(0, self.pgs_num):
+                    pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
+                        else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
@@ -3854,6 +3923,8 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
             self.test_params['pkts_num_trig_ingr_drp'])
         iterations = int(self.test_params['iterations'])
         margin = int(self.test_params['pkts_num_margin'])
+        cell_size = int(self.test_params.get('cell_size', 0))
+        is_multi_asic = (self.src_client != self.dst_client)
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         dst_port_id = get_rx_port(
@@ -3885,14 +3956,21 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 pg_dropped_cntrs_base = sai_thrift_read_pg_drop_counters(
                     self.src_client, port_list['src'][src_port_id])
+                pkt_num = pkts_num_trig_pfc
+
+                # Fill egress memory and leakout
+                if 'cisco-8000' in asic_type and is_multi_asic:
+                    pkts_num_egr_mem, extra_bytes_occupied = overflow_egress(
+                        self, src_port_id, pkt, pg, asic_type)
+                    pkt_num -= extra_bytes_occupied // cell_size
 
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
-                if 'cisco-8000' in asic_type:
+                if 'cisco-8000' in asic_type and not is_multi_asic:
                     queue_counters = sai_thrift_read_queue_occupancy(
                         self.dst_client, "dst", dst_port_id)
                     occ_pkts = queue_counters[queue] // (packet_length + 24)
@@ -4393,6 +4471,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
                 pkts_num = 1
+                expected_wm = pkts_num_fill_min * cell_occupancy
             else:
                 pkts_num = (1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):

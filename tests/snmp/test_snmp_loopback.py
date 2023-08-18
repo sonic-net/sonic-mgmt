@@ -1,5 +1,4 @@
 import pytest
-import ipaddress
 from tests.common.helpers.snmp_helpers import get_snmp_facts, get_snmp_output
 from tests.common.devices.eos import EosHost
 
@@ -29,14 +28,8 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # Get first neighbor VM information
     nbr = nbrhosts[list(nbrhosts.keys())[0]]
 
-    # TODO: Fix snmp query over Management IPv6 adderess and add SNMP test over management IPv6 address.
-
     for ip in config_facts['LOOPBACK_INTERFACE']['Loopback0']:
         loip = ip.split('/')[0]
-        loip = ipaddress.ip_address(loip)
-        # TODO: Fix SNMP query over IPv6 and remove the below check.
-        if not isinstance(loip, ipaddress.IPv4Address):
-            continue
         result = get_snmp_output(loip, duthost, nbr, creds_all_duts)
         assert result is not None, 'No result from snmpget'
         assert len(result['stdout_lines']) > 0, 'No result from snmpget'
