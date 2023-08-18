@@ -1525,7 +1525,8 @@ class QosSaiBase(QosBase):
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"]
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
