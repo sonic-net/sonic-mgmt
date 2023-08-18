@@ -2,18 +2,18 @@ import pytest
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts                                                                      # noqa: F401
-from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi.qos_fixtures import lossy_prio_list, prio_dscp_map_dut_base,\
+from tests.common.snappi_tests.qos_fixtures import lossy_prio_list, prio_dscp_map_dut_base,\
     lossless_prio_list_dut_base                                                             # noqa: F401
-from tests.snappi.variables import config_set, line_card_choice
+from tests.snappi_tests.variables import config_set, line_card_choice
 from files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 import logging
 import random
-from tests.common.snappi.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('snappi')]
