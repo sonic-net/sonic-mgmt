@@ -247,5 +247,6 @@ class TestWrArp:
                 'config_file': VXLAN_CONFIG_FILE,
                 'how_long': testDuration,
             },
-            log_file='/tmp/wr_arp.ArpTest.log'
+            log_file='/tmp/wr_arp.ArpTest.log',
+            is_python3=True
         )
