@@ -1058,7 +1058,7 @@ class ReloadTest(BaseTest):
         # TODO: add timestamp
         self.log("Service has restarted")
 
-    def handle_warm_reboot_health_check(self):
+    def handle_advanced_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add(
             "Data plane has a forwarding problem after CPU went down")
@@ -1356,7 +1356,7 @@ class ReloadTest(BaseTest):
                 self.handle_advanced_reboot_health_check_kvm()
                 self.handle_post_reboot_health_check_kvm()
             else:
-                self.handle_warm_reboot_health_check()
+                self.handle_advanced_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
             if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
