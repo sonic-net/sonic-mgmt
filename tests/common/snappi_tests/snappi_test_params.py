@@ -24,12 +24,13 @@ class SnappiTestParams():
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
             duthost1 (obj): DUT 1 in case of multi-dut testbed environment
-            rx_port (dict): Contains the details of the rx port ex : {'peer_port': 'Ethernet8','prefix': u'24','asic_value':'asic0'}
+            rx_port (dict): Contains the details of the rx port
+                            ex : {'peer_port': 'Ethernet8','prefix': u'24','asic_value':'asic0'}
             rx_port_id (int): port_id of the rx port ex: 1
             duthost2 (obj): DUT 2 in case of multi-dut testbed environment
-            tx_port (dict): Contains the details of the tx port {'peer_port': 'Ethernet12','prefix': u'24','asic_value':'asic1'}
+            tx_port (dict): Contains the details of the tx port
+                            ex: {'peer_port': 'Ethernet12','prefix': u'24','asic_value':'asic1'}
             tx_port_id (int): port_id of the tx port ex: 2
-                
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
