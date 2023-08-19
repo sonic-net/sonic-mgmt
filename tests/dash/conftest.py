@@ -12,7 +12,7 @@ from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, a
 logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
-# ENABLE_GNMI_API = FalseE
+# ENABLE_GNMI_API = False
 
 
 def pytest_addoption(parser):
