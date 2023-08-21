@@ -17,7 +17,7 @@ dir=$(dirname $0)
 dir=$(cd $dir;pwd -P)
 scid=$(cd $dir/..;pwd -P)
 
-# sourde environment
+# source environment
 . $dir/env
 
 if [ -f $dir/.tools_env ]; then
