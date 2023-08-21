@@ -25,7 +25,7 @@ import utilities.common as utils
 import utilities.parallel as putils
 from utilities.profile import cprofile_start
 from utilities.profile import cprofile_stop
-from utilities.profile import dbg_cache
+from utilities.cache import dbg_cache
 # from utilities.tracer import Tracer
 
 
