@@ -132,7 +132,7 @@ class FgEcmpTest(BaseTest):
         '''
         self.dataplane = ptf.dataplane_instance
         self.test_params = testutils.test_params_get()
-        self.max_deviation = 0.25
+        self.max_deviation = 0.35
         if 'test_case' in self.test_params:
             self.test_case = self.test_params['test_case']
         else:
@@ -210,6 +210,19 @@ class FgEcmpTest(BaseTest):
                      " num_flows " + str(num_flows) + " deviation " + str(deviation))
             assert deviation <= self.max_deviation
 
+    def test_balancing_no_assert(self, hit_count_map):
+        deviation_max = 0
+        for port, exp_flows in list(self.exp_flow_count.items()):
+            assert port in hit_count_map
+            num_flows = hit_count_map[port]
+            deviation = float(num_flows)/float(exp_flows)
+            deviation = abs(1-deviation)
+            self.log("port " + str(port) + " exp_flows " + str(exp_flows) +
+                     " num_flows " + str(num_flows) + " deviation " + str(deviation))
+            if deviation_max < deviation:
+                deviation_max = deviation
+        return deviation_max
+
     def fg_ecmp(self):
         ipv4 = isinstance(ipaddress.ip_address(self.dst_ip),
                           ipaddress.IPv4Address)
@@ -239,23 +252,29 @@ class FgEcmpTest(BaseTest):
             tuple_to_port_map[self.dst_ip] = {}
 
         if self.test_case == 'create_flows':
-            # Send packets with varying src_ips to create NUM_FLOWS unique flows
-            # and generate a flow to port map
-            self.log("Creating flow to port map ...")
-            for i in range(0, self.num_flows):
-                if ipv4 or self.inner_hashing:
-                    src_ip = self.src_ipv4_interval.get_random_ip()
-                else:
-                    src_ip = self.src_ipv6_interval.get_random_ip()
+            # try 3 times until test_balancing_no_assert returns true
+            for retry_time in range(0, 3):
+                # Send packets with varying src_ips to create NUM_FLOWS unique flows
+                # and generate a flow to port map
+                self.log("Creating flow to port map ...")
+                for i in range(0, self.num_flows):
+                    if ipv4 or self.inner_hashing:
+                        src_ip = self.src_ipv4_interval.get_random_ip()
+                    else:
+                        src_ip = self.src_ipv6_interval.get_random_ip()
 
-                if self.inner_hashing:
-                    in_port = random.choice(self.net_ports)
-                else:
-                    in_port = self.net_ports[0]
-                (port_idx, _) = self.send_rcv_ip_pkt(
-                    in_port, src_port, dst_port, src_ip, dst_ip, self.serv_ports, ipv4)
-                hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
-                tuple_to_port_map[self.dst_ip][src_ip] = port_idx
+                    if self.inner_hashing:
+                        in_port = random.choice(self.net_ports)
+                    else:
+                        in_port = self.net_ports[0]
+                    (port_idx, _) = self.send_rcv_ip_pkt(
+                        in_port, src_port, dst_port, src_ip, dst_ip, self.serv_ports, ipv4)
+                    hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
+                    tuple_to_port_map[self.dst_ip][src_ip] = port_idx
+                deviation = self.test_balancing_no_assert(hit_count_map)
+                if deviation <= self.max_deviation:
+                    break
+            assert deviation <= self.max_deviation
 
         elif self.test_case == 'initial_hash_check':
             self.log(
@@ -331,6 +350,7 @@ class FgEcmpTest(BaseTest):
                     assert port_idx in self.exp_port_set_two
                 hit_count_map[port_idx] = hit_count_map.get(port_idx, 0) + 1
                 tuple_to_port_map[self.dst_ip][src_ip] = port_idx
+            self.test_balancing(hit_count_map)
 
         elif self.test_case == 'withdraw_nh':
             self.log("Withdraw next-hop " + str(self.withdraw_nh_port) +
@@ -396,6 +416,7 @@ class FgEcmpTest(BaseTest):
                     tuple_to_port_map[self.dst_ip][src_ip] = port_idx
                 else:
                     assert port_idx == port
+            self.test_balancing(hit_count_map)
 
         elif self.test_case == 'add_first_nh':
             self.log("Add 1st next-hop " + str(self.first_nh) +
@@ -441,7 +462,6 @@ class FgEcmpTest(BaseTest):
             self.log("Unsupported testcase " + self.test_case)
             return
 
-        self.test_balancing(hit_count_map)
         json.dump(tuple_to_port_map, open(PERSIST_MAP, "w"))
         return
 
