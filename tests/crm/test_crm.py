@@ -13,10 +13,10 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
-    EXPECT_CLEAR, THR_VERIFY_CMDS
+     EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -861,36 +861,40 @@ def recreate_acl_table(duthost, ports):
 
 
 def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                   collector, tbinfo, recover_acl_rule):
+                   collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
-
-    if duthost.facts["asic_type"] == "marvell":
-        # Remove DATA ACL Table and add it again with ports in same port group
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
-        for i in range(4):
-            if i == 0:
-                ports = ",".join(tmp_ports[17:19])
-            elif i == 1:
-                ports = ",".join(tmp_ports[24:26])
-            elif i == 2:
-                ports = ",".join([tmp_ports[20], tmp_ports[25]])
-            recreate_acl_table(duthost, ports)
+    try:
+        if duthost.facts["asic_type"] == "marvell":
+            # Remove DATA ACL Table and add it again with ports in same port group
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
+            for i in range(4):
+                if i == 0:
+                    ports = ",".join(tmp_ports[17:19])
+                elif i == 1:
+                    ports = ",".join(tmp_ports[24:26])
+                elif i == 2:
+                    ports = ",".join([tmp_ports[20], tmp_ports[25]])
+                recreate_acl_table(duthost, ports)
+                verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_frontend_asic_index, asic_collector, tbinfo)
+                # Rebind DATA ACL at end to recover original config
+                recreate_acl_table(duthost, ports)
+                apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                duthost.command("acl-loader delete")
+        else:
             verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
                                  enum_frontend_asic_index, asic_collector, tbinfo)
-            # Rebind DATA ACL at end to recover original config
-            recreate_acl_table(duthost, ports)
-            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-            duthost.command("acl-loader delete")
-    else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_frontend_asic_index, asic_collector, tbinfo)
 
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
 
 def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
