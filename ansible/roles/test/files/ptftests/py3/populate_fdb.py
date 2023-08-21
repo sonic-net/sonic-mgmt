@@ -86,7 +86,10 @@ class PopulateFdb(BaseTest):
             Returns:
                 mac (int): integer representation of MAC address
         """
-        return int(mac.translate(None, ":.- "), 16)
+        translation_table = str.maketrans('', '', ":.- ")
+        mac_without_delimiters = mac.translate(translation_table)
+        mac_as_int = int(mac_without_delimiters, 16)
+        return mac_as_int
 
     def __convertMacToStr(self, mac):
         """
@@ -112,7 +115,7 @@ class PopulateFdb(BaseTest):
                 vmIp (dict): Map containing vlan to VM IP address
         """
         vmIp = {}
-        for vlan, config in self.configData["vlan_interfaces"].items():
+        for vlan, config in list(self.configData["vlan_interfaces"].items()):
             prefixLen = self.configData["vlan_interfaces"][vlan]["prefixlen"]
             ipCount = 2**(32 - prefixLen) - 3
             numDistinctIp = self.packetCount * self.macToIpRatio[1] / self.macToIpRatio[0]
