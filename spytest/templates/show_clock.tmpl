@@ -4,11 +4,11 @@ Value MonthDay (\d+)
 Value Hours (\d+)
 Value Minutes (\d+)
 Value Seconds (\d+)
+Value Meridiem (\w+)
 Value Timezone (\S+)
 Value Year (\d+)
-Value Noon (\S+)
 
 Start
   ^${Day}\s+${Month}\s+${MonthDay}\s+${Hours}:${Minutes}:${Seconds}\s+${Timezone}\s+${Year}$$ -> Record
-  ^${Day}\s*${MonthDay}\s+${Month}\s*${Year}\s*${Hours}:${Minutes}:${Seconds}\s*${Noon}\s*${Timezone}$$ -> Record
   ^${Day},\s*${MonthDay}\s+${Month}\s*${Year}\s*${Hours}:${Minutes}:${Seconds}\s*${Timezone}$$ -> Record
+  ^${Day}\s+${MonthDay}\s+${Month}\s+${Year}\s+${Hours}:${Minutes}:${Seconds}\s+${Meridiem}\s+${Timezone}$$ -> Record
