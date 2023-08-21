@@ -129,6 +129,7 @@ if [ $is_v3 -ne 0 ]; then
   else
     $SPYTEST_PYTHON -m pip install --upgrade git+https://github.com/ramakristipatibrcm/pytest-xdist.git@spytest#egg=pytest-xdist
   fi
+  $SPYTEST_PYTHON -m pip --no-cache-dir install $INSTALL_OPTS pre-commit autopep8 flake8===6.0.0
 fi
 
 read -rs -n1 -t30 -p "Press any key or wait to continue ..."

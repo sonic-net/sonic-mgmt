@@ -460,7 +460,7 @@ def _verify_analyzer_filter_stats(tr_details, **kwargs):
             tx_ph = txObj.get_port_handle(txPort)
             i = 1
             j = str(i)
-            if type(stream) == str:
+            if isinstance(stream, str):
                 st.log('only one stream is configured, form a list')
                 stream = [stream]
                 fparam = [fparam]
