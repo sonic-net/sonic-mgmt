@@ -3,14 +3,21 @@ Value MacAddress (..:..:..:..:..:..)
 Value Iface (\S+)
 Value Vlan (\S+)
 Value count (\d+)
+Value type (\w+)
+Value sub_type (\w)
+Value action (\w+)
 
 
 Start
   ^\s*Address\s+Hardware\s+address\s+Interface\s+Egress\s+Interface\s*$$ -> ARP
+  ^\s*Address\s+Hardware\s+address\s+Interface\s+Egress\s+Interface\s+Type(\s+Action)?\s*$$ -> NEWARP
   ^\s*Total\s+Entries\s*$$ -> COUNT
 
 ARP
   ^\s*${Address}\s+${MacAddress}\s+${Iface}\s+${Vlan}\s*$$ -> Record
+
+NEWARP
+  ^\s*${Address}\s+${MacAddress}\s+${Iface}\s+(VxLAN DIP: )*${Vlan}\s+${type}(\(${sub_type}\))*(\s+${action})?\s*$$ -> Record
 
 COUNT
   ^\s*${count}\s*$$ -> Record

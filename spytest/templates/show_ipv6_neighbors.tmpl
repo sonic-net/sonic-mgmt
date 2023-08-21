@@ -3,14 +3,19 @@ Value MacAddress (..:..:..:..:..:..)
 Value Interface (\S+)
 Value Vlan (\S+)
 Value count (\d+)
-
+Value type (\S+)
+Value action (\w+)
 
 Start
   ^\s*Address\s+Hardware\s+address\s+Interface\s+Egress\s+Interface\s*$$ -> NDP
+  ^\s*Address\s+Hardware\s+address\s+Interface\s+Egress\s+Interface\s+Type(\s+Action)?\s*$$ -> NEWNDP
   ^\s*Total\s+Entries\s*$$ -> COUNT
 
 NDP
   ^\s*${Address}\s+${MacAddress}\s+${Interface}\s+${Vlan}\s*$$ -> Record
+
+NEWNDP
+  ^\s*${Address}\s+${MacAddress}\s+${Interface}\s+(VxLAN DIP: )*${Vlan}\s+${type}(\s+${action})?\s*$$ -> Record
 
 COUNT
   ^\s*${count}\s*$$ -> Record
