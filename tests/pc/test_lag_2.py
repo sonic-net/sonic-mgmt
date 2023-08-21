@@ -550,7 +550,7 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
             asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
         else:
             asic_index = DEFAULT_ASIC_ID
-        asichost = duthost.asic_instance(asic_index) 
+        asichost = duthost.asic_instance(asic_index)
         for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
             # 1 Remove port member from portchannel
             asichost.config_portchannel_member(lag_name, po_intf, "del")
