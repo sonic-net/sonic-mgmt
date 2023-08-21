@@ -356,9 +356,9 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
 
     if 't2' in topo:
-        for duthost in duthosts.frontend_nodes:
-            duthost.command("sudo config bgp shutdown all")
-            duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+        for dut_host in duthosts.frontend_nodes:
+            dut_host.command("sudo config bgp shutdown all")
+            dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp shutdown all")
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -369,9 +369,9 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
 
     # Enable BGP again
     if 't2' in topo:
-        for duthost in duthosts.frontend_nodes:
-            duthost.command("sudo config bgp startup all")
-            duthost.command("rm -rf {}".format(DUT_RUN_DIR))
+        for dut_host in duthosts.frontend_nodes:
+            dut_host.command("sudo config bgp startup all")
+            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
