@@ -907,6 +907,7 @@ def report_tc_fail(tc, msg, *args):
     """
 
     data_name = "report_tc_fail_data"
+    # nosemgrep-next-line
     data = globals().get(data_name, None)
     if data is None:
         from spytest import SpyTestDict
