@@ -189,6 +189,7 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
 def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""], match_no=0, find_data=""):
     gnmi_output = ptfhost.shell(cmd)['stdout']
     gnmi_str = str(gnmi_output)
+    gnmi_str = gnmi_str.replace('\\', '')
     if find_data != "":
         result = fetch_json_ptf_output(gnmi_str, match_no)
         assert find_data in result
