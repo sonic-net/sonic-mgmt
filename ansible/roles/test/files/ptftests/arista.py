@@ -6,6 +6,7 @@ import re
 import paramiko
 import pickle
 import ast
+import six
 
 from operator import itemgetter
 from collections import defaultdict
@@ -104,7 +105,7 @@ class Arista(host_device.HostDevice):
                 continue
 
             try:
-                input_buffer += self.shell.recv(16384)
+                input_buffer += six.ensure_str(self.shell.recv(16384))
             except Exception as err:
                 msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(
                     cmd, err, type(err))
