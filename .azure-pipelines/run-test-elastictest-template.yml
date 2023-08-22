@@ -13,11 +13,11 @@ parameters:
 
   - name: MIN_WORKER
     type: string
-    default: 1
+    default: ""
 
   - name: MAX_WORKER
     type: string
-    default: 1
+    default: ""
 
   - name: NUM_ASIC
     type: number
