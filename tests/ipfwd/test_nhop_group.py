@@ -531,7 +531,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
             nhop.program_routes()
             # wait for routes to be synced and programmed
-            time.sleep(5)
+            time.sleep(15)
 
             ptfadapter.dataplane.flush()
 
@@ -547,7 +547,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                 asic.stop_service("bgp")
                 time.sleep(15)
                 toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
-                time.sleep(5)
+                time.sleep(15)
 
                 built_and_send_tcp_ip_packet()
 
