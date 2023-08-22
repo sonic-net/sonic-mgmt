@@ -939,6 +939,7 @@ def delete_running_config(config_entry, duthost, is_json=True):
     duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
     duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
 
+
 def get_data_acl(duthost):
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
     pre_acl_rules = acl_facts.get("DATAACL", {}).get("rules", None)
