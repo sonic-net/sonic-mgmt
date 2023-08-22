@@ -87,8 +87,11 @@ def test_mac_move(
     tbinfo, tunnel_traffic_monitor, vmhost          # noqa F811
 ):
     tor = rand_selected_dut
-    ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
-    ptf_t1_intf_index = int(ptf_t1_intf.strip("eth"))
+    portchannels = None
+    portchannels = get_t1_active_ptf_ports(tor, tbinfo) # get the list of portchannels that are connected to active PTF ports
+    portchannel = portchannels[random.choice(portchannels.keys())] # randomly select a portchannel from the list
+    index_n = random.choice(list(range(len(portchannel)))) # randomly choose an active PTF port from the selected portchannel 
+    ptf_t1_intf_index = portchannel[index_n] # get the PTF port number
 
     # new neighbor learnt on an active port
     test_port = next(announce_new_neighbor)
