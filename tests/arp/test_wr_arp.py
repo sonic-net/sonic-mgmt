@@ -248,7 +248,8 @@ class TestWrArp:
                 'how_long': testDuration,
                 'advance': False,
             },
-            log_file='/tmp/wr_arp.ArpTest.log'
+            log_file='/tmp/wr_arp.ArpTest.log',
+            is_python3=True
         )
 
     def testWrArpAdvance(self, request, duthost, ptfhost, creds):
@@ -276,5 +277,6 @@ class TestWrArp:
                 'how_long': testDuration,
                 'advance': True,
             },
-            log_file='/tmp/wr_arp.ArpTest.Advance.log'
+            log_file='/tmp/wr_arp.ArpTest.Advance.log',
+            is_python3=True
         )

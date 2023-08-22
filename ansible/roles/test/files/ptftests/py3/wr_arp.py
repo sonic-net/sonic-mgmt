@@ -293,7 +293,7 @@ class ArpTest(BaseTest):
         return
 
     def runTest(self):
-        print
+        print()
         thr = threading.Thread(target=self.dut_thr, kwargs={
                                'q_from': self.q_to_dut, 'q_to': self.q_from_dut})
         thr.setDaemon(True)
@@ -379,7 +379,7 @@ class ArpTest(BaseTest):
         for port in m_pauses.keys():
             self.log("Port eth%d. Max pause in arp_response %d sec" %
                      (port, int(m_pauses[port])))
-        print
+        print()
         sys.stdout.flush()
         self.assertTrue(len(m_pauses) == 0, "Too long pauses in arp responses")
 
