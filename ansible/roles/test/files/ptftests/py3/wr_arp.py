@@ -243,11 +243,11 @@ class ArpTest(BaseTest):
 
         self.tests = []
         vni_base = 0
-        for vlan, config in list(graph['vlan_facts'].items()):
+        for vlan, config in graph['vlan_facts'].items():
             test = {}
             test['acc_ports'] = []
             test['tagging_mode'] = {}
-            for member, mode in list(config['members'].items()):
+            for member, mode in config['members'].items():
                 ptf_port_idx = graph['minigraph_port_indices'][member]
                 test['acc_ports'].append(ptf_port_idx)
                 test['tagging_mode'].update(
@@ -361,7 +361,7 @@ class ArpTest(BaseTest):
 
         # check that every port didn't have pauses more than 25 seconds
         pauses = defaultdict(list)
-        for port, data in list(self.records.items()):
+        for port, data in self.records.items():
             was_active = True
             last_inactive = None
             for t in sorted(data.keys()):
@@ -375,8 +375,8 @@ class ArpTest(BaseTest):
                 pauses[port].append(sorted(data.keys())[-1] - last_inactive)
 
         m_pauses = {port: max(pauses[port])
-                    for port in list(pauses.keys()) if max(pauses[port]) > 25}
-        for port in list(m_pauses.keys()):
+                    for port in pauses.keys() if max(pauses[port]) > 25}
+        for port in m_pauses.keys():
             self.log("Port eth%d. Max pause in arp_response %d sec" %
                      (port, int(m_pauses[port])))
         print()
