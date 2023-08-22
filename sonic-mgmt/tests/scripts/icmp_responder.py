@@ -68,6 +68,7 @@ class ICMPResponderProtocol(asyncio.Protocol):
         if not self.on_con_lost.cancelled():
             self.on_con_lost.set_result(True)
 
+    @functools.lru_cache(maxsize=None)
     def icmp_reply(self, icmp_request):
         reply = Ether(icmp_request)
         reply[ICMP].type = 0

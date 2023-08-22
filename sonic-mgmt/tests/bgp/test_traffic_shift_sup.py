@@ -133,3 +133,10 @@ class TestTrafficShiftOnSup:
             self.run_cmd_on_sup("sudo TSB")
             # Verify DUT is in normal state.
             self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")
+
+            # Save config and perform config reload on all LCs
+            self.run_cmd_on_sup("rexec all -c 'sudo config save -y'")
+            self.config_reload_all_lcs()
+
+            # Verify DUT is in normal state.
+            self.verify_traffic_shift_state_all_lcs(TS_NORMAL, "normal")

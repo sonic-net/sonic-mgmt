@@ -9,7 +9,6 @@ pytestmark = [
 ]
 
 
-@pytest.mark.bsl
 def test_snmp_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                             localhost, creds_all_duts, tbinfo):
     """compare the snmp facts between observed states and target state"""
