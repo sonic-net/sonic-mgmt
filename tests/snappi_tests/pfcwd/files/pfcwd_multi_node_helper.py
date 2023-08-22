@@ -131,7 +131,7 @@ def run_pfcwd_multi_node_test(api,
 
     """ Retrieve ASIC information for DUT """
     asic_type = duthost.facts['asic_type']
-    rx_tx_tol_thrhlds = [0.01, 0.02]  # Maintain a 1% and 2% deviation between tx and rx frames
+    rx_tx_tol_thrhlds = [0.0001, 0.0002]  # Maintain a 1% and 2% deviation between tx and rx frames
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
