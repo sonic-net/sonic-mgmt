@@ -15,14 +15,15 @@ Value Chassis_Capability_Wlan (\S+)
 Value Chassis_Capability_Station (\S+)
 Value PortID_type (\S+)
 Value PortID_value (.*)
-Value PortDescr (\S+)
+Value PortDescr ([\S+\s*]+)
+Value PortVlanID (.*)
 
 
 Start
   ^(-+\s*)*$$
   ^\s*LLDP\s*.eighbors:? -> LLDP_details
-  
-LLDP_details  
+
+LLDP_details
   ^(-+\s*)*$$ -> Record
   ^\s*Interface:\s*${Interface},\s*via:\s*${Via},\s*RID:\s*${RID},\s*Time:\s*${Time}\s*$$
   ^\s*Chassis:\s*$$
@@ -38,7 +39,7 @@ LLDP_details
   ^\s*Capability:\s*Station,\s*${Chassis_Capability_Station}\s*$$
   ^\s*Port:\s*$$
   ^\s*PortID:\s*${PortID_type}\s*${PortID_value}\s*$$
-  ^\s*PortDescr:\s*${PortDescr}\s*$$  
-  ^(-+\s*)*$$ 
+  ^\s*PortDescr:\s*${PortDescr}\s*$$
+  ^\s*PortVlanID:\s*${PortVlanID}\s*$$
+  ^(-+\s*)*$$
   ^$$
-

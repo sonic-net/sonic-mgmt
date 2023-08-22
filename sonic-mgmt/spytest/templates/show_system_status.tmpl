@@ -1,18 +1,15 @@
 Value status (ready|not ready)
-Value swss (\S+)
-Value bgp (\S+)
-Value teamd (\S+)
-Value pmon (\S+)
-Value syncd (\S+)
-Value database (\S+)
+Value ServName (\S+)
+Value ServStatus (OK|Down|Starting)
+Value State (OK|Down|Starting)
+Value Reason (\S+)
 
 Start
-  ^System is $status
-  ^System is $status - Core services are not up -> Record
-  ^\s+swss\s+: $swss
-  ^\s+bgp\s+: $bgp
-  ^\s+teamd\s+: $teamd
-  ^\s+pmon\s+: $pmon
-  ^\s+syncd\s+: $syncd
-  ^\s+database\s+: $database
+  ^System is $status with core services
+  ^System is $status - core services are not up -> Record
+  ^System is $status$$ -> Record
+  ^\s*Service-Name\s+Service-Status\s+App-Ready-Status\s+Down-Reason\s*$$ -> Status_table
+  ^.*
 
+Status_table
+  ^\s*${ServName}\s+${ServStatus}\s+${State}\s+${Reason}\s*$$ -> Record

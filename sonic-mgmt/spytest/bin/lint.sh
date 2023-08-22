@@ -122,20 +122,21 @@ IGNORE3="$IGNORE3 --disable=R1729" #use-a-generator
 
 IGNORE3="$IGNORE3 --disable=C3001" #unnecessary-lambda-assignment
 
-exclude="apis/gnmi/openconfig apis/gnmi unused/"
-exclude="$exclude apis/yang/autogen/bindings"
-exclude="$exclude apis/yang/codegen/bindings"
-exclude="$exclude apis/yang/codegen/test.py"
-exclude="$exclude apis/yang/codegen/gnoi_bindings"
-exclude="$exclude spytest/ddm/third-party"
-exclude="$exclude tests/dell/infra/bgpcfgd_test.py"
+EXCLUDE="$EXCLUDE apis/gnmi/openconfig"
+EXCLUDE="$EXCLUDE apis/gnmi unused/"
+EXCLUDE="$EXCLUDE apis/yang/autogen/bindings"
+EXCLUDE="$EXCLUDE apis/yang/codegen/bindings"
+EXCLUDE="$EXCLUDE apis/yang/codegen/test.py"
+EXCLUDE="$EXCLUDE apis/yang/codegen/gnoi_bindings"
+EXCLUDE="$EXCLUDE spytest/ddm/third-party"
+EXCLUDE="$EXCLUDE tests/dell/infra/bgpcfgd_test.py"
 
 if [ "$LINT_EXCLUDE_KNOWN_FAILS" == "1" ]; then
-  exclude="$exclude apis/yang/codegen"
-  exclude="$exclude tests/dell"
-  exclude="$exclude tests/ut/acl_fbs"
-  exclude="$exclude tests/infra_ut/data_driven"
-  exclude="$exclude tests/systb"
+  EXCLUDE="$EXCLUDE apis/yang/codegen"
+  EXCLUDE="$EXCLUDE tests/dell"
+  EXCLUDE="$EXCLUDE tests/ut/acl_fbs"
+  EXCLUDE="$EXCLUDE tests/infra_ut/data_driven"
+  EXCLUDE="$EXCLUDE tests/systb"
 fi
 
 LINT_PYVER=${LINT_PYVER:=3}
@@ -150,8 +151,8 @@ if [ "$LINT_MODIFIED" == "1" ]; then
   DBG_FILE=modified_lint_debug.log
   ERR_FILE=modified_lint_errors.log
   REP_FILE=modified_lint_report.log
-  #exclude=""
-  exclude="$exclude __init__.py"
+  #EXCLUDE=""
+  EXCLUDE="$EXCLUDE __init__.py"
 fi
 
 #IGNORE1="$IGNORE1 --disable=W0612" #unused-variable
@@ -173,7 +174,7 @@ RUFF_OPTS="$RUFF_OPTS --ignore E501" #line-too-long
 RUFF_OPTS="$RUFF_OPTS --ignore E701" #multiple-statements
 RUFF_OPTS="$RUFF_OPTS --ignore E702" #multiple-statements-on-one-line-semicolon
 RUFF_OPTS="$RUFF_OPTS --ignore E703" #useless-semicolon
-RUFF_OPTS="$RUFF_OPTS --ignore E713" #not-in-test
+#RUFF_OPTS="$RUFF_OPTS --ignore E713" #not-in-test
 RUFF_OPTS="$RUFF_OPTS --ignore E722" #bare-except
 RUFF_OPTS="$RUFF_OPTS --ignore E731" #lambda-assignment
 RUFF_OPTS="$RUFF_OPTS --ignore E741" #ambiguous-variable-name
@@ -186,6 +187,7 @@ RUFF_OPTS="$RUFF_OPTS --ignore W293" #Blank line contains whitespace
 RUFF_OPTS="$RUFF_OPTS --ignore PLW2901"
 RUFF_OPTS="$RUFF_OPTS --ignore PLW0603"
 RUFF_OPTS="$RUFF_OPTS --ignore PLC1901"
+RUFF_OPTS="$RUFF_OPTS --ignore PLE1300" #PLE1300 Unsupported format character '}'
 
 LINT_TOOL="${LINT_TOOL:-ruff}"
 if [ "$LINT_TOOL" = "pylint" ]; then
@@ -216,13 +218,13 @@ if [ "$LINT_TOOL" != "pyflakes" ]; then
 fi
 
 if [ $# -eq 0 ]; then
-  files1=$(find $ddir/spytest/ -name "*.py")
+  files1=$(find $ddir/spytest/ -name "*.py" | xargs)
   if [ -d $ddir/scheduler ]; then
-    files2=$(find $ddir/scheduler/ -name "*.py")
+    files2=$(find $ddir/scheduler/ -name "*.py" | xargs)
   fi
-  files3=$(find $ddir/apis/ -name "*.py")
-  files4=$(find $ddir/utilities/ -name "*.py")
-  files5=$(find $ddir/tests/ -name "*.py")
+  files3=$(find $ddir/apis/ -name "*.py" | xargs)
+  files4=$(find $ddir/utilities/ -name "*.py" | xargs)
+  files5=$(find $ddir/tests/ -name "*.py" | xargs)
   files="$files1 $files2 $files3 $files4 $files5"
 else
   files=""
@@ -230,23 +232,26 @@ else
     if [ -f $arg ]; then
       files="$files $arg"
     elif [ -d $arg ]; then
-      files="$files $(find $arg -name '*.py')"
+      files="$files $(find $arg -name '*.py' | xargs)"
     fi
   done
 fi
 
-cmd="grep -q"
-for ex in $exclude; do
-  cmd="$cmd -e $ex"
-done
-files2=""
-for f in $files;do
-  if [ -z "$exclude" ]; then
-    files2="$files2 $f"
-  elif ! $cmd <<< $f; then
-    files2="$files2 $f"
-  fi
-done
+function exclude_files() {
+python - <<END
+retval = []
+for f in "$1".split():
+    skip = False
+    for e in "$2".split():
+        if e in f:
+            skip = True
+            break
+    if not skip:
+        retval.append(f)
+print(" ".join(retval))
+END
+}
+files2=$(exclude_files "$files" "$EXCLUDE")
 
 rm -f $DBG_FILE $ERR_FILE $REP_FILE $ERR_TEMP $REP_FILE.err
 line="\--------------------------------------------------------------------"
