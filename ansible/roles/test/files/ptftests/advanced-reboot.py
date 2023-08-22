@@ -1058,41 +1058,13 @@ class ReloadTest(BaseTest):
         # TODO: add timestamp
         self.log("Service has restarted")
 
-    def handle_fast_reboot_health_check(self):
+    def handle_advanced_reboot_health_check(self):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add(
             "Data plane has a forwarding problem after CPU went down")
         self.check_alive()
         self.fails['dut'].clear()
 
-        self.sniff_thr.join()
-        self.sender_thr.join()
-
-        # Stop watching DUT
-        self.watching = False
-        self.log("Stopping reachability state watch thread.")
-        # Wait for the Watcher stopped.
-        self.watcher_is_stopped.wait(timeout=10)
-
-        examine_start = datetime.datetime.now()
-        self.log("Packet flow examine started %s after the reboot" %
-                 str(examine_start - self.reboot_start))
-        self.examine_flow()
-        self.log("Packet flow examine finished after %s" %
-                 str(datetime.datetime.now() - examine_start))
-
-        if self.lost_packets:
-            self.no_routing_stop, self.no_routing_start = datetime.datetime.fromtimestamp(
-                self.no_routing_stop), datetime.datetime.fromtimestamp(self.no_routing_start)
-            self.log("Dataplane disruption lasted %.3f seconds. %d packet(s) lost." % (
-                self.max_disrupt_time, self.max_lost_id))
-            self.log("Total disruptions count is %d. All disruptions lasted %.3f seconds. Total %d packet(s) lost" %
-                     (self.disrupts_count, self.total_disrupt_time, self.total_disrupt_packets))
-        else:
-            self.no_routing_start = self.reboot_start
-            self.no_routing_stop = self.reboot_start
-
-    def handle_warm_reboot_health_check(self):
         # wait until sniffer and sender threads have started
         while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
             time.sleep(1)
@@ -1371,7 +1343,7 @@ class ReloadTest(BaseTest):
             else:
                 self.wait_until_service_restart()
 
-            if 'warm-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + \
                     self.test_params['reboot_limit_in_seconds']
                 thr = threading.Thread(target=self.check_warmboot_finalizer,
@@ -1384,18 +1356,10 @@ class ReloadTest(BaseTest):
                 self.handle_advanced_reboot_health_check_kvm()
                 self.handle_post_reboot_health_check_kvm()
             else:
-                if self.reboot_type == 'fast-reboot':
-                    thr = threading.Thread(
-                        target=self.wait_until_control_plane_up)
-                    thr.setDaemon(True)
-                    thr.start()
-                    self.handle_fast_reboot_health_check()
-                    thr.join()
-                if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
-                    self.handle_warm_reboot_health_check()
+                self.handle_advanced_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
-            if 'warm-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
                 total_timeout = finalizer_timeout + \
                     self.test_params['warm_up_timeout_secs']
                 start_time = datetime.datetime.now()
