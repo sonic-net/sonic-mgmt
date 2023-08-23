@@ -16,6 +16,7 @@ from collections import OrderedDict
 from tests.common.fixtures.duthost_utils import disable_route_checker
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
 from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -851,62 +852,65 @@ def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         duthost.command("acl-loader update full {}".format(dut_conf_file_path))
 
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, recover_acl_rule):
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
+    try:
+        apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+        acl_tbl_key = asic_collector["acl_tbl_key"]
+        get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
+                                crm_stats_acl_entry_used \
+                                crm_stats_acl_entry_available"\
+                                    .format(db_cli=asichost.sonic_db_cli,
+                                            acl_tbl_key=acl_tbl_key)
 
-    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-    acl_tbl_key = asic_collector["acl_tbl_key"]
-    get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
-                            crm_stats_acl_entry_used \
-                            crm_stats_acl_entry_available"\
-                                .format(db_cli=asichost.sonic_db_cli,
-                                        acl_tbl_key=acl_tbl_key)
+        base_dir = os.path.dirname(os.path.realpath(__file__))
+        template_dir = os.path.join(base_dir, "templates")
+        acl_rules_template = "acl.json"
+        dut_tmp_dir = "/tmp"
 
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    template_dir = os.path.join(base_dir, "templates")
-    acl_rules_template = "acl.json"
-    dut_tmp_dir = "/tmp"
+        RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
 
-    RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
+        crm_stats_acl_entry_used = 0
+        crm_stats_acl_entry_available = 0
 
-    crm_stats_acl_entry_used = 0
-    crm_stats_acl_entry_available = 0
+        # Get new "crm_stats_acl_entry" used and available counter value
+        new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
 
-    # Get new "crm_stats_acl_entry" used and available counter value
-    new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
+        # Verify "crm_stats_acl_entry_used" counter was incremented
+        pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2, \
+            "\"crm_stats_acl_entry_used\" counter was not incremented")
 
-    # Verify "crm_stats_acl_entry_used" counter was incremented
-    pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2, \
-        "\"crm_stats_acl_entry_used\" counter was not incremented")
+        crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
 
-    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
+        used_percent = get_used_percent(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
+        if used_percent < 1:
+            # Preconfiguration needed for used percentage verification
+            nexthop_group_num = get_entries_num(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
 
-    used_percent = get_used_percent(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
-    if used_percent < 1:
-        # Preconfiguration needed for used percentage verification
-        nexthop_group_num = get_entries_num(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
+            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, nexthop_group_num)
 
-        apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, nexthop_group_num)
+            logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
+            # Make sure SONIC configure expected entries
+            time.sleep(SONIC_RES_UPDATE_TIME)
 
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Verify thresholds for "ACL entry" CRM resource
+        verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
 
-    # Verify thresholds for "ACL entry" CRM resource
-    verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
+        # Remove ACL
+        duthost.command("acl-loader delete")
 
-    # Remove ACL
-    duthost.command("acl-loader delete")
-
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
-                                   crm_stats_acl_entry_used,
-                                   crm_stats_acl_entry_available)
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
-
+        crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
+                                       crm_stats_acl_entry_used,
+                                       crm_stats_acl_entry_available)
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
