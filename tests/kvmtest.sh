@@ -173,7 +173,8 @@ test_t0() {
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py \
-      radv/test_radv_ipv6_ra.py"
+      radv/test_radv_ipv6_ra.py \
+      database/test_db_scripts.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname
@@ -199,11 +200,11 @@ test_t0() {
 }
 
 test_t0_sonic() {
-    # Run tests_1vlan on vlab-01 virtual switch
     # TODO: Use a marker to select these tests rather than providing a hard-coded list here.
     tgname=t0-sonic
     tests="\
       bgp/test_bgp_fact.py \
+      pc/test_retry_count.py \
       macsec"
 
     pushd $SONIC_MGMT_DIR/tests
@@ -243,7 +244,6 @@ test_t1_lag() {
     ipfwd/test_mtu.py \
     lldp/test_lldp.py \
     monit/test_monit_status.py \
-    override_config_table/test_override_config_table.py \
     pc/test_lag_2.py \
     platform_tests/test_cpu_memory_usage.py \
     process_monitoring/test_critical_process_monitoring.py \
