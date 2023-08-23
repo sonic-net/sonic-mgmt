@@ -24,6 +24,11 @@ parameters:
     default: ""
     displayName: "Upgrade image parameter"
 
+  - name: DEPLOY_MG_EXTRA_PARAMS
+    type: string
+    default: ""
+    displayName: "Deploy minigraph parameter"
+
   - name: COMMON_EXTRA_PARAMS
     type: string
     default: ""
@@ -81,6 +86,7 @@ steps:
       MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+      DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
       REPO_NAME: "sonic-mgmt-int"
       STOP_ON_FAILURE: "False"
       TEST_PLAN_TYPE: "NIGHTLY"
