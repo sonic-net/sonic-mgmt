@@ -88,7 +88,7 @@ def get_sup_node_or_random_node(duthosts):
             return dut
     # if not chassis, it's dualtor or single-dut, return random node or itself
     if len(duthosts) > 1:
-        duthosts = random.sample(duthosts, 1)
+        duthosts = random.sample(list(duthosts), 1)
     logger.info("Randomly select dut {} for testing".format(duthosts[0]))
     return duthosts[0]
 
