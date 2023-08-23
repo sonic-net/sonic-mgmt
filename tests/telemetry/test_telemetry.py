@@ -8,8 +8,7 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, fetch_json_ptf_output, check_gnmi_cli_running
-from telemetry_utils import parse_gnmi_output
+from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 
 pytestmark = [
     pytest.mark.topology('any')
