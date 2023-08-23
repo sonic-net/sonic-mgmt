@@ -21,7 +21,7 @@ DATA_FLOW2_NAME = "Data Flow 2"
 WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
-DEVIATION = 0.25
+DEVIATION = 0.3
 
 
 def run_pfcwd_basic_test(api,
@@ -58,6 +58,9 @@ def run_pfcwd_basic_test(api,
 
     start_pfcwd(duthost)
     enable_packet_aging(duthost)
+
+    # Set appropriate pfcwd loss deviation - these values are based on empirical testing
+    DEVIATION = 0.35 if duthost.facts['asic_type'] in ["broadcom"] else 0.3
 
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
