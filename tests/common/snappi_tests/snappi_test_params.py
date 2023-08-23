@@ -31,6 +31,12 @@ class SnappiTestParams():
             tx_port (dict): Contains the details of the tx port
                             ex: {'peer_port': 'Ethernet12','prefix': u'24','asic_value':'asic1'}
             tx_port_id (int): port_id of the tx port ex: 2
+            kmin (int): RED/ECN minimum threshold in bytes
+            kmax (int): RED/ECN maximum threshold in bytes
+            pmax (int): RED/ECN maximum marking probability in percentage
+            pkt_size (int): data packet size in bytes
+            pkt_cnt (int): data packet count
+            iters (int) : No of iterations in the test
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -47,3 +53,9 @@ class SnappiTestParams():
         self.duthost2 = None
         self.tx_port = None
         self.tx_port_id = None
+        self.kmin = 0
+        self.kmax = 0
+        self.pmax = 0
+        self.pkt_size = 0
+        self.pkt_cnt = 0
+        self.iters = 1

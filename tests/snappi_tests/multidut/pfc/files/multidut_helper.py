@@ -61,6 +61,10 @@ def run_pfc_test(api,
     Returns:
         N/A
     """
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
     duthost1 = snappi_extra_params.duthost1
     rx_port = snappi_extra_params.rx_port
     rx_port_id = snappi_extra_params.rx_port_id
