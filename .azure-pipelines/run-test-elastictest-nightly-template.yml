@@ -68,7 +68,7 @@ parameters:
 
 
 steps:
-  - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+  - template: ./run-test-elastictest-template.yml@sonic-mgmt
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       SCRIPTS: ${{ parameters.SCRIPTS }}
