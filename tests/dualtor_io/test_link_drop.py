@@ -1,7 +1,5 @@
 import logging
-import json
 import pytest
-import tabulate
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
@@ -204,7 +202,7 @@ def test_active_link_drop_downstream_standby(
 
 def test_standby_link_drop_upstream(
     upper_tor_host, lower_tor_host, send_server_to_t1_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all
+    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
 ):
     """
     Send traffic from servers to T1 and remove the flow between the servers and the standby ToR.
@@ -227,7 +225,7 @@ def test_standby_link_drop_upstream(
 
 def test_standby_link_drop_downstream_active(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all
+    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the active Tor and remove the flow between the
@@ -251,7 +249,7 @@ def test_standby_link_drop_downstream_active(
 
 def test_standby_link_drop_downstream_standby(
     upper_tor_host, lower_tor_host, send_t1_to_server_with_action,      # noqa F811
-    check_simulator_flap_counter, drop_flow_lower_tor_all
+    check_simulator_flap_counter, drop_flow_lower_tor_all               # noqa F811
 ):
     """
     Send traffic from the T1s to the servers via the standby Tor and remove the flow between the

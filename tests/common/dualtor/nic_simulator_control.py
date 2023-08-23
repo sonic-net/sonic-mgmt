@@ -418,13 +418,15 @@ def simulator_server_down_active_active(active_active_ports, set_drop_active_act
 
 
 @pytest.fixture
-def nic_simulator_flap_counter(mux_config, nic_simulator_client):
+def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
     """Return a helper function to retrieve flap counter for active-active ports."""
 
     def _call_query_flap_counter_nic_simulator(nic_addresses):
         request = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterRequest(
             nic_addresses=list(nic_addresses),
-            flap_counter_requests=[nic_simulator_grpc_service_pb2.FlapCounterRequest(portid=[0, 1]) for _ in nic_addresses]
+            flap_counter_requests=[
+                nic_simulator_grpc_service_pb2.FlapCounterRequest(portid=[0, 1]) for _ in nic_addresses
+            ]
         )
         client_stub = nic_simulator_client()
         response = call_grpc(client_stub.QueryFlapCounter, args=(request,))

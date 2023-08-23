@@ -1576,7 +1576,7 @@ def config_active_active_dualtor_active_standby(
 
 @pytest.fixture(autouse=True)
 def check_simulator_flap_counter(
-    nic_simulator_flap_counter, simulator_flap_counter, active_active_ports, active_standby_ports, cable_type
+    nic_simulator_flap_counter, simulator_flap_counter, active_active_ports, active_standby_ports, cable_type   # noqa F811
 ):
     """Check the flap count for mux ports."""
 
