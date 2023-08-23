@@ -2,13 +2,16 @@ import time
 import dpkt
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts                     # noqa: F401
-from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, snappi_api        # noqa: F401
-from tests.common.snappi.snappi_helpers import get_dut_port_id
-from tests.common.snappi.common_helpers import pfc_class_enable_vector, config_wred, \
-    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging                      # noqa: F401
-from tests.common.snappi.port import select_ports, select_tx_port                                           # noqa: F401
-from tests.common.snappi.snappi_helpers import wait_for_arp
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+     snappi_api                                                                                     # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
+    enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
+    config_capture_pkt, packet_capture                                                              # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port                             # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +27,10 @@ def run_ecn_test(api,
                  port_config_list,
                  conn_data,
                  fanout_data,
-                 duthost1,
-                 rx_port,
-                 rx_port_id,
-                 duthost2,
-                 tx_port,
-                 tx_port_id,
                  dut_port,
-                 kmin,
-                 kmax,
-                 pmax,
-                 pkt_size,
-                 pkt_cnt,
                  lossless_prio,
                  prio_dscp_map,
-                 iters):
+                 snappi_extra_params=None):
     """
     Run a ECN test
 
@@ -48,25 +40,36 @@ def run_ecn_test(api,
         port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        duthost (Ansible host instance): device under test
         dut_port (str): DUT port to test
-        kmin (int): RED/ECN minimum threshold in bytes
-        kmax (int): RED/ECN maximum threshold in bytes
-        pmax (int): RED/ECN maximum marking probability in percentage
-        pkt_size (int): data packet size in bytes
-        pkt_cnt (int): data packet count
         lossless_prio (int): lossless priority
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
-        iters (int): # of iterations in the test
 
     Returns:
         Return captured IP packets (list of list)
     """
 
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    duthost1 = snappi_extra_params.duthost1
+    rx_port = snappi_extra_params.rx_port
+    duthost2 = snappi_extra_params.duthost2
+    tx_port = snappi_extra_params.tx_port
+    rx_port_id = snappi_extra_params.rx_port_id
+    tx_port_id = snappi_extra_params.tx_port_id
+    kmin = snappi_extra_params.kmin
+    kmax = snappi_extra_params.kmax
+    pmax = snappi_extra_params.pmax
+    pkt_size = snappi_extra_params.pkt_size
+    pkt_cnt = snappi_extra_params.pkt_cnt
+    iters = snappi_extra_params.iters
+
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
     stop_pfcwd(duthost1, rx_port['asic_value'])
     disable_packet_aging(duthost1)
+    stop_pfcwd(duthost2, tx_port['asic_value'])
+    disable_packet_aging(duthost2)
 
     """ Configure WRED/ECN thresholds """
     config_result = config_wred(host_ans=duthost1,
@@ -95,7 +98,11 @@ def run_ecn_test(api,
                   'Failed to get ID for port {}'.format(dut_port))
 
     """ Generate packet capture config """
-    __config_capture_ip_pkt(testbed_config=testbed_config, port_id=port_id)
+    snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
+    config_capture_pkt(testbed_config=testbed_config,
+                       port_id=port_id,
+                       capture_type=snappi_extra_params.packet_capture_type,
+                       capture_name=snappi_extra_params.packet_capture_type.value + "_" + str(port_id))
 
     """ Generate traffic config """
     __gen_traffic(testbed_config=testbed_config,
@@ -247,31 +254,6 @@ def __gen_traffic(testbed_config,
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
-
-
-def __config_capture_ip_pkt(testbed_config, port_id):
-    """
-    Generate the configuration to capture IP packets
-
-    Args:
-        testbed_config (obj): L2/L3 config of a T0 testbed
-        port_id (int): ID of DUT port to capture packets
-
-    Returns:
-        N/A
-    """
-
-    cap = testbed_config.captures.capture(name='rx_capture')[-1]
-    cap.port_names = [testbed_config.ports[port_id].name]
-    cap.format = cap.PCAP
-
-    """ We only capture IP packets,
-        the custom filter setting is to capture IP packets only """
-
-    ip_filter = cap.filters.custom()[-1]
-    ip_filter.value = '40'
-    ip_filter.offset = 14
-    ip_filter.mask = '0f'
 
 
 def __run_traffic(api,
