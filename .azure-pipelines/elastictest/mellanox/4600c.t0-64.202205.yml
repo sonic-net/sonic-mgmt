@@ -94,7 +94,7 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: .azure-pipelines/run-test-elastictest-nightly-template.yml@sonic-mgmt
+    - template: ../../run-test-nightly-elastictest-template.yml
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         SCRIPTS: ${{ parameters.SCRIPTS }}
