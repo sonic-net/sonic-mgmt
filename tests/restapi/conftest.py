@@ -11,6 +11,7 @@ from helper import apply_cert_config
 
 RESTAPI_CONTAINER_NAME = 'restapi'
 
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
     '''
@@ -20,7 +21,7 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
 
     # Check if RESTAPI is enabled on the device
     pyrequire(check_container_state(duthost, RESTAPI_CONTAINER_NAME, should_be_running=True),
-                "Test was not supported on devices which do not support RESTAPI!")
+              "Test was not supported on devices which do not support RESTAPI!")
 
     # Create Root key
     local_command = "openssl genrsa -out restapiCA.key 2048"
@@ -88,8 +89,10 @@ def setup_restapi_server(duthosts, rand_one_dut_hostname, localhost):
 
     # Copy CA certificate and server certificate over to the DUT
     duthost.copy(src='restapiCA.pem', dest='/etc/sonic/credentials/')
-    duthost.copy(src='restapiserver.crt', dest='/etc/sonic/credentials/testrestapiserver.crt')
-    duthost.copy(src='restapiserver.key', dest='/etc/sonic/credentials/testrestapiserver.key')
+    duthost.copy(src='restapiserver.crt',
+                 dest='/etc/sonic/credentials/testrestapiserver.crt')
+    duthost.copy(src='restapiserver.key',
+                 dest='/etc/sonic/credentials/testrestapiserver.key')
 
     apply_cert_config(duthost)
     urllib3.disable_warnings()
@@ -127,7 +130,8 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
     VLAN_INDEX = 0
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if mg_facts["minigraph_vlans"] != {}:
-        vlan_interfaces = list(mg_facts["minigraph_vlans"].values())[VLAN_INDEX]["members"]
+        vlan_interfaces = list(mg_facts["minigraph_vlans"].values())[
+            VLAN_INDEX]["members"]
         if vlan_interfaces is not None:
             return vlan_interfaces
     return []

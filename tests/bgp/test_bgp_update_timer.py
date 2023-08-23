@@ -10,14 +10,17 @@ import six
 from scapy.all import sniff, IP
 from scapy.contrib import bgp
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F811
-from tests.common.dualtor.mux_simulator_control import (
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-)  # noqa F811
+from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url                   # noqa F401
+from tests.common.dualtor.mux_simulator_control import \
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m               # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -38,6 +41,14 @@ NEIGHBOR_ASN1 = 61001
 NEIGHBOR_PORT0 = 11000
 NEIGHBOR_PORT1 = 11001
 WAIT_TIMEOUT = 120
+TCPDUMP_WAIT_TIMEOUT = 20
+
+
+def is_tcpdump_running(duthost, cmd):
+    check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+    if cmd in duthost.shell(check_cmd)['stdout']:
+        return True
+    return False
 
 
 @contextlib.contextmanager
@@ -55,10 +66,16 @@ def log_bgp_updates(duthost, iface, save_path, ns):
         duthost.asic_instance_from_namespace(ns).ns_arg,
         start_pcap,
     )
-    start_pcap = "nohup {}{} &".format(
+    start_pcap_cmd = "nohup {}{} &".format(
         duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
     )
-    duthost.shell(start_pcap)
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
+        pytest.fail("Could not start tcpdump")
+    # sleep and wait for tcpdump ready to sniff packets
+    time.sleep(TCPDUMP_WAIT_TIMEOUT)
+
     try:
         yield
     finally:
@@ -71,6 +88,14 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     show_res = duthost.asic_instance().run_vtysh("-c 'show version'")
     return "Quagga" in show_res["stdout"]
+
+
+@pytest.fixture
+def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Return True if current SONiC version runs with suppress enabled in FRR."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    suppress_enabled = ('bgp suppress-fib-pending' in duthost.shell('show runningconfiguration bgp')['stdout'])
+    return suppress_enabled
 
 
 @pytest.fixture
@@ -170,11 +195,21 @@ def common_setup_teardown(
         ),
     )
 
-    return bgp_neighbors
+    yield bgp_neighbors
+
+    # Cleanup suppress-fib-pending config
+    delete_tacacs_json = [{
+        "DEVICE_METADATA": {
+            "localhost": {
+                "suppress-fib-pending": "disabled"
+            }
+        }
+    }]
+    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces):
+def constants(is_quagga, setup_interfaces, has_suppress_feature):
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -186,7 +221,10 @@ def constants(is_quagga, setup_interfaces):
         _constants.update_interval_threshold = 20
     else:
         _constants.sleep_interval = 5
-        _constants.update_interval_threshold = 1
+        if not has_suppress_feature:
+            _constants.update_interval_threshold = 1
+        else:
+            _constants.update_interval_threshold = 2
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
@@ -271,8 +309,9 @@ def test_bgp_update_timer_single_route(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+    validate_active_active_dualtor_setup                                        # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
@@ -369,8 +408,9 @@ def test_bgp_update_timer_session_down(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,
-):  # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
+    validate_active_active_dualtor_setup                                        # noqa F811
+):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     n0, n1 = common_setup_teardown
