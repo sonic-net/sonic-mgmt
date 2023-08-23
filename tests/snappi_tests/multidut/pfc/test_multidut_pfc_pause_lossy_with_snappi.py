@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import lossy_prio_list, prio_dscp_map_dut_base,\
     lossless_prio_list_dut_base                                                             # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from files.multidut_helper import run_pfc_test
+from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 import logging
