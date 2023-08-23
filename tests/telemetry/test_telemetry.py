@@ -186,10 +186,11 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""]):
+def invoke_py_cli_from_ptf(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker did not get a response"
-    results[0] = ret['stdout']
+    if results is not None and len(results) > 0:
+        results[0] = ret["stdout"]
 
 
 def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
@@ -237,7 +238,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, None))
     client_thread.start()
 
     for i in range(MEMORY_CHECKER_CYCLES):
