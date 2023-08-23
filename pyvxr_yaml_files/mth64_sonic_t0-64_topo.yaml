@@ -28,12 +28,8 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.29.93.10/sonic-images/dt_drop_21.1/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
     linecard_types: [matilda64]
-    vxr_sim_config:
-        shelf:
-            ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.55.10.0.10/npl
-            ConfigS1NpsuiteVer: 1.99.0
 
   sonic_mgmt :
     platform: linux
