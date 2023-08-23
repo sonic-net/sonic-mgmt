@@ -1,4 +1,4 @@
-from trex_stl_lib.api import *
+from trex_stl_lib.api import STLPktBuilder, STLStream, STLTXCont, STLVM
 
 # IMIX profile - involves 3 streams of UDP packets
 # 1 - 60 bytes
@@ -20,7 +20,7 @@ class STLImix(object):
 
     def create_stream(self, size, pps, isg, vm):
         # Create base packet and pad it to size
-        base_pkt = Ether()/IP()/UDP()
+        base_pkt = Ether()/IP()/UDP()       # noqa F821
         pad = max(0, size - len(base_pkt)) * 'x'
 
         pkt = STLPktBuilder(pkt=base_pkt/pad,

@@ -20,371 +20,371 @@ DESCRIPTOR = _descriptor.FileDescriptor(
 )
 
 _ADMINREQUEST = _descriptor.Descriptor(
-  name='AdminRequest',
-  full_name='AdminRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='AdminRequest.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='state', full_name='AdminRequest.state', index=1,
-      number=2, type=8, cpp_type=7, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=36,
-  serialized_end=81,
+    name='AdminRequest',
+    full_name='AdminRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='AdminRequest.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='state', full_name='AdminRequest.state', index=1,
+            number=2, type=8, cpp_type=7, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=36,
+    serialized_end=81,
 )
 
 
 _ADMINREPLY = _descriptor.Descriptor(
-  name='AdminReply',
-  full_name='AdminReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='AdminReply.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='state', full_name='AdminReply.state', index=1,
-      number=2, type=8, cpp_type=7, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=83,
-  serialized_end=126,
+    name='AdminReply',
+    full_name='AdminReply',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='AdminReply.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='state', full_name='AdminReply.state', index=1,
+            number=2, type=8, cpp_type=7, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=83,
+    serialized_end=126,
 )
 
 
 _OPERATIONREQUEST = _descriptor.Descriptor(
-  name='OperationRequest',
-  full_name='OperationRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='OperationRequest.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=128,
-  serialized_end=162,
+    name='OperationRequest',
+    full_name='OperationRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='OperationRequest.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=128,
+    serialized_end=162,
 )
 
 
 _OPERATIONREPLY = _descriptor.Descriptor(
-  name='OperationReply',
-  full_name='OperationReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='OperationReply.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='state', full_name='OperationReply.state', index=1,
-      number=2, type=8, cpp_type=7, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=164,
-  serialized_end=211,
+    name='OperationReply',
+    full_name='OperationReply',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='OperationReply.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='state', full_name='OperationReply.state', index=1,
+            number=2, type=8, cpp_type=7, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=164,
+    serialized_end=211,
 )
 
 
 _LINKSTATEREQUEST = _descriptor.Descriptor(
-  name='LinkStateRequest',
-  full_name='LinkStateRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='LinkStateRequest.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=213,
-  serialized_end=247,
+    name='LinkStateRequest',
+    full_name='LinkStateRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='LinkStateRequest.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=213,
+    serialized_end=247,
 )
 
 
 _LINKSTATEREPLY = _descriptor.Descriptor(
-  name='LinkStateReply',
-  full_name='LinkStateReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='LinkStateReply.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='state', full_name='LinkStateReply.state', index=1,
-      number=2, type=8, cpp_type=7, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=249,
-  serialized_end=296,
+    name='LinkStateReply',
+    full_name='LinkStateReply',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='LinkStateReply.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='state', full_name='LinkStateReply.state', index=1,
+            number=2, type=8, cpp_type=7, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=249,
+    serialized_end=296,
 )
 
 
 _SERVERVERSIONREQUEST = _descriptor.Descriptor(
-  name='ServerVersionRequest',
-  full_name='ServerVersionRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='version', full_name='ServerVersionRequest.version', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=298,
-  serialized_end=337,
+    name='ServerVersionRequest',
+    full_name='ServerVersionRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='version', full_name='ServerVersionRequest.version', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=b"".decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=298,
+    serialized_end=337,
 )
 
 
 _SERVERVERSIONREPLY = _descriptor.Descriptor(
-  name='ServerVersionReply',
-  full_name='ServerVersionReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='version', full_name='ServerVersionReply.version', index=0,
-      number=1, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=339,
-  serialized_end=376,
+    name='ServerVersionReply',
+    full_name='ServerVersionReply',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='version', full_name='ServerVersionReply.version', index=0,
+            number=1, type=9, cpp_type=9, label=1,
+            has_default_value=False, default_value=b"".decode('utf-8'),
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=339,
+    serialized_end=376,
 )
 
 
 _DROPREQUEST = _descriptor.Descriptor(
-  name='DropRequest',
-  full_name='DropRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='DropRequest.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='direction', full_name='DropRequest.direction', index=1,
-      number=2, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='recover', full_name='DropRequest.recover', index=2,
-      number=3, type=8, cpp_type=7, label=1,
-      has_default_value=False, default_value=False,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=378,
-  serialized_end=443,
+    name='DropRequest',
+    full_name='DropRequest',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='DropRequest.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='direction', full_name='DropRequest.direction', index=1,
+            number=2, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='recover', full_name='DropRequest.recover', index=2,
+            number=3, type=8, cpp_type=7, label=1,
+            has_default_value=False, default_value=False,
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=378,
+    serialized_end=443,
 )
 
 
 _DROPREPLY = _descriptor.Descriptor(
-  name='DropReply',
-  full_name='DropReply',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='portid', full_name='DropReply.portid', index=0,
-      number=1, type=5, cpp_type=1, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='success', full_name='DropReply.success', index=1,
-      number=2, type=8, cpp_type=7, label=3,
-      has_default_value=False, default_value=[],
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=445,
-  serialized_end=489,
+    name='DropReply',
+    full_name='DropReply',
+    filename=None,
+    file=DESCRIPTOR,
+    containing_type=None,
+    create_key=_descriptor._internal_create_key,
+    fields=[
+        _descriptor.FieldDescriptor(
+            name='portid', full_name='DropReply.portid', index=0,
+            number=1, type=5, cpp_type=1, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+        _descriptor.FieldDescriptor(
+            name='success', full_name='DropReply.success', index=1,
+            number=2, type=8, cpp_type=7, label=3,
+            has_default_value=False, default_value=[],
+            message_type=None, enum_type=None, containing_type=None,
+            is_extension=False, extension_scope=None,
+            serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    ],
+    extensions=[
+    ],
+    nested_types=[],
+    enum_types=[
+    ],
+    serialized_options=None,
+    is_extendable=False,
+    syntax='proto3',
+    extension_ranges=[],
+    oneofs=[
+    ],
+    serialized_start=445,
+    serialized_end=489,
 )
 
 DESCRIPTOR.message_types_by_name['AdminRequest'] = _ADMINREQUEST
@@ -400,147 +400,147 @@ DESCRIPTOR.message_types_by_name['DropReply'] = _DROPREPLY
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 AdminRequest = _reflection.GeneratedProtocolMessageType('AdminRequest', (_message.Message,), {
-  'DESCRIPTOR': _ADMINREQUEST,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:AdminRequest)
-  })
+    'DESCRIPTOR': _ADMINREQUEST,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:AdminRequest)
+})
 _sym_db.RegisterMessage(AdminRequest)
 
 AdminReply = _reflection.GeneratedProtocolMessageType('AdminReply', (_message.Message,), {
-  'DESCRIPTOR': _ADMINREPLY,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:AdminReply)
-  })
+    'DESCRIPTOR': _ADMINREPLY,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:AdminReply)
+})
 _sym_db.RegisterMessage(AdminReply)
 
 OperationRequest = _reflection.GeneratedProtocolMessageType('OperationRequest', (_message.Message,), {
-  'DESCRIPTOR': _OPERATIONREQUEST,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:OperationRequest)
-  })
+    'DESCRIPTOR': _OPERATIONREQUEST,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:OperationRequest)
+})
 _sym_db.RegisterMessage(OperationRequest)
 
 OperationReply = _reflection.GeneratedProtocolMessageType('OperationReply', (_message.Message,), {
-  'DESCRIPTOR': _OPERATIONREPLY,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:OperationReply)
-  })
+    'DESCRIPTOR': _OPERATIONREPLY,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:OperationReply)
+})
 _sym_db.RegisterMessage(OperationReply)
 
 LinkStateRequest = _reflection.GeneratedProtocolMessageType('LinkStateRequest', (_message.Message,), {
-  'DESCRIPTOR': _LINKSTATEREQUEST,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:LinkStateRequest)
-  })
+    'DESCRIPTOR': _LINKSTATEREQUEST,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:LinkStateRequest)
+})
 _sym_db.RegisterMessage(LinkStateRequest)
 
 LinkStateReply = _reflection.GeneratedProtocolMessageType('LinkStateReply', (_message.Message,), {
-  'DESCRIPTOR': _LINKSTATEREPLY,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:LinkStateReply)
-  })
+    'DESCRIPTOR': _LINKSTATEREPLY,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:LinkStateReply)
+})
 _sym_db.RegisterMessage(LinkStateReply)
 
 ServerVersionRequest = _reflection.GeneratedProtocolMessageType('ServerVersionRequest', (_message.Message,), {
-  'DESCRIPTOR': _SERVERVERSIONREQUEST,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:ServerVersionRequest)
-  })
+    'DESCRIPTOR': _SERVERVERSIONREQUEST,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:ServerVersionRequest)
+})
 _sym_db.RegisterMessage(ServerVersionRequest)
 
 ServerVersionReply = _reflection.GeneratedProtocolMessageType('ServerVersionReply', (_message.Message,), {
-  'DESCRIPTOR': _SERVERVERSIONREPLY,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:ServerVersionReply)
-  })
+    'DESCRIPTOR': _SERVERVERSIONREPLY,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:ServerVersionReply)
+})
 _sym_db.RegisterMessage(ServerVersionReply)
 
 DropRequest = _reflection.GeneratedProtocolMessageType('DropRequest', (_message.Message,), {
-  'DESCRIPTOR': _DROPREQUEST,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:DropRequest)
-  })
+    'DESCRIPTOR': _DROPREQUEST,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:DropRequest)
+})
 _sym_db.RegisterMessage(DropRequest)
 
 DropReply = _reflection.GeneratedProtocolMessageType('DropReply', (_message.Message,), {
-  'DESCRIPTOR': _DROPREPLY,
-  '__module__': 'nic_simulator_grpc_service_pb2'
-  # @@protoc_insertion_point(class_scope:DropReply)
-  })
+    'DESCRIPTOR': _DROPREPLY,
+    '__module__': 'nic_simulator_grpc_service_pb2'
+    # @@protoc_insertion_point(class_scope:DropReply)
+})
 _sym_db.RegisterMessage(DropReply)
 
 
 _DUALTORACTIVE = _descriptor.ServiceDescriptor(
-  name='DualToRActive',
-  full_name='DualToRActive',
-  file=DESCRIPTOR,
-  index=0,
-  serialized_options=None,
-  create_key=_descriptor._internal_create_key,
-  serialized_start=492,
-  serialized_end=859,
-  methods=[
-           _descriptor.MethodDescriptor(
-             name='QueryAdminForwardingPortState',
-             full_name='DualToRActive.QueryAdminForwardingPortState',
-             index=0,
-             containing_service=None,
-             input_type=_ADMINREQUEST,
-             output_type=_ADMINREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-           _descriptor.MethodDescriptor(
-             name='SetAdminForwardingPortState',
-             full_name='DualToRActive.SetAdminForwardingPortState',
-             index=1,
-             containing_service=None,
-             input_type=_ADMINREQUEST,
-             output_type=_ADMINREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-           _descriptor.MethodDescriptor(
-             name='QueryOperationPortState',
-             full_name='DualToRActive.QueryOperationPortState',
-             index=2,
-             containing_service=None,
-             input_type=_OPERATIONREQUEST,
-             output_type=_OPERATIONREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-           _descriptor.MethodDescriptor(
-             name='QueryLinkState',
-             full_name='DualToRActive.QueryLinkState',
-             index=3,
-             containing_service=None,
-             input_type=_LINKSTATEREQUEST,
-             output_type=_LINKSTATEREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-           _descriptor.MethodDescriptor(
-             name='QueryServerVersion',
-             full_name='DualToRActive.QueryServerVersion',
-             index=4,
-             containing_service=None,
-             input_type=_SERVERVERSIONREQUEST,
-             output_type=_SERVERVERSIONREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-           _descriptor.MethodDescriptor(
-             name='SetDrop',
-             full_name='DualToRActive.SetDrop',
-             index=5,
-             containing_service=None,
-             input_type=_DROPREQUEST,
-             output_type=_DROPREPLY,
-             serialized_options=None,
-             create_key=_descriptor._internal_create_key,
-           ),
-         ])
+    name='DualToRActive',
+    full_name='DualToRActive',
+    file=DESCRIPTOR,
+    index=0,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+    serialized_start=492,
+    serialized_end=859,
+    methods=[
+        _descriptor.MethodDescriptor(
+            name='QueryAdminForwardingPortState',
+            full_name='DualToRActive.QueryAdminForwardingPortState',
+            index=0,
+            containing_service=None,
+            input_type=_ADMINREQUEST,
+            output_type=_ADMINREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.MethodDescriptor(
+            name='SetAdminForwardingPortState',
+            full_name='DualToRActive.SetAdminForwardingPortState',
+            index=1,
+            containing_service=None,
+            input_type=_ADMINREQUEST,
+            output_type=_ADMINREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.MethodDescriptor(
+            name='QueryOperationPortState',
+            full_name='DualToRActive.QueryOperationPortState',
+            index=2,
+            containing_service=None,
+            input_type=_OPERATIONREQUEST,
+            output_type=_OPERATIONREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.MethodDescriptor(
+            name='QueryLinkState',
+            full_name='DualToRActive.QueryLinkState',
+            index=3,
+            containing_service=None,
+            input_type=_LINKSTATEREQUEST,
+            output_type=_LINKSTATEREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.MethodDescriptor(
+            name='QueryServerVersion',
+            full_name='DualToRActive.QueryServerVersion',
+            index=4,
+            containing_service=None,
+            input_type=_SERVERVERSIONREQUEST,
+            output_type=_SERVERVERSIONREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+        _descriptor.MethodDescriptor(
+            name='SetDrop',
+            full_name='DualToRActive.SetDrop',
+            index=5,
+            containing_service=None,
+            input_type=_DROPREQUEST,
+            output_type=_DROPREPLY,
+            serialized_options=None,
+            create_key=_descriptor._internal_create_key,
+        ),
+    ])
 _sym_db.RegisterServiceDescriptor(_DUALTORACTIVE)
 
 DESCRIPTOR.services_by_name['DualToRActive'] = _DUALTORACTIVE

@@ -15,7 +15,8 @@ def check_hw_management_service(dut):
 
     logging.info("Check dmesg")
     dmesg = dut.command("sudo dmesg")
-    error_keywords = ["crash", "Out of memory", "Call Trace", "Exception", "panic"]
+    error_keywords = ["crash", "Out of memory",
+                      "Call Trace", "Exception", "panic"]
     for err_kw in error_keywords:
         assert not re.match(err_kw, dmesg["stdout"], re.I), \
             "Found error keyword %s in dmesg: %s" % (err_kw, dmesg["stdout"])

@@ -10,7 +10,7 @@
 # Sample configurations for these daemons can be found in
 # /usr/share/doc/quagga/examples/.
 #
-# ATTENTION: 
+# ATTENTION:
 #
 # When activation a daemon at the first time, a config file, even if it is
 # empty, has to be present *and* be owned by the user and group "quagga", else

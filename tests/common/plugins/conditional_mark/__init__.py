@@ -180,6 +180,41 @@ def get_basic_facts(session):
             session.config.cache.set('BASIC_FACTS', basic_facts)
 
 
+def get_http_proxies(inv_name):
+    INV_ENV_FILE = '../../../../ansible/group_vars/{}/env.yml'.format(inv_name)
+    PUBLIC_ENV_FILE = '../../../../ansible/group_vars/all/env.yml'
+    base_path = os.path.dirname(__file__)
+    inv_env_path = os.path.join(base_path, INV_ENV_FILE)
+    public_env_path = os.path.join(base_path, PUBLIC_ENV_FILE)
+    proxies = {}
+
+    if os.path.isfile(public_env_path):
+        try:
+            with open(public_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+                else:
+                    proxies = {'http': '', 'https': ''}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(public_env_path, repr(e)))
+
+    if os.path.isfile(inv_env_path):
+        try:
+            with open(inv_env_path) as env_file:
+                proxy_env = yaml.safe_load(env_file)
+                if proxy_env is not None:
+                    proxy = proxy_env.get("proxy_env", {})
+                    http_proxy = proxy.get('http_proxy', '')
+                    proxies = {'http': http_proxy, 'https': http_proxy}
+        except Exception as e:
+            logger.error('Load proxy env from {} failed with error: {}'.format(inv_env_path, repr(e)))
+
+    return proxies
+
+
 def load_minigraph_facts(inv_name, dut_name):
     """Run 'ansible -m minigraph_facts -a host={{hostname}}' command to get some basic minigraph facts.
 
@@ -331,33 +366,38 @@ def load_basic_facts(session):
         inv_name = tbinfo['inv_name']
     else:
         inv_name = 'lab'
+    proxies = get_http_proxies(inv_name)
+    session.config.cache.set('PROXIES', proxies)
 
-    # Load DUT basic facts
-    _facts = load_dut_basic_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+    # Since internal repo add vendor test support, add check to see if it's sonic-os, other wise skip load facts.
+    vendor = session.config.getoption("--dut_vendor", "sonic")
+    if vendor == "sonic":
+        # Load DUT basic facts
+        _facts = load_dut_basic_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load minigraph basic facts
-    _facts = load_minigraph_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load minigraph basic facts
+        _facts = load_minigraph_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load config basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load config basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load switch capabilities basic facts
-    _facts = load_switch_capabilities_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load switch capabilities basic facts
+        _facts = load_switch_capabilities_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load console basic facts
-    _facts = load_config_facts(inv_name, dut_name)
-    if _facts:
-        results.update(_facts)
+        # Load console basic facts
+        _facts = load_config_facts(inv_name, dut_name)
+        if _facts:
+            results.update(_facts)
 
-    # Load possible other facts here
+        # Load possible other facts here
 
     return results
 
@@ -410,10 +450,11 @@ def update_issue_status(condition_str, session):
         return condition_str
 
     issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+    proxies = session.config.cache.get('PROXIES', {})
 
     unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
     if unknown_issues:
-        results = check_issues(unknown_issues)
+        results = check_issues(unknown_issues, proxies=proxies)
         issue_status_cache.update(results)
         session.config.cache.set('ISSUE_STATUS', issue_status_cache)
 
