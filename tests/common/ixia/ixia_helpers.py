@@ -14,6 +14,14 @@ from copy import deepcopy
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.common_helpers import ansible_stdout_to_str, get_peer_ixia_chassis
 from tests.common.reboot import logger
+import pandas as pd
+import paramiko
+import re
+import time
+import os
+import sys
+import math
+from ixnetwork_restpy import Files
 
 
 class IxiaFanoutManager ():
@@ -471,6 +479,8 @@ def start_traffic(session):
     """
     ixnetwork = session.Ixnetwork
     """ Apply traffic to hardware """
+    trafficitem = ixnetwork.Traffic.TrafficItem.find()
+    trafficitem.Generate()
     ixnetwork.Traffic.Apply()
     """ Run traffic """
     ixnetwork.Traffic.StartStatelessTrafficBlocking()
@@ -910,3 +920,217 @@ def get_tgen_location(intf):
     pytest_assert(keys.issubset(set(intf.keys())), "intf does not have all the keys")
 
     return "{};{};{}".format(intf['ip'], intf['card_id'], intf['port_id'])
+
+
+def get_connection_info(testbed=None):
+    intf = dict()
+    vlanid = dict()
+
+    # Load the CSV file
+    table = pd.read_csv(r'../ansible/files/snappi_sonic_link.csv')
+
+    # Iterate over each row in the dataframe
+    for index, row in table.iterrows():
+        # Use the index as a key for the 'intf' dictionary
+        key = 'dut1port{}'.format(index+1)
+        intf[key] = row['StartPort']
+
+        # If there's a non-null VlanID, save it to the 'vlanid' dictionary
+        if pd.notna(row['VlanID']):
+            vlanid[key] = row['VlanID']
+        else:
+            vlanid[key] = "nan"
+
+    return intf, vlanid
+
+
+def load_config(session, file=''):
+    try:
+        ixnetwork = session.Ixnetwork
+        if file == '':
+            file = sys.argv[0].split('/')[-1].split('.')[0] + '.ixncfg'
+        ixnetwork.LoadConfig(Files(file, local_file=True))
+    except Exception as err:
+        logger.error(err)
+        logger_msg(u'加载配置文件失败，请检查配置', 'ERROR')
+
+
+def get_ixia_license(testbed, duthost):
+    dutname = testbed['vm_base']
+    license_info = []
+    if dutname != '':
+        hostvars = duthost.host.options['variable_manager']._hostvars[dutname]
+        license_server_ip = hostvars['license_server_ip']
+        license_mode = hostvars['license_mode']
+        license_tier = hostvars['license_tier']
+        license_info = [[license_server_ip], license_mode, license_tier]
+    return license_info
+
+
+def config_license_server(session, licenseInfo):
+    ixnetwork = session.Ixnetwork
+    licenseServerIp = licenseInfo[0]
+    licenseMode = licenseInfo[1]
+    licenseTier = licenseInfo[2]
+    if ixnetwork.Vport.find()[0].ConnectionState == 'connectedLinkUp':
+        return
+    ixnetwork.Globals.Licensing.LicensingServers = licenseServerIp
+    ixnetwork.Globals.Licensing.Mode = licenseMode
+    ixnetwork.Globals.Licensing.Tier = licenseTier
+
+
+def modify_vlan(session, portname, vlanid, index='0'):
+    # modify the interface vlanid of input port name,
+    # 'index' means the interface offset on that port
+    try:
+        ixnetwork = session.Ixnetwork
+        porthref = ixnetwork.Vport.find(Name=portname).href
+        for topology in ixnetwork.Topology.find():
+            vports = topology.Ports
+            if porthref in vports:
+                ethernet = topology.DeviceGroup.find()[int(index)].Ethernet.find()[0]
+                if math.isnan(float(vlanid)):
+                    ethernet.EnableVlans.Single(False)
+                else:
+                    ethernet.EnableVlans.Single(True)
+                    ethernet.Vlan.find()[0].VlanId.Increment(start_value=vlanid, step_value=0)
+                break
+    except Exception as err:
+        logger.error(err)
+        logger_msg(u'更改vlan失败，请检查配置', 'ERROR')
+
+
+def reserve_port(session, portList, force=True):
+    try:
+        ixnetwork = session.Ixnetwork
+        portMap = session.PortMapAssistant()
+        for index, port in enumerate(portList):
+            portCntInCfg = len(ixnetwork.Vport.find())
+            if index >= portCntInCfg:
+                break
+            portName = ixnetwork.Vport.find()[index].Name
+            logger_msg(u'连接机框 %s，开始抢占端口%s/%s' % (port[0], port[1], port[2]))
+            portMap.Map(IpAddress=port[0], CardId=port[1], PortId=port[2], Name=portName)
+        forceTakePortOwnership = force
+        portMap.Connect(forceTakePortOwnership)
+    except Exception as err:
+        logger.error(err)
+        logger_msg(u'占用端口失败，请检查配置', 'ERROR')
+
+
+def send_cmd(dutIP, dutUser, dutPwd, cmd='', waitTime='10000'):
+    returnString = ''
+    dut_ip = dutIP
+    dut_usr = dutUser
+    dut_pwd = dutPwd
+    logger_msg(u'连接DUT进行配置')
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(dut_ip, port=22, username=dut_usr, password=dut_pwd)
+    sendCmd = client.invoke_shell()
+    sendCmd.settimeout(5)
+    send_cmd_log_path = os.path.join(os.getcwd(), 'ixia/result/send_cmd_log')
+    if os.path.exists(send_cmd_log_path) is False:
+        os.makedirs(send_cmd_log_path)
+    tc = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
+    filename = tc+'.txt'
+    outputfile = os.path.join(send_cmd_log_path, filename)
+    output_file = open(outputfile, 'a')
+    output_file.write('\n' + 100 * '=' + '\n')
+    if len(cmd) <= 0:
+        return
+
+    for cmdtemp in cmd:
+        if len(cmdtemp.strip()) <= 0:
+            continue
+        sendCmd.send(cmdtemp.strip() + '\n')
+
+    time.sleep(2)
+    try:
+        output = sendCmd.recv(16384).decode('ascii')
+    except Exception as e:
+        output = 'SSHDUT.SendCmdError:' + str(type(e)) + str(e)
+        output_file.close()
+    output_file.write(output.strip())
+    time.sleep(2)
+    returnString = returnString + '\n' + output
+    output_file.close()
+    logger_msg(u'DUT配置完成')
+    try:
+        client.close()
+        client = None
+    except Exception as err:
+        logger_msg('Close SSH ERROR:' + str(type(err)) + 'Message:' + str(err))
+    return returnString
+
+
+def send_ping(session, src_ip, dst_ip):
+    """ This function will send ping from src_ip interface to dst_ip.
+
+    Args:
+        session (obj): IxNetwork session object.
+        src_ip:  ipv4/ipv6 address
+        dst_ip:  ipv4/ipv6 address
+
+    Returns:
+        None.
+    """
+    try:
+        ixnetwork = session.Ixnetwork
+        if is_ipv4(src_ip):
+            for ipv4_inf in ixnetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv4.find():
+                AddressMulti = ipv4_inf.Address
+                if src_ip in AddressMulti.Values:
+                    res = ipv4_inf.SendPing(dst_ip)
+                    print(res)
+                    break
+        else:
+            for ipv6_inf in ixnetwork.Topology.find().DeviceGroup.find().Ethernet.find().Ipv6.find():
+                AddressMulti = ipv6_inf.Address
+                if src_ip in AddressMulti.Values:
+                    res = ipv6_inf.SendPing(dst_ip)
+                    break
+        return res[0]
+    except Exception as e:
+        logger.error(e)
+        logger_msg(u'发送Ping失败，没有找到'+src_ip+u' 地址的interface', 'ERROR')
+
+
+def is_ipv4(ip_addr):
+    """Check ip address is ipv4
+
+    :param
+
+     ip_addr: ip address
+
+     example:
+     | ${res} | is ipv4  | 1.1.1.1 |
+
+     return: True|False
+
+    """
+
+    return bool(re.match(r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",
+                         ip_addr))
+
+
+def logger_msg(msg, level='INFO'):
+    # support info level and error level
+    if level.lower() == 'info':
+        try:
+            logger.info(msg.encode('utf-8'))
+        except Exception:
+            logger.info(msg)
+    elif level.lower() == 'error':
+        try:
+            logger.error(msg.encode('utf-8'))
+        except Exception:
+            logger.error(msg)
+
+
+def get_dut_mac_address(duthost):
+    eeprom_details = str(duthost.shell('show platform syseeprom'))
+    duts_mac_addresses_match = re.search(r'Base MAC Address\s+0x24\s+\d\s+([\w:]+)', eeprom_details)
+
+    duts_mac_addresses = duts_mac_addresses_match.group(1)
+    return duts_mac_addresses
