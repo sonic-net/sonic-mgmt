@@ -412,8 +412,6 @@ sonic_mlnx_3800:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x9AC3A8CC"
-    str2-sn3800-azd-2:
-      ansible_host: 10.3.146.238
 
 sonic_mlnx_4600C:
   vars:

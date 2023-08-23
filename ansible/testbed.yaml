@@ -1400,21 +1400,6 @@
   auto_recover: 'True'
   comment: annarsia
 
-- conf-name: vms24-t0-3800-azd-2
-  group-name: vms24-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms24-4
-  ptf_ip: 10.64.246.110/23
-  ptf_ipv6:
-  server: server_24
-  vm_base: VM24032
-  dut:
-    - str2-sn3800-azd-2
-  inv_name: str2
-  auto_recover: 'True'
-  comment: annarsia
-
 - conf-name: vms24-t1-7050qx-acs-01
   group-name: vms24-5
   topo: t1-lag

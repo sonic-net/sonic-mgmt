@@ -76,7 +76,6 @@ vms63-t1-7060-3,vms63-3,t1-lag,docker-ptf,vms63-3,10.64.247.44/23,,server_63,VM6
 vms21-dual-t0-7260,vms21-6,dualtor-120,docker-ptf,vms21-6,10.64.246.152/23,,server_21,VM21088,[str2-7260cx3-acs-10;str2-7260cx3-acs-11],str2,True,v-saidia
 vms24-t1-n3164-3,vms24-2,t1-64-lag,docker-ptf,vms24-2,10.64.246.106/23,,server_24,VM24004,str2-n3164-acs-3,str2,True,abdosi
 vms24-t0-3800-azd,vms24-3,t0,docker-ptf,vms24-3,10.64.246.107/23,,server_24,VM24028,str2-sn3800-azd,str2,True,annarsia
-vms24-t0-3800-azd-2,vms24-4,t0,docker-ptf,vms24-4,10.64.246.110/23,,server_24,VM24032,str2-sn3800-azd-2,str2,True,annarsia
 vms24-t1-7050qx-acs-01,vms24-5,t1-lag,docker-ptf,vms24-5,10.64.246.137/23,,server_24,VM24036,str2-7050qx-32s-acs-01,str2,True,gechiang
 vms24-t1-n3164-acs-1,vms24-6,t1-64-lag,docker-ptf,vms24-6,10.64.246.138/23,,server_24,VM24060,str2-n3164-acs-1,str2,True,Judy
 vms24-dual-t0-7050-1,vms24-7,dualtor,docker-ptf,vms24-7,10.64.246.139/23,,server_24,VM24084,[str2-7050cx3-acs-06;str2-7050cx3-acs-07],str2,True,hellogemini
