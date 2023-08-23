@@ -45,11 +45,6 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
-  - name: PY_SAITHRIFT_URL
-    type: string
-    default: $(SAITHRIFT_BRCM_PUBLIC)
-    displayName: "py_saithrift URL"
-
   - name: MGMT_BRANCH
     type: string
     default: internal
@@ -76,30 +71,15 @@ parameters:
     default: "pfc_asym, span, sub_port_interfaces "
     displayName: "Features to be excluded"
 
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
+    displayName: "Common test parameters"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
     default: 1800
-
-  - name: REPO_NAME
-    type: string
-    default: "sonic-mgmt-int"
-
-  - name: STOP_ON_FAILURE
-    type: string
-    default: False
-
-  - name: RETRY_TIMES
-    type: string
-    default: 0
-
-  - name: DUMP_KVM_IF_FAIL
-    type: string
-    default: False
-
-  - name: REQUESTER
-    type: string
-    default: "Nightly Test"
 
 stages:
 - stage: Test
@@ -114,23 +94,14 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
+    - template: ../../run-test-nightly-elastictest-template.yml
       parameters:
-        MIN_WORKER: 2
-        MAX_WORKER: 2
-        TEST_PLAN_TYPE: NIGHTLY
-        PLATFORM: PHYSICAL
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         SCRIPTS: ${{ parameters.SCRIPTS }}
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: "--topology t0,any --py_saithrift_url=${{ parameters.PY_SAITHRIFT_URL }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
-        REPO_NAME: ${{ parameters.REPO_NAME }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
-        STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
-        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-        DUMP_KVM_IF_FAIL: ${{ parameters.DUMP_KVM_IF_FAIL }}
-        REQUESTER: ${{ parameters.REQUESTER }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
