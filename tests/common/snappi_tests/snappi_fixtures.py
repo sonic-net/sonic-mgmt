@@ -363,53 +363,56 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
     """ Generate L1 config """
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
 
-    pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
 
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+    snappi_ports = []
 
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        port_info = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        pytest_assert(port_info is not None, 'Fail to get port info')
+        for device_info in port_info:
+            snappi_ports.append(device_info)
 
-    port_speed = None
+    seen_chassis = []
 
-    """ L1 config """
     config = snappi_api.config()
     for i in range(len(snappi_ports)):
         config.ports.port(name='Port {}'.format(i),
                           location=get_snappi_port_location(snappi_ports[i]))
 
-        if port_speed is None:
+    """ L1 config """
+    for i in range(len(snappi_ports)):
+        if snappi_ports[i]['ip'] not in seen_chassis:
+            seen_chassis.append(snappi_ports[i]['ip'])
             port_speed = int(snappi_ports[i]['speed'])
+            speed_gbps = int(port_speed/1000)
 
-        pytest_assert(port_speed == int(snappi_ports[i]['speed']),
-                      'Ports have different link speeds')
+            config.options.port_options.location_preemption = True
+            l1_config = config.layer1.layer1()[-1]
+            l1_config.name = 'L1 config {} gbps'.format(speed_gbps)
+            l1_config.port_names = [config.ports[port_id].name for port_id in range(len(config.ports)) if int(snappi_ports[port_id]['speed']) == port_speed]
+            l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
+            l1_config.ieee_media_defaults = False
+            l1_config.auto_negotiate = False
+            l1_config.auto_negotiation.link_training = True
+            l1_config.auto_negotiation.rs_fec = True
 
-    speed_gbps = int(port_speed/1000)
-
-    config.options.port_options.location_preemption = True
-    l1_config = config.layer1.layer1()[-1]
-    l1_config.name = 'L1 config'
-    l1_config.port_names = [port.name for port in config.ports]
-    l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
-    l1_config.ieee_media_defaults = False
-    l1_config.auto_negotiate = False
-    l1_config.auto_negotiation.link_training = True
-    l1_config.auto_negotiation.rs_fec = True
-
-    pfc = l1_config.flow_control.ieee_802_1qbb
-    pfc.pfc_delay = 0
-    pfc.pfc_class_0 = 0
-    pfc.pfc_class_1 = 1
-    pfc.pfc_class_2 = 2
-    pfc.pfc_class_3 = 3
-    pfc.pfc_class_4 = 4
-    pfc.pfc_class_5 = 5
-    pfc.pfc_class_6 = 6
-    pfc.pfc_class_7 = 7
+            pfc = l1_config.flow_control.ieee_802_1qbb
+            pfc.pfc_delay = 0
+            pfc.pfc_class_0 = 0
+            pfc.pfc_class_1 = 1
+            pfc.pfc_class_2 = 2
+            pfc.pfc_class_3 = 3
+            pfc.pfc_class_4 = 4
+            pfc.pfc_class_5 = 5
+            pfc.pfc_class_6 = 6
+            pfc.pfc_class_7 = 7
 
     port_config_list = []
 
@@ -475,21 +478,26 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa F811
                   '200000': 'speed_200_gbps',
                   '400000': 'speed_400_gbps'}
 
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-    port_speed = None
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
+
+    snappi_ports = []
+
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        port_info = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        pytest_assert(port_info is not None, 'Fail to get port info')
+        for device_info in port_info:
+            snappi_ports.append(device_info)
+
+    port_speeds = []
 
     for i in range(len(snappi_ports)):
-        if port_speed is None:
-            port_speed = int(snappi_ports[i]['speed'])
+        port_speeds.append(int(snappi_ports[i]['speed']))
 
-        elif port_speed != int(snappi_ports[i]['speed']):
-            """ All the ports should have the same bandwidth """
-            return None
+    pytest_assert(len(port_speeds) > 0, 'Fail to get port speed')
 
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']

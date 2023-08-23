@@ -221,17 +221,21 @@ def get_snappi_port_location(intf):
 
 
 def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_data,
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_data,
                                             dut_hostname=dut_hostname)
 
-    if snappi_fanout is None:
-        return None
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
 
-    snappi_fanout_id = list(fanout_data.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_data)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+    snappi_ports = []
 
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=dut_hostname)
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_data.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_data)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        port_info = snappi_fanout_list.get_ports(peer_device=dut_hostname)
+        pytest_assert(port_info is not None, 'Fail to get port info')
+        for device_info in port_info:
+            snappi_ports.append(device_info)
 
     for i in range(len(snappi_ports)):
         if snappi_ports[i]['peer_port'] == dut_port:

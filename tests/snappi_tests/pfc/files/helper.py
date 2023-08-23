@@ -23,9 +23,9 @@ logger = logging.getLogger(__name__)
 dut_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
+TEST_FLOW_AGGR_RATE_PERCENT = 10
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
+BG_FLOW_AGGR_RATE_PERCENT = 10
 data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 2
 data_flow_delay_sec = 1
@@ -97,7 +97,7 @@ def run_pfc_test(api,
         DATA_FLOW_DURATION_SEC = 10
         global data_flow_delay_sec
         data_flow_delay_sec = 2
-
+        import pdb; pdb.set_trace()
         # Set up pfc delay parameter
         l1_config = testbed_config.layer1[0]
         pfc = l1_config.flow_control.ieee_802_1qbb
