@@ -148,7 +148,9 @@ def parse_list_from_str(s):
         s = s.strip()
     if not s:
         return None
-    return [single_str.strip() for single_str in s.split(',')]
+    return [single_str.strip()
+            for single_str in s.split(',')
+            if single_str.strip()]
 
 
 class TestPlanManager(object):
