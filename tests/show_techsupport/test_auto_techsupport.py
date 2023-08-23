@@ -129,8 +129,7 @@ class TestAutoTechSupport:
         yield
 
         update_auto_techsupport_feature(self.duthost, self.test_docker,
-                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE,
-                                        mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
 
     def test_sanity(self, cleanup_list):
         """
@@ -561,7 +560,7 @@ def set_auto_techsupport_global(duthost, state=None, rate_limit=None, techsuppor
             duthost.shell(cmd)
 
 
-def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None, mem_threshold=None):
+def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None):
     """
     Do configuration using cmd: sudo config auto-techsupport-feature update .....
     :param duthost: duthost object
@@ -577,12 +576,9 @@ def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=Non
     if rate_limit or rate_limit == 0:
         command = '{} --rate-limit-interval {}'.format(base_cmd, rate_limit)
         commands_list.append(command)
-    if mem_threshold:
-        command = '{} --available-mem-threshold {}'.format(base_cmd, mem_threshold)
-        commands_list.append(command)
 
     if not commands_list:
-        pytest.fail('Provide at least one argument from list: state, rate_limit, mem_threshold')
+        pytest.fail('Provide at least one argument from list: state, rate_limit')
 
     for cmd in commands_list:
         with allure.step('Setting feature {} config: {}'.format(feature, cmd)):
@@ -606,7 +602,8 @@ def add_delete_auto_techsupport_feature(duthost, feature, action=None, state=DEF
 
     command = base_cmd
     if action == 'add':
-        command = '{}--state {} --rate-limit-interval {}'.format(base_cmd, state, rate_limit)
+        command = '{}--state {} --rate-limit-interval {} ' \
+                  '--available-mem-threshold {}'.format(base_cmd, state, rate_limit, DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     with allure.step('Doing {} feature {} config: {}'.format(action, feature, command)):
         duthost.shell(command)
