@@ -82,7 +82,17 @@ def check_gnmi_cli_running(ptfhost):
     return len(program_list) > 0
 
 
+def parse_gnmi_output(gnmi_output, match_no, find_data):
+    gnmi_str = str(gnmi_output)
+    gnmi_str = gnmi_str.replace('\\', '')
+    gnmi_str = gnmi_str.replace(' ', '')
+    if find_data != "":
+        result = fetch_json_ptf_output(gnmi_str, match_no)
+        return find_data in result
+
+
 def fetch_json_ptf_output(output, match_no):
+    logger.info("OUTPUT: {}".format(output))
     match = re.findall('json_ietf_val:\"({.*?})\"', output)
     assert len(match) > match_no, "Not able to parse json from output"
     event_str = match[match_no]

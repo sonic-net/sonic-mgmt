@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, fetch_json_ptf_output, check_gnmi_cli_running
+from telemetry_utils import parse_gnmi_output
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -186,14 +187,10 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""], match_no=0, find_data=""):
-    gnmi_output = ptfhost.shell(cmd)['stdout']
-    gnmi_str = str(gnmi_output)
-    gnmi_str = gnmi_str.replace('\\', '')
-    if find_data != "":
-        result = fetch_json_ptf_output(gnmi_str, match_no)
-        assert find_data in result
-        results.append(result)
+def invoke_py_cli_from_ptf(ptfhost, cmd, results=[""]):
+    ret = ptfhost.shell(cmd)
+    assert ret["rc"] == 0, "PTF docker did not get a response"
+    results[0] = ret['stdout']
 
 
 def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
@@ -212,7 +209,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
 
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results, 1, bgp_neighbor,))
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results,))
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
@@ -222,10 +219,12 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread.join(30)
 
     try:
-        assert results[0] != "", "Did not get key from update"
+        assert results[0] != "", "Did not get output from PTF client"
     finally:
         duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                                 original_state))
+    ret = parse_gnmi_output(results[0], 1, bgp_neighbor)
+    assert ret is True, "Did not find key in update"
 
 
 @pytest.mark.disable_loganalyzer
