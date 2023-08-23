@@ -78,9 +78,15 @@ def server_exist_in_conf(duthost, server_pattern):
 def ntp_service_restarted(duthost, start_time):
     """ Check if ntp.service is just restarted after start_time
     """
-    output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
-    if output["stdout"] != "active":
+    def check_ntp_activestate(duthost):
+        output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
+        if output["stdout"] != "active":
+            return False
+        return True
+
+    if not wait_until(10, 1, 0, check_ntp_activestate, duthost):
         return False
+
     output = duthost.shell("ps -o etimes -p $(systemctl show ntp.service --property ExecMainPID --value) | sed '1d'")
     if int(output['stdout'].strip()) < (datetime.datetime.now() - start_time).seconds:
         return True
