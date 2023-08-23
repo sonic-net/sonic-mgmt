@@ -5,7 +5,6 @@ import logging
 
 import pytest
 
-from pkg_resources import parse_version
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require

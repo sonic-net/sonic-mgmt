@@ -48,14 +48,14 @@ The tests will run on following testbeds:
 IPv4 and IPv6 EBGP neighborship will be established on a LAG between SONiC DUT and directly connected test ports. Test ports inturn will simulate the ToR's and Leafs by advertising IPv4/IPv6, dual-stack routes.
 
 ## Test Methodology
-Following test methodology will be used for measuring downtime convergence. 
-* Traffic generator will be used to configure ebgp peering between chassis ports and SONiC DUT on top of LAG by advertising IPv4/IPv6, dual-stack routes. 
-* Data traffic will be sent from  server to server, server to T1 and T1 to server. 
+Following test methodology will be used for measuring downtime convergence.
+* Traffic generator will be used to configure ebgp peering between chassis ports and SONiC DUT on top of LAG by advertising IPv4/IPv6, dual-stack routes.
+* Data traffic will be sent from  server to server, server to T1 and T1 to server.
 * Depending on the test case, the reboots will be generated and downtime convergence will be measured.
 * Downtime convergence will be measured by noting down the precise time of the data plane below threshold timestamp and the data plane above threshold timestamp. Traffic generator will create those timestmaps and provide us with the data plane downtime convergence statistics.
 * In order to measure the control plane downtime convergence, we will be pinging the DUT loopback interface to measure how long it takes to respond back to the ping once it comes back online.
-* Similarly for measuring protocol downtime convergence can be neasured for concerned protocol, in this case it is BGP by polling the state of the protocol. 
-  
+* Similarly for measuring protocol downtime convergence can be neasured for concerned protocol, in this case it is BGP by polling the state of the protocol.
+
 ## Test cases
 ### Test case # 1 - Downtime convergence measurement for warm-reboot while sending traffic
 #### Test objective
@@ -63,7 +63,7 @@ Measure the downtime convergence time when warm-reboot is issued while traffic i
 
 <p float="left">
   <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
-  <img src="Img/Warm-reboot-graph.png" width="400" /> 
+  <img src="Img/Warm-reboot-graph.png" width="400" />
 </p>
 
 
@@ -77,11 +77,11 @@ Measure the downtime convergence time when warm-reboot is issued while traffic i
 * Apply and start the data traffic.
 * Verify that traffic is flowing without any loss.
 * Enable csv logging or check the state of bgp protocol through API.
-* Control plane convergence time is measured by pinging the loopback interface of switch. 
+* Control plane convergence time is measured by pinging the loopback interface of switch.
 * Now do warm-reboot by issuing the command "sudo warm-reboot".
-* Verify that there is no traffic loss after the switch is back up. 
+* Verify that there is no traffic loss after the switch is back up.
 * Drill down by "Destination Endpoint" under traffic statistics to get the data plance convergence time.
-* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results. 
+* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results.
 * Set it back to default configuration.
 #### Test results
 | Reboot Type         | Event | Convergence (s) |
@@ -117,7 +117,7 @@ Measure the downtime convergence time when fast-reboot is issued while traffic i
 
 <p float="left">
   <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
-  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
+  <img src="Img/Downtime-convergence-graph.png" width="400" />
 </p>
 
 
@@ -131,11 +131,11 @@ Measure the downtime convergence time when fast-reboot is issued while traffic i
 * Apply and start the data traffic.
 * Verify that traffic is flowing without any loss.
 * Enable csv logging or check the state of bgp protocol through API.
-* Control plane convergence time is measured by pinging the loopback interface of switch. 
+* Control plane convergence time is measured by pinging the loopback interface of switch.
 * Now do warm-reboot by issuing the command "sudo fast-reboot".
-* Verify that there is no traffic loss after the switch is back up. 
+* Verify that there is no traffic loss after the switch is back up.
 * Drill down by "Destination Endpoint" under traffic statistics to get the data plance convergence time.
-* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results. 
+* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results.
 * Set it back to default configuration.
 #### Test results
 | Reboot Type         | Event | Convergence (s) |
@@ -170,7 +170,7 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 
 <p float="left">
   <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
-  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
+  <img src="Img/Downtime-convergence-graph.png" width="400" />
 </p>
 
 
@@ -184,11 +184,11 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 * Apply and start the data traffic.
 * Verify that traffic is flowing without any loss.
 * Enable csv logging or check the state of bgp protocol through API.
-* Control plane convergence time is measured by pinging the loopback interface of switch. 
+* Control plane convergence time is measured by pinging the loopback interface of switch.
 * Now do warm-reboot by issuing the command "sudo coldreboot".
-* Verify that there is no traffic loss after the switch is back up. 
+* Verify that there is no traffic loss after the switch is back up.
 * Drill down by "Destination Endpoint" under traffic statistics to get the data plance convergence time.
-* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results. 
+* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results.
 * Set it back to default configuration.
 #### Test results
 | Reboot Type         | Event | Convergence (s) |
@@ -224,7 +224,7 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 
 <p float="left">
   <img src="Img/Downtime-Convergence-Topology.png" width="280"  hspace="100"/>
-  <img src="Img/Downtime-convergence-graph.png" width="400" /> 
+  <img src="Img/Downtime-convergence-graph.png" width="400" />
 </p>
 
 
@@ -238,11 +238,11 @@ Measure the downtime convergence time when cold-reboot is issued while traffic i
 * Apply and start the data traffic.
 * Verify that traffic is flowing without any loss.
 * Enable csv logging or check the state of bgp protocol through API.
-* Control plane convergence time is measured by pinging the loopback interface of switch. 
+* Control plane convergence time is measured by pinging the loopback interface of switch.
 * Now do warm-reboot by issuing the command "sudo soft-reboot".
-* Verify that there is no traffic loss after the switch is back up. 
+* Verify that there is no traffic loss after the switch is back up.
 * Drill down by "Destination Endpoint" under traffic statistics to get the data plance convergence time.
-* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results. 
+* In general the convergence value will fall in certain range. In order to achieve proper results, run the test multiple times and average out the test results.
 * Set it back to default configuration.
 #### Test results
 

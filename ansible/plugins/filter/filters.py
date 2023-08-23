@@ -79,7 +79,7 @@ def first_n_elements(values, num):
     if not isinstance(values, list):
         raise errors.AnsibleFilterError('Wrong type for values')
 
-    if not isinstance(num, str) and not isinstance(num, unicode):
+    if not isinstance(num, str) and not isinstance(num, unicode):               # noqa F821
         raise errors.AnsibleFilterError("Wrong type for the num {}".format(type(num)))
 
     if len(values) <= int(num):
@@ -108,7 +108,7 @@ def filter_vm_targets(values, topology, vm_base):
     if not isinstance(topology, dict):
         raise errors.AnsibleFilterError('Wrong type for the topology')
 
-    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):
+    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa F821
         raise errors.AnsibleFilterError('Wrong type for the vm_base')
 
     if vm_base not in values:
@@ -147,10 +147,10 @@ def extract_hostname(values, topology, vm_base, inventory_hostname):
     if not isinstance(topology, dict):
         raise errors.AnsibleFilterError('Wrong type for the topology')
 
-    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):
+    if not isinstance(vm_base, str) and not isinstance(vm_base, unicode):       # noqa F821
         raise errors.AnsibleFilterError('Wrong type for the vm_base')
 
-    if not isinstance(inventory_hostname, str) and not isinstance(inventory_hostname, unicode):
+    if not isinstance(inventory_hostname, str) and not isinstance(inventory_hostname, unicode):     # noqa F821
         raise errors.AnsibleFilterError('Wrong type for the inventor_hostname')
 
     if vm_base not in values:
@@ -199,7 +199,7 @@ def expand_properties(value, configuration_properties):
 
 
 def first_ip_of_subnet(value):
-    subnet = ipaddress.ip_network(unicode(value), strict=False)
+    subnet = ipaddress.ip_network(value.encode().decode(), strict=False)
     if subnet.num_addresses >= 2:
         return str(subnet[1])
     else:

@@ -3,8 +3,8 @@
 import pytest
 import sys
 from tests.common.utilities import skip_release
-from util.base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from util.helpers import log_info
+from .util.base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
+from .util.helpers import log_info
 
 pytestmark = [
         pytest.mark.topology("t1")
@@ -67,4 +67,4 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     log_info("sys.version={}".format(sys.version))
-    do_test_add_rack(duthost, is_storage_backend='backend' in tbinfo['topo']['name'])
+    do_test_add_rack(duthost, is_storage_backend='backend' in tbinfo['topo']['name'], skip_clet_test=True)

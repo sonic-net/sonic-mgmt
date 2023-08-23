@@ -50,8 +50,8 @@ class PduManager():
         self.controllers = []
 
     def _update_outlets(self, outlets, pdu_index, controller_index=None):
-        for outlet_idx, outlet in enumerate(outlets):
-            outlet['pdu_index'] = pdu_index + outlet_idx
+        for outlet in outlets:
+            outlet['pdu_index'] = pdu_index
             if controller_index is None:
                 controller_index = pdu_index
             outlet['pdu_name'] = self.controllers[controller_index]['psu_peer']['peerdevice']
