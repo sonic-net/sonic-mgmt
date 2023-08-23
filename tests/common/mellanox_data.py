@@ -44,7 +44,7 @@ SWITCH_MODELS = {
             },
             "module": {
                 "start": 1,
-                "number": 64
+                "number": 65
             },
             "psu": {
                 "start": 1,

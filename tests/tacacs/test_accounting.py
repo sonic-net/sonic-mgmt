@@ -7,8 +7,9 @@ import pytest
 
 
 from .test_authorization import ssh_connect_remote, ssh_run_command, \
-        per_command_check_skip_versions, remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server
+        remove_all_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server, \
+        check_server_received, per_command_accounting_skip_versions
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -141,7 +142,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, per_command_check_skip_versions)
+    skip_release(duthost, per_command_accounting_skip_versions)
 
 
 def test_accounting_tacacs_only(
@@ -301,3 +302,21 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
+
+def test_send_remote_address(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
+    """
+        Verify TACACS+ send remote address to server.
+    """
+    exit_code, stdout, stderr = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    pytest_assert(exit_code == 0)
+
+    # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    remote_address = stdout[0].split(" ")[0]
+    check_server_received(ptfhost, remote_address)

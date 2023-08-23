@@ -3,6 +3,7 @@ generate and update qos params for brcm platform
 so far, only return the original qos_params to testcase
 '''
 
+
 class QosParamBroadcom(object):
 
     def __init__(self,
@@ -23,7 +24,6 @@ class QosParamBroadcom(object):
                  verbose=True):
         self.qos_params = qos_params
         return
-
 
     def run(self):
         return self.qos_params

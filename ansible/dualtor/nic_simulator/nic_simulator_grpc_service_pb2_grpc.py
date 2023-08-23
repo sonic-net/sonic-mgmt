@@ -15,35 +15,35 @@ class DualToRActiveStub(object):
             channel: A grpc.Channel.
         """
         self.QueryAdminForwardingPortState = channel.unary_unary(
-                '/DualToRActive/QueryAdminForwardingPortState',
-                request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
-                )
+            '/DualToRActive/QueryAdminForwardingPortState',
+            request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
+        )
         self.SetAdminForwardingPortState = channel.unary_unary(
-                '/DualToRActive/SetAdminForwardingPortState',
-                request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
-                )
+            '/DualToRActive/SetAdminForwardingPortState',
+            request_serializer=nic__simulator__grpc__service__pb2.AdminRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.AdminReply.FromString,
+        )
         self.QueryOperationPortState = channel.unary_unary(
-                '/DualToRActive/QueryOperationPortState',
-                request_serializer=nic__simulator__grpc__service__pb2.OperationRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.OperationReply.FromString,
-                )
+            '/DualToRActive/QueryOperationPortState',
+            request_serializer=nic__simulator__grpc__service__pb2.OperationRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.OperationReply.FromString,
+        )
         self.QueryLinkState = channel.unary_unary(
-                '/DualToRActive/QueryLinkState',
-                request_serializer=nic__simulator__grpc__service__pb2.LinkStateRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.LinkStateReply.FromString,
-                )
+            '/DualToRActive/QueryLinkState',
+            request_serializer=nic__simulator__grpc__service__pb2.LinkStateRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.LinkStateReply.FromString,
+        )
         self.QueryServerVersion = channel.unary_unary(
-                '/DualToRActive/QueryServerVersion',
-                request_serializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.ServerVersionReply.FromString,
-                )
+            '/DualToRActive/QueryServerVersion',
+            request_serializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.ServerVersionReply.FromString,
+        )
         self.SetDrop = channel.unary_unary(
-                '/DualToRActive/SetDrop',
-                request_serializer=nic__simulator__grpc__service__pb2.DropRequest.SerializeToString,
-                response_deserializer=nic__simulator__grpc__service__pb2.DropReply.FromString,
-                )
+            '/DualToRActive/SetDrop',
+            request_serializer=nic__simulator__grpc__service__pb2.DropRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__service__pb2.DropReply.FromString,
+        )
 
 
 class DualToRActiveServicer(object):
@@ -88,39 +88,39 @@ class DualToRActiveServicer(object):
 
 def add_DualToRActiveServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'QueryAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryAdminForwardingPortState,
-                    request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
-            ),
-            'SetAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetAdminForwardingPortState,
-                    request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
-            ),
-            'QueryOperationPortState': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryOperationPortState,
-                    request_deserializer=nic__simulator__grpc__service__pb2.OperationRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.OperationReply.SerializeToString,
-            ),
-            'QueryLinkState': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryLinkState,
-                    request_deserializer=nic__simulator__grpc__service__pb2.LinkStateRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.LinkStateReply.SerializeToString,
-            ),
-            'QueryServerVersion': grpc.unary_unary_rpc_method_handler(
-                    servicer.QueryServerVersion,
-                    request_deserializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.ServerVersionReply.SerializeToString,
-            ),
-            'SetDrop': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetDrop,
-                    request_deserializer=nic__simulator__grpc__service__pb2.DropRequest.FromString,
-                    response_serializer=nic__simulator__grpc__service__pb2.DropReply.SerializeToString,
-            ),
+        'QueryAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+            servicer.QueryAdminForwardingPortState,
+            request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
+        ),
+        'SetAdminForwardingPortState': grpc.unary_unary_rpc_method_handler(
+            servicer.SetAdminForwardingPortState,
+            request_deserializer=nic__simulator__grpc__service__pb2.AdminRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.AdminReply.SerializeToString,
+        ),
+        'QueryOperationPortState': grpc.unary_unary_rpc_method_handler(
+            servicer.QueryOperationPortState,
+            request_deserializer=nic__simulator__grpc__service__pb2.OperationRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.OperationReply.SerializeToString,
+        ),
+        'QueryLinkState': grpc.unary_unary_rpc_method_handler(
+            servicer.QueryLinkState,
+            request_deserializer=nic__simulator__grpc__service__pb2.LinkStateRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.LinkStateReply.SerializeToString,
+        ),
+        'QueryServerVersion': grpc.unary_unary_rpc_method_handler(
+            servicer.QueryServerVersion,
+            request_deserializer=nic__simulator__grpc__service__pb2.ServerVersionRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.ServerVersionReply.SerializeToString,
+        ),
+        'SetDrop': grpc.unary_unary_rpc_method_handler(
+            servicer.SetDrop,
+            request_deserializer=nic__simulator__grpc__service__pb2.DropRequest.FromString,
+            response_serializer=nic__simulator__grpc__service__pb2.DropReply.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'DualToRActive', rpc_method_handlers)
+        'DualToRActive', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 

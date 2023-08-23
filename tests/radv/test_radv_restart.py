@@ -73,14 +73,16 @@ def test_radv_swss(duthost):
     datetime_swss_before = datetime.strptime(swss_status_dict_before.get("ActiveEnterTimestamp"), date_format)
     datetime_swss = datetime.strptime(swss_status_dict.get("ActiveEnterTimestamp"), date_format)
     datetime_radv = datetime.strptime(radv_status_dict.get("ActiveEnterTimestamp"), date_format)
-    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before, "service swss also restarted while radv restarting"
+    assert datetime_swss < datetime_radv and datetime_swss == datetime_swss_before,\
+        "service swss also restarted while radv restarting"
 
 
 def parse_service_status(service_status_stdout_lines):
     """parse the service status from array format into dictionary format
 
     Args:
-        service_status_stdout_lines: "stdout_lines" field for the result of duthost.shell(). Type is array, each element is a string. For example:
+        service_status_stdout_lines: "stdout_lines" field for the result of duthost.shell().
+        Type is array, each element is a string. For example:
 
         ["ActiveState=active",
         "ActiveEnterTimestamp=Tue 2022-08-09 10:30:58 UTC"]
