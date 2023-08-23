@@ -17,6 +17,11 @@
             <a:Value>1</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
+            <a:Name>CloudType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Public</a:Value>
+          </a:DeviceProperty>
+          <a:DeviceProperty>
             <a:Name>QosProfile</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
@@ -28,7 +33,13 @@
             <a:Value>True</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if 'dualtor-mixed' in topo %}
+{% if 'dualtor-aa' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Libra</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor-mixed' in topo %}
           <a:DeviceProperty>
             <a:Name>RedundancyType</a:Name>
             <a:Reference i:nil="true" />
@@ -217,4 +228,3 @@
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
-

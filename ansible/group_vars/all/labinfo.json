@@ -13,9 +13,9 @@
         "Force10-S6000": "Force10"
     },
     "switch_login": {
-        "Nexus": { 
+        "Nexus": {
             "user": "admin",
-            "passwd": ["password"], 
+            "passwd": ["password"],
             "enable": null
         },
         "Arista": {
@@ -26,7 +26,7 @@
         "Force10": {
             "user": "admin",
             "passwd": ["password"],
-            "enable": ["password"] 
+            "enable": ["password"]
         }
     }
 }
