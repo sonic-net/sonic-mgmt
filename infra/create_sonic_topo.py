@@ -680,6 +680,7 @@ def get_dut_platform(device_type):
          return "mathilda"
 
 def determine_base_topo(topo_type, device_type):
+    ptf_intfcount = 32
     if topo_type in ['t2-vs', 't2-min']:
         assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
         os.system("cp sonic_t2/* .")
@@ -692,6 +693,7 @@ def determine_base_topo(topo_type, device_type):
     elif topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
+        ptf_intfcount = 32
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'crocodile':
@@ -705,6 +707,7 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
+        ptf_intfcount = 32
     elif topo_type == 'dualtor-56':
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
