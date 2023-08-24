@@ -57,7 +57,7 @@ def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
     return []
 
 
-def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
+def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command, timeout=10):
     username = tacacs_creds['tacacs_rw_user']
     """
         Find logs run by tacacs_rw_user from tac_plus.acct:
@@ -65,8 +65,16 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
             Print matched logs with /P command.
     """
     log_pattern = "/	{0}	.*	cmd=.*{1}/P".format(username, command)
-    logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
-    pytest_assert(len(logs) > 0)
+
+    while timeout > 0:
+        logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
+        if len(logs) > 0:
+            return
+        # not found log, retry read log from tacacs server later
+        time.sleep(1)
+        timeout -= 1;
+
+    pytest_assert(False)
 
 
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
