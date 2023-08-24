@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 2"
+  - cron: "0 4 * * 0"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms7-t0-7260-1"
+    default: "vms24-t0-7260-2"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
