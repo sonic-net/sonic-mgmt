@@ -333,7 +333,15 @@ def duthost(duthosts, request):
                                                        len(duthosts))
 
     duthost = duthosts[dut_index]
+    host_obj = duthost.host.options['inventory_manager'].get_host('sonic-s6100-dut')
 
+    if host_obj:
+        # Load the YAML file into a dictionary
+        with open('../ansible/group_vars/snappi-sonic/secrets.yml', 'r') as file:
+            secrets_data = yaml.safe_load(file)
+        # Setting the variables for the host
+        host_obj.set_variable('ansible_ssh_user', secrets_data.get('sonicadmin_user'))
+        host_obj.set_variable('ansible_ssh_pass', secrets_data.get('ansible_ssh_pass'))
     return duthost
 
 
@@ -2259,3 +2267,17 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+@pytest.fixture(scope="session")
+def testbed(request):
+    """
+    Create and return testbed information
+    """
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+
+    tbinfo = TestbedInfo(tbfile)
+    return tbinfo.testbed_topo[tbname]
