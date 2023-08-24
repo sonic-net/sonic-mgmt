@@ -335,10 +335,13 @@ def duthost(duthosts, request):
     duthost = duthosts[dut_index]
     host_obj = duthost.host.options['inventory_manager'].get_host('sonic-s6100-dut')
 
-    # Setting the variables for the host: user and password
     if host_obj:
-        host_obj.set_variable('ansible_ssh_user', 'admin')
-        host_obj.set_variable('ansible_ssh_pass', 'admin')
+        # Load the YAML file into a dictionary
+        with open('../ansible/group_vars/snappi-sonic/secrets.yml', 'r') as file:
+            secrets_data = yaml.safe_load(file)
+        # Setting the variables for the host
+        host_obj.set_variable('ansible_ssh_user', secrets_data.get('sonicadmin_user'))
+        host_obj.set_variable('ansible_ssh_pass', secrets_data.get('ansible_ssh_pass'))
     return duthost
 
 
