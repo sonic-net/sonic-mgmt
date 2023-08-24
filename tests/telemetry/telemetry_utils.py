@@ -17,6 +17,8 @@ SUBSCRIBE_MODE_STREAM = 0
 SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
+EVENT_REGEX = "json_ietf_val: \"(.*)\""
+ON_CHANGE_REGEX= "json_ietf_val:\"({.*?})\""
 
 def assert_equal(actual, expected, message):
     """Helper method to compare an expected value vs the actual value.
@@ -87,12 +89,12 @@ def parse_gnmi_output(gnmi_output, match_no, find_data):
     gnmi_str = gnmi_str.replace('\\', '')
     gnmi_str = gnmi_str.replace(' ', '')
     if find_data != "":
-        result = fetch_json_ptf_output(gnmi_str, match_no)
+        result = fetch_json_ptf_output(ON_CHANGE_REGEX, gnmi_str, match_no)
         return find_data in result
 
 
-def fetch_json_ptf_output(output, match_no):
-    match = re.findall('json_ietf_val:\"({.*?})\"', output)
+def fetch_json_ptf_output(regex, output, match_no):
+    match = re.findall(regex, output)
     assert len(match) > match_no, "Not able to parse json from output"
     event_str = match[match_no]
     return event_str
@@ -115,7 +117,7 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file):
     assert results[0] != "", "No output from PTF docker"
     # regex logic and then to write to file
     result = results[0]
-    event_str = fetch_json_ptf_output(result, 0)
+    event_str = fetch_json_ptf_output(EVENT_REGEX, result, 0)
     event_str = event_str.replace('\\', '')
     event_json = json.loads(event_str)
     with open(op_file, "w") as f:
