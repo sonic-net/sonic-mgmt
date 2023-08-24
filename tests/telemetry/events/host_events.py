@@ -5,6 +5,7 @@ import logging
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
 from telemetry_utils import trigger_logger
+from tests.common.helpers.dut_utils import is_container_running
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-host"
@@ -54,12 +55,12 @@ def trigger_kernel_event(duthost):
 def get_container(duthost):
     logger.info("Check if acms or snmp container is running")
     container = "acms"
-    container_running = duthost.is_container_running(container)
+    container_running = is_container_running(duthost, container)
     if not container_running:
         container = "snmp"
     else:
         return container
-    container_running = duthost.is_container_running(container)
+    container_running = is_container_running(duthost, container)
     if not container_running:
         return ""
     return container
@@ -70,8 +71,7 @@ def stop_container(duthost):
     container = get_container(duthost)
     assert container != "", "No available container for testing"
 
-    duthost.shell("docker stop {}".format(container))
-    duthost.shell("docker start {}".format(container))
+    duthost.shell("systemctl restart {}".format(container))
 
 
 def mask_container(duthost):
