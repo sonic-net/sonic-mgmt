@@ -1,6 +1,5 @@
 import logging
 import pytest
-import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -477,7 +476,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
             except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
                         queue, dualtor_meta['selected_port'], err))
             time.sleep(5)
 
