@@ -1,6 +1,6 @@
 import pytest
 import random
-import pandas as pd
+import csv
 import re
 import yaml
 import site
@@ -11,7 +11,6 @@ from tests.conftest import generate_priority_lists
 from ixnetwork_restpy import SessionAssistant
 
 from tests.common.reboot import logger
-# from tests.common.ixia.ixia_helpers import *
 
 site.addsitedir(dirname(abspath(__file__)) + '/lib')
 
@@ -201,9 +200,11 @@ def ixia_dev(duthost, fanouthosts):
 
 @pytest.fixture(scope="module")
 def ixia_chassis(testbed, duthost):
-    table = pd.read_csv(r'../ansible/files/snappi_sonic_devices.csv')
-    table = table.loc[table['Hostname'] == 'snappi-sonic']
-    return table['ManagementIp'][0].split('/')[0]
+    with open(r'../ansible/files/snappi_sonic_devices.csv', mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            if row['Hostname'] == 'snappi-sonic':
+                return row['ManagementIp'].split('/')[0]
 
 
 @pytest.fixture(scope="function")
@@ -253,16 +254,18 @@ def get_ixia_port_list(ixia_chassis, testbed):
     # get port list from csv file
     ixia = ixia_chassis
     ixChassisIpList = [ixia]
-    table = pd.read_csv(r'../ansible/files/snappi_sonic_link.csv')
     portlist = []
-    portinfolist = table['EndPort'].values.tolist()
-    for portinfo in portinfolist:
-        pattern = r'Card(\d+)/Port(\d+)'
-        if isinstance(portinfo, str):
-            m = re.match(pattern, portinfo)
-            card = m.group(1)
-            port = m.group(2)
-            portlist.append([ixChassisIpList[0], card, port])
+    with open(r'../ansible/files/snappi_sonic_link.csv', mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            portinfo = row['EndPort']
+            pattern = r'Card(\d+)/Port(\d+)'
+            if portinfo:
+                m = re.match(pattern, portinfo)
+                card = m.group(1)
+                port = m.group(2)
+                portlist.append([ixChassisIpList[0], card, port])
+
     return portlist
 
 
