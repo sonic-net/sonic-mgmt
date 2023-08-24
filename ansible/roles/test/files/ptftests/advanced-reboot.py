@@ -2329,11 +2329,6 @@ class ReloadTest(BaseTest):
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
 
-        if self.is_dualtor:
-            # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
-            # icmp_responder will also generate a response for this ICMP req, ignore that reply
-            total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts
-
         self.log("Send %5d Received %5d ping DUT" %
                  (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 
