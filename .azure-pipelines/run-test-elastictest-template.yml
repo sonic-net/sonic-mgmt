@@ -79,6 +79,10 @@ parameters:
     type: string
     default: ""
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: "[]"
+
   - name: REPO_NAME
     type: string
     default: ""
@@ -180,6 +184,7 @@ steps:
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
       --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
+      --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
