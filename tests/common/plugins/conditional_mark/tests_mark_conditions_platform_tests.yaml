@@ -768,9 +768,15 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 platform_tests/test_advanced_reboot.py:
   xfail:
-    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    reason: "Xfail advanced reboot on TD3 due to known SAI issue in SAI 8.4+"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+  skip:
+    reason: "Unsupported platform"
+    conditions_logical_operator: or
+    conditions:
+      - "platform in ['x86_64-arista_7050_qx32s']"
+      - "'dualtor' in topo_name and release in ['202012']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -836,13 +842,6 @@ platform_tests/test_reboot.py::test_cold_reboot:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
-platform_tests/test_reboot.py::test_continuous_reboot:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
@@ -882,7 +881,6 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
-      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####

@@ -10,41 +10,66 @@ Value Filldown min_links (\d+)
 Value Filldown LACP_mode (ACTIVE|INACTIVE)
 Value Filldown priority (\d+)
 Value Filldown pc_mac_address (..:..:..:..:..:..)
-Value members (\S+)
-Value is_selected (True|False)
-Value actor_port (\d+)
-Value actor_mac (..:..:..:..:..:..)
-Value partner_port (\d+)
-Value partner_mac (..:..:..:..:..:..)
-Value pkts (\d+)
-Value octets (\d+)
-Value multicasts (\d+)
-Value broadcasts (\d+)
-Value unicasts (\d+)
-Value errors (\d+)
-Value discards (\d+)
+Value List members (\S+)
+Value List is_selected (True|False)
+Value List actor_port (\d+)
+Value List actor_mac (..:..:..:..:..:..)
+Value List partner_port (\d+)
+Value List partner_mac (..:..:..:..:..:..)
+Value input_pkts (\d+)
+Value input_octets (\d+)
+Value input_multicasts (\d+)
+Value input_broadcasts (\d+)
+Value input_unicasts (\d+)
+Value input_errors (\d+)
+Value input_discards (\d+)
+Value output_pkts (\d+)
+Value output_octets (\d+)
+Value output_multicasts (\d+)
+Value output_broadcasts (\d+)
+Value output_unicasts (\d+)
+Value output_errors (\d+)
+Value output_discards (\d+)
 Value Filldown interval (\S+)
+Value Filldown Reason (\S+)
+Value List Event_list (\S+)
+Value List Timestamp_list (\S+)
+Value counters_changed (\S+)
+Value input_10_secs_pkt_rate (\d+)
+Value output_10_secs_pkt_rate (\d+)
+Value input_10_secs_bit_rate (\d+)
+Value output_10_secs_bit_rate (\d+)
+Value input_10_secs_byte_rate (\d+)
+Value output_10_secs_byte_rate (\d+)
 
 Start
-  ^\s*PortChannel${channel_number}\s+is\s+${state},\s+line\s+protocol\s+is\s+${protocol_state},\s+mode\s+${mode}\s*$$
+  ^\s*PortChannel${channel_number}\s+is\s+${state},\s+line\s+protocol\s+is\s+${protocol_state},\s+reason\s+${Reason},\s+mode\s+${mode}\s*$$ -> Details
+
+Details
   ^\s*Minimum\s+number\s+of\s+links\s+to\s+bring\s+PortChannel\s+up\s+is\s+${min_links}\s*$$
   ^\s*Fallback:\s+${fallback}\s*\,*\s*${oper_fallback}$$
   ^\s*MTU\s+${mtu}\s*$$
-  ^\s*LACP\s+mode\s+${LACP_mode},\s+interval\s+${interval}\s+priority\s+${priority}\s+address\s+${pc_mac_address}\s*$$
+  ^\s*Events\s*:\s*$$
+  ^\s*${Event_list}\s+at\s+${Timestamp_list}\s* -> Details
+  ^\s*LACP\s+mode\s+${LACP_mode},?\s+interval\s+${interval}\s+priority\s+${priority}\s+address\s+${pc_mac_address}\s*$$
   ^\s*Members\s+in\s+this\s+channel:\s+${members}\s*$$
   ^\s*selected\s+${is_selected}\s*$$
   ^\s*LACP\s+Actor\s+port\s+${actor_port}\s+address\s+${actor_mac}\s+key\s+\d+\s*$$
-  ^\s*LACP\s+Partner\s+port\s+${partner_port}\s+address\s+${partner_mac}\s+key\s+\d+\s*$$ -> Record
-  ^\s*\S+\s+statistics: -> counters
-  ^$$
+  ^\s*LACP\s+Partner\s+port\s+${partner_port}\s+address\s+${partner_mac}\s+key\s+\d+\s*$$ -> Details
+  ^\s*Last clearing.*counters: ${counters_changed}
+  ^\s*10 seconds input rate ${input_10_secs_pkt_rate} packets/sec, ${input_10_secs_bit_rate} bits/sec, ${input_10_secs_byte_rate} Bytes/sec
+  ^\s*10 seconds output rate ${output_10_secs_pkt_rate} packets/sec, ${output_10_secs_bit_rate} bits/sec, ${output_10_secs_byte_rate} Bytes/sec
+  ^\s*Input\s+statistics: -> Input_Stats
+  ^\s*Output\s+statistics: -> Output_Stats
+  ^\s*PortChannel\d+ -> Continue.Record
+  ^\s*PortChannel${channel_number}\s+is\s+${state},\s+line\s+protocol\s+is\s+${protocol_state},\s+reason\s+${Reason},\s+mode\s+${mode}\s*$$ -> Details
 
-counters
-  ^\s*${pkts}\s+packets,\s+${octets}\s+octets\s*$$
-  ^\s*${multicasts}\s+Multicasts,\s+${broadcasts}\s+Broadcasts,\s+${unicasts}\s+Unicasts\s*$$
-  ^\s*${errors}\s+error,\s+${discards}\s+discarded\s*$$ -> Record
+Input_Stats
+  ^\s*${input_pkts}\s+packets,\s+${input_octets}\s+octets\s*$$
+  ^\s*${input_multicasts}\s+Multicasts,\s+${input_broadcasts}\s+Broadcasts,\s+${input_unicasts}\s+Unicasts\s*$$
+  ^\s*${input_errors}\s+error,\s+${input_discards}\s+discarded\s*$$ -> Details
 
-
-
-
-
-
+Output_Stats
+  ^\s*${output_pkts}\s+packets,\s+${output_octets}\s+octets\s*$$
+  ^\s*${output_multicasts}\s+Multicasts,\s+${output_broadcasts}\s+Broadcasts,\s+${output_unicasts}\s+Unicasts\s*$$
+  ^\s*${output_errors}\s+error,\s+${output_discards}\s+discarded\s*$$ -> Record Start
