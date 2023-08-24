@@ -333,7 +333,11 @@ def duthost(duthosts, request):
                                                        len(duthosts))
 
     duthost = duthosts[dut_index]
+    host_obj = duthost.host.options['inventory_manager'].get_host('sonic-s6100-dut')
 
+    # Setting the variables for the host: user and password
+    host_obj.set_variable('ansible_ssh_user', 'admin')
+    host_obj.set_variable('ansible_ssh_pass', 'admin')
     return duthost
 
 
@@ -2259,3 +2263,17 @@ testutils.verify_packets_any = verify_packets_any_fixed
 # HACK: We are using set_do_not_care_scapy but it will be deprecated.
 if not hasattr(Mask, "set_do_not_care_scapy"):
     Mask.set_do_not_care_scapy = Mask.set_do_not_care_packet
+
+
+@pytest.fixture(scope="session")
+def testbed(request):
+    """
+    Create and return testbed information
+    """
+    tbname = request.config.getoption("--testbed")
+    tbfile = request.config.getoption("--testbed_file")
+    if tbname is None or tbfile is None:
+        raise ValueError("testbed and testbed_file are required!")
+
+    tbinfo = TestbedInfo(tbfile)
+    return tbinfo.testbed_topo[tbname]
