@@ -1,45 +1,31 @@
 #!/usr/bin/env python3
-import sys
 import yaml
+import argparse
 
-T0_TOPOLOGY_FILE = "pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
-T1_TOPOLOGY_FILE = "pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+TOPOLOGY_FILES = {
+     "T0": "pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml",
+     "T1": "pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+}
 SIM_CFG_FILE = "../sim-cfg.yml"
 
+parser = argparse.ArgumentParser()
+parser.add_argument("topology", choices=TOPOLOGY_FILES.keys())
+args = parser.parse_args()
+topology_file = TOPOLOGY_FILES[args.topology]
 
-if __name__=="__main__":
-    if len(sys.argv) != 2:
-        print("ERROR: invalid arguement numbers!")
-        exit(1)
-    else:
-        sim_cfg_f = open(SIM_CFG_FILE, "r")
-        sim_cfg = yaml.safe_load(sim_cfg_f)
-        sim_cfg_f.close()
-        if sys.argv[1] == "T0":
-            topo_f = open(T0_TOPOLOGY_FILE, "r")
-            topo = yaml.safe_load(topo_f)
-            topo_f.close()
+with open(SIM_CFG_FILE, "r") as fd:
+    sim_cfg = yaml.safe_load(fd)
 
+with open(topology_file, "r") as fd:
+    topo = yaml.safe_load(fd)
 
-            topo["devices"]["sonic_dut"]["onie-install"] = "../../sonic-cisco-8000.bin"
-            topo["devices"]["sonic_dut"]["vxr_sim_config"]["shelf"]["ConfigS1NpsuiteVer"] = sim_cfg["npsuite"]
-            topo["devices"]["sonic_dut"]["vxr_sim_config"]["shelf"]["ConfigS1NplPath"] = sim_cfg["npl_path"]
+    topo["devices"]["sonic_dut"]["onie-install"] = "../../sonic-cisco-8000.bin"
+    topo["devices"]["sonic_dut"]["vxr_sim_config"] = {
+        "shelf": {
+            "ConfigS1NpsuiteVer": sim_cfg["npsuite"],
+            "ConfigS1NplPath": sim_cfg["npl_path"]
+        }
+    }
 
-            topo_f = open(T0_TOPOLOGY_FILE, "w")
-            yaml.safe_dump(topo, topo_f)
-            topo_f.close()
-        elif sys.argv[1] == "T1":
-            topo_f = open(T1_TOPOLOGY_FILE, "r")
-            topo = yaml.safe_load(topo_f)
-            topo_f.close()
-
-            topo["devices"]["sonic_dut"]["onie-install"] = "../../sonic-cisco-8000.bin"
-            topo["devices"]["sonic_dut"]["vxr_sim_config"]["shelf"]["ConfigS1NpsuiteVer"] = sim_cfg["npsuite"]
-            topo["devices"]["sonic_dut"]["vxr_sim_config"]["shelf"]["ConfigS1NplPath"] = sim_cfg["npl_path"]
-
-            topo_f = open(T1_TOPOLOGY_FILE, "w")
-            yaml.safe_dump(topo, topo_f)
-            topo_f.close()
-        else:
-            print("ERROR: invalid arguement: %s" %sys.argv) 
-            exit(1)
+with open(topology_file, "w") as fd:
+    yaml.safe_dump(topo, fd)
