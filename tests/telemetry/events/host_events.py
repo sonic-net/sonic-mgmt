@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 
 import logging
-
+import time
 from run_events_test import run_test
 from event_utils import backup_monit_config, customize_monit_config, restore_monit_config
 from telemetry_utils import trigger_logger
