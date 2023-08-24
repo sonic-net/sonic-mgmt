@@ -3,13 +3,14 @@ import collections
 import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
-from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
     get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
-from tests.common.snappi.qos_fixtures import prio_dscp_map_dut_base,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map_dut_base,\
     lossless_prio_list_dut_base
-from tests.snappi.variables import config_set, line_card_choice
-from files.multidut_helper import run_ecn_test, is_ecn_marked
+from tests.snappi_tests.variables import config_set, line_card_choice
+from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test, is_ecn_marked   # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('snappi')]
 
@@ -76,12 +77,20 @@ def test_red_accuracy(request,
                                                                             snappi_api)
     prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     lossless_prio = int(lossless_prio_list_dut_base(duthost1)[0])
-    kmin = 500000
-    kmax = 2000000
-    pmax = 5
-    pkt_size = 1024
-    pkt_cnt = 2100
-    iters = 1
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+    snappi_extra_params.kmin = 500000
+    snappi_extra_params.kmax = 2000000
+    snappi_extra_params.pmax = 5
+    snappi_extra_params.pkt_size = 1024
+    snappi_extra_params.pkt_cnt = 2100
+
     result_file_name = 'result.txt'
 
     ip_pkts_list = run_ecn_test(api=snappi_api,
@@ -89,40 +98,29 @@ def test_red_accuracy(request,
                                 port_config_list=port_config_list,
                                 conn_data=conn_graph_facts,
                                 fanout_data=fanout_graph_facts,
-                                duthost1=duthost1,
-                                rx_port=snappi_ports[0],
-                                rx_port_id=snappi_ports[0]["port_id"],
-                                duthost2=duthost2,
-                                tx_port=snappi_ports[1],
-                                tx_port_id=snappi_ports[1]["port_id"],
                                 dut_port=snappi_ports[0]['peer_port'],
-                                kmin=kmin,
-                                kmax=kmax,
-                                pmax=pmax,
-                                pkt_size=pkt_size,
-                                pkt_cnt=pkt_cnt,
                                 lossless_prio=lossless_prio,
                                 prio_dscp_map=prio_dscp_map,
-                                iters=iters)
+                                snappi_extra_params=snappi_extra_params)
 
     """ Check if we capture packets of all the rounds """
-    pytest_assert(len(ip_pkts_list) == iters,
-                  'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list), iters))
+    pytest_assert(len(ip_pkts_list) == snappi_extra_params.iters,
+                  'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list), snappi_extra_params.iters))
 
     queue_mark_cnt = {}
-    for i in range(pkt_cnt):
-        queue_len = (pkt_cnt - i) * pkt_size
+    for i in range(snappi_extra_params.pkt_cnt):
+        queue_len = (snappi_extra_params.pkt_cnt - i) * snappi_extra_params.pkt_size
         queue_mark_cnt[queue_len] = 0
 
-    for i in range(iters):
+    for i in range(snappi_extra_params.iters):
         ip_pkts = ip_pkts_list[i]
         """ Check if we capture all the packets in each round """
-        pytest_assert(len(ip_pkts) == pkt_cnt,
-                      'Only capture {}/{} packets in round {}'.format(len(ip_pkts), pkt_cnt, i))
+        pytest_assert(len(ip_pkts) == snappi_extra_params.pkt_cnt,
+                      'Only capture {}/{} packets in round {}'.format(len(ip_pkts), snappi_extra_params.pkt_cnt, i))
 
-        for j in range(pkt_cnt):
+        for j in range(snappi_extra_params.pkt_cnt):
             ip_pkt = ip_pkts[j]
-            queue_len = (pkt_cnt - j) * pkt_size
+            queue_len = (snappi_extra_params.pkt_cnt - j) * snappi_extra_params.pkt_size
 
             if is_ecn_marked(ip_pkt):
                 queue_mark_cnt[queue_len] += 1
@@ -131,6 +129,6 @@ def test_red_accuracy(request,
     queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
     f = open(result_file_name, 'w')
     for queue, mark_cnt in queue_mark_cnt.iteritems():
-        f.write('{} {}\n'.format(queue, float(mark_cnt) / iters))
+        f.write('{} {}\n'.format(queue, float(mark_cnt) / snappi_extra_params.iters))
     f.close()
     cleanup_config(dut_list, snappi_ports)
