@@ -2,10 +2,11 @@ import time
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi.snappi_helpers import get_dut_port_id          # noqa: F401
-from tests.common.snappi.common_helpers import start_pfcwd, stop_pfcwd
-from tests.common.snappi.port import select_ports, select_tx_port       # noqa: F401
-from tests.common.snappi.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id          # noqa: F401
+from tests.common.snappi_tests.common_helpers import start_pfcwd, stop_pfcwd
+from tests.common.snappi_tests.port import select_ports, select_tx_port       # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 DATA_FLOW_NAME = "Data Flow"
 DATA_PKT_SIZE = 1024
@@ -22,15 +23,10 @@ def run_pfcwd_runtime_traffic_test(api,
                                    port_config_list,
                                    conn_data,
                                    fanout_data,
-                                   duthost1,
-                                   rx_port,
-                                   rx_port_id,
-                                   duthost2,
-                                   tx_port,
-                                   tx_port_id,
                                    dut_port,
                                    prio_list,
-                                   prio_dscp_map):
+                                   prio_dscp_map,
+                                   snappi_extra_params=None):
     """
     Test PFC watchdog's impact on runtime traffic
 
@@ -44,10 +40,21 @@ def run_pfcwd_runtime_traffic_test(api,
         dut_port (str): DUT port to test
         prio_list (list): priorities of data flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
     """
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    duthost1 = snappi_extra_params.duthost1
+    rx_port = snappi_extra_params.rx_port
+    duthost2 = snappi_extra_params.duthost2
+    tx_port = snappi_extra_params.tx_port
+    rx_port_id = snappi_extra_params.rx_port_id
+    tx_port_id = snappi_extra_params.tx_port_id
+
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     stop_pfcwd(duthost1, rx_port['asic_value'])
     stop_pfcwd(duthost2, tx_port['asic_value'])
