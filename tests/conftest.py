@@ -336,8 +336,9 @@ def duthost(duthosts, request):
     host_obj = duthost.host.options['inventory_manager'].get_host('sonic-s6100-dut')
 
     # Setting the variables for the host: user and password
-    host_obj.set_variable('ansible_ssh_user', 'admin')
-    host_obj.set_variable('ansible_ssh_pass', 'admin')
+    if host_obj:
+        host_obj.set_variable('ansible_ssh_user', 'admin')
+        host_obj.set_variable('ansible_ssh_pass', 'admin')
     return duthost
 
 
