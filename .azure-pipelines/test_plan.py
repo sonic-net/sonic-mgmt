@@ -672,6 +672,17 @@ if __name__ == "__main__":
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
     )
     parser_create.add_argument(
+        "--specific-param",
+        type=str,
+        dest="specific_param",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Specific param, like: '
+             '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
+    )
+    parser_create.add_argument(
         "--stop-on-failure",
         type=ast.literal_eval,
         dest="stop_on_failure",
@@ -828,14 +839,17 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
-            specific_param = []
-            # For PR test, if specify test modules explicitly, use them to run PR test.
+            specific_param = json.loads(args.specific_param)
+            # For PR test, if specify test modules and specific_param explicitly, use them to run PR test.
             # Otherwise, get test modules from pr_test_scripts.yaml.
             explicitly_specify_test_module = args.features or args.scripts
-            if args.test_plan_type == "PR" and (not explicitly_specify_test_module):
+            if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts, specific_param = get_test_scripts(args.test_set)
-                scripts = ",".join(scripts)
+                parsed_script, parsed_specific_param = get_test_scripts(args.test_set)
+                if not explicitly_specify_test_module:
+                    scripts = ",".join(parsed_script)
+                if not specific_param:
+                    specific_param = parsed_specific_param
 
             tp.create(
                 args.topology,
