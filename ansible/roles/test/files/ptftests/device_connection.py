@@ -2,8 +2,13 @@ import paramiko
 import logging
 import socket
 import sys
+import six
+
 from paramiko.ssh_exception import BadHostKeyException, AuthenticationException, SSHException
-from pip._vendor.retrying import retry
+if six.PY2:
+    from pip._vendor.retrying import retry
+else:
+    from retrying import retry
 logger = logging.getLogger(__name__)
 
 DEFAULT_CMD_EXECUTION_TIMEOUT_SEC = 10

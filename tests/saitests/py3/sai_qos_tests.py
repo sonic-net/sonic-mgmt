@@ -188,7 +188,9 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
     all_pkts = {}
     for src_tuple in src_details:
         num_of_pkts = 0
-        while (num_of_pkts < packets_per_port):
+        num_of_attempts = 0
+        while (num_of_pkts < packets_per_port and num_of_attempts < 200):
+            num_of_attempts += 1
             ip_Addr = next(IP_ADDR)
             pkt_args = {
                 'ip_ecn':ecn,
@@ -310,13 +312,24 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
     pkt = construct_ip_pkt(64, dst_mac, src_port_mac,
                            src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
+    # Send initial packet for any potential ARP resolution, which may cause the LAG
+    # destination to change. Can occur especially when running tests in isolation on a
+    # first test attempt.
+    send_packet(dp, src_port_id, pkt, 1)
+    # Observed experimentally this sleep needs to be at least 0.02 seconds. Setting higher.
+    time.sleep(1)
     send_packet(dp, src_port_id, pkt, 1)
 
     masked_exp_pkt = construct_ip_pkt(
         48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
 
+    pre_result = dp.dataplane.poll(
+        device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     result = dp.dataplane.poll(
         device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if pre_result.port != result.port:
+        logging.debug("During get_rx_port, corrected LAG destination from {} to {}".format(
+            pre_result.port, result.port))
     if isinstance(result, dp.dataplane.PollFailure):
         dp.fail("Expected packet was not received. Received on port:{} {}".format(
             result.port, result.format()))
@@ -1932,32 +1945,62 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkt_dst_mac2 = def_vlan_mac
             pkt_dst_mac3 = def_vlan_mac
 
-        pkt = get_multiple_flows(
-                self,
-                pkt_dst_mac,
-                dst_port_id,
-                dst_port_ip,
-                src_port_vlan,
-                dscp,
-                ecn,
-                ttl,
-                packet_length,
-                [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+        pkt = None
+        pkt2 = None
+        if 'cisco-8000' not in asic_type:
+            pkt = construct_ip_pkt(packet_length,
+                                pkt_dst_mac,
+                                src_port_mac,
+                                src_port_ip,
+                                dst_port_ip,
+                                dscp,
+                                src_port_vlan,
+                                ecn=ecn,
+                                ttl=ttl)
+            dst_port_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
+            )
 
-        # create packet
-        pkt2 = get_multiple_flows(
-                self,
-                pkt_dst_mac,
-                dst_port_2_id,
-                dst_port_2_ip,
-                src_port_vlan,
-                dscp,
-                ecn,
-                ttl,
-                packet_length,
-                [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+            # create packet
+            pkt2 = construct_ip_pkt(packet_length,
+                                    pkt_dst_mac2,
+                                    src_port_mac,
+                                    src_port_ip,
+                                    dst_port_2_ip,
+                                    dscp,
+                                    src_port_vlan,
+                                    ecn=ecn,
+                                    ttl=ttl)
+            dst_port_2_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
+            )
+        else:
+            pkt = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_id,
+                    dst_port_ip,
+                    src_port_vlan,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
+
+            # create packet
+            pkt2 = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_2_id,
+                    dst_port_2_ip,
+                    src_port_vlan,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
 
         # create packet
         pkt3 = construct_ip_pkt(packet_length,
@@ -1969,6 +2012,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                 src_port_vlan,
                                 ecn=ecn,
                                 ttl=ttl)
+        if 'cisco-8000' not in asic_type:
+            dst_port_3_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+            )
+
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
@@ -4481,6 +4529,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
                 pkts_num=1
+                expected_wm = pkts_num_fill_min * cell_occupancy
             else:
                 pkts_num=(1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):
@@ -4504,13 +4553,12 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 time.sleep(8)
                 buffer_pool_wm=sai_thrift_read_buffer_pool_watermark(
                     client_to_use, buf_pool_roid) - buffer_pool_wm_base
-                print("lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
-                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size), file=sys.stderr)
-                assert(buffer_pool_wm <= (expected_wm + \
-                       upper_bound_margin) * cell_size)
-                assert((expected_wm - lower_bound_margin)
-                       * cell_size <= buffer_pool_wm)
-
+                msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (lower_bound_margin, (expected_wm - lower_bound_margin)
+                      * cell_size, buffer_pool_wm, upper_bound_margin, (expected_wm + upper_bound_margin) * cell_size)
+                print(msg, file=sys.stderr)
+                assert buffer_pool_wm <= (expected_wm + \
+                       upper_bound_margin) * cell_size, msg
+                assert (expected_wm - lower_bound_margin) * cell_size <= buffer_pool_wm, msg
                 pkts_num=pkts_inc
 
             # overflow the shared pool
@@ -4536,12 +4584,13 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # tx_enabled. So we use the watermark before tx is enabled.
                 buffer_pool_wm = buffer_pool_wm_before_tx_enable
 
-            print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
-                pkts_num, (expected_wm * cell_size), buffer_pool_wm), file=sys.stderr)
-            assert(expected_wm == total_shared)
-            assert((expected_wm - lower_bound_margin)
-                   * cell_size <= buffer_pool_wm)
-            assert(buffer_pool_wm <= (expected_wm + extra_cap_margin) * cell_size)
+            msg = "exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
+                pkts_num, (expected_wm * cell_size), buffer_pool_wm)
+            print(msg, file=sys.stderr)
+            assert expected_wm == total_shared, msg
+            assert (expected_wm - lower_bound_margin) \
+                   * cell_size <= buffer_pool_wm, msg
+            assert buffer_pool_wm <= (expected_wm + extra_cap_margin) * cell_size, msg
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
