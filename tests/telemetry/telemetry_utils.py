@@ -18,7 +18,8 @@ SUBMODE_SAMPLE = 2
 SUBMODE_ONCHANGE = 1
 
 EVENT_REGEX = "json_ietf_val: \"(.*)\""
-ON_CHANGE_REGEX= "json_ietf_val:\"({.*?})\""
+ON_CHANGE_REGEX = "json_ietf_val:\"({.*?})\""
+
 
 def assert_equal(actual, expected, message):
     """Helper method to compare an expected value vs the actual value.
