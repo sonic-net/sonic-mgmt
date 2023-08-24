@@ -14,6 +14,11 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
+             "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
+             "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
+
     backup_monit_config(duthost)
     customize_monit_config(
         duthost,
@@ -44,3 +49,40 @@ def trigger_kernel_event(duthost):
     logger.info("Invoking logger for kernel events")
     # syslog at github.com/torvalds/linux/blob/master/fs/squashfs/decompressor_multi.c#L193
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
+
+
+def get_container(duthost):
+    logger.info("Check if acms or snmp container is running")
+    container = "acms"
+    container_running = duthost.is_container_running(container)
+    if not container_running:
+        container = "snmp"
+    else:
+        return container
+    container_running = duthost.is_container_running(container)
+    if not container_running:
+        return ""
+    return container
+
+
+def stop_container(duthost):
+    logger.info("Stopping container for event stopped event")
+    container = get_container(duthost)
+    assert container != "", "No available container for testing"
+
+    duthost.shell("docker stop {}".format(container))
+    duthost.shell("docker start {}".format(container))
+
+
+def mask_container(duthost):
+    logger.info("Masking container for event down event")
+    container = get_container(duthost)
+    assert container != "", "No available container for testing"
+
+    duthost.shell("systemctl mask {}".format(container))
+    duthost.shell("docker stop {}".format(container))
+
+    time.sleep(30)  # Wait 30 seconds for container_checker to fire event
+
+    duthost.shell("systemctl unmask {}".format(container))
+    duthost.shell("systemctl restart {}".format(container))
