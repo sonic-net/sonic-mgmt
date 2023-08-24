@@ -72,7 +72,7 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command, timeout=10):
             return
         # not found log, retry read log from tacacs server later
         time.sleep(1)
-        timeout -= 1;
+        timeout -= 1
 
     pytest_assert(False)
 

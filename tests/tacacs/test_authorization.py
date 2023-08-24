@@ -47,6 +47,7 @@ def ssh_run_command(ssh_client, command):
     exit_code = stdout.channel.recv_exit_status()
     return exit_code, stdout, stderr
 
+
 def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
     while timeout > 0:
         res_lines = res_stream.readlines()
@@ -55,7 +56,7 @@ def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
                 if exp_val in line:
                     return
         time.sleep(1)
-        timeout -= 1;
+        timeout -= 1
 
     pytest_assert(False)
 
@@ -278,7 +279,10 @@ def test_authorization_tacacs_only_then_server_down_after_login(
     # Verify when server are not accessible, TACACS+ user can't run any command.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
     pytest_assert(exit_code == 1)
-    check_ssh_output_any_of(stdout, ['/usr/local/bin/show not authorized by TACACS+ with given arguments, not executing'])
+    check_ssh_output_any_of(
+        stdout,
+        ['/usr/local/bin/show not authorized by TACACS+ with given arguments, not executing']
+    )
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
@@ -329,7 +333,10 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
     # Verify TACACS+ user can't run command in server side whitelist also not have permission in local.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "config tacacs")
     pytest_assert(exit_code == 1)
-    check_ssh_output_any_of(stdout, ['/usr/local/bin/config not authorized by TACACS+ with given arguments, not executing'])
+    check_ssh_output_any_of(
+        stdout,
+        ['/usr/local/bin/config not authorized by TACACS+ with given arguments, not executing']
+    )
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
     # Verify Local user can login when tacacs closed, and run command with local permission.
