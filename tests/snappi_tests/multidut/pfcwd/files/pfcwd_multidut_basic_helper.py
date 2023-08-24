@@ -4,12 +4,13 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi.snappi_helpers import get_dut_port_id                              # noqa: F401
-from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
     enable_packet_aging, start_pfcwd                                                        # noqa: F401
-from tests.common.snappi.port import select_ports, select_tx_port                           # noqa: F401
-from tests.common.snappi.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +27,11 @@ def run_pfcwd_basic_test(api,
                          port_config_list,
                          conn_data,
                          fanout_data,
-                         duthost1,
-                         rx_port,
-                         rx_port_id,
-                         duthost2,
-                         tx_port,
-                         tx_port_id,
                          dut_port,
                          prio_list,
                          prio_dscp_map,
-                         trigger_pfcwd):
+                         trigger_pfcwd,
+                         snappi_extra_params=None):
     """
     Run a basic PFC watchdog test
 
@@ -50,10 +46,21 @@ def run_pfcwd_basic_test(api,
         prio_list (list): priorities of data flows and pause storm
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
     """
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    duthost1 = snappi_extra_params.duthost1
+    rx_port = snappi_extra_params.rx_port
+    duthost2 = snappi_extra_params.duthost2
+    tx_port = snappi_extra_params.tx_port
+    rx_port_id = snappi_extra_params.rx_port_id
+    tx_port_id = snappi_extra_params.tx_port_id
+
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     start_pfcwd(duthost1, rx_port['asic_value'])
