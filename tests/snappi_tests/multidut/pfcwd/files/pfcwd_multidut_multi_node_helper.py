@@ -4,11 +4,12 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi.snappi_helpers import get_dut_port_id                              # noqa: F401
-from tests.common.snappi.common_helpers import pfc_class_enable_vector,\
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time        # noqa: F401
-from tests.common.snappi.port import select_ports                                           # noqa: F401
-from tests.common.snappi.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +28,14 @@ def run_pfcwd_multi_node_test(api,
                               port_config_list,
                               conn_data,
                               fanout_data,
-                              duthost1,
-                              rx_port,
-                              rx_port_id_list,
-                              duthost2,
-                              tx_port,
-                              tx_port_id_list,
                               dut_port,
                               pause_prio_list,
                               test_prio_list,
                               bg_prio_list,
                               prio_dscp_map,
                               trigger_pfcwd,
-                              pattern):
+                              pattern,
+                              snappi_extra_params=None):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
@@ -57,6 +53,7 @@ def run_pfcwd_multi_node_test(api,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pattern (str): traffic pattern
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
         N/A
     """
@@ -64,6 +61,16 @@ def run_pfcwd_multi_node_test(api,
     if pattern not in patterns:
         raise ValueError('invalid traffic pattern passed in "{}", must be {}'.format(
             pattern, ' or '.join(['"{}"'.format(src) for src in patterns])))
+
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    duthost1 = snappi_extra_params.duthost1
+    rx_port = snappi_extra_params.rx_port
+    duthost2 = snappi_extra_params.duthost2
+    tx_port = snappi_extra_params.tx_port
+    rx_port_id_list = snappi_extra_params.rx_port_id
+    tx_port_id_list = snappi_extra_params.tx_port_id
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
