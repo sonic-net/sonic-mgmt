@@ -14,7 +14,7 @@ from copy import deepcopy
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.ixia.common_helpers import ansible_stdout_to_str, get_peer_ixia_chassis
 from tests.common.reboot import logger
-import pandas as pd
+import csv
 import re
 import sys
 import math
@@ -924,19 +924,20 @@ def get_connection_info(testbed=None):
     vlanid = dict()
 
     # Load the CSV file
-    table = pd.read_csv(r'../ansible/files/snappi_sonic_link.csv')
+    with open(r'../ansible/files/snappi_sonic_link.csv', 'r') as csvfile:
+        reader = csv.DictReader(csvfile)
 
-    # Iterate over each row in the dataframe
-    for index, row in table.iterrows():
-        # Use the index as a key for the 'intf' dictionary
-        key = 'dut1port{}'.format(index+1)
-        intf[key] = row['StartPort']
+        # Iterate over each row in the csv
+        for index, row in enumerate(reader):
+            # Use the index as a key for the 'intf' dictionary
+            key = 'dut1port{}'.format(index+1)
+            intf[key] = row['StartPort']
 
-        # If there's a non-null VlanID, save it to the 'vlanid' dictionary
-        if pd.notna(row['VlanID']):
-            vlanid[key] = row['VlanID']
-        else:
-            vlanid[key] = "nan"
+            # If there's a non-null VlanID, save it to the 'vlanid' dictionary
+            if row['VlanID']:
+                vlanid[key] = row['VlanID']
+            else:
+                vlanid[key] = "nan"
 
     return intf, vlanid
 
