@@ -5,7 +5,7 @@ import ipaddress
 
 from tests.common import config_reload
 from tests.common.devices.base import AnsibleHostBase
-from tests.common.utilities import wait, wait_until, delete_running_config
+from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
