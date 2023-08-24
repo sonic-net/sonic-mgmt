@@ -46,7 +46,7 @@ vms13-4-t0,v13-41,t0,docker-ptf,v13-41,10.64.246.17/23,,server_13,VM13068,str-s6
 vms13-5-t1-lag,v13-51,t1-lag,docker-ptf,v13-51,10.64.246.19/23,,server_13,VM13072,str-s6000-on-2,str,True,Jenkins
 vms18-t1-msn4600c-acs-1,vms18-1,t1-64-lag,docker-ptf,vms18-1,10.64.246.141/23,,server_18,VM18000,str2-msn4600c-acs-01,str2,True,v-saidia
 vms18-t0-7215-acs-1,vms18-2,t0-52,docker-ptf,vms18-2,10.64.246.143/23,,server_18,VM18024,str2-7215-acs-1,str2,True,stumkurv
-vms18-t0-7050qx-acs-02,vms18-3,t0-35,docker-ptf,vms18-3,10.64.246.158/23,,server_18,VM18028,str2-7050qx-32s-acs-02,str2,True,v-saidia
+vms18-t0-7050qx-acs-02,vms18-6,t0-35,docker-ptf,vms18-6,10.64.246.158/23,,server_18,VM18028,str2-7050qx-32s-acs-02,str2,True,v-saidia
 vms18-t1-7050qx-acs-03,vms18-7,t1-backend,docker-ptf,vms18-7,10.64.246.159/23,,server_18,VM18084,str2-7050qx-32s-acs-03,str2,True,topo_with_12_vms
 vms20-t1-dx010-6,vms20-6,t1-lag,docker-ptf,vms20-6,10.64.246.120/23,,server_20,VM20000,str2-dx010-acs-6,str2,True,Jenkins
 vms20-t1-7050cx3-3,vms20-8,t1-lag,docker-ptf,vms20-8,10.64.246.126/23,,server_20,VM20024,str2-7050cx3-acs-03,str2,True,lawlee
