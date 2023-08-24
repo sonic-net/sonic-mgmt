@@ -82,6 +82,13 @@ parameters:
     default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
     displayName: "Common test parameters"
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+    {"name": "qos", "param": "--public_docker_registry"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -112,3 +119,4 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
