@@ -107,6 +107,7 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
     result = [x for x in all_prio_list if x not in lossless_prio_list]
     return result
 
+
 def prio_dscp_map_dut_base(duthost):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
@@ -137,6 +138,7 @@ def prio_dscp_map_dut_base(duthost):
         result.setdefault(tc, []).append(int(dscp))
 
     return result
+
 
 def lossless_prio_list_dut_base(duthost):
     """
