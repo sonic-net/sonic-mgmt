@@ -15,17 +15,19 @@ from scapy.all import Ether, ICMP, IP
 # As defined in asm/socket.h
 SO_ATTACH_FILTER = 26
 
-# BPF filter "icmp[0] == 8"
+# BPF filter "icmp[icmptype]==8 and src host 10.1.0.36"
 icmp_bpf_filter = [
     [0x28, 0, 0, 0x0000000c],
-    [0x15, 0, 8, 0x00000800],
+    [0x15, 0, 10, 0x00000800],
     [0x30, 0, 0, 0x00000017],
-    [0x15, 0, 6, 0x00000001],
+    [0x15, 0, 8, 0x00000001],
     [0x28, 0, 0, 0x00000014],
-    [0x45, 4, 0, 0x00001fff],
+    [0x45, 6, 0, 0x00001fff],
     [0xb1, 0, 0, 0x0000000e],
     [0x50, 0, 0, 0x0000000e],
-    [0x15, 0, 1, 0x00000008],
+    [0x15, 0, 3, 0x00000008],
+    [0x20, 0, 0, 0x0000001a],
+    [0x15, 0, 1, 0x0a010024],
     [0x6, 0, 0, 0x00040000],
     [0x6, 0, 0, 0x00000000]
 ]
@@ -66,6 +68,7 @@ class ICMPResponderProtocol(asyncio.Protocol):
         if not self.on_con_lost.cancelled():
             self.on_con_lost.set_result(True)
 
+    @functools.lru_cache(maxsize=None)
     def icmp_reply(self, icmp_request):
         reply = Ether(icmp_request)
         reply[ICMP].type = 0
@@ -82,11 +85,13 @@ class ICMPResponderProtocol(asyncio.Protocol):
 def create_socket(interface):
     """Create a packet socket binding to a specified interface."""
 
-    sock = socket.socket(family=socket.AF_PACKET, type=socket.SOCK_RAW, proto=0)
+    sock = socket.socket(family=socket.AF_PACKET,
+                         type=socket.SOCK_RAW, proto=0)
 
     sock.setblocking(False)
     bpf_filter = build_bpfilter(icmp_bpf_filter)
-    fprog = struct.pack("HL", len(icmp_bpf_filter), ctypes.addressof(bpf_filter))
+    fprog = struct.pack("HL", len(icmp_bpf_filter),
+                        ctypes.addressof(bpf_filter))
     sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, fprog)
 
     sock.bind((interface, socket.SOCK_RAW))
@@ -100,7 +105,8 @@ async def icmp_responder(interface, pause_event, dst_mac=None):
     on_con_lost = loop.create_future()
 
     sock = create_socket(interface)
-    transport, protocol = await loop._create_connection_transport(sock, lambda: ICMPResponderProtocol(on_con_lost, pause_event, dst_mac), ssl=None, server_hostname=None)
+    transport, protocol = await loop._create_connection_transport(
+        sock, lambda: ICMPResponderProtocol(on_con_lost, pause_event, dst_mac), ssl=None, server_hostname=None)
 
     try:
         await protocol.on_con_lost
@@ -115,7 +121,6 @@ async def responder_control(reader_fd, pause_events):
     reader = asyncio.StreamReader()
     read_protocol = asyncio.StreamReaderProtocol(reader)
     await loop.connect_read_pipe(lambda: read_protocol, reader_fd)
-
 
     while True:
         raw_data = await reader.readline()
@@ -157,29 +162,35 @@ async def start_icmp_responder(interfaces, dst_mac=None):
     create_control_pipe()
     # NOTE: the read fd is open with O_NONBLOCK as no writer is not available
     # and the dummy write fd is used to keep the read fd open
-    reader_fd = os.fdopen(os.open(ICMP_RESPONDER_PIPE, os.O_RDONLY | os.O_NONBLOCK))
+    reader_fd = os.fdopen(
+        os.open(ICMP_RESPONDER_PIPE, os.O_RDONLY | os.O_NONBLOCK))
     _ = open(ICMP_RESPONDER_PIPE, "w")
 
-    tasks = [icmp_responder(interface, event, dst_mac=dst_mac) for interface, event in list(pause_events.items())]
+    tasks = [icmp_responder(interface, event, dst_mac=dst_mac)
+             for interface, event in list(pause_events.items())]
     tasks.append(responder_control(reader_fd, pause_events))
 
     loop = asyncio.get_running_loop()
     loop.add_signal_handler(signal.SIGINT, functools.partial(stop_tasks, loop))
-    loop.add_signal_handler(signal.SIGTERM, functools.partial(stop_tasks, loop))
+    loop.add_signal_handler(
+        signal.SIGTERM, functools.partial(stop_tasks, loop))
 
     await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description="ICMP responder")
-    parser.add_argument("--intf", "-i", dest="ifaces", required=True, action="append", help="interface to listen for ICMP request")
-    parser.add_argument("--dst_mac", "-m", dest="dst_mac", required=False, action="store", help="The destination MAC to use for ICMP echo replies")
+    parser.add_argument("--intf", "-i", dest="ifaces", required=True,
+                        action="append", help="interface to listen for ICMP request")
+    parser.add_argument("--dst_mac", "-m", dest="dst_mac", required=False,
+                        action="store", help="The destination MAC to use for ICMP echo replies")
     args = parser.parse_args()
     interfaces = args.ifaces
     dst_mac = args.dst_mac
 
     try:
-        asyncio.run(start_icmp_responder(interfaces=interfaces, dst_mac=dst_mac))
+        asyncio.run(start_icmp_responder(
+            interfaces=interfaces, dst_mac=dst_mac))
     except asyncio.CancelledError:
         print("Exiting...")
         return

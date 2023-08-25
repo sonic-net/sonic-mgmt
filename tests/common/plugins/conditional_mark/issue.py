@@ -36,11 +36,12 @@ class GitHubIssueChecker(IssueCheckerBase):
 
     NAME = 'GitHub'
 
-    def __init__(self, url):
+    def __init__(self, url, proxies):
         super(GitHubIssueChecker, self).__init__(url)
         self.user = ''
         self.api_token = ''
         self.api_url = url.replace('github.com', 'api.github.com/repos')
+        self.proxies = proxies
         self.get_cred()
 
     def get_cred(self):
@@ -70,7 +71,7 @@ class GitHubIssueChecker(IssueCheckerBase):
             bool: False if the issue is closed else True.
         """
         try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token))
+            response = requests.get(self.api_url, auth=(self.user, self.api_token), proxies=self.proxies, timeout=10)
             response.raise_for_status()
             issue_data = response.json()
             if issue_data.get('state', '') == 'closed':
@@ -87,7 +88,7 @@ class GitHubIssueChecker(IssueCheckerBase):
         return True
 
 
-def issue_checker_factory(url):
+def issue_checker_factory(url, proxies):
     """Factory function for creating issue checker object based on the domain name in the issue URL.
 
     Args:
@@ -100,14 +101,14 @@ def issue_checker_factory(url):
     if m and len(m.groups()) > 0:
         domain_name = m.groups()[0].lower()
         if 'github' in domain_name:
-            return GitHubIssueChecker(url)
+            return GitHubIssueChecker(url, proxies)
         else:
             logger.error('Unknown issue website: {}'.format(domain_name))
     logger.error('Creating issue checker failed. Bad issue url {}'.format(url))
     return None
 
 
-def check_issues(issues):
+def check_issues(issues, proxies=None):
     """Check state of the specified issues.
 
     Because issue state checking may involve sending HTTP request. This function uses parallel run to speed up
@@ -119,7 +120,7 @@ def check_issues(issues):
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
-    checkers = [c for c in [issue_checker_factory(issue) for issue in issues] if c is not None]
+    checkers = [c for c in [issue_checker_factory(issue, proxies) for issue in issues] if c is not None]
     if not checkers:
         logger.error('No checker created for issues: {}'.format(issues))
         return {}
@@ -138,4 +139,4 @@ def check_issues(issues):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    return check_results
+    return dict(check_results)
