@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from ansible.module_utils.basic import AnsibleModule
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
@@ -24,6 +25,7 @@ EXAMPLES = '''
 
 VM_INV_FILE = 'veos'
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -40,15 +42,18 @@ def main():
 
     all_hosts = inv_mgr.get_hosts(pattern=vmhost_server_name)
     if len(all_hosts) == 0:
-        module.fail_json(msg="No host matches {} in inventory file {}".format(vmhost_server_name, vm_file))
+        module.fail_json(msg="No host matches {} in inventory file {}".format(
+            vmhost_server_name, vm_file))
     else:
         for host in all_hosts:
             if host.name.startswith('VM'):
                 continue
-            module.exit_json(ansible_facts={"vmhost_server_address": host.get_vars()["ansible_host"]})
+            module.exit_json(
+                ansible_facts={"vmhost_server_address": host.get_vars()["ansible_host"]})
 
-        module.fail_json(msg="Unable to find IP address of host server {} in inventory file {}".format(vmhost_server_name, vm_file))
+        module.fail_json(msg="Unable to find IP address of host server {} in inventory file {}".format(
+            vmhost_server_name, vm_file))
 
-from ansible.module_utils.basic import *
+
 if __name__ == "__main__":
     main()

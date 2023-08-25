@@ -11,6 +11,7 @@ import random
 import time
 import contextlib
 import scapy
+import six
 
 from ptf import mask
 from ptf import testutils
@@ -125,6 +126,7 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -141,8 +143,12 @@ def test_decap_standby_tor(
         """Verify packet is passed downstream to server."""
         packets = ptfadapter.dataplane.packet_queues[(0, port)]
         for packet in packets:
-            if exp_pkt.pkt_match(packet):
-                return True
+            if six.PY2:
+                if exp_pkt.pkt_match(packet):
+                    return True
+            else:
+                if exp_pkt.pkt_match(packet[0]):
+                    return True
         return False
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
@@ -197,17 +203,18 @@ def setup_uplink(rand_selected_dut, tbinfo):
     # Update the LAG if it has more than one member
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
-        cmds = [
-            # Update min_links
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel),
-            # Remove 1 portchannel member
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),
-            # Unmask the service
-            "systemctl unmask teamd",
-            # Resart teamd
-            "systemctl restart teamd"
-        ]
+        # Update min_links
+        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        rand_selected_dut.shell(min_link_cmd)
+        # Delete to min_links
+        cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
+        # Ensure delete to complete before restarting service
+        time.sleep(5)
+        # Unmask the service
+        rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Restart teamd
+        rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
 

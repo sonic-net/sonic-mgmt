@@ -365,6 +365,8 @@ class FanDrawerData:
     # FAN direction sys fs path available in 202012 and later
     FAN_DIR_PATH_PER_FAN = '/run/hw-management/thermal/fan{}_dir'
 
+    FAN_EXPECT_DIRECTION = None
+
     def __init__(self, mock_helper, naming_rule, index):
         """
         Constructor of FAN drawer data.
@@ -501,6 +503,26 @@ class FanDrawerData:
 
         return 'green'
 
+    def mock_fan_direction_status(self, good, drawer_num):
+        if FanDrawerData.FAN_EXPECT_DIRECTION is None:
+            try:
+                FanDrawerData.FAN_EXPECT_DIRECTION = int(self.helper.read_value(
+                    FanDrawerData.FAN_DIR_PATH_PER_FAN.format(1)))
+            except SysfsNotExistError:
+                return None
+
+        if good:
+            target_dir = FanDrawerData.FAN_EXPECT_DIRECTION
+        else:
+            target_dir = 1 if FanDrawerData.FAN_EXPECT_DIRECTION == 0 else 0
+
+        self.helper.mock_value(FanDrawerData.FAN_DIR_PATH_PER_FAN.format(drawer_num), str(target_dir))
+        platform_data = get_platform_data(self.helper.dut)
+        if platform_data['fans']['hot_swappable']:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num * MockerHelper.FAN_NUM_PER_DRAWER)
+        else:
+            return FAN_NAMING_RULE['fan']['name'].format(drawer_num)
+
 
 class FanData:
     """
@@ -628,6 +650,14 @@ class FanData:
             return 'red'
 
         return 'green'
+
+    def mock_psu_fan_dir(self, direction):
+        try:
+            dir_file = 'psu{}_fan_dir'.format(self.index)
+            self.helper.mock_thermal_value(dir_file, str(direction))
+            return 'intake' if direction == 1 else 'exhaust'
+        except SysfsNotExistError:
+            return NOT_AVAILABLE
 
 
 class TemperatureData:
@@ -873,6 +903,8 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
             naming_rule['name'] = 'psu_{}_fan_1'
         else:
             led_color = 'green'
+        check_psu_fan_dir_cmd = 'sonic-db-cli STATE_DB HGET "FAN_INFO|psu1_fan1" direction'
+        support_psu_fan_dir = self.mock_helper.dut.shell(check_psu_fan_dir_cmd)['stdout'].strip() != 'N/A'
         for index in range(1, psu_count + 1):
             try:
                 fan_data = FanData(self.mock_helper, naming_rule, index)
@@ -883,7 +915,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                     led_color,
                     fan_data.name,
                     '{}%'.format(fan_data.mocked_speed),
-                    NOT_AVAILABLE,
+                    fan_data.mock_psu_fan_dir(random.randint(0, 1)) if support_psu_fan_dir else NOT_AVAILABLE,
                     'Present',
                     'OK'
                 ]
@@ -1277,9 +1309,9 @@ class PsuPowerThresholdMocker(object):
 
     def mock_power_threshold(self, number_psus):
         self.mock_helper.mock_value(
-            self.AMBIENT_TEMP_WARNING_THRESHOLD, 65000, True)
+            self.AMBIENT_TEMP_WARNING_THRESHOLD, 38000, True)
         self.mock_helper.mock_value(
-            self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 75000, True)
+            self.AMBIENT_TEMP_CRITICAL_THRESHOLD, 40000, True)
 
         max_power = None
         for i in range(number_psus):
@@ -1291,7 +1323,7 @@ class PsuPowerThresholdMocker(object):
             self.mock_helper.mock_value(
                 self.PSU_POWER_CAPACITY.format(i + 1), max_power, True)
             self.mock_helper.mock_value(
-                self.PSU_POWER_SLOPE.format(i + 1), 2000, True)
+                self.PSU_POWER_SLOPE.format(i + 1), 30, True)
 
         # Also mock ambient temperatures
         self.mock_helper.mock_value(
@@ -1299,8 +1331,9 @@ class PsuPowerThresholdMocker(object):
         self.mock_helper.mock_value(
             self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
 
-    def mock_psu_power(self, psu, power):
-        self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))
+    def mock_psu_power(self, power, number_psus):
+        for i in range(number_psus):
+            self.mock_helper.mock_value(self.PSU_POWER.format(i+1), int(power/number_psus))
 
     def mock_fan_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, int(temperature))
@@ -1333,7 +1366,6 @@ class PsuPowerThresholdMocker(object):
 @mocker('RebootCauseMocker')
 class RebootCauseMocker(object):
     RESET_RELOAD_BIOS = '/var/run/hw-management/system/reset_reload_bios'
-    RESET_FROM_COMEX = '/var/run/hw-management/system/reset_from_comex'
     RESET_FROM_ASIC = '/var/run/hw-management/system/reset_from_asic'
 
     def __init__(self, dut):
@@ -1344,9 +1376,6 @@ class RebootCauseMocker(object):
 
     def mock_reset_reload_bios(self):
         self.mock_helper.mock_value(self.RESET_RELOAD_BIOS, 1)
-
-    def mock_reset_from_comex(self):
-        self.mock_helper.mock_value(self.RESET_FROM_COMEX, 1)
 
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)

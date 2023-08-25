@@ -1,4 +1,4 @@
-- block: 
+- block:
   - name: setup bootstrap password
     set_fact: ansible_ssh_pass={{ sonicadmin_initial_password }} ansible_become_pass={{ sonicadmin_initial_password }}
 

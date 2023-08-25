@@ -80,4 +80,3 @@
 
     - name: Wait for the initialization process
       pause: seconds=60
-
