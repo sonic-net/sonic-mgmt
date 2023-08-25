@@ -88,6 +88,6 @@ def test_pfcwd_many_to_one(snappi_api,                       # noqa: F811
                               test_prio_list=test_prio_list,
                               bg_prio_list=bg_prio_list,
                               prio_dscp_map=prio_dscp_map,
-                              snappi_extra_params=snappi_extra_params)                       
+                              snappi_extra_params=snappi_extra_params)          
 
     cleanup_config(dut_list, snappi_ports)
