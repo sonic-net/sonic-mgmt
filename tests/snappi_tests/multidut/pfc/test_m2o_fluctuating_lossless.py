@@ -2,13 +2,14 @@ import pytest
 import random
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts                                                                       # noqa: F401
-from tests.common.snappi.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi.qos_fixtures import prio_dscp_map,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map,\
     lossless_prio_list                                                                      # noqa: F401
-from tests.snappi.variables import config_set, line_card_choice
-from files.m2o_fluctuating_lossless_helper import run_pfcwd_multi_node_test
+from tests.snappi_tests.variables import config_set, line_card_choice
+from tests.snappi_tests.multidut.pfc.files.m2o_fluctuating_lossless_helper import run_pfcwd_multi_node_test
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('snappi')]
 
@@ -67,21 +68,25 @@ def test_pfcwd_many_to_one(snappi_api,                  # noqa: F811
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.duthost1 = duthost1
+    snappi_extra_params.rx_port = snappi_ports[0]
+    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
+    snappi_extra_params.duthost2 = duthost2
+    snappi_extra_params.tx_port = snappi_ports[1]
+    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+
     run_pfcwd_multi_node_test(api=snappi_api,
                               testbed_config=testbed_config,
                               port_config_list=port_config_list,
                               conn_data=conn_graph_facts,
                               fanout_data=fanout_graph_facts,
-                              duthost1=duthost1,
-                              rx_port=snappi_ports[0],
-                              rx_port_id_list=[snappi_ports[0]["port_id"]],
-                              duthost2=duthost2,
-                              tx_port=[snappi_ports[1], snappi_ports[2]],
-                              tx_port_id_list=[snappi_ports[1]["port_id"], snappi_ports[2]["port_id"]],
                               dut_port=snappi_ports[0]['peer_port'],
                               pause_prio_list=pause_prio_list,
                               test_prio_list=test_prio_list,
                               bg_prio_list=bg_prio_list,
-                              prio_dscp_map=prio_dscp_map,)
+                              prio_dscp_map=prio_dscp_map,
+                              snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
