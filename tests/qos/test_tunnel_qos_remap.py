@@ -1,6 +1,5 @@
 import logging
 import pytest
-import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -329,12 +328,6 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
         queue_count = get_queue_counter(dut, port, queue, False)
         assert base_queue_count == queue_count
         return True
-    except AssertionError:
-        logger.info('assert {}'.format(sys.exc_info()))
-        return False
-    except Exception:
-        logger.info('exception {}'.format(sys.exc_info()))
-        return False
     finally:
         stop_pfc_storm(storm_handler)
 
@@ -401,16 +394,16 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
                                   queue, pkt, src_port, exp_pkt, dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
             time.sleep(5)
 
 
@@ -475,16 +468,16 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
                                   dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
             time.sleep(5)
 
 
