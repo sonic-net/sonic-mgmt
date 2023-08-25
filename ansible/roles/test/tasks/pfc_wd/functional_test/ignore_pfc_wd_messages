@@ -1,1 +1,11 @@
-../../../../../../tests/pfcwd/templates/ignore_pfc_wd_messages
+r, ".* Port counter .* not implemented"
+r, ".* Port counter .* not supported"
+r, ".* Invalid port counter .*"
+r, ".* Unknown.*"
+r, ".* SAI_STATUS_ATTR_NOT_SUPPORT.*"
+r, ".* snmp.*"
+r, ".* Trying to remove nonexisting queue from flex counter .*"
+r, ".* SAI_STATUS_BUFFER_OVERFLOW"
+r, ".* ERR ntpd.*routing socket reports: No buffer space available.*"
+r, ".* ERR syncd.*"
+r, ".* syncd .* ERROR +HOST_INTERFACE"

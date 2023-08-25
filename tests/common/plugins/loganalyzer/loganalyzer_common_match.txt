@@ -1,1 +1,6 @@
-../../../../ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_match.txt
+r, "\.ERR", "crash"
+r, "kernel:.*Oops", "kernel:.*hung", "kernel.*oom\s"
+r, "kernel:.*scheduling", "kernel:.*panic"
+r, "kernel:.*\serr", "kernel:.*allocation", "kernel:.*kill"
+r, "kernel:.*kmemleak.*", "kernel:.* Err:"
+s, " ERR "
