@@ -1,58 +1,102 @@
+- name: Gather facts
+  setup:
+
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+
+- name: Install docker.io
+  apt:
+    name: docker.io
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  register: apt_docker
+  when:
+    - not 'docker-ce' in ansible_facts.packages
+    - not (ansible_distribution == 'Ubuntu' and
+        ansible_distribution_major_version|int < 16)
+    - not (ansible_distribution == 'Debian' and
+        ansible_distribution_major_version|int > 0 and
+        ansible_distribution_major_version|int < 10)
+
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+  when: apt_docker.changed
+
 - name: Add docker official GPG key
   apt_key: url=https://download.docker.com/linux/ubuntu/gpg state=present
   become: yes
   environment: "{{ proxy_env | default({}) }}"
+  when:
+    - not 'docker.io' in ansible_facts.packages
 
 - name: Check docker repository
   find:
     paths: /etc/apt/sources.list.d/
     patterns: "*docker*"
   register: docker_repo
+  when:
+    - not 'docker.io' in ansible_facts.packages
 
 - name: Report docker repository exists
   debug:
     msg: "Docker repository already exists"
-  when: docker_repo.matched > 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - docker_repo.matched > 0
 
 - name: Report docker repository not exists
   debug:
     msg: "Docker repository does not exist"
-  when: docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - docker_repo.matched == 0
 
 - name: Add docker repository for 16.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu xenial stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "16.04" and docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - host_distribution_version.stdout == "16.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 17.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu zesty stable
     state: present
   become: yes
-  when: host_distribution_version == "17.04" and docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - host_distribution_version == "17.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 18.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "18.04" and docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - host_distribution_version.stdout == "18.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 20.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "20.04" and docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - host_distribution_version.stdout == "20.04" and docker_repo.matched == 0
 
 - name: Add docker repository for 22.04
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu jammy stable
     state: present
   become: yes
-  when: host_distribution_version.stdout == "22.04" and docker_repo.matched == 0
+  when:
+    - not 'docker.io' in ansible_facts.packages
+    - host_distribution_version.stdout == "22.04" and docker_repo.matched == 0
 
 # In ansible 2.8, there isn't update_cache_retries option in apt module, we can manually run update as a seperate and retryable step
 - name: Run the "apt-get update" as a separate and retryable step
@@ -64,11 +108,15 @@
   until: apt_update_res.cache_updated is defined and apt_update_res.cache_updated
   retries: 5
   delay: 10
+  when:
+    - not 'docker.io' in ansible_facts.packages
 
 - name: Install docker-ce
   apt: pkg=docker-ce
   become: yes
   environment: "{{ proxy_env | default({}) }}"
+  when:
+    - not 'docker.io' in ansible_facts.packages
 
 - name: Update python2 packages
   block:
