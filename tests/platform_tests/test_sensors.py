@@ -30,9 +30,9 @@ def test_sensors(duthosts, rand_one_dut_hostname, sensors_data):
     platform = duthost.facts['platform']
 
     if mellanox_data.is_mellanox_device(duthost):
-        respin_version = mellanox_data.get_respin_version(duthost, platform)
-        if respin_version:
-            platform = platform + '-' + respin_version
+        hardware_version = mellanox_data.get_hardware_version(duthost, platform)
+        if hardware_version:
+            platform = platform + '-' + hardware_version
 
     # Prepare check list
     sensors_checks = sensors_data['sensors_checks']
