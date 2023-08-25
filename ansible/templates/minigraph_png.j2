@@ -184,7 +184,11 @@
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
 {% elif 'T3' in dev %}
-{% set dev_type = 'CoreRouter' %}
+{% if loop.index|int % 2 %}
+{% set dev_type = 'RegionalHub' %}
+{% else %}
+{% set dev_type = 'AZNGHub' %}
+{% endif %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
 {% elif 'M1' in dev %}
@@ -243,4 +247,3 @@
 {% endfor %}
     </Devices>
   </PngDec>
-

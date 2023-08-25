@@ -44,7 +44,7 @@
     - name: Set speed_cablelen with new db format
       set_fact: speed_cablelen="{{speed_cablelen | regex_replace('pg_lossless_(.*)_profile', '\\1')}}"
       when: sonic_qos_db_fv_reference_with_table|bool == false
-    
+
     - name: Set speed_cablelen with old db format
       set_fact: speed_cablelen="{{speed_cablelen | regex_replace('BUFFER_PROFILE\|pg_lossless_(.*)_profile', '\\1')}}"
       when: sonic_qos_db_fv_reference_with_table|bool == true
@@ -79,7 +79,7 @@
       become: yes
       supervisorctl: state=stopped name=bgpd
       delegate_to: "{{ ansible_host }}_bgp"
-    
+
     - name: Add iptables rule to drop BGP SYN Packet from peer so that we do not ACK back. Add at top so existing rules don't have precedence over it.
       shell: "iptables -I INPUT 1 -j DROP -p tcp --destination-port bgp"
       become: true
