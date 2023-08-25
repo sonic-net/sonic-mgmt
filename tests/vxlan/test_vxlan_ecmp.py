@@ -64,7 +64,6 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
