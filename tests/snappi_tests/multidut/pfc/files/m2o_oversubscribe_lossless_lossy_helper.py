@@ -39,7 +39,7 @@ def run_pfcwd_multi_node_test(api,
                               test_prio_list,
                               bg_prio_list,
                               prio_dscp_map,
-                              snappi_extra_params=None):     
+                              snappi_extra_params=None):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
