@@ -3,11 +3,13 @@
 import time
 import subprocess
 
+
 def get_free_memory():
     command = "grep MemFree /proc/meminfo | awk '{print $2}'"
     output = subprocess.check_output(command, shell=True)
     free_memory = int(output.strip())
     return free_memory
+
 
 reserve_free_memory = 256 * 1024 * 1024    # reserve 256M
 free_memory = get_free_memory()            # KB
@@ -25,7 +27,7 @@ else:
     # for small memory device, use chunk size instead of total_chars
     command = "sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'"
     subprocess.run(command, shell=True)
-    # reserve 256M for system run, 32M for chunk size 
+    # reserve 256M for system run, 32M for chunk size
     free_memory = get_free_memory()
     if (free_memory * 1024) > (reserve_free_memory + chunk_size):
         large_string = ""
