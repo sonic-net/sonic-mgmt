@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import ptf
+import six
 
 # Packet Test Framework imports
 import ptf
@@ -126,7 +127,7 @@ class PopulateFdb(BaseTest):
                     numDistinctIp
                 )
             )
-            vmIp[vlan] = ipaddress.ip_address(unicode(config["addr"])) + 1
+            vmIp[vlan] = ipaddress.ip_address(six.text_type(config["addr"])) + 1
 
         return vmIp
 
@@ -163,7 +164,7 @@ class PopulateFdb(BaseTest):
                 mac = self.__convertMacToStr(macInt + i)
                 numMac += 1
             if i % self.macToIpRatio[0] == 0:
-                vmIp[vlan] = ipaddress.ip_address(unicode(vmIp[vlan])) + 1
+                vmIp[vlan] = ipaddress.ip_address(six.text_type(vmIp[vlan])) + 1
                 numIp += 1
 
             packet[scapy.Ether].src = mac
