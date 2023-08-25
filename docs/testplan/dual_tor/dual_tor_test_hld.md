@@ -134,4 +134,4 @@ In addition to the three scenarios above, additional tests are necessary to veri
 
 Notes:
 
-1. The test cases involving blackholing all traffic were not implemented. Because linkmgrd uses raw L2 sockets to send its heartbeat packets, it was not possible to blackhole these packets. 
+1. The test cases involving blackholing all traffic were not implemented. Because linkmgrd uses raw L2 sockets to send its heartbeat packets, it was not possible to blackhole these packets.

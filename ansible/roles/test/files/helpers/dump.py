@@ -2,8 +2,6 @@
 
 from sys import stdin
 import json
-import os
-import sys
 
 while True:
     try:
@@ -12,5 +10,5 @@ while True:
         f = open("/root/exabgp/" + obj["neighbor"]["ip"], "a")
         f.write(line + "\n")
         f.close()
-    except:
+    except Exception:
         continue

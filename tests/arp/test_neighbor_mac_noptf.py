@@ -264,19 +264,43 @@ class TestNeighborMacNoPtf:
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asichost = duthost.asic_instance(enum_frontend_asic_index)
         redis_cmd = "{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*\"".format(asichost.sonic_db_cli)
-        result = duthost.shell(redis_cmd)
-        neighborKey = None
-        for key in result["stdout_lines"]:
-            if self.TEST_INTF[ipVersion]["NeighborIp"] in key:
-                neighborKey = key
-                break
-        pytest_assert(neighborKey, "Neighbor key NOT found in Redis DB, Redis db Output '{0}'".format(result["stdout"]))
-        neighborKey = " '{}' {} ".format(
-            neighborKey,
-            REDIS_NEIGH_ENTRY_MAC_ATTR)
-        result = duthost.shell("{} ASIC_DB HGET {}".format(asichost.sonic_db_cli, neighborKey))
 
-        yield (result['stdout_lines'][0])
+        # Sometimes it may take longer than usual to update interface address, add neighbor, and also change
+        # neighbor MAC. Retry the validation of neighbor MAC to make test more robust.
+        retry = 0
+        maxRetry = 30
+        result = None
+        neighborMac = None
+        expectedMac = self.TEST_MAC[ipVersion][1]
+        while retry < maxRetry and neighborMac != expectedMac:
+            neighborKey = None
+            result = duthost.shell(redis_cmd)
+            for key in result["stdout_lines"]:
+                if self.TEST_INTF[ipVersion]["NeighborIp"] in key:
+                    neighborKey = key
+                    break
+
+            if neighborKey:
+                neighborKey = " '{}' {} ".format(
+                    neighborKey,
+                    REDIS_NEIGH_ENTRY_MAC_ATTR)
+                result = duthost.shell("{} ASIC_DB HGET {}".format(asichost.sonic_db_cli, neighborKey))
+                neighborMac = result['stdout_lines'][0].lower()
+
+                # Since neighbor MAC is also changed/updated, check if all the updates have been processed already.
+                # Stop retry if the neighbor MAC in ASIC_DB is what we expect.
+                if neighborMac == expectedMac:
+                    logger.info("Verified MAC of neighbor {} after {} retries".format(
+                        self.TEST_INTF[ipVersion]["NeighborIp"], retry))
+                    break
+
+            logger.info("Failed to verify MAC of neighbor {}. Retry cnt: {}".format(
+                self.TEST_INTF[ipVersion]["NeighborIp"], retry))
+            retry += 1
+            time.sleep(2)
+
+        pytest_assert(neighborMac, "Neighbor key NOT found in Redis DB, Redis db Output '{0}'".format(result["stdout"]))
+        yield neighborMac
 
     def testNeighborMacNoPtf(self, ipVersion, arpTableMac, redisNeighborMac):
         """

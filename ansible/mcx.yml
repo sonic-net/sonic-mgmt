@@ -1,10 +1,9 @@
 # mcx is the combination of Mx and C0, and we will be including deploying console and BMC links.
 #Example:
 # ansible-playbook mcx.yml -i lab --limit str-7215-10 -b --vault-password-file ~/password.txt
+# this playbook provides 2 types of config, incremental and reset. To discard old config
+# and use new, add -e "reset=y"
 - hosts: [mgmt]
   gather_facts: no
   roles:
     - mcx
-
-
-

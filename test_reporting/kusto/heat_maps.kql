@@ -4,7 +4,7 @@
 .create-or-alter function TestDefectRate(timeframe: timespan = 3d, asic: string = "", sku: string = "", topo: string = "", version: string = "201911")
 {
     FlatTestReportView
-    | where Timestamp >= ago(timeframe) 
+    | where Timestamp >= ago(timeframe)
             and (Result != "skipped" or Error)
             and AsicType contains asic
             and HardwareSku contains sku
