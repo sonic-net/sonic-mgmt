@@ -831,9 +831,6 @@ class TestConfigInterface():
 
         assert speed == native_speed
 
-        # Restore config services
-        config_reload(duthost)
-
 
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
