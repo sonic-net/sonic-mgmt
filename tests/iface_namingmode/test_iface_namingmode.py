@@ -3,7 +3,6 @@ import pytest
 import re
 import ipaddress
 
-from tests.common import config_reload
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.utilities import wait, wait_until
 from netaddr import IPAddress
