@@ -1002,6 +1002,18 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_link_local.py:
+  skip:
+    reason: "SNMP over IPv6 support not present in 202211 branch."
+    conditions:
+      - "branch in ['202211']"
+
+snmp/test_snmp_loopback.py:
+  skip:
+    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
+    conditions:
+      - "branch in ['202211']"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
