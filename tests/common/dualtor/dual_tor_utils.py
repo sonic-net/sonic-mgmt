@@ -11,6 +11,7 @@ import ptf
 import re
 import string
 import sys
+import six
 
 from collections import defaultdict
 from datetime import datetime
@@ -26,13 +27,14 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route
-from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address
+from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
 
 
@@ -929,7 +931,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     if len(generate_hashed_packet_to_server.packets_cache[call_signature]) < count:
         pkt_num = count - len(generate_hashed_packet_to_server.packets_cache[call_signature])
         for _ in range(pkt_num):
-            if ipaddress.ip_address(target_server_ip.decode()).version == 4:
+            if ipaddress.ip_address(six.text_type(target_server_ip)).version == 4:
                 pkt_t = _generate_hashed_ipv4_packet(src_mac, dst_mac, target_server_ip, hash_key)
             else:
                 pkt_t = _generate_hashed_ipv6_packet(src_mac, dst_mac, target_server_ip, hash_key)
@@ -1327,7 +1329,7 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = list(standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
 
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     ip_neighbors = []
     for neighbor in bgp_neighbors:
         if ipaddress.ip_address(neighbor).version == route_dst.version:
@@ -1353,7 +1355,7 @@ def remove_static_routes(duthost, route_dst):
     """
     Remove static routes for duthost
     """
-    route_dst = ipaddress.ip_address(route_dst.decode())
+    route_dst = ipaddress.ip_address(six.text_type(route_dst))
     subnet_mask_len = 32 if route_dst.version == 4 else 128
 
     logger.info("Removing dual ToR peer switch static route:  {}/{}".format(str(route_dst), subnet_mask_len))
@@ -1476,3 +1478,93 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
     yield
 
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
+
+
+@pytest.fixture
+def validate_active_active_dualtor_setup(
+    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
+    """Validate that both ToRs are active for active-active mux ports."""
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        return
+
+    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        restart_nic_simulator()
+        ptfhost.shell("supervisorctl restart icmp_responder")
+
+    # verify icmp_responder is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
+
+    # verify both ToRs are active
+    for duthost in duthosts:
+        pt_assert(
+            wait_until(30, 5, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
+            "Not all active-active mux ports are active on device %s" % duthost.hostname
+        )
+
+    return
+
+
+@pytest.fixture
+def config_active_active_dualtor_active_standby(
+    duthosts, active_active_ports, tbinfo, validate_active_active_dualtor_setup                         # noqa F811
+):
+    """Config the active-active dualtor that one ToR as active and the other as standby."""
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        yield
+        return
+
+    def check_active_active_port_status(duthost, ports, status):
+        logging.debug("Check mux status for ports {} is {}".format(ports, status))
+        show_mux_status_ret = show_muxcable_status(duthost)
+        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+        for port in ports:
+            if port not in show_mux_status_ret:
+                return False
+            elif show_mux_status_ret[port]['status'] != status:
+                return False
+        return True
+
+    def _config_the_active_active_dualtor(active_tor, standby_tor, ports):
+        active_side_commands = []
+        standby_side_commands = []
+        for port in ports:
+            if port not in active_active_ports:
+                raise ValueError("Port {} is not in the active-active ports".format(port))
+            active_side_commands.append("config mux mode active {}".format(port))
+            standby_side_commands.append("config mux mode standby {}".format(port))
+
+        if not check_active_active_port_status(active_tor, ports, 'active'):
+            active_tor.shell_cmds(cmds=active_side_commands)
+        standby_tor.shell_cmds(cmds=standby_side_commands)
+
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
+                  "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
+                  "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+
+        ports_to_restore.extend(ports)
+
+    ports_to_restore = []
+
+    yield _config_the_active_active_dualtor
+
+    if ports_to_restore:
+        restore_cmds = []
+        for port in ports_to_restore:
+            restore_cmds.append("config mux mode auto {}".format(port))
+
+        for duthost in duthosts:
+            duthost.shell_cmds(cmds=restore_cmds)

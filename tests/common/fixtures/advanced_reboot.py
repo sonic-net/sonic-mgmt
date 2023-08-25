@@ -19,6 +19,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,7 @@ class AdvancedReboot:
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
+        self.neighborType = self.request.config.getoption("--neighbor_type")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -178,7 +180,8 @@ class AdvancedReboot:
             self.peer_mgFacts = self.peer_duthost.get_extended_minigraph_facts(tbinfo)
 
         self.rebootData['arista_vms'] = [
-            attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items()) if attr['hwsku'] == 'Arista-VM'
+            attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items())
+            if attr['hwsku'] == 'Arista-VM'
         ]
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
@@ -568,6 +571,9 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.postboot_setup:
                     self.postboot_setup()
             except Exception:
@@ -590,7 +596,8 @@ class AdvancedReboot:
                 self.__revertRebootOper(rebootOper)
             if 1 < len(self.rebootData['sadList']) != count:
                 time.sleep(TIME_BETWEEN_SUCCESSIVE_TEST_OPER)
-            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items()) if len(failures) != 0]
+            failed_list = [(testcase, failures) for testcase, failures in list(test_results.items())
+                           if len(failures) != 0]
         pytest_assert(len(failed_list) == 0, "Advanced-reboot failure. Failed test: {}, "
                                              "failure summary:\n{}".format(self.request.node.name, failed_list))
         return result
@@ -623,7 +630,6 @@ class AdvancedReboot:
 
         event_counters = {
             "SAI_CREATE_SWITCH": 1,
-            "INIT_VIEW": 1,
             "APPLY_VIEW": 1,
             "LAG_READY": len(self.mgFacts["minigraph_portchannels"]),
             "PORT_READY": len(self.mgFacts["minigraph_ports"]) - down_ports,
@@ -709,12 +715,13 @@ class AdvancedReboot:
                             ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
+            "neighbor_type": self.neighborType,
         }
 
         if self.dual_tor_mode:
             params.update({
-            "peer_ports_file": self.rebootData['peer_ports_file'],
-            "dut_mux_status": self.rebootData['dut_mux_status_file'],
+                "peer_ports_file": self.rebootData['peer_ports_file'],
+                "dut_mux_status": self.rebootData['dut_mux_status_file'],
             })
 
         if not isinstance(rebootOper, SadOperation):
@@ -832,6 +839,7 @@ class AdvancedReboot:
 
         if self.stayInTargetImage:
             logger.info('Stay in new image')
+
 
 @pytest.fixture
 def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,

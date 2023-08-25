@@ -1,13 +1,13 @@
 - debug: msg="{{ device_info[inventory_hostname] }}"
 
 - name: set login to tacacs if tacacs is defined
-  set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_password={{ fanout_tacacs_sonic_password }}
+  set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_pass={{ fanout_tacacs_sonic_password }}
   when: >
     fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
     fanout_tacacs_sonic_user is defined and fanout_tacacs_sonic_password is defined
 
 - name: prepare fanout switch admin login info
-  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_password={{ fanout_sonic_password }}
+  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_pass={{ fanout_sonic_password }}
   when: >
     fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
     fanout_tacacs_sonic_user is not defined and fanout_tacacs_sonic_password is not defined
@@ -21,6 +21,9 @@
     fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
   with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
+- fail: msg="sonic version other than 202205 does not support incremental update and dry run"
+  when: "'20220531' not in fanout_sonic_version['build_version'] and (incremental is defined or dry_run is defined)"
+
 - name: deploy SONiC fanout with image version 201811
   include_tasks:
     sonic/fanout_sonic_201811.yml
@@ -32,6 +35,19 @@
   when: "'20201231' in fanout_sonic_version['build_version']"
 
 - name: deploy SONiC fanout with image version 202205
-  include_tasks:
-    sonic/fanout_sonic_202205.yml
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_202205.yml
+      when: dry_run is not defined and incremental is not defined
+
+    - name: deploy SONiC fanout incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_incremental_202205.yml
+      when: incremental is defined and dry_run is not defined
+
+    - name: deploy SONiC fanout dry_run
+      include_tasks:
+        sonic/fanout_sonic_dry_run_202205.yml
+      when: dry_run is defined
   when: "'20220531' in fanout_sonic_version['build_version']"

@@ -8,7 +8,7 @@
      register: ps_out
 
    - debug: var=ps_out.stdout_lines
-   
+
    - name: Verify that syncd process is running
      assert: { that: "{{ ps_out.stdout_lines | length }} > 0"}
 
@@ -25,4 +25,3 @@
      tags: always
 
    - include_tasks: roles/test/tasks/interface.yml
-

@@ -194,4 +194,20 @@
       that: exabgp_running.stdout|int == 0
       fail_msg: "exabgp processes are still running on PTF, please check manually"
 
+  - name: Stop all processes managed by supervisor on PTF
+    block:
+    - name: Stop all processes managed by supervisor on PTF
+      shell: "supervisorctl stop all"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Get count of running processes managed by supervisor
+      shell: "supervisorctl status | grep RUNNING | wc -l"
+      register: supervisor_proc_running
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Verify all the processes managed by supervisor are not running
+      assert:
+        that: supervisor_proc_running.stdout|int == 0
+        fail_msg: "There are still processes managed by supervisor running on PTF, please check manually"
+
   when: exabgp_action == 'stop' and ptf_accessible is defined and not ptf_accessible.failed
