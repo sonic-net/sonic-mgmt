@@ -37,7 +37,8 @@ class Interface(object):
             self.socket.close()
 
     def bind(self):
-        self.socket = scapy2.conf.L2listen(iface=self.iface, filter="udp port 4784")
+        self.socket = scapy2.conf.L2listen(
+            iface=self.iface, filter="udp port 4784")
 
     def handler(self):
         return self.socket
@@ -81,7 +82,8 @@ class BFDResponder(object):
 
     def action(self, interface):
         data = interface.recv()
-        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state = self.extract_bfd_info(data)
+        mac_src, mac_dst, ip_src, ip_dst,  bfd_remote_disc, bfd_state = self.extract_bfd_info(
+            data)
         if ip_dst not in self.sessions:
             return
         session = self.sessions[ip_dst]
@@ -92,7 +94,8 @@ class BFDResponder(object):
         if bfd_state == 2:
             return
         session["other_disc"] = bfd_remote_disc
-        bfd_pkt_init = self.craft_bfd_packet(session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
+        bfd_pkt_init = self.craft_bfd_packet(
+            session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, 2)
         bfd_pkt_init.payload.payload.chksum = None
         interface.send(bfd_pkt_init)
         bfd_pkt_init.payload.payload.payload.load.sta = 3
@@ -130,7 +133,7 @@ class BFDResponder(object):
 def parse_args():
     parser = argparse.ArgumentParser(description='ARP autoresponder')
     parser.add_argument('--conf', '-c', type=str, dest='conf', default='/tmp/from_t1.json',
-            help='path to json file with configuration')
+                        help='path to json file with configuration')
     args = parser.parse_args()
     return args
 
@@ -182,4 +185,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

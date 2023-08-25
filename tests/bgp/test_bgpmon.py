@@ -19,15 +19,16 @@ pytestmark = [
 
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
+MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 logger = logging.getLogger(__name__)
 
 
-def get_default_route_ports(host, tbinfo):
+def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR):
     mg_facts = host.get_extended_minigraph_facts(tbinfo)
-    route_info = json.loads(host.shell("show ip route {} json".format(ZERO_ADDR))['stdout'])
+    route_info = json.loads(host.shell("show ip route {} json".format(default_addr))['stdout'])
     ports = []
-    for route in route_info[ZERO_ADDR]:
+    for route in route_info[default_addr]:
         if route['protocol'] != 'bgp':
             continue
         for itfs in route['nexthops']:
@@ -42,28 +43,6 @@ def get_default_route_ports(host, tbinfo):
             port_indices.append(mg_facts['minigraph_ptf_indices'][port])
 
     return port_indices
-
-
-@pytest.fixture
-def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
-    if tbinfo['topo']['type'] == 't2':
-        # For T2 setup, default route via eBGP is only advertised from T3 VM's which are connected to one of the
-        # linecards and not the other. So, can't use enum_rand_one_per_hwsku_frontend_hostname for T2.
-        dut_to_T3 = None
-        for a_dut in duthosts.frontend_nodes:
-            minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
-            minigraph_neighbors = minigraph_facts['minigraph_neighbors']
-            for key, value in list(minigraph_neighbors.items()):
-                if 'T3' in value['name']:
-                    dut_to_T3 = a_dut
-                    break
-            if dut_to_T3:
-                break
-        if dut_to_T3 is None:
-            pytest.skip("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
-        return dut_to_T3
-    else:
-        return duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
 
 @pytest.fixture
@@ -130,11 +109,10 @@ def build_syn_pkt(local_addr, peer_addr):
 
 
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
-                common_setup_teardown, ptfadapter, ptfhost):
+                common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
-
     duthost = dut_with_default_route
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
@@ -176,7 +154,7 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
                       "Failed to start bgp monitor session on PTF")
-        pytest_assert(wait_until(180, 5, 0, bgpmon_peer_connected, duthost, peer_addr),
+        pytest_assert(wait_until(MAX_TIME_FOR_BGPMON, 5, 0, bgpmon_peer_connected, duthost, peer_addr),
                       "BGPMon Peer connection not established")
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
