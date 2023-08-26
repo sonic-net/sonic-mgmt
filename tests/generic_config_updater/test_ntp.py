@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_failure, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,15 @@ def server_exist_in_conf(duthost, server_pattern):
 def ntp_service_restarted(duthost, start_time):
     """ Check if ntp.service is just restarted after start_time
     """
-    output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
-    if output["stdout"] != "active":
+    def check_ntp_activestate(duthost):
+        output = duthost.shell("systemctl show ntp.service --property ActiveState --value")
+        if output["stdout"] != "active":
+            return False
+        return True
+
+    if not wait_until(10, 1, 0, check_ntp_activestate, duthost):
         return False
+
     output = duthost.shell("ps -o etimes -p $(systemctl show ntp.service --property ExecMainPID --value) | sed '1d'")
     if int(output['stdout'].strip()) < (datetime.datetime.now() - start_time).seconds:
         return True
