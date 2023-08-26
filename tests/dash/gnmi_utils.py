@@ -142,8 +142,8 @@ def apply_gnmi_cert(duthost):
     dut_command += "--server_crt /etc/sonic/telemetry/%s " % (GNMI_SERVER_CERT)
     dut_command += "--server_key /etc/sonic/telemetry/%s " % (GNMI_SERVER_KEY)
     dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (GNMI_CA_CERT)
-    # dut_command += "-gnmi_native_write=true -v=10 -zmq_address=tcp://127.0.0.1:8100 >/root/gnmi.log 2>&1 &\""
-    dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
+    dut_command += "-gnmi_native_write=true -v=10 -zmq_address=tcp://127.0.0.1:8100 >/root/gnmi.log 2>&1 &\""
+# dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
 
