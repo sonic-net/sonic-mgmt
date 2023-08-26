@@ -232,7 +232,7 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-
+        affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
@@ -268,6 +268,7 @@ class TestPlanManager(object):
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
+                "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
@@ -683,6 +684,17 @@ if __name__ == "__main__":
              '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
     )
     parser_create.add_argument(
+        "--affinity",
+        type=str,
+        dest="affinity",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Test module affinity, like: '
+             '[{"name": "bgp/test_bgp_fact.py", "op": "NOT_ON", "value": ["vms-kvm-t0"]}]'
+    )
+    parser_create.add_argument(
         "--stop-on-failure",
         type=ast.literal_eval,
         dest="stop_on_failure",
@@ -871,6 +883,7 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 specific_param=specific_param,
+                affinity=args.affinity,
                 vm_type=args.vm_type,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
