@@ -3138,7 +3138,7 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data = {}
 
     # Init pause_quanta_per_speed_dict
-    pause_quanta_per_speed_dict = {400000: 905, 200000: 453, 100000: 394, 50000: 147,
+    pause_quanta_per_speed_dict = {800000: 905, 400000: 905, 200000: 453, 100000: 394, 50000: 147,
                                    40000: 118, 25000: 80, 10000: 67, 1000: 2, 100: 1}
 
     # Get effective speed
