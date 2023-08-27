@@ -237,7 +237,8 @@ class TestFanDrawerFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn,
+                                   suspend_and_resume_hw_tc_on_mellanox_device):
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         fan_drawers_skipped = 0

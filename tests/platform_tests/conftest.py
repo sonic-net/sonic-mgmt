@@ -14,6 +14,7 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.sanity_check.recover import neighbor_vm_restore
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
+from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
@@ -712,3 +713,19 @@ def pytest_generate_tests(metafunc):
 
 def pytest_addoption(parser):
     add_counterpoll_cpu_usage_args(parser)
+
+
+@pytest.fixture(scope="function", autouse=False)
+def suspend_and_resume_hw_tc_on_mellanox_device(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    suspend and resume hw thermal control service on mellanox device
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if is_mellanox_device(duthost) and duthost.is_host_service_running("hw-management-tc"):
+        suspend_hw_tc_service(duthost)
+
+    yield
+
+    if is_mellanox_device(duthost) and duthost.is_host_service_running("hw-management-tc"):
+        resume_hw_tc_service(duthost)
