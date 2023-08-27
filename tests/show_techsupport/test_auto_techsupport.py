@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
+from dateutil.parser import ParserError
 
 try:
     import allure
@@ -720,6 +721,16 @@ def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_
             'Number of syslog files in techsupport bigger than expected'
 
 
+def get_timestamp_from_log_line(syslog_line):
+    try:
+        timestamp_str = ' '.join(syslog_line.split()[:3])
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    except ParserError:
+        timestamp_str = syslog_line.split()[0]
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    return timestamp_datetime
+
+
 def get_oldest_syslog_timestamp(duthost, techsupport_folder):
     """
     Get oldest syslog timestamp
@@ -733,8 +744,7 @@ def get_oldest_syslog_timestamp(duthost, techsupport_folder):
         oldest_syslog_file = get_oldest_syslog_file_name(syslog_files)
         oldest_syslog_line = \
             duthost.shell('zcat {}/log/{} | head -1'.format(techsupport_folder, oldest_syslog_file))['stdout_lines'][0]
-        oldest_timestamp_str = ' '.join(oldest_syslog_line.split()[:3])
-        oldest_timestamp_datetime = dateutil.parser.parse(oldest_timestamp_str)
+        oldest_timestamp_datetime = get_timestamp_from_log_line(oldest_syslog_line)
 
     return oldest_timestamp_datetime
 
@@ -1034,9 +1044,7 @@ def get_first_line_timestamp(duthost, syslog_file_name):
         first_log_string = duthost.shell('sudo zcat {} | head -n 1'.format(syslog_file_name))['stdout']
     else:
         first_log_string = duthost.shell('sudo head -n 1 {}'.format(syslog_file_name))['stdout']
-    expected_oldest_timestamp_str = ' '.join(first_log_string.split()[:3])
-    expected_oldest_log_line_timestamp = dateutil.parser.parse(expected_oldest_timestamp_str)
-
+    expected_oldest_log_line_timestamp = get_timestamp_from_log_line(first_log_string)
     return expected_oldest_log_line_timestamp
 
 
