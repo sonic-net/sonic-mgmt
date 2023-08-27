@@ -8,6 +8,8 @@ from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMo
     SingleFanMocker
 from tests.common.mellanox_data import get_platform_data
 from .minimum_table import get_min_table
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 NOT_AVAILABLE = 'N/A'
@@ -107,6 +109,8 @@ FAN_NAMING_RULE = {
     }
 }
 
+SUSPEND_FILE_PATH = "/var/run/hw-management/config/suspend"
+
 
 class SysfsNotExistError(Exception):
     """
@@ -178,11 +182,6 @@ class MockerHelper:
             return
 
         MockerHelper.FAN_NUM = int(content)
-        platform_data = get_platform_data(self.dut)
-        if not platform_data['fans']['hot_swappable']:
-            # For non swappable fan, there is no drawer. We put them in a "virtual" drawer.
-            MockerHelper.FAN_NUM_PER_DRAWER = MockerHelper.FAN_NUM
-            return
 
         if MockerHelper.FAN_NUM > fan_drawer_num:
             MockerHelper.FAN_NUM_PER_DRAWER = 2
@@ -844,7 +843,9 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         # All system fan is controlled to have the same speed, so only
         # get a random value once here
         speed = random.randint(60, 100)
-        FanData.mock_cooling_cur_state(self.mock_helper, speed / 10)
+        if not self.mock_helper.dut.is_host_service_running("hw-management-tc"):
+            # When image doesn't support new tc, we still use cooling level to control thermal
+            FanData.mock_cooling_cur_state(self.mock_helper, speed / 10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -894,6 +895,19 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 if drawer_data.mocked_presence == 'Present':
                     expected_data = self.expected_data[fan_data.name]
                     expected_data[1] = drawer_data.get_expect_led_color()
+
+        platform_data = get_platform_data(self.dut)
+        if not platform_data['fans']['hot_swappable']:
+            # For non swappable fan, all fans share one led
+            is_one_red_led_at_least = False
+            for _, expected_data in self.expected_data.items():
+                if expected_data[1] == "red":
+                    is_one_red_led_at_least = True
+                    break
+            if is_one_red_led_at_least:
+                logging.info("update all expected led to red")
+                for fan_name, expected_data in self.expected_data.items():
+                    self.expected_data[fan_name][1] = "red"
 
         platform_data = get_platform_data(self.mock_helper.dut)
         psu_count = platform_data["psus"]["number"]
@@ -1382,3 +1396,28 @@ class RebootCauseMocker(object):
 
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)
+
+
+def suspend_hw_tc_service(dut):
+    """
+    Suspend thermal control service
+    """
+    logging.info("suspend hw tc service ")
+
+    dut.shell(f"sudo touch {SUSPEND_FILE_PATH}")
+    dut.shell(f"sudo chown admin {SUSPEND_FILE_PATH}")
+    dut.shell(f"sudo echo 1 > {SUSPEND_FILE_PATH}")
+
+    def check_pwm_is_max():
+        pwm = int(dut.shell("cat /var/run/hw-management/thermal/pwm1")["stdout"])
+        return pwm == 255
+
+    pytest_assert(wait_until(10, 0, 1, check_pwm_is_max), "TC is not suspended")
+
+
+def resume_hw_tc_service(dut):
+    """
+    Resume hw thermal control service
+    """
+    logging.info("resume hw tc service ")
+    dut.shell(f"sudo rm -f {SUSPEND_FILE_PATH}")
