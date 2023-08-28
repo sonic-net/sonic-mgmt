@@ -65,6 +65,11 @@ parameters:
     default: "[]"
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
+  - name: AFFINITY
+    type: string
+    default: "[]"
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -92,6 +97,7 @@ steps:
       UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
       DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
       SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+      AFFINITY: ${{ parameters.AFFINITY }}
       REPO_NAME: "sonic-mgmt-int"
       STOP_ON_FAILURE: "False"
       TEST_PLAN_TYPE: "NIGHTLY"

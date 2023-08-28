@@ -76,6 +76,16 @@ parameters:
     default: "--topology m0,any --no_dscp_uniform --unresettable_xcvr_types=SFP"
     displayName: "Common test parameters"
 
+  - name: AFFINITY
+    type: string
+    default: '[
+      {"name": "platform_tests/api/test_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
+      {"name": "platform_tests/test_power_off_reboot.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
+      {"name": "snmp/test_snmp_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
+      {"name": "snmp/test_snmp_phy_entity.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]}
+    ]'
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -105,3 +115,4 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        AFFINITY: ${{ parameters.AFFINITY }}
