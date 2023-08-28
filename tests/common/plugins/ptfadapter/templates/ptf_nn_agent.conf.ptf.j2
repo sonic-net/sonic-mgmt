@@ -1,5 +1,5 @@
 [program:ptf_nn_agent]
-command=/usr/bin/python /opt/ptf_nn_agent.py --device-socket {{ device_num }}@tcp://0.0.0.0:{{ ptf_nn_port }} {% for id in ifaces_map -%} -i {{ device_num }}-{{ id }}@{{ ifaces_map[id] }} {% endfor %}
+command=/usr/bin/python /opt/ptf_nn_agent.py --set-iface-rcv-buffer 157286400 --device-socket {{ device_num }}@tcp://0.0.0.0:{{ ptf_nn_port }} {% for id in ifaces_map -%} -i {{ device_num }}-{{ id }}@{{ ifaces_map[id] }} {% endfor %}
 
 process_name=ptf_nn_agent
 stdout_logfile=/tmp/ptf_nn_agent.out.log
