@@ -53,7 +53,7 @@ class BfdBase:
                 status_match = re.search(r'LACP\(A\)\((\w+)\)', item.get('protocol', ''))
                 status = status_match.group(1) if status_match else ''
                 if ports:
-                    port_channel_dict[port_channel] = { 'members': ports,'status': status }
+                    port_channel_dict[port_channel] = {'members': ports, 'status': status}
                     
         return port_channel_dict
     
