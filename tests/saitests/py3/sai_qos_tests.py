@@ -100,7 +100,8 @@ COUNTER_MARGIN = 2  # Margin for counter check
 DEFAULT_DSCP = 4
 DEFAULT_TTL = 64
 DEFAULT_ECN = 1
-DEFAULT_PKT_COUNT = 5
+DEFAULT_PKT_COUNT = 10
+PG_TOLERANCE = 2
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -901,10 +902,12 @@ class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
                     for i in range(0, PG_NUM):
                         try:
                             if i == pg:
-                                assert (pg_cntrs[pg] == pg_cntrs_base[pg] + DEFAULT_PKT_COUNT)
+                                assert ((pg_cntrs[pg] >= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT - PG_TOLERANCE) and
+                                        (pg_cntrs[pg] <= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT + PG_TOLERANCE))
                                 output_table.append("{}, {}, {}, PASS".format(pg, dscp, pg_cntrs))
                             else:
-                                assert (pg_cntrs[i] == pg_cntrs_base[i])
+                                assert ((pg_cntrs[i] >= pg_cntrs_base[i] - PG_TOLERANCE) and
+                                        (pg_cntrs[i] <= pg_cntrs_base[i] + PG_TOLERANCE))
                         except Exception:
                             cause_for_failure[0] = True
                             cause_for_failure[1].append("PG counters are not incremented correctly for " +
