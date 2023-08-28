@@ -14,11 +14,11 @@ PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
 ]
 MULTI_HARDWARE_TYPE_PLATFORMS = ['x86_64-mlnx_msn4700-r0',
-                     'x86_64-mlnx_msn4410-r0',
-                     'x86_64-mlnx_msn4600c-r0',
-                     'x86_64-mlnx_msn3700-r0',
-                     'x86_64-mlnx_msn3700c-r0',
-                     'x86_64-mlnx_msn2700-r0']
+                                 'x86_64-mlnx_msn4410-r0',
+                                 'x86_64-mlnx_msn4600c-r0',
+                                 'x86_64-mlnx_msn3700-r0',
+                                 'x86_64-mlnx_msn3700c-r0',
+                                 'x86_64-mlnx_msn2700-r0']
 SWITCH_MODELS = {
     "x86_64-nvidia_sn5600-r0": {
         "chip_type": "spectrum4",
