@@ -113,16 +113,18 @@ def apply_dscp_cfg_teardown(duthost):
     reload_required = False
     for asic_id in duthost.get_frontend_asic_ids():
         swss = 'swss{}'.format(asic_id if asic_id is not None else '')
-        file_exists = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
-                                    .format(swss))["rc"] == 0
-        if not file_exists:
+        try:
+            file_out = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
+                                    .format(swss))
+        except Exception:
             continue
-        cmds = [
-            'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
-            .format(swss)
-        ]
-        reload_required = True
-        duthost.shell_cmds(cmds=cmds)
+        if file_out["rc"] == 0:
+            cmds = [
+                'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
+                .format(swss)
+            ]
+            reload_required = True
+            duthost.shell_cmds(cmds=cmds)
 
     if reload_required:
         config_reload(duthost, safe_reload=True)
@@ -176,3 +178,15 @@ def get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_port_id):
             return dut_port
 
     return None
+
+
+def fetch_test_logs_ptf(ptfhost, ptf_location, dest_dir):
+    """
+    Fetch test logs from ptfhost after individual test run
+    """
+    log_dir = ptf_location
+    curr_dir = os.getcwd()
+    logFiles = {'src': log_dir, 'dest': curr_dir + dest_dir, 'flat': True, 'fail_on_missing': False}
+    ptfhost.fetch(**logFiles)
+    
+    return logFiles['dest']
