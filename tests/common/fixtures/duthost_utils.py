@@ -498,12 +498,12 @@ def _dut_qos_map(dut):
 
 
 @pytest.fixture(scope='class')
-def dut_qos_maps(get_src_dst_asic_and_duts):
+def dut_qos_maps(rand_selected_front_end_dut):
     """
     A class level fixture to get QoS map from DUT host.
     Return a dict
     """
-    dut = get_src_dst_asic_and_duts['src_dut']
+    dut = rand_selected_front_end_dut
     return _dut_qos_map(dut)
 
 
