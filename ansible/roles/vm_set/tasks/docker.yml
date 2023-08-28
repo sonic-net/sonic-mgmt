@@ -118,6 +118,46 @@
   when:
     - not 'docker.io' in ansible_facts.packages
 
+- name: Install python-docker
+  apt: pkg=python-docker
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  register: apt_py_docker
+  when:
+    - ansible_python.version.major==2
+    - not (ansible_distribution == 'Ubuntu' and (
+        ansible_distribution_major_version|int < 16 or
+        ansible_distribution_major_version|int >= 20))
+    - not (ansible_distribution == 'Debian' and
+        ansible_distribution_major_version|int != 10)
+
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+  when:
+    - ansible_python.version.major==2
+    - apt_py_docker.changed
+
+- name: Install python3-docker
+  apt: pkg=python3-docker
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  register: apt_py_docker
+  when:
+    - ansible_python.version.major==3
+    - not (ansible_distribution == 'Ubuntu' and
+        ansible_distribution_major_version|int < 16)
+    - not (ansible_distribution == 'Debian' and
+        ansible_distribution_major_version|int > 0 and
+        ansible_distribution_major_version|int < 10)
+
+- name: Gather the package facts
+  package_facts:
+    manager: auto
+  when:
+    - ansible_python.version.major==3
+    - apt_py_docker.changed
+
 - name: Update python2 packages
   block:
   - name: remove old python packages
@@ -129,7 +169,9 @@
     pip: name=docker version=4.1.0 state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip"
+  when:
+    - not 'python-docker' in ansible_facts.packages
+    - ansible_python.version.major==2
 
 - name: Update python3 packages
   block:
@@ -142,4 +184,6 @@
     pip: name=docker version=6.1.0 state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip3"
+  when:
+    - not 'python3-docker' in ansible_facts.packages
+    - ansible_python.version.major==3
