@@ -53,16 +53,13 @@ class BfdBase:
                 status_match = re.search(r'LACP\(A\)\((\w+)\)', item.get('protocol', ''))
                 status = status_match.group(1) if status_match else ''
                 if ports:
-                    port_channel_dict[port_channel] = {
-                    'members': ports,
-                    'status': status
-                }
+                    port_channel_dict[port_channel] = { 'members': ports,'status': status }
                     
         return port_channel_dict
     
     def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic):
         backend_port_channels = self.extract_backend_portchannels(dut)
-        data  = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
+        data = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
         result_dict = {}
 
         for item in data:
