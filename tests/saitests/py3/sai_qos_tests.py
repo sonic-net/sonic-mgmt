@@ -913,7 +913,6 @@ class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
                             output_table.append("{}, {}, {}, FAIL".format(i, dscp, pg_cntrs))
 
         finally:
-            #import pdb; pdb.set_trace()
             headers = "Priority Group, DSCP, pg counters, Result"
             curr_dir = os.getcwd()
             with open(curr_dir + "/dscp_to_pg_mapping_ipip.txt", "w") as f:
