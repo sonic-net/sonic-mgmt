@@ -1,13 +1,14 @@
 
 import random
-import pytest, re, time
+import pytest
+import re
+import time
 import logging
 logger = logging.getLogger(__name__)
 
 
 class BfdBase:
     def list_to_dict(self, sample_list):
-        header = sample_list[1].split()
         data_rows = sample_list[3:]
         for data in data_rows:
             data_dict = {}
@@ -29,7 +30,7 @@ class BfdBase:
         for asic in asic_routes:
             for prefix in asic_routes[asic]:
                 nexthops_in_static_route_output = asic_routes[asic][prefix]
-                #If nexthops on source dut are same destination dut's interfaces, we are picking that static route
+                # If nexthops on source dut are same destination dut's interfaces, we are picking that static route
                 if sorted(nexthops_in_static_route_output) == sorted(nexthops):
                     time.sleep(2)
                     logger.info("Nexthops from static route output")
