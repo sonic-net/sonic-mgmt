@@ -1752,15 +1752,11 @@ class TestQosSai(QosSaiBase):
             "decap_mode": decap_mode
         })
 
-        import pdb; pdb.set_trace()
-
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpToPgMappingIPIP",
             testParams=testParams,
             relax=True
         )
-
-        import pdb; pdb.set_trace()
 
         output_table_path = fetch_test_logs_ptf(ptfhost, ptf_location="./dscp_to_pg_mapping_ipip.txt", 
                             dest_dir="/logs/dscp_to_pg_mapping_ipip.txt")
