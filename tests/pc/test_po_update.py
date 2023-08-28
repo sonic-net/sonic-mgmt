@@ -5,7 +5,6 @@ from queue import Queue
 from tests.common.helpers.sonic_db import VoqDbCli, redis_get_keys
 import pytest
 import logging
-from tests.common.utilities import wait
 from ptf import testutils, mask, packet
 from tests.common.reboot import reboot
 from tests.common import config_reload
@@ -78,17 +77,16 @@ def pc_active(asichost, portchannel):
     return asichost.interface_facts()['ansible_facts']['ansible_interface_facts'][portchannel]['active']
 
 
-@pytest.mark.parametrize("relod_check", ["is_chassis_reload", "is_chassis_reboot", "is_not_chassis"])
-def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, relod_check,
+@pytest.mark.parametrize("reload_check", ["dut_reload", "dut_reboot", "pc_add_remove"])
+def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, reload_check,
                    localhost):
     """
     test port channel add/deletion as well ip address configuration
     """
     is_chassis = duthosts.supervisor_nodes[0].get_facts().get("modular_chassis")
-    if (not is_chassis and relod_check in ["is_chassis_reload", "is_chassis_reboot"]) or (
-            is_chassis and relod_check in ["is_not_chassis"]):
+    if not is_chassis and reload_check in ["dut_reload", "dut_reboot"]:
         pytest.skip(
-            "Skip test as it is_chassis {} and relod_check param is ".format(is_chassis, relod_check))
+            "Skip test as it is_chassis {} and relod_check param is ".format(is_chassis, reload_check))
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asichost.interface_facts()['ansible_facts']
@@ -111,7 +109,9 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     tmp_portchannel = "PortChannel999"
     # Initialize portchannel_ip and portchannel_members
     portchannel_ip = int_facts['ansible_interface_facts'][portchannel]['ipv4']['address']
-    before_expected_dump = get_db_dump(duthosts, duthost)
+    init_dump = {}
+    if not reload_check == "pc_add_remove":
+        init_dump = get_db_dump(duthosts, duthost)
     # Initialize flags
     remove_portchannel_members = False
     remove_portchannel_ip = False
@@ -163,36 +163,31 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             has_bgp_neighbors(duthost, tmp_portchannel) and
             wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, tmp_portchannel))
-        if not relod_check == "is_not_chassis":
-            if relod_check == "is_chassis_reload":
-                logging.info("Reloading config and restarting swss...")
+        if not reload_check == "pc_add_remove":
+            # Setting Flags as false as config reload or dut reboot reverts the changes
+            remove_portchannel_members = False
+            remove_portchannel_ip = False
+            create_tmp_portchannel = False
+            add_tmp_portchannel_members = False
+            add_tmp_portchannel_ip = False
+            if reload_check == "dut_reload":
+                logging.info("Reloading config")
                 config_reload(duthost, safe_reload=True)
-                remove_portchannel_members = False
-                remove_portchannel_ip = False
-                create_tmp_portchannel = False
-                add_tmp_portchannel_members = False
-                add_tmp_portchannel_ip = False
-                pytest_assert(wait_until(120, 30, 0, check_db_consistency, duthosts, duthost, before_expected_dump),
+                pytest_assert(wait_until(180, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                               "DB_Consistency Failed")
             else:
                 change_before_reboot = get_db_dump(duthosts, duthost)
-                logging.info("Rebooting dut and restarting swss...")
+                logging.info("Rebooting dut {}".format(duthost))
                 reboot(duthost, localhost, wait_for_ssh=False)
                 localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=1, timeout=60)
-                rebooted = True
                 pytest_assert(check_db_consistency(duthosts, duthost, change_before_reboot),
-                              "DB_Consistency Failed during Reboot")
-                remove_portchannel_members = False
-                remove_portchannel_ip = False
-                create_tmp_portchannel = False
-                add_tmp_portchannel_members = False
-                add_tmp_portchannel_ip = False
+                              "DB_Consistency Failed During Reboot")
                 localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
-                wait(30, msg="Wait {} seconds for system to be stable.".format(30))
-                assert wait_until(300, 20, 0, duthost.critical_services_fully_started), \
+                assert wait_until(330, 20, 0, duthost.critical_services_fully_started), \
                     "All critical services should fully started!"
-                pytest_assert(wait_until(380, 30, 0, check_db_consistency, duthosts, duthost, before_expected_dump),
+                pytest_assert(wait_until(380, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                               "DB_Consistency Failed After Reboot")
+
     finally:
         # Recover all states
         if add_tmp_portchannel_ip:
@@ -420,29 +415,15 @@ def check_db_consistency(duthosts, duthost, expected_dump):
 
         expected_dump: The CHASSIS_APP_DB *System* table and set dump
 
-    Returns: Boolean of Comparision b/w the  expe
+    Returns: Boolean of Comparision between the expected and current db_dumps
 
     """
+    out_dump = get_db_dump(duthosts, duthost)
 
-    after = get_db_dump(duthosts, duthost)
-
-    def sort_lists_in_dict(d):
-        return {k: sorted(v) for k, v in d.items()}
-
-    sorted_before = sort_lists_in_dict(expected_dump)
-    sorted_after = sort_lists_in_dict(after)
-    if not sorted_before == sorted_after:
-        added_items = {}
-        removed_items = {}
-        for key in expected_dump.keys():
-            # Convert lists to sets to easily find differences
-            before_set = set(sorted_before[key])
-            after_set = set(sorted_after[key])
-            # Find elements added and removed
-            added_items[key] = list(after_set - before_set)
-            removed_items[key] = list(before_set - after_set)
-        logging.info("The Diff b/w the initial DB_DUMP and DB_DUMP after the config_reload: {}".format(removed_items))
-        logging.info("The Diff b/w DB_DUMP after the config_changes and initial DB_DUMP: {}".format(added_items))
+    if not expected_dump == out_dump:
+        differences = {key: (expected_dump.get(key), out_dump.get(key)) for key in set(expected_dump) | set(out_dump) if
+                       expected_dump.get(key) != out_dump.get(key)}
+        logging.info("The Difference between the initial DB_DUMP and Current DB_DUMP : {}".format((differences)))
         return False
     else:
         return True
@@ -451,10 +432,9 @@ def check_db_consistency(duthosts, duthost, expected_dump):
 def get_db_dump(duthosts, duthost):
     """
     Args:
-        duthosts: The duthosts fixture.
-        duthost: The duthosts
+        duthost: The dut being tested
 
-    Returns:systemlag: Dictionary with CHASSIS_APP_DB DB dump of impacted Tables and Sets
+    Returns:systemlag: Dictionary with CHASSIS_APP_DB DB dump of impacted Tables and Sets from the supervisor node
     SYSTEM_INTERFACE
     SYSTEM_LAG_ID_SET
     SYSTEM_LAG_ID_TABLE
@@ -469,4 +449,4 @@ def get_db_dump(duthosts, duthost):
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
     systemlag["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
     systemlag["SYSTEM_LAG_ID_SET"] = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
-    return systemlag
+    return {k: sorted(v) for k, v in systemlag.items()}
