@@ -4,6 +4,7 @@ A helper module for PTF tests.
 
 import pytest
 import random
+import os
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
@@ -114,14 +115,13 @@ def apply_dscp_cfg_teardown(duthost):
     for asic_id in duthost.get_frontend_asic_ids():
         swss = 'swss{}'.format(asic_id if asic_id is not None else '')
         try:
-            file_out = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
-                                    .format(swss))
+            file_out = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp".format(swss))
         except Exception:
             continue
         if file_out["rc"] == 0:
             cmds = [
-                'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
-                .format(swss)
+                'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp '.format(swss) +
+                '/usr/share/sonic/templates/ipinip.json.j2'
             ]
             reload_required = True
             duthost.shell_cmds(cmds=cmds)
@@ -188,5 +188,5 @@ def fetch_test_logs_ptf(ptfhost, ptf_location, dest_dir):
     curr_dir = os.getcwd()
     logFiles = {'src': log_dir, 'dest': curr_dir + dest_dir, 'flat': True, 'fail_on_missing': False}
     ptfhost.fetch(**logFiles)
-    
+
     return logFiles['dest']

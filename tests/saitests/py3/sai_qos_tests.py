@@ -886,10 +886,9 @@ class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
                     exp_pkt.set_do_not_care_scapy(IP, 'chksum')
 
                     send_packet(self, src_port_id, outer_pkt, DEFAULT_PKT_COUNT)
-                    
+
                     try:
                         port_index, _ = verify_packet_any_port(self, exp_pkt, ports=upstream_ptf_ports, timeout=3)
-                        dst_port_id = upstream_ptf_ports[port_index]
                     except AssertionError:
                         cause_for_failure[0] = True
                         cause_for_failure[1].append("Expected packet with DSCP {} was not received ".format(dscp) +
@@ -902,11 +901,11 @@ class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
                     for i in range(0, PG_NUM):
                         try:
                             if i == pg:
-                                assert(pg_cntrs[pg] == pg_cntrs_base[pg] + DEFAULT_PKT_COUNT)
+                                assert (pg_cntrs[pg] == pg_cntrs_base[pg] + DEFAULT_PKT_COUNT)
                                 output_table.append("{}, {}, {}, PASS".format(pg, dscp, pg_cntrs))
                             else:
-                                assert(pg_cntrs[i] == pg_cntrs_base[i])
-                        except:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
+                        except Exception:
                             cause_for_failure[0] = True
                             cause_for_failure[1].append("PG counters are not incremented correctly for " +
                                                         "priority group {} and dscp value {}".format(i, dscp))

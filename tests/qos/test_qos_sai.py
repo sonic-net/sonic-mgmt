@@ -1705,7 +1705,7 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa F811
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -1722,7 +1722,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        
         if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
@@ -1758,10 +1757,10 @@ class TestQosSai(QosSaiBase):
             relax=True
         )
 
-        output_table_path = fetch_test_logs_ptf(ptfhost, ptf_location="./dscp_to_pg_mapping_ipip.txt", 
-                            dest_dir="/logs/dscp_to_pg_mapping_ipip.txt")
+        output_table_path = fetch_test_logs_ptf(ptfhost, ptf_location="./dscp_to_pg_mapping_ipip.txt",
+                                                dest_dir="/logs/dscp_to_pg_mapping_ipip.txt")
         fail_logs_path = fetch_test_logs_ptf(ptfhost, ptf_location="./dscp_to_pg_mapping_ipip_failures.txt",
-                            dest_dir="/logs/dscp_to_pg_mapping_ipip_failures.txt")
+                                             dest_dir="/logs/dscp_to_pg_mapping_ipip_failures.txt")
         local_logs = read_logs(output_table_path)
         local_fail_logs = read_logs(fail_logs_path)
         headers = local_logs[0]
@@ -1770,6 +1769,9 @@ class TestQosSai(QosSaiBase):
 
         # Teardown DSCP decap config on DUT
         apply_dscp_cfg_teardown(duthost)
+
+        if local_fail_logs:
+            pytest.fail("Test Failed: {}".format(local_fail_logs))
 
     @pytest.mark.parametrize("direction", ["downstream", "upstream"])
     def testQosSaiSeparatedDscpToPgMapping(self, duthost, request, ptfhost,
