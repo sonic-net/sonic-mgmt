@@ -194,8 +194,8 @@ class TestBfdStaticRoute(BfdBase):
     def control_interface_state(self, src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, interface, action):
         int_status = src_dut.show_interface(command="status", include_internal_intfs=True, asic_index=src_asic.asic_index)['ansible_facts']['int_status'][interface]
         oper_state = int_status['oper_state']
-        target_state = "down" if action == "shutdown" else "Dw" if "BP" in interface else "Up"
-        
+        target_state = "down" if action == "shutdown" and "BP" in interface else "Dw" if action == "shutdown" else "Up"
+
         if oper_state != target_state:
             command = "shutdown" if action == "shutdown" else "startup"
             exec_cmd = "sudo ip netns exec asic{0} config interface -n asic{0} {1} {2}".format(src_asic.asic_index, command, interface)
@@ -240,8 +240,8 @@ class TestBfdStaticRoute(BfdBase):
 
         # Verify that corresponding static route has been removed on both duts
         logger.info("BFD & Static route verifications")
-        self.verify_static_route(request, dst_asic, dst_prefix, dst_dut, dst_dut_nexthops, "Route Removal", "Down", bfd_base_instance)
-        self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Removal", "Down", bfd_base_instance)
+        self.verify_static_route(request, dst_asic, dst_prefix, dst_dut, dst_dut_nexthops, "Route Removal", bfd_base_instance)
+        self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Removal", bfd_base_instance)
 
         for interface in list_of_portchannels_on_src:
             action = "startup"
