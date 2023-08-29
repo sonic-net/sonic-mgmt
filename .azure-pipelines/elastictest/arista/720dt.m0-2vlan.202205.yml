@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 16 * * 0,2,4"
+  - cron: "0 4 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-720dt-1, testbed-bjw-can-720dt-3, testbed-str2-pikez-acs-1"
+    default: "testbed-bjw-can-720dt-4"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
@@ -63,7 +63,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -73,23 +73,13 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology m0,any --no_dscp_uniform --unresettable_xcvr_types=SFP"
+    default: "--topology m0,any --no_dscp_uniform"
     displayName: "Common test parameters"
-
-  - name: AFFINITY
-    type: string
-    default: '[
-      {"name": "platform_tests/api/test_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "platform_tests/test_power_off_reboot.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "snmp/test_snmp_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "snmp/test_snmp_phy_entity.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]}
-    ]'
-    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 3600
 
 stages:
 - stage: Test
@@ -99,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 720dt.m0.202205.NightlyTest_by_Elastictest
+    displayName: 720dt.m0-2vlan.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -115,4 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        AFFINITY: ${{ parameters.AFFINITY }}
