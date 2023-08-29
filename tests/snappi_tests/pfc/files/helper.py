@@ -32,6 +32,7 @@ data_flow_delay_sec = 1
 SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_DUR_BASE_SEC = 3
 TOLERANCE_THRESHOLD = 0.05
+CONTINUOUS_MODE = -5
 
 
 def run_pfc_test(api,
@@ -131,7 +132,7 @@ def run_pfc_test(api,
         valid_pfc_frame_test = False
 
     pause_flow_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + \
-        PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else 'continuous'
+        PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else CONTINUOUS_MODE
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
