@@ -293,6 +293,25 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
         counter_poll_config(rand_selected_dut, 'queue', 10000)
 
 
+def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue, pkt, src_port, exp_pkt, dst_ports):
+    try:
+        # Start PFC storm from leaf fanout switch
+        start_pfc_storm(storm_handler, peer_info, prio)
+        ptfadapter.dataplane.flush()
+        # Record the queue counter before sending test packet
+        base_queue_count = get_queue_counter(dut, port, queue, True)
+        # Send testing packet again
+        testutils.send_packet(ptfadapter, src_port, pkt, 1)
+        # The packet should be paused
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
+        # Check the queue counter didn't increase
+        queue_count = get_queue_counter(dut, port, queue, False)
+        assert base_queue_count == queue_count
+        return True
+    finally:
+        stop_pfc_storm(storm_handler)
+
+
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -301,6 +320,152 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
     2. Generate packets with different DSCPs, ingress to standby ToR. The traffic will be bounced back to T1
     3. Generate PFC pause on fanout switch (T1 ports)
     4. Verify lossless traffic are paused
+    """
+    if "cisco-8000" in dut_config["asic_type"]:
+        pytest.skip("Replacing test with test_pfc_watermark_extra_lossless_standby for Cisco-8000.")
+    TEST_DATA = {
+        # Inner DSCP, Outer DSCP, Priority
+        (3, 2, 2, 2),
+        (4, 6, 6, 6)
+    }
+    dualtor_meta = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo)
+    t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
+    # Always select the last port in the last LAG as src_port
+    src_port = _last_port_in_last_lag(t1_ports)
+    # The encapsulated packets can egress from any uplink port
+    dst_ports = []
+    for ports in t1_ports.values():
+        dst_ports.extend(ports)
+    active_tor_mac = rand_unselected_dut.facts['router_mac']
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    ptfadapter.dataplane.flush()
+    for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
+        pkt, exp_pkt = build_testing_packet(src_ip=DUMMY_IP,
+                                            dst_ip=SERVER_IP,
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                            active_tor_ip=dualtor_meta['active_tor_ip'],
+                                            standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                            inner_dscp=inner_dscp,
+                                            outer_dscp=outer_dscp,
+                                            ecn=1)
+        # Ingress packet from uplink port
+        testutils.send(ptfadapter, src_port, pkt, 1)
+        # Get the actual egress port
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+        actual_port = dst_ports[result[0]]
+        # Get the port name from mgfacts
+        for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
+            if idx == actual_port:
+                actual_port_name = port_name
+                break
+        pytest_assert(actual_port_name)
+        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, actual_port)
+        storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
+                                    pfc_queue_idx=prio,
+                                    pfc_frames_number=PFC_PKT_COUNT,
+                                    peer_info=peer_info)
+
+        retry = 0
+        while retry < PFC_PAUSE_TEST_RETRY_MAX:
+            try:
+                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
+                                  queue, pkt, src_port, exp_pkt, dst_ports):
+                    break
+            except AssertionError as err:
+                retry += 1
+                if retry == PFC_PAUSE_TEST_RETRY_MAX:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
+            except Exception as err:
+                retry += 1
+                if retry == PFC_PAUSE_TEST_RETRY_MAX:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
+            time.sleep(5)
+
+
+def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):
+    """
+    The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
+    Test steps:
+    1. Toggle mux ports to rand_selected_dut, so all mux ports are standby on the unselected ToR
+    2. Generate IPinIP packets with different DSCP combinations, ingress to active ToR.
+    3. Generate PFC pause on fanout switch (Server facing ports)
+    4. Verify lossless traffic are paused
+    """
+    if "cisco-8000" in dut_config["asic_type"]:
+        pytest.skip("Replacing test with test_pfc_watermark_extra_lossless_active for Cisco-8000.")
+    TEST_DATA = {
+        # Inner DSCP, Outer DSCP, Priority, Queue
+        (3, 2, 3, 3),
+        (4, 6, 4, 4)
+    }
+    dualtor_meta = dualtor_info(ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
+    t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
+    # Always select the last port in the last LAG as src_port
+    src_port = _last_port_in_last_lag(t1_ports)
+    active_tor_mac = rand_selected_dut.facts['router_mac']
+    mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
+    ptfadapter.dataplane.flush()
+    for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
+        pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
+                                            dst_ip=dualtor_meta['target_server_ip'],
+                                            active_tor_mac=active_tor_mac,
+                                            standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                            active_tor_ip=dualtor_meta['active_tor_ip'],
+                                            standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                            inner_dscp=inner_dscp,
+                                            outer_dscp=outer_dscp,
+                                            ecn=1)
+        # Ingress packet from uplink port
+        testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
+        pkt.ttl -= 2 # TTL is decreased by 1 at tunnel forward and decap,
+        exp_pkt = Mask(pkt)
+        exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        # Verify packet is decapsulated and egress to server
+        testutils.verify_packet(ptfadapter, exp_pkt, dualtor_meta['target_server_port'])
+        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, dualtor_meta['target_server_port'])
+        storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
+                                    pfc_queue_idx=prio,
+                                    pfc_frames_number=PFC_PKT_COUNT,
+                                    peer_info=peer_info)
+
+        retry = 0
+        while retry < PFC_PAUSE_TEST_RETRY_MAX:
+            try:
+                if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
+                                  dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
+                                  [dualtor_meta['target_server_port']]):
+                    break
+            except AssertionError as err:
+                retry += 1
+                if retry == PFC_PAUSE_TEST_RETRY_MAX:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
+            except Exception as err:
+                retry += 1
+                if retry == PFC_PAUSE_TEST_RETRY_MAX:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
+            time.sleep(5)
+
+
+def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):
+    """
+    The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
+
+    A fully reliable pause stream would require a TGEN, so this test instead verifies the
+    queue watermark increases as a result of the pause frames blocking egress for a brief time.
+
+    Test steps:
+    1. Toggle mux ports to rand_unselected_dut, so all mux ports are standby on the selected ToR
+    2. Generate packets with different DSCPs, ingress to standby ToR. The traffic will be bounced back to T1
+    3. Generate PFC pause on fanout switch (T1 ports)
+    4. Verify the lossless traffic queue watermark has increased over the baseline.
+
     """
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority
@@ -384,14 +549,18 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
                 queue_wmk, base_queue_wmk)
 
 
-def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
     """
-    The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
+    The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
+
+    A fully reliable pause stream would require a TGEN, so this test instead verifies the
+    queue watermark increases as a result of the pause frames blocking egress for a brief time.
+
     Test steps:
     1. Toggle mux ports to rand_selected_dut, so all mux ports are standby on the unselected ToR
     2. Generate IPinIP packets with different DSCP combinations, ingress to active ToR.
     3. Generate PFC pause on fanout switch (Server facing ports)
-    4. Verify lossless traffic are paused
+    4. Verify the lossless traffic queue watermark has increased over the baseline.
     """
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority, Queue
