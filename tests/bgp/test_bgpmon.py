@@ -44,6 +44,7 @@ def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR):
 
     return port_indices
 
+@pytest.fixture
 def common_setup_teardown(dut_with_default_route,  tbinfo):
     duthost = dut_with_default_route
     peer_addr = generate_ip_through_default_route(duthost)
