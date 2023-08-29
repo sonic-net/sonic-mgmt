@@ -1,14 +1,13 @@
 
 import random
-import pytest
-import re
-import time
+import pytest, re, time
 import logging
 logger = logging.getLogger(__name__)
 
 
 class BfdBase:
     def list_to_dict(self, sample_list):
+        header = sample_list[1].split()
         data_rows = sample_list[3:]
         for data in data_rows:
             data_dict = {}
@@ -30,7 +29,7 @@ class BfdBase:
         for asic in asic_routes:
             for prefix in asic_routes[asic]:
                 nexthops_in_static_route_output = asic_routes[asic][prefix]
-                # If nexthops on source dut are same destination dut's interfaces, we are picking that static route
+                #If nexthops on source dut are same destination dut's interfaces, we are picking that static route
                 if sorted(nexthops_in_static_route_output) == sorted(nexthops):
                     time.sleep(2)
                     logger.info("Nexthops from static route output")
@@ -53,13 +52,16 @@ class BfdBase:
                 status_match = re.search(r'LACP\(A\)\((\w+)\)', item.get('protocol', ''))
                 status = status_match.group(1) if status_match else ''
                 if ports:
-                    port_channel_dict[port_channel] = {'members': ports, 'status': status}
+                    port_channel_dict[port_channel] = {
+                    'members': ports,
+                    'status': status
+                }
                     
         return port_channel_dict
     
     def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic):
         backend_port_channels = self.extract_backend_portchannels(dut)
-        data = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
+        data  = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
         result_dict = {}
 
         for item in data:
@@ -101,7 +103,8 @@ class BfdBase:
             logger.info("current_bfd_state: {}".format(current_bfd_state))
             logger.info("expected_bfd_state: {}".format(expected_bfd_state))
             if current_bfd_state != expected_bfd_state:
-                raise AssertionError("Current BFD state did not match with expected bfd state")
+                return False
+        return True
     
     def extract_routes(self, static_route_output):
         asic_routes = {}
@@ -127,13 +130,19 @@ class BfdBase:
         dst_asic_index = 0
         if (len(duthosts.frontend_nodes)) < 2:
             pytest.skip("Don't have 2 frontend nodes - so can't run multi_dut tests")
+        # Random selection of dut indices based on number of front end nodes
         dut_indices = random.sample(list(range(len(duthosts.frontend_nodes))), 2)
         src_dut_index = dut_indices[0]
         dst_dut_index = dut_indices[1]
-        asic_indices = random.sample(duthosts[src_dut_index].get_asic_namespace_list(), 2)
-        src_asic_index = asic_indices[0].split("asic")[1]
-        dst_asic_index = asic_indices[1].split("asic")[1]
-       
+        
+        # Random selection of source asic based on number of asics available on source dut
+        src_asic_index_selection = random.choice(duthosts[src_dut_index].get_asic_namespace_list())
+        src_asic_index = src_asic_index_selection.split("asic")[1]
+        
+        # Random selection of destination asic based on number of asics available on destination dut
+        dst_asic_index_selection = random.choice(duthosts[dst_dut_index].get_asic_namespace_list())
+        dst_asic_index = dst_asic_index_selection.split("asic")[1]
+        
         yield {
         "src_dut_index": src_dut_index,
         "dst_dut_index": dst_dut_index,
