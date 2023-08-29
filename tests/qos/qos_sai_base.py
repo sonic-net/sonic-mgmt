@@ -1378,9 +1378,9 @@ class QosSaiBase(QosBase):
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
             topo = dutTopo
-            if (get_src_dst_asic_and_duts['src_dut_index'] == 
+            if (get_src_dst_asic_and_duts['src_dut_index'] ==
                     get_src_dst_asic_and_duts['dst_dut_index'] and
-                get_src_dst_asic_and_duts['src_asic_index'] == 
+                get_src_dst_asic_and_duts['src_asic_index'] ==
                     get_src_dst_asic_and_duts['dst_asic_index']):
                 topo = "topo-any"
             qpm = qos_param_generator.QosParamCisco(
@@ -1522,7 +1522,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host # noqa F811
     ):
         """
             Update ARP entries of QoS SAI test ports
