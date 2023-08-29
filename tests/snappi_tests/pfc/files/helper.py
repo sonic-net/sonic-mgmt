@@ -129,9 +129,9 @@ def run_pfc_test(api,
     else:
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
-    
+
     pause_flow_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + \
-                     PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else 'continuous'
+        PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else 'continuous'
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
