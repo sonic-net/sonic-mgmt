@@ -1,11 +1,20 @@
 Value Filldown VID (\d+)
-Value Filldown Status (\w+)
-Value Member (\S+)
-Value Mode (\S+)
+Value Filldown Status (Active|Inactive)
+Value Member ([\w./]+)
+Value Mode (T|A)
+Value Filldown Autostate (Enable|Disable)
+Value Dynamic (\S+)
+Value Filldown Reserved_vlan (True|False)
+Value Note ([\S\s]+)
 
 Start
-  ^\s*${VID}\s+${Status}\s+${Mode}\s+${Member}\s*$$ -> Record
-  ^\s*${VID}\s+${Status}\s*$$ -> Record
-  ^\s*${Mode}\s+${Member}\s*$$ -> Record
+  ^\s*${VID}\s+${Status}\s+${Mode}\s+${Member}\s+${Autostate}\s+${Dynamic}(\s+${Reserved_vlan})*\s*$$ -> Record
+#  ^\s*${VID}\s+${Status}\s+${Autostate}\s+${Dynamic}\s*$$ -> Record
+  ^\s*${VID}\s+${Status}\s+${Autostate}(\s+${Reserved_vlan})*\s*$$ -> Record
+#Below Rule is Added for Migration Testing from 3.X.X to 4.0.0
+  ^\s*${VID}\s+${Status}\s+${Mode}\s+${Member}\s+${Autostate}\s*$$ -> Record
+#  ^\s*${VID}\s+${Status}\s* -> Record
+  ^\s*${Mode}\s+${Member}\s+${Dynamic}\s*$$ -> Record
+  ^\s*NOTE:\s+${Note}\s*$$ -> Record
 
 EOF

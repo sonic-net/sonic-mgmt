@@ -13,10 +13,10 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
-    EXPECT_CLEAR, THR_VERIFY_CMDS
+     EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -860,78 +860,41 @@ def recreate_acl_table(duthost, ports):
     duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture
-def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    asichost = duthost.asic_instance(enum_frontend_asic_index)
-
-    base_dir = os.path.dirname(os.path.realpath(__file__))
-    template_dir = os.path.join(base_dir, "templates")
-    acl_rules_template = "acl.json"
-
-    dut_tmp_dir = "/tmp-{}".format(asichost.asic_index)
-    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
-
-    pre_acl_rules = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]
-
-    yield
-
-    if pre_acl_rules:
-        for key, value in pre_acl_rules.items():
-            if key != "DEFAULT_RULE":
-                seq_id = key.split('_')[1]
-                acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
-                acl_entry_template = \
-                    acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
-                acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
-
-                acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
-                acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
-                acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
-                acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
-                acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
-
-        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
-            json.dump(acl_config, fp)
-            fp.flush()
-            logger.info("Generating config for ACL rule, ACL table - DATAACL")
-            duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
-
-        logger.info("Applying {}".format(dut_conf_file_path))
-        duthost.command("acl-loader update full {}".format(dut_conf_file_path))
-
-
 def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                   collector, tbinfo, recover_acl_rule):
+                   collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
-
-    if duthost.facts["asic_type"] == "marvell":
-        # Remove DATA ACL Table and add it again with ports in same port group
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
-        for i in range(4):
-            if i == 0:
-                ports = ",".join(tmp_ports[17:19])
-            elif i == 1:
-                ports = ",".join(tmp_ports[24:26])
-            elif i == 2:
-                ports = ",".join([tmp_ports[20], tmp_ports[25]])
-            recreate_acl_table(duthost, ports)
+    try:
+        if duthost.facts["asic_type"] == "marvell":
+            # Remove DATA ACL Table and add it again with ports in same port group
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
+            for i in range(4):
+                if i == 0:
+                    ports = ",".join(tmp_ports[17:19])
+                elif i == 1:
+                    ports = ",".join(tmp_ports[24:26])
+                elif i == 2:
+                    ports = ",".join([tmp_ports[20], tmp_ports[25]])
+                recreate_acl_table(duthost, ports)
+                verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_frontend_asic_index, asic_collector, tbinfo)
+                # Rebind DATA ACL at end to recover original config
+                recreate_acl_table(duthost, ports)
+                apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                duthost.command("acl-loader delete")
+        else:
             verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
                                  enum_frontend_asic_index, asic_collector, tbinfo)
-            # Rebind DATA ACL at end to recover original config
-            recreate_acl_table(duthost, ports)
-            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-            duthost.command("acl-loader delete")
-    else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_frontend_asic_index, asic_collector, tbinfo)
 
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
 
 def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
@@ -969,7 +932,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Reduce ACL to one rule (plus default)
     crm_stats_acl_entry_used = 2
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=1)
-    if duthost.facts["platform_asic"] == "broadcom-dnx":
+    if duthost.facts.get("platform_asic", None) == "broadcom-dnx":
         # Each ACL rule consumes an acl entry per bind point
         asicAclBindings = set()
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)

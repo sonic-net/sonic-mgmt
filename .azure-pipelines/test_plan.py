@@ -148,7 +148,9 @@ def parse_list_from_str(s):
         s = s.strip()
     if not s:
         return None
-    return [single_str.strip() for single_str in s.split(',')]
+    return [single_str.strip()
+            for single_str in s.split(',')
+            if single_str.strip()]
 
 
 class TestPlanManager(object):
@@ -194,7 +196,7 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(exception)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", output=None,
+               min_worker=None, max_worker=None, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
@@ -230,7 +232,7 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-
+        affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
@@ -254,6 +256,7 @@ class TestPlanManager(object):
                 },
                 "image": {
                     "url": image_url,
+                    "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch
@@ -265,6 +268,7 @@ class TestPlanManager(object):
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
+                "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
@@ -432,7 +436,10 @@ if __name__ == "__main__":
         "-t", "--topology",
         type=str,
         dest="topology",
-        required=True,
+        nargs="?",
+        const="",
+        default="",
+        required=False,
         help="The test topology to be used."
     )
     parser_create.add_argument(
@@ -446,7 +453,9 @@ if __name__ == "__main__":
         "--min-worker",
         type=int,
         dest="min_worker",
-        default=1,
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
         help="Min worker number for the test plan."
     )
@@ -454,7 +463,9 @@ if __name__ == "__main__":
         "--max-worker",
         type=int,
         dest="max_worker",
-        default=2,
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
         help="Max worker number for the test plan."
     )
@@ -581,6 +592,16 @@ if __name__ == "__main__":
         help="Image url"
     )
     parser_create.add_argument(
+        "--upgrade-image-param",
+        type=str,
+        dest="upgrade_image_param",
+        nargs="?",
+        const="",
+        default="",
+        required=False,
+        help="Parameter of upgrade image"
+    )
+    parser_create.add_argument(
         "--hwsku",
         type=str,
         dest="hwsku",
@@ -650,6 +671,28 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--specific-param",
+        type=str,
+        dest="specific_param",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Specific param, like: '
+             '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
+    )
+    parser_create.add_argument(
+        "--affinity",
+        type=str,
+        dest="affinity",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Test module affinity, like: '
+             '[{"name": "bgp/test_bgp_fact.py", "op": "NOT_ON", "value": ["vms-kvm-t0"]}]'
     )
     parser_create.add_argument(
         "--stop-on-failure",
@@ -808,12 +851,17 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
-            specific_param = []
-            # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
-            if args.platform == "kvm":
+            specific_param = json.loads(args.specific_param)
+            # For PR test, if specify test modules and specific_param explicitly, use them to run PR test.
+            # Otherwise, get test modules from pr_test_scripts.yaml.
+            explicitly_specify_test_module = args.features or args.scripts
+            if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts, specific_param = get_test_scripts(args.test_set)
-                scripts = ",".join(scripts)
+                parsed_script, parsed_specific_param = get_test_scripts(args.test_set)
+                if not explicitly_specify_test_module:
+                    scripts = ",".join(parsed_script)
+                if not specific_param:
+                    specific_param = parsed_specific_param
 
             tp.create(
                 args.topology,
@@ -835,9 +883,11 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 specific_param=specific_param,
+                affinity=args.affinity,
                 vm_type=args.vm_type,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
+                upgrade_image_param=args.upgrade_image_param,
                 hwsku=args.hwsku,
                 test_plan_type=args.test_plan_type,
                 platform=args.platform,

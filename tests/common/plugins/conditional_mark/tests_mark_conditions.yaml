@@ -121,9 +121,9 @@ bgp/test_bgp_suppress_fib.py:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported topology backend."
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or 't2' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
@@ -1002,6 +1002,18 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_link_local.py:
+  skip:
+    reason: "SNMP over IPv6 support not present in 202211 branch."
+    conditions:
+      - "branch in ['202211']"
+
+snmp/test_snmp_loopback.py:
+  skip:
+    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
+    conditions:
+      - "branch in ['202211']"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
