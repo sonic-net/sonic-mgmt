@@ -1,4 +1,8 @@
 import math
+import yaml
+import os
+
+MELLANOX_QOS_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "special_qos_config.yml")
 
 
 class QosParamMellanox(object):
@@ -65,6 +69,7 @@ class QosParamMellanox(object):
         """
         self.collect_qos_configurations()
         self.calculate_parameters()
+        self.update_special_qos_config()
         return self.qos_params_mlnx
 
     def collect_qos_configurations(self):
@@ -176,8 +181,6 @@ class QosParamMellanox(object):
             hdrm_pool_size['pgs_num'] = (2 if not self.dualTor else 4) * len(self.qos_parameters['src_port_ids'])
             hdrm_pool_size['cell_size'] = self.cell_size
             hdrm_pool_size['margin'] = 3
-            if self.asic_type == "spc4":
-                hdrm_pool_size['packet_size'] = 600
         else:
             self.qos_params_mlnx[self.speed_cable_len].pop('hdrm_pool_size')
 
@@ -188,8 +191,6 @@ class QosParamMellanox(object):
         # We need a larger margin on SPC2/3
         xoff['pkts_num_margin'] = 4
         xoff['cell_size'] = self.cell_size
-        if self.asic_type == "spc4":
-            xoff['packet_size'] = 600
         self.qos_params_mlnx[self.speed_cable_len]['xoff_1'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_2'].update(xoff)
         self.qos_params_mlnx[self.speed_cable_len]['xoff_3'].update(xoff)
@@ -201,8 +202,7 @@ class QosParamMellanox(object):
         xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         xon['pkts_num_margin'] = 3
         xon['cell_size'] = self.cell_size
-        if self.asic_type == "spc4":
-            xon['packet_size'] = 600
+
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
         self.qos_params_mlnx['xon_3'].update(xon)
@@ -213,36 +213,26 @@ class QosParamMellanox(object):
         wm_pg_headroom['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_pg_headroom['cell_size'] = self.cell_size
         wm_pg_headroom['pkts_num_margin'] = 3
-        if self.asic_type == "spc4":
-            wm_pg_headroom['packet_size'] = 600
 
         wm_pg_shared_lossless = self.qos_params_mlnx['wm_pg_shared_lossless']
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
         wm_pg_shared_lossless['cell_size'] = self.cell_size
         wm_pg_shared_lossless["pkts_num_margin"] = 3
-        if self.asic_type == "spc4":
-            wm_pg_shared_lossless['packet_size'] = 600
 
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
         wm_q_shared_lossless['cell_size'] = self.cell_size
         # It was 8 but recently it failed in rare case. To stabilize the test, increase it to 9
         wm_q_shared_lossless['pkts_num_margin'] = 9
-        if self.asic_type == "spc4":
-            wm_q_shared_lossless['packet_size'] = 600
 
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
         lossy_queue['cell_size'] = self.cell_size
-        if self.asic_type == "spc4":
-            lossy_queue['packet_size'] = 600
 
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
         wm_shared_lossy["pkts_num_margin"] = 4
-        if self.asic_type == "spc4":
-            wm_shared_lossy["packet_size"] = 600
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
@@ -261,3 +251,33 @@ class QosParamMellanox(object):
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
         self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']
+
+    def update_special_qos_config(self):
+        """
+        Update qos parameters based on the file of special_qos_config.yml
+        The format of qos_special_config.yml is same to qos.yml,
+        and it just list the parameter with different value for the specified asic_type
+        """
+        with open(MELLANOX_QOS_CONFIG_FILE) as file:
+            special_qos_config_data = yaml.load(file, Loader=yaml.FullLoader)
+
+        def update_dict_value(speical_qos_config_dict, qos_params_dict):
+            if speical_qos_config_dict:
+                for key, value in speical_qos_config_dict.items():
+                    if isinstance(value, dict):
+                        update_dict_value(value, qos_params_dict[key])
+                    else:
+                        qos_params_dict[key] = value
+
+        special_qos_config = special_qos_config_data.get("qos_params").get(self.asic_type, {})
+        if special_qos_config:
+            for qos_config_key, qos_config_value in special_qos_config.items():
+                qos_params_dict = self.qos_params_mlnx[self.speed_cable_len] if qos_config_key == 'profile' \
+                    else self.qos_params_mlnx[qos_config_key]
+
+                for sub_qos_config_key, sub_qos_config_value in qos_config_value.items():
+                    if isinstance(sub_qos_config_value, dict):
+                        if sub_qos_config_key in qos_params_dict:
+                            update_dict_value(sub_qos_config_value, qos_params_dict[sub_qos_config_key])
+                    else:
+                        qos_params_dict[sub_qos_config_key] = sub_qos_config_value
