@@ -485,7 +485,8 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
             time.sleep(5)
 
 
-def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):
+def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -581,7 +582,8 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                 queue_wmk, base_queue_wmk)
 
 
-def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):
+def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -608,17 +610,17 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     ptfadapter.dataplane.flush()
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
-                                            dst_ip=dualtor_meta['target_server_ip'],
-                                            active_tor_mac=active_tor_mac,
-                                            standby_tor_mac=dualtor_meta['standby_tor_mac'],
-                                            active_tor_ip=dualtor_meta['active_tor_ip'],
-                                            standby_tor_ip=dualtor_meta['standby_tor_ip'],
-                                            inner_dscp=inner_dscp,
-                                            outer_dscp=outer_dscp,
-                                            ecn=1)
+                                               dst_ip=dualtor_meta['target_server_ip'],
+                                               active_tor_mac=active_tor_mac,
+                                               standby_tor_mac=dualtor_meta['standby_tor_mac'],
+                                               active_tor_ip=dualtor_meta['active_tor_ip'],
+                                               standby_tor_ip=dualtor_meta['standby_tor_ip'],
+                                               inner_dscp=inner_dscp,
+                                               outer_dscp=outer_dscp,
+                                               ecn=1)
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
-        pkt.ttl -= 2 # TTL is decreased by 1 at tunnel forward and decap,
+        pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -640,7 +642,8 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
         base_queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue)
         logger.info("Base queue watermark on {}|{} is {}".format(
             dualtor_meta['selected_port'], queue, base_queue_wmk))
-        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts, dualtor_meta['target_server_port'])
+        peer_info = leaf_fanout_peer_info(rand_selected_dut, conn_graph_facts, mg_facts,
+                                          dualtor_meta['target_server_port'])
         storm_handler = PFCStorm(rand_selected_dut, fanout_graph_facts, fanouthosts,
                                  pfc_queue_idx=prio,
                                  pfc_frames_number=PFC_PKT_COUNT,
