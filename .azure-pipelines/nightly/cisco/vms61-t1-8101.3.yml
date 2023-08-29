@@ -15,7 +15,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - xuchen3/internal-202205/8101-nightly
+        - internal-202205
     always: true
 
 variables:
