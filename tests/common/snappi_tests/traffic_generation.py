@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
+PFC_FRAME_COUNT_TOL = 5
+PAUSE_FLOW_PORT_SPEED = -4
 
 
 def setup_base_traffic_config(testbed_config,
@@ -199,6 +201,7 @@ def generate_background_flows(testbed_config,
 def generate_pause_flows(testbed_config,
                          pause_flow_name,
                          pause_prio_list,
+                         pause_flow_rate_percent,
                          global_pause,
                          snappi_extra_params,
                          pause_flow_delay_sec=0,
@@ -210,6 +213,7 @@ def generate_pause_flows(testbed_config,
         testbed_config (obj): testbed L1/L2/L3 configuration
         pause_flow_name (str): name of pause flow
         pause_prio_list (list): list of pause priorities
+        pause_flow_rate_percent (int): rate percentage of pause flows (default: set to port speed)
         global_pause (bool): global pause or per priority pause
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
         pause_flow_delay_sec (int): delay of pause flows in seconds
@@ -250,13 +254,16 @@ def generate_pause_flows(testbed_config,
         pause_pkt.pause_class_6.value = pause_time[6]
         pause_pkt.pause_class_7.value = pause_time[7]
 
-    # Pause frames are sent from the RX port of ixia
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pps = int(2 / pause_dur)
+    if pause_flow_rate_percent == PAUSE_FLOW_PORT_SPEED:
+        # Pause frames are sent from the RX port of ixia
+        speed_str = testbed_config.layer1[0].speed
+        speed_gbps = int(speed_str.split('_')[1])
+        pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+        pps = int(2 / pause_dur)
+        pause_flow.rate.pps = pps
+    else:
+        pause_flow.rate.percentage = pause_flow_rate_percent
 
-    pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     if pause_flow_dur_sec != CONTINUOUS_MODE:
         pause_flow.duration.fixed_seconds.seconds = pause_flow_dur_sec
@@ -518,13 +525,16 @@ def verify_in_flight_buffer_pkts(duthost,
                               format(dropped_packets))
 
 
-def verify_pause_frame_count(duthost,
-                             snappi_extra_params):
+def verify_pause_frame_count_dut(duthost,
+                                 test_traffic_pause,
+                                 snappi_extra_params):
     """
-    Verify correct frame count for pause frames when the traffic is expected to be paused
+    Verify correct frame count for pause frames when the traffic is expected to be paused or not
+    on the DUT
 
     Args:
         duthost (obj): DUT host object
+        test_traffic_pause (bool): whether test traffic is expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
@@ -532,11 +542,67 @@ def verify_pause_frame_count(duthost,
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in dut_port_config[1].items():
+    for peer_port, prios in dut_port_config[0].items(): # TX PFC pause frames
         for prio in range(len(prios)):
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
-            pytest_assert(pfc_pause_rx_frames > 0,
-                          "PFC pause frames with zero source MAC are not counted in the PFC counters")
+            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=True)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_tx_frames > 0,
+                              "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be transmitted and counted in TX PFC counters")
+
+    for peer_port, prios in dut_port_config[1].items(): # RX PFC pause frames
+        for prio in range(len(prios)):
+            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_rx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be received and counted in RX PFC counters")
+
+
+def verify_tx_frame_count_dut(duthost,
+                              test_traffic_pause,
+                              snappi_extra_params):
+    """
+    Verify correct frame count for tx frames when the traffic is expected to be paused or not
+    on the DUT
+
+    Args:
+        duthost (obj): DUT host object
+        test_traffic_pause (bool): whether test traffic is expected to be paused
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+
+    """
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
+
+    for peer_port, prios in dut_port_config[0].items(): # TX PFC pause frames
+        for prio in range(len(prios)):
+            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=True)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_tx_frames > 0,
+                              "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be transmitted and counted in TX PFC counters")
+
+    for peer_port, prios in dut_port_config[1].items(): # RX PFC pause frames
+        for prio in range(len(prios)):
+            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_rx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be received and counted in RX PFC counters")
 
 
 def verify_unset_cev_pause_frame_count(duthost,

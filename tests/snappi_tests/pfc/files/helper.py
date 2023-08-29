@@ -1,4 +1,5 @@
 import logging
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
@@ -12,8 +13,8 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
-    verify_background_flow, verify_pause_frame_count, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
-    verify_unset_cev_pause_frame_count
+    verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count,\
+    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
@@ -33,6 +34,7 @@ SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_DUR_BASE_SEC = 3
 TOLERANCE_THRESHOLD = 0.05
 CONTINUOUS_MODE = -5
+PAUSE_FLOW_PORT_SPEED = -4
 
 
 def run_pfc_test(api,
@@ -145,21 +147,23 @@ def run_pfc_test(api,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
-    # Generate background flow config
-    generate_background_flows(testbed_config=testbed_config,
-                              bg_flow_name=BG_FLOW_NAME,
-                              bg_flow_prio_list=bg_prio_list,
-                              bg_flow_rate_percent=bg_flow_rate_percent,
-                              bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                              bg_flow_delay_sec=data_flow_delay_sec,
-                              bg_flow_pkt_size=data_flow_pkt_size,
-                              prio_dscp_map=prio_dscp_map,
-                              snappi_extra_params=snappi_extra_params)
+    if snappi_extra_params.gen_background_traffic:
+        # Generate background flow config
+        generate_background_flows(testbed_config=testbed_config,
+                                  bg_flow_name=BG_FLOW_NAME,
+                                  bg_flow_prio_list=bg_prio_list,
+                                  bg_flow_rate_percent=bg_flow_rate_percent,
+                                  bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                                  bg_flow_delay_sec=data_flow_delay_sec,
+                                  bg_flow_pkt_size=data_flow_pkt_size,
+                                  prio_dscp_map=prio_dscp_map,
+                                  snappi_extra_params=snappi_extra_params)
 
     # Generate pause storm config
     generate_pause_flows(testbed_config=testbed_config,
                          pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=pause_prio_list,
+                         pause_flow_rate_percent=pause_flow_rate_percent,
                          global_pause=global_pause,
                          snappi_extra_params=snappi_extra_params,
                          pause_flow_delay_sec=0,
@@ -170,9 +174,13 @@ def run_pfc_test(api,
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
-    # Clear PFC and queue counters before traffic run
+    # Clear PFC, queue and interface counters before traffic run
     duthost.command("pfcstat -c")
+    time.sleep(1)
     duthost.command("sonic-clear queuecounters")
+    time.sleep(1)
+    duthost.command("sonic-clear counters")
+    time.sleep(1)
 
     """ Run traffic """
     flow_stats = run_traffic(api=api,
@@ -199,15 +207,16 @@ def run_pfc_test(api,
     verify_pause_flow(flow_metrics=flow_stats,
                       pause_flow_name=PAUSE_FLOW_NAME)
 
-    # Verify background flows
-    verify_background_flow(flow_metrics=flow_stats,
-                           bg_flow_name=BG_FLOW_NAME,
-                           bg_flow_rate_percent=bg_flow_rate_percent,
-                           bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                           bg_flow_pkt_size=data_flow_pkt_size,
-                           speed_gbps=speed_gbps,
-                           tolerance=TOLERANCE_THRESHOLD,
-                           snappi_extra_params=snappi_extra_params)
+    if snappi_extra_params.gen_background_traffic:
+        # Verify background flows
+        verify_background_flow(flow_metrics=flow_stats,
+                               bg_flow_name=BG_FLOW_NAME,
+                               bg_flow_rate_percent=bg_flow_rate_percent,
+                               bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
+                               bg_flow_pkt_size=data_flow_pkt_size,
+                               speed_gbps=speed_gbps,
+                               tolerance=TOLERANCE_THRESHOLD,
+                               snappi_extra_params=snappi_extra_params)
 
     # Verify basic test flows metrics from ixia
     verify_basic_test_flow(flow_metrics=flow_stats,
@@ -219,6 +228,11 @@ def run_pfc_test(api,
                            tolerance=TOLERANCE_THRESHOLD,
                            test_flow_pause=test_traffic_pause,
                            snappi_extra_params=snappi_extra_params)
+    
+    # Verify PFC pause frame count on the DUT
+    verify_pause_frame_count_dut(duthost=duthost,
+                                 test_traffic_pause=test_traffic_pause,
+                                 snappi_extra_params=snappi_extra_params)
 
     if test_traffic_pause:
         # Verify in flight TX packets count relative to switch buffer size
@@ -227,9 +241,6 @@ def run_pfc_test(api,
                                      test_flow_name=TEST_FLOW_NAME,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
-        # Verify PFC pause frame count
-        verify_pause_frame_count(duthost=duthost,
-                                 snappi_extra_params=snappi_extra_params)
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,

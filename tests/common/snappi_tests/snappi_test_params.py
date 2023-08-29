@@ -23,6 +23,7 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                 for priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -33,3 +34,4 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
+        self.gen_background_traffic = True
