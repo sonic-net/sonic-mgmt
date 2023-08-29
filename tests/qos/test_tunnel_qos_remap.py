@@ -446,7 +446,7 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                                ecn=1)
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
-        pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap,
+        pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap
         exp_pkt = Mask(pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
