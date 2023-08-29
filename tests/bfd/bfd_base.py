@@ -48,7 +48,12 @@ class BfdBase:
             if 'BP' in item.get('ports', ''):
                 port_channel = item.get('team dev', '')
                 ports_with_status = [port.strip() for port in item.get('ports', '').split() if 'BP' in port]
-                ports = [re.match(r'^([\w-]+)\([A-Za-z]\)', port).group(1) for port in ports_with_status]
+                ports = [
+                        re.match(r'^([\w-]+)\([A-Za-z]\)', port).group(1)
+                        if re.match(r'^([\w-]+)\([A-Za-z]\)', port)
+                        else None
+                        for port in ports_with_status
+                    ]
                 status_match = re.search(r'LACP\(A\)\((\w+)\)', item.get('protocol', ''))
                 status = status_match.group(1) if status_match else ''
                 if ports:
