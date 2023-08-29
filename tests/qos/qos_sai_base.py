@@ -1518,7 +1518,6 @@ class QosSaiBase(QosBase):
                 ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
             )
 
-
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1528,7 +1527,6 @@ class QosSaiBase(QosBase):
             Update ARP entries of QoS SAI test ports
 
             Args:
-                duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -1543,7 +1541,6 @@ class QosSaiBase(QosBase):
         """
 
         dut_asic = get_src_dst_asic_and_duts['src_asic']
-        duthost = get_src_dst_asic_and_duts['src_dut']
 
         # This is not needed in T2.
         if "t2" in dutTestParams["topo"]:
@@ -1946,8 +1943,8 @@ class QosSaiBase(QosBase):
 
         try:
             if not (
-                src_asic.sonichost.facts['switch_type'] == "chassis-packet" \
-                and dutTestParams['topo'] == 't2'):
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet"
+                    and dutTestParams['topo'] == 't2'):
                 yield
                 return
         except KeyError:
@@ -1979,10 +1976,10 @@ class QosSaiBase(QosBase):
             "show interface portchannel -n asic{} -d all".format(
                 dst_asic.asic_index))['stdout']
         regx = re.compile("(PortChannel[0-9]+)")
-        bp_portchannels= []
-        for l in portchannels.split("\n"):
-            if "-BP" in l:
-                match = regx.search(l)
+        bp_portchannels = []
+        for pc in portchannels.split("\n"):
+            if "-BP" in pc:
+                match = regx.search(pc)
                 if match:
                     bp_portchannels.append(match.group(1))
         if not bp_portchannels:
@@ -2006,7 +2003,7 @@ class QosSaiBase(QosBase):
 
         for dst_index in range(len(addresses_to_ping)):
             gw = ip_address_mapping[
-                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
+                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
             src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
                 src_asic.asic_index, gw))
             src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
@@ -2016,7 +2013,7 @@ class QosSaiBase(QosBase):
         yield
         for dst_index in range(len(addresses_to_ping)):
             gw = ip_address_mapping[
-                bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
+                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
             src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
                 src_asic.asic_index,
                 addresses_to_ping[dst_index],
@@ -2028,19 +2025,17 @@ class QosSaiBase(QosBase):
             interface => ip address.
         """
         mapping = {}
-        all_opt = ""
         ip_address_out = dut_asic.command(
             "show ip interface -n asic{} -d all".format(
-            dut_asic.asic_index, all_opt))['stdout']
+                dut_asic.asic_index))['stdout']
         re_pattern = re.compile(
-            "^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
+            r"^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
         for line in ip_address_out.split("\n"):
             match = re_pattern.search(line)
             if match:
                 mapping[match.group(1)] = {
-                    'addr' : match.group(2),
-                    'peer_addr' : match.group(3),
+                    'addr': match.group(2),
+                    'peer_addr': match.group(3),
                 }
 
         return mapping
-
