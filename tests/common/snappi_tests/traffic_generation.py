@@ -14,6 +14,7 @@ from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
+CONTINUOUS_MODE = -5
 
 
 def setup_base_traffic_config(testbed_config,
@@ -201,7 +202,7 @@ def generate_pause_flows(testbed_config,
                          global_pause,
                          snappi_extra_params,
                          pause_flow_delay_sec=0,
-                         pause_flow_dur_sec='continuous'):
+                         pause_flow_dur_sec=CONTINUOUS_MODE):
     """
     Generate configurations of pause flows.
 
@@ -257,7 +258,7 @@ def generate_pause_flows(testbed_config,
 
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
-    if pause_flow_dur_sec != 'continuous':
+    if pause_flow_dur_sec != CONTINUOUS_MODE:
         pause_flow.duration.fixed_seconds.seconds = pause_flow_dur_sec
         pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
     else:
