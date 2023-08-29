@@ -15,6 +15,8 @@ import sys
 import threading
 import time
 import traceback
+import copy
+import tempfile
 from io import StringIO
 from ast import literal_eval
 
@@ -86,7 +88,7 @@ def get_sup_node_or_random_node(duthosts):
             return dut
     # if not chassis, it's dualtor or single-dut, return random node or itself
     if len(duthosts) > 1:
-        duthosts = random.sample(duthosts, 1)
+        duthosts = random.sample(list(duthosts), 1)
     logger.info("Randomly select dut {} for testing".format(duthosts[0]))
     return duthosts[0]
 
@@ -936,3 +938,82 @@ def delete_running_config(config_entry, duthost, is_json=True):
         duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
     duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
     duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
+
+
+def get_data_acl(duthost):
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    pre_acl_rules = acl_facts.get("DATAACL", {}).get("rules", None)
+    return pre_acl_rules
+
+
+def recover_acl_rule(duthost, data_acl):
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, "templates")
+    acl_rules_template = "default_acl_rules.json"
+    dut_tmp_dir = "/tmp"
+    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+    for key, value in data_acl.items():
+        if key != "DEFAULT_RULE":
+            seq_id = key.split('_')[1]
+            acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
+            acl_entry_template = \
+                acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+            acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
+
+            acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
+            acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
+            acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
+            acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
+            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
+
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
+        json.dump(acl_config, fp)
+        fp.flush()
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
+
+    logger.info("Applying {}".format(dut_conf_file_path))
+    duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get ipv4 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv4_address(ip):
+                    loopback_ip = ip
+                    break
+
+    return loopback_ip
+
+
+def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
+    """
+    Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
+    corresponding queue value.
+
+    Args:
+        dscp_value (int): DSCP value
+        dscp_to_tc_map (str dict): DSCP to TC map
+        tc_to_queue_map (str dict): TC to queue map
+    Returns:
+        int: queue value
+    """
+    if str(dscp_value) not in dscp_to_tc_map:
+        return None
+
+    tc_value = dscp_to_tc_map[str(dscp_value)]
+    if tc_value not in tc_to_queue_map:
+        return None
+
+    return int(tc_to_queue_map[tc_value])

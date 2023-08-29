@@ -1,18 +1,16 @@
 import logging
 import pytest
-import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
-
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module     # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps                # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service          # noqa F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode  # noqa F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa F401
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -42,6 +40,7 @@ SERVER_IP = "192.168.0.2"
 DUMMY_IP = "1.1.1.1"
 DUMMY_MAC = "aa:aa:aa:aa:aa:aa"
 VLAN_MAC = "00:aa:bb:cc:dd:ee"
+DEFAULT_RPC_PORT = "9092"
 
 PFC_PKT_COUNT = 10000000  # Cost 32 seconds
 PFC_PAUSE_TEST_RETRY_MAX = 5
@@ -226,8 +225,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
 
 
 def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut,
-                                  toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
-                                  tbinfo, ptfadapter, dut_qos_maps):                    # noqa F811
+        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):  # noqa F811
     """
     The test case is to verify separated DSCP_TO_TC_MAP/TC_TO_QUEUE_MAP on uplink and downlink ports of dualtor
     Test steps
@@ -236,10 +234,9 @@ def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_du
     3. Build regular packet with dst_ip = dummy IP (routed by default route)
     4. Ingress the packet from downlink port, verify the packets egressed from expected queue
     """
-    pytest_require(separated_dscp_to_tc_map_on_uplink(rand_selected_dut, dut_qos_maps),
+    pytest_require(separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module),
                    "Skip test because separated QoS map is not applied")
-    dualtor_meta = dualtor_info(
-        ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
+    dualtor_meta = dualtor_info(ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
     t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     portchannel_info = mg_facts['minigraph_portchannels']
@@ -331,19 +328,12 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
         queue_count = get_queue_counter(dut, port, queue, False)
         assert base_queue_count == queue_count
         return True
-    except AssertionError:
-        logger.info('assert {}'.format(sys.exc_info()))
-        return False
-    except Exception:
-        logger.info('exception {}'.format(sys.exc_info()))
-        return False
     finally:
         stop_pfc_storm(storm_handler)
 
 
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                          toggle_all_simulator_ports_to_rand_unselected_tor,            # noqa F811
-                                          tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):    # noqa F811
+        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
@@ -404,22 +394,21 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
                                   queue, pkt, src_port, exp_pkt, dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
             time.sleep(5)
 
 
 def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                         toggle_all_simulator_ports_to_rand_selected_tor,               # noqa F811
-                                         tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):     # noqa F811
+        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
@@ -468,23 +457,27 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                  pfc_frames_number=PFC_PKT_COUNT,
                                  peer_info=peer_info)
 
+        dst_ports = dualtor_meta['target_server_port']
+        if not isinstance(dualtor_meta['target_server_port'], list):
+            dst_ports = [dualtor_meta['target_server_port']]
+
         retry = 0
         while retry < PFC_PAUSE_TEST_RETRY_MAX:
             try:
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut,
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
-                                  dualtor_meta['target_server_port']):
+                                  dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
             time.sleep(5)
 
 
@@ -519,9 +512,9 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
         "active_tor_ip": dut_config["selected_tor_loopback"],
         "standby_tor_mac": dut_config["unselected_tor_mac"],
         "standby_tor_ip": dut_config["unselected_tor_loopback"],
-        "server": dut_config["selected_tor_mgmt"],
+        "src_server": dut_config["selected_tor_mgmt"] + ":" + DEFAULT_RPC_PORT,
         "inner_dscp_to_pg_map": tunnel_qos_map["inner_dscp_to_pg_map"],
-        "port_map_file": dut_config["port_map_file"],
+        "port_map_file_ini": dut_config["port_map_file_ini"],
         "sonic_asic_type": dut_config["asic_type"],
         "platform_asic": dut_config["platform_asic"],
         "cell_size": cell_size
@@ -558,8 +551,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
         "active_tor_ip": dut_config["selected_tor_loopback"],
         "standby_tor_mac": dut_config["unselected_tor_mac"],
         "standby_tor_ip": dut_config["unselected_tor_loopback"],
-        "server": dut_config["selected_tor_mgmt"],
-        "port_map_file": dut_config["port_map_file"],
+        "src_server": dut_config["selected_tor_mgmt"] + ":" + DEFAULT_RPC_PORT,
+        "port_map_file_ini": dut_config["port_map_file_ini"],
         "platform_asic": dut_config["platform_asic"],
         "sonic_asic_type": dut_config["asic_type"],
     })
