@@ -36,7 +36,8 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
+                           "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -1470,6 +1471,39 @@ class QosSaiBase(QosBase):
                 self.__loadSwssConfig(duthost)
             self.__deleteTmpSwitchConfig(duthost)
 
+    @pytest.fixture(scope='function', autouse=True)
+    def populateArpEntries_T2(
+            self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig):
+        """
+            Update ARP entries for neighbors for selected test ports for each test for T2 topology
+            with broadcom-dnx asic. As Broadcom dnx asic has larger queue buffer size which takes longer time interval
+            compared to other topology to fill up which leads to arp aging out intermittently as lag goes down due to
+            voq credits getting exhausted during test runs.
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            testParams = dutTestParams["basicParams"]
+            testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testbed_type": dutTestParams["topo"]
+            })
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
+            )
+
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1510,7 +1544,8 @@ class QosSaiBase(QosBase):
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"]
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
