@@ -199,7 +199,9 @@ def generate_pause_flows(testbed_config,
                          pause_flow_name,
                          pause_prio_list,
                          global_pause,
-                         snappi_extra_params):
+                         snappi_extra_params,
+                         pause_flow_delay_sec=0,
+                         pause_flow_dur_sec='continuous'):
     """
     Generate configurations of pause flows.
 
@@ -209,6 +211,8 @@ def generate_pause_flows(testbed_config,
         pause_prio_list (list): list of pause priorities
         global_pause (bool): global pause or per priority pause
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        pause_flow_delay_sec (int): delay of pause flows in seconds
+        pause_flow_dur_sec (int): duration of pause flows in seconds except when set to continuous
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
@@ -253,8 +257,12 @@ def generate_pause_flows(testbed_config,
 
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
-    pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
-    pause_flow.duration.continuous.delay.nanoseconds = 0
+    if pause_flow_dur_sec != 'continuous':
+        pause_flow.duration.fixed_seconds.seconds = pause_flow_dur_sec
+        pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
+    else:
+        pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
+        pause_flow.duration.continuous.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True

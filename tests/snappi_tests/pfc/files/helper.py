@@ -30,6 +30,7 @@ data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 2
 data_flow_delay_sec = 1
 SNAPPI_POLL_DELAY_SEC = 2
+PAUSE_FLOW_DUR_BASE_SEC = 3
 TOLERANCE_THRESHOLD = 0.05
 
 
@@ -128,6 +129,8 @@ def run_pfc_test(api,
     else:
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
+    
+    pause_flow_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else 'continuous'
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
@@ -156,7 +159,9 @@ def run_pfc_test(api,
                          pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=pause_prio_list,
                          global_pause=global_pause,
-                         snappi_extra_params=snappi_extra_params)
+                         snappi_extra_params=snappi_extra_params,
+                         pause_flow_delay_sec=0,
+                         pause_flow_dur_sec=pause_flow_dur_sec)
 
     flows = testbed_config.flows
 
