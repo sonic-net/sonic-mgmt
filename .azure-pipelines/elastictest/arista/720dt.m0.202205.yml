@@ -73,7 +73,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology m0,any --no_dscp_uniform --unresettable_xcvr_types=SFP"
+    default: "--topology m0,any --no_dscp_uniform"
     displayName: "Common test parameters"
 
   - name: AFFINITY
