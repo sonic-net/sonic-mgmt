@@ -9,7 +9,8 @@ import pytest
 from .test_authorization import ssh_connect_remote, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
-        check_server_received, per_command_accounting_skip_versions
+        check_server_received, per_command_accounting_skip_versions, \
+        change_and_wait_aaa_config_update
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -57,7 +58,7 @@ def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
     return []
 
 
-def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command, timeout=10):
+def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):
     username = tacacs_creds['tacacs_rw_user']
     """
         Find logs run by tacacs_rw_user from tac_plus.acct:
@@ -65,16 +66,8 @@ def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command, timeout=10):
             Print matched logs with /P command.
     """
     log_pattern = "/	{0}	.*	cmd=.*{1}/P".format(username, command)
-
-    while timeout > 0:
-        logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
-        if len(logs) > 0:
-            return
-        # not found log, retry read log from tacacs server later
-        time.sleep(1)
-        timeout -= 1
-
-    pytest_assert(False)
+    logs = wait_for_log(ptfhost, "/var/log/tac_plus.acct", log_pattern)
+    pytest_assert(len(logs) > 0)
 
 
 def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
@@ -129,7 +122,7 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 
     logger.info("Found logs: %s", logs)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
-
+    
 
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
@@ -161,7 +154,7 @@ def test_accounting_tacacs_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -180,7 +173,7 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     check_tacacs,
                                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     """
@@ -227,7 +220,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -250,7 +243,7 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting local")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -270,7 +263,7 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -291,7 +284,7 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         check_tacacs,
                                                         rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server

@@ -2,6 +2,7 @@ import crypt
 import logging
 import re
 import binascii
+import time
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -289,3 +290,30 @@ def check_server_received(ptfhost, data):
     logger.info(sed_command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
+
+
+def get_latest_aaa_config_update_log(duthost):
+    res = duthost.command("sed -nE '/hostcfgd: AAA Update/P' /var/log/syslog")
+    logger.info("latest aaa config log {}".format(res["stdout_lines"]))
+    
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, timeout=10):
+    last_log = get_latest_aaa_config_update_log(duthost)
+    duthost.shell(command)
+    
+    # wait aaa config update
+    wait_time = 0
+    while wait_time <= timeout:
+        latest_log = get_latest_aaa_config_update_log(duthost)
+        if latest_log != last_log:
+            return
+
+        time.sleep(1)
+        wait_time += 1
+
+    pytest_assert(False, "Not found aaa config update log: {}".format(command))

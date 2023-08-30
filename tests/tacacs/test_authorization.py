@@ -6,7 +6,7 @@ import time
 
 from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
 from tests.tacacs.utils import per_command_authorization_skip_versions, \
-        remove_all_tacacs_server, get_ld_path
+        remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
@@ -106,7 +106,7 @@ def check_image_version(duthost):
 @pytest.fixture
 def setup_authorization_tacacs(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa authorization tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa authorization tacacs+")
     yield
     duthost.shell("sudo config aaa authorization local")    # Default authorization method is local
 
@@ -114,7 +114,7 @@ def setup_authorization_tacacs(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture
 def setup_authorization_tacacs_local(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa authorization \"tacacs+ local\"")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa authorization \"tacacs+ local\"")
     yield
     duthost.shell("sudo config aaa authorization local")    # Default authorization method is local
 
@@ -518,7 +518,7 @@ def test_tacacs_authorization_wildcard(
                                     remote_user_client,
                                     remote_rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa authorization tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa authorization tacacs+")
 
     # Create files for command with wildcards
     create_test_files(remote_user_client)
