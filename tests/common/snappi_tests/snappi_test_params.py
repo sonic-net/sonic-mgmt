@@ -23,6 +23,8 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                 for priorities 3 and 4
+            test_rx_frames (list): number of test frames received for priorities to test ex. [2000, 3000] for
+                priorities 3 and 4
             gen_background_traffic (bool): whether or not to generate background traffic (default: True)
         """
         self.headroom_test_params = None

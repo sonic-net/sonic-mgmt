@@ -821,6 +821,38 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
+def get_tx_frame_count(duthost, port):
+    """
+    Get the Tx_OK and Tx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        tx_frame_count (int): Tx frame count
+    """
+    raw_out = duthost.shell("show interface counters | grep {}".format(port))['stdout']
+    tx_ok_frame_count = raw_out.split()[9]
+    tx_drp_frame_count = raw_out.split()[14]
+
+    return int(tx_ok_frame_count.replace(',', '')), int(tx_drp_frame_count.replace(',', ''))
+
+
+def get_rx_frame_count(duthost, port):
+    """
+    Get the Rx_OK and Rx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        rx_frame_count (int): Tx frame count
+    """
+    raw_out = duthost.shell("show interface counters | grep {}".format(port))['stdout']
+    rx_ok_frame_count = raw_out.split()[2]
+    rx_drp_frame_count = raw_out.split()[7]
+
+    return int(rx_ok_frame_count.replace(',', '')), int(rx_drp_frame_count.replace(',', ''))
+
+
 def get_egress_queue_count(duthost, port, priority):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.

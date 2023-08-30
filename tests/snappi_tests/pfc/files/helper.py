@@ -14,7 +14,8 @@ from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
     verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count,\
-    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count
+    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut,\
+    verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
@@ -34,7 +35,6 @@ SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_DUR_BASE_SEC = 3
 TOLERANCE_THRESHOLD = 0.05
 CONTINUOUS_MODE = -5
-PAUSE_FLOW_PORT_SPEED = -4
 
 
 def run_pfc_test(api,
@@ -163,7 +163,6 @@ def run_pfc_test(api,
     generate_pause_flows(testbed_config=testbed_config,
                          pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=pause_prio_list,
-                         pause_flow_rate_percent=pause_flow_rate_percent,
                          global_pause=global_pause,
                          snappi_extra_params=snappi_extra_params,
                          pause_flow_delay_sec=0,
@@ -241,6 +240,14 @@ def run_pfc_test(api,
                                      test_flow_name=TEST_FLOW_NAME,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
+        
+        # Verify TX frame count on the DUT when traffic is expected to be paused
+        verify_tx_frame_count_dut(duthost=duthost,
+                                  snappi_extra_params=snappi_extra_params)
+
+        # Verify TX frame count on the DUT when traffic is expected to be paused
+        verify_rx_frame_count_dut(duthost=duthost,
+                                  snappi_extra_params=snappi_extra_params)
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,
