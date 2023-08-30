@@ -848,7 +848,7 @@ class QosSaiBase(QosBase):
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
 
-        elif "t2" in tbinfo["topo"]["type"]:
+        elif tbinfo["topo"]["type"] == "t2":
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -920,13 +920,7 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutAsic == "gb" and "t2" in topo:
-            if get_src_dst_asic_and_duts['src_asic'] == \
-                    get_src_dst_asic_and_duts['dst_asic']:
-                dutTopo = dutTopo + "any"
-            else:
-                dutTopo = dutTopo + topo
-        elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
+        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
@@ -1377,17 +1371,9 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            topo = dutTopo
-            if (get_src_dst_asic_and_duts['src_dut_index'] ==
-                    get_src_dst_asic_and_duts['dst_dut_index'] and
-                get_src_dst_asic_and_duts['src_asic_index'] ==
-                    get_src_dst_asic_and_duts['dst_asic_index']):
-                topo = "topo-any"
-            qpm = qos_param_generator.QosParamCisco(
-                      qosConfigs['qos_params'][dutAsic][topo],
-                      duthost,
-                      bufferConfig)
-
+            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                    duthost,
+                                                    bufferConfig)
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
@@ -1527,6 +1513,7 @@ class QosSaiBase(QosBase):
             Update ARP entries of QoS SAI test ports
 
             Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
@@ -1539,16 +1526,6 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        dut_asic = get_src_dst_asic_and_duts['src_asic']
-
-        # This is not needed in T2.
-        if "t2" in dutTestParams["topo"]:
-            yield
-            return
-
-        dut_asic.command('sonic-clear fdb all')
-        dut_asic.command('sonic-clear arp')
 
         saiQosTest = None
         if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
@@ -1930,112 +1907,3 @@ class QosSaiBase(QosBase):
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
-
-    @pytest.fixture(scope='function', autouse=True)
-    def set_static_route(
-            self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
-        # Get portchannels.
-        # find the one that is backplane based.
-        # set a static route through that portchannel.
-        # remove when done.
-        src_asic = get_src_dst_asic_and_duts['src_asic']
-        dst_asic = get_src_dst_asic_and_duts['dst_asic']
-
-        try:
-            if not (
-                src_asic.sonichost.facts['switch_type'] == "chassis-packet"
-                    and dutTestParams['topo'] == 't2'):
-                yield
-                return
-        except KeyError:
-            yield
-            return
-
-        dst_keys = []
-        for k in dutConfig["testPorts"].keys():
-            if re.search("dst_port.*ip", k):
-                dst_keys.append(k)
-
-        for k in dst_keys:
-            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
-                dst_asic.asic_index,
-                dutConfig["testPorts"][k]), module_ignore_errors=True)
-
-        ip_address_mapping = self.get_interface_ip(dst_asic)
-        for intf in ip_address_mapping.keys():
-            if ip_address_mapping[intf]['peer_addr'] != '':
-                dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
-                    dst_asic.asic_index,
-                    ip_address_mapping[intf]['peer_addr']), module_ignore_errors=True)
-
-        if src_asic == dst_asic:
-            yield
-            return
-
-        portchannels = dst_asic.command(
-            "show interface portchannel -n asic{} -d all".format(
-                dst_asic.asic_index))['stdout']
-        regx = re.compile("(PortChannel[0-9]+)")
-        bp_portchannels = []
-        for pc in portchannels.split("\n"):
-            if "-BP" in pc:
-                match = regx.search(pc)
-                if match:
-                    bp_portchannels.append(match.group(1))
-        if not bp_portchannels:
-            raise RuntimeError(
-                "Couldn't find the backplane porchannels from {}".format(
-                    bp_portchannels))
-
-        non_bp_intfs = set(list(ip_address_mapping.keys())) \
-            - set(bp_portchannels)
-        addresses_to_ping = []
-        for dst_key in dst_keys:
-            addresses_to_ping.append(dutConfig["testPorts"][dst_key])
-
-        for dst_intf in non_bp_intfs:
-            if ip_address_mapping[dst_intf]['peer_addr'] != '':
-                addresses_to_ping.append(
-                    ip_address_mapping[dst_intf]['peer_addr'])
-
-        addresses_to_ping = list(set(addresses_to_ping))
-        no_of_bp_pcs = len(bp_portchannels)
-
-        for dst_index in range(len(addresses_to_ping)):
-            gw = ip_address_mapping[
-                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
-            src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
-                src_asic.asic_index, gw))
-            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
-                src_asic.asic_index,
-                addresses_to_ping[dst_index],
-                gw))
-        yield
-        for dst_index in range(len(addresses_to_ping)):
-            gw = ip_address_mapping[
-                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
-            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
-                src_asic.asic_index,
-                addresses_to_ping[dst_index],
-                gw))
-
-    def get_interface_ip(self, dut_asic):
-        """
-            Parse the output of "show ip int -n asic0 -d all" into a dict:
-            interface => ip address.
-        """
-        mapping = {}
-        ip_address_out = dut_asic.command(
-            "show ip interface -n asic{} -d all".format(
-                dut_asic.asic_index))['stdout']
-        re_pattern = re.compile(
-            r"^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
-        for line in ip_address_out.split("\n"):
-            match = re_pattern.search(line)
-            if match:
-                mapping[match.group(1)] = {
-                    'addr': match.group(2),
-                    'peer_addr': match.group(3),
-                }
-
-        return mapping
