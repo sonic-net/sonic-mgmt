@@ -16,6 +16,8 @@ pytestmark = [
 
 def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     since = request.config.getoption("--posttest_show_tech_since")
+    if since == '':
+        since = 'yesterday'
     duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
