@@ -122,7 +122,7 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 
     logger.info("Found logs: %s", logs)
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
-    
+
 
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):

@@ -295,7 +295,7 @@ def check_server_received(ptfhost, data):
 def get_latest_aaa_config_update_log(duthost):
     res = duthost.command("sed -nE '/hostcfgd: AAA Update/P' /var/log/syslog")
     logger.info("latest aaa config log {}".format(res["stdout_lines"]))
-    
+
     if len(res["stdout_lines"]) == 0:
         return ""
 
@@ -305,7 +305,7 @@ def get_latest_aaa_config_update_log(duthost):
 def change_and_wait_aaa_config_update(duthost, command, timeout=10):
     last_log = get_latest_aaa_config_update_log(duthost)
     duthost.shell(command)
-    
+
     # wait aaa config update
     wait_time = 0
     while wait_time <= timeout:
