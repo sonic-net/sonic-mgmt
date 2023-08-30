@@ -71,10 +71,11 @@ def do_reboot(duthost, localhost, duthosts):
         except AnsibleConnectionFailure as e:
             logger.error("DUT not reachable, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
-            wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
         except RunAnsibleModuleFail as e:
             logger.error("DUT did not go down, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
+
+        wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
 
     assert rebooted, "Failed to reboot"
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
