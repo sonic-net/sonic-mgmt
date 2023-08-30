@@ -7,6 +7,7 @@ import re
 from test_crm import RESTORE_CMDS
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.utilities import recover_acl_rule
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,10 @@ def pytest_runtest_teardown(item, nextitem):
         for cmd in RESTORE_CMDS[test_name]:
             logger.info(cmd)
             try:
-                dut.shell(cmd)
+                if isinstance(cmd, dict):
+                    recover_acl_rule(dut, cmd["data_acl"])
+                else:
+                    dut.shell(cmd)
             except RunAnsibleModuleFail as err:
                 failures.append("Failure during command execution '{command}':\n{error}"
                                 .format(command=cmd, error=str(err)))

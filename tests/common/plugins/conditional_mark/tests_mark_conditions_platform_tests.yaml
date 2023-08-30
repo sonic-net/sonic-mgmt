@@ -768,9 +768,15 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 platform_tests/test_advanced_reboot.py:
   xfail:
-    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    reason: "Xfail advanced reboot on TD3 due to known SAI issue in SAI 8.4+"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+  skip:
+    reason: "Unsupported platform"
+    conditions_logical_operator: or
+    conditions:
+      - "platform in ['x86_64-arista_7050_qx32s']"
+      - "'dualtor' in topo_name and release in ['202012']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####

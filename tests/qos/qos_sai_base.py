@@ -36,7 +36,8 @@ class QosBase:
                           "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
+                           "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -732,7 +733,7 @@ class QosSaiBase(QosBase):
         topo = tbinfo["topo"]["name"]
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(src_dut):
+        if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
             # as dst_dut and dst_asic
             pytest_assert(
@@ -838,6 +839,10 @@ class QosSaiBase(QosBase):
 
                 testPortIds[src_dut_index][dut_asic.asic_index] = sorted(
                     dutPortIps[src_dut_index][dut_asic.asic_index].keys())
+
+                if isMellanoxDevice(src_dut):
+                    testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
+                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index])
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -1470,6 +1475,39 @@ class QosSaiBase(QosBase):
                 self.__loadSwssConfig(duthost)
             self.__deleteTmpSwitchConfig(duthost)
 
+    @pytest.fixture(scope='function', autouse=True)
+    def populateArpEntries_T2(
+            self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig):
+        """
+            Update ARP entries for neighbors for selected test ports for each test for T2 topology
+            with broadcom-dnx asic. As Broadcom dnx asic has larger queue buffer size which takes longer time interval
+            compared to other topology to fill up which leads to arp aging out intermittently as lag goes down due to
+            voq credits getting exhausted during test runs.
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            testParams = dutTestParams["basicParams"]
+            testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testbed_type": dutTestParams["topo"]
+            })
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
+            )
+
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts,
@@ -1510,7 +1548,8 @@ class QosSaiBase(QosBase):
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"]
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
@@ -1872,3 +1911,36 @@ class QosSaiBase(QosBase):
         logger.info("Finish fetching dual ToR info {}".format(dualtor_ports_set))
 
         return dualtor_ports_set
+
+    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
+        """
+        For Nvidia devices, the tested ports must have the same cable length and speed.
+        Firstly, categorize the ports by the same cable length and speed.
+        Secondly, select the port group with the largest number of ports as test ports from the above results.
+        """
+        ptf_port_dut_port_dict = dict(zip(mgFacts["minigraph_ptf_indices"].values(),
+                                          mgFacts["minigraph_ptf_indices"].keys()))
+        get_interface_cable_length_info = 'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"'
+        interface_cable_length_list = duthost.shell(get_interface_cable_length_info)['stdout_lines']
+        interface_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
+
+        cable_length_speed_interface_dict = {}
+        for ptf_port in testPortIds:
+            dut_port = ptf_port_dut_port_dict[ptf_port]
+            if dut_port in interface_cable_length_list:
+                cable_length = interface_cable_length_list[interface_cable_length_list.index(dut_port) + 1]
+                speed = interface_status[dut_port]['speed']
+                cable_length_speed = f"{cable_length}_{speed}"
+                if cable_length_speed in cable_length_speed_interface_dict:
+                    cable_length_speed_interface_dict[cable_length_speed].append(ptf_port)
+                else:
+                    cable_length_speed_interface_dict[cable_length_speed] = [ptf_port]
+        max_port_num = 0
+        test_port_ids = []
+        # Find the port group with the largest number of ports as test ports
+        for _, port_list in cable_length_speed_interface_dict.items():
+            if max_port_num < len(port_list):
+                test_port_ids = port_list
+                max_port_num = len(port_list)
+        logger.info(f"Test ports ids is{test_port_ids}")
+        return test_port_ids
