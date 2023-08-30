@@ -15,7 +15,7 @@ from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_lin
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import dut_qos_maps # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module # noqa F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 
 logger = logging.getLogger(__name__)
@@ -178,7 +178,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                   duthost,
                   tbinfo,
                   test_params,
-                  dut_qos_maps, # noqa F811
+                  dut_qos_maps_module, # noqa F811
                   decap_mode): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets
@@ -187,7 +187,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 duthost (AnsibleHost): The DUT host
                 tbinfo (fixture): Testbed info
                 test_params (dict): Dictionary of test parameters - initialized in _setup_test_params()
-                dut_qos_maps (Fixture): A fixture, return qos maps on DUT host
+                dut_qos_maps_module (Fixture): A module level fixture, return qos maps on DUT host
                 decap_mode (str): DSCP mode
             Returns:
                 None
@@ -208,7 +208,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
         failed_once = False
 
-        pytest_assert(dut_qos_maps.get("dscp_to_tc_map") and dut_qos_maps.get("tc_to_queue_map"),
+        pytest_assert(dut_qos_maps_module.get("dscp_to_tc_map") and dut_qos_maps_module.get("tc_to_queue_map"),
                       "No QoS map found on DUT")
 
         for rotating_dscp in range(0, 64):
@@ -229,8 +229,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                                               inner_dscp=inner_dscp,
                                               decap_mode=decap_mode)
 
-            queue_val = get_dscp_to_queue_value(rotating_dscp, dut_qos_maps.get("dscp_to_tc_map").get("AZURE"),
-                                                dut_qos_maps.get("tc_to_queue_map").get("AZURE"))
+            queue_val = get_dscp_to_queue_value(rotating_dscp, dut_qos_maps_module.get("dscp_to_tc_map").get("AZURE"),
+                                                dut_qos_maps_module.get("tc_to_queue_map").get("AZURE"))
 
             global output_table
 
@@ -284,18 +284,18 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         """
         apply_dscp_cfg_teardown(duthost)
 
-    def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps): # noqa F811
+    def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "pipe" mode
         """
         test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "pipe")
-        self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps, "pipe")
+        self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "pipe")
         self._teardown_test(duthost)
 
-    def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps): # noqa F811
+    def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, duthost, tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" mode
         """
         test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "uniform")
-        self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps, "uniform")
+        self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "uniform")
         self._teardown_test(duthost)
