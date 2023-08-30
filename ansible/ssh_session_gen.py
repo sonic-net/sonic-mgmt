@@ -79,6 +79,9 @@ class TestBedSshSessionRepoGenerator(object):
             )
         )
 
+        if testbed_node.ssh_user == '':
+            print("WARNING: SSH user is empty for testbed node: {}".format(testbed_node.name))
+
         session_path = os.path.join(
             testbed.inv_name,
             testbed.conf_name,
