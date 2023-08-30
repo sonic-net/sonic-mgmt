@@ -77,16 +77,16 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                 # noqa F811
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=True)
 
-def test_pfc_pause_counter_check(snappi_api,
-                                 snappi_testbed_config,
-                                 conn_graph_facts,
-                                 fanout_graph_facts,
+def test_pfc_pause_counter_check(snappi_api,                      # noqa F811
+                                 snappi_testbed_config,           # noqa F811
+                                 conn_graph_facts,                # noqa F811
+                                 fanout_graph_facts,              # noqa F811
                                  duthosts,
                                  rand_one_dut_hostname,
                                  rand_one_dut_portname_oper_up,
                                  enum_dut_lossless_prio,
-                                 all_prio_list,
-                                 prio_dscp_map):
+                                 all_prio_list,                   # noqa F811
+                                 prio_dscp_map):                  # noqa F811
     """
     Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other PFC pause tests.
     First, we will only send lossless prio packets i.e. no background traffic.
@@ -140,10 +140,10 @@ def test_pfc_pause_counter_check(snappi_api,
                  test_traffic_pause=True,
                  snappi_extra_params=snappi_extra_params)
 
-def test_pfc_pause_multi_lossless_prio(snappi_api,
-                                       snappi_testbed_config,
-                                       conn_graph_facts,
-                                       fanout_graph_facts,
+def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa F811
+                                       snappi_testbed_config,       # noqa F811
+                                       conn_graph_facts,            # noqa F811
+                                       fanout_graph_facts,          # noqa F811
                                        duthosts,
                                        rand_one_dut_hostname,
                                        rand_one_dut_portname_oper_up,
