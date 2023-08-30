@@ -146,7 +146,7 @@ def main(args):
         sys.exit(1)
 
     logger.info("Checking")
-    monitor(sonichosts, args.output)
+    check(sonichosts, args.output)
 
 
 if __name__ == "__main__":
