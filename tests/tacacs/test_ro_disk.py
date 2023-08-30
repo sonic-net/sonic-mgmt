@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+from ansible.errors import AnsibleConnectionFailure
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
@@ -67,9 +68,14 @@ def do_reboot(duthost, localhost, duthosts):
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
+        except AnsibleConnectionFailure as e:
+            logger.error("DUT not reachable, exception: {} attempt:{}/{}".
+                         format(repr(e), i, retries))
         except RunAnsibleModuleFail as e:
             logger.error("DUT did not go down, exception: {} attempt:{}/{}".
                          format(repr(e), i, retries))
+
+        wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
 
     assert rebooted, "Failed to reboot"
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
