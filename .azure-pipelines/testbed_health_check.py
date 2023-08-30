@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
 """Script for checking testbed health.
+
     Example:
-        ./testbed_health_check.py -t vms01 -i ../ansible/str --tbfile ../ansible/testbed.yaml -o testbed_health_check_result_vms01 --log-level info
-    It will print the basic testbed health check result to the console, if you specify an output file, it will write to it as well.
+        ./testbed_health_check.py -t vms01 -i ../ansible/str --tbfile ../ansible/testbed.yaml
+        -o testbed_health_check_result_vms01 --log-level info
+
+    It will print the basic testbed health check result to the console,
+    if you specify an output file, it will write to it as well.
 """
 import argparse
 import logging
@@ -194,4 +198,3 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(args)
-
