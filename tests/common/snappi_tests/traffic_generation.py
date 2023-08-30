@@ -257,10 +257,9 @@ def generate_pause_flows(testbed_config,
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
     pps = int(2 / pause_dur)
-    
     pause_flow.rate.pps = pps
-
     pause_flow.size.fixed = 64
+
     if pause_flow_dur_sec != CONTINUOUS_MODE:
         pause_flow.duration.fixed_seconds.seconds = pause_flow_dur_sec
         pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
