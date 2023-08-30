@@ -88,8 +88,8 @@ def test_pfc_pause_counter_check(snappi_api,                      # noqa F811
                                  all_prio_list,                   # noqa F811
                                  prio_dscp_map):                  # noqa F811
     """
-    Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other PFC pause tests.
-    First, we will only send lossless prio packets i.e. no background traffic.
+    Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other
+    PFC pause tests. We will only send lossless prio packets i.e. no background traffic.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
@@ -123,7 +123,6 @@ def test_pfc_pause_counter_check(snappi_api,                      # noqa F811
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.gen_background_traffic = False
-
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
