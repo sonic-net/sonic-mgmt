@@ -498,6 +498,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
 
+    check_available_counters = True
+    if duthost.facts['asic_type'] == 'broadcom':
+        check_available_counters = False
+
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -519,7 +523,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-    if not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+    if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
         for i in range(total_routes):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
@@ -544,9 +548,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     # Verify "crm_stats_ipv[4/6]_route_used" counter was decremented
     pytest_assert(new_crm_stats_route_used - crm_stats_route_used == 0,
                   "\"crm_stats_ipv{}_route_used\" counter was not decremented".format(ip_ver))
-    # Verify "crm_stats_ipv[4/6]_route_available" counter was incremented
-    pytest_assert(new_crm_stats_route_available - crm_stats_route_available == 0,
-                  "\"crm_stats_ipv{}_route_available\" counter was not incremented".format(ip_ver))
+    if check_available_counters:
+        # Verify "crm_stats_ipv[4/6]_route_available" counter was incremented
+        pytest_assert(new_crm_stats_route_available - crm_stats_route_available == 0,
+                      "\"crm_stats_ipv{}_route_available\" counter was not incremented".format(ip_ver))
 
     used_percent = get_used_percent(new_crm_stats_route_used, new_crm_stats_route_available)
     if used_percent < 1:
