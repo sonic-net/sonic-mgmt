@@ -1,0 +1,59 @@
+
+trigger:
+- internal
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+
+  - name: TEST_PLAN_ID
+    type: string
+    default: ""
+    displayName: "Elastictest test plan id"
+
+  - name: CONTAINER
+    type: string
+    default: "nightlytest"
+    values:
+      - nightlytest
+      - prtest
+    displayName: "Storage account container, 'nightlytest' for nightly test, 'prtest' for pr test"
+
+steps:
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'SONiC Elastictest'
+    scriptType: 'pscore'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az storage blob directory download -c ${{ parameters.CONTAINER }} --account-name sonicelastictestprodsa -s "${{ parameters.TEST_PLAN_ID }}" -d "artifacts" --recursive'
+  displayName: 'Download artificats'
+
+- script: |
+    echo -----------------------------------------------------------------------
+    echo "Change the '|||' to '_' for all filenames since '|' is illegal symbol of filename in Windows"
+    echo -----------------------------------------------------------------------
+    # specify the directory
+    dir="artifacts/${{ parameters.TEST_PLAN_ID }}"
+    # use find to loop through each file in the directory and its subdirectories
+    find "$dir" -type f -name "*|||*" | while read file; do
+        # get the base name of the file
+        base=$(basename "$file")
+        # replace '|||' with '_' in the filename
+        newname=${base//|||/_}
+        # if the new name is different from the original name, rename the file
+        if [ "$base" != "$newname" ]; then
+            mv -- "$file" "${file%$base}$newname"
+        fi
+    done
+  displayName: 'Change the "|||" to "_" for all filenames'
+
+- script: |
+    sudo apt install -y tree
+    tree artifacts/${{ parameters.TEST_PLAN_ID }}
+  displayName: 'Review downloaded artifacts'
+
+- publish: artifacts/${{ parameters.TEST_PLAN_ID }}
+  artifact: Elastictest.test_plan.${{ parameters.TEST_PLAN_ID }}.artifacts
+  condition: always()
+  displayName: "Archive artifacts"
