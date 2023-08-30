@@ -136,9 +136,28 @@ class HostManager():
                         res['password'] = [vars['secret_group_vars']
                                            [cred['alias']][p] for p in cred['password']]
                         break
-        else:
-            res['username'] = jinja2.Template(vars['ansible_ssh_user']).render(**vars)
-            res['password'] = jinja2.Template(vars['ansible_ssh_pass']).render(**vars)
+
+        if 'username' not in vars:
+            ssh_user = ''
+            if 'ansible_ssh_user' in vars:
+                ssh_user = vars['ansible_ssh_user']
+            elif 'ansible_user' in vars:
+                ssh_user = vars['ansible_user']
+            else:
+                ssh_user = ''
+
+            res['username'] = jinja2.Template(ssh_user).render(**vars)
+
+        if 'password' not in vars:
+            ssh_pass = ''
+            if 'ansible_ssh_pass' in vars:
+                ssh_pass = vars['ansible_ssh_pass']
+            elif 'ansible_password' in vars:
+                ssh_pass = vars['ansible_password']
+            else:
+                ssh_pass = ''
+
+            res['password'] = [jinja2.Template(ssh_pass).render(**vars)]
 
         # console username and password
         console_login_creds = vars.get("console_login", {})

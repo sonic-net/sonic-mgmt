@@ -5,6 +5,7 @@ Currently, we support generating the SSH session repository for SecureCRT.
 """
 
 import os
+import sshconf
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
 
@@ -39,8 +40,17 @@ class SshSessionRepoGenerator(object):
         This is a virtual method that should be implemented by child class.
 
         Args:
-            testbed (object): Represents a testbed setup.
-            testbed_node (object): Represents a connectable node in the testbed.
+            session_path(str): SSH session path.
+            ssh_ip (str): SSH IP address.
+            ssh_user (str): SSH username.
+            ssh_pass (str): SSH password.
+        """
+        raise NotImplementedError
+
+    def finish(self):
+        """Finish SSH session generation.
+
+        This is a virtual method that should be implemented by child class.
         """
         raise NotImplementedError
 
@@ -162,6 +172,10 @@ class SecureCRTSshSessionRepoGenerator(SshSessionRepoGenerator):
             .replace("%HOST%", ssh_ip)
             .replace("%PASSWORD%", encrypted_pass)
         )
+
+    def finish(self):
+        """Finish SSH session generation."""
+        pass
 
 
 class SecureCRTRepoFolderData(object):
@@ -304,3 +318,49 @@ class SecureCRTCryptoV2:
         )
         cipher = AES.new(self.Key, AES.MODE_CBC, iv=self.IV)
         return cipher.encrypt(padded_plain_bytes).hex()
+
+
+class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
+    """SSH session repo generator for SSH config.
+
+    It derives from SshSessionRepoGenerator and implements the generate method.
+    """
+
+    def __init__(self, target, ssh_config_params):
+        super().__init__(target, "")
+
+        # Load SSH config file from target file path
+        self.target = os.path.expanduser(self.target)
+        if not os.path.isfile(self.target):
+            self.ssh_config = sshconf.empty_ssh_config_file()
+        else:
+            self.ssh_config = sshconf.read_ssh_config(self.target)
+
+        # Add SSH config parameters
+        self.ssh_config_params = ssh_config_params
+
+    def _load_template(self, template_file):
+        """Load SSH session template file.
+
+        This function will pass since SSH config does not need a template file.
+        """
+        pass
+
+    def generate(self, session_path, ssh_ip, ssh_user, ssh_pass):
+        """Generate SSH session for a testbed node."""
+        ssh_session_name = os.path.basename(session_path)
+
+        # Remove existing host config if it exists
+        try:
+            self.ssh_config.remove(ssh_session_name)
+        except ValueError:
+            pass
+
+        # Add new host config
+        self.ssh_config.add(ssh_session_name, Hostname=ssh_ip, User=ssh_user,
+                            PasswordAuthentication="yes", **self.ssh_config_params)
+
+    def finish(self):
+        """Finish SSH session generation."""
+        # Write SSH config to target file path
+        self.ssh_config.write(self.target)

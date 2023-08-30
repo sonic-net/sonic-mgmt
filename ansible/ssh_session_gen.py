@@ -6,7 +6,7 @@ import argparse
 import os
 from devutil.testbed import TestBed
 from devutil.inv_helpers import HostManager
-from devutil.ssh_session_repo import SecureCRTSshSessionRepoGenerator
+from devutil.ssh_session_repo import SecureCRTSshSessionRepoGenerator, SshConfigSshSessionRepoGenerator
 
 
 class TestBedSshSessionRepoGenerator(object):
@@ -26,6 +26,8 @@ class TestBedSshSessionRepoGenerator(object):
         """Generate SSH session repo."""
         for testbed in self.testbeds.values():
             self._generate_ssh_sessions_for_testbed(testbed)
+
+        self.repo_generator.finish()
 
     def _generate_ssh_sessions_for_testbed(self, testbed):
         """Generate SSH sessions for a testbed.
@@ -77,6 +79,9 @@ class TestBedSshSessionRepoGenerator(object):
             )
         )
 
+        if testbed_node.ssh_user == '':
+            print("WARNING: SSH user is empty for testbed node: {}".format(testbed_node.name))
+
         session_path = os.path.join(
             testbed.inv_name,
             testbed.conf_name,
@@ -109,13 +114,27 @@ def main(args):
         print("{} testbeds loaded.\n".format(len(testbeds)))
 
     print(
-        "Starting SSH session repo generation with config: OutputDir = {}, Template = {}".format(
-            args.target, args.template_file_path
+        "Starting SSH session repo generation with config: Target = {}, Format = {}, Template = {}".format(
+            args.target, args.format, args.template_file_path
         )
     )
-    repo_generator = SecureCRTSshSessionRepoGenerator(
-        args.target, args.template_file_path
-    )
+    if args.format == "securecrt":
+        repo_generator = SecureCRTSshSessionRepoGenerator(
+            args.target, args.template_file_path
+        )
+    elif args.format == "ssh":
+        ssh_config_params = {}
+        for param in args.ssh_config_params:
+            key, value = param.split("=")
+            ssh_config_params[key] = value
+
+        repo_generator = SshConfigSshSessionRepoGenerator(
+            args.target, ssh_config_params
+        )
+    else:
+        print("Unsupported output format: {}".format(args.format))
+        return
+
     testbed_repo_generator = TestBedSshSessionRepoGenerator(testbeds, repo_generator)
     testbed_repo_generator.generate()
 
@@ -124,7 +143,7 @@ if __name__ == "__main__":
     # Parse arguments
     example_text = """Examples:
 - python3 ssh_session_gen.py -i inventory -o /data/sessions/testbeds -p some_securecrt_session.ini
-- python3 ssh_session_gen.py -i lab t2_lab -n vms-.* -o /data/sessions/testbeds -p some_securecrt_session.ini
+- python3 ssh_session_gen.py -i lab t2_lab -n vms-.* -o /data/sessions/testbeds --format ssh
 - python3 ssh_session_gen.py -i your_own_inv -t your_own_testbed.yaml -n .*some_tests.* -o /data/sessions/testbeds \
     -p some_securecrt_session.ini
 
@@ -181,11 +200,30 @@ the `secrets.json` file and use the alternative credentials.
     )
 
     parser.add_argument(
+        "--format",
+        type=str,
+        dest="format",
+        choices=["securecrt", "ssh"],
+        default="securecrt",
+        help="Output target format, currently supports securecrt or ssh.",
+    )
+
+    parser.add_argument(
+        "--ssh-config-params",
+        type=str,
+        dest="ssh_config_params",
+        nargs="+",
+        default="",
+        help="Extra SSH config parameters, only used when --format=ssh. E.g. ProxyJump=jumpbox",
+    )
+
+    parser.add_argument(
         "-p",
         "--template",
         type=str,
         dest="template_file_path",
-        help="Session file template path. Used for clone your current session settings.",
+        help="Session file template path. Used for clone your current session settings. "
+             "Only used when --format=securecrt.",
     )
 
     args = parser.parse_args()
