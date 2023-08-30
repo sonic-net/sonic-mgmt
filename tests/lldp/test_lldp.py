@@ -83,6 +83,8 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
         nei_lldp_facts = localhost.lldp_facts(
             host=hostip, version='v2c', community=eos['snmp_rocommunity'])['ansible_facts']
         neighbor_interface = v['port']['ifname']
+        logger.info("lldp facts for interface {}:{}".format(neighbor_interface,
+                                                            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]))
         # Verify the published DUT system name field is correct
         assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
         # Verify the published DUT chassis id field is not empty
