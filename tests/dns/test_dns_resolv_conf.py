@@ -17,6 +17,17 @@ def test_dns_resolv_conf(duthost):
     Args:
         duthost: AnsibleHost instance for DUT
     """
+
+    # If running a public image with sonic-mgmt-int, we can't say for sure whether we should expect there to not be any
+    # DNS servers configured in /etc/resolv.conf, or whether the internal DNS should be configured. This is becuase
+    # pretest configures the internal DNS server, but if there's some system reload/reboot, then this may go away/be
+    # overwritten.
+    #
+    # There are some changes that might improve the state of things (resolvconf, config_db support), but for now, just
+    # skip this combination.
+    if get_image_type(duthost) == "public":
+        pytest.skip("Inconsistent expectations for DNS server when running a public image with sonic-mgmt-int")
+
     # Check SONiC image type and get expected nameservers in /etc/resolv.conf
     expected_nameservers = set(RESOLV_CONF_NAMESERVERS[get_image_type(duthost=duthost)])
 
