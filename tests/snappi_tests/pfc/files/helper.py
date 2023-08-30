@@ -240,12 +240,14 @@ def run_pfc_test(api,
                                      test_flow_name=TEST_FLOW_NAME,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
-        
+    elif test_traffic_pause and not snappi_extra_params.gen_background_traffic:
         # Verify TX frame count on the DUT when traffic is expected to be paused
+        # and only test traffic flows are generated
         verify_tx_frame_count_dut(duthost=duthost,
                                   snappi_extra_params=snappi_extra_params)
 
         # Verify TX frame count on the DUT when traffic is expected to be paused
+        # and only test traffic flows are generated
         verify_rx_frame_count_dut(duthost=duthost,
                                   snappi_extra_params=snappi_extra_params)
     else:

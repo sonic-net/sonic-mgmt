@@ -89,10 +89,7 @@ def test_pfc_pause_counter_check(snappi_api,
                                  prio_dscp_map):
     """
     Test if PFC pause frames are counted properly by the DUT. This test is slightly different to the other PFC pause tests.
-    First, we will only send lossless prio packets i.e. no background traffic. Next, instead of only sending a set number 
-    of PFC pause packets per second from the TGEN, we will completely congest the egress port of the DUT, that way no packets
-    are sent from the DUT to the TGEN. This will allow us to check the regular TX counters on the DUT to make sure no packets
-    are transmitted, and we only see the pause counter on the DUT increment. 
+    First, we will only send lossless prio packets i.e. no background traffic.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
