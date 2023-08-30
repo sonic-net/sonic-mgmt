@@ -64,7 +64,6 @@ from tests.common.fixtures.ptfhost_utils \
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -106,7 +105,8 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*Look at reported mismatches above.*",
                 ".*Unaccounted_ROUTE_ENTRY_TABLE_entries.*",
                 ".*'vnetRouteCheck' status failed.*",
-                ".*Vnet Route Mismatch reported.*"
+                ".*Vnet Route Mismatch reported.*",
+                ".*_M_construct null not valid.*",
             ])
     return
 
@@ -290,7 +290,7 @@ def fixture_setUp(duthosts,
         indent=4), dest="/tmp/vxlan_topo_info.json")
 
     data['downed_endpoints'] = []
-    data[encap_type]['dest_to_nh_map_orignal'] = copy.copy(data[encap_type]['dest_to_nh_map']) # noqa F821
+    data[encap_type]['dest_to_nh_map_orignal'] = copy.deepcopy(data[encap_type]['dest_to_nh_map']) # noqa F821
     yield data
 
     # Cleanup code.
@@ -1011,7 +1011,7 @@ class Test_VxLAN_ecmp_create(Test_VxLAN):
             ecmp_utils.get_payload_version(encap_type),
             "DEL")
 
-        self.setup[encap_type]['dest_to_nh_map'] = self.setup[encap_type]['dest_to_nh_map_orignal']
+        self.setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
         ecmp_utils.set_routes_in_dut(
             self.setup['duthost'],
             self.setup[encap_type]['dest_to_nh_map'],
@@ -2009,12 +2009,6 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
 
-        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
-                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
-        loganalyzer.init()
-        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
-        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
-
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]
 
@@ -2143,6 +2137,15 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
 
             time.sleep(10)
             self.dump_self_info_and_run_ptf("test1", encap_type, True)
+            ecmp_utils.create_and_apply_priority_config(
+                self.setup['duthost'],
+                vnet,
+                tc1_new_dest,
+                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)],
+                tc1_end_point_list,
+                [tc1_end_point_list[0]],
+                "DEL")
+            self.setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.setup[encap_type]['dest_to_nh_map_orignal'])
 
         except Exception:
             ecmp_utils.create_and_apply_priority_config(
@@ -2185,12 +2188,6 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
         if encap_type in ['v4_in_v6', 'v6_in_v6']:
             pytest.skip("Skipping test. v6 underlay is not supported in priority tunnels.")
         self.setup = setUp
-
-        loganalyzer = LogAnalyzer(ansible_host=self.setup['duthost'],
-                                  marker_prefix="ignore Logic error: basic_string::_M_construct null")
-        loganalyzer.init()
-        # ignore this error as this is  caused by the case when we try to install a route with no endpoints.
-        loganalyzer.expect_regex.extend("doTask: Logic error: basic_string::_M_construct null not valid")
 
         Logger.info("Choose a vnet.")
         vnet = self.setup[encap_type]['vnet_vni_map'].keys()[0]

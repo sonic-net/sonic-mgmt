@@ -148,7 +148,9 @@ def parse_list_from_str(s):
         s = s.strip()
     if not s:
         return None
-    return [single_str.strip() for single_str in s.split(',')]
+    return [single_str.strip()
+            for single_str in s.split(',')
+            if single_str.strip()]
 
 
 class TestPlanManager(object):
@@ -230,7 +232,7 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-
+        affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = json.dumps({
             "name": test_plan_name,
             "testbed": {
@@ -266,6 +268,7 @@ class TestPlanManager(object):
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
+                "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
@@ -670,6 +673,28 @@ if __name__ == "__main__":
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
     )
     parser_create.add_argument(
+        "--specific-param",
+        type=str,
+        dest="specific_param",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Specific param, like: '
+             '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
+    )
+    parser_create.add_argument(
+        "--affinity",
+        type=str,
+        dest="affinity",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Test module affinity, like: '
+             '[{"name": "bgp/test_bgp_fact.py", "op": "NOT_ON", "value": ["vms-kvm-t0"]}]'
+    )
+    parser_create.add_argument(
         "--stop-on-failure",
         type=ast.literal_eval,
         dest="stop_on_failure",
@@ -826,14 +851,17 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
-            specific_param = []
-            # For PR test, if specify test modules explicitly, use them to run PR test.
+            specific_param = json.loads(args.specific_param)
+            # For PR test, if specify test modules and specific_param explicitly, use them to run PR test.
             # Otherwise, get test modules from pr_test_scripts.yaml.
             explicitly_specify_test_module = args.features or args.scripts
-            if args.test_plan_type == "PR" and (not explicitly_specify_test_module):
+            if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts, specific_param = get_test_scripts(args.test_set)
-                scripts = ",".join(scripts)
+                parsed_script, parsed_specific_param = get_test_scripts(args.test_set)
+                if not explicitly_specify_test_module:
+                    scripts = ",".join(parsed_script)
+                if not specific_param:
+                    specific_param = parsed_specific_param
 
             tp.create(
                 args.topology,
@@ -855,6 +883,7 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 specific_param=specific_param,
+                affinity=args.affinity,
                 vm_type=args.vm_type,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
