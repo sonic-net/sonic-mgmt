@@ -537,7 +537,7 @@ def verify_pause_frame_count_dut(duthost,
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in dut_port_config[0].items(): # TX PFC pause frames
+    for peer_port, prios in dut_port_config[0].items():  # TX PFC pause frames
         for prio in range(len(prios)):
             pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=True)
             if test_traffic_pause:
@@ -548,7 +548,7 @@ def verify_pause_frame_count_dut(duthost,
                 pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
-    for peer_port, prios in dut_port_config[1].items(): # RX PFC pause frames
+    for peer_port, prios in dut_port_config[1].items():  # RX PFC pause frames
         for prio in range(len(prios)):
             pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
             if test_traffic_pause:
