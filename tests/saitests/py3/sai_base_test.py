@@ -33,6 +33,16 @@ interface_to_front_mapping = {}
 from switch import (sai_thrift_port_tx_enable,      # noqa E402
                     sai_thrift_port_tx_disable)
 
+DATA_PLANE_QUEUE_LIST = ["0", "1", "2", "3", "4", "5", "6", "7"]
+DEFAULT_QUEUE_SCHEDULER_CONFIG = {"0": "scheduler.0",
+                                  "1": "scheduler.0",
+                                  "2": "scheduler.0",
+                                  "3": "scheduler.1",
+                                  "4": "scheduler.1",
+                                  "5": "scheduler.0",
+                                  "6": "scheduler.0",
+                                  "7": ""}
+
 
 class ThriftInterface(BaseTest):
 
@@ -61,6 +71,7 @@ class ThriftInterface(BaseTest):
             self.dst_server_ip = self.src_server_ip
             dst_server_port = src_server_port
         self.server = self.dst_server_ip
+        self.original_dut_port_queue_scheduler_map = {}
 
         if "port_map_file" in self.test_params:
             user_input = self.test_params['port_map_file']
@@ -169,7 +180,10 @@ class ThriftInterface(BaseTest):
 
     def sai_thrift_port_tx_enable(self, client, asic_type, port_list, target='dst', last_port=True):
         count = 0
-        sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
+        if asic_type == 'mellanox':
+            self.enable_mellanox_egress_data_plane(port_list)
+        else:
+            sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
         if self.platform_asic and self.platform_asic == "broadcom-dnx" and last_port:
             # need to enable watchdog on the source asic using cint script
             cmd = "bcmcmd -n {} \"BCMSAI credit-watchdog enable\"".format(self.src_asic_index)
@@ -216,7 +230,53 @@ class ThriftInterface(BaseTest):
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0, \
                 "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
-        sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
+        if asic_type == 'mellanox':
+            self.disable_mellanox_egress_data_plane(port_list)
+        else:
+            sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
+
+    def disable_mellanox_egress_data_plane(self, ptf_port_list):
+        self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(ptf_port_list)
+        block_data_plane_scheduler_name = 'scheduler.block_data_plane'
+        cmd_set_block_data_plane_scheduler = \
+            f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{block_data_plane_scheduler_name}" "type" DWRR "weight" 15 "pir" 1'
+
+        self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
+                             cmd_set_block_data_plane_scheduler)
+        for ptf_port in ptf_port_list:
+            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+            for q in DATA_PLANE_QUEUE_LIST:
+                cmd_block_q = \
+                    f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {block_data_plane_scheduler_name}"
+                self.exec_cmd_on_dut(
+                    self.server, self.test_params['dut_username'], self.test_params['dut_password'], cmd_block_q)
+
+    def get_queue_scheduler_name(self, ptf_port_list):
+        dut_port_queue_scheduler_map = {}
+        for ptf_port in ptf_port_list:
+            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+            dut_port_queue_scheduler_map[dut_port] = {}
+            for q in DATA_PLANE_QUEUE_LIST:
+                cmd_get_q_scheduler_name = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{q}' scheduler"
+                scheduler_name, _, _ = self.exec_cmd_on_dut(
+                    self.server, self.test_params['dut_username'],
+                    self.test_params['dut_password'], cmd_get_q_scheduler_name)
+                scheduler_name = scheduler_name[0].strip("\n")
+                dut_port_queue_scheduler_map[dut_port][q] = scheduler_name
+        return dut_port_queue_scheduler_map
+
+    def enable_mellanox_egress_data_plane(self, ptf_port_list):
+        for ptf_port in ptf_port_list:
+            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+            for q in DATA_PLANE_QUEUE_LIST:
+                scheduler_name = self.original_dut_port_queue_scheduler_map[dut_port][q] if \
+                    self.original_dut_port_queue_scheduler_map else DEFAULT_QUEUE_SCHEDULER_CONFIG[q]
+                cmd_set_q_scheduler = f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {scheduler_name}"
+                cmd_del_q_scheduler = f" sonic-db-cli CONFIG_DB hdel 'QUEUE|{dut_port}|{q}' scheduler "
+                cmd_recover_q_scheduler_config = cmd_set_q_scheduler if scheduler_name else cmd_del_q_scheduler
+                self.exec_cmd_on_dut(
+                    self.server, self.test_params['dut_username'],
+                    self.test_params['dut_password'], cmd_recover_q_scheduler_config)
 
 
 class ThriftInterfaceDataPlane(ThriftInterface):
