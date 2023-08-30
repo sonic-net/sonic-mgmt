@@ -34,7 +34,7 @@ class ElastictestCommonResponse:
         self.errmsg = errmsg
 
 
-class TestbedMonitorResult(ElastictestCommonResponse):
+class TestbedCheckResult(ElastictestCommonResponse):
     pass
 
 
@@ -73,16 +73,16 @@ def check_bgp_session_state(sonichosts, state="established"):
     return True, None, None
 
 
-def monitor(sonichosts, output=None):
+def check(sonichosts, output=None):
     """
-    Perform essential monitoring checks on the given SONiC hosts.
+    Perform essential health checks on the given SONiC hosts.
 
     Args:
-        sonichosts (list): List of SONiC hosts to monitor.
-        output (str, optional): Path to the output file where the monitoring results will be written. Defaults to None.
+        sonichosts (list): List of SONiC hosts to check.
+        output (str, optional): Path to the output file where the checking results will be written. Defaults to None.
 
     Raises:
-        Exception: If an error occurs during the monitoring process.
+        Exception: If an error occurs during the checking process.
 
     """
     try:
@@ -104,16 +104,16 @@ def monitor(sonichosts, output=None):
         else:
             logger.info("Testbed is healthy.")
 
-        testbedMonitorResult = TestbedMonitorResult(code=code, data=data, errmsg=errmsg)
+        testbedCheckResult = TestbedCheckResult(code=code, data=data, errmsg=errmsg)
 
         # If output file is specified, write result to it.
         if output:
             with open(output, "w") as f:
-                f.write(json.dumps(testbedMonitorResult.__dict__))
+                f.write(json.dumps(testbedCheckResult.__dict__, separators=(",", ":"))
                 f.close()
 
     except Exception as e:
-        logger.error("Failed to monitor. {}".format(e))
+        logger.error("Failed to check. {}".format(e))
         sys.exit(1)
 
 
@@ -145,14 +145,14 @@ def main(args):
     if not localhost or not sonichosts:
         sys.exit(1)
 
-    logger.info("Monitoring")
+    logger.info("Checking")
     monitor(sonichosts, args.output)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Tool for monitoring testbed.")
+        description="Tool for checking testbed health.")
 
     parser.add_argument(
         "-i", "--inventory",
