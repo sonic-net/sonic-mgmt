@@ -1,6 +1,7 @@
+name: $(Build.DefinitionName)_${{ parameters.TEST_PLAN_ID }}_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 
-trigger:
-- internal
+trigger: none
+pr: none
 
 pool:
   vmImage: ubuntu-latest
