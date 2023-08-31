@@ -56,9 +56,17 @@ all:
           ansible_host: 10.150.23.68
         bjw7-9:
           ansible_host: 10.150.23.69
+        bjw14-1:
+          ansible_host: 10.150.23.70
 
     pdu:
       hosts:
+        bjw-pdu-126-130:
+          ansible_host: 10.150.126.130
+          protocol: snmp
+        bjw-pdu-126-131:
+          ansible_host: 10.150.126.131
+          protocol: snmp
         bjw-pdu-126-132:
           ansible_host: 10.150.126.132
           protocol: snmp
@@ -153,6 +161,15 @@ fanout:
     bjw-can-2700-4:
       ansible_host: 10.150.22.140
       os: sonic
+    bjw-can-z9332f-5:
+      ansible_host: 10.150.22.141
+      os: sonic
+    bjw-can-z9332f-6:
+      ansible_host: 10.150.22.142
+      os: sonic
+    bjw-can-z9332f-7:
+      ansible_host: 10.150.22.143
+      os: sonic
 
 sonic:
   vars:
@@ -169,6 +186,7 @@ sonic:
     sonic_cisco_8102:
     sonic_mlnx_sn3800:
     sonic_mlnx_sn4600c:
+    sonic_nokia_lc_400G:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -614,6 +632,57 @@ sonic_mlnx_sn4600c:
         "0x2B": "Mellanox"
         "0xFE": "0x4D23FBB2"
 
+sonic_nokia_lc_400G:
+  vars:
+    max_cores: 48
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    bjw-can-7250-lc1-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: 19688-0038
+      base_mac:  40:7C:7D:BB:26:0B
+      ansible_host: 10.150.22.145
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0038"
+        "0x24": "40:7C:7D:BB:26:0B"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x7412F0DE"
+    bjw-can-7250-lc2-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot2
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      serial: 19688-0041
+      base_mac:  40:7C:7D:BB:26:1D
+      ansible_host: 10.150.22.146
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0041"
+        "0x24": "40:7C:7D:BB:26:1D"
+
 server:
   hosts:
     bjw-can-serv-1:
@@ -657,3 +726,5 @@ mgmt:
     bjw-can-7215-10:
       ansible_host: 10.150.22.10
       os: sonic
+    bjw-can-4kts-1:
+      ansible_host: 10.150.22.12

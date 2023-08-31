@@ -2273,3 +2273,21 @@
   inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
+
+- conf-name: testbed-bjw-can-7250-1
+  group-name: bjw14-1
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: bjw14-1
+  ptf_ip: 10.150.23.70/23
+  ptf_ipv6:
+  server: server_bjw_14
+  vm_base: VM71000
+  dut:
+    - bjw-can-7250-lc1-1
+    - bjw-can-7250-lc2-1
+    - bjw-can-7250-sup-1
+
+  inv_name: bjw
+  auto_recover: 'False'
+  comment: Beijing Lab

@@ -5,6 +5,9 @@ bjw-can-z9332f-1,10.150.22.108/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-2,10.150.22.120/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-3,10.150.22.126/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-4,10.150.22.127/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
+bjw-can-z9332f-5,10.150.22.141/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+bjw-can-z9332f-6,10.150.22.142/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+bjw-can-z9332f-7,10.150.22.143/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-slx-can-2,10.150.22.105/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 bjw-slx-can-4,10.150.22.107/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 bjw-can-slx-5,10.150.22.100/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
@@ -58,6 +61,11 @@ bjw-can-8102-1,10.150.22.128/23,Cisco-8102-C64,DevSonic,,sonic
 bjw-can-3800-1,10.150.22.135/23,ACS-MSN3800,DevSonic,,sonic
 bjw-can-4600c-1,10.150.22.137/23,ACS-MSN4600C,DevSonic,,sonic
 bjw-can-2700-3,10.150.22.139/23,Mellanox-SN2700,DevSonic,,sonic
+bjw-can-7250-sup-1,10.150.22.144/23,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
+bjw-can-7250-lc1-1,10.150.22.145/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+bjw-can-7250-lc2-1,10.150.22.146/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+bjw-pdu-126-130,10.150.126.130,Vertiv,Pdu,snmp,
+bjw-pdu-126-131,10.150.126.131,Vertiv,Pdu,snmp,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp,
 bjw-pdu-126-133,10.150.126.133,Vertiv,Pdu,snmp,
 bjw-pdu-126-134,10.150.126.134,Vertiv,Pdu,snmp,
@@ -68,3 +76,4 @@ bjw-pdu-126-138,10.150.126.138,Vertiv,Pdu,snmp,
 bjw-pdu-126-139,10.150.126.139,Vertiv,Pdu,snmp,
 bjw-can-7215-10,10.150.22.10,Nokia-7215,MgmtTsToRRouter,ssh,sonic
 bjw-can-7215-9,10.150.22.11,Nokia-7215,ConsoleServer,ssh,sonic
+bjw-can-4kts-1,10.150.22.12,Cisco-4300,ConsoleServer,ssh,
