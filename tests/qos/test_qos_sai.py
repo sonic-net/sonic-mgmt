@@ -566,7 +566,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts
+            dutQosConfig, get_src_dst_asic_and_duts, skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -1049,7 +1049,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
+            skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1685,6 +1686,10 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"]
         })
+
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            src_port_name = dutConfig["dutInterfaces"][testParams["src_port_id"]]
+            testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name, dut_qos_maps)
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]

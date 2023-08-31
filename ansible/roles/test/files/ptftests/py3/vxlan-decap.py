@@ -123,7 +123,7 @@ class Vxlan(BaseTest):
     def generate_ArpResponderConfig(self):
         config = {}
         for test in self.tests:
-            for port, ip in test['vlan_ip_prefixes'].items():
+            for port, ip in list(test['vlan_ip_prefixes'].items()):
                 config['eth%d' % port] = [ip]
 
         with open('/tmp/vxlan_arpresponder.conf', 'w') as fp:
@@ -195,7 +195,7 @@ class Vxlan(BaseTest):
 
         self.pc_info = []
         self.net_ports = []
-        for name, val in graph['minigraph_portchannels'].items():
+        for name, val in list(graph['minigraph_portchannels'].items()):
             members = [graph['minigraph_port_indices'][member] for member in val['members']]
             self.net_ports.extend(members)
             ip = None
@@ -211,7 +211,7 @@ class Vxlan(BaseTest):
 
         self.tests = []
         vni_base = 336
-        for name, data in graph['minigraph_vlans'].items():
+        for name, data in list(graph['minigraph_vlans'].items()):
             test = {}
             test['name'] = name
             test['intf_alias'] = data['members']
@@ -458,7 +458,7 @@ class Vxlan(BaseTest):
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, acc_port, packet)
         nr_rcvd = count_matched_packets_all_ports_helper(self, exp_packet, self.nr, pc_ports, timeout=20)
         rv = nr_rcvd == self.nr
@@ -491,7 +491,7 @@ class Vxlan(BaseTest):
                        )
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
         # We don't care if expected packet is received during warming up
         if not wu:
@@ -533,7 +533,7 @@ class Vxlan(BaseTest):
                  )
 
         self.dataplane.flush()
-        for i in xrange(self.nr):
+        for i in range(self.nr):
             testutils.send_packet(self, net_port, packet)
         nr_rcvd = count_matched_packets_helper(self, inpacket, self.nr, acc_port, timeout=20)
         rv = nr_rcvd == self.nr
