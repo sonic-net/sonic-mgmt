@@ -58,9 +58,9 @@ parameters:
 
   - name: SDK_BUILD_PIPELINE_NAME
     type: string
-    default: "bcm_sai_external_sug_7.1"
+    default: "bcm_sai_external_sug"
     values:
-      - "bcm_sai_external_sug_7.1"
+      - "bcm_sai_external_sug"
       - "Build.SAI.BRCM.7.0"
       - "Build.SAI.BRCM.4.3"
 
