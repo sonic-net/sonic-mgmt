@@ -85,8 +85,7 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
         dscp_mode: DSCP mode to apply
     """
 
-    default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")
-    ["stdout"].strip()
+    default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
 
     if default_decap_mode == dscp_mode:
         return
@@ -101,7 +100,7 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
         ]
         duthost.shell_cmds(cmds=cmds)
 
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, config_source='minigraph', safe_reload=True)
 
 
 def apply_dscp_cfg_teardown(duthost):
@@ -122,12 +121,12 @@ def apply_dscp_cfg_teardown(duthost):
             cmds = [
                 'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp '.format(swss) +
                 '/usr/share/sonic/templates/ipinip.json.j2'
-            ]
+                ]
             reload_required = True
             duthost.shell_cmds(cmds=cmds)
 
     if reload_required:
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, config_source='minigraph', safe_reload=True)
 
 
 def find_links(duthost, tbinfo, filter):
