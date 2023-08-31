@@ -227,7 +227,7 @@ def run_pfc_test(api,
                            tolerance=TOLERANCE_THRESHOLD,
                            test_flow_pause=test_traffic_pause,
                            snappi_extra_params=snappi_extra_params)
-    
+
     # Verify PFC pause frame count on the DUT
     verify_pause_frame_count_dut(duthost=duthost,
                                  test_traffic_pause=test_traffic_pause,
