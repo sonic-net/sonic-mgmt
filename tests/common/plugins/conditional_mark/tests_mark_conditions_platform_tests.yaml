@@ -891,6 +891,16 @@ platform_tests/test_reload_config.py:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
 
+
+#######################################
+######  test_secure_upgrade.py  #######
+#######################################
+platform_tests/test_secure_upgrade.py:
+  skip:
+    reason: "Skip test_secure_upgrade for m0/mx with 202305 release"
+    conditions:
+      - "topo_type in ['m0', 'mx'] and release in ['202305']"
+
 #######################################
 #########  test_sensors.py  ###########
 #######################################
