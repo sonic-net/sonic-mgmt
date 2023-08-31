@@ -1,0 +1,179 @@
+import pytest
+import random
+from spytest import st, tgapi, SpyTestDict
+import re, time
+import apis.system.logging as logapi
+import apis.routing.ip as ipapi
+import apis.system.logging as logapi
+import tests.system.test_optics_reload as reload
+#import tests.system.test_optics_v4.config_traffic_bgp as config_traffic_bgp
+
+
+def var_def():
+    global vars, duts, local_links_D1, local_links_D2, tg1, tg2, tg_handle_1, tg_handle_2, SESSION_KEYS, INTERFACE_KEYS
+    (tg1, tg2, tg_handle_1, tg_handle_2) = get_handles()
+    SESSION_KEYS = SpyTestDict()
+    INTERFACE_KEYS = SpyTestDict()
+    vars = st.ensure_min_topology("D1T1:1","D1D2:2","D2T1:1")
+    duts = [vars.D1, vars.D2]
+    local_links_D1=st.get_dut_links_local(vars.D1)
+    local_links_D2=st.get_dut_links_local(vars.D2)
+    
+   
+
+MACSEC_PROFILE= {"aes_128": "GCM-AES-128", "aes_256": "GCM-AES-256", "aes_xpn_128":"GCM-AES-XPN-128", "aes_xpn_256":"GCM-AES-XPN-256"}
+MACSEC_REGEX = "install_tx_sa:.*TxSA added and activated for port {}\|phy_install_tx_sa_on_hw:.*TX SA install on port: {}\|macsec_install_tx_sa: PhyID .*:Install Tx SA: idx: {}\|\
+install_rx_sa:.*RxSA added and activated for port {}\|phy_install_rx_sa_on_hw:.*RX SA install on port: {}\|macsec_install_rx_sa: PhyID .*:Install Rx SA: idx: {}"
+
+
+def get_asic_from_port(port):
+    port = int(re.search("\d+", str(port)).group(0))
+    port = port/8
+    if port in range(0,12):
+        asic = 0
+    elif port in range(12,24):
+        asic = 1
+    else:
+        asic = 2  
+    return asic
+
+
+def get_handles():
+    tg1, tg_ph_1 = tgapi.get_handle_byname("T1D1P1")
+    tg2, tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
+    return (tg1, tg2, tg_ph_1, tg_ph_2)
+
+
+def enable_macsec_feature(dut):
+    st.config(dut, "config feature state macsec enabled")
+    output = st.config(dut, "show feature status | grep macsec", skip_tmpl=True, skip_error_check=False)
+    if re.search("enabled\s+enabled", output):
+        st.banner("--------Macsec enabled on {}------".format(dut))
+        return True
+    else:
+        st.error("Failed to enable macsec feature on {}".format(dut))
+        return False
+
+
+
+def apply_profile(duts, ports, profile, policy, replay_window="0", send_sci="1", is_lag= False, mismatch = False):
+    for dut in duts:
+    #st.config(dut, 'sudo config macsec -n asic{} CONFIG_DB HMSET "MACSEC_PROFILE|{}" "priority" "64" "cipher_suite" "{}" "primary_cak" "{}" \
+    #"primary_ckn" "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" "fallback_cak" "" "fallback_ckn" "" "policy" "{}" "enable_replay_protect" "0" "replay_window" "{}" "send_sci" "{}" "rekey_period" "30"\
+    #'.format(asic, profile, MACSEC_PROFILE[profile], primary_cak, policy, replay_window, send_sci), skip_tmpl=True, skip_error_check=False)
+        count = 0
+        for port in ports[dut]:
+            asic = get_asic_from_port(port) if is_lag is False else 0
+            if count == 0:
+                if re.search("\d+", str(profile)).group(0) == '256':
+                    primary_cak = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
+                else:
+                    primary_cak = "0123456789ABCDEF0123456789ABCDEF"
+                st.config(dut, 'sudo config macsec -n asic{} profile add {} --priority 64 --cipher_suite "{}" --primary_cak {} --primary_ckn "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" --replay_window {} --rekey_period 30 --send_sci\
+            '.format(asic, profile, MACSEC_PROFILE[profile], primary_cak, replay_window), skip_tmpl=True, skip_error_check=False)
+            count+=1
+            st.banner("--------Applying macsec profile on {} {}------".format(dut, port))
+            st.config(dut, "sonic-db-cli -n asic{} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(asic, port, profile), skip_tmpl=True, skip_error_check=False)
+
+
+def check_syslog(dut, port, syslog_regex):
+    '''Get the port number from given interface name.
+    For eg: Ethernet2 = 2*8 = 16 ; Ethernet16 = 16*8 = 128'''
+    port_num = int(re.search("\d+", str(port)).group(0))
+    port_8 = port_num/8 
+    line = syslog_regex.format(port_num, port_8, port_num, port_num, port_8, port_num)
+    if len(logapi.show_logging(dut, filter_list= [line]))<6:
+        st.error("Failed to find syslogs on {} for {}".format(dut, port))
+        return False
+    return True
+
+def is_container_running(dut, container_name, asic):
+    """
+    @summary: Decide whether the container is running or not
+    @return:  Boolean value. True represents the container is running
+    """
+    result = st.show(dut, "docker ps | grep -w {}{}".format(container_name, asic))
+    return len(result) == 1
+
+    
+def run_traffic(request, wait_time=15):
+    var_def()
+    st.log('# Configure TG Interfaces #') 
+    tg1.tg_traffic_control(action='reset', port_handle=[tg_handle_1,tg_handle_2])
+    tg2.tg_traffic_control(action='reset', port_handle=[tg_handle_1,tg_handle_2])
+    res1=tg1.tg_interface_config(port_handle=tg_handle_1, mode='config', intf_ip_addr="100.100.100.2", gateway="100.100.100.1", src_mac_addr='00:0a:01:00:11:01', arp_send_req='1')
+    st.log("INTFCONF: "+str(res1))
+    tg1_interface = res1['handle']
+    res2=tg2.tg_interface_config(port_handle=tg_handle_2, mode='config', intf_ip_addr="200.200.200.2", gateway="200.200.200.1", src_mac_addr='00:0a:01:00:11:02', arp_send_req='1')
+    st.log("INTFCONF: "+str(res2))
+    tg2_interface = res2['handle']
+    #Verify traffic between D1 and T1
+    iteration=0 
+    while iteration<5: 
+        result = ipapi.ping(vars.D1, "100.100.100.2", distributed=True)
+        if not result: 
+            iteration+=1 
+            st.wait(15)
+        else:
+            break 
+    else:
+        return False 
+
+    #Ping verification between D2 and T1
+    iteration=0
+    while iteration<5:
+        result = ipapi.ping(vars.D2, "200.200.200.2", distributed=True)
+        if not result:
+            iteration+=1
+            st.wait(15)
+        else:
+            break
+    else:
+        return False
+
+    #Ping Verification between D1 & D2
+    iteration=0
+    while iteration<5:
+        result = ipapi.ping(vars.D1, "10.10.{}.2".format(request.config.subnet), distributed=True)
+        if not result:
+            iteration+=1
+            st.wait(15)
+        else:
+            break
+    else:
+        return False
+
+    tg1.tg_traffic_control(action='clear_stats', port_handle=[tg_handle_1, tg_handle_2])
+    receive = tg1.tg_traffic_config(port_handle=tg_handle_1, port_handle2=tg_handle_2, mode='create', transmit_mode='continuous', circuit_endpoint_type='ipv4', frame_size='64', rate_percent=16.5, emulation_src_handle=tg1_interface, emulation_dst_handle=tg2_interface)
+    tg1_stream_id = receive["stream_id"]
+    tg1.tg_traffic_control(action='run', stream_handle=[tg1_stream_id])
+    st.wait(wait_time)
+    tg1.tg_traffic_control(action='stop', port_handle=tg_handle_1)
+    st.wait(2)
+    tg_tx = tgapi.get_traffic_stats(tg1, port_handle=tg_handle_1)
+    tg_rx = tgapi.get_traffic_stats(tg2, port_handle=tg_handle_2)
+    print("Received traffic: ",tg_rx['rx']['total_packets'])
+    print("Sent traffic: ",tg_tx['tx']['total_packets'])
+    if tg_rx['rx']['total_packets'] > 0.80*tg_tx['tx']['total_packets']:
+        return True
+    else:
+        return False
+
+def restart_container(dut, container_name, asic):
+    cmd = "docker restart {}{}".format(container_name, asic)
+    result = st.config(dut, cmd)
+    st.log("result for docker restart {} is {}".format(cmd, result))
+    st.wait(300)
+
+
+def config_portchannel():
+    for dut in duts: 
+        st.config(dut, "sudo config portchannel -n asic0 add --min-links 2 PortChannel24")
+        st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P1))
+        st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P2))
+
+def deconfig_portchannel():
+    for dut in duts:
+        st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P1))
+        st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P2))
+        st.config(dut, "sudo config portchannel -n asic0 del PortChannel24")
