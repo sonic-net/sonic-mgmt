@@ -127,3 +127,10 @@ bjw-pdu-126-135,29,bjw-can-7060-fanout-1,PSU1
 bjw-pdu-126-134,29,bjw-can-7060-fanout-1,PSU2
 bjw-pdu-126-135,30,bjw-can-7260-root-1,PSU1
 bjw-pdu-126-134,30,bjw-can-7260-root-1,PSU2
+bjw-pdu-126-130,3,bjw-can-4kts-1,PSU1
+bjw-pdu-126-130,21,bjw-can-z9332f-5,PSU1
+bjw-pdu-126-131,21,bjw-can-z9332f-5,PSU2
+bjw-pdu-126-130,22,bjw-can-z9332f-6,PSU1
+bjw-pdu-126-131,22,bjw-can-z9332f-6,PSU2
+bjw-pdu-126-130,23,bjw-can-z9332f-7,PSU1
+bjw-pdu-126-131,23,bjw-can-z9332f-7,PSU2

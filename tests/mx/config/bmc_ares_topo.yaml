@@ -4,9 +4,9 @@ config:
     port_aliases:
       - etp47
       - etp48
-  acl_rule_file_name: bmc_ares_acl_rules.json
+  static_acl_rule_file: bmc_ares_acl_rules.json
   acl_tables:
-    - BMC_ACL_NORTHBOUND
+    bmc_acl_northbound: BMC_ARES_ACL_NORTHBOUND
 shelfs:
   - id: 1
     rm:

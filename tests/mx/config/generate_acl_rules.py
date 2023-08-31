@@ -2,27 +2,38 @@
 
 import ipaddress
 import json
+import os
+import re
 import yaml
 
 from functools import reduce
-
-from port_utils import get_port_alias_to_name_map
+from pathlib import Path
+try:
+    from .port_utils import get_port_alias_to_name_map
+except ImportError:
+    from port_utils import get_port_alias_to_name_map
 
 ACL_ACTION_ACCEPT = "ACCEPT"
 ACL_ACTION_DROP = "DROP"
 
-ACL_TABLE_BMC_NORTHBOUND = "BMC_ACL_NORTHBOUND"
-ACL_TABLE_BMC_NORTHBOUND_V6 = "BMC_ACL_NORTHBOUND_V6"
-ACL_TABLE_BMC_SOUTHBOUND_V6 = "BMC_ACL_SOUTHBOUND_V6"
+ACL_TABLE_BMC_NORTHBOUND = "bmc_acl_northbound"
+ACL_TABLE_BMC_NORTHBOUND_V6 = "bmc_acl_northbound_v6"
+ACL_TABLE_BMC_SOUTHBOUND_V6 = "bmc_acl_southbound_v6"
 
 ETHERTYPE_IPV4 = 0x0800
 ETHERTYPE_IPV6 = 0x86DD
 
 IP_PROTOCOL_TCP = "IP_TCP"
 IP_PROTOCOL_UDP = "IP_UDP"
+IP_PROTOCOL_MAP = {
+    IP_PROTOCOL_TCP: 6,
+    IP_PROTOCOL_UDP: 17,
+}
 
 TCP_FLAG_ACK = "TCP_ACK"
 TCP_FLAG_SYN = "TCP_SYN"
+
+AUTO_GENERATED_FOLDER = "auto_generated_files"
 
 
 def minimum_supernet(ip_list):
@@ -46,7 +57,8 @@ def ip_merge(ip_list, exclude_list=None):
 
 
 def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
-              src_ip=None, dst_ip=None, ip_protocol=None, tcp_flags=None):
+              src_ip=None, dst_ip=None, ip_protocol=None, tcp_flags=None,
+              l4_src_port=None, l4_dst_port=None):
     rule = {
         "config": {"sequence-id": seq_id},
         "actions": {"config": {"forwarding-action": action}},
@@ -66,8 +78,15 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
         rule["input_interface"] = {"interface_ref": {"config": {"interface": ",".join(interfaces)}}}
     if ethertype:
         rule["l2"] = {"config": {"ethertype": ethertype}}
-    if tcp_flags:
-        rule["transport"] = {"config": {"tcp-flags": tcp_flags}}
+    if tcp_flags or l4_src_port or l4_dst_port:
+        transport_cfg = {}
+        if tcp_flags:
+            transport_cfg["tcp-flags"] = tcp_flags
+        if l4_src_port:
+            transport_cfg["source-port"] = l4_src_port
+        if l4_dst_port:
+            transport_cfg["destination-port"] = l4_dst_port
+        rule["transport"] = {"config": transport_cfg}
     return rule
 
 
@@ -227,11 +246,6 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
 
 
 def gen_southbound_acl_entries_v6(rack_topo, hwsku):
-    shelfs = rack_topo['shelfs']
-    rms = [shelf['rm'] for shelf in shelfs]
-    bmc_groups = reduce(lambda x, y: x + y, [shelf['bmc'] for shelf in shelfs])
-    bmc_hosts = reduce(lambda x, y: x + y, [bmc_gp['hosts'] for bmc_gp in bmc_groups])
-
     acl_entries = {}
 
     # By default, drop all the southbound traffic:
@@ -248,17 +262,52 @@ def gen_acl_rules(topo_file, hwsku):
         rack_topo = yaml.safe_load(f)
 
     acl_set = {}
-    if ACL_TABLE_BMC_NORTHBOUND in rack_topo['config']['acl_tables']:
-        acl_set[ACL_TABLE_BMC_NORTHBOUND] = gen_northbound_acl_entries_v4(rack_topo, hwsku)
-    if ACL_TABLE_BMC_NORTHBOUND_V6 in rack_topo['config']['acl_tables']:
-        acl_set[ACL_TABLE_BMC_NORTHBOUND_V6] = gen_northbound_acl_entries_v6(rack_topo, hwsku)
-    if ACL_TABLE_BMC_SOUTHBOUND_V6 in rack_topo['config']['acl_tables']:
-        acl_set[ACL_TABLE_BMC_SOUTHBOUND_V6] = gen_southbound_acl_entries_v6(rack_topo, hwsku)
+    acl_tables = rack_topo['config']['acl_tables']
+    if ACL_TABLE_BMC_NORTHBOUND in acl_tables:
+        acl_set[acl_tables[ACL_TABLE_BMC_NORTHBOUND]] = gen_northbound_acl_entries_v4(rack_topo, hwsku)
+    if ACL_TABLE_BMC_NORTHBOUND_V6 in acl_tables:
+        acl_set[acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6]] = gen_northbound_acl_entries_v6(rack_topo, hwsku)
+    if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
+        acl_set[acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6]] = gen_southbound_acl_entries_v6(rack_topo, hwsku)
     acl_rules = {"acl": {"acl-sets": {"acl-set": acl_set}}}
 
-    acl_rule_file_name = rack_topo['config']['acl_rule_file_name']
-    with open(acl_rule_file_name, 'w') as fout:
-        json.dump(acl_rules, fout, sort_keys=True, indent=2)
+    Path(AUTO_GENERATED_FOLDER).mkdir(parents=True, exist_ok=True)
+
+    # generate static ACL rule files    
+    static_acl_rule_file = os.path.join(AUTO_GENERATED_FOLDER, rack_topo['config']['static_acl_rule_file'])
+    with open(static_acl_rule_file, 'w') as fout:
+        json.dump(acl_rules, fout, sort_keys=True, indent=4)
+
+    # generate dynamic ACL rule template files
+    if 'dynamic_acl_rule_template_file' in rack_topo['config']:
+        DYN_NORTHBOUND_VAR_NAME = "dynamic_northbound_v6"
+        DYN_SOUTHBOUND_VAR_NAME = "dynamic_southbound_v6"
+
+        def gen_pattern(acl_table):
+            return r'"' + acl_table + r'": {' + "\n" + \
+                   r'( *)"acl-entries": {' + "\n" + \
+                   r'(.*)"acl-entry": {' + "\n"
+
+        def gen_replace(acl_table):
+            dyn_var_name = DYN_NORTHBOUND_VAR_NAME if "northbound" in acl_table.lower() else DYN_SOUTHBOUND_VAR_NAME
+            return r'"' + acl_table + r'": {' + "\n" + \
+                   r'\1"acl-entries": {' + "\n" + \
+                   r'\2"acl-entry": {' + "\n" + \
+                   r'\2    {% for acl_name, acl_rule in ' + dyn_var_name + r'.items() %}' + "\n" + \
+                   r'\2    "{{ acl_name }}": {{ acl_rule }},' + "\n" + \
+                   r'\2    {% endfor %}' + "\n"
+
+        dynamic_acl_rule_template_file = os.path.join(AUTO_GENERATED_FOLDER, rack_topo['config']['dynamic_acl_rule_template_file'])
+        with open(static_acl_rule_file, 'r') as fin:
+            filedata = fin.read()
+        with open(dynamic_acl_rule_template_file, 'w') as fout:
+            if ACL_TABLE_BMC_NORTHBOUND_V6 in acl_tables:
+                pattern = gen_pattern(acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6])
+                filedata = re.sub(pattern, gen_replace(acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6]), filedata)
+            if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
+                pattern = gen_pattern(acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
+                filedata = re.sub(pattern, gen_replace(acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6]), filedata)
+            fout.write(filedata)
 
 
 def gen_bmc_otw_acl_rules():

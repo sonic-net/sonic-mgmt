@@ -7,7 +7,7 @@ parameters:
   - name: BRCMSAI_BRANCH
     displayName: "brcm sai branch"
     type: string
-    default: REL_PRE_7.0_202205
+    default: REL_7.0_202205
 
   # Self is mgmt-int, saibcm is acs-saibcm
   - name: saibcmrepo

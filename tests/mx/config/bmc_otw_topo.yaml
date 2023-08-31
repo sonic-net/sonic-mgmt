@@ -4,11 +4,12 @@ config:
     port_aliases:
       - etp47
       - etp48
-  acl_rule_file_name: bmc_otw_acl_rules.json
+  static_acl_rule_file: bmc_otw_acl_rules.json
+  dynamic_acl_rule_template_file: bmc_otw_acl_rules_dynamic.j2
   acl_tables:
-    - BMC_ACL_NORTHBOUND
-    - BMC_ACL_NORTHBOUND_V6
-    - BMC_ACL_SOUTHBOUND_V6
+    bmc_acl_northbound: BMC_ACL_NORTHBOUND
+    bmc_acl_northbound_v6: BMC_ACL_NORTHBOUND_V6
+    bmc_acl_southbound_v6: BMC_ACL_SOUTHBOUND_V6
 shelfs:
   - id: 1
     rm:

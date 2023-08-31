@@ -6310,6 +6310,25 @@ vms_bjw_13:
     VM74007:
       ansible_host: 172.16.199.35
 
+vms_bjw_14:
+  hosts:
+    VM71000:
+      ansible_host: 172.16.200.32
+    VM71001:
+      ansible_host: 172.16.200.33
+    VM71002:
+      ansible_host: 172.16.200.34
+    VM71003:
+      ansible_host: 172.16.200.35
+    VM71004:
+      ansible_host: 172.16.200.36
+    VM71005:
+      ansible_host: 172.16.200.37
+    VM71006:
+      ansible_host: 172.16.200.38
+    VM71007:
+      ansible_host: 172.16.200.39
+
 vms_bjw_16:
   hosts:
     VM73000:
