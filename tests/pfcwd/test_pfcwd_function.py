@@ -427,6 +427,7 @@ class SetupPfcwdFunc(object):
                 pfc_send_time = 60
             else:
                 gen_file = 'pfc_gen.py'
+                pfc_send_time = None
 
             # get pfc storm handle
             if init and detect:

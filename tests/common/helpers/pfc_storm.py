@@ -286,6 +286,9 @@ class PFCMultiStorm(object):
             if self.duthost.topo_type == 't2':
                 gen_file = 'pfc_gen_t2.py'
                 pfc_send_time = 60
+            else:
+                gen_file = 'pfc_gen.py'
+                pfc_send_time = None
             # get pfc storm handle
             self.storm_handle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
                                                    self.fanouthosts,

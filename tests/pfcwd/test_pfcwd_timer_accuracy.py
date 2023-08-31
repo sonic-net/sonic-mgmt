@@ -145,6 +145,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
         pfc_send_time = 8
     else:
         pfc_gen_file = 'pfc_gen.py'
+        pfc_send_time = None
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
                             pfc_frames_number=pfc_frames_count, pfc_gen_file=pfc_gen_file,
                             pfc_send_period=pfc_send_time, peer_info=peer_params)
