@@ -876,7 +876,7 @@ class ReloadTest(BaseTest):
         vlan = next(k for k, v in self.ports_per_vlan.items() if v)
         vlan_ip_range = self.vlan_ip_range[vlan]
 
-        vlan_port_canadiates = range(len(self.ports_per_vlan[vlan]))
+        vlan_port_canadiates = list(range(len(self.ports_per_vlan[vlan])))
         vlan_port_canadiates.remove(0)  # subnet prefix
         vlan_port_canadiates.remove(1)  # subnet IP on dut
         src_idx = random.choice(vlan_port_canadiates)
