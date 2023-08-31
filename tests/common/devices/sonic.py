@@ -24,7 +24,6 @@ from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
-from tests.common import mellanox_data
 
 logger = logging.getLogger(__name__)
 
