@@ -240,7 +240,15 @@ def run_pfc_test(api,
                                      test_flow_name=TEST_FLOW_NAME,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
-    elif test_traffic_pause and not snappi_extra_params.gen_background_traffic:
+    else:
+        # Verify zero pause frames are counted when the PFC class enable vector is not set
+        verify_unset_cev_pause_frame_count(duthost=duthost,
+                                           snappi_extra_params=snappi_extra_params)
+        # Verify egress queue frame counts
+        verify_egress_queue_frame_count(duthost=duthost,
+                                        snappi_extra_params=snappi_extra_params)
+
+    if test_traffic_pause and not snappi_extra_params.gen_background_traffic:
         # Verify TX frame count on the DUT when traffic is expected to be paused
         # and only test traffic flows are generated
         verify_tx_frame_count_dut(duthost=duthost,
@@ -250,10 +258,3 @@ def run_pfc_test(api,
         # and only test traffic flows are generated
         verify_rx_frame_count_dut(duthost=duthost,
                                   snappi_extra_params=snappi_extra_params)
-    else:
-        # Verify zero pause frames are counted when the PFC class enable vector is not set
-        verify_unset_cev_pause_frame_count(duthost=duthost,
-                                           snappi_extra_params=snappi_extra_params)
-        # Verify egress queue frame counts
-        verify_egress_queue_frame_count(duthost=duthost,
-                                        snappi_extra_params=snappi_extra_params)

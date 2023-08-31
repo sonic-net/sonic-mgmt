@@ -12,6 +12,8 @@ in .csv format etc.
 
 from enum import Enum
 import ipaddr
+import json
+import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
@@ -830,9 +832,11 @@ def get_tx_frame_count(duthost, port):
     Returns:
         tx_frame_count (int): Tx frame count
     """
-    raw_out = duthost.shell("show interface counters | grep {}".format(port))['stdout']
-    tx_ok_frame_count = raw_out.split()[9]
-    tx_drp_frame_count = raw_out.split()[14]
+    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    tx_ok_frame_count = raw_json[port]["TX_OK"]
+    tx_drp_frame_count = raw_json[port]["TX_DRP"]
 
     return int(tx_ok_frame_count.replace(',', '')), int(tx_drp_frame_count.replace(',', ''))
 
@@ -844,11 +848,13 @@ def get_rx_frame_count(duthost, port):
         duthost (Ansible host instance): device under test
         port (str): port name ex. Ethernet4
     Returns:
-        rx_frame_count (int): Tx frame count
+        rx_frame_count (int): Rx frame count
     """
-    raw_out = duthost.shell("show interface counters | grep {}".format(port))['stdout']
-    rx_ok_frame_count = raw_out.split()[2]
-    rx_drp_frame_count = raw_out.split()[7]
+    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    rx_ok_frame_count = raw_json[port]["RX_OK"]
+    rx_drp_frame_count = raw_json[port]["RX_DRP"]
 
     return int(rx_ok_frame_count.replace(',', '')), int(rx_drp_frame_count.replace(',', ''))
 
