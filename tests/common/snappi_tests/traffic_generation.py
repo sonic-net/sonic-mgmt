@@ -598,7 +598,7 @@ def verify_rx_frame_count_dut(duthost,
     Args:
         duthost (obj): DUT host object
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%) 
+        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
         rx_drop_frame_count_tol (int): tolerance for tx drop frame count
     Returns:
 
