@@ -1006,8 +1006,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                             ip_dst=active_tor_ip,
                             ip_dscp=outer_dscp,
                             ip_ecn=ecn,
-                            inner_frame=pkt[scapy.IP],
-                            pktlen=packet_size
+                            inner_frame=pkt[scapy.IP]
                             )
         return ipinip_packet
 

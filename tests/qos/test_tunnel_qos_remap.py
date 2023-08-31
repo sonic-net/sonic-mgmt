@@ -119,12 +119,12 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         # Verify encaped packet
         try:
             testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
-            print("Verified DSCP combination {}".format(str(dscp_combination)))
+            logger.info("Verified DSCP combination {}".format(str(dscp_combination)))
         except AssertionError:
-            print("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
+            logger.info("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))
             success = False
     assert success, "Failed inner->outer DSCP verification"
-    print("Verified {} DSCP inner->outer combinations".format(len(DSCP_COMBINATIONS)))
+    logger.info("Verified {} DSCP inner->outer combinations".format(len(DSCP_COMBINATIONS)))
 
 
 def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host, toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter):
