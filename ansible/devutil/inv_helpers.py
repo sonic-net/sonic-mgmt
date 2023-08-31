@@ -1,4 +1,5 @@
 import yaml
+import jinja2
 
 try:
     from ansible.parsing.dataloader import DataLoader
@@ -120,25 +121,50 @@ class HostManager():
                         'username': 'ansible_user',
                         'password': ['ansible_password']}
         }
-        if 'sonic' in groups:
-            res['username'] = vars['secret_group_vars']['str']['sonicadmin_user']
-            res['password'] = [vars['secret_group_vars']
-                               ['str']['sonicadmin_password']]
-            res['password'].append(vars['ansible_altpassword'])
-        else:
-            for group, cred in k_v.items():
-                if group in groups:
-                    res['username'] = vars['secret_group_vars'][cred['alias']
-                                                                ][cred['username']]
-                    res['password'] = [vars['secret_group_vars']
-                                       [cred['alias']][p] for p in cred['password']]
-                    break
+
+        if 'secret_group_vars' in vars:
+            if 'sonic' in groups:
+                res['username'] = vars['secret_group_vars']['str']['sonicadmin_user']
+                res['password'] = [vars['secret_group_vars']
+                                   ['str']['sonicadmin_password']]
+                res['password'].append(vars['ansible_altpassword'])
+            else:
+                for group, cred in k_v.items():
+                    if group in groups:
+                        res['username'] = vars['secret_group_vars'][cred['alias']
+                                                                    ][cred['username']]
+                        res['password'] = [vars['secret_group_vars']
+                                           [cred['alias']][p] for p in cred['password']]
+                        break
+
+        if 'username' not in vars:
+            ssh_user = ''
+            if 'ansible_ssh_user' in vars:
+                ssh_user = vars['ansible_ssh_user']
+            elif 'ansible_user' in vars:
+                ssh_user = vars['ansible_user']
+            else:
+                ssh_user = ''
+
+            res['username'] = jinja2.Template(ssh_user).render(**vars)
+
+        if 'password' not in vars:
+            ssh_pass = ''
+            if 'ansible_ssh_pass' in vars:
+                ssh_pass = vars['ansible_ssh_pass']
+            elif 'ansible_password' in vars:
+                ssh_pass = vars['ansible_password']
+            else:
+                ssh_pass = ''
+
+            res['password'] = [jinja2.Template(ssh_pass).render(**vars)]
+
         # console username and password
         console_login_creds = vars.get("console_login", {})
         res["console_user"] = {}
         res["console_password"] = {}
 
-        for k, v in console_login_creds.iteritems():
+        for k, v in console_login_creds.items():
             res["console_user"][k] = v["user"]
             res["console_password"][k] = v["passwd"]
 

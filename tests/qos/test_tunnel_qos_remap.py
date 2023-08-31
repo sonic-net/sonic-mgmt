@@ -1,6 +1,5 @@
 import logging
 import pytest
-import sys
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
@@ -343,12 +342,6 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
         queue_count = get_queue_counter(dut, port, queue, False)
         assert base_queue_count == queue_count
         return True
-    except AssertionError:
-        logger.info('assert {}'.format(sys.exc_info()))
-        return False
-    except Exception:
-        logger.info('exception {}'.format(sys.exc_info()))
-        return False
     finally:
         stop_pfc_storm(storm_handler)
 
@@ -415,16 +408,16 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
                 if pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, rand_selected_dut, actual_port_name,
                                   queue, pkt, src_port, exp_pkt, dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, actual_port_name))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, actual_port_name, err))
             time.sleep(5)
 
 
@@ -489,21 +482,21 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
                                   dualtor_meta['selected_port'], queue, tunnel_pkt.exp_pkt, src_port, exp_pkt,
                                   dst_ports):
                     break
-            except AssertionError:
+            except AssertionError as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
-            except Exception:
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
+            except Exception as err:
                 retry += 1
                 if retry == PFC_PAUSE_TEST_RETRY_MAX:
-                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly".format(
-                        queue, dualtor_meta['selected_port']))
+                    pytest_assert(False, "The queue {} for port {} counter increased unexpectedly: {}".format(
+                        queue, dualtor_meta['selected_port'], err))
             time.sleep(5)
 
 
 @pytest.mark.disable_loganalyzer
-def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps):     # noqa F811
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, creds, tunnel_qos_maps):     # noqa F811
     """
     Test steps:
     1. Toggle all ports to active on randomly selected ToR
@@ -542,7 +535,9 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
         "sonic_asic_type": dut_config["asic_type"],
         "platform_asic": dut_config["platform_asic"],
         "packet_size": packet_size,
-        "cell_size": cell_size
+        "cell_size": cell_size,
+        "dut_username": creds['sonicadmin_user'],
+        "dut_password": creds['sonicadmin_password']
     })
 
     run_ptf_test(
@@ -554,7 +549,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("xoff_profile", ["pcbb_xoff_1", "pcbb_xoff_2", "pcbb_xoff_3", "pcbb_xoff_4"])
-def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):     # noqa F811
+def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module, creds):     # noqa F811
     """
     The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
     Test steps
@@ -580,6 +575,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
         "port_map_file_ini": dut_config["port_map_file_ini"],
         "platform_asic": dut_config["platform_asic"],
         "sonic_asic_type": dut_config["asic_type"],
+        "dut_username": creds['sonicadmin_user'],
+        "dut_password": creds['sonicadmin_password']
     })
     if dut_config["asic_type"] == 'mellanox':
         test_params.update({'cell_size': 144, 'packet_size': 300})
