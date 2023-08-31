@@ -314,10 +314,7 @@ class SonicHost(AnsibleHostBase):
                 result["asic_type"] = line.split(":")[1].strip()
 
         if result["platform"]:
-            platform_json_file_name = 'platform.json'
-            if 'asic_type' in result and result['asic_type'] == 'mellanox':
-                platform_json_file_name = mellanox_data.get_platform_json_file_name(self, result["platform"])
-            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], platform_json_file_name)
+            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], "platform.json")
 
             try:
                 out = self.command("cat {}".format(platform_file_path))

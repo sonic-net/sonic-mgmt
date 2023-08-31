@@ -514,7 +514,7 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-mlnx_msn2700-r0-a1:
+  x86_64-mlnx_msn2700a1-r0:
     alarms:
       fan:
 

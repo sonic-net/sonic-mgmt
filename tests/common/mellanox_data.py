@@ -17,8 +17,7 @@ MULTI_HARDWARE_TYPE_PLATFORMS = ['x86_64-mlnx_msn4700-r0',
                                  'x86_64-mlnx_msn4410-r0',
                                  'x86_64-mlnx_msn4600c-r0',
                                  'x86_64-mlnx_msn3700-r0',
-                                 'x86_64-mlnx_msn3700c-r0',
-                                 'x86_64-mlnx_msn2700-r0']
+                                 'x86_64-mlnx_msn3700c-r0']
 SWITCH_MODELS = {
     "x86_64-nvidia_sn5600-r0": {
         "chip_type": "spectrum4",
@@ -197,7 +196,7 @@ SWITCH_MODELS = {
             }
         }
     },
-    "x86_64-mlnx_msn2700-r0-a1": {
+    "x86_64-mlnx_msn2700a1-r0": {
         "chip_type": "spectrum1",
         "reboot": {
             "cold_reboot": True,
@@ -978,13 +977,7 @@ def get_platform_data(dut):
     :return: A dictionary contains the platform physical data
     """
     dut_platform = dut.facts["platform"]
-    hardware_version = get_hardware_version(dut, dut_platform)
-    if not hardware_version:
-        return SWITCH_MODELS[dut_platform]
-    else:
-        platform_name = dut_platform + '-' + hardware_version
-        return SWITCH_MODELS[platform_name] if platform_name in SWITCH_MODELS else \
-            SWITCH_MODELS[dut_platform]
+    return SWITCH_MODELS[dut_platform]
 
 
 def get_chip_type(dut):
@@ -994,7 +987,7 @@ def get_chip_type(dut):
 
 @read_only_cache()
 def get_hardware_version(duthost, platform):
-    if platform in MULTI_HARDWARE_TYPE_PLATFORMS and platform != 'x86_64-mlnx_msn2700-r0':
+    if platform in MULTI_HARDWARE_TYPE_PLATFORMS:
         config1 = duthost.command('cat /run/hw-management/system/config1', module_ignore_errors=True)
         config3 = duthost.command('cat /run/hw-management/system/config3', module_ignore_errors=True)
         if platform in ('x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4410-r0'):
@@ -1016,16 +1009,5 @@ def get_hardware_version(duthost, platform):
             if config3['rc'] == 0 and config3['stdout'] == '1':
                 return 'respined'
             return ''
-    elif platform == 'x86_64-mlnx_msn2700-r0':
-        output = duthost.command('dmidecode --string baseboard-product-name', module_ignore_errors=True)
-        return 'a1' if 'VMOD0001' not in output['stdout'] else ''
     else:
         return ''
-
-
-def get_platform_json_file_name(duthost, dut_platform):
-    if dut_platform == 'x86_64-mlnx_msn2700-r0':
-        if get_hardware_version(duthost, dut_platform) != '':
-            return 'platform_a1.json'
-
-    return 'platform.json'
