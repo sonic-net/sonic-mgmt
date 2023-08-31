@@ -99,7 +99,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost,
+                         setup_streaming_telemetry, gnxi_path):
     """ Test osbuild/version query.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -163,7 +164,8 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
         pytest.fail("The value of system uptime was not updated correctly.")
 
 
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost,
+                                   setup_streaming_telemetry, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
