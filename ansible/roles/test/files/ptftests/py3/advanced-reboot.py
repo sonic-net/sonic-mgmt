@@ -679,7 +679,7 @@ class ReloadTest(BaseTest):
 
         self.random_vlan = random.choice(self.vlan_ports)
         self.from_server_src_port = self.random_vlan
-        self.from_server_src_addr = random.choice(self.vlan_host_map[self.random_vlan].keys())
+        self.from_server_src_addr = random.choice(list(self.vlan_host_map[self.random_vlan].keys()))
         self.from_server_src_mac = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr = self.random_ip(self.test_params['default_ip_range'])
         self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
@@ -849,7 +849,7 @@ class ReloadTest(BaseTest):
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
 
         for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
-            src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
+            src_addr = random.choice(list(self.vlan_host_ping_map[src_port].keys()))
             src_mac = self.hex_to_mac(
                 self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
