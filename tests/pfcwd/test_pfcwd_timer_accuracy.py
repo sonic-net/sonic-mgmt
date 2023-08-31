@@ -186,7 +186,7 @@ class TestPfcwdAllTimer(object):
         self.all_dut_detect_restore_time.append(dut_detect_restore_time)
         logger.info(
             "Iteration all_dut_detect_restore_time list {} and length {}".format(
-                self.all_dut_detect_restore_time, len(self.all_dut_detect_restore_time)))
+                ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
 
     def verify_pfcwd_timers(self):
         """
@@ -232,8 +232,8 @@ class TestPfcwdAllTimer(object):
         dut_config_pfcwd_time = 10000
 
         logger.info(
-            "all_dut_detect_restore_time list {} and length {}".format(
-                self.all_dut_detect_restore_time, len(self.all_dut_detect_restore_time)))
+            "all_dut_detect_restore_time sorted list {} and length {}".format(
+                ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
 
         logger.info("Verify that real dut detection-restoration time is less than expected value")
         err_msg = ("Real dut detection-restoration time is greater than configured: Real dut detection-restore time: {}"
