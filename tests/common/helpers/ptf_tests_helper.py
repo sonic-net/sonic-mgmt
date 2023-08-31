@@ -4,6 +4,7 @@ A helper module for PTF tests.
 
 import pytest
 import random
+import os
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
@@ -176,3 +177,15 @@ def get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_port_id):
             return dut_port
 
     return None
+
+
+def fetch_test_logs_ptf(ptfhost, ptf_location, dest_dir):
+    """
+    Fetch test logs from ptfhost after individual test run
+    """
+    log_dir = ptf_location
+    curr_dir = os.getcwd()
+    logFiles = {'src': log_dir, 'dest': curr_dir + dest_dir, 'flat': True, 'fail_on_missing': False}
+    ptfhost.fetch(**logFiles)
+
+    return logFiles['dest']

@@ -103,7 +103,7 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False):
         """
             Runs QoS SAI test case on PTF host
 
@@ -111,6 +111,7 @@ class QosBase:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 testCase (str): SAI tests test case name
                 testParams (dict): Map of test params required by testCase
+                relax (bool): Relax ptf verify packet requirements (default: False)
 
             Returns:
                 None
@@ -129,7 +130,7 @@ class QosBase:
             log_file="/tmp/{0}.log".format(testCase),
             qlen=10000,
             is_python3=True,
-            relax=False,
+            relax=relax,
             timeout=1200,
             custom_options=custom_options
         )
