@@ -612,7 +612,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name or 't0-backend' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
