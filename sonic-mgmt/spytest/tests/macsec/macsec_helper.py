@@ -100,6 +100,7 @@ def run_traffic(request, wait_time=15):
     res2=tg2.tg_interface_config(port_handle=tg_handle_2, mode='config', intf_ip_addr="200.200.200.2", gateway="200.200.200.1", src_mac_addr='00:0a:01:00:11:02', arp_send_req='1')
     st.log("INTFCONF: "+str(res2))
     tg2_interface = res2['handle']
+    
     #Verify traffic between D1 and T1
     iteration=0 
     while iteration<5: 
