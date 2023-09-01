@@ -7,7 +7,7 @@ import re
 import yaml
 
 from functools import reduce
-from pathlib import Path
+
 try:
     from .port_utils import get_port_alias_to_name_map
 except ImportError:
@@ -271,9 +271,10 @@ def gen_acl_rules(topo_file, hwsku):
         acl_set[acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6]] = gen_southbound_acl_entries_v6(rack_topo, hwsku)
     acl_rules = {"acl": {"acl-sets": {"acl-set": acl_set}}}
 
-    Path(AUTO_GENERATED_FOLDER).mkdir(parents=True, exist_ok=True)
+    if not os.path.exists(AUTO_GENERATED_FOLDER):
+        os.makedirs(AUTO_GENERATED_FOLDER)
 
-    # generate static ACL rule files    
+    # generate static ACL rule files
     static_acl_rule_file = os.path.join(AUTO_GENERATED_FOLDER, rack_topo['config']['static_acl_rule_file'])
     with open(static_acl_rule_file, 'w') as fout:
         json.dump(acl_rules, fout, sort_keys=True, indent=4)
