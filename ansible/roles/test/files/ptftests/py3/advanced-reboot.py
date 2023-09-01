@@ -160,7 +160,7 @@ class ReloadTest(BaseTest):
         self.check_param('lo_v6_prefix', 'fc00:1::/64', required=False)
         self.check_param('arista_vms', [], required=True)
         self.check_param('min_bgp_gr_timeout', 15, required=False)
-        self.check_param('warm_up_timeout_secs', 600, required=False)
+        self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required=False)
         # preboot sad path to inject before warm-reboot
@@ -791,7 +791,7 @@ class ReloadTest(BaseTest):
                                            ip_ttl=255,
                                            tcp_dport=5000)
 
-                self.from_t1.append((src_port, str(packet)))
+                self.from_t1.append((src_port, bytes(packet)))
 
         # expect any packet with dport 5000
         exp_packet = simple_tcp_packet(
@@ -824,7 +824,7 @@ class ReloadTest(BaseTest):
                     tcp_dport=5000
                 )
 
-                self.from_servers.append((from_port, str(packet)))
+                self.from_servers.append((from_port, bytes(packet)))
 
         exp_packet = simple_tcp_packet(
             ip_dst=self.from_server_dst_addr,
@@ -856,7 +856,7 @@ class ReloadTest(BaseTest):
                                         eth_dst=self.vlan_mac,
                                         ip_src=src_addr,
                                         ip_dst=dut_lo_ipv4)
-            self.ping_dut_packets.append((src_port, str(packet)))
+            self.ping_dut_packets.append((src_port, bytes(packet)))
 
         exp_packet = simple_icmp_packet(eth_src=self.vlan_mac,
                                         ip_src=dut_lo_ipv4,
@@ -895,7 +895,7 @@ class ReloadTest(BaseTest):
                  (src_idx, src_port, src_mac, src_addr))
         self.log("ARP ping: dst idx %d port %d addr %s" %
                  (dst_idx, dst_port, dst_addr))
-        self.arp_ping = str(packet)
+        self.arp_ping = bytes(packet)
         self.arp_resp = Mask(expect)
         self.arp_resp.set_do_not_care_scapy(scapy.Ether, 'src')
         self.arp_resp.set_do_not_care_scapy(scapy.ARP,   'hwtype')
@@ -1687,7 +1687,7 @@ class ReloadTest(BaseTest):
                     packet.load = payload
                     from_port = src_port
                     sent_count_t1_to_vlan += 1
-                testutils.send_packet(self, from_port, str(packet))
+                testutils.send_packet(self, from_port, bytes(packet))
                 self.sent_packet_count = self.sent_packet_count + 1
 
             self.log("Sent count vlan to t1: {}".format(sent_count_vlan_to_t1))
@@ -1839,7 +1839,7 @@ class ReloadTest(BaseTest):
         It returns True if a packet is not corrupted and has a valid TCP sequential TCP Payload
         """
         try:
-            int(str(packet[scapyall.TCP].payload)
+            int(bytes(packet[scapyall.TCP].payload)
                 ) in range(self.sent_packet_count)
             return True
         except Exception:
@@ -1849,12 +1849,12 @@ class ReloadTest(BaseTest):
         """
         This method filters packets which are unique (i.e. no floods).
         """
-        if (not int(str(packet[scapyall.TCP].payload)) in self.unique_id) and \
+        if (not int(bytes(packet[scapyall.TCP].payload)) in self.unique_id) and \
                 (packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac):
             # This is a unique (no flooded) received packet.
             # for dualtor, t1->server rcvd pkt will have src MAC as vlan_mac,
             # and server->t1 rcvd pkt will have src MAC as dut_mac
-            self.unique_id.append(int(str(packet[scapyall.TCP].payload)))
+            self.unique_id.append(int(bytes(packet[scapyall.TCP].payload)))
             return True
         elif packet[scapyall.Ether].dst == self.dut_mac or packet[scapyall.Ether].dst == self.vlan_mac:
             # This is a sent packet.
@@ -1909,7 +1909,7 @@ class ReloadTest(BaseTest):
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key=lambda packet: (
-            int(str(packet[scapyall.TCP].payload)), packet.time))
+            int(bytes(packet[scapyall.TCP].payload)), packet.time))
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
@@ -1933,7 +1933,7 @@ class ReloadTest(BaseTest):
                     # for dualtor both MACs are needed:
                     #   t1->server sent pkt will have dst MAC as dut_mac,
                     #   and server->t1 sent pkt will have dst MAC as vlan_mac
-                    sent_payload = int(str(packet[scapyall.TCP].payload))
+                    sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     sent_packets[sent_payload] = packet.time
                     sent_counter += 1
                     continue
@@ -1943,7 +1943,7 @@ class ReloadTest(BaseTest):
                     #   t1->server rcvd pkt will have src MAC as vlan_mac,
                     #   and server->t1 rcvd pkt will have src MAC as dut_mac
                     received_time = packet.time
-                    received_payload = int(str(packet[scapyall.TCP].payload))
+                    received_payload = int(bytes(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0:   # From vlan to T1.
                         received_vlan_to_t1 += 1
                     else:
@@ -2264,8 +2264,10 @@ class ReloadTest(BaseTest):
     def reachability_watcher(self):
         # This function watches the reachability of the CPU port, and ASIC. It logs the state
         # changes for future analysis
+        self.log('Reachability watcher started')
         self.watcher_is_stopped.clear()  # Watcher is running.
         while self.watching:
+            self.log('Reachability watcher - checking data plane')
             if self.dataplane_io_lock.acquire(False):
                 vlan_to_t1, t1_to_vlan = self.ping_data_plane(self.light_probe)
                 reachable = (t1_to_vlan > self.nr_vl_pkts * 0.7 and
@@ -2279,6 +2281,9 @@ class ReloadTest(BaseTest):
                 self.log_asic_state_change(
                     reachable, partial, t1_to_vlan, flooding)
                 self.dataplane_io_lock.release()
+            else:
+                self.log("Reachability watcher - Dataplane is busy. Skipping the check")
+            self.log('Reachability watcher - checking control plane')
             total_rcv_pkt_cnt = self.pingDut()
             reachable = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt > self.ping_dut_pkts * 0.7
             partial = total_rcv_pkt_cnt > 0 and total_rcv_pkt_cnt < self.ping_dut_pkts
@@ -2288,18 +2293,20 @@ class ReloadTest(BaseTest):
             reachable = total_rcv_pkt_cnt >= self.arp_ping_pkts
             self.log_vlan_state_change(reachable)
             self.watcher_is_running.set()   # Watcher is running.
+        self.log('Reachability watcher stopped')
         self.watcher_is_stopped.set()       # Watcher has stopped.
         self.watcher_is_running.clear()     # Watcher has stopped.
 
     def pingFromServers(self):
+        self.log('pingFromServers - Sending %d packets from servers to t1' % self.nr_pc_pkts)
         for _ in range(self.nr_pc_pkts):
             entry = next(self.watcher_from_server_iter)
             testutils.send_packet(self, *entry)
-
+        self.log('pingFromServers - Count packets from servers to t1')
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
 
-        self.log("Send %5d Received %5d servers->t1" %
+        self.log("pingFromServers - Send %5d Received %5d servers->t1" %
                  (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
