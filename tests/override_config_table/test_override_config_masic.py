@@ -168,5 +168,4 @@ def test_load_minigraph_with_golden_config(duthost, setup_env):
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)
-    full_config = setup_env
     load_minigraph_with_golden_empty_table_removal(duthost)
