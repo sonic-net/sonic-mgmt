@@ -1944,3 +1944,22 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info(f"Test ports ids is{test_port_ids}")
         return test_port_ids
+
+    @pytest.fixture(scope="function", autouse=False)
+    def _skip_pgdrop_for_hbm_longlink_high_speeds(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        if not m:
+            raise RuntimeError(
+                "Format error in portSpeedCableLength:{}".format(
+                    portSpeedCableLength))
+        speed = int(m.group(1))
+        if speed >= 400000 and src_hbm_enabled:
+            pytest.skip(
+                "Skip: PGDrop test is skipped when HBM is detected and"
+                " src port speed is greater than the backplane port speed.")

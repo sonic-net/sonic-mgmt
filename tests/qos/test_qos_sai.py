@@ -1511,7 +1511,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        _skip_pgdrop_for_hbm_longlink_high_speeds
     ):
         """
             Test QoS SAI PG drop counter
