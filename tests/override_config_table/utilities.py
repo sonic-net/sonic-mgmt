@@ -1,12 +1,12 @@
 import json
 import logging
-import pytest
 
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
+
 
 def backup_config(duthost, config, config_backup):
     logger.info("Backup {} to {} on {}".format(
