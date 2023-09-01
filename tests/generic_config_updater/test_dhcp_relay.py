@@ -70,7 +70,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     |       109 | 192.168.9.1/24   | Ethernet4 | tagged         | disabled    |                       |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     """
-
+    
     logger.info("CREATE TEST VLANS START")
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,
@@ -78,7 +78,18 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
         'permit_vlanid': [key for key, value in list(vlan_intfs_dict.items())],
         'pvid': 0
     }]
+    
+    mode = "trunk"
 
+    # Set the mode for the interface
+    switchport_mode_cmd = f"config interface {first_avai_vlan_port} switchport {mode}"
+    switchport_mode_result = duthost.shell(switchport_mode_cmd)
+
+    if switchport_mode_result['rc'] != 0:
+    logger.error(f"Failed to set {mode} mode for {first_avai_vlan_port}")
+    else:
+    logger.info(f"Successfully set {mode} mode for {first_avai_vlan_port}")
+    
     utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=False)
     logger.info("CREATE TEST VLANS DONE")
 
