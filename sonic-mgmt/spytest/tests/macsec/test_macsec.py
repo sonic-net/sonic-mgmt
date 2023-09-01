@@ -97,15 +97,15 @@ def macsec_session_test(encryption, request, toggle = False, check_syslogs = Tru
     #Wait for logs to be generated
     st.wait(10)
 
-    # #Check for syslogs
-    # if check_syslogs:
-    #     for dut in duts:
-    #         for port in ports[dut]:
-    #             result = check_syslog(dut, port, MACSEC_REGEX)
-    #             if mismatch is False:
-    #                 if result is False: 
-    #                     cleanup(request)
-    #                     st.report_fail("test_case_failed")
+    #Check for syslogs
+    if check_syslogs:
+        for dut in duts:
+            for port in ports[dut]:
+                result = check_syslog(dut, port, MACSEC_REGEX)
+                if mismatch is False:
+                    if result is False: 
+                        cleanup(request)
+                        st.report_fail("test_case_failed")
     for dut in duts:
         for port in ports[dut]:
             #Validate macsec session
