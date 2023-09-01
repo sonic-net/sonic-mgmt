@@ -140,7 +140,8 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 1000000
-    if dut.topo_type == 't2':
+    peer_device = peer_params['peerdevice']
+    if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
         pfc_gen_file = 'pfc_gen_t2.py'
         pfc_send_time = 8
     else:
@@ -166,14 +167,14 @@ class TestPfcwdAllTimer(object):
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
         time.sleep(8)
-        if self.dut.topo_type == 't2':
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(8)
-        if self.dut.topo_type == 't2':
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         else:
             storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
@@ -275,8 +276,8 @@ class TestPfcwdAllTimer(object):
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
         try:
-            if self.dut.topo_type == 't2':
-                for i in range(1, 11):
+            if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+                for i in xrange(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test()
                 self.verify_pfcwd_timers_t2()

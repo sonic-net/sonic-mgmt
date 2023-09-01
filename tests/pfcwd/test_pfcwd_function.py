@@ -422,7 +422,7 @@ class SetupPfcwdFunc(object):
                          }
             self.peer_dev_list[self.peer_device] = peer_info['hwsku']
 
-            if self.dut.topo_type == 't2':
+            if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
                 gen_file = 'pfc_gen_t2.py'
                 pfc_send_time = 60
             else:
