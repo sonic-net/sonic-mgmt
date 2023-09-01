@@ -202,6 +202,7 @@ def deconfig_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
     d1_asic = get_asic_from_port(d1_link) if is_lag is False else 0
     d2_asic = get_asic_from_port(d2_link) if is_lag is False else 0
     if is_lag is False:
+        # This is a temporary workaround to address MIGSOFTWAR-9488
         st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24")
         #st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24 nexthop 10.10.{}.2".format(subnet))
     else:
