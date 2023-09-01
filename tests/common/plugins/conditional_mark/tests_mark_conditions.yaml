@@ -683,10 +683,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #######################################
 override_config_table/test_override_config_table.py:
   skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
+    reason: "Skip override-config-table testing on multi-asic platforms, golden config format in test is not compatible with multi-asics"
     conditions:
       - is_multi_asic == True
 
+override_config_table/test_override_config_masic.py:
+  skip:
+    reason: "Skip override-config-table multi-asic testing on single-asic platforms, golden config format in test is not compatible with single-asics"
+    conditions:
+      - is_multi_asic == False
 #######################################
 #####           pc               #####
 #######################################
