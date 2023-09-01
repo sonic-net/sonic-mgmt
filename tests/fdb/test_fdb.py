@@ -207,7 +207,7 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         except Exception:
             # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
             pkt_count = 10
-            logger.info("Packets not reached destination in first pass, sleep and retry count {}".format(cnt))
+            logger.info("Packets not reached destination in first pass,sleep and retry count {}".format(cnt))
             time.sleep(FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
             result = duthost.command("portstat", module_ignore_errors=True)
             logger.info("Port counters: {}".format(result['stdout']))
