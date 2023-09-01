@@ -19,13 +19,6 @@ def var_def():
     local_links_D1=st.get_dut_links_local(vars.D1)
     local_links_D2=st.get_dut_links_local(vars.D2)
     
-   
-
-MACSEC_PROFILE= {"aes_128": "GCM-AES-128", "aes_256": "GCM-AES-256", "aes_xpn_128":"GCM-AES-XPN-128", "aes_xpn_256":"GCM-AES-XPN-256"}
-MACSEC_REGEX = "install_tx_sa:.*TxSA added and activated for port {}\|phy_install_tx_sa_on_hw:.*TX SA install on port: {}\|macsec_install_tx_sa: PhyID .*:Install Tx SA: idx: {}\|\
-install_rx_sa:.*RxSA added and activated for port {}\|phy_install_rx_sa_on_hw:.*RX SA install on port: {}\|macsec_install_rx_sa: PhyID .*:Install Rx SA: idx: {}"
-
-
 def get_asic_from_port(port):
     port = int(re.search("\d+", str(port)).group(0))
     port = port/8
