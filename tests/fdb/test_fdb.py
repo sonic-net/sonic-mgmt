@@ -192,7 +192,7 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
     retry_count = 5
     pkt_count = 1
     for cnt in range(retry_count):
-        logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}, dst_vlan {}, count {}'
+        logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {} dst_vlan {} count {}'
                      .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports, dst_vlan, pkt_count))
         try:
             ptfadapter.dataplane.flush()
