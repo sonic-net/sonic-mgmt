@@ -1,9 +1,9 @@
-import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from utilities import *
 from tests.common.utilities import update_pfcwd_default_state
+from utilities import backup_config, restore_config, get_running_config,
+                      reload_minigraph_with_golden_config, file_exists_on_dut
 
 
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
