@@ -17,8 +17,8 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F401
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
-from tests.mx.mx_utils import create_vlan, get_vlan_config, remove_all_vlans
-from tests.mx.config.generate_acl_rules import (
+from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
+from config.generate_acl_rules import (
     acl_entry,
     ACL_ACTION_ACCEPT,
     ETHERTYPE_IPV6,
