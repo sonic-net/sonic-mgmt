@@ -8,32 +8,39 @@ Step 4: Upload these files to https://microsoft.sharepoint.com/teams/Aznet/Engin
 Step 5: Run Program.cs with dotnet run, follow the instruction in Program.cs
 Step 6: Refresh the PowerBI dataset and publish it to SONiC workspace
 
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
--a---l         6/19/2023   5:20 PM           8367 AristaNightly.csv
--a---l         6/19/2023   5:20 PM          26831 AristaNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           1967 CelesticaNightly.csv
--a---l         6/19/2023   5:20 PM           6414 CelesticaNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           2229 CiscoNightly.csv
--a---l         6/19/2023   5:20 PM           7249 CiscoNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM            826 DellNightly.csv
--a---l         6/19/2023   5:20 PM           2608 DellNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           3600 Internal-202012Nightly.csv
--a---l         6/19/2023   5:20 PM          11745 Internal-202012NightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           4820 Internal-202012NightlySuccessRate.txt
--a---l         6/19/2023   5:20 PM           8087 Internal-202205Nightly.csv
--a---l         6/19/2023   5:20 PM          26073 Internal-202205NightlyMeasure.txt
--a---l         6/19/2023   5:20 PM          10698 Internal-202205NightlySuccessRate.txt
--a---l         6/19/2023   5:20 PM           2436 InternalNightly.csv
--a---l         6/19/2023   5:20 PM           7815 InternalNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           3233 InternalNightlySuccessRate.txt
--a---l         6/19/2023   5:20 PM           2129 MasterNightly.csv
--a---l         6/19/2023   5:20 PM           6843 MasterNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM           2821 MasterNightlySuccessRate.txt
--a---l         6/19/2023   5:20 PM           3488 MellanoxNightly.csv
--a---l         6/19/2023   5:20 PM          11118 MellanoxNightlyMeasure.txt
--a---l         6/19/2023   5:20 PM            542 NokiaNightly.csv
--a---l         6/19/2023   5:20 PM           1744 NokiaNightlyMeasure.txt
+output files:
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3303 Aug 31 18:11 202012Nightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun 10789 Aug 31 18:11 202012NightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  2877 Aug 31 18:11 202012NightlySuccessRate.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3927 Aug 31 18:11 202012NightlySuccessRate.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  6691 Aug 31 18:11 202205Nightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun 21542 Aug 31 18:11 202205NightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  5697 Aug 31 18:11 202205NightlySuccessRate.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  7804 Aug 31 18:11 202205NightlySuccessRate.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1337 Aug 31 18:11 202305Nightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  4301 Aug 31 18:11 202305NightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1587 Aug 31 18:11 202305NightlySuccessRate.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  2163 Aug 31 18:11 202305NightlySuccessRate.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  6756 Aug 31 18:11 AristaNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun 21755 Aug 31 18:11 AristaNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1140 Aug 31 18:11 CelesticaNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3746 Aug 31 18:11 CelesticaNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun   768 Aug 31 18:11 CiscoNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  2522 Aug 31 18:11 CiscoNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1230 Aug 31 18:11 DellNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3924 Aug 31 18:11 DellNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1973 Aug 31 18:11 InternalNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  6390 Aug 31 18:11 InternalNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  2249 Aug 31 18:11 InternalNightlySuccessRate.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3048 Aug 31 18:11 InternalNightlySuccessRate.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun   525 Aug 31 18:11 MasterNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1696 Aug 31 18:11 MasterNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun   643 Aug 31 18:11 MasterNightlySuccessRate.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun   862 Aug 31 18:11 MasterNightlySuccessRate.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  3239 Aug 31 18:11 MellanoxNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun 10273 Aug 31 18:11 MellanoxNightlyMeasure.txt
+-rwxrwxrwx 1 zhaohuisun zhaohuisun   542 Aug 31 18:11 NokiaNightly.csv
+-rwxrwxrwx 1 zhaohuisun zhaohuisun  1744 Aug 31 18:11 NokiaNightlyMeasure.txt
 '''
 from __future__ import print_function
 
@@ -72,13 +79,13 @@ def get_nightly_build_definitions():
     nightly_pipeline_list = []
     
     for build in build_definitions:
-        nightly_pipelines = {}
+        nightly_pipeline = {}
         enabled = False
         nightly = False
 
         if 'queueStatus' in build and build['queueStatus'] == 'enabled':
             enabled = True
-        if 'path' in build and build['path'].startswith('\\Nightly') and not build['path'].startswith('\\Nightly-Hawk') and not '\\Disabled' in build['path']:
+        if 'path' in build and build['path'].startswith('\\Nightly') or build['path'].startswith('\\Elastictest') and not build['path'].startswith('\\Nightly-Hawk') and not '\\Disabled' in build['path']:
             nightly = True
         if not enabled or not nightly:
             continue
@@ -89,14 +96,15 @@ def get_nightly_build_definitions():
             print("====Skip RDMA/WAN/Intel pipeline so far. {}".format(build['name']))
             continue
             
-        nightly_pipelines['pipeline_name'] = build['name']
-        nightly_pipelines['pipeline_url'] = build['_links']['web']['href']
-        nightly_pipelines['pipeline_id'] = build['id']
+        nightly_pipeline['pipeline_name'] = build['name']
+        nightly_pipeline['pipeline_url'] = build['_links']['web']['href']
+        nightly_pipeline['pipeline_id'] = build['id']
+        nightly_pipeline['test_type'] = 'Elastictest' if build['path'].startswith('\\Elastictest') else 'Nightly'
         vendor = build['path'].split('\\')[-1]
-        nightly_pipelines['vender'] = vendor
+        nightly_pipeline['vendor'] = vendor
         build_detail = requests.get(build['url'], auth=AUTH).json()
         branch = build_detail['repository']['defaultBranch'].lstrip('refs/heads/')
-        nightly_pipelines['branch'] = branch
+        nightly_pipeline['branch'] = branch
 
         repo_id = build_detail['repository']['id']
         yamlFileName = build_detail['process']['yamlFilename']
@@ -104,16 +112,23 @@ def get_nightly_build_definitions():
         pipeline_yaml = yaml.safe_load(get_git_item(repo_id, branch, yamlFileName))
         yaml_result = extract_pipeline_info(pipeline_yaml)
 
-        nightly_pipelines['testbed'] = yaml_result['testbed']
-        nightly_pipelines['branch'] = yaml_result['branch'] if yaml_result['branch'] else branch
+        nightly_pipeline['testbed'] = yaml_result['testbed']
+        nightly_pipeline['branch'] = yaml_result['branch'] if yaml_result['branch'] else branch
         if yaml_result['branch'] != branch:
             print("!!!!!!!!!branch not match {} : {} != {}".format(build['name'], yaml_result['branch'], branch))
         if not yaml_result['testbed']:
             print("!!!!!!!!!testbed not found {}".format(build['name']))
             continue
-        print("{}\t{}\t{}\t{}\t{}".format(build['name'], build['id'], nightly_pipelines['branch'], vendor, nightly_pipelines['testbed']))
+        name = nightly_pipeline['pipeline_name']
+        if 'azd' in name or '3164' in name or 'e1031' in name or 'pikez' in name:
+            print("====Skip azd/3164/e1031/pikez pipelines {}".format(nightly_pipeline['pipeline_name']))
+            continue
+        if nightly_pipeline['branch'] not in ['master', 'internal', 'internal-202012', 'internal-202205', 'internal-202305']:
+            print("=====Skip private branch {} for pipeline {}".format(nightly_pipeline['branch'], nightly_pipeline['pipeline_name']))
+            continue
+        print("{}\t{}\t{}\t{}\t{}".format(build['name'], build['id'], nightly_pipeline['branch'], vendor, nightly_pipeline['testbed']))
 
-        nightly_pipeline_list.append(nightly_pipelines)
+        nightly_pipeline_list.append(nightly_pipeline)
 
     return nightly_pipeline_list
 
@@ -223,44 +238,23 @@ def parse_testbeds_crons(build_definitions):
     return testbeds_crons
 
 
-def generate_measure(index, pipeline_info, vender, is_successrate=False):
+def generate_pipeline_status_measure(pipeline_info, extend_name):
     """Generate measure name for each pipeline.
 
     Args:
         pipeline_info (dict): Dict of parsed nightly test runs for all testbeds.
-        vender (str): Vender name.
+        vendor (str): vendor name.
 
     Returns:
         list: List of pipeline info with measure name.
     """
     pipeline_dict = {}
     pipeline_dict = pipeline_info.copy()
-    pipeline_dict['index'] = index
 
-    if is_successrate:
-        measure_name = str(index) + " " + pipeline_dict["testbed"] + "_" + vender
-        pipeline_dict["table"] = "SONiCKusto"
-        pipeline_dict["measure_name"] = measure_name
-        if vender == 'master':
-            branch_name = "master"
-        elif vender == 'internal':
-            branch_name = 'internal'
-        elif vender == '202012':
-            branch_name = '20201231'
-        elif vender == '202205':
-            branch_name = '20220531'
-   
-        pipeline_dict["measure_content"] = ''' 
-CALCULATE(
-    MAX(SONiCKusto[SuccessRate]),
-    SONiCKusto[TestbedName] = "{}",
-    SONiCKusto[BranchName] = "{}"
-)'''.format(pipeline_info['testbed'], branch_name)
-    else:
-        measure_name = str(index) + " " + pipeline_dict["pipeline_name"] + "_" + vender
-        pipeline_dict["table"] = "PipelineRuns"
-        pipeline_dict["measure_name"] = measure_name
-        pipeline_dict["measure_content"] = '''
+    measure_name = str(pipeline_dict['index']) + " " + pipeline_dict["pipeline_name"] + "_" + extend_name
+    pipeline_dict["table"] = "PipelineRuns"
+    pipeline_dict["measure_name"] = measure_name
+    pipeline_dict["measure_content"] = '''
 CALCULATE(
   IF(
       ISBLANK(SUM(PipelineRuns[SucceededCount])),
@@ -281,168 +275,142 @@ CALCULATE(
 
     return pipeline_dict
 
-def save_to_files(pipeline_list, vender_or_branch, success_rate_pipeline_list=None, is_successrate=False):
+def generate_successrate_measure(index, pipeline_info, branch, testbed):
+    """Generate measure name for each pipeline.
+
+    Args:
+        pipeline_info (dict): Dict of parsed nightly test runs for all testbeds.
+        vendor (str): vendor name.
+
+    Returns:
+        list: List of pipeline info with measure name.
+    """
+    pipeline_dict = {}
+    pipeline_dict = pipeline_info.copy()
+    pipeline_dict['index'] = index
+    if not testbed:
+        testbed = pipeline_dict["testbed"]
+    pipeline_dict["category"] = testbed + "_" + branch
+    measure_name = str(index) + " " + testbed + "_" + branch
+    pipeline_dict["table"] = "SONiCKusto"
+    pipeline_dict["measure_name"] = measure_name
+    if branch == 'master':
+        branch_name = "master"
+    elif branch == 'internal':
+        branch_name = 'internal'
+    elif branch == '202012':
+        branch_name = '20201231'
+    elif branch == '202205':
+        branch_name = '20220531'
+    elif branch == '202305':
+        branch_name = '20230531'
+    pipeline_dict["measure_content"] = '''
+CALCULATE(
+    MAX(SONiCKusto[SuccessRate]),
+    SONiCKusto[TestbedName] = "{}",
+    SONiCKusto[BranchName] = "{}"
+)'''.format(testbed, branch_name)
+
+    return pipeline_dict
+
+
+def save_to_files(pipeline_list, vendor_or_branch, success_rate_pipeline_list=None, is_successrate=False):
     keys_to_save = ['index','pipeline_name','pipeline_url']
     # df = pd.DataFrame([{k: d[k] for k in keys_to_save} for d in pipeline_list])
     csv_list = [{k: d[k] for k in keys_to_save} for d in pipeline_list]
-    vender_list = ['arista', 'celestica', 'dell', 'cisco', 'mellanox', 'nokia']
-    excel_file_path = FOLDER + vender_or_branch.capitalize() + "Nightly" + ".csv"
+
+    excel_file_path = FOLDER + vendor_or_branch.capitalize() + "Nightly" + ".csv"
     
-    measrue_file_path = FOLDER + vender_or_branch.capitalize() + "NightlyMeasure" + ".txt"
+    measure_file_path = FOLDER + vendor_or_branch.capitalize() + "NightlyMeasure" + ".txt"
     successrate_file_path = None
 
     with open(excel_file_path, 'w', newline='') as csvfile:
-      writer = csv.DictWriter(csvfile, fieldnames=keys_to_save)
-      # Write the data rows
-      writer.writerows(csv_list)
+        writer = csv.DictWriter(csvfile, fieldnames=keys_to_save)
+        # Write the data rows
+        writer.writerows(csv_list)
 
-    with open(measrue_file_path, 'w') as f:
+    with open(measure_file_path, 'w') as f:
         for pipeline in pipeline_list:
             # file.write(f"A: {pipeline['A']}, B: {pipeline['B']}\n")
             f.write(pipeline['measure_name'])
             f.write(pipeline['measure_content'] + '\n')
             f.write("===========\n")
     if is_successrate:
-        successrate_file_path = FOLDER + vender_or_branch.capitalize() + "NightlySuccessRate" + ".txt"
+        # import pdb; pdb.set_trace()
+        keys_to_save = ['index','category','pipeline_url']
+        csv_list = [{k: d[k] for k in keys_to_save} for d in success_rate_pipeline_list]
+        excel_passrate_file_path = FOLDER + vendor_or_branch.capitalize() + "NightlySuccessRate" + ".csv"
+        with open(excel_passrate_file_path, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=keys_to_save)
+            # Write the data rows
+            writer.writerows(csv_list)
+
+        successrate_file_path = FOLDER + vendor_or_branch.capitalize() + "NightlySuccessRate" + ".txt"
         with open(successrate_file_path, 'w') as f:
             for pipeline in success_rate_pipeline_list:
                 f.write(pipeline['measure_name'])
                 f.write(pipeline['measure_content'] + '\n')
                 f.write("===========\n")
-    print("Save to files {}, {}, {} successfully!".format(excel_file_path, measrue_file_path, successrate_file_path))
+    print("Save to files {}, {}, {} successfully!".format(excel_file_path, measure_file_path, successrate_file_path))
     return
          
 
 def catetory_pipeline(pipeline_info):
-    arista_pipeline = []
-    celestica_pipeline = []
-    cisco_pipeline = []
-    dell_pipeline = []
-    mellanox_pipeline = []
-    nokia_pipeline = []
+    VENDOR_LIST = ['arista', 'celestica', 'dell', 'cisco', 'mellanox', 'nokia']
+    BRANCH_LIST = ['master', '202012', '202205', '202305', 'internal']
+    vendor_pipeline_dict = {}
+    branch_pipeline_dict = {}
+    pipeline_info_sorted = sorted(pipeline_info, key=lambda x: x['pipeline_name'])
+    for pipeline in pipeline_info_sorted:
+        pipeline_item_dict = pipeline.copy()
+        successrate_item_dict = pipeline.copy()
+        vendor = pipeline['vendor']
+        branch = pipeline['branch']
+        pipeline_name = pipeline['pipeline_name']
+        if vendor in VENDOR_LIST:
+            vendor_pipeline_dict[vendor] = {'pipeline_count': 0, 'pipeline_group': []} if vendor not in vendor_pipeline_dict else vendor_pipeline_dict[vendor]
+            vendor_pipeline_dict[vendor]['pipeline_count'] = vendor_pipeline_dict[vendor]['pipeline_count'] + 1
+            pipeline_item_dict['index'] = vendor_pipeline_dict[vendor]['pipeline_count']
+            vendor_pipeline_dict[vendor]['pipeline_group'].append(pipeline_item_dict)
+        for name in BRANCH_LIST:
+            branch_pipeline_dict[name] = {'pipeline_count': 0, 'pipeline_group': [], 'successrate_group': []} if name not in branch_pipeline_dict else branch_pipeline_dict[name]
+            if name in pipeline_name or name in branch.split('-')[-1]:
+                branch_pipeline_dict[name]['pipeline_count'] = branch_pipeline_dict[name]['pipeline_count'] + 1
+                successrate_item_dict['index'] = branch_pipeline_dict[name]['pipeline_count']
+                branch_pipeline_dict[name]['pipeline_group'].append(successrate_item_dict)
+                break
 
-    master_pipeline = []
-    internal_pipeline = []
-    internal_202012_pipeline = []
-    internal_202205_pipeline = []
+    for vendor in VENDOR_LIST:
+        sorted_vendor_pipeline_list = sorted(vendor_pipeline_dict[vendor]['pipeline_group'], key=lambda x: x['pipeline_name'])
+        vendor_pipeline_dict[vendor]['pipeline_group'] = []
+        for pipeline in sorted_vendor_pipeline_list:
+            vendor_pipeline_dict[vendor]['pipeline_group'].append(generate_pipeline_status_measure(pipeline, vendor))
+    for branch in BRANCH_LIST:
+        sorted_branch_pipeline_list = sorted(branch_pipeline_dict[branch]['pipeline_group'], key=lambda x: x['index'])
+        branch_pipeline_dict[branch]['pipeline_group'] = []
+        branch_pipeline_dict[branch]['successrate_group'] = []
+        testbeds_set = set()
+        successrate_count = 0
+        for pipeline in sorted_branch_pipeline_list:
+            branch_pipeline_dict[branch]['pipeline_group'].append(generate_pipeline_status_measure(pipeline, "key" + branch))
+            for testbed in pipeline["testbed"].split(','):
+                testbed = testbed.strip()
+                if testbed in testbeds_set:
+                    print("====Skip duplicated testbed {} for banch {} pipeline {}====".format(testbed, branch, pipeline['pipeline_name']))
+                    continue
+                else:
+                    testbeds_set.add(testbed)
+                    successrate_count += 1
+                    branch_pipeline_dict[branch]['successrate_count'] = successrate_count
+                    branch_pipeline_dict[branch]['successrate_group'].append(generate_successrate_measure(successrate_count, pipeline, branch, testbed))
 
-    master_pass_rate_pipeline = []
-    internal_pass_rate_pipeline = []
-    internal_202012_pass_rate_pipeline = []
-    internal_202205_pass_rate_pipeline = []
-
-    arista_count = 0
-    celestica_count = 0
-    cisco_count = 0
-    dell_count = 0
-    mellanox_count = 0
-    nokia_count = 0
-
-    master_count = 0
-    internal_count = 0
-    internal_202012_count = 0
-    internal_202205_count = 0
-
-    master_pass_rate_count = 0
-    internal_pass_rate_count = 0
-    internal_202012_pass_rate_count = 0
-    internal_202205_pass_rate_count = 0
-
-    for pipeline in pipeline_info:
-        pipeline_dict = {}
-        if pipeline['vender'] == 'arista':
-            arista_count += 1
-            pipeline_dict = generate_measure(arista_count, pipeline, 'arista')
-            arista_pipeline.append(pipeline_dict)
-        elif pipeline['vender'] == 'celestica':
-            celestica_count += 1
-            pipeline_dict = generate_measure(celestica_count, pipeline, 'celestica')
-            celestica_pipeline.append(pipeline_dict)
-        elif pipeline['vender'] == 'cisco':
-            cisco_count += 1
-            pipeline_dict = generate_measure(cisco_count, pipeline, 'cisco')
-            cisco_pipeline.append(pipeline_dict)
-        elif pipeline['vender'] == 'dell':
-            dell_count += 1
-            pipeline_dict = generate_measure(dell_count, pipeline, 'dell')
-            dell_pipeline.append(pipeline_dict)
-        elif pipeline['vender'] == 'mellanox':
-            mellanox_count += 1
-            pipeline_dict = generate_measure(mellanox_count, pipeline, 'mellanox')
-            mellanox_pipeline.append(pipeline_dict)
-        elif pipeline['vender'] == 'nokia':
-            nokia_count += 1
-            pipeline_dict = generate_measure(nokia_count, pipeline, 'nokia')
-            nokia_pipeline.append(pipeline_dict)
-    # import pdb; pdb.set_trace()
-    sortedd_pipeline_list = sorted(pipeline_info, key=lambda x: x['vender'])
-    for pipeline in sortedd_pipeline_list:
-        pipeline_dict = {}
-        name = pipeline['pipeline_name']
-        if 'azd' in name or '3164' in name or 'e1031' in name or 'pikez' in name:
-            print("====Skip azd/3164/e1031/pikez pipelines {}".format(pipeline['pipeline_name']))
-            continue
-            
-        if 'master' in pipeline['pipeline_name']:
-            master_count += 1
-            pipeline_dict = generate_measure(master_count, pipeline, 'keymaster')
-            master_pipeline.append(pipeline_dict)
-            master_pass_rate_count += 1
-            pipeline_dict = generate_measure(master_pass_rate_count, pipeline, 'master', True)
-            master_pass_rate_pipeline.append(pipeline_dict)
-        elif 'internal' in pipeline['pipeline_name']:
-            internal_count += 1
-            pipeline_dict = generate_measure(internal_count, pipeline, 'keyinternal')
-            internal_pipeline.append(pipeline_dict)
-            internal_pass_rate_count += 1
-            pipeline_dict = generate_measure(internal_pass_rate_count, pipeline, 'internal', True)
-            internal_pass_rate_pipeline.append(pipeline_dict)
-        elif pipeline['branch'] == 'internal-202012':
-            internal_202012_count += 1
-            pipeline_dict = generate_measure(internal_202012_count, pipeline, 'key202012')
-            internal_202012_pipeline.append(pipeline_dict)
-            internal_202012_pass_rate_count += 1
-            pipeline_dict = generate_measure(internal_202012_pass_rate_count, pipeline, '202012', True)
-            internal_202012_pass_rate_pipeline.append(pipeline_dict)
-        elif pipeline['branch'] == 'internal-202205':
-            internal_202205_count += 1
-            pipeline_dict = generate_measure(internal_202205_count, pipeline, 'key202205')
-            internal_202205_pipeline.append(pipeline_dict)
-            internal_202205_pass_rate_count += 1
-            pipeline_dict = generate_measure(internal_202205_pass_rate_count, pipeline, '202205', True)
-            internal_202205_pass_rate_pipeline.append(pipeline_dict)  
-    save_to_files(arista_pipeline, 'arista')
-    save_to_files(celestica_pipeline, 'celestica')
-    save_to_files(cisco_pipeline, 'cisco')
-    save_to_files(dell_pipeline, 'dell')
-    save_to_files(mellanox_pipeline, 'mellanox')
-    save_to_files(nokia_pipeline, 'nokia')
-
-    save_to_files(master_pipeline, 'master', master_pass_rate_pipeline, True)
-    save_to_files(internal_pipeline, 'internal', internal_pass_rate_pipeline, True)
-    save_to_files(internal_202012_pipeline, 'internal-202012', internal_202012_pass_rate_pipeline, True)
-    save_to_files(internal_202205_pipeline, 'internal-202205', internal_202205_pass_rate_pipeline, True)
-
-
-    print_list = []
-    print_list = arista_pipeline + celestica_pipeline + cisco_pipeline + dell_pipeline + mellanox_pipeline + nokia_pipeline
-    print('******Vendor*****\n')
-    for pipeline in print_list:
-        print(json.dumps(pipeline, indent=4))
-
-    print_list = []
-    print_list = master_pipeline + internal_pipeline + internal_202012_pipeline + internal_202205_pipeline
-    print('******Branch*****\n')
-    for pipeline in print_list:
-        print(json.dumps(pipeline, indent=4))
-
-    print_list = []
-    print_list = master_pass_rate_pipeline + internal_pass_rate_pipeline + internal_202012_pass_rate_pipeline + internal_202205_pass_rate_pipeline
-    print('******Pass Rate*****\n')
-    for pipeline in print_list:
-        print(json.dumps(pipeline, indent=4))
+    for vendor in VENDOR_LIST:
+        save_to_files(vendor_pipeline_dict[vendor]['pipeline_group'], vendor)
+    for branch in BRANCH_LIST:
+        save_to_files(branch_pipeline_dict[branch]['pipeline_group'], branch, branch_pipeline_dict[branch]['successrate_group'], True)
     
-            
+    return
+
 def main():
     # Get all the enabled nightly test pipelines.
     nightly_build_pipeline_info = get_nightly_build_definitions()
