@@ -39,17 +39,16 @@ def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa F811
 def first_avai_vlan_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     logger.info("Find a vlan port for new created vlan member")
-    mode = 'trunk'
+
     for v in list(mg_facts['minigraph_vlans'].values()):
         for p in v['members']:
             if p.startswith("Ethernet"):
-                # Set the mode for the interface
-                switchport_mode_cmd = f"config interface {p} switchport {mode}"
-                switchport_mode_result = duthost.shell(switchport_mode_cmd)
                 return p
-    logger.error("No vlan port member ready for test")
 
-    
+    logger.error("No vlan port member ready for test")
+    pytest_assert(False, "No vlan port member ready for test")
+
+
 def ensure_dhcp_relay_running(duthost):
     if not duthost.is_service_fully_started('dhcp_relay'):
         duthost.shell('sudo systemctl start dhcp_relay')
@@ -71,7 +70,6 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     |       109 | 192.168.9.1/24   | Ethernet4 | tagged         | disabled    |                       |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     """
-    
     logger.info("CREATE TEST VLANS START")
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,
