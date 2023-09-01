@@ -186,8 +186,11 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
 
-    # fdb test will send lots of pkts between paired ports, it's hard to guarantee there is no congestion
-    # on server side during this period. So tolerant to retry 5 times before complain the assert.
+    # FDB test sends lot of packets to validate all the dynamically learnt MACs.
+    # So, PTF server ports might get congested with the flood of packets and script
+    # may not capture the packets and validate the tests within the PTF timeout.
+    # When the failure is detected in the first pass, script retries 5 times
+    # with a delay and also dumps DUT's portstat to debug any issues.
 
     retry_count = 5
     pkt_count = 1
