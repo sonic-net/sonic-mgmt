@@ -8,7 +8,7 @@ from tests.common.config_reload import config_reload
 from utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut
 
-
+GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
