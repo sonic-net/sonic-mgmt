@@ -2,44 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from utilities import *
-from tests.common.utilities import update_pfcwd_default_state
-
-
-GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
-CONFIG_DB = "/etc/sonic/config_db.json"
-CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
-
-logger = logging.getLogger(__name__)
-
-pytestmark = [
-    pytest.mark.topology('t0', 't1', 'any'),
-    pytest.mark.disable_loganalyzer,
-]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def check_image_version(duthost):
-    """Skips this test if the SONiC image installed on DUT is older than 202111
-
-    Args:
-        duthost: DUT host object.
-
-    Returns:
-        None.
-    """
-    skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
-
-
-def file_exists_on_dut(duthost, filename):
-    return duthost.stat(path=filename).get('stat', {}).get('exists', False)
-import logging
-import pytest
-
-from tests.common.helpers.assertions import pytest_assert
-from utilities import *
+import utilities
 from tests.common.utilities import update_pfcwd_default_state
 
 
@@ -64,6 +27,7 @@ def check_image_version(duthost):
         None.
     """
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
+
 
 @pytest.fixture(scope="module")
 def golden_config_exists_on_dut(duthost):
