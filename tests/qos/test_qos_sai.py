@@ -1819,7 +1819,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark
+        resetWatermark, _skip_allportQWM_multi_DUT
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
