@@ -83,7 +83,9 @@ def _create_parser():
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
                       required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
-                      default=False)
+                      default=False),
+    parser.add_argument('--additional_tests', action=str, help='Additional Testscases to test',
+                      default='')
     parser.add_argument('--cicd', action='store_true', help='Use CICD related parameters',
                       default=False)
     parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
@@ -826,6 +828,42 @@ def print_env_info(data, device_type, vEOS_count):
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
+def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
+    sim_cfg_filename = "sim_credentials.json"
+    sim_cfg = {}
+
+    for dut_name in get_dut_names(data):
+        device = data[dut_name]
+        dut_host = "{}_HOST".format(dut_name.upper().replace(" ", "_"))
+        dut_username = "{}_USERNAME".format(dut_name.upper().replace(" ", "_"))
+        dut_pass = "{}_PASSWORD".format(dut_name.upper().replace(" ", "_"))
+        dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
+
+        sim_cfg[dut_host] = device['HostAgent']
+        sim_cfg[dut_username] = "cisco"
+        sim_cfg[dut_pass] = "cisco123"
+        sim_cfg[dur_ssh_port] = device['xr_redir22']
+    
+    sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
+    sim_cfg["SONIC_MGMT_USERNAME"] = "vxr"
+    sim_cfg["SONIC_MGMT_PASSWORD"] = "cisco123"
+    sim_cfg["SONIC_MGMT_SSH_PORT"] = data['sonic_mgmt']['xr_redir22']
+
+    sim_cfg["PTF_HOST"] = data['docker_ptf']['HostAgent']
+    sim_cfg["PTF_USERNAME"] = "root"
+    sim_cfg["PTF_PASSWORD"] = "root"
+    sim_cfg["PTF_SSH_PORT"] = data['docker_ptf']['xr_redir22']
+
+    sim_cfg['TOPO_NAME'] = topo_name
+    sim_cfg['DEVICE_TYPE'] = device_type
+    sim_cfg['DOCKER_MGMT_CONTAINER'] = docker_mgmt_container
+
+    print("Exporting sim credentials to file: {}".format(sim_cfg_filename))
+    print("Contents: \n{}".format(sim_cfg))
+
+    with open(sim_cfg_filename,'w') as cfg_file:
+            json.dump(sim_cfg, cfg_file, indent=4)
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -842,6 +880,7 @@ def main():
     tar_ball = args['tar_ball']
     cicd = args['cicd']
     cicd_clean = args['cicd_clean']
+    additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
 
     ptf_intfcount = 32
@@ -874,6 +913,8 @@ def main():
 
     vcr_configure_end = datetime.datetime.now()
 
+    export_sim_cfg_to_file(data, "docker-ptf", device_type, "golden-code")
+
     if run_sanity:
         run_scripts_remote(
             data['sonic_mgmt']['HostAgent'], 
@@ -884,7 +925,8 @@ def main():
             log_dir,
             device_type,
             create_allure_report, 
-            ssh_port=data['sonic_mgmt']['xr_redir22']
+            ssh_port=data['sonic_mgmt']['xr_redir22'],
+            additional_tests=additional_tests
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

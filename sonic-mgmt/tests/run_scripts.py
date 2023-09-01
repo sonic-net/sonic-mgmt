@@ -11,6 +11,7 @@ import sys
 import requests
 import base64
 from allure_server import AllureServer
+import paramiko
 
 ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR = '10.22.183.173', 5050, '/tmp/allure_results'
 
@@ -40,6 +41,8 @@ def _create_parser():
                       required=False, default=None)
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
                       default=False)  
+    parser.add_argument('--additional_tests', action=str, help='Additional Sanity Test to run',
+                      default="")
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -69,7 +72,19 @@ def generate_allure_report(build_id, current_result_file):
         current_result_file.write("Error while generating allure report! Error: {}\n".format(e))
         current_result_file.flush()
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
+def get_testcases(script_file, additional_tests=''):
+    tcs = []
+    for filename in script_file.split(","):
+        tcs_file = open(filename, 'r')
+        tcs += tcs_file.readlines()
+        tcs_file.close()
+    
+    if additional_tests:
+        tcs += additional_tests.split(",")
+    
+    return tcs
+
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -83,8 +98,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
     print("BUILD ID IS {}".format(build_id))
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs_file = open(script_file, 'r')
-    tcs = tcs_file.readlines()
+    tcs = get_testcases(script_file, additional_tests)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -162,7 +176,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
-    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file)) 
+    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests)) 
     current_result_file.flush()
     for tc in tcs:
         if '#' in tc:
@@ -232,7 +246,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -246,8 +260,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
     print("BUILD ID IS {}".format(build_id))
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs_file = open(script_file, 'r')
-    tcs = tcs_file.readlines()
+    tcs = get_testcases(script_file, additional_tests)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -316,7 +329,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             generate_allure_report(build_id, current_result_file)
         sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
 
-    current_result_file.write(" -------------- Starting {} Run ------------- \n".format(script_file))
+    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
     current_result_file.flush()
     for tc in tcs:
         if '#' in tc:
@@ -419,6 +432,7 @@ def main():
     topo_name = args['topo_name']
     build_id = args['build_id']
     create_allure_report = args['create_allure_report']
+    additional_tests = args['additional_tests']
 
     if device_type == 'sherman':
         dut_name = 'sherman-01'
@@ -432,12 +446,12 @@ def main():
         parse_results()
     else:
         if not collect_logs:
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,additional_tests=additional_tests)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,additional_tests=additional_tests)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 
