@@ -39,16 +39,17 @@ def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa F811
 def first_avai_vlan_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     logger.info("Find a vlan port for new created vlan member")
-
+    mode = 'trunk'
     for v in list(mg_facts['minigraph_vlans'].values()):
         for p in v['members']:
             if p.startswith("Ethernet"):
+                # Set the mode for the interface
+                switchport_mode_cmd = f"config interface {p} switchport {mode}"
+                switchport_mode_result = duthost.shell(switchport_mode_cmd)
                 return p
-
     logger.error("No vlan port member ready for test")
-    pytest_assert(False, "No vlan port member ready for test")
 
-
+    
 def ensure_dhcp_relay_running(duthost):
     if not duthost.is_service_fully_started('dhcp_relay'):
         duthost.shell('sudo systemctl start dhcp_relay')
@@ -78,18 +79,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
         'permit_vlanid': [key for key, value in list(vlan_intfs_dict.items())],
         'pvid': 0
     }]
-    
-    mode = "trunk"
 
-    # Set the mode for the interface
-    switchport_mode_cmd = f"config interface {first_avai_vlan_port} switchport {mode}"
-    switchport_mode_result = duthost.shell(switchport_mode_cmd)
-
-    if switchport_mode_result['rc'] != 0:
-    logger.error(f"Failed to set {mode} mode for {first_avai_vlan_port}")
-    else:
-    logger.info(f"Successfully set {mode} mode for {first_avai_vlan_port}")
-    
     utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=False)
     logger.info("CREATE TEST VLANS DONE")
 
