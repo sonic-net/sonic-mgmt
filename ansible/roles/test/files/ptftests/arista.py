@@ -392,7 +392,7 @@ class Arista(host_device.HostDevice):
         return result
 
     def parse_lacp(self, output):
-        return output.find('Bundled') != -1
+        return six.ensure_str(output).find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
