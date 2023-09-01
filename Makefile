@@ -20,7 +20,7 @@ endif
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
 	bash -c "python3.8 update_topo.py T0"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ${TOPO_CONFIG} -u cisco -p cisco123 -t ${DEVICE_TYPE} -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --clean --create_allure_report --additional_tests $(ADDITIONAL_TESTS)"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64  -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --clean --create_allure_report --additional_tests $(ADDITIONAL_TESTS)"
 
 run_sanity:
 	echo "run sanity on HW..."
