@@ -125,7 +125,7 @@ def run_traffic(request, wait_time=15):
     else:
         return False
 
-    #Ping Verification between D1 & D2
+    #Ping Verification between D1 & D2 - to resolve the ARP between LCs as IXIA doesnt have automatic arp resolution for each traffic stream
     iteration=0
     while iteration<5:
         result = ipapi.ping(vars.D1, "10.10.{}.2".format(request.config.subnet), distributed=True)
