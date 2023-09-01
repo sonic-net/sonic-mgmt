@@ -346,7 +346,7 @@ sonic:
     sonic_nokia_lc_100G:
     sonic_appliance:
     sonic_arista_720dt:
-    sonic_cisco_8101:
+    sonic_cisco_8111_O32:
 
 sonic_mlnx:
   vars:
@@ -1884,28 +1884,28 @@ sonic_cisco_8102:
           timeout: 300
           wait: 600
 
-sonic_cisco_8101:
+sonic_cisco_8111_O32:
   vars:
-    hwsku: Cisco-8101-O32
-    iface_speed: 100000
+    hwsku: Cisco-8111-O32
+    iface_speed: 400000
   hosts:
-    str2-8101-32fh-02:
+    str2-8111-06:
       ansible_host: 10.3.146.179
-      model: 8101-32FH-O
-      serial: FLM263405JE
-      base_mac: DC:05:39:E0:F8:00
+      model: 8111-32EH-O
+      serial: FLM27020DTG
+      base_mac: C0:2C:17:09:A2:00
       syseeprom_info:
-        "0x21": "8101-32FH-O"
-        "0x22": "477691"
+        "0x21": "8111-32EH-O"
+        "0x22": "477950"
         "0x23": "FLM24500AT6"
-        "0x24": "DC:05:39:E0:F8:00"
-        "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r2"
+        "0x24": "C0:2C:17:09:A2:00"
+        "0x26": "1"
+        "0x28": "x86_64-8111_32eh_o-r0"
         "0x2A": "512"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x747718DA"
+        "0xFE": "0x3F891A0C"
       plt_reboot_dict:
         cold:
           timeout: 300

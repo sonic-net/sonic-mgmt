@@ -976,7 +976,7 @@
   auto_recover: 'True'
   comment: shengkaiwang
 
-- conf-name: vms21-t1-8101-02
+- conf-name: vms21-t1-8111-06
   group-name: vms21-5
   topo: t1-lag
   ptf_image_name: docker-ptf
@@ -986,7 +986,7 @@
   server: server_21
   vm_base: VM21056
   dut:
-    - str2-8101-32fh-02
+    - str2-8111-06
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
