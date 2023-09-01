@@ -16,6 +16,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202111
