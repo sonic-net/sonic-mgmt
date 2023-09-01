@@ -183,6 +183,21 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
 
         return result.port
 
+
+    def is_rx_port(dp, src_port_id, dst_port_id, pkt):
+        asic_type = dp.test_params['sonic_asic_type']
+        queue = dp.test_params['pg']
+        _, base_queue_counters = sai_thrift_read_port_counters(dp.dst_client, asic_type, port_list['dst'][dst_port_id])
+        send_packet(dp, src_port_id, pkt, 10)
+        time.sleep(8)
+        _, queue_counters = sai_thrift_read_port_counters(dp.dst_client, asic_type, port_list['dst'][dst_port_id])
+        if queue_counters[queue] > base_queue_counters[queue]:
+            print("base_queue_counters: {}".format(base_queue_counters))
+            print("queue_counters: {}".format(queue_counters))
+            return True
+        return False
+
+
     print ("Need : {} flows total, {} sources, {} packets per port".format(
         len(src_details)*packets_per_port, len(src_details), packets_per_port))
     all_pkts = {}
@@ -217,7 +232,8 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
 
             if src_vlan is not None:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
-            if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
+            # if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
+            if is_rx_port(dp, src_tuple[0], dst_id, pkt):
                 try:
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt))
                     num_of_pkts+=1
@@ -225,6 +241,8 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                     all_pkts[src_tuple[0]] = []
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt.exp_pkt))
                     num_of_pkts+=1
+    if num_of_pkts == 0:
+        dp.fail("No packet was sent to expected egress port")
     return all_pkts
 
 
@@ -429,8 +447,8 @@ def fill_egress_plus_one(test_case, src_port_id, pkt, queue, asic_type, pkts_num
                         pkts_num_egr_mem + packet_i + 1, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
                     break
             if pg_cntrs[queue] <= pg_cntrs_base[queue]:
-                print("fill_egress_plus_one: Failure, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
-                        pkts_num_egr_mem + max_packets, pg_cntrs_base[queue], pg_cntrs[queue]), file=sys.stderr)
+                test_case.fail("fill_egress_plus_one: Failure, sent %d packets, SQ occupancy bytes rose from %d to %d" % (
+                        pkts_num_egr_mem + max_packets, pg_cntrs_base[queue], pg_cntrs[queue]))
                 return False
 
     return True
@@ -1946,6 +1964,19 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             dst_port_2_id = self.get_rx_port(
                 src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
             )
+
+            pkt3 = construct_ip_pkt(packet_length,
+                                pkt_dst_mac3,
+                                src_port_mac,
+                                src_port_ip,
+                                dst_port_3_ip,
+                                dscp,
+                                src_port_vlan,
+                                ecn=ecn,
+                                ttl=ttl)
+            dst_port_3_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+            )
         else:
             pkt = get_multiple_flows(
                     self,
@@ -1974,20 +2005,18 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     [(src_port_id, src_port_ip)],
                     packets_per_port=1)[src_port_id][0][0]
 
-        # create packet
-        pkt3 = construct_ip_pkt(packet_length,
-                                pkt_dst_mac3,
-                                src_port_mac,
-                                src_port_ip,
-                                dst_port_3_ip,
-                                dscp,
-                                src_port_vlan,
-                                ecn=ecn,
-                                ttl=ttl)
-        if 'cisco-8000' not in asic_type:
-            dst_port_3_id = self.get_rx_port(
-                src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
-            )
+            pkt3 = get_multiple_flows(
+                    self,
+                    pkt_dst_mac,
+                    dst_port_3_id,
+                    dst_port_3_ip,
+                    src_port_vlan,
+                    dscp,
+                    ecn,
+                    ttl,
+                    packet_length,
+                    [(src_port_id, src_port_ip)],
+                    packets_per_port=1)[src_port_id][0][0]
 
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout

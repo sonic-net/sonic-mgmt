@@ -1944,7 +1944,7 @@ class QosSaiBase(QosBase):
                 bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
             src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
                 src_asic.asic_index, gw))
-            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
+            src_asic.shell("ip netns exec asic{} config route add prefix {}/32 nexthop {}".format(
                 src_asic.asic_index,
                 addresses_to_ping[dst_index],
                 gw))
@@ -1952,7 +1952,7 @@ class QosSaiBase(QosBase):
         for dst_index in range(len(addresses_to_ping)):
             gw = ip_address_mapping[
                 bp_portchannels[dst_index%no_of_bp_pcs]]['addr']
-            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
+            src_asic.shell("ip netns exec asic{} config route del prefix {}/32 nexthop {}".format(
                 src_asic.asic_index,
                 addresses_to_ping[dst_index],
                 gw))
