@@ -2298,15 +2298,13 @@ class ReloadTest(BaseTest):
         self.watcher_is_running.clear()     # Watcher has stopped.
 
     def pingFromServers(self):
-        self.log('pingFromServers - Sending %d packets from servers to t1' % self.nr_pc_pkts)
         for _ in range(self.nr_pc_pkts):
             entry = next(self.watcher_from_server_iter)
             testutils.send_packet(self, *entry)
-        self.log('pingFromServers - Count packets from servers to t1')
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
             self, self.from_vlan_exp_packet, self.from_server_dst_ports, timeout=self.PKT_TOUT)
 
-        self.log("pingFromServers - Send %5d Received %5d servers->t1" %
+        self.log("Send %5d Received %5d servers->t1" %
                  (self.nr_pc_pkts, total_rcv_pkt_cnt), True)
 
         return total_rcv_pkt_cnt
