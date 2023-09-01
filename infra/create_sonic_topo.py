@@ -84,7 +84,7 @@ def _create_parser():
                       required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
                       default=False),
-    parser.add_argument('--additional_tests', action=str, help='Additional Testscases to test',
+    parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
                       required=False, default='')
     parser.add_argument('--cicd', action='store_true', help='Use CICD related parameters',
                       default=False)
