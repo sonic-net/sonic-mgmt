@@ -5,7 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
-from utilities import *
+import utilities
 
 
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -20,6 +20,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202111
@@ -31,6 +32,7 @@ def check_image_version(duthost):
         None.
     """
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
+
 
 @pytest.fixture(scope="module")
 def golden_config_exists_on_dut(duthost):
@@ -72,6 +74,7 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
 
     # Restore config before test
     config_reload(duthost)
+
 
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
@@ -117,7 +120,7 @@ def load_minigraph_with_golden_new_feature(duthost):
     """Test Golden Config with new feature
     """
     new_feature_config = {
-        "localhost":{},
+        "localhost": {},
         "asic0": {},
         "NEW_FEATURE_TABLE": {
             "entry": {
@@ -142,7 +145,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     Here we assume all config contain SYSLOG_SERVER table
     """
     empty_table_removal = {
-        "localhost":{},
+        "localhost": {},
         "asic0": {},
         "SYSLOG_SERVER": {
         }
