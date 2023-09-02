@@ -1945,6 +1945,7 @@ class QosSaiBase(QosBase):
         logger.info(f"Test ports ids is{test_port_ids}")
         return test_port_ids
 
+    @pytest.fixture(scope="function", autouse=False)
     def _skip_allportQWM_multi_DUT(
             self,
             get_src_dst_asic_and_duts,
