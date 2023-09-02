@@ -65,7 +65,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -724,6 +724,11 @@ def determine_base_topo(topo_type, device_type):
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 24
         ptf_intfcount = 64
+    elif topo_type == 't1-28-lag':
+        base_topo_file = 'testbed-mth64-t1-28-lag.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 21
+        ptf_intfcount = 32
     elif topo_type == 't1-8-lag':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1-8-lag.yaml'
