@@ -725,7 +725,7 @@ def determine_base_topo(topo_type, device_type):
         vEOS_count = 24
         ptf_intfcount = 64
     elif topo_type == 't1-28-lag':
-        base_topo_file = 'testbed-mth64-t1-28-lag.yaml'
+        base_topo_file = 'testbed-mth32-t1-28-lag.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 21
         ptf_intfcount = 32

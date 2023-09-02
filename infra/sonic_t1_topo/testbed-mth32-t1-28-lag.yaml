@@ -32,7 +32,7 @@ devices:
       password: cisco123
       username: admin
     device_type: DevSonic
-    hwsku: Cisco-8102-C64
+    hwsku: Cisco-8102-C32
     os: sonic
   nexus-5:
     alias: null
