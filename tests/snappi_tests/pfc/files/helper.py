@@ -15,6 +15,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_background_flow, verify_pause_frame_count, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
     verify_unset_cev_pause_frame_count
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,9 @@ data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 2
 data_flow_delay_sec = 1
 SNAPPI_POLL_DELAY_SEC = 2
+PAUSE_FLOW_DUR_BASE_SEC = 3
 TOLERANCE_THRESHOLD = 0.05
+CONTINUOUS_MODE = -5
 
 
 def run_pfc_test(api,
@@ -100,17 +103,36 @@ def run_pfc_test(api,
         pfc = l1_config.flow_control.ieee_802_1qbb
         pfc.pfc_delay = snappi_extra_params.headroom_test_params[0]
 
-    if snappi_extra_params.packet_capture_type != packet_capture.NO_CAPTURE:
-        # Setup capture config
-        config_capture_pkt(testbed_config=testbed_config,
-                           port_id=port_id,
-                           capture_type=snappi_extra_params.packet_capture_type,
-                           capture_name=snappi_extra_params.packet_capture_type.value + "_" + str(port_id))
-
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
+
+    if snappi_extra_params.packet_capture_type != packet_capture.NO_CAPTURE:
+        # Setup capture config
+        if snappi_extra_params.is_snappi_ingress_port_cap:
+            # packet capture is required on the ingress snappi port
+            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["rx_port_name"]]
+        else:
+            # packet capture will be on the egress snappi port
+            snappi_extra_params.packet_capture_ports = [snappi_extra_params.base_flow_config["tx_port_name"]]
+
+        snappi_extra_params.packet_capture_file = snappi_extra_params.packet_capture_type.value
+
+        config_capture_pkt(testbed_config=testbed_config,
+                           port_names=snappi_extra_params.packet_capture_ports,
+                           capture_type=snappi_extra_params.packet_capture_type,
+                           capture_name=snappi_extra_params.packet_capture_file)
+
+    if snappi_extra_params.packet_capture_type == packet_capture.PFC_CAPTURE:
+        # PFC pause frame capture is requested
+        valid_pfc_frame_test = True
+    else:
+        # PFC pause frame capture is not requested
+        valid_pfc_frame_test = False
+
+    pause_flow_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + \
+        PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else CONTINUOUS_MODE
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
@@ -139,7 +161,9 @@ def run_pfc_test(api,
                          pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=pause_prio_list,
                          global_pause=global_pause,
-                         snappi_extra_params=snappi_extra_params)
+                         snappi_extra_params=snappi_extra_params,
+                         pause_flow_delay_sec=0,
+                         pause_flow_dur_sec=pause_flow_dur_sec)
 
     flows = testbed_config.flows
 
@@ -164,6 +188,12 @@ def run_pfc_test(api,
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
+
+    # Verify PFC pause frames
+    if valid_pfc_frame_test:
+        is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+        pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+        return
 
     # Verify pause flows
     verify_pause_flow(flow_metrics=flow_stats,

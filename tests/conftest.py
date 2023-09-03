@@ -149,6 +149,14 @@ def pytest_addoption(parser):
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
 
+    #########################
+    #   post-test options   #
+    #########################
+    parser.addoption("--posttest_show_tech_since", action="store", default="yesterday",
+                     help="collect show techsupport since <date>. <date> should be a string which can "
+                          "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
+                          "To collect all time spans, please use '@0' as the value.")
+
     ############################
     #  keysight ixanvl options #
     ############################
@@ -206,6 +214,8 @@ def enhance_inventory(request):
     This fixture is automatically applied, you don't need to declare it in your test script.
     """
     inv_opt = request.config.getoption("ansible_inventory")
+    if isinstance(inv_opt, list):
+        return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
     try:
         setattr(request.config.option, "ansible_inventory", inv_files)
@@ -436,7 +446,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost, request):
+def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -450,7 +460,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -483,7 +493,7 @@ def k8scluster(k8smasters):
 
 
 @pytest.fixture(scope="session")
-def nbrhosts(ansible_adhoc, tbinfo, creds, request):
+def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
@@ -548,7 +558,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
+def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F811
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -582,6 +592,9 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
                     fanout_user = creds.get('fanout_sonic_user', None)
                     fanout_password = creds.get('fanout_sonic_password', None)
                 elif os_type == 'eos':
+                    fanout_user = creds.get('fanout_network_user', None)
+                    fanout_password = creds.get('fanout_network_password', None)
+                elif os_type == 'snappi':
                     fanout_user = creds.get('fanout_network_user', None)
                     fanout_password = creds.get('fanout_network_password', None)
                 else:
@@ -635,7 +648,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa F
 
 
 @pytest.fixture(scope="session")
-def vmhost(ansible_adhoc, request, tbinfo):
+def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -1462,6 +1475,19 @@ def pytest_generate_tests(metafunc):        # noqa E302
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'vlan_name' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            if tbinfo['topo']['name'] == 'm0-2vlan':
+                metafunc.parametrize('vlan_name', ['Vlan1000', 'Vlan2000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+        # Non M0 topo
+        else:
+            if tbinfo['topo']['type'] in ['t0', 'mx']:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
 
 def get_autoneg_tests_data():
     folder = 'metadata'
@@ -1917,7 +1943,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
 
     if node.is_multi_asic:
@@ -1998,7 +2024,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
             if duthost.is_multi_asic:
@@ -2034,10 +2060,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
+                base_dir = os.path.dirname(os.path.realpath(__file__))
+                for new_core_dump in new_core_dumps[duthost.hostname]:
+                    duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
