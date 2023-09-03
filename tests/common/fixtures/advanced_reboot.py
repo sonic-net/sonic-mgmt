@@ -756,7 +756,8 @@ class AdvancedReboot:
             params=params,
             log_file='/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors,
-            timeout=REBOOT_CASE_TIMEOUT
+            timeout=REBOOT_CASE_TIMEOUT,
+            is_python3=True
         )
 
         return result
