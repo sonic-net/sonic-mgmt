@@ -18,7 +18,7 @@ device_groups:
     host:
     - mathilda-01
     vars:
-      hwsku: Cisco-8102-C32
+      hwsku: 32x100Gb
       iface_speed: '100000'
 devices:
   mathilda-01:
@@ -32,7 +32,7 @@ devices:
       password: cisco123
       username: admin
     device_type: DevSonic
-    hwsku: Cisco-8102-C32
+    hwsku: 32x100Gb
     os: sonic
   nexus-5:
     alias: null
