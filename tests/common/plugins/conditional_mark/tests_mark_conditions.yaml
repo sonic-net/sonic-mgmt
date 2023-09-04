@@ -1000,11 +1000,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
-    reason: "Generic internal image issue"
+    reason: "Test issue"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "release in ['202305']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
