@@ -1005,6 +1005,7 @@ show_techsupport/test_techsupport.py::test_techsupport:
     conditions:
       - "release in ['202305']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
