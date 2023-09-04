@@ -340,7 +340,6 @@ sonic:
     sonic_cisco_sup:
     sonic_nokia_7215:
     sonic_cisco_8102:
-    sonic_dell_z9332f:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
     sonic_nokia_lc_100G:
@@ -1919,36 +1918,6 @@ sonic_cisco_8111_O32:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-
-sonic_dell_z9332f:
-  vars:
-    iface_speed: 400000
-  hosts:
-    str2-z9332f-05:
-      ansible_host: 10.3.146.228
-      hwsku: DellEMC-Z9332f-M-O16C64
-      model: 04CN21
-      serial: 2FRXCW2
-      base_mac: C8:F7:50:ED:15:41
-      syseeprom_info:
-        "0x21": "Z9332F-ON"
-        "0x22": "04CN21"
-        "0x23": "TH04CN21CET0004K0123"
-        "0x24": "C8:F7:50:ED:15:41"
-        "0x25": "05/07/2020 21:33:13"
-        "0x26": "1"
-        "0x27": "A01"
-        "0x28": "x86_64-dellemc_z9332f_d1508-r0"
-        "0x29": "2021.03.05.0.0.5"
-        "0x2A": "384"
-        "0x2B": "CET00"
-        "0x2C": "TH"
-        "0x2D": "Dell EMC"
-        "0x2E": "0.5.1"
-        "0x2F": "2FRXCW2"
-        "0xFD": ""
-        "0xFE": "0x8DDCF4AB"
-      pdu_host: pdu-111
 
 sonic_appliance:
   vars:
