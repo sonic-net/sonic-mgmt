@@ -828,7 +828,7 @@ class ReloadTest(BaseTest):
         self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
         self.from_vlan_exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
 
-        self.from_vlan_packet = str(packet)
+        self.from_vlan_packet = bytes(packet)
 
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
