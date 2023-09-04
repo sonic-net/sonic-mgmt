@@ -292,10 +292,10 @@ def check_server_received(ptfhost, data):
     pytest_assert(len(res["stdout_lines"]) > 0)
 
 
-def get_latest_aaa_config_update_log(duthost):
-    res = duthost.command("sed -nE '/hostcfgd: AAA Update/P' /var/log/syslog")
-    logger.info("latest aaa config log {}".format(res["stdout_lines"]))
-
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
+    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+    
     if len(res["stdout_lines"]) == 0:
         return ""
 
@@ -303,14 +303,14 @@ def get_latest_aaa_config_update_log(duthost):
 
 
 def change_and_wait_aaa_config_update(duthost, command, timeout=10):
-    last_log = get_latest_aaa_config_update_log(duthost)
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
     duthost.shell(command)
-
-    # wait aaa config update
+    
+    # after AAA config update, histcfgd will modify config file and notify auditd reload config, wait auditd reload config finsih
     wait_time = 0
     while wait_time <= timeout:
-        latest_log = get_latest_aaa_config_update_log(duthost)
-        if latest_log != last_log:
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        if latest_timestamp != last_timestamp:
             return
 
         time.sleep(1)
