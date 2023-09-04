@@ -43,6 +43,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
 
     yield
 
+
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
                       src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
 
