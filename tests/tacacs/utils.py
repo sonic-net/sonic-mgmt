@@ -295,7 +295,7 @@ def check_server_received(ptfhost, data):
 def get_auditd_config_reload_timestamp(duthost):
     res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
     logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
-    
+
     if len(res["stdout_lines"]) == 0:
         return ""
 
@@ -305,7 +305,7 @@ def get_auditd_config_reload_timestamp(duthost):
 def change_and_wait_aaa_config_update(duthost, command, timeout=10):
     last_timestamp = get_auditd_config_reload_timestamp(duthost)
     duthost.shell(command)
-    
+
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
     wait_time = 0
