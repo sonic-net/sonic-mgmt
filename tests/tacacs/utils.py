@@ -306,7 +306,8 @@ def change_and_wait_aaa_config_update(duthost, command, timeout=10):
     last_timestamp = get_auditd_config_reload_timestamp(duthost)
     duthost.shell(command)
     
-    # after AAA config update, histcfgd will modify config file and notify auditd reload config, wait auditd reload config finsih
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
     wait_time = 0
     while wait_time <= timeout:
         latest_timestamp = get_auditd_config_reload_timestamp(duthost)
