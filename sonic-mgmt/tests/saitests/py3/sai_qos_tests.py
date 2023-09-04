@@ -4,12 +4,14 @@ SONiC Dataplane Qos tests
 import time
 import logging
 import ptf.packet as scapy
+from scapy.all import Ether, IP
 import socket
 import sai_base_test
 import operator
 import sys
 import texttable
 import math
+import os
 from ptf.testutils import (ptf_ports,
                            dp_poll,
                            simple_arp_packet,
@@ -19,7 +21,8 @@ from ptf.testutils import (ptf_ports,
                            simple_qinq_tcp_packet,
                            simple_ip_packet,
                            simple_ipv4ip_packet,
-                           hex_dump_buffer)
+                           hex_dump_buffer,
+                           verify_packet_any_port)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -92,6 +95,13 @@ RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
 COUNTER_MARGIN = 2  # Margin for counter check
+
+# Constants for the IP IP DSCP to PG mapping test
+DEFAULT_DSCP = 4
+DEFAULT_TTL = 64
+DEFAULT_ECN = 1
+DEFAULT_PKT_COUNT = 10
+PG_TOLERANCE = 2
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -785,6 +795,136 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             print("END OF TEST", file=sys.stderr)
+
+
+# DSCP to PG mapping for IP-IP packets
+class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.clients)
+        output_table = []
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        upstream_ptf_ports = self.test_params['upstream_ptf_ports']
+        outer_src_port_ip = self.test_params['outer_src_port_ip']
+        outer_dst_port_ip = self.test_params['outer_dst_port_ip']
+        src_port_id = int(self.test_params['src_port_id'])
+        inner_src_port_ip = self.test_params['inner_src_port_ip']
+        inner_dst_port_ip = self.test_params['inner_dst_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
+        pkt_dst_mac = router_mac
+        decap_mode = self.test_params['decap_mode']
+
+        if not dscp_to_pg_map:
+            # According to SONiC configuration all dscps are classified to pg 0 except:
+            # dscp  3 -> pg 3
+            # dscp  4 -> pg 4
+            # So for the 64 pkts sent the mapping should be -> 62 pg 0, 1 for pg 3, and 1 for pg 4
+            lossy_dscps = list(range(0, 64))
+            lossy_dscps.remove(3)
+            lossy_dscps.remove(4)
+            pg_dscp_map = {
+                3: [3],
+                4: [4],
+                0: lossy_dscps
+            }
+        else:
+            pg_dscp_map = {}
+            for dscp, pg in dscp_to_pg_map.items():
+                if pg in pg_dscp_map:
+                    pg_dscp_map[int(pg)].append(int(dscp))
+                else:
+                    pg_dscp_map[int(pg)] = [int(dscp)]
+
+        cause_for_failure = [False, []]
+
+        try:
+            for pg, dscps in list(pg_dscp_map.items()):
+
+                # send pkts with dscps that map to the same pg
+                for dscp in dscps:
+                    pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
+
+                    if decap_mode == "uniform":
+                        outer_dscp = dscp
+                        inner_dscp = DEFAULT_DSCP
+                        exp_dscp = outer_dscp
+                    elif decap_mode == "pipe":
+                        outer_dscp = DEFAULT_DSCP
+                        inner_dscp = dscp
+                        exp_dscp = inner_dscp
+
+                    inner_pkt = simple_tcp_packet(ip_src=inner_src_port_ip,
+                                                  ip_dst=inner_dst_port_ip,
+                                                  ip_dscp=inner_dscp,
+                                                  ip_ecn=DEFAULT_ECN,
+                                                  ip_ttl=DEFAULT_TTL)
+
+                    inner_pkt.ttl -= 1
+
+                    outer_pkt = simple_ipv4ip_packet(eth_src=src_port_mac,
+                                                     eth_dst=pkt_dst_mac,
+                                                     ip_src=outer_src_port_ip,
+                                                     ip_dst=outer_dst_port_ip,
+                                                     ip_dscp=outer_dscp,
+                                                     ip_ecn=DEFAULT_ECN,
+                                                     inner_frame=inner_pkt[scapy.IP])
+
+                    inner_pkt.ttl += 1
+
+                    exp_pkt = simple_tcp_packet(ip_src=inner_src_port_ip,
+                                                ip_dst=inner_dst_port_ip,
+                                                ip_dscp=exp_dscp,
+                                                ip_ecn=DEFAULT_ECN,
+                                                ip_ttl=DEFAULT_TTL)
+
+                    exp_pkt = Mask(exp_pkt)
+                    exp_pkt.set_do_not_care_scapy(Ether, 'src')
+                    exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+                    exp_pkt.set_do_not_care_scapy(IP, 'id')
+                    exp_pkt.set_do_not_care_scapy(IP, 'ttl')
+                    exp_pkt.set_do_not_care_scapy(IP, 'chksum')
+
+                    send_packet(self, src_port_id, outer_pkt, DEFAULT_PKT_COUNT)
+
+                    try:
+                        port_index, _ = verify_packet_any_port(self, exp_pkt, ports=upstream_ptf_ports, timeout=3)
+                    except AssertionError:
+                        cause_for_failure[0] = True
+                        cause_for_failure[1].append("Expected packet with DSCP {} was not received ".format(dscp) +
+                                                    "on any of the ports: {}".format(upstream_ptf_ports))
+
+                    # validate pg counters increment by the correct pkt num
+                    time.sleep(1)
+                    pg_cntrs = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
+
+                    for i in range(0, PG_NUM):
+                        try:
+                            if i == pg:
+                                assert ((pg_cntrs[pg] >= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT - PG_TOLERANCE) and
+                                        (pg_cntrs[pg] <= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT + PG_TOLERANCE))
+                                output_table.append("{}, {}, {}, PASS".format(pg, dscp, pg_cntrs))
+                            else:
+                                assert ((pg_cntrs[i] >= pg_cntrs_base[i] - PG_TOLERANCE) and
+                                        (pg_cntrs[i] <= pg_cntrs_base[i] + PG_TOLERANCE))
+                        except Exception:
+                            cause_for_failure[0] = True
+                            cause_for_failure[1].append("PG counters are not incremented correctly for " +
+                                                        "priority group {} and dscp value {}".format(i, dscp))
+                            output_table.append("{}, {}, {}, FAIL".format(i, dscp, pg_cntrs))
+
+        finally:
+            headers = "Priority Group, DSCP, pg counters, Result"
+            curr_dir = os.getcwd()
+            with open(curr_dir + "/dscp_to_pg_mapping_ipip.txt", "w") as f:
+                f.write(headers+"\n")
+                f.write("\n".join(output_table))
+            if cause_for_failure[0]:
+                with open(curr_dir + "/dscp_to_pg_mapping_ipip_failures.txt", "w") as f:
+                    f.write("\n".join(cause_for_failure[1]))
+
+            print("END OF TEST")
 
 
 # Tunnel DSCP to PG mapping test
@@ -4214,7 +4354,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type:
+            elif 'cisco-8000' in asic_type or "ACS-SN5600" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -4694,8 +4834,13 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num_trig_pfc // cell_occupancy - 1 - pkts_num_margin)
             time.sleep(8)
             # Read TX_OK again to calculate leaked packet number
-            tx_counters, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
+            if 'mellanox' == asic_type:
+                # There are not leaked packets on Nvidia dualtor devices
+                leaked_packet_number = 0
+            else:
+                tx_counters, _ = sai_thrift_read_port_counters(self.dst_client,
+                                                               asic_type, port_list['dst'][dst_port_id])
+                leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
             # Send packets to compensate the leaked packets
             send_packet(self, src_port_id, pkt, leaked_packet_number)
             time.sleep(8)

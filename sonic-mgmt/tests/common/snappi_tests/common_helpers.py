@@ -850,13 +850,13 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-def config_capture_pkt(testbed_config, port_id, capture_type, capture_name=None):
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
     Args:
         testbed_config (obj): L2/L3 snappi config of a testbed
-        port_id (int): ID of DUT port to capture packets
+        port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
 
@@ -865,7 +865,9 @@ def config_capture_pkt(testbed_config, port_id, capture_type, capture_name=None)
     """
 
     cap = testbed_config.captures.capture(name=capture_name if capture_name else "PacketCapture")[-1]
-    cap.port_names = [testbed_config.ports[port_id].name]
+    cap.port_names = []
+    for p_name in port_names:
+        cap.port_names.append(p_name)
     cap.format = cap.PCAP
 
     if capture_type == packet_capture.IP_CAPTURE:
