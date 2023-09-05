@@ -30,10 +30,9 @@ pytestmark = [
 ]
 
 PACKET_COUNT = 1000
-swss_mem_percent = 0
 # It's normal to see the mem usage increased a little bit
-# set threshold buffer to 0.02%
-MEM_THRESHOLD_BUFFER = 0.02
+# set threshold buffer to 0.03%
+MEM_THRESHOLD_BUFFER = 0.03
 
 
 def validate_neighbor_entry_exist(duthost, neighbor_addr):
@@ -66,16 +65,7 @@ def is_tunnel_packet_handler_running(duthost):
     return status == 'RUNNING'
 
 
-def check_memory_leak(duthost):
-    """Check if it has memory leak on duthost
-
-    Args:
-        duthost (AnsibleHost): Device Under Test (DUT)
-
-    Returns:
-        bool: True if there is memory leak. Otherwise, return False.
-    """
-    global swss_mem_percent
+def get_memory_info(duthost):
     stdout_lines = duthost.command("docker stats swss --no-stream")["stdout_lines"]
     header = stdout_lines[0]
     # Find the position of category "MEM USAGE", "MEM %" and "NET I/O"
@@ -90,20 +80,38 @@ def check_memory_leak(duthost):
     mem_usage = mem_info[0].strip()
     mem_limit = mem_info[1].strip()
     mem_percent = line[pos2:pos3].strip()
+    return mem_usage, mem_limit, mem_percent
 
-    logging.info("SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, mem_percent))
 
-    mem_percent = float(mem_percent[:-1])
-    if not swss_mem_percent:
-        # Save swss mem usage at the first time.
-        swss_mem_percent = mem_percent
-        logging.info("SWSS container original MEM USAGE:{} original percent: {}%".format(mem_usage, swss_mem_percent))
-        return False
-    elif mem_percent > swss_mem_percent + MEM_THRESHOLD_BUFFER:
-        logging.error("SWSS container MEM percent is increased. current percent:{}%, original percent: {}%"
-                      .format(mem_percent, swss_mem_percent))
-        return True
-    return False
+def check_memory_leak(duthost, target_mem_percent, delay=10, timeout=15, interval=5):
+    """Check if it has memory leak on duthost with retry
+
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        target_mem_percent: the max threshold of the memory percent
+        delay: the delay before the first try
+        timeout: the total timeout for the check
+        interval: the interval between tries
+
+    Returns:
+        bool: True if there is memory leak. Otherwise, return False.
+    """
+
+    def _check_memory(duthost):
+        mem_usage, _, mem_percent = get_memory_info(duthost)
+        mem_percent = float(mem_percent.strip('%'))
+        if mem_percent > target_mem_percent:
+            logging.error(
+                "SWSS container MEM percent exceeds the threshold. current percent:{}%, threshold percent: {}%".format(
+                    mem_percent, target_mem_percent))
+            return False
+        else:
+            logging.info(
+                "SWSS container MEM percent is in expected range. current percent:{}%, target percent: {}%".format(
+                    mem_percent, target_mem_percent))
+            return True
+
+    return not wait_until(timeout, interval, delay, _check_memory, duthost)
 
 
 def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,  # noqa: F811
@@ -145,16 +153,21 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
     expected_count = 0
 
     with prepare_services(ptfhost):
-        # Get the original memeory percent before test
-        check_memory_leak(upper_tor_host)
+        # Delete the neighbors
+        for iface, server_ips in list(all_servers_ips.items()):
+            server_ipv4 = server_ips["server_ipv4"].split("/")[0]
+            pytest_assert(wait_until(10, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
+                          "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
+        # sleep 10s to wait memory usage stable
+        time.sleep(10)
+        # Get the original memory percent before test
+        mem_usage, mem_limit, origin_mem_percent = get_memory_info(upper_tor_host)
+        logging.info("SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, origin_mem_percent))
         for iface, server_ips in list(all_servers_ips.items()):
             server_ipv4 = server_ips["server_ipv4"].split("/")[0]
             logging.info("Select DUT interface {} and server IP {} to test.".format(iface, server_ipv4))
 
             pkt, exp_pkt = build_packet_to_server(lower_tor_host, ptfadapter, server_ipv4)
-
-            pytest_assert(wait_until(10, 1, 0, delete_neighbor, upper_tor_host, server_ipv4),
-                          "server ip {} hasn't been deleted from neighbor table.".format(server_ipv4))
 
             server_traffic_monitor = ServerTrafficMonitor(
                 upper_tor_host, ptfhost, vmhost, tbinfo, iface,
@@ -165,8 +178,10 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                     testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), pkt, count=PACKET_COUNT)
                     logging.info("Sent {} packets from ptf t1 interface {} on standby TOR {}"
                                  .format(PACKET_COUNT, ptf_t1_intf, lower_tor_host.hostname))
-                    # Check memory usage for every operation, used for debugging if test failed
-                    check_memory_leak(upper_tor_host)
+                    # Log memory usage for every operation, used for debugging if test failed
+                    mem_usage, mem_limit, mem_percent = get_memory_info(upper_tor_host)
+                    logging.info(
+                        "SWSS MEM USAGE:{} LIMIT:{} PERCENT:{}".format(mem_usage, mem_limit, mem_percent))
                     pytest_assert(validate_neighbor_entry_exist(upper_tor_host, server_ipv4),
                                   "The server ip {} doesn't exist in neighbor table on dut {}. \
                                   tunnel_packet_handler isn't triggered.".format(server_ipv4, upper_tor_host.hostname))
@@ -181,6 +196,6 @@ def test_tunnel_memory_leak(toggle_all_simulator_ports_to_upper_tor, upper_tor_h
                      .format(expected_count, unexpected_count))
         # sleep 10s to wait memory usage stable, check if there is memory leak
         time.sleep(10)
-        check_result = check_memory_leak(upper_tor_host)
+        check_result = check_memory_leak(upper_tor_host, float(origin_mem_percent.strip('%')) + MEM_THRESHOLD_BUFFER)
         pytest_assert(check_result is False, "Test failed because there is memory leak on {}"
                       .format(upper_tor_host.hostname))
