@@ -1,6 +1,7 @@
 parameters:
   - name: TOPOLOGY
     type: string
+    default: ""
 
   - name: POLL_INTERVAL
     type: number
@@ -12,11 +13,11 @@ parameters:
 
   - name: MIN_WORKER
     type: string
-    default: 1
+    default: ""
 
   - name: MAX_WORKER
     type: string
-    default: 1
+    default: ""
 
   - name: NUM_ASIC
     type: number
@@ -43,6 +44,10 @@ parameters:
     default: ""
 
   - name: IMAGE_URL
+    type: string
+    default: ""
+
+  - name: UPGRADE_IMAGE_PARAM
     type: string
     default: ""
 
@@ -73,6 +78,14 @@ parameters:
   - name: FEATURES_EXCLUDE
     type: string
     default: ""
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: "[]"
+
+  - name: AFFINITY
+    type: string
+    default: "[]"
 
   - name: REPO_NAME
     type: string
@@ -162,10 +175,11 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
-      --deploy-mg-extra-params "${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
-      --common-extra-params "${{ parameters.COMMON_EXTRA_PARAMS }}" \
+      --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
       --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
       --image_url ${{ parameters.IMAGE_URL }} \
+      --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
       --test-plan-type ${{ parameters.TEST_PLAN_TYPE }} \
       --platform ${{ parameters.PLATFORM }} \
@@ -174,6 +188,8 @@ steps:
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
       --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
+      --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
+      --affinity='${{ parameters.AFFINITY }}' \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
