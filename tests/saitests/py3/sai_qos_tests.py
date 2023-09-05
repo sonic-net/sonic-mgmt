@@ -191,7 +191,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
         send_packet(dp, src_port_id, pkt, 10)
         time.sleep(8)
         _, queue_counters = sai_thrift_read_port_counters(dp.dst_client, asic_type, port_list['dst'][dst_port_id])
-        if queue_counters[queue] > base_queue_counters[queue]:
+        if queue_counters[queue] - base_queue_counters[queue] == 10:
             print("base_queue_counters: {}".format(base_queue_counters))
             print("queue_counters: {}".format(queue_counters))
             return True
