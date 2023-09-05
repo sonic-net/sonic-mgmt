@@ -2038,7 +2038,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-    yield
+    yield duts_data
 
     if check_flag:
         for duthost in duthosts:
