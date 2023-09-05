@@ -6,43 +6,46 @@ import ipaddress
 import pytest
 import socket
 import uuid
+from functools import lru_cache
 
-from dash_api.appliance_pb2 import *
-from dash_api.vnet_pb2 import *
-from dash_api.eni_pb2 import *
-from dash_api.qos_pb2 import *
-from dash_api.route_pb2 import *
-from dash_api.route_rule_pb2 import *
-from dash_api.vnet_mapping_pb2 import *
-from dash_api.route_type_pb2 import *
-from dash_api.types_pb2 import *
+from dash_api.appliance_pb2 import Appliance
+from dash_api.vnet_pb2 import Vnet
+from dash_api.eni_pb2 import Eni, State
+from dash_api.qos_pb2 import Qos
+from dash_api.route_pb2 import Route
+from dash_api.route_rule_pb2 import RouteRule
+from dash_api.vnet_mapping_pb2 import VnetMapping
+from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
 
 logger = logging.getLogger(__name__)
 
-GNMI_PORT = 0
-# Wait 15 seconds after starting GNMI server
-GNMI_SERVER_START_WAIT_TIME = 30
-GNMI_CONTAINER = "gnmi"
-GNMI_PROGRAM = "gnmi-native"
-GNMI_CA_CERT = "gnmiCA.pem"
-GNMI_CA_KEY = "gnmiCA.key"
-GNMI_SERVER_CERT = "gnmiserver.crt"
-GNMI_SERVER_KEY = "gnmiserver.key"
-GNMI_CLIENT_CERT = "gnmiclient.crt"
-GNMI_CLIENT_KEY = "gnmiclient.key"
 
-
-# ENABLE_PROTO = False
 ENABLE_PROTO = True
 
 
-def gnmi_port(duthost):
-    global GNMI_PORT
-    if GNMI_PORT == 0:
-        GNMI_CONFIG_KEY = 'GNMI|gnmi'
-        port = duthost.shell("sonic-db-cli CONFIG_DB hget '%s' 'port'" % GNMI_CONFIG_KEY)['stdout']
-        GNMI_PORT = int(port)
-    return GNMI_PORT
+@lru_cache(maxsize=None)
+class GNMIEnvironment(object):
+    def __init__(self, duthost):
+        self.duthost = duthost
+        self.use_gnmi_container = duthost.shell("docker ps | grep -w gnmi", module_ignore_errors=True)['rc'] == 0
+        if self.use_gnmi_container:
+            self.gnmi_config_table = "GNMI"
+            self.gnmi_container = "gnmi"
+            self.gnmi_program = "gnmi-native"
+        else:
+            self.gnmi_config_table = "TELEMETRY"
+            self.gnmi_container = "telemetry"
+            self.gnmi_program = "telemetry"
+        self.gnmi_port = int(duthost.shell(
+            "sonic-db-cli CONFIG_DB hget '%s' 'port'" % (self.gnmi_config_table + '|gnmi'))['stdout'])
+        self.gnmi_ca_cert = "gnmiCA.pem"
+        self.gnmi_ca_key = "gnmiCA.key"
+        self.gnmi_server_cert = "gnmiserver.crt"
+        self.gnmi_server_key = "gnmiserver.key"
+        self.gnmi_client_cert = "gnmiclient.crt"
+        self.gnmi_client_key = "gnmiclient.key"
+        self.gnmi_server_start_wait_time = 30
+        self.enable_zmq = duthost.shell("netstat -na | grep -w 8100", module_ignore_errors=True)['rc'] == 0
 
 
 def create_ext_conf(ip, filename):
@@ -59,8 +62,9 @@ IP      = %s
 
 
 def generate_gnmi_cert(localhost, duthost):
+    env = GNMIEnvironment(duthost)
     # Create Root key
-    local_command = "openssl genrsa -out %s 2048" % (GNMI_CA_KEY)
+    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_ca_key)
     localhost.shell(local_command)
 
     # Create Root cert
@@ -72,11 +76,11 @@ def generate_gnmi_cert(localhost, duthost):
                         -sha256 \
                         -days 1825 \
                         -subj '/CN=test.gnmi.sonic' \
-                        -out %s" % (GNMI_CA_KEY, GNMI_CA_CERT)
+                        -out %s" % (env.gnmi_ca_key, env.gnmi_ca_cert)
     localhost.shell(local_command)
 
     # Create server key
-    local_command = "openssl genrsa -out %s 2048" % (GNMI_SERVER_KEY)
+    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_server_key)
     localhost.shell(local_command)
 
     # Create server CSR
@@ -84,7 +88,7 @@ def generate_gnmi_cert(localhost, duthost):
                         -new \
                         -key %s \
                         -subj '/CN=test.server.gnmi.sonic' \
-                        -out gnmiserver.csr" % (GNMI_SERVER_KEY)
+                        -out gnmiserver.csr" % (env.gnmi_server_key)
     localhost.shell(local_command)
 
     # Sign server certificate
@@ -98,11 +102,12 @@ def generate_gnmi_cert(localhost, duthost):
                         -out %s \
                         -days 825 \
                         -sha256 \
-                        -extensions req_ext -extfile extfile.cnf" % (GNMI_CA_CERT, GNMI_CA_KEY, GNMI_SERVER_CERT)
+                        -extensions req_ext -extfile extfile.cnf" % (
+                            env.gnmi_ca_cert, env.gnmi_ca_key, env.gnmi_server_cert)
     localhost.shell(local_command)
 
     # Create client key
-    local_command = "openssl genrsa -out %s 2048" % (GNMI_CLIENT_KEY)
+    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_client_key)
     localhost.shell(local_command)
 
     # Create client CSR
@@ -110,7 +115,7 @@ def generate_gnmi_cert(localhost, duthost):
                         -new \
                         -key %s \
                         -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr" % (GNMI_CLIENT_KEY)
+                        -out gnmiclient.csr" % (env.gnmi_client_key)
     localhost.shell(local_command)
 
     # Sign client certificate
@@ -122,50 +127,54 @@ def generate_gnmi_cert(localhost, duthost):
                         -CAcreateserial \
                         -out %s \
                         -days 825 \
-                        -sha256" % (GNMI_CA_CERT, GNMI_CA_KEY, GNMI_CLIENT_CERT)
+                        -sha256" % (env.gnmi_ca_cert, env.gnmi_ca_key, env.gnmi_client_cert)
     localhost.shell(local_command)
 
 
 def apply_gnmi_cert(duthost):
+    env = GNMIEnvironment(duthost)
     # Copy CA certificate and server certificate over to the DUT
-    duthost.copy(src=GNMI_CA_CERT, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=GNMI_SERVER_CERT, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=GNMI_SERVER_KEY, dest='/etc/sonic/telemetry/')
-    port = gnmi_port(duthost)
+    duthost.copy(src=env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.gnmi_server_key, dest='/etc/sonic/telemetry/')
+    port = env.gnmi_port
     assert int(port) > 0, "Invalid GNMI port"
-    dut_command = "docker exec %s supervisorctl stop %s" % (GNMI_CONTAINER, GNMI_PROGRAM)
+    dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command)
-    dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER)
+    dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s bash -c " % GNMI_CONTAINER
+    dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/telemetry -logtostderr --port %s " % port
-    dut_command += "--server_crt /etc/sonic/telemetry/%s " % (GNMI_SERVER_CERT)
-    dut_command += "--server_key /etc/sonic/telemetry/%s " % (GNMI_SERVER_KEY)
-    dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (GNMI_CA_CERT)
-    dut_command += "-gnmi_native_write=true -v=10 -zmq_address=tcp://127.0.0.1:8100 >/root/gnmi.log 2>&1 &\""
-# dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
+    dut_command += "--server_crt /etc/sonic/telemetry/%s " % (env.gnmi_server_cert)
+    dut_command += "--server_key /etc/sonic/telemetry/%s " % (env.gnmi_server_key)
+    dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (env.gnmi_ca_cert)
+    if env.enable_zmq:
+        dut_command += " -zmq_address=tcp://127.0.0.1:8100 "
+    dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
+    time.sleep(env.gnmi_server_start_wait_time)
 
 
 def recover_gnmi_cert(duthost):
-    dut_command = "docker exec %s supervisorctl status %s" % (GNMI_CONTAINER, GNMI_PROGRAM)
+    env = GNMIEnvironment(duthost)
+    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
         return
-    dut_command = "docker exec %s pkill telemetry" % (GNMI_CONTAINER)
+    dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl start %s" % (GNMI_CONTAINER, GNMI_PROGRAM)
+    dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command)
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
+    time.sleep(env.gnmi_server_start_wait_time)
 
 
 def gnmi_capabilities(duthost, localhost, client_cert):
+    env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
-    port = gnmi_port(duthost)
+    port = env.gnmi_port
     cmd = "dash/gnmi_cli -client_types=gnmi -a %s:%s " % (ip, port)
-    cmd += "-logtostderr -client_crt ./%s -client_key ./%s " % (GNMI_CLIENT_CERT, GNMI_CLIENT_KEY)
-    cmd += "-ca_crt ./%s -capabilities" % (GNMI_CA_CERT)
+    cmd += "-logtostderr -client_crt ./%s -client_key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
+    cmd += "-ca_crt ./%s -capabilities" % (env.gnmi_ca_cert)
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         return -1, output['stderr']
@@ -174,11 +183,12 @@ def gnmi_capabilities(duthost, localhost, client_cert):
 
 
 def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
+    env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
-    port = gnmi_port(duthost)
+    port = env.gnmi_port
     cmd = "dash/gnmi_set -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (GNMI_CLIENT_CERT, GNMI_CLIENT_KEY)
-    cmd += "-ca ./%s -time_out 60s " % (GNMI_CA_CERT)
+    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
+    cmd += "-ca ./%s -time_out 60s " % (env.gnmi_ca_cert)
     cmd += "-xpath_target MIXED "
     for delete in delete_list:
         cmd += " -delete " + delete
@@ -194,11 +204,12 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
 
 
 def gnmi_get(duthost, localhost, path_list):
+    env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
-    port = gnmi_port(duthost)
+    port = env.gnmi_port
     cmd = "dash/gnmi_get -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (GNMI_CLIENT_CERT, GNMI_CLIENT_KEY)
-    cmd += "-ca ./%s " % (GNMI_CA_CERT)
+    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
+    cmd += "-ca ./%s " % (env.gnmi_ca_cert)
     cmd += "-xpath_target MIXED "
     for path in path_list:
         cmd += " -xpath " + path

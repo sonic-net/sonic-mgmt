@@ -44,6 +44,7 @@ all:
           - wan-3link-tg
           - wan-ecmp
           - wan-pub-isis
+          - appliance
       children:
         server_1:
     lab:
