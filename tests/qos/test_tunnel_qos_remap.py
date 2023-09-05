@@ -599,7 +599,8 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
         base_queue_count = get_queue_counter(rand_selected_dut, dualtor_meta['selected_port'], queue, False)
         logger.info("Base queue count on {}|{} is {}".format(dualtor_meta['selected_port'], queue, base_queue_count))
         assert base_queue_count >= 1000, \
-            "Incorrect number of packets {} arrived on {}|{}".format(base_queue_count, dualtor_meta['selected_port'], queue)
+            "Incorrect number of packets {} arrived on {}|{}".format(
+                base_queue_count, dualtor_meta['selected_port'], queue)
         # Record watermark when under no congestion
         base_queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue)
         logger.info("Base queue watermark on {}|{} is {}".format(
