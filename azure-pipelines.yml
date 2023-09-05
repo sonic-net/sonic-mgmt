@@ -143,6 +143,21 @@ stages:
           KVM_IMAGE_BRANCH: "master"
           MGMT_BRANCH: "master"
 
+  - job: appliance_elastictest
+    displayName: "kvmtest-appliance by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: appliance
+          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          COMMON_EXTRA_PARAMS: " --skip_dataplane_checking "
+          KVM_IMAGE_BRANCH: "master"
+          MGMT_BRANCH: "master"
+
 #  - job: wan_elastictest
 #    displayName: "kvmtest-wan by Elastictest"
 #    timeoutInMinutes: 240

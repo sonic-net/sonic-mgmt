@@ -157,6 +157,9 @@ wan-pub:
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
 
+appliance:
+  - dash/test_dash_vnet.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
