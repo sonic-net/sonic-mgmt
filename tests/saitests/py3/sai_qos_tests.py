@@ -166,7 +166,7 @@ def construct_tcp_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan,
         return pkt
 
 
-def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1):
+def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pkt_len, src_details, packets_per_port=1, queue=None):
     '''
         Returns a dict of format:
         src_id : [list of (pkt, exp_pkt) pairs that go to the given dst_id]
@@ -184,9 +184,13 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
         return result.port
 
 
-    def is_rx_port(dp, src_port_id, dst_port_id, pkt):
+    def is_rx_port(dp, src_port_id, dst_port_id, pkt, queue):
         asic_type = dp.test_params['sonic_asic_type']
-        queue = dp.test_params['pg']
+        if queue == None:
+            if "queue" in dp.test_params:
+                queue = dp.test_params["queue"]
+            else:
+                queue = dp.test_params["pg"]
         _, base_queue_counters = sai_thrift_read_port_counters(dp.dst_client, asic_type, port_list['dst'][dst_port_id])
         send_packet(dp, src_port_id, pkt, 10)
         time.sleep(8)
@@ -233,7 +237,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
             if src_vlan is not None:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
             # if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
-            if is_rx_port(dp, src_tuple[0], dst_id, pkt):
+            if is_rx_port(dp, src_tuple[0], dst_id, pkt, queue):
                 try:
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt))
                     num_of_pkts+=1
@@ -4810,7 +4814,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts = {}
         for i in range(len(dst_port_ids)):
             pkts[dst_port_ids[i]] = []
-            for pri in prio_list:
+            for (pri, queue) in zip(prio_list, queue_list):
                 pkts[dst_port_ids[i]].append(get_multiple_flows(self,
                     router_mac,
                     dst_port_ids[i],
@@ -4821,7 +4825,8 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
                     ttl,
                     packet_length,
                     [(src_port_id, src_port_ip)],
-                    packets_per_port=1)[src_port_id][0][0])
+                    packets_per_port=1,
+                    queue=queue)[src_port_id][0][0])
 
         margin = int(self.test_params['pkts_num_margin']) if self.test_params.get(
             'pkts_num_margin') else 8
