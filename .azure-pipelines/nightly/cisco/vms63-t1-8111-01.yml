@@ -15,7 +15,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - xuchen3/internal-202205/8111-nightly
     always: true
 
 variables:
@@ -41,7 +41,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: ''
+    default: '-S "qos/test_qos_sai.py"'
     displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
