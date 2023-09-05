@@ -185,15 +185,18 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         # need to use Mask to ignore the priority field.
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
-    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'
-                 .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports))
 
-    # fdb test will send lots of pkts between paired ports, it's hard to guarantee there is no congestion
-    # on server side during this period. So tolerant to retry 3 times before complain the assert.
+    # FDB test sends lot of packets to validate all the dynamically learnt MACs.
+    # So, PTF server ports might get congested with the flood of packets and script
+    # may not capture the packets and validate the tests within the PTF timeout.
+    # When the failure is detected in the first pass, script retries 5 times
+    # with a delay and also dumps DUT's portstat to debug any issues.
 
-    retry_count = 3
+    retry_count = 5
     pkt_count = 1
-    for _ in range(retry_count):
+    for cnt in range(retry_count):
+        logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {} dst_vlan {} count {}'
+                     .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports, dst_vlan, pkt_count))
         try:
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
@@ -207,6 +210,11 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         except Exception:
             # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
             pkt_count = 10
+            logger.info("Packets not reached destination in first pass,sleep and retry count:{}".format(cnt))
+            time.sleep(FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+            result = duthost.command("portstat", module_ignore_errors=True)
+            logger.info("Port counters: {}".format(result['stdout']))
+            duthost.command("portstat -c", module_ignore_errors=True)
             pass
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
