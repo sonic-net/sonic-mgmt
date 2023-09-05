@@ -5,7 +5,7 @@
                 "BMC_ACL_NORTHBOUND": {
                     "acl-entries": {
                         "acl-entry": {
-                            "0001_IN_PORTS_BMC_DST_IP_BMC_1": {
+                            "0001_IN_PORTS_BMC_DST_IP_BMC": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "DROP"
@@ -28,7 +28,7 @@
                                     }
                                 }
                             },
-                            "0006_IN_PORTS_BMC_DST_IP_BMC_2": {
+                            "0006_IN_PORTS_BMC_DST_IP_BMC": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "DROP"

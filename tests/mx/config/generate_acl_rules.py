@@ -53,6 +53,7 @@ def ip_merge(ip_list, exclude_list=None):
                 exclude_net = exclude_net.supernet()
             result = reduce(lambda x, y: x + y, [list(res.address_exclude(exclude_net)) if res.overlaps(exclude_net) else [res] for res in result])
         exclude_list = [ex for ex in exclude_list if not exclude_net.supernet_of(ipaddress.ip_network(ex))]
+    result.sort(key=lambda x: (x.prefixlen, int(x.network_address)))
     return result
 
 
@@ -106,12 +107,10 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
     # IN_PORTS = BMC, DST_IP = BMC => DROP
     bmc_intfs = [port_alias_to_name[host['port_alias']] for host in bmc_hosts]
     bmc_nets = ip_merge(bmc_ips, rm_ips)
-    sub_seq = 1
     for bmc_net in bmc_nets:
-        acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC_{}".format(sequence_id, sub_seq)] = \
+        acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC".format(sequence_id)] = \
             acl_entry(sequence_id, dst_ip=format(bmc_net), interfaces=bmc_intfs)
         sequence_id += 5
-        sub_seq += 1
 
     sequence_id = max(sequence_id, 101)
     # For same shelf:
@@ -129,30 +128,27 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
         sequence_id += 5
     else:
         for shelf in shelfs:
-            sub_seq = 1
             rm = shelf['rm']
             rm_ip = ipaddress.ip_network(rm.get('ipv4_subnet', None) or rm['ipv4_addr'])
             for bmc_gp in shelf['bmc']:
                 if bmc_gp.get('config', {}).get('ipv4_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv4_subnet'])
-                    acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                    acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
                         acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
                     sequence_id += 5
-                    acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                    acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
                         acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
                     sequence_id += 5
-                    sub_seq += 1
                 else:
                     gp_bmc_ips = [bh['ipv4_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
-                        acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                        acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
                         sequence_id += 5
-                        acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                        acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
                         sequence_id += 5
-                        sub_seq += 1
 
     # All other ipv4 packages => DROP
     sequence_id = 9990
@@ -186,22 +182,18 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         # IN_PORTS = BMC, DST_IP = BMC => DROP
         # (Avoid one BMC send package to another BMC)
         bmc_nets = ip_merge(bmc_ips, rm_ips)
-        sub_seq = 1
         for bmc_net in bmc_nets:
-            acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC_{}".format(sequence_id, sub_seq)] = \
+            acl_entries["{:04d}_IN_PORTS_BMC_DST_IP_BMC".format(sequence_id)] = \
                 acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(bmc_net), interfaces=bmc_intfs)
             sequence_id += 5
-            sub_seq += 1
 
         # IN_PORTS = RM, DST_IP = RM => DROP
         # (Avoid one RM send package to another RM)
         rm_nets = ip_merge(rm_ips, bmc_ips)
-        sub_seq = 1
         for rm_net in rm_nets:
-            acl_entries["{:04d}_IN_PORTS_RM_DST_IP_RM_{}".format(sequence_id, sub_seq)] = \
+            acl_entries["{:04d}_IN_PORTS_RM_DST_IP_RM".format(sequence_id)] = \
                 acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(rm_net), interfaces=rm_intfs)
             sequence_id += 5
-            sub_seq += 1
 
     sequence_id = 9001  # 900 <= priority < 1000
 
@@ -212,28 +204,25 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         for shelf in shelfs:
             rm = shelf['rm']
             rm_ip = ipaddress.ip_network(rm.get('ipv6_subnet', None) or rm['ipv6_addr'])
-            sub_seq = 1
             for bmc_gp in shelf['bmc']:
                 if bmc_gp.get('config', {}).get('ipv6_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv6_subnet'])
-                    acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                    acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
                         acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
                     sequence_id += 5
-                    acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                    acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
                         acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
                     sequence_id += 5
-                    sub_seq += 1
                 else:
                     gp_bmc_ips = [bh['ipv6_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
-                        acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                        acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
                         sequence_id += 5
-                        acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM_{}".format(sequence_id, shelf['id'], sub_seq)] = \
+                        acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
                         sequence_id += 5
-                        sub_seq += 1
 
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)
