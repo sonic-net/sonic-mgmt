@@ -326,8 +326,10 @@ def run_traffic(duthost,
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     pcap_type = snappi_extra_params.packet_capture_type
-    switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"]["peer_port"]
-    switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"]["peer_port"]
+    base_flow_config = snappi_extra_params.base_flow_config
+    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
+    switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
+    switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
@@ -344,15 +346,18 @@ def run_traffic(duthost,
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
         switch_device_results = {}
-        switch_device_results["tx_frames"] = []
-        switch_device_results["rx_frames"] = []
+        switch_device_results["tx_frames"] = {}
+        switch_device_results["rx_frames"] = {}
+        for lossless_prio in switch_tx_lossless_prios:
+            switch_device_results["tx_frames"][lossless_prio] = []
+            switch_device_results["rx_frames"][lossless_prio] = []
         exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC  # extra time to allow for device polling
         poll_freq_sec = int(exp_dur_sec / 10)
-        time.sleep(poll_freq_sec)
 
         for _ in range(10):
-            switch_device_results["tx_frames"].append(get_tx_frame_count(duthost, switch_tx_port)[0])
-            switch_device_results["rx_frames"].append(get_rx_frame_count(duthost, switch_rx_port)[0])
+            for lossless_prio in switch_tx_lossless_prios:
+                switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port, lossless_prio)[0])
+                switch_device_results["rx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_rx_port, lossless_prio)[0])
             time.sleep(poll_freq_sec)
     else:
         time.sleep(exp_dur_sec)  # no polling required
@@ -685,13 +690,20 @@ def verify_unset_cev_pause_frame_count(duthost,
 
 
 def verify_egress_queue_frame_count(duthost,
-                                    snappi_extra_params):
+                                    switch_flow_stats,
+                                    test_traffic_pause,
+                                    snappi_extra_params,
+                                    egress_queue_frame_count_tol=10):
     """
     Verify correct frame count for regular traffic from DUT egress queue
 
     Args:
         duthost (obj): DUT host object
+        switch_flow_stats (dict): switch flow statistics
+        test_traffic_pause (bool): whether test traffic is expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        egress_queue_frame_count_tol (int): tolerance for egress queue frame count when traffic is expected
+                                            to be paused
     Returns:
 
     """
@@ -700,7 +712,17 @@ def verify_egress_queue_frame_count(duthost,
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
     test_tx_frames = snappi_extra_params.test_tx_frames
 
-    if not set_class_enable_vec:
+    if test_traffic_pause:
+        pytest_assert(switch_flow_stats, "Switch flow statistics is not provided")
+        for prio, poll_data in switch_flow_stats["tx_frames"].items():
+            mid_poll_index = int(len(poll_data)/2)
+            next_poll_index = mid_poll_index + 1
+            mid_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][mid_poll_index]
+            next_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][next_poll_index]
+            pytest_assert(next_poll_egress_queue_count - mid_poll_egress_queue_count <= egress_queue_frame_count_tol,
+                        "Egress queue frame count should not increase when test traffic is paused")
+
+    if not set_class_enable_vec and not test_traffic_pause:
         for peer_port, prios in dut_port_config[1].items():
             for prio in range(len(prios)):
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])

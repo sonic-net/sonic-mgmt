@@ -44,4 +44,4 @@ class SnappiTestParams():
         self.test_tx_frames = 0
         self.gen_background_traffic = True
         self.pause_flow_params = None
-        self.poll_device_runtime = False
+        self.poll_device_runtime = True
