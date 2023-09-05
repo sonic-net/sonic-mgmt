@@ -68,7 +68,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym, span, sub_port_interfaces, platform_tests, metadata-scripts"
+    default: "pfc_asym, span, sub_port_interfaces, metadata-scripts"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS

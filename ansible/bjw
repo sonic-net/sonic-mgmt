@@ -544,7 +544,7 @@ sonic_e1031:
   hosts:
     bjw-can-e1031-1:
       ansible_host: 10.150.22.125
-      model: R0882-F4111-01
+      model: R0882-F4081-01
       serial: R0882B2F160615GD000006
       base_mac: 00:E0:EC:E9:A0:2C
       syseeprom_info:
