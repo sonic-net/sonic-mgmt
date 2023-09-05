@@ -25,6 +25,25 @@ pytestmark = [
 PTF_PORT_MAPPING_MODE = "use_orig_interface"
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        loganalyzer_ignore_regex = [
+            ".*ERR swss#orchagent: :- update: Failed to get port by bridge port ID.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
+
+
 def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff:ff:ff",
                       src_ip="192.168.0.1", dst_ip="192.168.0.2", ttl=64):
 
