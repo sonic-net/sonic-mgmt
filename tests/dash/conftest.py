@@ -38,6 +38,12 @@ def pytest_addoption(parser):
         help="Skip config cleanup after test"
     )
 
+    parser.addoption(
+        "--skip_dataplane_checking",
+        action="store_true",
+        help="Skip dataplane checking"
+    )
+
 
 @pytest.fixture(scope="module")
 def config_only(request):
@@ -52,6 +58,11 @@ def skip_config(request):
 @pytest.fixture(scope="module")
 def skip_cleanup(request):
     return request.config.getoption("--skip_cleanup")
+
+
+@pytest.fixture(scope="module")
+def skip_dataplane_checking(request):
+    return request.config.getoption("--skip_dataplane_checking")
 
 
 @pytest.fixture(scope="module")
