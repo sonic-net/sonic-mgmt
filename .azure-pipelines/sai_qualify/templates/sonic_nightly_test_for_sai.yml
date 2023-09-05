@@ -142,6 +142,9 @@ parameters:
     default: "build_brcm_sai_4.3"
     type: string
 
+  - name: SDK_BUILD_ID
+    type: string
+    default: ""
 
 jobs:
 
@@ -354,6 +357,8 @@ jobs:
           pipeline: ${{ parameters.SDK_BUILD_PIPELINE_NAME}}
           artifact: ${{ parameters.SDK_ARTIFACT_NAME }}
           path: $(Build.ArtifactStagingDirectory)/download
+          runVersion: 'specific'
+          buildId: ${{ parameters.SDK_BUILD_ID }}
           patterns: |
             *.*
           script: |
