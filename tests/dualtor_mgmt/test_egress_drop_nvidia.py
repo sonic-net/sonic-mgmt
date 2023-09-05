@@ -22,7 +22,10 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-PKT_NUM = 1000
+PKT_NUM = 2000
+PKT_COUNTER_MARGIN_PERCENT = 0.1  # The margin is used to ignore the background packtes.
+COUNTER_RANGE = [PKT_NUM * 2, PKT_NUM * 2 * (1 + PKT_COUNTER_MARGIN_PERCENT)]
+COUNTER_ZERO = [0, PKT_NUM * PKT_COUNTER_MARGIN_PERCENT]
 
 # Nvidia uses egress drop instead of ingress drop for the upstream traffic when the port is standby.
 # These two test cases are to cover the test gap introduced by the egress drop.
@@ -110,24 +113,27 @@ def test_egress_drop_standby_server_to_active_server(ptfhost, upper_tor_host, lo
     with allure.step("Check the port counters to make sure the drop on lower tor happened"):
         # There are in total 2 * PKT_NUM packets sent, the tx counter value of the last server port on the lower tor
         # should be slightly lager than 2 * PKT_NUM, which means no duplicated packets are received by the server.
-        counter_range = [PKT_NUM * 2, PKT_NUM * 2 * 1.05]
 
         def _check_counters():
             upper_tor_port_counters = json.loads(upper_tor_host.get_port_counters(in_json=True))
             lower_tor_port_counters = json.loads(lower_tor_host.get_port_counters(in_json=True))
             upper_tor_active_port_rx_counter = int(
                 upper_tor_port_counters[lower_tor_standby_port]['RX_OK'].replace(',', ''))
+            upper_tor_standby_port_tx_counter = int(
+                upper_tor_port_counters[lower_tor_active_port]['TX_OK'].replace(',', ''))
             lower_tor_standby_port_rx_counter = int(
                 lower_tor_port_counters[lower_tor_standby_port]['RX_OK'].replace(',', ''))
             lower_tor_active_port_tx_counter = int(
                 lower_tor_port_counters[lower_tor_active_port]['TX_OK'].replace(',', ''))
             logger.info(
                 f'upper_tor_active_port_rx_counter: {upper_tor_active_port_rx_counter}, '
+                f'upper_tor_standby_port_tx_counter: {upper_tor_standby_port_tx_counter}, '
                 f'lower_tor_standby_port_rx_counter: {lower_tor_standby_port_rx_counter}, '
                 f'lower_tor_active_port_tx_counter: {lower_tor_active_port_tx_counter}')
-            return (counter_range[0] <= upper_tor_active_port_rx_counter < counter_range[1]
-                    and counter_range[0] <= lower_tor_standby_port_rx_counter < counter_range[1]
-                    and counter_range[0] <= lower_tor_active_port_tx_counter < counter_range[1])
+            return (COUNTER_RANGE[0] <= upper_tor_active_port_rx_counter < COUNTER_RANGE[1]
+                    and COUNTER_ZERO[0] <= upper_tor_standby_port_tx_counter < COUNTER_ZERO[1]
+                    and COUNTER_RANGE[0] <= lower_tor_standby_port_rx_counter < COUNTER_RANGE[1]
+                    and COUNTER_RANGE[0] <= lower_tor_active_port_tx_counter < COUNTER_RANGE[1])
         pytest_assert(wait_until(15, 5, 0, _check_counters), "The port counters are not as expected.")
 
 def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, lower_tor_host, # noqa F811
@@ -203,8 +209,6 @@ def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, l
         # There are in total 2 * PKT_NUM packets sent, the rx counter value of the source port on the lower tors
         # should be slightly lager than 2 * PKT_NUM.
         # And all the port tx counters on the lower tor should be slightly lager than zero.
-        rx_counter_range = [PKT_NUM * 2, PKT_NUM * 2 * 1.05]
-        tx_counter_range = [0, PKT_NUM * 0.05]
 
         def _check_counters():
             res = True
@@ -214,7 +218,7 @@ def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, l
                 lower_tor_port_counters[lower_tor_source_port]["RX_OK"].replace(',', ''))
             logger.info("The RX_OK counter of port {} on lower tor is {} .".format(
                 lower_tor_source_port, lower_tor_source_port_rx_counter))
-            if not rx_counter_range[0] <= lower_tor_source_port_rx_counter < rx_counter_range[1]:
+            if not COUNTER_RANGE[0] <= lower_tor_source_port_rx_counter < COUNTER_RANGE[1]:
                 res = False
             # There should not be TX counters on any lower tor port
             # wait a few seconds to make sure the counters are updated
@@ -223,7 +227,7 @@ def test_egress_drop_standby_server_to_standby_server(ptfhost, upper_tor_host, l
                 tx_counter = int(lower_tor_port_counters[port]['TX_OK'].replace(',', ''))
                 logger.info("The TX_OK counter of port {} on lower tor is {}.".format(
                     port, tx_counter))
-                if not tx_counter_range[0] <= tx_counter < tx_counter_range[1]:
+                if not COUNTER_ZERO[0] <= tx_counter < COUNTER_ZERO[1]:
                     res = False
             return res
         pytest_assert(wait_until(15, 5, 0, _check_counters), "The port counters are not as expected.")
