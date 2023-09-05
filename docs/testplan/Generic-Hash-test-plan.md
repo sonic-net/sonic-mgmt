@@ -210,7 +210,7 @@ INNER_L4_SRC_PORT  INNER_L4_SRC_PORT
 }
 ```
 ### 3.4 Supported topology
-The test supports t0 and t1 topologies, do not support dualtor topologies.
+The test should support t0 and t1 topologies.
 
 ## 4. Test cases
 
@@ -222,8 +222,8 @@ The test supports t0 and t1 topologies, do not support dualtor topologies.
 | 4 | test_ecmp_and_lag_hash | Verify the hash functionality with all ecmp and lag hash fields configured|
 | 5 | test_nexthop_flap | Verify the ecmp hash functionality when there is nexthop flap|
 | 6 | test_lag_member_flap | Verify the lag hash functionality when there is lag member flap|
-| 7 | test_reboot | Verify there is no hash configuration inconsistence before and after reload/reboot|
-| 8 | test_invalid_hash_fields | Negative test for the invalid hash field parameters|
+| 7 | test_lag_member_remove_add| Verify the lag hash functionality after a lag member is removed and added back to a portchannel|
+| 8 | test_reboot | Verify there is no hash configuration inconsistence before and after reload/reboot|
 | 9 | test_backend_error_messages | Verify there are backend errors in syslog when the hash config is removed or updated with invalid values via redis cli|
 
 ### Notes: 
@@ -250,9 +250,12 @@ The test supports t0 and t1 topologies, do not support dualtor topologies.
 1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Randomly select a hash field and configure it to the lag hash list via cli "config switch-hash global lag-hash".
 3. Configure the ecmp hash list to exclude the selected field to verify the ecmp hash configuration does not affect the hash result.
-4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, change the topology to allow L2 forwarding and send L2 traffic in the next step.
-5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via the portchannels.
-6. Check the traffic is forwarded through only one portchannel and is balanced over the members.
+4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
+5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
+6. Remove the downlink interface from the existing vlan if it is t0 topology.
+7. For the DST_MAC, ETHERTYPE fields, add the chosen interfaces to a same vlan; For VLAN_ID field, add the interfaces to multiple vlans.
+8. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination via the portchannels.
+9. Check the traffic is forwarded through only one portchannel and is balanced over the members.
 
 ### Test cases #4 - test_ecmp_and_lag_hash
 1. The test is using the default links and routes in a t0/t1 testbed.
@@ -275,40 +278,48 @@ The test supports t0 and t1 topologies, do not support dualtor topologies.
 11. Check the traffic is balanced over all uplink ports with no packet loss.
 
 ### Test cases #6 - test_lag_member_flap
-1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks
+1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
 2. Configure all the supported hash fields for the ecmp and lag hash.
 3. Randomly select one hash field to test.
-4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, change the topology to allow L2 forwarding and send L2 traffic in the next step.
-5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
-6. Check the traffic is balanced over all the uplink ports.
-7. Randomly shutdown 1 member port in all uplink portchannels.
-8. Send the traffic again.
-9. Check the traffic is balance over all remaining uplink ports with no packet loss.
-10. Recover the members and do shutdown/startup on them 3 more times.
+4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
+5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
+6. Remove the downlink interface from the existing vlan if it is t0 topology.
+7. For the DST_MAC, ETHERTYPE fields, add the chosen interfaces to a same vlan; For VLAN_ID field, add the interfaces to multiple vlans.
+8. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
+9. Check the traffic is balanced over all the uplink ports.
+10. Randomly shutdown 1 member port in all uplink portchannels.
 11. Send the traffic again.
-12. Check the traffic is balance over all uplink ports with no packet loss.
+12. Check the traffic is balanced over all remaining uplink ports with no packet loss.
+13. Recover the members and do shutdown/startup on them 3 more times.
+14. Send the traffic again.
+15. Check the traffic is balanced over all uplink ports with no packet loss.
 
-### Test cases #7 - test_reboot
+### Test cases #7 - test_lag_member_remove_add
+1. The test is using the default links and routes in a t0/t1 testbed, and only runs on setups which have multi-member portchannel uplinks.
+2. Configure all the supported hash fields for the ecmp and lag hash.
+3. Randomly select one hash field to test.
+4. If the hash field is DST_MAC, ETHERTYPE or VLAN_ID, take the steps 5-7, otherwise skip them.
+5. Choose one downlink interface and one uplink interface, remove all ip/ipv6 addresses on them.
+6. Remove the downlink interface from the existing vlan if it is t0 topology.
+7. For the DST_MAC, ETHERTYPE fields, add the chosen interfaces to a same vlan; For VLAN_ID field, add the interfaces to multiple vlans.
+8. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
+9. Check the traffic is balanced over all the uplink ports.
+10. Randomly remove 1 member port from each uplink portchannels.
+11. Add the member ports back to the portchannels.
+12. Send the traffic again.
+13. Check the traffic is balanced over all uplink ports with no packet loss.
+
+### Test cases #8 - test_reboot
 1. The test is using the default links and routes in a t0/t1 testbed.
 2. Configure all the supported hash fields for the ecmp and lag hash.
 3. Randomly select one hash field to test.
 4. Randomly select a reboot type from reload or fast/warm/cold reboot, if reload or cold reboot, save the configuration before the reload/reboot.
 5. Send traffic with changing values of the field under test from a downlink ptf port to uplink destination.
-6. Check the traffic is balance over all the uplink ports.
+6. Check the traffic is balanced over all the uplink ports.
 7. Do the reload/reboot.
 8. After the reload/reboot, check the generic hash config via cli, it should keep the same as it was before the reload/reboot.
 9. Send traffic again.
-10. Check the traffic is balance over all the uplink ports.
-
-### Test cases #8 - test_invalid_hash_fields
-1. Configure the ecmp/lag hash with invalid fields parameter.
-2. Check there is a cli error that notifies the user the parameter is invalid.
-3. Check the running config is not changed.
-4. The invalid parameters to test:
-  a. empty parameter
-  b. single invalid field
-  c. invalid fields combined with valid fields
-  d. duplicated valid fields
+10. Check the traffic is balanced over all the uplink ports.
 
 ### Test cases #9 - test_backend_error_messages
 1. Config ecmp and lag hash via cli.
