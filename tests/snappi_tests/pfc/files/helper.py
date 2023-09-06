@@ -81,6 +81,8 @@ def run_pfc_test(api,
 
     stop_pfcwd(duthost)
     disable_packet_aging(duthost)
+    global DATA_FLOW_DURATION_SEC
+    global data_flow_delay_sec
 
     # Get the ID of the port to test
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
@@ -104,9 +106,7 @@ def run_pfc_test(api,
         snappi_extra_params.pause_flow_params = setup_pause_flow_config(testbed_config=testbed_config)
 
     if snappi_extra_params.headroom_test_params is not None:
-        global DATA_FLOW_DURATION_SEC
         DATA_FLOW_DURATION_SEC += 10
-        global data_flow_delay_sec
         data_flow_delay_sec += 2
 
         # Set up pfc delay parameter
@@ -117,9 +117,7 @@ def run_pfc_test(api,
     if snappi_extra_params.poll_device_runtime:
         # If the switch needs to be polled as traffic is running for stats,
         # then the test runtime needs to be increased for the polling delay
-        global DATA_FLOW_DURATION_SEC
         DATA_FLOW_DURATION_SEC += ANSIBLE_POLL_DELAY_SEC
-        global data_flow_delay_sec
         data_flow_delay_sec = ANSIBLE_POLL_DELAY_SEC
 
     if snappi_extra_params.packet_capture_type != packet_capture.NO_CAPTURE:
