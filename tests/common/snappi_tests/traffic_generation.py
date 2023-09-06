@@ -106,7 +106,7 @@ def setup_pause_flow_config(testbed_config,
     pause_flow_params = {}
     pause_flow_params["pause_frame_size"] = 64
     pause_flow_params["link_blockage_threshold"] = link_blockage_threshold
-    
+
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
     pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
@@ -356,8 +356,10 @@ def run_traffic(duthost,
 
         for _ in range(10):
             for lossless_prio in switch_tx_lossless_prios:
-                switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port, lossless_prio)[0])
-                switch_device_results["rx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_rx_port, lossless_prio)[0])
+                switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port,
+                                                                                                lossless_prio)[0])
+                switch_device_results["rx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_rx_port,
+                                                                                                lossless_prio)[0])
             time.sleep(poll_freq_sec)
     else:
         time.sleep(exp_dur_sec)  # no polling required
@@ -720,7 +722,7 @@ def verify_egress_queue_frame_count(duthost,
             mid_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][mid_poll_index]
             next_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][next_poll_index]
             pytest_assert(next_poll_egress_queue_count - mid_poll_egress_queue_count <= egress_queue_frame_count_tol,
-                        "Egress queue frame count should not increase when test traffic is paused")
+                          "Egress queue frame count should not increase when test traffic is paused")
 
     if not set_class_enable_vec and not test_traffic_pause:
         for peer_port, prios in dut_port_config[1].items():

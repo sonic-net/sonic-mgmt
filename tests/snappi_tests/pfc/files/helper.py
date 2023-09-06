@@ -99,7 +99,7 @@ def run_pfc_test(api,
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
-    
+
     if snappi_extra_params.pause_flow_params is None:
         snappi_extra_params.pause_flow_params = setup_pause_flow_config(testbed_config=testbed_config)
 
@@ -113,7 +113,7 @@ def run_pfc_test(api,
         l1_config = testbed_config.layer1[0]
         pfc = l1_config.flow_control.ieee_802_1qbb
         pfc.pfc_delay = snappi_extra_params.headroom_test_params[0]
-    
+
     if snappi_extra_params.poll_device_runtime:
         # If the switch needs to be polled as traffic is running for stats,
         # then the test runtime needs to be increased for the polling delay
@@ -144,9 +144,6 @@ def run_pfc_test(api,
     else:
         # PFC pause frame capture is not requested
         valid_pfc_frame_test = False
-
-    pause_flow_dur_sec = DATA_FLOW_DURATION_SEC + data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + \
-        PAUSE_FLOW_DUR_BASE_SEC if valid_pfc_frame_test else CONTINUOUS_MODE
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
@@ -258,7 +255,7 @@ def run_pfc_test(api,
                                      test_flow_name=TEST_FLOW_NAME,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
-        
+
     else:
         # Verify zero pause frames are counted when the PFC class enable vector is not set
         verify_unset_cev_pause_frame_count(duthost=duthost,
