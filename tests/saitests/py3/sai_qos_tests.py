@@ -1028,18 +1028,18 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
+                    # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
+                    # CPU sends LACP/LLDP/BGP control pkts to queue7
+                    # So for those queues the count could be more
                     if i == pg:
-                        if i == 0 or i == 4:
-                            assert (pg_cntrs[pg] >=
-                                    pg_cntrs_base[pg] + len(dscps))
+                        if i == 0 or i == 4 or i == 7:
+                            assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
                         else:
                             assert (pg_cntrs[pg] ==
                                     pg_cntrs_base[pg] + len(dscps))
                     else:
-                        # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
-                        # So for those queues the count could be more
-                        if i == 0 or i == 4:
-                            assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                        if i == 0 or i == 4 or i == 7:
+                            assert(pg_cntrs[i] >= pg_cntrs_base[i])
                         else:
                             assert (pg_cntrs[i] == pg_cntrs_base[i])
 
