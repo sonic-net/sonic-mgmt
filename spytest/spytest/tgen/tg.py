@@ -615,7 +615,7 @@ class TGBase(TGStubs):
                             tgen_wait(10)
                             self.tg_topology_test_control(action='apply_on_the_fly_changes', skip_wait=True)
                             logger.info('start the host.')
-                        temp = ret_ds['handle'] if type(ret_ds['handle']) != list else ret_ds['handle'][0]
+                        temp = ret_ds['handle'] if not isinstance(ret_ds['handle'], list) else ret_ds['handle'][0]
                         self.tg_topology_test_control(handle=temp, stack='deviceGroup', action='start_protocol')
                     self.manage_interface_config_handles(kwargs.get('mode'), kwargs_port_handle, ret_ds['handle'])
                 elif kwargs.get('mode') == 'modify':
@@ -1190,7 +1190,7 @@ class TGStc(TGBase):
             temp = ret_ds['handles_pylist']
         elif "handles" in ret_ds:
             temp = ret_ds['handles']
-        if type(temp) == list:
+        if isinstance(temp, list):
             temp = temp[0] if len(temp) == 1 else temp
         ret_ds['handle'] = temp
         return ret_ds
