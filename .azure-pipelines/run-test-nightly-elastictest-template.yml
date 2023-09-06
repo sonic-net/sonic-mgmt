@@ -72,8 +72,12 @@ parameters:
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
-    type: number
+    type: string
     default: 1800
+
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: 7200
 
   - name: RETRY_TIMES
     type: string
@@ -93,6 +97,7 @@ steps:
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+      LOCK_WAIT_TIMEOUT_SECONDS: ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
       DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
