@@ -15,7 +15,7 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, stop_container,
+    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
              "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
              "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
@@ -52,7 +52,7 @@ def trigger_kernel_event(duthost):
     trigger_logger(duthost, "zlib decompression failed, data probably corrupt", "kernel")
 
 
-def get_container(duthost):
+def get_running_container(duthost):
     logger.info("Check if acms or snmp container is running")
     container = "acms"
     container_running = is_container_running(duthost, container)
@@ -66,9 +66,9 @@ def get_container(duthost):
     return container
 
 
-def stop_container(duthost):
+def restart_container(duthost):
     logger.info("Stopping container for event stopped event")
-    container = get_container(duthost)
+    container = get_running_container(duthost)
     assert container != "", "No available container for testing"
 
     duthost.shell("systemctl restart {}".format(container))
@@ -76,7 +76,7 @@ def stop_container(duthost):
 
 def mask_container(duthost):
     logger.info("Masking container for event down event")
-    container = get_container(duthost)
+    container = get_running_container(duthost)
     assert container != "", "No available container for testing"
 
     duthost.shell("systemctl mask {}".format(container))
