@@ -1012,15 +1012,15 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 snmp/test_snmp_link_local.py:
   skip:
-    reason: "SNMP over IPv6 support not present in 202211 branch."
+    reason: "SNMP over IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_loopback.py:
   skip:
-    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
+    reason: "SNMP over Loopback IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
