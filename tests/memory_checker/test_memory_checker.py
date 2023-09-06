@@ -68,6 +68,8 @@ def restart_container(duthost, container_name):
     Returns:
         None.
     """
+    logger.info("Resetting '{}' status ...".format(container_name))
+    logger.info("systemctl reset-failed {}.service".format(container_name))
     logger.info("Restarting '{}' container ...".format(container_name))
     duthost.shell("systemctl restart {}.service".format(container_name))
 
@@ -248,6 +250,9 @@ def test_setup_and_cleanup(duthosts, creds, enum_rand_one_per_hwsku_frontend_hos
                    "Skips testing memory_checker of container '{}' "
                    "since memory monitoring is only enabled for 'telemetry'."
                    .format(container_name))
+
+    restart_container(duthost, container_name)
+    postcheck_critical_processes(duthost, container_name)
 
     install_stress_utility(duthost, creds, container_name)
 
