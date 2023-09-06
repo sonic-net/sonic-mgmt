@@ -807,13 +807,13 @@ class AristaHost(AnsibleHostBase):
         """
         if key_type == "primary":
             parents = ["mac security", "profile {}".format(profile_name)]
-            commands = ["key {} 7 {} ".format(key, key)]
+            commands = ["key {} 0 {} ".format(key, key)]
             output = self.config(lines=commands, parents=parents)
             test_msg = "Output: {}".format(output)
             return True, test_msg
         elif key_type == "fallback":
             parents = ["mac security", "profile {}".format(profile_name)]
-            commands = ["key {} 7 {} fallback".format(key, key)]
+            commands = ["key {} 0 {} fallback".format(key, key)]
             output = self.config(lines=commands, parents=parents)
             test_msg = "Output: {}".format(output)
             return True, test_msg
