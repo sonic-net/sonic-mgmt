@@ -442,12 +442,16 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             if vlan_port['dev'] not in port_mode_added:
+                cmds.append('config save -y')
                 cmds.append("sudo vi /etc/sonic/config_db.json")
                 cmds.append(":s/port/{}/g".format(vlan_port['dev']))
-                cmds.append(":set mode=access")
+                cmds.append(":set mode=trunk")
                 cmds.append(":wq")
                 port_mode_added[vlan_port['dev']] = True
-                duthost.shell("config switch check")
+                cmds.append('echo "trunk mode added to" {port}'.format(port=vlan_port['dev']))
+                cmds.append('config load /etc/sonic/config_db.json -y')
+                cmds.append('cat /etc/sonic/config_db.json')
+
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
