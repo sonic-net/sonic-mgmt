@@ -5102,8 +5102,6 @@ sensors_checks:
   x86_64-mlnx_msn4600c-r0-respined:
     alarms:
       fan:
-      - dps460-i2c-4-58/PSU-1(L) Fan 1/fan1_alarm
-      - dps460-i2c-4-58/PSU-1(L) Fan 1/fan1_fault
 
       - dps460-i2c-4-59/PSU-2(R) Fan 1/fan1_alarm
       - dps460-i2c-4-59/PSU-2(R) Fan 1/fan1_fault
@@ -5113,305 +5111,309 @@ sensors_checks:
       - mlxreg_fan-isa-0000/Chassis Fan Drawer-3/fan3_fault
 
       power:
+
+      - mp2975-i2c-15-6a/PMIC-8 PSU 12V Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.8V Rail (out)/in2_lcrit_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.8V Rail (out)/in2_crit_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.05V Rail (out)/in3_lcrit_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.05V Rail (out)/in3_crit_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 12V Rail Pwr (in)/power1_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 12V Rail Curr (in)/curr1_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.8V Rail Curr (out)/curr2_alarm
+      - mp2975-i2c-15-6a/PMIC-8 COMEX 1.05V Rail Curr (out)/curr5_alarm
+
+      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 12V ASIC VCORE_1.8V_T0_1 Rail Pwr (in) /power1_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 12V ASIC VCORE_T0_1 Rail Curr (in1)/curr1_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 12V ASIC 1.8V_T0_1 Rail Curr (in2)/curr2_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail Curr (out1)/curr3_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail Curr (out1)/curr3_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail Curr (out2)/curr4_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail Curr (out2)/curr4_crit_alarm
+
+      - xdpe12284-i2c-5-6e/PMIC-7 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 12V ASIC 1.2V_T0_3_T4_7 Rail Pwr (in) /power1_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 12V ASIC 1.2V_T0_3 Rail Curr (in1)/curr1_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 12V ASIC 1.2V_T4_7 Rail Curr (in2)/curr2_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Rail Curr (out1)/curr3_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Rail Curr (out1)/curr3_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Rail Curr (out2)/curr4_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Rail Curr (out2)/curr4_crit_alarm
+
+      - xdpe12284-i2c-5-62/PMIC-1 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-62/PMIC-1 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-62/PMIC-1 12V ASIC VCORE_MAIN Rail Pwr (in)/power1_alarm
       - xdpe12284-i2c-5-62/PMIC-1 12V ASIC VCORE_MAIN Rail Curr (in1)/curr1_max_alarm
       - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail Curr (out1)/curr3_max_alarm
       - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-62/PMIC-1 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-62/PMIC-1 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Rail (out1)/in3_lcrit_alarm
 
+      - xdpe12284-i2c-5-6a/PMIC-5 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 12V ASIC VCORE_1.8V_T4_5 Rail Pwr (in) /power1_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 12V ASIC VCORE_T4_5 Rail Curr (in1)/curr1_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 12V ASIC 1.8V_T4_5 Rail Curr (in2)/curr2_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Rail Curr (out1)/curr3_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Rail Curr (out1)/curr3_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Rail Curr (out2)/curr4_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Rail Curr (out2)/curr4_crit_alarm
+
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_min_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_lcrit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_min_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_lcrit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail Pwr (in)/power1_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail Pwr (out)/power2_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail Pwr (out)/power2_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail Curr (in)/curr1_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) 220V Rail Curr (in)/curr1_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail Curr (out)/curr2_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) 12V Rail Curr (out)/curr2_crit_alarm
+
+      - mp2975-i2c-15-61/PMIC-9 PSU 12V Rail (in1)/in1_crit_alarm
+      - mp2975-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in2_lcrit_alarm
+      - mp2975-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in2_crit_alarm
+      - mp2975-i2c-15-61/PMIC-9 COMEX 12V Rail Pwr (in)/power1_alarm
+      - mp2975-i2c-15-61/PMIC-9 COMEX 12V Rail Curr (in)/curr1_alarm
+      - mp2975-i2c-15-61/PMIC-9 COMEX 1.2V Rail Curr (out)/curr2_alarm
+
+      - xdpe12284-i2c-5-68/PMIC-4 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 12V ASIC VCORE_1.8V_T2_3 Rail Pwr (in) /power1_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 12V ASIC VCORE_T2_3 Rail Curr (in1)/curr1_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 12V ASIC 1.8V_T2_3 Rail Curr (in2)/curr2_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Rail Curr (out1)/curr3_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Rail Curr (out1)/curr3_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Rail Curr (out2)/curr4_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Rail Curr (out2)/curr4_crit_alarm
+
+      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 12V ASIC 1.8V_1.2V_MAIN Rail Pwr (in)/power1_alarm
       - xdpe12284-i2c-5-64/PMIC-2 12V ASIC 1.8V_MAIN Rail Curr (in1)/curr1_max_alarm
       - xdpe12284-i2c-5-64/PMIC-2 12V ASIC 1.2V_MAIN Rail Curr (in2)/curr2_max_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail Curr (out1)/curr3_max_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail Curr (out1)/curr3_crit_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail Curr (out2)/curr4_max_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Rail (out2)/in4_lcrit_alarm
 
-      - xdpe12284-i2c-5-66/PMIC-2 12V ASIC VCORE_T0_1 Rail Curr (in1)/curr1_max_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 12V ASIC 1.8V_T0_1 Rail Curr (in2)/curr2_max_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 ASIC VCORE_T0_1 Rail Curr (out1)/curr3_max_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 ASIC VCORE_T0_1 Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 ASIC 1.8V_T0_1 Rail Curr (out2)/curr4_max_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 ASIC 1.8V_T0_1 Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-66/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 PSU 12V Rail (in1)/in1_lcrit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 PSU 12V Rail (in1)/in1_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 PSU 12V Rail (in2)/in2_lcrit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 PSU 12V Rail (in2)/in2_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Rail (out1)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Rail (out1)/in3_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Rail (out2)/in4_lcrit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Rail (out2)/in4_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 12V ASIC VCORE_1.8V_T6_7 Rail Pwr (in) /power1_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 12V ASIC VCORE_T6_7 Rail Curr (in1)/curr1_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 12V ASIC 1.8V_T6_7 Rail Curr (in2)/curr2_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Rail Curr (out1)/curr3_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Rail Curr (out1)/curr3_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Rail Curr (out2)/curr4_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Rail Curr (out2)/curr4_crit_alarm
 
-      - xdpe12284-i2c-5-68/PMIC-2 12V ASIC VCORE_T2_3 Rail Curr (in1)/curr1_max_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 12V ASIC 1.8V_T2_3 Rail Curr (in2)/curr2_max_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 ASIC VCORE_T2_3 Rail Curr (out1)/curr3_max_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 ASIC VCORE_T2_3 Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 ASIC 1.8V_T2_3 Rail Curr (out2)/curr4_max_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 ASIC 1.8V_T2_3 Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-68/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC VCORE_T2_3 Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC VCORE_T2_3 Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC 1.8V_T2_3 Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC 1.8V_T2_3 Rail (out2)/in4_lcrit_alarm
-
-      - xdpe12284-i2c-5-6a/PMIC-2 12V ASIC VCORE_T4_5 Rail Curr (in1)/curr1_max_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 12V ASIC 1.8V_T4_5 Rail Curr (in2)/curr2_max_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 ASIC VCORE_T4_5 Rail Curr (out1)/curr3_max_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 ASIC VCORE_T4_5 Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 ASIC 1.8V_T4_5 Rail Curr (out2)/curr4_max_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 ASIC 1.8V_T4_5 Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC VCORE_T4_5 Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC VCORE_T4_5 Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC 1.8V_T4_5 Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC 1.8V_T4_5 Rail (out2)/in4_lcrit_alarm
-
-      - xdpe12284-i2c-5-6c/PMIC-2 12V ASIC VCORE_T6_7 Rail Curr (in1)/curr1_max_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 12V ASIC 1.8V_T6_7 Rail Curr (in2)/curr2_max_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 ASIC VCORE_T6_7 Rail Curr (out1)/curr3_max_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 ASIC VCORE_T6_7 Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 ASIC 1.8V_T6_7 Rail Curr (out2)/curr4_max_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 ASIC 1.8V_T6_7 Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC VCORE_T6_7 Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC VCORE_T6_7 Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC 1.8V_T6_7 Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC 1.8V_T6_7 Rail (out2)/in4_lcrit_alarm
-
-      - xdpe12284-i2c-5-6e/PMIC-2 12V ASIC 1.2V_T0_3 Rail Curr (in1)/curr1_max_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 12V ASIC 1.2V_T4_7 Rail Curr (in2)/curr2_max_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 ASIC 1.2V_T0_3 Rail Curr (out1)/curr3_max_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 ASIC 1.2V_T0_3 Rail Curr (out1)/curr3_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 ASIC 1.2V_T4_7 Rail Curr (out2)/curr4_max_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 ASIC 1.2V_T4_7 Rail Curr (out2)/curr4_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-2 PSU 12V Rail (in2)/in2_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T0_3 Rail (out1)/in3_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T0_3 Rail (out1)/in3_lcrit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T4_7 Rail (out2)/in4_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T4_7 Rail (out2)/in4_lcrit_alarm
-
-      - mp2975-i2c-15-6a/PMIC-3 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 PSU 12V Rail (in1)/in1_crit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_crit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail (out)/in2_lcrit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail Curr (out)/curr2_crit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.8V Rail Curr (out)/curr2_max_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail Curr (out)/curr5_crit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 COMEX 1.05V Rail Curr (out)/curr5_crit_alarm
-
-      - mp2975-i2c-15-61/PMIC-4 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - mp2975-i2c-15-61/PMIC-4 PSU 12V Rail (in1)/in1_crit_alarm
-      - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_crit_alarm
-      - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail (out)/in2_lcrit_alarm
-      - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr2_crit_alarm
-      - mp2975-i2c-15-61/PMIC-4 COMEX 1.2V Rail Curr (out)/curr2_max_alarm
-
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail Curr (out)/curr1_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail Curr (out)/curr1_max_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.05V Rail Curr (out)/curr2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.05V Rail Curr (out)/curr2_max_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in1)/in1_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in2)/in2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail (out)/in3_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail (out)/in3_lcrit_alarm
-
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail Curr (out)/curr1_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail Curr (out)/curr1_max_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in1)/in1_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in2)/in2_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in3_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in3_lcrit_alarm
-
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail Curr (in)/curr1_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail Curr (in)/curr1_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail Curr (out)/curr2_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail Curr (out)/curr2_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail Pwr (in)/power1_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail Pwr (out)/power2_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail Pwr (out)/power2_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail (in)/in1_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail (in)/in1_lcrit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail (in)/in1_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) 220V Rail (in)/in1_min_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail (out)/in3_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail (out)/in3_lcrit_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail (out)/in3_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) 12V Rail (out)/in3_min_alarm
-
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail Curr (in)/curr1_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail Curr (in)/curr1_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail Curr (out)/curr2_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail Curr (out)/curr2_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail Pwr (in)/power1_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail Pwr (out)/power2_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail Pwr (out)/power2_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_lcrit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) 220V Rail (in)/in1_min_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_lcrit_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) 12V Rail (out)/in3_min_alarm
 
       temp:
+
+      - mp2975-i2c-15-6a/PMIC-8 Temp 1/temp1_max_alarm
+      - mp2975-i2c-15-6a/PMIC-8 Temp 1/temp1_crit_alarm
+
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_crit_alarm
+
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_crit_alarm
+
+      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_crit_alarm
+
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Temp 2/temp2_crit_alarm
+
+      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_min_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_min_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_crit_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_max_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_min_alarm
+      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_crit_alarm
+
+      - mp2975-i2c-15-61/PMIC-9 Temp 1/temp1_max_alarm
+      - mp2975-i2c-15-61/PMIC-9 Temp 1/temp1_crit_alarm
+
       - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
       - coretemp-isa-0000/Core 0/temp2_crit_alarm
       - coretemp-isa-0000/Core 1/temp3_crit_alarm
       - coretemp-isa-0000/Core 2/temp4_crit_alarm
       - coretemp-isa-0000/Core 3/temp5_crit_alarm
 
-      - mlxsw-i2c-2-48/front panel 001/temp2_fault
-      - mlxsw-i2c-2-48/front panel 002/temp3_fault
-      - mlxsw-i2c-2-48/front panel 003/temp4_fault
-      - mlxsw-i2c-2-48/front panel 004/temp5_fault
-      - mlxsw-i2c-2-48/front panel 005/temp6_fault
-      - mlxsw-i2c-2-48/front panel 006/temp7_fault
-      - mlxsw-i2c-2-48/front panel 007/temp8_fault
-      - mlxsw-i2c-2-48/front panel 008/temp9_fault
-      - mlxsw-i2c-2-48/front panel 009/temp10_fault
-      - mlxsw-i2c-2-48/front panel 010/temp11_fault
-      - mlxsw-i2c-2-48/front panel 011/temp12_fault
-      - mlxsw-i2c-2-48/front panel 012/temp13_fault
-      - mlxsw-i2c-2-48/front panel 013/temp14_fault
-      - mlxsw-i2c-2-48/front panel 014/temp15_fault
-      - mlxsw-i2c-2-48/front panel 015/temp16_fault
-      - mlxsw-i2c-2-48/front panel 016/temp17_fault
-      - mlxsw-i2c-2-48/front panel 017/temp18_fault
-      - mlxsw-i2c-2-48/front panel 018/temp19_fault
-      - mlxsw-i2c-2-48/front panel 019/temp20_fault
-      - mlxsw-i2c-2-48/front panel 020/temp21_fault
-      - mlxsw-i2c-2-48/front panel 021/temp22_fault
-      - mlxsw-i2c-2-48/front panel 022/temp23_fault
-      - mlxsw-i2c-2-48/front panel 023/temp24_fault
-      - mlxsw-i2c-2-48/front panel 024/temp25_fault
-      - mlxsw-i2c-2-48/front panel 025/temp26_fault
-      - mlxsw-i2c-2-48/front panel 026/temp27_fault
-      - mlxsw-i2c-2-48/front panel 027/temp28_fault
-      - mlxsw-i2c-2-48/front panel 028/temp29_fault
-      - mlxsw-i2c-2-48/front panel 029/temp30_fault
-      - mlxsw-i2c-2-48/front panel 030/temp31_fault
-      - mlxsw-i2c-2-48/front panel 031/temp32_fault
-      - mlxsw-i2c-2-48/front panel 032/temp33_fault
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Temp 2/temp2_crit_alarm
 
-      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_max_alarm
-
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Temp 1/temp1_crit_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Temp 2/temp2_crit_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Temp 1/temp1_crit_alarm
       - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Temp 2/temp2_crit_alarm
 
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_crit_alarm
-      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Temp 2/temp2_crit_alarm
 
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC VCORE_T2_3 Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC VCORE_T2_3 Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC 1.8V_T2_3 Temp 2/temp2_crit_alarm
-      - xdpe12284-i2c-5-68/PMIC-3 ASIC 1.8V_T2_3 Temp 2/temp2_max_alarm
+      - mlxsw-i2c-2-48/front panel 001/temp2_crit_alarm
+      - mlxsw-i2c-2-48/front panel 001/temp2_fault
+      - mlxsw-i2c-2-48/front panel 002/temp3_crit_alarm
+      - mlxsw-i2c-2-48/front panel 002/temp3_fault
+      - mlxsw-i2c-2-48/front panel 003/temp4_crit_alarm
+      - mlxsw-i2c-2-48/front panel 003/temp4_fault
+      - mlxsw-i2c-2-48/front panel 004/temp5_crit_alarm
+      - mlxsw-i2c-2-48/front panel 004/temp5_fault
+      - mlxsw-i2c-2-48/front panel 005/temp6_crit_alarm
+      - mlxsw-i2c-2-48/front panel 005/temp6_fault
+      - mlxsw-i2c-2-48/front panel 006/temp7_crit_alarm
+      - mlxsw-i2c-2-48/front panel 006/temp7_fault
+      - mlxsw-i2c-2-48/front panel 007/temp8_crit_alarm
+      - mlxsw-i2c-2-48/front panel 007/temp8_fault
+      - mlxsw-i2c-2-48/front panel 008/temp9_crit_alarm
+      - mlxsw-i2c-2-48/front panel 008/temp9_fault
 
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC VCORE_T4_5 Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC VCORE_T4_5 Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC 1.8V_T4_5 Temp 2/temp2_crit_alarm
-      - xdpe12284-i2c-5-6a/PMIC-3 ASIC 1.8V_T4_5 Temp 2/temp2_max_alarm
-
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC VCORE_T6_7 Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC VCORE_T6_7 Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC 1.8V_T6_7 Temp 2/temp2_crit_alarm
-      - xdpe12284-i2c-5-6c/PMIC-3 ASIC 1.8V_T6_7 Temp 2/temp2_max_alarm
-
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T0_3 Temp 1/temp1_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T0_3 Temp 1/temp1_max_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T4_7 Temp 2/temp2_crit_alarm
-      - xdpe12284-i2c-5-6e/PMIC-3 ASIC 1.2V_T4_7 Temp 2/temp2_max_alarm
-
-      - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_crit_alarm
-      - mp2975-i2c-15-6a/PMIC-3 Temp 1/temp1_max_alarm
-
-      - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_crit_alarm
-      - mp2975-i2c-15-61/PMIC-4 Temp 1/temp1_max_alarm
-      - mp2975-i2c-15-61/PMIC-4 Temp 2/temp2_crit_alarm
-      - mp2975-i2c-15-61/PMIC-4 Temp 2/temp2_max_alarm
-
-      - tps53679-i2c-15-58/PMIC-8 Temp 1/temp1_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 Temp 1/temp1_max_alarm
-      - tps53679-i2c-15-58/PMIC-8 Temp 2/temp2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 Temp 2/temp2_max_alarm
-
-      - tps53679-i2c-15-61/PMIC-9 Temp 1/temp1_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 Temp 1/temp1_max_alarm
-      - tps53679-i2c-15-61/PMIC-9 Temp 2/temp2_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 Temp 2/temp2_max_alarm
-
-      - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 1/temp1_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 2/temp2_max_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_crit_alarm
-      - dps460-i2c-4-58/PSU-1(L) Temp 3/temp3_max_alarm
-
-      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_max_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_crit_alarm
-      - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_max_alarm
 
     compares:
-      power: []
+      power: [ ]
       temp:
-      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
-      - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_crit
-      - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_crit
-      - - coretemp-isa-0000/Core 2/temp4_input
-        - coretemp-isa-0000/Core 2/temp4_crit
-      - - coretemp-isa-0000/Core 3/temp5_input
-        - coretemp-isa-0000/Core 3/temp5_crit
 
-      - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
-        - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
+      - - mp2975-i2c-15-6a/PMIC-8 Temp 1/temp1_input
+        - mp2975-i2c-15-6a/PMIC-8 Temp 1/temp1_crit
 
       - - tmp102-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_input
         - tmp102-i2c-7-4a/Ambient Port Side Temp (air exhaust)/temp1_max
 
+      - - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_input
+        - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_input
+        - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_crit
+
+      - - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_input
+        - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_input
+        - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_crit
+
+      - - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_input
+        - xdpe12284-i2c-5-62/PMIC-1 ASIC VCORE_MAIN Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Temp 1/temp1_input
+        - xdpe12284-i2c-5-6a/PMIC-5 ASIC VCORE_T4_5 Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Temp 2/temp2_input
+        - xdpe12284-i2c-5-6a/PMIC-5 ASIC 1.8V_T4_5 Temp 2/temp2_crit
+
+      - - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_input
+        - dps460-i2c-4-59/PSU-2(R) Temp 1/temp1_crit
+
+      - - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_input
+        - dps460-i2c-4-59/PSU-2(R) Temp 2/temp2_crit
+
+      - - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_input
+        - dps460-i2c-4-59/PSU-2(R) Temp 3/temp3_crit
+
+      - - mp2975-i2c-15-61/PMIC-9 Temp 1/temp1_input
+        - mp2975-i2c-15-61/PMIC-9 Temp 1/temp1_crit
+
+      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
+        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit
+
+      - - coretemp-isa-0000/Core 0/temp2_input
+        - coretemp-isa-0000/Core 0/temp2_crit
+
+      - - coretemp-isa-0000/Core 1/temp3_input
+        - coretemp-isa-0000/Core 1/temp3_crit
+
+      - - coretemp-isa-0000/Core 2/temp4_input
+        - coretemp-isa-0000/Core 2/temp4_crit
+
+      - - coretemp-isa-0000/Core 3/temp5_input
+        - coretemp-isa-0000/Core 3/temp5_crit
+
       - - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_input
         - tmp102-i2c-15-49/Ambient COMEX Temp/temp1_max
+
+      - - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Temp 1/temp1_input
+        - xdpe12284-i2c-5-68/PMIC-4 ASIC VCORE_T2_3 Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Temp 2/temp2_input
+        - xdpe12284-i2c-5-68/PMIC-4 ASIC 1.8V_T2_3 Temp 2/temp2_crit
+
+      - - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_input
+        - tmp102-i2c-7-49/Ambient Fan Side Temp (air intake)/temp1_max
+
+      - - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Temp 1/temp1_input
+        - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.8V_MAIN Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Temp 2/temp2_input
+        - xdpe12284-i2c-5-64/PMIC-2 ASIC 1.2V_MAIN Temp 2/temp2_crit
+
+      - - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Temp 1/temp1_input
+        - xdpe12284-i2c-5-6c/PMIC-6 ASIC VCORE_T6_7 Temp 1/temp1_crit
+
+      - - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Temp 2/temp2_input
+        - xdpe12284-i2c-5-6c/PMIC-6 ASIC 1.8V_T6_7 Temp 2/temp2_crit
+
     non_zero:
-      fan: []
-      power: []
-      temp: []
-    psu_skips: {}
-    sensor_skip_per_version: {}
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }
 
   x86_64-mlnx_msn4600c-r0-a1:
     alarms:
