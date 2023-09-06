@@ -234,3 +234,12 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
     apply_gnmi_cert(duthost)
     yield
     recover_gnmi_cert(duthost)
+
+
+@pytest.fixture(scope="function")
+def asic_db_checker(duthost):
+    def _check_asic_db(tables):
+        for table in tables:
+            output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
+            assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
+    yield _check_asic_db

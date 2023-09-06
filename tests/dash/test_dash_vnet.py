@@ -101,10 +101,12 @@ def test_outbound_vnet(
         apply_vnet_configs,
         outbound_vnet_packets,
         dash_config_info,
-        skip_dataplane_checking):
+        skip_dataplane_checking,
+        asic_db_checker):
     """
     Send VXLAN packets from the VM VNI
     """
+    asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
     if skip_dataplane_checking:
         return
     _, vxlan_packet, expected_packet = outbound_vnet_packets
@@ -118,7 +120,9 @@ def test_outbound_vnet_direct(
         apply_vnet_direct_configs,
         outbound_vnet_packets,
         dash_config_info,
-        skip_dataplane_checking):
+        skip_dataplane_checking,
+        asic_db_checker):
+    asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
     if skip_dataplane_checking:
         return
     _, vxlan_packet, expected_packet = outbound_vnet_packets
@@ -132,7 +136,9 @@ def test_outbound_direct(
         apply_direct_configs,
         outbound_vnet_packets,
         dash_config_info,
-        skip_dataplane_checking):
+        skip_dataplane_checking,
+        asic_db_checker):
+    asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
     if skip_dataplane_checking:
         return
     expected_inner_packet, vxlan_packet, _ = outbound_vnet_packets
@@ -146,7 +152,8 @@ def test_inbound_vnet_pa_validate(
         apply_inbound_configs,
         inbound_vnet_packets,
         dash_config_info,
-        skip_dataplane_checking):
+        skip_dataplane_checking,
+        asic_db_checker):
     """
     Send VXLAN packets from the remote VNI with PA validation enabled
 
@@ -155,6 +162,7 @@ def test_inbound_vnet_pa_validate(
     2. Send one packet where the source PA does not match the mapping table
         - Expect DPU to drop packet
     """
+    asic_db_checker(["SAI_OBJECT_TYPE_VNET", "SAI_OBJECT_TYPE_ENI"])
     if skip_dataplane_checking:
         return
     _,  pa_match_packet, pa_mismatch_packet, expected_packet = inbound_vnet_packets
