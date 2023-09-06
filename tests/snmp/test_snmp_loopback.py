@@ -8,7 +8,6 @@ pytestmark = [
 ]
 
 
-@pytest.mark.bsl
 def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                        nbrhosts, tbinfo, localhost, creds_all_duts):
     """

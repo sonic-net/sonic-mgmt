@@ -1133,7 +1133,7 @@ class TestGratArp(object):
         log_file = "/tmp/voq.garp.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
         logger.info("Call PTF runner")
         ptf_runner(self.ptfhost, 'ptftests', f, '/root/ptftests', params=params,
-                   log_file=log_file, timeout=3)
+                   log_file=log_file, timeout=3, is_python3=True)
         logger.info("Grat packet sent.")
 
     def test_gratarp_macchange(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
