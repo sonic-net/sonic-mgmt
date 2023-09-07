@@ -92,7 +92,8 @@ def do_reboot(duthost, localhost, duthosts):
                 logger.info("checking if {} critical services are up".format(host.hostname))
                 wait_critical_processes(host)
                 assert wait_until(300, 20, 0, check_interface_status_of_up_ports, host), \
-                          "Not all ports that are admin up on are operationally up"
+                    "Not all ports that are admin up on are operationally up"
+
 
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
