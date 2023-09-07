@@ -84,6 +84,8 @@ class DHCPCounterTest(DataplaneBaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.vlan_ip = self.test_params['vlan_ip']
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
+        self.loopback_ipv6 = self.test_params['loopback_ipv6']
+        self.is_dualtor = True if self.test_params['is_dualtor'] == 'True' else False
         self.reference = 0
 
     def generate_client_interace_ipv6_link_local_address(self, client_port_index):
@@ -131,7 +133,10 @@ class DHCPCounterTest(DataplaneBaseTest):
 
     def create_server_packet(self, message):
         packet = ptf.packet.Ether(dst=self.dut_mac)
-        packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        if self.is_dualtor:
+            packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         packet /= ptf.packet.UDP(sport=self.DHCP_SERVER_PORT,
                                  dport=self.DHCP_SERVER_PORT)
         packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip,
@@ -147,7 +152,10 @@ class DHCPCounterTest(DataplaneBaseTest):
 
     def create_unknown_server_packet(self):
         packet = ptf.packet.Ether(dst=self.dut_mac)
-        packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        if self.is_dualtor:
+            packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         packet /= ptf.packet.UDP(sport=self.DHCP_SERVER_PORT,
                                  dport=self.DHCP_SERVER_PORT)
         packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip,
