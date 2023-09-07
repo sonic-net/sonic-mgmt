@@ -417,6 +417,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     '''
     cmds = []
     port_mode_added = {}    # Keep track of whether switchport mode has been added for each port
+    with open("/etc/sonic/config_db.json", 'r') as config_file:
+        config_data = json.load(config_file)
+
     logger.info("Add vlans, assign IPs")
     for k, v in list(vlan_intfs_dict.items()):
         if v['orig']:
@@ -442,20 +445,15 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             if vlan_port['dev'] not in port_mode_added:
+                config_data['PORT'].setdefault(vlan_port['dev'], {})['mode'] = "trunk"
                 cmds.append('config save -y')
-                cmds.append("sudo vi /etc/sonic/config_db.json")
-                cmds.append(":e /etc/sonic/config_db.json")
-                cmds.append("/\"PORT\"")
-                cmds.append("o")
-                cmds.append('"{}": {{'.format(vlan_port['dev']))
-                cmds.append('"mode": "trunk"')  # Add the "mode" attribute
-                cmds.append('},')
-                cmds.append(":wq")
-                logger.info("Executing vi commands")
-                port_mode_added[vlan_port['dev']] = True
-                cmds.append('echo "trunk mode added to" {port}'.format(port=vlan_port['dev']))
+                with open("/etc/sonic/config_db.json", 'w') as config_file:
+                    json.dump(config_data, config_file)
+                logger.info("Added 'trunk' mode to port {}".format(vlan_port['dev']))
                 cmds.append('config load /etc/sonic/config_db.json -y')
                 cmds.append('cat /etc/sonic/config_db.json')
+                port_mode_added[vlan_port['dev']] = True
+                cmds.append('echo "trunk mode added to" {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
