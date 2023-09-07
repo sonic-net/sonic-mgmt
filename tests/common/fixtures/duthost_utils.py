@@ -457,7 +457,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 def switch_mode(duthost, port):
     json_patch = [{
         "PORT": {
-            "port": {
+            port: {
                 "mode": "trunk"
             }
         }
