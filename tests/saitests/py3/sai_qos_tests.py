@@ -1311,7 +1311,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] == recv_counters_base[pg]), \
                 'unexpectedly PFC counter increase, {}'.format(test_stage)
             # recv port no ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -1344,7 +1345,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -1378,7 +1380,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port no ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -1411,17 +1414,20 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
-                    'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                        'unexpectedly RX drop counter not increase, {}'.format(test_stage)
                 else:
-                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    assert(recv_counters[cntr] > recv_counters_base[cntr]),\
+                        'unexpectedly RX drop counter not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
-                assert(xmit_counters[cntr] == xmit_counters_base[cntr]), 'unexpectedly TX drop counter increase, {}'.format(test_stage)
+                assert(xmit_counters[cntr] == xmit_counters_base[cntr]),\
+                    'unexpectedly TX drop counter increase, {}'.format(test_stage)
 
             if '201811' not in sonic_version and 'mellanox' in asic_type:
                 pg_dropped_cntrs = sai_thrift_read_pg_drop_counters(
@@ -1856,7 +1862,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         ecn = int(self.test_params['ecn'])
         sonic_version = self.test_params['sonic_version']
         router_mac = self.test_params['router_mac']
-        max_buffer_size = int(self.test_params['buffer_max_size'])
         platform_asic = self.test_params['platform_asic']
 
         # The pfc counter index starts from index 2 in sai_thrift_read_port_counters
@@ -2132,7 +2137,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 'unexpectedly not trigger PFC for PG {} (counter: {}), at step {} {}'.format(
                 pg, port_counter_fields[pg], step_id, step_desc)
             # recv port no ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -3354,11 +3360,13 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port no pfc
             assert (recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received, adding to coutner value & may give inconsistent test results
+            # For dnx few extra ipv6 NS/RA pkt received, adding to coutner value
+            # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
-                    print ("recv_counters_base: %d, recv_counters: %d" %(recv_counters_base[cntr], recv_counters[cntr]),file=sys.stderr)
+                    print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
+                                                                         recv_counters[cntr]), file=sys.stderr)
                     assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
                     assert(recv_counters[cntr] == recv_counters_base[cntr])
