@@ -83,6 +83,16 @@ parameters:
     type: string
     default: 0
 
+  # If the number of available testbeds exceeds {MIN_WORKER}, then use {MIN_WORKER} testbeds to run tests
+  - name: MIN_WORKER
+    type: string
+    default: ""
+
+  # If the number of available testbeds exceeds {MAX_WORKER}, then use {MAX_WORKER} testbeds to run tests
+  - name: MAX_WORKER
+    type: string
+    default: ""
+
 
 
 steps:
@@ -109,3 +119,5 @@ steps:
       PLATFORM: "PHYSICAL"
       DUMP_KVM_IF_FAIL: "False"
       REQUESTER: "Nightly Test"
+      MIN_WORKER: ${{ parameters.MIN_WORKER }}
+      MAX_WORKER: ${{ parameters.MAX_WORKER }}
