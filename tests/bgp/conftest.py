@@ -164,7 +164,7 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
 
 @pytest.fixture(scope="module")
-def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, request, tbinfo, topo_scenario):
+def setup_interfaces(duthosts, rand_one_dut_hostname, ptfhost, request, tbinfo, topo_scenario):
     """Setup interfaces for the new BGP peers on PTF."""
 
     def _is_ipv4_address(ip_addr):
@@ -459,7 +459,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
     else:
         raise TypeError("Unsupported topology: %s" % tbinfo["topo"]["type"])
 
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     with setup_func(mg_facts, peer_count) as connections:
         yield connections
