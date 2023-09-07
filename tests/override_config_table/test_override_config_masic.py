@@ -101,18 +101,24 @@ def load_minigraph_with_golden_partial_config(duthost):
     Here we assume all config contain SYSLOG_SERVER table
     """
     partial_config = {
-        "localhost": {},
-        "asic0": {},
+      "localhost": {
         "SYSLOG_SERVER": {
-            "10.0.0.100": {},
-            "10.0.0.200": {}
+          "10.0.0.100": {}
         }
+      },
+      "asic0": {
+          "SYSLOG_SERVER": {
+            "10.0.0.100": {}
+          }
+      }
     }
     reload_minigraph_with_golden_config(duthost, partial_config)
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        current_config['SYSLOG_SERVER'] == partial_config['SYSLOG_SERVER'],
+        'localhost' in current_config and
+        'asic0' in current_config and
+        current_config['localhost']['SYSLOG_SERVER'] == partial_config['localhost']['SYSLOG_SERVER'],
         "Partial config override fail: {}".format(current_config['SYSLOG_SERVER'])
     )
 
@@ -121,21 +127,31 @@ def load_minigraph_with_golden_new_feature(duthost):
     """Test Golden Config with new feature
     """
     new_feature_config = {
-        "localhost": {},
-        "asic0": {},
-        "NEW_FEATURE_TABLE": {
+        "localhost": {
+          "NEW_FEATURE_TABLE": {
             "entry": {
-                "field": "value",
-                "state": "disabled"
+              "field": "value",
+              "state": "disabled"
             }
-        }
+          }
+        },
+        "asic0": {
+          "NEW_FEATURE_TABLE": {
+            "entry": {
+              "field": "value",
+              "state": "disabled"
+            }
+          }
+        },
     }
     reload_minigraph_with_golden_config(duthost, new_feature_config)
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        'NEW_FEATURE_TABLE' in current_config and
-        current_config['NEW_FEATURE_TABLE'] == new_feature_config['NEW_FEATURE_TABLE'],
+        'localhost' in current_config and
+        'asic0' in current_config and
+        'NEW_FEATURE_TABLE' in current_config['localhost'] and
+        current_config['localhost']['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
         "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
     )
 
@@ -146,16 +162,20 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     Here we assume all config contain SYSLOG_SERVER table
     """
     empty_table_removal = {
-        "localhost": {},
-        "asic0": {},
-        "SYSLOG_SERVER": {
-        }
+        "localhost": {
+            "SYSLOG_SERVER": {}
+        },
+        "asic0": {
+            "SYSLOG_SERVER": {}
+        },
     }
     reload_minigraph_with_golden_config(duthost, empty_table_removal)
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        current_config.get('SYSLOG_SERVER', None) is None,
+        'localhost' in current_config and
+        'asic0' in current_config and
+        current_config['localhost'].get('SYSLOG_SERVER', None) is None,
         "Empty table removal fail: {}".format(current_config)
     )
 
