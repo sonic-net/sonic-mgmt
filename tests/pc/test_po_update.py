@@ -85,8 +85,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     """
     is_chassis = duthosts.supervisor_nodes[0].get_facts().get("modular_chassis")
     if not is_chassis and reload_check in ["dut_reload", "dut_reboot"]:
-        pytest.skip(
-            "Skip test as it is_chassis {} and relod_check param is ".format(is_chassis, reload_check))
+        pytest.skip("Skip test as it is_chassis {} and relod_check param is {} ".format(is_chassis, reload_check))
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asichost.interface_facts()['ansible_facts']
