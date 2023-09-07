@@ -59,6 +59,7 @@ def setup_base_traffic_config(testbed_config,
 
     tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    import pdb; pdb.set_trace()
     base_flow_config["tx_port_config"] = tx_port_config
     base_flow_config["rx_port_config"] = rx_port_config
 

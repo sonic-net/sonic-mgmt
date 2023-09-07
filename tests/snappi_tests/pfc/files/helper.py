@@ -88,10 +88,6 @@ def run_pfc_test(api,
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
 
-    # Rate percent must be an integer
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-
     if snappi_extra_params.headroom_test_params is not None:
         global DATA_FLOW_DURATION_SEC
         DATA_FLOW_DURATION_SEC = 10
@@ -107,6 +103,10 @@ def run_pfc_test(api,
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
+
+    # Rate percent must be an integer and dependent on rx and tx port speeds
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
 
     if snappi_extra_params.packet_capture_type != packet_capture.NO_CAPTURE:
         # Setup capture config

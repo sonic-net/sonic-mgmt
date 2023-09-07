@@ -144,6 +144,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
             return False
 
         port_id = port_ids[0]
+        speed_gbps = int(snappi_ports[port_id]['speed'])/1000
         mac = __gen_mac(port_id)
 
         device = config.devices.device(
@@ -167,7 +168,8 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
                                        gw_mac=dut_mac,
                                        prefix_len=prefix,
                                        port_type=SnappiPortType.IPInterface,
-                                       peer_port=intf)
+                                       peer_port=intf,
+                                       speed_gbps=speed_gbps)
 
         port_config_list.append(port_config)
 
@@ -225,6 +227,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                 return False
 
             port_id = port_ids[0]
+            speed_gbps = int(snappi_ports[port_id]['speed'])/1000
             mac = __gen_mac(port_id)
             device = config.devices.device(
                 name='Device Port {}'.format(port_id))[-1]
@@ -247,7 +250,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            gw_mac=dut_mac,
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
-                                           peer_port=phy_intf)
+                                           peer_port=phy_intf,
+                                           speed_gbps=speed_gbps)
 
             port_config_list.append(port_config)
 
@@ -304,6 +308,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
                 return False
 
             port_id = port_ids[0]
+            speed_gbps = int(snappi_ports[port_id]['speed'])/1000
             mac = __gen_mac(port_id)
 
             lp = lag.ports.port(port_name=config.ports[port_id].name)[-1]
@@ -323,7 +328,8 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
                                            gw_mac=dut_mac,
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.PortChannelMember,
-                                           peer_port=phy_intf)
+                                           peer_port=phy_intf,
+                                           speed_gbps=speed_gbps)
 
             port_config_list.append(port_config)
 
@@ -415,7 +421,6 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa F811
             pfc.pfc_class_7 = 7
 
     port_config_list = []
-
     config_result = __vlan_intf_config(config=config,
                                        port_config_list=port_config_list,
                                        duthost=duthost,
