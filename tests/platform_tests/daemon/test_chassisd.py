@@ -85,7 +85,7 @@ def collect_data(duthost):
         data = compose_dict_from_cli(data)
         dev_data[k] = data
     data_dict = {'keys': keys, 'data': dev_data}
-    return OrderedDict(sorted(data_dict).items())
+    return OrderedDict(sorted(data_dict.items()))
 
 
 def wait_data(duthost, expected_key_count):
