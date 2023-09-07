@@ -213,6 +213,15 @@ exit 0
         with open("/usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check", 'w') as out_file:
             out_file.write(file_content)
 
+def disable_logs_in_ram(module):
+    """ Disable logs in ram as we need to collect logs after reboot """
+    platforms = ['x86_64-mlnx_msn2700-r0']
+    _, out, _   = exec_command(module, cmd="show platform summary", ignore_error=True)
+    for platform in platforms:
+        if out and platform in out:
+            exec_command(module, cmd="sudo sed -i 's/logs_inram=on//g' /host/grub/grub.cfg", ignore_error=True)
+            break
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -237,6 +246,7 @@ def main():
             setup_swap_if_necessary(module)
             results["current_stage"] = "install"
             install_new_sonic_image(module, new_image_url, save_as)
+            disable_logs_in_ram(module)
         results["current_stage"] = "complete"
     except Exception:
         err = str(sys.exc_info())
