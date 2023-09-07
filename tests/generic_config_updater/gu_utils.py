@@ -327,7 +327,6 @@ def get_asic_name(duthost):
 
 def is_valid_platform_and_version(duthost, table, scenario):
     asic = get_asic_name(duthost)
-
     os_version = duthost.os_version
     if asic == "unknown":
         return False
