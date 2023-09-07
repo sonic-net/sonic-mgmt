@@ -293,7 +293,7 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
 
 def get_gcu_field_operations_conf(duthost):
     gcu_conf = duthost.shell('cat {}/{}'.format(GCU_SONIC_DIR_PATH, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
-    gcu_conf_json = json.load(gcu_conf)
+    gcu_conf_json = json.loads(gcu_conf)
     return gcu_conf_json
 
 
