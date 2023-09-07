@@ -441,10 +441,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             if vlan_port['dev'] not in port_mode_added:
-                switch_mode(duthost, vlan_port['dev'])
+                switchport_mode_set(duthost, vlan_port['dev'])
                 logger.info("trunk mode added")
                 port_mode_added[vlan_port['dev']] = True
-                cmds.append('config load /etc/sonic/mode.json -y')
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -454,17 +453,26 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-def switch_mode(duthost, port):
-    json_patch = [{
-        "PORT": {
-            f'"{port}"': {
-                "mode": "trunk"
-            }
-        }
-    }]
+def switchport_mode_set(duthost, port):
 
-    tmpfile = "/etc/sonic/mode.json"
-    duthost.copy(content=json.dumps(json_patch, indent=4), dest=tmpfile)
+    mode_json = "/tmp/mode_set.json"
+
+    mode_set = '''
+cat << EOF >  %s
+{
+   "PORT": {
+        "{port}": {
+            "mode": "trunk"
+        }
+  }
+}
+EOF
+''' % (mode_json)
+
+    duthost.shell(mode_set)
+    duthost.command("sudo config load {} -y".format(mode_json))
+    yield
+    duthost.command("rm {}".format(mode_json))
     logger.info("Json dump-file added in to the DUT")
 
 
