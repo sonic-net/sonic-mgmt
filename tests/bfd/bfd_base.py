@@ -64,6 +64,24 @@ class BfdBase:
                     
         return port_channel_dict
     
+    def interface_cleanup(self, dut, dut_asic, interface):
+        int_status = dut.show_interface(command="status", include_internal_intfs=True, asic_index=dut_asic.asic_index)['ansible_facts']['int_status'][interface]
+        oper_state = int_status['oper_state']
+        target_state = "up"
+        if oper_state != target_state:
+            command = "startup"
+            exec_cmd = "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(dut_asic.asic_index, dut_asic.asic_index, command, interface)
+            
+            logger.info("Command: {}".format(exec_cmd))
+            logger.info("Target state: {}".format(target_state))
+            
+            dut.shell(exec_cmd)
+
+            if "BP" in interface:
+                assert wait_until(180, 10, 0, lambda: dut.show_interface(command="status", include_internal_intfs=True, asic_index=asic.asic_index)['ansible_facts']['int_status'][interface]['oper_state'] == target_state)
+            else:
+                assert wait_until(180, 10, 0, lambda: self.extract_backend_portchannels(dut)[interface]['status'] == target_state)
+    
     def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic):
         backend_port_channels = self.extract_backend_portchannels(dut)
         data  = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
