@@ -82,8 +82,8 @@ def test_acms_cert_downloader(duthosts, rand_one_dut_hostname, creds, test_data)
         dut_command = "sudo rm /etc/sonic/credentials/*"
         duthost.shell(dut_command, module_ignore_errors=True)
         create_acms_conf(region, cloudtype, duthost, "/var/opt/msft/client/acms_secrets.ini")
-        dut_command = 'timeout %ds docker exec -e http_proxy="%s" -e https_proxy="%s" %s\
- /usr/bin/CA_cert_downloader.py' % (5, http_proxy, https_proxy, container_name)
+        dut_command = 'timeout %ds docker exec -e http_proxy="%s" -e https_proxy="%s" %s CA_cert_downloader.py' \
+            % (5, http_proxy, https_proxy, container_name)
         duthost.shell(dut_command, module_ignore_errors=True)
         if check_ca_cert(duthost, 'ROOT_CERTIFICATE.pem'):
             return
