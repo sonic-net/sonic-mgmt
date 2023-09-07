@@ -179,6 +179,7 @@
     - name: Explicitly set current br1 MAC address to br1
       shell: ip link set dev br1 address {{ br1_mac.stdout }}
       become: yes
+      when: br1_mac.stdout != "00:00:00:00:00:00"
 
 - block:
     - getent:
