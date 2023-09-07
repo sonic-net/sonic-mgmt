@@ -149,6 +149,14 @@ def pytest_addoption(parser):
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
 
+    #########################
+    #   post-test options   #
+    #########################
+    parser.addoption("--posttest_show_tech_since", action="store", default="yesterday",
+                     help="collect show techsupport since <date>. <date> should be a string which can "
+                          "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
+                          "To collect all time spans, please use '@0' as the value.")
+
     ############################
     #  keysight ixanvl options #
     ############################
@@ -2038,7 +2046,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-    yield
+    yield duts_data
 
     if check_flag:
         for duthost in duthosts:
@@ -2199,7 +2207,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
         items = request.session.items
         for item in items:
             if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
+                    'core_dump_check_pass': core_dump_check_pass,
+                    'config_db_check_pass': config_db_check_pass
+                }})))
 
 
 @pytest.fixture(scope="function")
