@@ -148,7 +148,9 @@ def parse_list_from_str(s):
         s = s.strip()
     if not s:
         return None
-    return [single_str.strip() for single_str in s.split(',')]
+    return [single_str.strip()
+            for single_str in s.split(',')
+            if single_str.strip()]
 
 
 class TestPlanManager(object):
@@ -194,7 +196,7 @@ class TestPlanManager(object):
             raise Exception("Get token failed with exception: {}".format(repr(exception)))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
-               min_worker=1, max_worker=2, pr_id="unknown", output=None,
+               min_worker=None, max_worker=None, pr_id="unknown", output=None,
                common_extra_params="", **kwargs):
         tp_url = "{}/test_plan".format(self.url)
         testbed_name = parse_list_from_str(kwargs.get("testbed_name", None))
@@ -230,8 +232,8 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-
-        payload = json.dumps({
+        affinity = json.loads(kwargs.get("affinity", "[]"))
+        payload = {
             "name": test_plan_name,
             "testbed": {
                 "platform": platform,
@@ -241,7 +243,8 @@ class TestPlanManager(object):
                 "min": min_worker,
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
-                "asic_num": kwargs["num_asic"]
+                "asic_num": kwargs["num_asic"],
+                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
@@ -254,6 +257,7 @@ class TestPlanManager(object):
                 },
                 "image": {
                     "url": image_url,
+                    "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch
@@ -265,6 +269,7 @@ class TestPlanManager(object):
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
+                "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
@@ -276,15 +281,10 @@ class TestPlanManager(object):
                 "pull_request_id": pr_id,
                 "build_id": build_id
             },
-            "extra_params": {
-                "secrets": {
-                    "azp_access_token": kwargs["azp_access_token"],
-                    "azp_repo_access_token": kwargs["azp_repo_access_token"],
-                }
-            },
+            "extra_params": {},
             "priority": 10
-        })
-        print('Creating test plan with payload: {}'.format(payload))
+        }
+        print('Creating test plan with payload:\n{}'.format(json.dumps(payload, indent=4)))
         headers = {
             "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
@@ -292,7 +292,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=payload, timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
@@ -437,7 +437,10 @@ if __name__ == "__main__":
         "-t", "--topology",
         type=str,
         dest="topology",
-        required=True,
+        nargs="?",
+        const="",
+        default="",
+        required=False,
         help="The test topology to be used."
     )
     parser_create.add_argument(
@@ -451,7 +454,9 @@ if __name__ == "__main__":
         "--min-worker",
         type=int,
         dest="min_worker",
-        default=1,
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
         help="Min worker number for the test plan."
     )
@@ -459,9 +464,21 @@ if __name__ == "__main__":
         "--max-worker",
         type=int,
         dest="max_worker",
-        default=2,
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
         help="Max worker number for the test plan."
+    )
+    parser_create.add_argument(
+        "--lock-wait-timeout-seconds",
+        type=int,
+        dest="lock_wait_timeout_seconds",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Max lock testbed wait seconds. None or the values <= 0 means endless."
     )
     parser_create.add_argument(
         "--test-set",
@@ -548,22 +565,6 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--azp-access-token",
-        type=str,
-        dest="azp_access_token",
-        default="",
-        required=False,
-        help="Token to download the artifacts of Azure Pipelines"
-    )
-    parser_create.add_argument(
-        "--azp-repo-access-token",
-        type=str,
-        dest="azp_repo_access_token",
-        default="",
-        required=False,
-        help="Token to download the repo from Azure DevOps"
-    )
-    parser_create.add_argument(
         "--azp-pr-id",
         type=str,
         dest="azp_pr_id",
@@ -600,6 +601,16 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Image url"
+    )
+    parser_create.add_argument(
+        "--upgrade-image-param",
+        type=str,
+        dest="upgrade_image_param",
+        nargs="?",
+        const="",
+        default="",
+        required=False,
+        help="Parameter of upgrade image"
     )
     parser_create.add_argument(
         "--hwsku",
@@ -671,6 +682,28 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Exclude test features, Split by ',', like: 'bgp, lldp'"
+    )
+    parser_create.add_argument(
+        "--specific-param",
+        type=str,
+        dest="specific_param",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Specific param, like: '
+             '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
+    )
+    parser_create.add_argument(
+        "--affinity",
+        type=str,
+        dest="affinity",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Test module affinity, like: '
+             '[{"name": "bgp/test_bgp_fact.py", "op": "NOT_ON", "value": ["vms-kvm-t0"]}]'
     )
     parser_create.add_argument(
         "--stop-on-failure",
@@ -829,12 +862,17 @@ if __name__ == "__main__":
                 ).replace(' ', '_')
 
             scripts = args.scripts
-            specific_param = []
-            # For KVM PR test, get test modules from pr_test_scripts.yaml, otherwise use args.scripts
-            if args.platform == "kvm":
+            specific_param = json.loads(args.specific_param)
+            # For PR test, if specify test modules and specific_param explicitly, use them to run PR test.
+            # Otherwise, get test modules from pr_test_scripts.yaml.
+            explicitly_specify_test_module = args.features or args.scripts
+            if args.test_plan_type == "PR":
                 args.test_set = args.test_set if args.test_set else args.topology
-                scripts, specific_param = get_test_scripts(args.test_set)
-                scripts = ",".join(scripts)
+                parsed_script, parsed_specific_param = get_test_scripts(args.test_set)
+                if not explicitly_specify_test_module:
+                    scripts = ",".join(parsed_script)
+                if not specific_param:
+                    specific_param = parsed_specific_param
 
             tp.create(
                 args.topology,
@@ -856,11 +894,11 @@ if __name__ == "__main__":
                 num_asic=args.num_asic,
                 specified_params=args.specified_params,
                 specific_param=specific_param,
+                affinity=args.affinity,
                 vm_type=args.vm_type,
-                azp_access_token=args.azp_access_token,
-                azp_repo_access_token=args.azp_repo_access_token,
                 testbed_name=args.testbed_name,
                 image_url=args.image_url,
+                upgrade_image_param=args.upgrade_image_param,
                 hwsku=args.hwsku,
                 test_plan_type=args.test_plan_type,
                 platform=args.platform,
@@ -869,6 +907,7 @@ if __name__ == "__main__":
                 dump_kvm_if_fail=args.dump_kvm_if_fail,
                 requester=args.requester,
                 max_execute_seconds=args.max_execute_seconds,
+                lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
             )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)

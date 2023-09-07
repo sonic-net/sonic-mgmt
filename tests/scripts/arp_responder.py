@@ -63,7 +63,7 @@ class ARPResponder(object):
 
         ndp_reply = ARPResponder.generate_neigh_adv(ARPResponder.ip_sets[interface][request_ip],
                                                     remote_mac, request_ip, remote_ip)
-        scapy.sendp(ndp_reply)
+        scapy.sendp(ndp_reply, iface=interface)
 
     @staticmethod
     def generate_arp_reply(local_mac, remote_mac, local_ip, remote_ip, vlan_id):
@@ -75,7 +75,7 @@ class ARPResponder(object):
         return l2 / l3
 
     @staticmethod
-    def generate_neigh_adv(self, local_mac, remote_mac, target_ip, remote_ip):
+    def generate_neigh_adv(local_mac, remote_mac, target_ip, remote_ip):
         neigh_adv_pkt = scapy.Ether(src=local_mac, dst=remote_mac)
         neigh_adv_pkt /= scapy.IPv6(src=target_ip, dst=remote_ip)
         neigh_adv_pkt /= scapy.ICMPv6ND_NA(tgt=target_ip, R=0, S=1, O=1)

@@ -121,9 +121,9 @@ bgp/test_bgp_suppress_fib.py:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported topology backend."
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or 't2' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
@@ -162,6 +162,12 @@ configlet/test_add_rack.py:
     conditions:
       - "is_multi_asic==True"
 
+container_hardening/test_container_hardening.py::test_container_privileged:
+  skip:
+    reason: "Not supported on 202305 and older releases"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
+
 #######################################
 #####            copp             #####
 #######################################
@@ -189,7 +195,8 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
     reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
-      - "int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[0]) == 20220531 and int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -531,11 +538,10 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform or T1 topo. Test does not support dualtor topology."
+    reason: "Not working on non-mellanox platform. Test does not support dualtor topology."
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
-      - "'t1' in topo_name"
       - "'dualtor' in topo_name"
 
 #######################################
@@ -606,7 +612,7 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name or 't0-backend' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
@@ -994,15 +1000,28 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
-    reason: "Generic internal image issue"
+    reason: "Test issue"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "release in ['202305']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_link_local.py:
+  skip:
+    reason: "SNMP over IPv6 support not present in 202211 release."
+    conditions:
+      - "release in ['202211']"
+
+snmp/test_snmp_loopback.py:
+  skip:
+    reason: "SNMP over Loopback IPv6 support not present in 202211 release."
+    conditions:
+      - "release in ['202211']"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"

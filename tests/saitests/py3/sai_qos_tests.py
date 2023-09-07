@@ -4,12 +4,14 @@ SONiC Dataplane Qos tests
 import time
 import logging
 import ptf.packet as scapy
+from scapy.all import Ether, IP
 import socket
 import sai_base_test
 import operator
 import sys
 import texttable
 import math
+import os
 from ptf.testutils import (ptf_ports,
                            dp_poll,
                            simple_arp_packet,
@@ -19,7 +21,8 @@ from ptf.testutils import (ptf_ports,
                            simple_qinq_tcp_packet,
                            simple_ip_packet,
                            simple_ipv4ip_packet,
-                           hex_dump_buffer)
+                           hex_dump_buffer,
+                           verify_packet_any_port)
 from ptf.mask import Mask
 from switch import (switch_init,
                     sai_thrift_create_scheduler_profile,
@@ -92,6 +95,13 @@ RELEASE_PORT_MAX_RATE = 0
 ECN_INDEX_IN_HEADER = 53  # Fits the ptf hex_dump_buffer() parse function
 DSCP_INDEX_IN_HEADER = 52  # Fits the ptf hex_dump_buffer() parse function
 COUNTER_MARGIN = 2  # Margin for counter check
+
+# Constants for the IP IP DSCP to PG mapping test
+DEFAULT_DSCP = 4
+DEFAULT_TTL = 64
+DEFAULT_ECN = 1
+DEFAULT_PKT_COUNT = 10
+PG_TOLERANCE = 2
 
 
 def check_leackout_compensation_support(asic, hwsku):
@@ -187,13 +197,24 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
     pkt = construct_ip_pkt(64, dst_mac, src_port_mac,
                            src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
+    # Send initial packet for any potential ARP resolution, which may cause the LAG
+    # destination to change. Can occur especially when running tests in isolation on a
+    # first test attempt.
+    send_packet(dp, src_port_id, pkt, 1)
+    # Observed experimentally this sleep needs to be at least 0.02 seconds. Setting higher.
+    time.sleep(1)
     send_packet(dp, src_port_id, pkt, 1)
 
     masked_exp_pkt = construct_ip_pkt(
         48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
 
+    pre_result = dp.dataplane.poll(
+        device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
     result = dp.dataplane.poll(
         device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+    if pre_result.port != result.port:
+        logging.debug("During get_rx_port, corrected LAG destination from {} to {}".format(
+            pre_result.port, result.port))
     if isinstance(result, dp.dataplane.PollFailure):
         dp.fail("Expected packet was not received. Received on port:{} {}".format(
             result.port, result.format()))
@@ -268,31 +289,63 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
         self.test_port_ids = self.test_params.get("testPortIds", None)
         self.test_port_ips = self.test_params.get("testPortIps", None)
+        self.src_dut_index = self.test_params['src_dut_index']
+        self.src_asic_index = self.test_params.get('src_asic_index', None)
+        self.dst_dut_index = self.test_params['dst_dut_index']
+        self.dst_asic_index = self.test_params.get('dst_asic_index', None)
+        self.testbed_type = self.test_params['testbed_type']
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
         # ARP Populate
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
-                                       1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
+        # Ping only  required for testports
+        if 't2' in self.testbed_type:
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_2_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_2_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_3_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_3_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.src_asic_index, self.src_port_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.src_port_ip, self.src_asic_index, self.src_server_ip)
+        else:
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
+                                           1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
 
-        send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
-                                       1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
-        send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
-                                       self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
-        send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
-                                       self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
-        send_packet(self, self.dst_port_3_id, arpreq_pkt)
+            send_packet(self, self.src_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
+                                           1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
+            send_packet(self, self.dst_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
+                                           self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
+            send_packet(self, self.dst_port_2_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
+                                           self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
+            send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
-        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-        if self.test_port_ips:
-            for ip in get_peer_addresses(self.test_port_ips):
-                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
-                                     'ping -q -c 3 {}'.format(ip))
+            # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+            if self.test_port_ips:
+                for ip in get_peer_addresses(self.test_port_ips):
+                    self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
+                                         self.test_params['dut_password'], 'ping -q -c 3 {}'.format(ip))
 
         time.sleep(8)
 
@@ -742,6 +795,136 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             print("END OF TEST", file=sys.stderr)
+
+
+# DSCP to PG mapping for IP-IP packets
+class DscpToPgMappingIPIP(sai_base_test.ThriftInterfaceDataPlane):
+    def runTest(self):
+        switch_init(self.clients)
+        output_table = []
+
+        # Parse input parameters
+        router_mac = self.test_params['router_mac']
+        upstream_ptf_ports = self.test_params['upstream_ptf_ports']
+        outer_src_port_ip = self.test_params['outer_src_port_ip']
+        outer_dst_port_ip = self.test_params['outer_dst_port_ip']
+        src_port_id = int(self.test_params['src_port_id'])
+        inner_src_port_ip = self.test_params['inner_src_port_ip']
+        inner_dst_port_ip = self.test_params['inner_dst_port_ip']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
+        pkt_dst_mac = router_mac
+        decap_mode = self.test_params['decap_mode']
+
+        if not dscp_to_pg_map:
+            # According to SONiC configuration all dscps are classified to pg 0 except:
+            # dscp  3 -> pg 3
+            # dscp  4 -> pg 4
+            # So for the 64 pkts sent the mapping should be -> 62 pg 0, 1 for pg 3, and 1 for pg 4
+            lossy_dscps = list(range(0, 64))
+            lossy_dscps.remove(3)
+            lossy_dscps.remove(4)
+            pg_dscp_map = {
+                3: [3],
+                4: [4],
+                0: lossy_dscps
+            }
+        else:
+            pg_dscp_map = {}
+            for dscp, pg in dscp_to_pg_map.items():
+                if pg in pg_dscp_map:
+                    pg_dscp_map[int(pg)].append(int(dscp))
+                else:
+                    pg_dscp_map[int(pg)] = [int(dscp)]
+
+        cause_for_failure = [False, []]
+
+        try:
+            for pg, dscps in list(pg_dscp_map.items()):
+
+                # send pkts with dscps that map to the same pg
+                for dscp in dscps:
+                    pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
+
+                    if decap_mode == "uniform":
+                        outer_dscp = dscp
+                        inner_dscp = DEFAULT_DSCP
+                        exp_dscp = outer_dscp
+                    elif decap_mode == "pipe":
+                        outer_dscp = DEFAULT_DSCP
+                        inner_dscp = dscp
+                        exp_dscp = inner_dscp
+
+                    inner_pkt = simple_tcp_packet(ip_src=inner_src_port_ip,
+                                                  ip_dst=inner_dst_port_ip,
+                                                  ip_dscp=inner_dscp,
+                                                  ip_ecn=DEFAULT_ECN,
+                                                  ip_ttl=DEFAULT_TTL)
+
+                    inner_pkt.ttl -= 1
+
+                    outer_pkt = simple_ipv4ip_packet(eth_src=src_port_mac,
+                                                     eth_dst=pkt_dst_mac,
+                                                     ip_src=outer_src_port_ip,
+                                                     ip_dst=outer_dst_port_ip,
+                                                     ip_dscp=outer_dscp,
+                                                     ip_ecn=DEFAULT_ECN,
+                                                     inner_frame=inner_pkt[scapy.IP])
+
+                    inner_pkt.ttl += 1
+
+                    exp_pkt = simple_tcp_packet(ip_src=inner_src_port_ip,
+                                                ip_dst=inner_dst_port_ip,
+                                                ip_dscp=exp_dscp,
+                                                ip_ecn=DEFAULT_ECN,
+                                                ip_ttl=DEFAULT_TTL)
+
+                    exp_pkt = Mask(exp_pkt)
+                    exp_pkt.set_do_not_care_scapy(Ether, 'src')
+                    exp_pkt.set_do_not_care_scapy(Ether, 'dst')
+                    exp_pkt.set_do_not_care_scapy(IP, 'id')
+                    exp_pkt.set_do_not_care_scapy(IP, 'ttl')
+                    exp_pkt.set_do_not_care_scapy(IP, 'chksum')
+
+                    send_packet(self, src_port_id, outer_pkt, DEFAULT_PKT_COUNT)
+
+                    try:
+                        port_index, _ = verify_packet_any_port(self, exp_pkt, ports=upstream_ptf_ports, timeout=3)
+                    except AssertionError:
+                        cause_for_failure[0] = True
+                        cause_for_failure[1].append("Expected packet with DSCP {} was not received ".format(dscp) +
+                                                    "on any of the ports: {}".format(upstream_ptf_ports))
+
+                    # validate pg counters increment by the correct pkt num
+                    time.sleep(1)
+                    pg_cntrs = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
+
+                    for i in range(0, PG_NUM):
+                        try:
+                            if i == pg:
+                                assert ((pg_cntrs[pg] >= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT - PG_TOLERANCE) and
+                                        (pg_cntrs[pg] <= pg_cntrs_base[pg] + DEFAULT_PKT_COUNT + PG_TOLERANCE))
+                                output_table.append("{}, {}, {}, PASS".format(pg, dscp, pg_cntrs))
+                            else:
+                                assert ((pg_cntrs[i] >= pg_cntrs_base[i] - PG_TOLERANCE) and
+                                        (pg_cntrs[i] <= pg_cntrs_base[i] + PG_TOLERANCE))
+                        except Exception:
+                            cause_for_failure[0] = True
+                            cause_for_failure[1].append("PG counters are not incremented correctly for " +
+                                                        "priority group {} and dscp value {}".format(i, dscp))
+                            output_table.append("{}, {}, {}, FAIL".format(i, dscp, pg_cntrs))
+
+        finally:
+            headers = "Priority Group, DSCP, pg counters, Result"
+            curr_dir = os.getcwd()
+            with open(curr_dir + "/dscp_to_pg_mapping_ipip.txt", "w") as f:
+                f.write(headers+"\n")
+                f.write("\n".join(output_table))
+            if cause_for_failure[0]:
+                with open(curr_dir + "/dscp_to_pg_mapping_ipip_failures.txt", "w") as f:
+                    f.write("\n".join(cause_for_failure[1]))
+
+            print("END OF TEST")
 
 
 # Tunnel DSCP to PG mapping test
@@ -2268,12 +2451,26 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, int(pkt_cnt))
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)  # wait pfc counter refresh and show the counters
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
-                time.sleep(8)   # wait pfc counter refresh
-                self.show_port_counter(
-                    self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                    .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)  # wait pfc counter refresh and show the counters
+                for i in range(0, self.pgs_num):
+                    if self.pkts_num_trig_pfc:
+                        pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                    else:
+                        pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
+
+                    pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
@@ -2309,7 +2506,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
-                time.sleep(8)   # wait pfc counter refresh
+
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)   # wait pfc counter refresh
                 self.show_port_counter(
                     self.asic_type, recv_counters_bases, xmit_counters_base,
                     'To trigger PFC, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
@@ -2355,17 +2554,27 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
 
-                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - \
-                    1 else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
+                    else self.pkts_num_hdrm_partial // self.pkt_size_factor
                 send_packet(
                     self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
                 # allow enough time for the dut to sync up the counter values in counters_db
-                time.sleep(8)
+                if platform_asic != "broadcom-dnx":
+                    time.sleep(8)
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
+                                           'to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
-                self.show_port_counter(
-                    self.asic_type, recv_counters_bases, xmit_counters_base,
-                    'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} to dst_port'
-                    .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)
+                for i in range(0, self.pgs_num):
+                    pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
+                        else self.pkts_num_hdrm_partial // self.pkt_size_factor
+                    self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
+                                           'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
@@ -3082,6 +3291,15 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert (fill_leakout_plus_one(self, src_port_id, dst_port_id,
                                               pkt, int(self.test_params['pg']), asic_type))
 
+            if platform_asic and platform_asic == "broadcom-dnx":
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    send_packet(self, src_port_id, pkt, pkts_num_leak_out)
+                    time.sleep(5)
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                                   port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                                   xmit_counters_base, self, src_port_id, pkt, 10)
+                    pkts_num_leak_out = 0
+
             # send packets short of triggering egress drop
             if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 # send packets short of triggering egress drop
@@ -3111,7 +3329,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             assert (recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             for cntr in ingress_counters:
-                assert (recv_counters[cntr] == recv_counters_base[cntr])
+                if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
+                    assert(recv_counters[cntr] == recv_counters_base[cntr])
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert (xmit_counters[cntr] == xmit_counters_base[cntr])
@@ -4135,7 +4354,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
             if pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
-            elif 'cisco-8000' in asic_type:
+            elif 'cisco-8000' in asic_type or "ACS-SN5600" in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             else:
                 if platform_asic and platform_asic == "broadcom-dnx":
@@ -4393,6 +4612,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # No additional packet margin needed while sending,
                 # but small margin still needed during boundary checks below
                 pkts_num = 1
+                expected_wm = pkts_num_fill_min * cell_occupancy
             else:
                 pkts_num = (1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):
@@ -4614,8 +4834,13 @@ class PCBBPFCTest(sai_base_test.ThriftInterfaceDataPlane):
             send_packet(self, src_port_id, pkt, pkts_num_trig_pfc // cell_occupancy - 1 - pkts_num_margin)
             time.sleep(8)
             # Read TX_OK again to calculate leaked packet number
-            tx_counters, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
+            if 'mellanox' == asic_type:
+                # There are not leaked packets on Nvidia dualtor devices
+                leaked_packet_number = 0
+            else:
+                tx_counters, _ = sai_thrift_read_port_counters(self.dst_client,
+                                                               asic_type, port_list['dst'][dst_port_id])
+                leaked_packet_number = tx_counters[TRANSMITTED_PKTS] - tx_counters_base[TRANSMITTED_PKTS]
             # Send packets to compensate the leaked packets
             send_packet(self, src_port_id, pkt, leaked_packet_number)
             time.sleep(8)
