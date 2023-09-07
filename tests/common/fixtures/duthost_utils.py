@@ -455,6 +455,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 
 
 def switch_mode(duthost, port):
+    if not port.startswith('"') and not port.endswith('"'):
+        port = '"' + port + '"'
+
     json_patch = [{
         "PORT": {
             port: {
