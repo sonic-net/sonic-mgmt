@@ -1,1 +1,0 @@
-../arista.py
