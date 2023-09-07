@@ -77,13 +77,14 @@ def check_if_daemon_restarted(duthost, daemon_name, pre_daemon_pid):
 
 def collect_data(duthost):
     keys = duthost.shell('sonic-db-cli STATE_DB KEYS "CHASSIS_*TABLE|*"')['stdout_lines']
+    sorted_keys = sorted(keys)
 
     dev_data = {}
-    for k in keys:
+    for k in sorted_keys:
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    return {'keys': keys, 'data': dev_data}
+    return {'keys': sorted_keys, 'data': dev_data}
 
 
 def wait_data(duthost, expected_key_count):
