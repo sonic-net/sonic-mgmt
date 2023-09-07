@@ -157,7 +157,7 @@ wan-pub:
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
 
-appliance:
+dpu:
   - dash/test_dash_vnet.py
 
 specific_param:

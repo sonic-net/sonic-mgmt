@@ -322,9 +322,9 @@
   auto_recover: 'False'
   comment: Tests virtual switch vm
 
-- conf-name: vms-kvm-appliance
+- conf-name: vms-kvm-dpu
   group-name: vms6-1
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: ptf-01
   ptf_ip: 10.250.0.102/24
@@ -335,4 +335,4 @@
     - vlab-01
   inv_name: veos_vtb
   auto_recover: False
-  comment: Tests virtual switch vm as Appliance
+  comment: Tests virtual switch vm as DPU
