@@ -24,13 +24,9 @@ class SnappiTestParams():
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
             duthost1 (obj): DUT 1 in case of multi-dut testbed environment
-            rx_port (dict): Contains the details of the rx port
-                            ex : {'peer_port': 'Ethernet8','prefix': u'24','asic_value':'asic0'}
-            rx_port_id (int): port_id of the rx port ex: 1
             duthost2 (obj): DUT 2 in case of multi-dut testbed environment
-            tx_port (dict): Contains the details of the tx port
+            multidut_ports (dict): Contains the details of the multidut snappi ports
                             ex: {'peer_port': 'Ethernet12','prefix': u'24','asic_value':'asic1'}
-            tx_port_id (int): port_id of the tx port ex: 2
             kmin (int): RED/ECN minimum threshold in bytes
             kmax (int): RED/ECN maximum threshold in bytes
             pmax (int): RED/ECN maximum marking probability in percentage
@@ -48,11 +44,8 @@ class SnappiTestParams():
         self.base_flow_config = None
         self.test_tx_frames = 0
         self.duthost1 = None
-        self.rx_port = None
-        self.rx_port_id = None
         self.duthost2 = None
-        self.tx_port = None
-        self.tx_port_id = None
+        self.multidut_ports = None
         self.kmin = 0
         self.kmax = 0
         self.pmax = 0

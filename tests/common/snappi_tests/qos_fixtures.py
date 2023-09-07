@@ -25,17 +25,17 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
-    if "DSCP_TO_TC_MAP" not in config_facts.keys():
+    if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return None
 
     dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
     if len(dscp_to_tc_map_lists) != 1:
         return None
 
-    profile = dscp_to_tc_map_lists.keys()[0]
+    profile = list(dscp_to_tc_map_lists.keys())[0]
     dscp_to_tc_map = dscp_to_tc_map_lists[profile]
 
     result = {}
@@ -73,18 +73,18 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
         Lossless priorities (list)
     """
     duthost = duthosts[rand_one_dut_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
-    if "PORT_QOS_MAP" not in config_facts.keys():
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return None
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
-    if len(port_qos_map.keys()) == 0:
+    if len(list(port_qos_map.keys())) == 0:
         return None
 
     """ Here we assume all the ports have the same lossless priorities """
-    intf = port_qos_map.keys()[0]
+    intf = list(port_qos_map.keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
 
@@ -119,17 +119,17 @@ def prio_dscp_map_dut_base(duthost):
         Priority vs. DSCP map (dictionary, key = priority).
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
-    if "DSCP_TO_TC_MAP" not in config_facts.keys():
+    if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return None
 
     dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
     if len(dscp_to_tc_map_lists) != 1:
         return None
 
-    profile = dscp_to_tc_map_lists.keys()[0]
+    profile = list(dscp_to_tc_map_lists.keys())[0]
     dscp_to_tc_map = dscp_to_tc_map_lists[profile]
 
     result = {}
@@ -150,18 +150,18 @@ def lossless_prio_list_dut_base(duthost):
         Lossless priorities (list)
     """
 
-    config_facts = duthost.config_facts(host=duthost.hostname,
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
-    if "PORT_QOS_MAP" not in config_facts.keys():
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return None
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
-    if len(port_qos_map.keys()) == 0:
+    if len(list(port_qos_map.keys())) == 0:
         return None
 
     """ Here we assume all the ports have the same lossless priorities """
-    intf = port_qos_map.keys()[0]
+    intf = list(port_qos_map.keys())[0]
     if 'pfc_enable' not in port_qos_map[intf]:
         return None
 
