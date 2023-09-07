@@ -429,12 +429,6 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     test_lags = []
     try:
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
-        if namespace_id:
-            asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
-        else:
-            asic_index = DEFAULT_ASIC_ID
-        asichost = duthost.asic_instance(asic_index)
         # Test for each lag
         if dut_lag == "unknown":
             test_lags = lag_facts['names']
@@ -443,12 +437,24 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
             test_lags = [ dut_lag ]
         # 1. Check if status of interface is in sync with state_db after bootup.
         for lag_name in test_lags:
+            namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
+            else
+                asic_index = DEFAULT_ASIC_ID
+            asichost = duthost.asic_instance(asic_index)
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 if not check_status_is_syncd(asichost, po_intf, port_info, lag_name):
                     pytest.fail("{} member {}'s status is not synced with oper_status in state_db.".format(lag_name, po_intf))
 
         # 2. Check if status of interface is in sync with state_db after shutdown/no shutdown.
         for lag_name in test_lags:
+            namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
+            else:
+                asic_index = DEFAULT_ASIC_ID
+            asichost = duthost.asic_instance(asic_index)
             for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
                 asichost.shutdown_interface(po_intf)
                 # Retrieve lag_facts after shutdown interface
@@ -465,10 +471,10 @@ def test_lag_db_status(duthosts, enum_dut_portchannel_with_completeness_level, i
     finally:
         # Recover interfaces in case of failure
         lag_facts = duthost.lag_facts(host = duthost.hostname)['ansible_facts']['lag_facts']
-        namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
         for lag_name in test_lags:
+            namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
             if namespace_id:
-                asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
+                asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
             else:
                 asic_index = DEFAULT_ASIC_ID
             asichost = duthost.asic_instance(asic_index)
@@ -491,12 +497,6 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
         pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
 
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
-    namespace_id = lag_facts['lags'][dut_lag]['po_namespace_id']
-    if namespace_id:
-        asic_index = int(lag_facts['lags'][dut_lag]['po_namespace_id'])
-    else:
-        asic_index = DEFAULT_ASIC_ID
-    asichost = duthost.asic_instance(asic_index)
     # Test for each lag
     if dut_lag == "unknown":
         test_lags = lag_facts['names']
@@ -506,6 +506,12 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
 
     # Check if status of interface is in sync with state_db after removing/adding member.
     for lag_name in test_lags:
+        namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
+        if namespace_id:
+            asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
+        else:
+            asic_index = DEFAULT_ASIC_ID
+        asichost = duthost.asic_instance(asic_index)
         for po_intf, port_info in lag_facts['lags'][lag_name]['po_stats']['ports'].items():
             # 1 Remove port member from portchannel
             asichost.config_portchannel_member(lag_name, po_intf, "del")
