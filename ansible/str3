@@ -1203,3 +1203,9 @@ server:
       ansible_host: 10.64.247.41
     str3-acs-serv-64:
       ansible_host: 10.64.247.46
+    str3-acs-serv-66:
+      ansible_host: 10.64.247.65
+    str3-acs-serv-67:
+      ansible_host: 10.64.247.66
+    str3-acs-serv-68:
+      ansible_host: 10.64.247.67
