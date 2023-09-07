@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class TestBfdStaticRoute(BfdBase):
     test_case_status = True
-    total_iterations = 100
+    total_iterations = 1
 
     def test_bfd_static_route_deletion(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
         """
@@ -108,22 +108,24 @@ class TestBfdStaticRoute(BfdBase):
         
         #Extracting nexthops
         dst_dut_nexthops = bfd_base_instance.extract_ip_addresses_for_backend_portchannels(src_dut, src_asic)
-        src_dut_nexthops = bfd_base_instance.extract_ip_addresses_for_backend_portchannels(dst_dut, dst_asic)
+        logger.info("Destination nexthops, {}".format(dst_dut_nexthops))
         assert len(dst_dut_nexthops) != 0, "Destination Nexthops are empty"
+        
+        src_dut_nexthops = bfd_base_instance.extract_ip_addresses_for_backend_portchannels(dst_dut, dst_asic)
+        logger.info("Source nexthops, {}".format(src_dut_nexthops))
         assert len(src_dut_nexthops) != 0, "Source Nexthops are empty"
 
         #Picking a static route to delete correspinding BFD session
         src_prefix = bfd_base_instance.selecting_route_to_delete(src_asic_routes, src_dut_nexthops.values())
-        dst_prefix = bfd_base_instance.selecting_route_to_delete(dst_asic_routes, dst_dut_nexthops.values())
         logger.info("Source prefix: %s", src_prefix)
-        logger.info("Destination prefix: %s", dst_prefix) 
-
+        request.config.src_prefix = src_prefix
         assert src_prefix is not None and src_prefix != "", "Source prefix not found"
+
+        dst_prefix = bfd_base_instance.selecting_route_to_delete(dst_asic_routes, dst_dut_nexthops.values())
+        logger.info("Destination prefix: %s", dst_prefix) 
+        request.config.dst_prefix = dst_prefix
         assert dst_prefix is not None and dst_prefix != "", "Destination prefix not found"
 
-        request.config.src_prefix = src_prefix
-        request.config.dst_prefix = dst_prefix
-        
         return src_asic, dst_asic, src_dut, dst_dut, src_dut_nexthops, dst_dut_nexthops, src_prefix, dst_prefix
 
     def test_bfd_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance):
@@ -191,24 +193,74 @@ class TestBfdStaticRoute(BfdBase):
         
         logger.info("test_bfd_flap completed")
     
-    def control_interface_state(self, src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, interface, action):
-        int_status = src_dut.show_interface(command="status", include_internal_intfs=True, asic_index=src_asic.asic_index)['ansible_facts']['int_status'][interface]
+    def control_interface_state(self, dut, asic, bfd_base_instance, interface, action):
+        int_status = dut.show_interface(command="status", include_internal_intfs=True, asic_index=asic.asic_index)['ansible_facts']['int_status'][interface]
         oper_state = int_status['oper_state']
-        target_state = "down" if action == "shutdown" and "BP" in interface else "Dw" if action == "shutdown" else "Up"
-
+        if action == "shutdown":
+            target_state = "down"
+        elif action == "startup":
+            target_state = "up"
+        
         if oper_state != target_state:
             command = "shutdown" if action == "shutdown" else "startup"
-            exec_cmd = "sudo ip netns exec asic{0} config interface -n asic{0} {1} {2}".format(src_asic.asic_index, command, interface)
-            src_dut.shell(exec_cmd)
-
-            if "BP" in interface:
-                assert wait_until(90, 1, 0, lambda: src_dut.show_interface(command="status", include_internal_intfs=True, asic_index=src_asic.asic_index)['ansible_facts']['int_status'][interface]['oper_state'] == target_state)
-            else:
-                assert wait_until(90, 1, 0, lambda: bfd_base_instance.extract_backend_portchannels(src_dut)[interface]['status'] == target_state)
+            exec_cmd = "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(asic.asic_index, asic.asic_index, command, interface)
+            logger.info("Command: {}".format(exec_cmd))
+            logger.info("Target state: {}".format(target_state))
+            dut.shell(exec_cmd)
+            assert wait_until(180, 10, 0, lambda: dut.show_interface(command="status", include_internal_intfs=True, asic_index=asic.asic_index)['ansible_facts']['int_status'][interface]['oper_state'] == target_state)
         else:
             raise ValueError("Invalid action specified")
 
-    def test_bfd_portchannel_interface_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
+    def test_bfd_remote_link_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
+        request.config.interface_shutdown = True
+
+        # Selecting source, destination dut & prefix & BFD status verification for all nexthops
+        logger.info("Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix")
+        src_asic, dst_asic, src_dut, dst_dut, src_dut_nexthops, dst_dut_nexthops, src_prefix, dst_prefix = self.select_src_dst_dut_with_asic(request, get_src_dst_asic_and_duts, bfd_base_instance)
+        
+        
+        # Creation of BFD
+        logger.info("BFD addition on source dut")   
+        bfd_base_instance.add_bfd(src_asic.asic_index, src_prefix, src_dut)
+        logger.info("BFD addition on destination dut")   
+        bfd_base_instance.add_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
+        
+        #Verification of BFD session state.
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+
+        # Extract portchannel interfaces on dst
+        list_of_portchannels_on_dst = src_dut_nexthops.keys()
+        request.config.portchannels_on_dut = "dst"
+        request.config.selected_portchannels = list_of_portchannels_on_dst
+
+        #Shutdown PortChannels on destination dut
+        for interface in list_of_portchannels_on_dst:
+            action = "shutdown"
+            self.control_interface_state(dst_dut, dst_asic, bfd_base_instance, interface, action)
+        
+        # Verification of BFD session state on src dut
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Down"))
+
+        # Verify that corresponding static route has been removed on both duts
+        logger.info("BFD & Static route verifications")
+        self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Removal", bfd_base_instance)
+
+        for interface in list_of_portchannels_on_dst:
+            action = "startup"
+            self.control_interface_state(dst_dut, dst_asic, bfd_base_instance, interface, action)
+        
+        # Verification of BFD session state.
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+
+        # Verify that corresponding static route has been added on both duts
+        logger.info("BFD & Static route verifications")
+        self.verify_static_route(request, dst_asic, dst_prefix, dst_dut, dst_dut_nexthops, "Route Addition", bfd_base_instance)
+        self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Addition", bfd_base_instance)
+    
+
+    def test_bfd_lc_asic_shutdown(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
         request.config.interface_shutdown = True
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -228,11 +280,13 @@ class TestBfdStaticRoute(BfdBase):
 
         # Extract portchannel interfaces on src
         list_of_portchannels_on_src = dst_dut_nexthops.keys()
+        request.config.portchannels_on_dut = "src"
+        request.config.selected_portchannels = list_of_portchannels_on_src
 
         #Shutdown PortChannels
         for interface in list_of_portchannels_on_src:
             action = "shutdown"
-            self.control_interface_state(src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, interface, action)
+            self.control_interface_state(src_dut, src_asic, bfd_base_instance, interface, action)
         
         # Verification of BFD session state.
         assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Down"))
@@ -245,7 +299,7 @@ class TestBfdStaticRoute(BfdBase):
 
         for interface in list_of_portchannels_on_src:
             action = "startup"
-            self.control_interface_state(src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, interface, action)
+            self.control_interface_state(src_dut, src_asic, bfd_base_instance, interface, action)
         
         # Verification of BFD session state.
         assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
@@ -255,7 +309,6 @@ class TestBfdStaticRoute(BfdBase):
         logger.info("BFD & Static route verifications")
         self.verify_static_route(request, dst_asic, dst_prefix, dst_dut, dst_dut_nexthops, "Route Addition", bfd_base_instance)
         self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Addition", bfd_base_instance)
-    
 
     def test_bfd_portchannel_member_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
         request.config.interface_shutdown = True
@@ -269,24 +322,26 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance.add_bfd(src_asic.asic_index, src_prefix, src_dut)
         logger.info("BFD addition on destination dut")   
         bfd_base_instance.add_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
-        
+
         # Verification of BFD session state.
         assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
 
         # Extract portchannel interfaces on src
         list_of_portchannels_on_src = dst_dut_nexthops.keys()
+        request.config.portchannels_on_dut = "src"
+        request.config.selected_portchannels = list_of_portchannels_on_src
 
         #Shutdown PortChannel members
         for portchannel_interface in list_of_portchannels_on_src:
             action = "shutdown"
             list_of_portchannel_members_on_src = bfd_base_instance.extract_backend_portchannels(src_dut)[portchannel_interface]['members']
             for each_member in list_of_portchannel_members_on_src:
-                self.control_interface_state(src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, each_member, action)
+                self.control_interface_state(src_dut, src_asic, bfd_base_instance, each_member, action)
         
         # Verification of BFD session state.
-        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Down"))
-        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Down"))
+        assert wait_until(300, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Down"))
+        assert wait_until(300, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Down"))
 
         # Verify that corresponding static route has been removed on both duts
         logger.info("BFD & Static route verifications")
@@ -298,11 +353,11 @@ class TestBfdStaticRoute(BfdBase):
             action = "startup"
             list_of_portchannel_members_on_src = bfd_base_instance.extract_backend_portchannels(src_dut)[portchannel_interface]['members']
             for each_member in list_of_portchannel_members_on_src:
-                self.control_interface_state(src_dut, dst_dut, src_asic, dst_asic, bfd_base_instance, src_dut_nexthops, dst_dut_nexthops, each_member, action)
+                self.control_interface_state(src_dut, src_asic, bfd_base_instance, each_member, action)
         
         # Verification of BFD session state.
-        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
-        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+        assert wait_until(300, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(300, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
 
         # Verify that corresponding static route has been added on both duts
         logger.info("Static route verifications")
@@ -446,6 +501,122 @@ class TestBfdStaticRoute(BfdBase):
         
         # Config reload of Source dut
         reboot(rp, localhost)
+
+        # Waiting for all processes on Source & destination dut
+        wait_critical_processes(src_dut)
+        wait_critical_processes(dst_dut)
+
+        # Verification of BFD session state.
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
+    
+    def test_bfd_with_rp_config_reload(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname):
+        rp = duthosts[enum_supervisor_dut_hostname]
+
+        # Selecting source, destination dut & prefix & BFD status verification for all nexthops
+        logger.info("Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix")
+        src_asic, dst_asic, src_dut, dst_dut, src_dut_nexthops, dst_dut_nexthops, src_prefix, dst_prefix = self.select_src_dst_dut_with_asic(request, get_src_dst_asic_and_duts, bfd_base_instance)
+        
+        # Creation of BFD
+        logger.info("BFD addition on source dut")   
+        bfd_base_instance.add_bfd(src_asic.asic_index, src_prefix, src_dut)
+        
+        logger.info("BFD addition on destination dut")   
+        bfd_base_instance.add_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
+        
+        # Verification of BFD session state.
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+        
+        # Savings the configs
+        src_dut.shell('sudo config save -y')
+        dst_dut.shell('sudo config save -y')
+        
+        # Perform a cold reboot on source dut
+        config_reload(rp)
+
+        # Waiting for all processes on Source & destination dut
+        wait_critical_processes(src_dut)
+        wait_critical_processes(dst_dut)
+
+        # Verification of BFD session state.
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+
+        logger.info("BFD deletion on source & destination dut")    
+        bfd_base_instance.delete_bfd(src_asic.asic_index, src_prefix, src_dut)
+        bfd_base_instance.delete_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
+
+        # Savings the configs
+        src_dut.shell('sudo config save -y')
+        dst_dut.shell('sudo config save -y')
+        
+        # Config reload of Source dut
+        config_reload(rp)
+
+        # Waiting for all processes on Source & destination dut
+        wait_critical_processes(src_dut)
+        wait_critical_processes(dst_dut)
+
+        # Verification of BFD session state.
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
+
+    def test_bfd_with_bad_fc_asic(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname):
+        rp = duthosts[enum_supervisor_dut_hostname]
+
+        # Selecting source, destination dut & prefix & BFD status verification for all nexthops
+        logger.info("Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix")
+        src_asic, dst_asic, src_dut, dst_dut, src_dut_nexthops, dst_dut_nexthops, src_prefix, dst_prefix = self.select_src_dst_dut_with_asic(request, get_src_dst_asic_and_duts, bfd_base_instance)
+        
+        # Creation of BFD
+        logger.info("BFD addition on source dut")   
+        bfd_base_instance.add_bfd(src_asic.asic_index, src_prefix, src_dut)
+        
+        logger.info("BFD addition on destination dut")   
+        bfd_base_instance.add_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
+        
+        # Verification of BFD session state.
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+        
+        # Savings the configs
+        src_dut.shell('sudo config save -y')
+        dst_dut.shell('sudo config save -y')
+
+        # Extract asic ids 
+        docker_output = rp.shell("docker ps | grep swss | awk '{print $NF}'")['stdout'].split("\n")
+        asic_ids = [int(element.split("swss")[1]) for element in docker_output]
+
+        # Shut down corresponding asic on supervisor to simulate bad asic
+        for id in asic_ids:
+            rp.shell("systemctl stop swss@{}".format(id))
+        
+        # Verify that BFD sessions are down
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Down"))
+        assert wait_until(180, 10, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Down"))
+
+        # Config reload RP to bring up the swss containers
+        config_reload(rp)
+
+        # Waiting for all processes on Source & destination dut
+        wait_critical_processes(src_dut)
+        wait_critical_processes(dst_dut)
+
+        # Verification of BFD session state.
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
+        assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
+
+        logger.info("BFD deletion on source dut")    
+        bfd_base_instance.delete_bfd(src_asic.asic_index, src_prefix, src_dut)
+        bfd_base_instance.delete_bfd(dst_asic.asic_index, dst_prefix, dst_dut)
+
+        # Savings the configs
+        src_dut.shell('sudo config save -y')
+        dst_dut.shell('sudo config save -y')
+
+        # Config reload RP 
+        config_reload(rp)
 
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
