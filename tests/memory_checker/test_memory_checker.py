@@ -65,6 +65,8 @@ def restart_container(duthost, container_name):
     Returns:
         None.
     """
+    logger.info("Resetting '{}' status ...".format(container_name))
+    logger.info("systemctl reset-failed {}.service".format(container_name))
     logger.info("Restarting '{}' container ...".format(container_name))
     duthost.shell("systemctl restart {}.service".format(container_name))
 
@@ -215,6 +217,10 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
         None.
     """
     duthost, container = memory_checker_dut_and_container
+
+    if not container.is_running():
+        container.restart()
+    container.post_check()
 
     backup_monit_config_files(duthost)
     customize_monit_config_files(duthost, container, *request.param)
