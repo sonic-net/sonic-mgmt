@@ -562,20 +562,25 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                                  peer_info=peer_info)
         # Start PFC storm from leaf fanout switch
         start_pfc_storm(storm_handler, peer_info, prio)
+        num_storm_pkts = 10000
         try:
             # Send congested traffic
-            testutils.send(ptfadapter, src_port, pkt, 10000)
+            testutils.send(ptfadapter, src_port, pkt, num_storm_pkts)
         finally:
             stop_pfc_storm(storm_handler)
         # Clear out packets for futher verification
         testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, dst_ports, timeout=0.5)
         # Record new watermark after congestion and clear
         queue_wmk = get_queue_watermark(rand_selected_dut, actual_port_name, wmk_stat_queue, True)
-        logger.info("Congested queue watermark on {}|{} is {}".format(
-            actual_port_name, wmk_stat_queue, queue_wmk))
-        assert queue_wmk > base_queue_wmk, \
+        # Expect the watermark to have increased by a small proportion of the traffic
+        required_wmk_inc_bytes = int(0.01 * num_storm_pkts * len(pkt))
+        required_wmk_bytes = base_queue_wmk + required_wmk_inc_bytes
+        logger.info(("Congested queue watermark on {}|{} is {}, increased by {}," +
+                     "minimum required increase is {}").format(
+            actual_port_name, wmk_stat_queue, queue_wmk, queue_wmk - base_queue_wmk, required_wmk_inc_bytes))
+        assert queue_wmk > required_wmk_bytes, \
             "Failed to detect congestion due to PFC pause, failed check {} > {}".format(
-                queue_wmk, base_queue_wmk)
+                queue_wmk, required_wmk_bytes)
 
 
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
@@ -645,20 +650,26 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
                                  pfc_queue_idx=prio,
                                  pfc_frames_number=PFC_PKT_COUNT,
                                  peer_info=peer_info)
+        num_storm_pkts = 10000
         try:
             # Start PFC storm from leaf fanout switch
             start_pfc_storm(storm_handler, peer_info, prio)
             # Send congested traffic
-            testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, 10000)
+            testutils.send_packet(ptfadapter, src_port, tunnel_pkt.exp_pkt, num_storm_pkts)
         finally:
             stop_pfc_storm(storm_handler)
         # Clear out packets for futher verification
         testutils.count_matched_packets(ptfadapter, exp_pkt, dualtor_meta['target_server_port'], timeout=0.5)
         # Record new watermark after congestion and clear
         queue_wmk = get_queue_watermark(rand_selected_dut, dualtor_meta['selected_port'], queue, True)
-        logger.info("Congested queue watermark on {}|{} is {}".format(
-            dualtor_meta['selected_port'], queue, queue_wmk))
-        assert queue_wmk > base_queue_wmk, \
+        # Expect the watermark to have increased by a small proportion of the traffic
+        required_wmk_inc_bytes = int(0.01 * num_storm_pkts * len(pkt))
+        required_wmk_bytes = base_queue_wmk + required_wmk_inc_bytes
+        logger.info(("Congested queue watermark on {}|{} is {}, increased by {}," +
+                     "minimum required increase is {}").format(
+            dualtor_meta['selected_port'], queue, queue_wmk,
+            queue_wmk - base_queue_wmk, required_wmk_inc_bytes))
+        assert queue_wmk > required_wmk_bytes, \
             "Failed to detect congestion due to PFC pause, failed check {} > {}".format(
                 queue_wmk, base_queue_wmk)
 
