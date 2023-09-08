@@ -83,8 +83,8 @@ pdu-104,21,str-s6100-acs-2,PSU1
 pdu-104,22,str-s6100-acs-2,PSU2
 pdu-104,16,str-s6100-acs-4,PSU1
 pdu-105,16,str-s6100-acs-4,PSU2
-pdu-102,17,str-s6100-acs-5,PSU1
-pdu-102,16,str-s6100-acs-5,PSU2
+pdu-102,15,str-s6100-acs-5,PSU1
+pdu-102,25,str-s6100-acs-5,PSU2
 pdu-116,37,str-sn3800-01,PSU1
 pdu-115,37,str-sn3800-01,PSU2
 pdu-107,23,str-z9100-acs-2,PSU1
