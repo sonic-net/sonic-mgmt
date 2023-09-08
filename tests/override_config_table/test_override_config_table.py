@@ -126,10 +126,9 @@ def load_minigraph_with_golden_partial_config(duthost):
     Here we assume all config contain SYSLOG_SERVER table
     """
     partial_config = {
-        "SYSLOG_SERVER": {
-            "10.0.0.100": {},
-            "10.0.0.200": {}
-        }
+      "MGMT_INTERFACE": {
+        "eth0|0.0.0.0/23": {}
+      }
     }
     reload_minigraph_with_golden_config(duthost, partial_config)
 
@@ -164,6 +163,8 @@ def load_minigraph_with_golden_new_feature(duthost):
 def load_minigraph_with_golden_full_config(duthost, full_config):
     """Test Golden Config fully override minigraph config
     """
+    if duthost.is_multi_asic:
+        pytest.skip("multi-asic devices don't support full config override for now")
     # Test if the config has been override by full_config
     reload_minigraph_with_golden_config(duthost, full_config)
 
@@ -183,8 +184,7 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     Here we assume all config contain SYSLOG_SERVER table
     """
     empty_table_removal = {
-        "SYSLOG_SERVER": {
-        }
+      "MGMT_INTERFACE": {},
     }
     reload_minigraph_with_golden_config(duthost, empty_table_removal)
 
