@@ -57,8 +57,8 @@ IP_ROUTE_LIST = [
 
 # ipv6 route injection from T0
 IPV6_ROUTE_LIST = [
-    '1000:1001::1/128',
-    '1000:1001::2/128'
+    '1000:1001::/64',
+    '1000:1002::/64'
 ]
 
 TRAFFIC_DATA_FORWARD = [
@@ -66,7 +66,7 @@ TRAFFIC_DATA_FORWARD = [
     ("91.0.1.1", FORWARD),
     ("91.0.2.1", FORWARD),
     ("1000:1001::1", FORWARD),
-    ("1000:1001::2", FORWARD)
+    ("1000:1002::1", FORWARD)
 ]
 
 TRAFFIC_DATA_DROP = [
@@ -74,7 +74,7 @@ TRAFFIC_DATA_DROP = [
     ("91.0.1.1", DROP),
     ("91.0.2.1", DROP),
     ("1000:1001::1", DROP),
-    ("1000:1001::2", DROP),
+    ("1000:1002::1", DROP),
 ]
 
 
