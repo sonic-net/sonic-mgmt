@@ -227,7 +227,7 @@
 - name: Retrieve a list of the paused VMs
   virt: command=list_vms
         uri=qemu:///system
-        state=pause
+        state=paused
   register: vm_list_paused
   become: true
 
