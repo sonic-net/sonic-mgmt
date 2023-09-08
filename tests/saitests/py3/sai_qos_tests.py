@@ -236,8 +236,12 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
 
             if src_vlan is not None:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
-            # if get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id:
-            if is_rx_port(dp, src_tuple[0], dst_id, pkt, queue):
+            pkt_found = False
+            if pkt_len > 1518:
+                pkt_found = is_rx_port(dp, src_tuple[0], dst_id, pkt, queue)
+            else:
+                pkt_found = (get_rx_port_pkt(dp, src_tuple[0], pkt, masked_exp_pkt) == dst_id)
+            if pkt_found:
                 try:
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt))
                     num_of_pkts+=1
@@ -245,7 +249,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                     all_pkts[src_tuple[0]] = []
                     all_pkts[src_tuple[0]].append((pkt, masked_exp_pkt.exp_pkt))
                     num_of_pkts+=1
-    if num_of_pkts == 0:
+    if num_of_pkts < packets_per_port:
         dp.fail("No packet was sent to expected egress port")
     return all_pkts
 
