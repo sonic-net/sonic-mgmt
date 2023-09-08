@@ -14,7 +14,7 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("appliance")
+    pytest.mark.topology("dpu")
 ]
 
 

@@ -45,6 +45,7 @@ all:
           - wan-3link-tg
           - wan-ecmp
           - wan-pub-isis
+          - dpu
       children:
         server_1:
     lab:
