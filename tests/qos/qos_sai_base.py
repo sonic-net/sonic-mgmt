@@ -831,7 +831,8 @@ class QosSaiBase(QosBase):
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
-                    if use_separated_upkink_dscp_tc_map or get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+                    if (use_separated_upkink_dscp_tc_map or 
+                      get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48"):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -965,7 +966,7 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
         })
         dutinterfaces = {}
-        uplinkPortIds = testPorts.get('uplink_port_ids',[])
+        uplinkPortIds = testPorts.get('uplink_port_ids', [])
 
         if tbinfo["topo"]["type"] == "t2":
             # dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'},
