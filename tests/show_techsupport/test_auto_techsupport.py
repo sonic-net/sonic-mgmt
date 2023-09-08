@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
+from dateutil.parser import ParserError
 
 try:
     import allure
@@ -129,7 +130,8 @@ class TestAutoTechSupport:
         yield
 
         update_auto_techsupport_feature(self.duthost, self.test_docker,
-                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE,
+                                        mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     def test_sanity(self, cleanup_list):
         """
@@ -560,7 +562,7 @@ def set_auto_techsupport_global(duthost, state=None, rate_limit=None, techsuppor
             duthost.shell(cmd)
 
 
-def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None):
+def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None, mem_threshold=None):
     """
     Do configuration using cmd: sudo config auto-techsupport-feature update .....
     :param duthost: duthost object
@@ -576,9 +578,12 @@ def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=Non
     if rate_limit or rate_limit == 0:
         command = '{} --rate-limit-interval {}'.format(base_cmd, rate_limit)
         commands_list.append(command)
+    if mem_threshold:
+        command = '{} --available-mem-threshold {}'.format(base_cmd, mem_threshold)
+        commands_list.append(command)
 
     if not commands_list:
-        pytest.fail('Provide at least one argument from list: state, rate_limit')
+        pytest.fail('Provide at least one argument from list: state, rate_limit, mem_threshold')
 
     for cmd in commands_list:
         with allure.step('Setting feature {} config: {}'.format(feature, cmd)):
@@ -716,6 +721,16 @@ def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_
             'Number of syslog files in techsupport bigger than expected'
 
 
+def get_timestamp_from_log_line(syslog_line):
+    try:
+        timestamp_str = ' '.join(syslog_line.split()[:3])
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    except ParserError:
+        timestamp_str = syslog_line.split()[0]
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    return timestamp_datetime
+
+
 def get_oldest_syslog_timestamp(duthost, techsupport_folder):
     """
     Get oldest syslog timestamp
@@ -729,8 +744,7 @@ def get_oldest_syslog_timestamp(duthost, techsupport_folder):
         oldest_syslog_file = get_oldest_syslog_file_name(syslog_files)
         oldest_syslog_line = \
             duthost.shell('zcat {}/log/{} | head -1'.format(techsupport_folder, oldest_syslog_file))['stdout_lines'][0]
-        oldest_timestamp_str = ' '.join(oldest_syslog_line.split()[:3])
-        oldest_timestamp_datetime = dateutil.parser.parse(oldest_timestamp_str)
+        oldest_timestamp_datetime = get_timestamp_from_log_line(oldest_syslog_line)
 
     return oldest_timestamp_datetime
 
@@ -1030,9 +1044,7 @@ def get_first_line_timestamp(duthost, syslog_file_name):
         first_log_string = duthost.shell('sudo zcat {} | head -n 1'.format(syslog_file_name))['stdout']
     else:
         first_log_string = duthost.shell('sudo head -n 1 {}'.format(syslog_file_name))['stdout']
-    expected_oldest_timestamp_str = ' '.join(first_log_string.split()[:3])
-    expected_oldest_log_line_timestamp = dateutil.parser.parse(expected_oldest_timestamp_str)
-
+    expected_oldest_log_line_timestamp = get_timestamp_from_log_line(first_log_string)
     return expected_oldest_log_line_timestamp
 
 
