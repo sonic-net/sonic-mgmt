@@ -210,7 +210,7 @@ class VXLAN(BaseTest):
             vni = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination, nexthops in \
-                        self.config_data['dest_to_nh_map'][vnet].items():
+                        list(self.config_data['dest_to_nh_map'][vnet].items()):
                     self.test_encap(
                         ptf_port,
                         vni,
@@ -251,7 +251,7 @@ class VXLAN(BaseTest):
         if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
             Logger.info("    Each valid endpoint address has been used")
             Logger.info("Packets sent:%s distribution:", packet_count)
-            for nh_address in returned_ip_addresses.keys():
+            for nh_address in list(returned_ip_addresses.keys()):
                 Logger.info("      %s : %s",
                             nh_address,
                             returned_ip_addresses[nh_address])
@@ -262,7 +262,7 @@ class VXLAN(BaseTest):
             # packets(300). Any lower number will need higher
             # tolerance(more than 2%).
             if packet_count > MINIMUM_PACKETS_FOR_ECMP_VALIDATION:
-                for nh_address in returned_ip_addresses.keys():
+                for nh_address in list(returned_ip_addresses.keys()):
                     if (1.0-self.tolerance) * packet_count <= \
                         returned_ip_addresses[nh_address] <= \
                             (1.0+self.tolerance) * packet_count:
