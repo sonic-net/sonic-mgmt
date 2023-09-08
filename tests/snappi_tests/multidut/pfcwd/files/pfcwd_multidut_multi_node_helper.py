@@ -66,12 +66,11 @@ def run_pfcwd_multi_node_test(api,
         snappi_extra_params = SnappiTestParams()
 
     duthost1 = snappi_extra_params.duthost1
-    rx_port = snappi_extra_params.rx_port
+    rx_port = snappi_extra_params.multidut_ports[0]
+    rx_port_id_list = [snappi_extra_params.multidut_ports[0]["port_id"]]
     duthost2 = snappi_extra_params.duthost2
-    tx_port = snappi_extra_params.tx_port
-    rx_port_id_list = snappi_extra_params.rx_port_id
-    tx_port_id_list = snappi_extra_params.tx_port_id
-
+    tx_port = [snappi_extra_params.multidut_ports[1], snappi_extra_params.multidut_ports[2]]
+    tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
