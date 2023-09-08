@@ -90,7 +90,7 @@ def collect_data(duthost):
 
 def wait_data(duthost, expected_key_count):
     class shared_scope:
-        data_after_restart = {}
+        data_after_restart = OrderedDict()
 
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)
