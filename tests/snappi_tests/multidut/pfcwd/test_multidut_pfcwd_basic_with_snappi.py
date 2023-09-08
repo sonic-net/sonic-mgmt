@@ -76,11 +76,8 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.rx_port = snappi_ports[0]
-    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
     snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.tx_port = snappi_ports[1]
-    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+    snappi_extra_params.multidut_ports = snappi_ports
 
     run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=testbed_config,
