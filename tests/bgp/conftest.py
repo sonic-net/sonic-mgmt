@@ -256,7 +256,11 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                     {
                         "local_intf": loopback_intf["name"],
                         "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
-                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
+                        # Note: Config same subnets on PTF will generate two connect routes on PTF.
+                        # This may lead different IPs has same FDB entry on DUT even they are on different
+                        # interface and cause layer3 packet drop on PTF, so here same interface for different
+                        # neighbor.
+                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interfaces[0]],
                         "neighbor_addr": "%s/%s" % (mux_configs[local_interface]["server_ipv4"].split("/")[0], vlan_intf_prefixlen)
                     }
                 )
@@ -264,8 +268,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             ptfhost.remove_ip_addresses()
 
             for conn in connections:
-                ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
-                                                  conn["neighbor_addr"]))
+                ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
+
             ptfhost.shell("ip route add %s via %s" % (loopback_intf_addr, vlan_intf_addr))
             yield connections
 
