@@ -4,14 +4,28 @@ import json
 from spytest import st
 
 import apis.common.wait as waitapi
+from apis.system.basic import get_ifconfig
+from apis.system.rest import get_rest, delete_rest, config_rest
 
-from apis.system.rest import get_rest,delete_rest,config_rest
+import utilities.common as common_utils
 from utilities.utils import get_interface_number_from_name
-from utilities.common import filter_and_select, iterable
+from utilities.utils import override_supported_ui
+from utilities.utils import get_supported_ui_type_list
+from utilities.utils import convert_intf_name_to_component
+
+try:
+    import apis.yang.codegen.messages.network_instance as umf_ni
+    from apis.yang.utils.common import Operation
+except ImportError:
+    pass
 
 
-def get_mac(dut,**kwargs):
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
 
+
+def get_mac(dut, **kwargs):
     """
     :param dut:
     :type dut:
@@ -19,6 +33,7 @@ def get_mac(dut,**kwargs):
     :rtype:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
         return st.show(dut, "show mac")
     elif cli_type == "klish":
@@ -46,18 +61,31 @@ def get_mac(dut,**kwargs):
                             command += " {} {}".format(attr, kwargs.get(attr))
                     else:
                         command += " {}".format(kwargs.get(attr))
-            return st.show(dut, command,  type=cli_type)
+            return st.show(dut, command, type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         network_instance_name = 'default'
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['all_mac_entries'].format(network_instance_name)
         output = get_rest(dut, rest_url=url)
         rest_get_output = processed_output_based_macentries(output)
+        if kwargs.get("count"):
+            fdb_count_res = list()
+            fdb_result = {"dynamic_cnt": 0, "count": 0, "static_cnt": 0, "vlan_cnt": 0}
+            if rest_get_output:
+                for value in rest_get_output:
+                    if value.get("type") == "DYNAMIC":
+                        fdb_result.update({"dynamic_cnt": fdb_result.get("dynamic_cnt") + 1})
+                    elif value.get("type") == "STATIC":
+                        fdb_result.update({"static_cnt": fdb_result.get("static_cnt") + 1})
+                    if value.get("vlan"):
+                        fdb_result.update({"vlan_cnt": fdb_result.get("vlan_cnt") + 1})
+                    fdb_result.update({"count": fdb_result.get("count") + 1})
+            fdb_count_res.append(fdb_result)
+            return fdb_count_res
         return rest_get_output
     else:
         st.log("Invalid cli type")
         return False
-
 
 
 def get_mac_all_intf(dut, intf, cli_type=""):
@@ -70,7 +98,7 @@ def get_mac_all_intf(dut, intf, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     output = get_mac(dut, cli_type=cli_type)
     retval = []
-    entries = filter_and_select(output, ["macaddress"], {'port': str(intf)})
+    entries = common_utils.filter_and_select(output, ["macaddress"], {'port': str(intf)})
     for ent in entries:
         retval.append(ent["macaddress"])
     return retval
@@ -86,7 +114,7 @@ def get_mac_all(dut, vlan, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     output = get_mac(dut, cli_type=cli_type)
     retval = []
-    entries = filter_and_select(output, ["macaddress"], {'vlan': str(vlan)})
+    entries = common_utils.filter_and_select(output, ["macaddress"], {'vlan': str(vlan)})
     for ent in entries:
         retval.append(ent["macaddress"])
     return retval
@@ -101,17 +129,28 @@ def get_mac_entries_by_mac_address(dut, mac_address, **kwargs):
     :return:
     '''
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == 'click':
-        command="show mac | grep {}".format(mac_address)
+        # Some scripts pass MAC search pattern with beginning or trailing spaces to be grepped
+        # Hence include the pattern within  quotes ""
+        command = 'show mac | grep "{}"'.format(mac_address)
         mac_entries = st.show(dut, command)
     elif cli_type == 'klish':
-        command="show mac address-table | grep {}".format(mac_address)
-        mac_entries = st.show(dut, command,type=cli_type)
+        # Some scripts pass MAC search pattern with beginning or trailing spaces to be grepped
+        # Hence include the pattern within  quotes ""
+        command = 'show mac address-table | grep "{}"'.format(mac_address)
+        mac_entries = st.show(dut, command, type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         entries = get_mac(dut, cli_type=cli_type)
+        st.debug(entries)
         mac_entries = []
-        for entry in iterable(entries):
+        # MAC search pattern can be in the beginning or in between the MAC address string
+        # Hence force the reg_exp search to start of line only if first char is space
+        if mac_address[0] == ' ':
             exp = "^{}".format(mac_address.strip())
+        else:
+            exp = "{}".format(mac_address.strip())
+        for entry in entries:
             if re.search(exp, entry['macaddress'], re.IGNORECASE):
                 mac_entries.append(entry)
         st.debug(mac_entries)
@@ -119,6 +158,21 @@ def get_mac_entries_by_mac_address(dut, mac_address, **kwargs):
         st.log("Unsupported cli")
         return False
     return mac_entries
+
+
+def verify_mac_count_with_retry(dut, user_mac_count, retry_count, delay):
+    mac_count = get_mac_count(dut)
+    a = False
+    for i in range(1, retry_count + 1):
+        st.log("Attempt {} of {}".format(i, retry_count))
+        if mac_count < user_mac_count:
+            st.log("waiting for {} seconds before retyring again".format(delay))
+            st.wait(delay)
+            mac_count = get_mac_count(dut)
+        else:
+            a = True
+            break
+    return a
 
 
 def get_mac_count(dut, cli_type=""):
@@ -130,6 +184,7 @@ def get_mac_count(dut, cli_type=""):
     :rtype:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == 'click':
         field = "mac_count"
         command = "show mac count"
@@ -138,20 +193,21 @@ def get_mac_count(dut, cli_type=""):
             return 0
         output = st.show(dut, command, type=cli_type)
     elif cli_type == 'klish':
-        field =  "count"
+        field = "count"
         command = "show mac address-table count"
         output = st.show(dut, command, type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         result = get_mac(dut, cli_type=cli_type)
         mac_count = len(result)
-        return  mac_count
+        return mac_count
     else:
         st.log("Unsupported cli")
         return False
     if not output:
-        ### When MAC table is empty, klish doesn't display output so return 0
+        # When MAC table is empty, klish doesn't display output so return 0
         return 0
     return int(output[0][field])
+
 
 def get_mac_address_count(dut, vlan=None, port=None, type=None, mac_search=None, cli_type=""):
     """
@@ -169,27 +225,27 @@ def get_mac_address_count(dut, vlan=None, port=None, type=None, mac_search=None,
         entries = get_mac_entries_by_mac_address(dut, mac_search, cli_type=cli_type)
     else:
         entries = get_mac(dut, cli_type=cli_type)
-        ###Decrement by 1 as output has "Total number of entries" as one list element in click output
+        # Decrement by 1 as output has "Total number of entries" as one list element in click output
         if cli_type == 'click':
             dec_flag = 1
     if entries == list or entries is None:
-        ### If entries is null, no need to apply filter, return 0
+        # If entries is null, no need to apply filter, return 0
         return 0
 
     if vlan:
-        entries = filter_and_select(entries, None, {"vlan": str(vlan)})
+        entries = common_utils.filter_and_select(entries, None, {"vlan": str(vlan)})
         dec_flag = 0
     if port:
-        entries = filter_and_select(entries, None, {"port": port})
+        entries = common_utils.filter_and_select(entries, None, {"port": port})
         dec_flag = 0
     if type:
         type = type if cli_type == 'click' else type.upper()
-        entries = filter_and_select(entries, None, {"type": type})
+        entries = common_utils.filter_and_select(entries, None, {"type": type})
         dec_flag = 0
-    return len(entries)-1 if dec_flag==1 else len(entries)
+    return len(entries) - 1 if dec_flag == 1 else len(entries)
 
 
-def verify_mac_address(dut, vlan, mac_addr, cli_type=""):
+def verify_mac_address(dut, vlan, mac_addr, cli_type="", **kwargs):
     """
 
     :param dut:
@@ -201,13 +257,21 @@ def verify_mac_address(dut, vlan, mac_addr, cli_type=""):
 
     waitapi.vsonic_mac_learn()
 
-    st.log("Checking provided mac entries are present in mac table under specified vlan")
+    msg = "Checking provided mac entries are present in mac table under specified vlan ({})"
+    st.debug(msg.format(vlan), dut=dut)
+    mac_addr_list = common_utils.make_list(mac_addr)
+
+    if cli_type in get_supported_ui_type_list():
+        for mac_address in mac_addr_list:
+            if not verify_mac_address_table(dut, mac_addr=mac_address, vlan=vlan, cli_type=cli_type, **kwargs):
+                return False
+        return True
+
     mac_address_all = get_mac_all(dut, vlan, cli_type=cli_type)
-    mac_addr_list = [mac_addr] if type(mac_addr) is str else mac_addr
     return set(mac_addr_list).issubset(set(mac_address_all))
 
 
-def get_sbin_intf_mac(dut, interface=None):
+def get_sbin_intf_mac(dut, interface=None, **kwargs):
     """
     This proc is to return the mac address of the interface from the ifconfig o/p.
     :param dut: DUT Number
@@ -217,17 +281,16 @@ def get_sbin_intf_mac(dut, interface=None):
     if st.get_args("filemode"):
         return "00:00:ba:db:ad:ba"
 
-    interface = interface or st.get_mgmt_ifname(dut)
-    if '/' in interface:
-        interface = st.get_other_names(dut,[interface])[0]
-    my_cmd = "/sbin/ifconfig {}".format(interface)
-    output = st.show(dut, my_cmd)
-    output = dict(output[0])
-    mac = output['mac']
+    output = get_ifconfig(dut, interface, **kwargs)
+    if not output:
+        mac = ''
+    else:
+        output = dict(output[0])
+        mac = output.get('mac')
     return mac
 
 
-def clear_mac(dut,port=None,vlan=None,**kwargs):
+def clear_mac(dut, port=None, vlan=None, **kwargs):
     """
     This proc is to clear mac address/fdb entries of the dut.
     :param dut: DUT Number
@@ -235,6 +298,7 @@ def clear_mac(dut,port=None,vlan=None,**kwargs):
     """
     cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
         if not st.is_feature_supported("sonic-clear-fdb-type-command", dut):
             command = "sonic-clear fdb all"
@@ -252,15 +316,16 @@ def clear_mac(dut,port=None,vlan=None,**kwargs):
             command = "clear mac address-table dynamic Vlan {}".format(vlan)
         elif port:
             intf_data = get_interface_number_from_name(port)
-            command = "clear mac address-table dynamic interface {} {}".format(intf_data["type"],intf_data["number"])
+            command = "clear mac address-table dynamic interface {} {}".format(intf_data["type"], intf_data["number"])
         else:
             command = "clear mac address-table dynamic all"
 
-        st.config(dut, command,type=cli_type)
+        st.config(dut, command, type=cli_type)
     else:
         st.error("Unsupported CLI: {}".format(cli_type))
         return False
     return True
+
 
 def _json_mac_add(dut, mac, vlan, intf):
     data = json.loads("""
@@ -276,6 +341,7 @@ def _json_mac_add(dut, mac, vlan, intf):
     from apis.system.basic import swss_config
     swss_config(dut, json.dumps(data))
 
+
 def _json_mac_del(dut, mac, vlan):
     data = json.loads("""
             [{{
@@ -289,6 +355,7 @@ def _json_mac_del(dut, mac, vlan):
     from apis.system.basic import swss_config
     swss_config(dut, json.dumps(data))
 
+
 def config_mac(dut, mac, vlan, intf, cli_type=""):
     """
     :param dut:
@@ -296,9 +363,19 @@ def config_mac(dut, mac, vlan, intf, cli_type=""):
     :return:
     :rtype:
     """
-    #st.log("config mac add <mac> <vlan> <intf>")
+    # st.log("config mac add <mac> <vlan> <intf>")
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        operation = Operation.CREATE
+        ni_obj = umf_ni.NetworkInstance(Name='default')
+        vlan_obj = umf_ni.Vlan(VlanId=int(vlan))
+        ni_obj.add_Vlan(vlan_obj)
+        entry_obj = umf_ni.Entry(MacAddress=mac, Vlan=vlan_obj, Interface=intf, Subinterface=0, NetworkInstance=ni_obj)
+        result = entry_obj.configure(dut, operation=operation, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Configure MAC")
+            return False
+    elif cli_type == 'click':
         command = "config mac add {} {} {}".format(mac, vlan, intf)
         if not st.is_feature_supported("config-mac-add-command", dut):
             st.community_unsupported(command, dut)
@@ -307,13 +384,13 @@ def config_mac(dut, mac, vlan, intf, cli_type=""):
             st.config(dut, command, type='click')
     elif cli_type == 'klish':
         interface = get_interface_number_from_name(intf)
-        command = "mac address-table {} vlan {} {} {}".format(mac, vlan, interface["type"],interface["number"])
+        command = "mac address-table {} vlan {} {} {}".format(mac, vlan, interface["type"], interface["number"])
         st.config(dut, command, type=cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['static_mac_config']
         json = {"openconfig-network-instance:network-instances": {"network-instance": [{"name": "default", "fdb": {"mac-table": {"entries": {"entry": [{"mac-address": mac, "vlan": int(vlan), "config": {"mac-address": mac, "vlan": int(vlan)}, "interface": {"interface-ref": {"config": {"interface": intf, "subinterface": 0}}}}]}}}}]}}
-        if not config_rest(dut, http_method = cli_type, rest_url=url, json_data=json):
+        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=json):
             return False
     else:
         st.log("Unsupported cli")
@@ -328,9 +405,19 @@ def delete_mac(dut, mac, vlan, cli_type=""):
     :return:
     :rtype:
     """
-    #st.log("config mac del <mac> <vlan>")
+    # st.log("config mac del <mac> <vlan>")
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        ni_obj = umf_ni.NetworkInstance(Name='default')
+        vlan_obj = umf_ni.Vlan(VlanId=int(vlan))
+        ni_obj.add_Vlan(vlan_obj)
+        entry_obj = umf_ni.Entry(MacAddress=mac, Vlan=vlan_obj, Subinterface=0, NetworkInstance=ni_obj)
+        result = entry_obj.unConfigure(dut, cli_type=cli_type)
+#        result = entry_obj.unConfigure(dut, target_attr=entry_obj.MacAddress, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Delete MAC: {}".format(result.data))
+            return False
+    elif cli_type == 'click':
         command = "config mac del {} {}".format(mac, vlan)
         if not st.is_feature_supported("config-mac-add-command", dut):
             st.community_unsupported(command, dut)
@@ -350,7 +437,8 @@ def delete_mac(dut, mac, vlan, cli_type=""):
         return False
     return True
 
-def config_mac_agetime(dut, agetime, cli_type="", config= "add", **kwargs):
+
+def config_mac_agetime(dut, agetime, cli_type="", config="add", **kwargs):
     """
     This proc is to config mac aging and setting it back to default.
     :param dut: DUT Number
@@ -360,11 +448,22 @@ def config_mac_agetime(dut, agetime, cli_type="", config= "add", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     skip_error_check = kwargs.get('skip_error', False)
     command = ''
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        #        operation = Operation.CREATE
+        ni_obj = umf_ni.NetworkInstance(Name='default', MacAgingTime=int(agetime))
+        # Workaround for default values. Setting of defult values are not working in FT runs
+        if int(agetime) == 600:
+            config = 'no'
+        if config == 'add':
+            st.log('***IETF_JSON***: {}'.format(ni_obj.get_ietf_json()))
+            result = ni_obj.configure(dut, cli_type=cli_type)
+        else:
+            result = ni_obj.unConfigure(dut, target_attr=ni_obj.MacAgingTime, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Failed to Configure MAC agetime")
+            return False
+    elif cli_type == 'click':
         command = "config mac aging_time {}".format(int(agetime))
-        if not st.is_feature_supported("config-mac-aging_time-command", dut):
-            st.community_unsupported(command, dut)
-            skip_error_check=True
     elif cli_type == 'klish':
         if config == 'add':
             command = "mac address-table aging-time {}".format(int(agetime))
@@ -375,8 +474,12 @@ def config_mac_agetime(dut, agetime, cli_type="", config= "add", **kwargs):
         url = rest_urls['mac_aging'].format(name='default')
         config_data = {"openconfig-network-instance:mac-aging-time": int(agetime)}
         if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=config_data):
-              st.error("Failed to configure aging as {}".format(agetime))
-              return False
+            st.error("Failed to configure aging as {}".format(agetime))
+            return False
+    if not st.is_feature_supported("config-mac-aging_time-command", dut):
+        st.community_unsupported(command, dut)
+        skip_error_check = True
+
     if command:
         st.config(dut, command, skip_error_check=skip_error_check, type=cli_type)
     return True
@@ -391,29 +494,28 @@ def get_mac_agetime(dut, cli_type=""):
     """
     command = ''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == 'click':
-        if st.is_feature_supported("show-mac-aging-time-command", dut):
-            command = "show mac aging-time"
-        elif st.is_feature_supported("show-mac-aging_time-command", dut):
-            command = "show mac aging_time"
-        else:
-            st.community_unsupported("show mac aging-time", dut)
-            return 300
+        command = "show mac aging-time"
     elif cli_type == 'klish':
         command = "show mac address-table aging-time"
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         url = rest_urls["mac_aging"].format(name='default')
-        out = get_rest(dut, rest_url= url)
+        out = get_rest(dut, rest_url=url)
         if isinstance(out, dict) and out.get('output') and 'openconfig-network-instance:mac-aging-time' in out['output']:
             return int(out['output']['openconfig-network-instance:mac-aging-time'])
-
     else:
         st.error("Unsupported CLI_TYPE: {}".format(cli_type))
         return False
-
+    if not st.is_feature_supported("show-mac-aging_time-command", dut):
+        st.community_unsupported(command, dut)
+        return 300
     if command:
         output = st.show(dut, command, type=cli_type)
+        if not output:
+            st.error("Output is Empty")
+            return False
         return int(output[0]["aging_time"])
     return True
 
@@ -431,17 +533,17 @@ def get_mac_address_list(dut, mac=None, vlan=None, port=None, type=None, cli_typ
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     entries = get_mac(dut, cli_type=cli_type)
     if mac:
-        entries = filter_and_select(entries, None, {"macaddress": str(mac)})
+        entries = common_utils.filter_and_select(entries, None, {"macaddress": str(mac)})
     if vlan:
-        entries = filter_and_select(entries, None, {"vlan": str(vlan)})
+        entries = common_utils.filter_and_select(entries, None, {"vlan": str(vlan)})
     if port:
-        entries = filter_and_select(entries, None, {"port": port})
+        entries = common_utils.filter_and_select(entries, None, {"port": port})
     if type:
-        entries = filter_and_select(entries, None, {"type": type})
-    return [ent["macaddress"] for ent in filter_and_select(entries, ['macaddress'], None)]
+        entries = common_utils.filter_and_select(entries, None, {"type": type})
+    return [ent["macaddress"] for ent in common_utils.filter_and_select(entries, ['macaddress'], None)]
 
 
-def verify_mac_address_table(dut, mac_addr, vlan=None, port=None, type=None, dest_ip=None, cli_type=""):
+def verify_mac_address_table(dut, mac_addr, vlan=None, port=None, type=None, dest_ip=None, cli_type="", **kwargs):
     """
     To verify the MAC parameters
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -454,29 +556,65 @@ def verify_mac_address_table(dut, mac_addr, vlan=None, port=None, type=None, des
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == "klish" or cli_type in ['rest-patch', 'rest-put']:
-        if type != None:
+
+    if cli_type in get_supported_ui_type_list():
+        # mac_addr and vlan are must for message driven infra
+        # Forcing it to klish is vlan is provided
+        if vlan is None:
+            cli_type = 'klish'
+
+    if cli_type in get_supported_ui_type_list():
+        filter_type = kwargs.get('filter_type', 'ALL')
+        ni_obj = umf_ni.NetworkInstance(Name='default')
+        vlan_obj = umf_ni.Vlan(VlanId=int(vlan))
+        ni_obj.add_Vlan(vlan_obj)
+        # entry_obj = umf_ni.Entry(MacAddress=mac_addr, Vlan=vlan_obj, NetworkInstance=ni_obj)
+        # GNMI get call is not working if mac_addr is in uppercase
+        entry_obj = umf_ni.Entry(MacAddress=mac_addr.lower(), Vlan=vlan_obj, NetworkInstance=ni_obj)
+        if port:
+            setattr(entry_obj, 'Interface', port)
+        if type:
+            setattr(entry_obj, 'EntryType', type.upper())
+            filter_type = 'NON_CONFIG' if type.upper() != 'STATIC' else filter_type
+        else:
+            filter_type = 'NON_CONFIG'
+        if dest_ip:
+            setattr(entry_obj, 'PeerIp', dest_ip)
+
+        query_param_obj = common_utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        result = entry_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.error('test_step_failed: Match Not Found')
+            return False
+
+        return True
+
+    if cli_type != 'click':
+        if type is not None:
             type = type.upper()
+    elif port:
+        port = convert_intf_name_to_component(dut, port, component="applications")
 
     waitapi.vsonic_mac_learn()
 
+    match_field_map = dict()
+    match_field_map['macaddress'] = mac_addr
+    if vlan:
+        match_field_map['vlan'] = str(vlan)
+    if port:
+        match_field_map['port'] = port
+    if type:
+        match_field_map['type'] = type
+    if dest_ip:
+        match_field_map['dest_ip'] = dest_ip
+
     output = get_mac(dut, cli_type=cli_type)
-    entries = filter_and_select(output, None, {"macaddress": mac_addr})
+    entries = common_utils.filter_and_select(output, None, match_field_map)
     if not entries:
-        st.log("Provided MAC {} entry is not exist in table".format(mac_addr))
+        st.error("Provided MAC {} entry is not exist in table".format(match_field_map))
         return False
-    if vlan and not filter_and_select(entries, None, {"vlan": str(vlan)}):
-        st.log("Provided VLAN {} is not exist in table with MAC  {}".format(vlan, mac_addr))
-        return False
-    if port and not filter_and_select(entries, None, {"port": port}):
-        st.log("Provided Port {} is not exist in table with MAC  {}".format(port, mac_addr))
-        return False
-    if type and not filter_and_select(entries, None, {"type": type}):
-        st.log("Provided Type {} is not exist in table with MAC  {}".format(type, mac_addr))
-        return False
-    if dest_ip and not filter_and_select(entries, None, {"dest_ip": dest_ip}):
-        st.log("Provided DEST_IP {} is not exist in table with MAC {}".format(dest_ip, mac_addr))
-        return False
+    else:
+        st.log("Provided MAC {} entry exists in table".format(match_field_map))
     return True
 
 
@@ -488,14 +626,16 @@ def get_mac_all_dut(dut_list, thread=True, **kwargs):
     else:
         get_mac(dut_list, cli_type=cli_type)
 
+
 def processed_output_based_macentries(data):
     ret_val = []
     if data and data.get("output"):
         actual_data = data['output']['openconfig-network-instance:entries']['entry']
         for each in actual_data:
-            temp= {}
-            temp['vlan'] =  each['state']['vlan']
+            temp = {}
+            temp['vlan'] = each['state']['vlan']
             temp['macaddress'] = each['config']['mac-address']
+            temp['macaddress'] = temp['macaddress'].upper()
             if 'entry-type' in each['state']:
                 temp['type'] = each['state']['entry-type']
             else:
@@ -515,16 +655,16 @@ def processed_output_based_macentries_vlan(data):
     if data and data.get("output"):
         actual_data = data['output']['openconfig-network-instance:entry']
         for each in actual_data:
-            temp= {}
-            temp['vlan'] =  each['state']['vlan']
+            temp = {}
+            temp['vlan'] = each['state']['vlan']
             temp['macaddress'] = each['config']['mac-address']
             temp['type'] = each['state']['entry-type']
             temp['port'] = each['interface']['interface-ref']['config']['interface']
             ret_val.append(temp)
     return ret_val
 
-def clear_mac_dampening(dut,**kwargs):
 
+def clear_mac_dampening(dut, **kwargs):
     """
     Author :
     :param dut:
@@ -536,24 +676,25 @@ def clear_mac_dampening(dut,**kwargs):
     """
 
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    if cli_type in ["click","rest-put", "rest-patch"]: cli_type = 'klish'
+    cli_type = override_supported_ui("rest-put", "rest-patch", "click", cli_type=cli_type)
     if cli_type == "klish":
-        if  'interface' in kwargs:
+        if 'interface' in kwargs:
             intf_data = get_interface_number_from_name(kwargs['interface'])
-            command = "clear mac dampening-disabled-ports {} {}\n".format(intf_data["type"],intf_data["number"])
+            command = "clear mac dampening-disabled-ports {} {}\n".format(intf_data["type"], intf_data["number"])
         else:
             command = "clear mac dampening-disabled-ports all\n"
     elif cli_type in ["rest-put", "rest-patch"]:
         st.log('Needs to add rest url support')
-        #url = st.get_datastore(dut, "rest_urls")["config_interface"]
-        #if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=):
-        #return False
+        # url = st.get_datastore(dut, "rest_urls")["config_interface"]
+        # if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=):
+        # return False
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
     if command:
         st.config(dut, command, type=cli_type)
     return True
+
 
 def configure_macmove_threshold(dut, **kwargs):
     """
@@ -568,8 +709,23 @@ def configure_macmove_threshold(dut, **kwargs):
     """
 
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    if cli_type in ["rest-put", "rest-patch"]: cli_type = 'klish'
-    command =''
+    if cli_type in ["rest-put", "rest-patch"]:
+        cli_type = 'klish'
+
+    if cli_type in get_supported_ui_type_list():
+        ni_obj = umf_ni.NetworkInstance(Name='default')
+        if 'count' in kwargs:
+            setattr(ni_obj, 'Threshold', int(kwargs['count']))
+        if 'interval' in kwargs:
+            setattr(ni_obj, 'Interval', int(kwargs['interval']))
+        result = ni_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error('test_step_failed: Config of MAC Dampening')
+            return False
+
+        return True
+
+    command = ''
     if cli_type == "click":
         if 'count' in kwargs:
             command = "config mac dampening_threshold {}\n".format(kwargs['count'])
@@ -582,15 +738,16 @@ def configure_macmove_threshold(dut, **kwargs):
             command += "mac address-table dampening-interval {}\n".format(kwargs['interval'])
     elif cli_type in ["rest-put", "rest-patch"]:
         st.log('Needs to add rest url support')
-        #url = st.get_datastore(dut, "rest_urls")["config_interface"]
-        #if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=):
-        #return False
+        # url = st.get_datastore(dut, "rest_urls")["config_interface"]
+        # if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=):
+        # return False
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
     if command:
         st.config(dut, command, type=cli_type)
     return True
+
 
 def verify_mac_dampening_threshold(dut, **kwargs):
     """
@@ -602,20 +759,37 @@ def verify_mac_dampening_threshold(dut, **kwargs):
     usage
     verify_mac_dampening_threshold(dut1,count=2)
     """
-    #cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    #if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
-    ## Changes in klish command as part of bug fix, fallback to click till fixing templates.
-    cli_type = 'click'
+    cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
+    if cli_type in ['rest-patch', 'rest-put']:
+        cli_type = 'klish'
+
+    if cli_type in get_supported_ui_type_list():
+        filter_type = kwargs.get('filter_type', 'NON_CONFIG')
+        query_param_obj = common_utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        ni_obj = umf_ni.NetworkInstance(Name='default')
+        if 'count' in kwargs:
+            setattr(ni_obj, 'Threshold', int(kwargs['count']))
+        if 'interval' in kwargs:
+            setattr(ni_obj, 'Interval', int(kwargs['interval']))
+        if 'port_list' in kwargs:
+            setattr(ni_obj, 'Interfaces', kwargs['port_list'])
+        result = ni_obj.verify(dut, match_subset=True, target_path='/mac-dampening', query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.error('test_step_failed: Match Not Found')
+            return False
+
+        return True
+
     if cli_type == 'click':
-        cmd = "show mac dampening_threshold"
+        cmd = "show mac dampening-threshold"
     else:
         cmd = "show mac dampening"
-    parsed_output = st.show(dut,cmd,type=cli_type)
+    parsed_output = st.show(dut, cmd, type=cli_type)
     if len(parsed_output) == 0:
         st.error("OUTPUT is Empty")
         return False
     match = {"count": kwargs['count']}
-    entries = filter_and_select(parsed_output, ["count"], match)
+    entries = common_utils.filter_and_select(parsed_output, ["count"], match)
     return True if entries else False
 
 
@@ -632,23 +806,29 @@ def verify_mac_dampening_disabled_ports(dut, **kwargs):
     """
     parsed_output = []
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut))
-    if cli_type in ['rest-patch', 'rest-put']: cli_type = 'klish'
+    if cli_type in ['rest-patch', 'rest-put']:
+        cli_type = 'klish'
+    if 'port_list' in kwargs and kwargs['port_list'] == ['None']:
+        cli_type = 'klish'
+    if 'return_output' in kwargs:
+        cli_type = 'klish'
+    if cli_type in get_supported_ui_type_list():
+        return verify_mac_dampening_threshold(dut, **kwargs)
     if cli_type == 'click':
-        cmd = "show mac dampening_disabled_ports"
+        cmd = "show mac dampening-disabled-ports"
     else:
         cmd = "show mac dampening-disabled-ports"
 
-    parsed_output = st.show(dut,cmd,type=cli_type)
+    parsed_output = st.show(dut, cmd, type=cli_type)
 
     if len(parsed_output) == 0:
-        ### Klish output empty when disabled ports are not there
-        parsed_output = [{'port_list':['None']}]
+        # Klish output empty when disabled ports are not there
+        parsed_output = [{'port_list': ['None']}]
     st.log("DEBUG==>{}".format(parsed_output))
 
     if 'return_output' in kwargs:
         return parsed_output
 
     match = {"port_list": kwargs['port_list']}
-    entries = filter_and_select(parsed_output, ["port_list"], match)
+    entries = common_utils.filter_and_select(parsed_output, ["port_list"], match)
     return True if entries else False
-
