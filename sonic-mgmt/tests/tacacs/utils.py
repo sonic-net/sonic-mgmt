@@ -2,6 +2,7 @@ import crypt
 import logging
 import re
 import binascii
+import time
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -289,3 +290,31 @@ def check_server_received(ptfhost, data):
     logger.info(sed_command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
+
+
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
+    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, timeout=10):
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    wait_time = 0
+    while wait_time <= timeout:
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        if latest_timestamp != last_timestamp:
+            return
+
+        time.sleep(1)
+        wait_time += 1
+
+    pytest_assert(False, "Not found aaa config update log: {}".format(command))

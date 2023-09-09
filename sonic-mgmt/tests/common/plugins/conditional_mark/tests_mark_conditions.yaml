@@ -1016,26 +1016,27 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
-    reason: "Generic internal image issue"
+    reason: "Test issue"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "release in ['202305']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
 #######################################
 snmp/test_snmp_link_local.py:
   skip:
-    reason: "SNMP over IPv6 support not present in 202211 branch."
+    reason: "SNMP over IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_loopback.py:
   skip:
-    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
+    reason: "SNMP over Loopback IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
