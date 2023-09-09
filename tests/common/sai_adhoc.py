@@ -26,8 +26,8 @@ def get_info_helper(conf_name):
         testbed_infos = yaml.load(f, Loader=SafeLoader)
         for testbed_info in testbed_infos:
             if testbed_info['conf-name'] == conf_name:
-                # to do: please consider dualtor scenario
-                return testbed_info['dut'][0], \
+                # For multi-dut, return list of all duts, instead of first dut
+                return testbed_info['dut'], \
                        testbed_info['ptf'], \
                        testbed_info['inv_name']
     logger.error("Failed to find testbed {}".format(conf_name))
@@ -159,22 +159,58 @@ if __name__ == '__main__':
         "-i", dest="ignore_error", default=False, help="ignore error", action="store_true")
     parser.add_argument(
         "-r", dest="run_sec", type=int, default=300, help="running seconds")
+    # Add a non-required option to give dut name for multi-dut testbeds
+    parser.add_argument(
+        "-d", dest="dut_name", type=str, help="dut name", required=False)
 
     args = parser.parse_args()
 
-    dut, ptf, inv_name = get_info_helper(args.host_name)
+    dut_list, ptf, inv_name = get_info_helper(args.host_name)
+    # If specific dut is given, we run commmand/copy/fetch on this dut only
+    if args.dut_name:
+        if args.host_type =='dut':
+            host = args.dut_name
+        elif args.host_type =='ptf':
+            host = ptf
 
-    if args.host_type == 'dut':
-        host = dut
-    elif args.host_type == 'ptf':
-        host = ptf
-
-    if args.op_type == "cmd":
-        run_command(host, inv_name, args.command, args.ignore_error, args.run_sec)
-    elif args.op_type == "copy":
-        run_copy(host, inv_name, args.command, args.ignore_error)
-    elif args.op_type == "fetch":
-        run_fetch(host, inv_name, args.command, args.ignore_error)
+        if args.exe_type == "cmd":
+            run_command(host, inv_name, args.command)
+        elif args.exe_type == "copy":
+            run_copy(host, inv_name, args.command)
+        elif args.exe_type == "fetch":
+            run_fetch(host, inv_name, args.command)
+        else:
+            print("Error: Execution type does not match, which can only be [cmd|copy|fetch].")
+    # If specific dut is not given
+    # if multi-dut: we run commmand/copy/fetch on all duts under this testbed
+    # if single-dut: we run commmand/copy/fetch on dut_list[0]
     else:
-        print("Error: Execution type does not match, \
-            which can only be [cmd|copy|fetch].")
+        if len(dut_list) > 1:
+            for dut in dut_list:
+                if args.host_type =='dut':
+                    host = dut
+                elif args.host_type =='ptf':
+                    host = ptf
+
+                if args.exe_type == "cmd":
+                    run_command(host, inv_name, args.command)
+                elif args.exe_type == "copy":
+                    run_copy(host, inv_name, args.command)
+                elif args.exe_type == "fetch":
+                    run_fetch(host, inv_name, args.command)
+                else:
+                    print("Error: Execution type does not match, which can only be [cmd|copy|fetch].")
+        else:
+            if args.host_type =='dut':
+                host = dut_list[0]
+            elif args.host_type =='ptf':
+                host = ptf
+
+            if args.exe_type == "cmd":
+                run_command(host, inv_name, args.command)
+            elif args.exe_type == "copy":
+                run_copy(host, inv_name, args.command)
+            elif args.exe_type == "fetch":
+                run_fetch(host, inv_name, args.command)
+            else:
+                print("Error: Execution type does not match, which can only be [cmd|copy|fetch].")
