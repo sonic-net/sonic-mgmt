@@ -49,3 +49,92 @@
                                                                      '{"column":"Labels","Properties":{"path":"$.labels"}},'
 											                         '{"column":"KeyWord","Properties":{"path":"$.keyword"}},'
                                                                      ']'
+
+
+###############################################################################
+# TEST CASE ANALYSIS TABLE SETUP                                              #
+# 1. Create a TestcaseAnalysis table to store test case analysis results      #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestReportUnionData (StartTimeUTC: datetime,
+                                    AsicType: string,
+                                    HardwareSku: string,
+                                    OSVersion: string,
+                                    Platform: string,
+                                    Topology: string,
+                                    TestbedName: string,
+                                    Asic: string,
+                                    TopologyType: string,
+                                    RunDate: datetime,
+                                    BuildId: string,
+                                    Feature: string,
+                                    TestCase: string,
+                                    ModulePath: string,
+                                    FilePath: string,
+                                    StartLine: int,
+                                    Runtime: double,
+                                    Result: string,
+                                    Error: bool,
+                                    Summary: string,
+                                    StartTime: datetime,
+                                    EndTime: datetime,
+                                    DutCheckResult: string,
+                                    CustomMsg: string,
+                                    FullTestPath: string,
+                                    TestplanStartTime: datetime,
+                                    UploadTimestamp: datetime,
+                                    PipeStatus: string,
+                                    TestbedId: string,
+                                    Attempt: int,
+                                    TestplanEndTime: datetime,
+                                    CreatedBy: string,
+                                    TestBranch: string,
+                                    Message: string,
+                                    ErrorCode: string,
+                                    opTestCase: string,
+                                    BranchName: string,
+                                    FullCaseName: string,
+                                    TestType: string,
+                                    Pipeline: string)
+
+.create table TestReportUnionData ingestion json mapping 'TestReportUnionDataMapping' @'[{"column":"StartTimeUTC","Properties":{"path":"$.StartTimeUTC"}},'
+                                                                                    '{"column":"AsicType","Properties":{"path":"$.AsicType"}},'
+                                                                                    '{"column":"HardwareSku","Properties":{"path":"$.HardwareSku"}},'
+                                                                                    '{"column":"OSVersion","Properties":{"path":"$.OSVersion"}},'
+                                                                                    '{"column":"Platform","Properties":{"path":"$.Platform"}},'
+                                                                                    '{"column":"Topology","Properties":{"path":"$.Topology"}},'
+                                                                                    '{"column":"TestbedName","Properties":{"path":"$.TestbedName"}},'
+                                                                                    '{"column":"Asic","Properties":{"path":"$.Asic"}},'
+                                                                                    '{"column":"TopologyType","Properties":{"path":"$.TopologyType"}},'
+                                                                                    '{"column":"RunDate","Properties":{"path":"$.RunDate"}},'
+                                                                                    '{"column":"BuildId","Properties":{"path":"$.BuildId"}},'
+                                                                                    '{"column":"Feature","Properties":{"path":"$.Feature"}},'
+                                                                                    '{"column":"TestCase","Properties":{"path":"$.TestCase"}},'
+                                                                                    '{"column":"ModulePath","Properties":{"path":"$.ModulePath"}},'
+                                                                                    '{"column":"FilePath","Properties":{"path":"$.FilePath"}},'
+                                                                                    '{"column":"StartLine","Properties":{"path":"$.StartLine"}},'
+                                                                                    '{"column":"Runtime","Properties":{"path":"$.Runtime"}},'
+                                                                                    '{"column":"Result","Properties":{"path":"$.Result"}},'
+                                                                                    '{"column":"Error","Properties":{"path":"$.Error"}},'
+                                                                                    '{"column":"Summary","Properties":{"path":"$.Summary"}},'
+                                                                                    '{"column":"StartTime","Properties":{"path":"$.StartTime"}},'
+                                                                                    '{"column":"EndTime","Properties":{"path":"$.EndTime"}},'
+                                                                                    '{"column":"DutCheckResult","Properties":{"path":"$.DutCheckResult"}},'
+                                                                                    '{"column":"CustomMsg","Properties":{"path":"$.CustomMsg"}},'
+                                                                                    '{"column":"FullTestPath","Properties":{"path":"$.FullTestPath"}},'
+                                                                                    '{"column":"TestplanStartTime","Properties":{"path":"$.TestplanStartTime"}},'
+                                                                                    '{"column":"UploadTimestamp","Properties":{"path":"$.UploadTimestamp"}},'
+                                                                                    '{"column":"PipeStatus","Properties":{"path":"$.PipeStatus"}},'
+                                                                                    '{"column":"TestbedId","Properties":{"path":"$.TestbedId"}},'
+                                                                                    '{"column":"Attempt","Properties":{"path":"$.Attempt"}},'
+                                                                                    '{"column":"TestplanEndTime","Properties":{"path":"$.TestplanEndTime"}},'
+                                                                                    '{"column":"CreatedBy","Properties":{"path":"$.CreatedBy"}},'
+                                                                                    '{"column":"TestBranch","Properties":{"path":"$.TestBranch"}},'
+                                                                                    '{"column":"Message","Properties":{"path":"$.Message"}},'
+                                                                                    '{"column":"ErrorCode","Properties":{"path":"$.ErrorCode"}},'
+                                                                                    '{"column":"opTestCase","Properties":{"path":"$.opTestCase"}},'
+                                                                                    '{"column":"BranchName","Properties":{"path":"$.BranchName"}},'
+                                                                                    '{"column":"FullCaseName","Properties":{"path":"$.FullCaseName"}},'
+                                                                                    '{"column":"TestType","Properties":{"path":"$.TestType"}},'
+                                                                                    '{"column":"Pipeline","Properties":{"path":"$.Pipeline"}},'
+                                                                                    ']'

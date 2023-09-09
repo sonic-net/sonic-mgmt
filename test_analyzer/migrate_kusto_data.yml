@@ -1,0 +1,57 @@
+# This job is for periodically polling testbed health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "*/30 * * * *"
+    displayName: MigrateKustoData
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: NEW_ICM_NUMBER_LIMIT
+    type: number
+    default: 30
+    displayName: "The maximum number of new IcM for this run."
+
+stages:
+  - stage: KustoDataMigrting
+    jobs:
+      - job:   - stage: KustoDataMigrting
+        pool: nightly
+        timeoutInMinutes: 240
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: SECRETS_JSON
+          - group: TBSHARE_SECRETS
+          - group: NIGHTLY_HAWK
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - task: Bash@3
+            displayName: Run migration script
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                source /var/AzDevOps/env-python3/bin/activate
+
+                cd test_analyzer
+                pip3 install -r requirements.txt
+
+                python3 migrate_kusto_data.py
+            env:
+              TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              TEST_REPORT_AAD_TENANT_ID_BACKUP: $(TEST_REPORT_AAD_TENANT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_ID_BACKUP: $(TEST_REPORT_AAD_CLIENT_ID_BACKUP)
+              TEST_REPORT_AAD_CLIENT_KEY_BACKUP: $(TEST_REPORT_AAD_CLIENT_KEY_BACKUP)
+              AZURE_DEVOPS_MSAZURE_TOKEN: $(AZURE_DEVOPS_MSAZURE_TOKEN)
