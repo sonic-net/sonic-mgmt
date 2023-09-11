@@ -217,25 +217,12 @@ class LabGraph(object):
         self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
         return port_name_to_alias_map
 
-    def _get_port_name_set(self, device_hostname):
-        """
-        Retrive port name set of a specific hwsku.
-        """
-        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
-        return set(self._get_port_name_to_alias_map(hwsku).keys())
-
     def _get_port_alias_set(self, device_hostname):
         """
         Retrive port alias set of a specific hwsku.
         """
         hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
         return set(self._get_port_alias_to_name_map(hwsku).keys())
-
-    def sorted_dict(self, myDict):
-        myKeys = list(myDict.keys())
-        myKeys.sort()
-        rst_dict = {i: myDict[i] for i in myKeys}
-        return rst_dict
 
     def csv_to_graph_facts(self):
         devices = {}
