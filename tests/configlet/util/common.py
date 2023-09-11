@@ -110,6 +110,7 @@ scan_dbs = {
             "db_no": 6,
             "keys_to_compare": {
                 "NEIGH_STATE_TABLE",
+                "TRANSCEIVER_INFO",
                 "VLAN_MEMBER_TABLE",
                 "VLAN_TABLE"
             },
