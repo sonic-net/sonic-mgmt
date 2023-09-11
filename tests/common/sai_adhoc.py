@@ -148,7 +148,7 @@ if __name__ == '__main__':
         "-t", type=str, dest="host_type", choices=["dut", "ptf"],
         help="host type", required=True)
     parser.add_argument(
-        "-o", dest="op_type", type=str,
+        "-o", dest="exe_type", type=str,
         choices=["cmd", "copy", "fetch"],
         help="operation type", required=True)
     parser.add_argument(
@@ -168,9 +168,9 @@ if __name__ == '__main__':
     dut_list, ptf, inv_name = get_info_helper(args.host_name)
     # If specific dut is given, we run commmand/copy/fetch on this dut only
     if args.dut_name:
-        if args.host_type =='dut':
+        if args.host_type == 'dut':
             host = args.dut_name
-        elif args.host_type =='ptf':
+        elif args.host_type == 'ptf':
             host = ptf
 
         if args.exe_type == "cmd":
@@ -187,9 +187,9 @@ if __name__ == '__main__':
     else:
         if len(dut_list) > 1:
             for dut in dut_list:
-                if args.host_type =='dut':
+                if args.host_type == 'dut':
                     host = dut
-                elif args.host_type =='ptf':
+                elif args.host_type == 'ptf':
                     host = ptf
 
                 if args.exe_type == "cmd":
@@ -201,9 +201,9 @@ if __name__ == '__main__':
                 else:
                     print("Error: Execution type does not match, which can only be [cmd|copy|fetch].")
         else:
-            if args.host_type =='dut':
+            if args.host_type == 'dut':
                 host = dut_list[0]
-            elif args.host_type =='ptf':
+            elif args.host_type == 'ptf':
                 host = ptf
 
             if args.exe_type == "cmd":
