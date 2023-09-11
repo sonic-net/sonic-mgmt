@@ -10,11 +10,12 @@ import pytest
 import time
 from tests.common.config_reload import config_reload
 from natsort import natsorted
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t2')
 ]
 
 
@@ -29,7 +30,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
     tor_neighbors = dict()
-    tor1 = natsorted(nbrhosts.keys())[0]
+    dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
+    tor1 = dut_lldp_table[1]
     logger.debug("tor1: {}".format(tor1))
 
     skip_hosts = duthost.get_asic_namespace_list()
@@ -61,10 +63,15 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
     cmd = "show ipv6 bgp neighbor {} received-routes".format(neigh_ip_v6)
     dut_nlri_routes = duthost.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
+    logger.debug(dut_nlri_routes[12])
     dut_nlri_route = dut_nlri_routes[12].split()[1]
+
+    logger.debug("DUT BGP Config: {}".format(duthost.shell('show run bgp')['stdout']))
+    logger.debug(tor_neighbors[tor1].shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(namespace)))        
 
     cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
     neigh_nlri_routes = tor_neighbors[tor1].shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
+    logger.debug(neigh_nlri_routes[len(neigh_nlri_routes) - 3])
     neigh_nlri_route = neigh_nlri_routes[len(neigh_nlri_routes) - 3].split()[1]
 
     setup_info = {
@@ -132,6 +139,16 @@ def test_nlri(setup):
                                                        .shell(cmd="show ipv6 bgp summary")[u'stdout']))
     time.sleep(30)
 
+    logger.info("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell(cmd="show ip bgp summary")[u'stdout']))
+    logger.info("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost']
+                                                       .shell(cmd="show ipv6 bgp summary")[u'stdout']))
+    time.sleep(30)
+
+    logger.info("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell(cmd="show ip bgp summary")[u'stdout']))
+    logger.info("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost']
+                                                       .shell(cmd="show ipv6 bgp summary")[u'stdout']))
+    time.sleep(30)
+
     # clear BGP table
     cmd = 'vtysh -n {} -c "clear ip bgp * soft"'.format(setup['namespace'])
     setup['duthost'].shell(cmd)
@@ -141,10 +158,10 @@ def test_nlri(setup):
     # verify route is no longer shared
     cmd = "show ipv6 route {}".format(setup['dut_nlri_route'])
     dut_route_out = setup['duthost'].shell(cmd)['stdout']
-    assert setup['neigh_ip_v6'] not in dut_route_out
+    pytest_assert(setup['neigh_ip_v6'] not in dut_route_out, "No route to IPv6 neighbor.")
     cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
-    assert setup['dut_ip_v6'] not in neigh_route_out
+    pytest_assert(setup['dut_ip_v6'] not in neigh_route_out, "No route to IPv6 DUT.")
 
     # configure IPv4 peer config on DUT
     cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor NLRI peer-group" -c "address-family ipv4 unicast" \
@@ -183,12 +200,15 @@ def test_nlri(setup):
     logger.info("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost'].shell("show ipv6 bgp summary")['stdout']))
 
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
-    assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established'
+    pytest_assert(bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established', 
+                  "Neighbor IPv4 state is no established.")
 
     # verify route is shared
     cmd = "show ipv6 route {}".format(setup['dut_nlri_route'])
     dut_route_out = setup['duthost'].shell(cmd)['stdout']
-    assert "Routing entry for {}".format(setup['dut_nlri_route']) in dut_route_out
+    pytest_assert("Routing entry for {}".format(setup['dut_nlri_route']) in dut_route_out, 
+                  "Routing entry for DUT not established.")
     cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
-    assert "Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out
+    pytest_assert("Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out, 
+                  "Routing entry for neighbor not established.")
