@@ -171,16 +171,6 @@
   include_tasks: internal_mgmt_network.yml
   when: internal_mgmt_network is defined and internal_mgmt_network == True
 
-- name: Fix the MAC address of br1 on server
-  block:
-    - name: Get current MAC address of br1
-      shell: cat /sys/class/net/br1/address
-      register: br1_mac
-    - name: Explicitly set current br1 MAC address to br1
-      shell: ip link set dev br1 address {{ br1_mac.stdout }}
-      become: yes
-      when: br1_mac.stdout != "00:00:00:00:00:00"
-
 - block:
     - getent:
         database: passwd
