@@ -6,6 +6,7 @@ import re
 import paramiko
 import pickle
 import ast
+import _strptime  # noqa F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
 from collections import defaultdict
