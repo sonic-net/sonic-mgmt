@@ -33,7 +33,7 @@ def test_check_sfp_using_ethtool(duthosts, rand_one_dut_hostname,
     for intf in conn_graph_facts["device_conn"][duthost.hostname]:
         if intf not in xcvr_skip_list[duthost.hostname]:
             intf_lanes = ports_config[intf]["lanes"]
-            sfp_id = int(intf_lanes.split(",")[0])/lanes_divider + 1
+            sfp_id = int(intf_lanes.split(",")[0])//lanes_divider + 1
 
             ethtool_sfp_output = duthost.command(
                 "sudo ethtool -m sfp%s" % str(sfp_id))
