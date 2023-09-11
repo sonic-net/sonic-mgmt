@@ -41,7 +41,15 @@ if ! command -v ethtool; then
 fi
 echo
 
-echo "STEP 5: Checking if bridge br1 already exists..."
+# todo, add parameter to indicate whether remove br1 forcefully
+echo "STEP 5: Remove existed br1..."
+if ifconfig br1; then
+    echo "br1 exists, remove it."
+    ifconfig br1 down
+    brctl delbr br1
+fi
+
+echo "STEP 6: Checking if bridge br1 already exists..."
 if ! ifconfig br1; then
     echo "br1 not found, creating bridge network"
     brctl addbr br1
@@ -59,7 +67,7 @@ else
 fi
 echo
 
-echo "STEP 6: Configuring br1 interface..."
+echo "STEP 7: Configuring br1 interface..."
 echo "Assigning 10.250.0.1/24 to br1"
 ifconfig br1 10.250.0.1/24
 ifconfig br1 inet6 add fec0::1/64
