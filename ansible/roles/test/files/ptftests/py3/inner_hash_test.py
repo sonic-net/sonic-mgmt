@@ -113,6 +113,7 @@ class InnerHashTest(BaseTest):
         logging.info("exp_port_groups:  {}".format(self.exp_port_groups))
 
     def check_hash(self, hash_key):
+        first_traffic_failure = True
         src_port = int(random.choice(self.src_ports))
         logging.info("outer_dst_ip={}, src_port={}, exp_port_list={}".format(
             self.outer_dst_ip, src_port, self.exp_port_list))
@@ -134,19 +135,22 @@ class InnerHashTest(BaseTest):
                     0, 65535) if hash_key == 'dst-port' else 80
                 ip_proto = self._get_ip_proto() if hash_key == 'ip-proto' else 6
 
-                (matched_port, _) = self.check_ip_route(
-                    hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto)
-                if self.symmetric_hashing and hash_key != 'ip-proto':
-                    # Send the same packet with reversed tuples and validate that it lands on the same port
-                    rand_src_port = int(random.choice(self.src_ports))
-                    (rMatched_port, _) = self.check_ip_route(
-                        hash_key, outer_encap_format, rand_src_port, ip_dst, ip_src, dport, sport, ip_proto)
-                    self.check_matched_ports(matched_port, rMatched_port)
-                    hit_count_map[rMatched_port] = hit_count_map.get(
-                        rMatched_port, 0) + 1
+                try:
+                    self.check_ip_route_symmetric_hash(hit_count_map, hash_key, outer_encap_format,
+                                                       src_port, ip_src, ip_dst, sport, dport, ip_proto)
+                except Exception as err:
+                    # To avoid static sleep, added this retry only for first failed traffic.
+                    # With a low possibility, happens a failure, in which the PBH config is still not completed.
+                    if not first_traffic_failure:
+                        raise err
 
-                hit_count_map[matched_port] = hit_count_map.get(
-                    matched_port, 0) + 1
+                    logging.warning("The 'check_ip_route_symmetric_hash' method failed. "
+                                    "Waiting 10 sec and sending the same packet again")
+                    time.sleep(10)
+                    self.check_ip_route_symmetric_hash(hit_count_map, hash_key, outer_encap_format,
+                                                       src_port, ip_src, ip_dst, sport, dport, ip_proto)
+                    first_traffic_failure = False
+
             logging.info("outer_encap_fmts={}, hash_key={}, hit count map: {}".format(
                 outer_encap_format, hash_key, hit_count_map))
             if hash_key == 'outer-tuples':
@@ -155,6 +159,21 @@ class InnerHashTest(BaseTest):
             else:
                 self.check_balancing(
                     self.next_hop.get_next_hop(), hit_count_map, hash_key)
+
+    def check_ip_route_symmetric_hash(self, hit_count_map, hash_key, outer_encap_format,
+                                      src_port, ip_src, ip_dst, sport, dport, ip_proto):
+        (matched_port, _) = self.check_ip_route(
+            hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto)
+        if self.symmetric_hashing and hash_key != 'ip-proto':
+            # Send the same packet with reversed tuples and validate that it lands on the same port
+            rand_src_port = int(random.choice(self.src_ports))
+            (rMatched_port, _) = self.check_ip_route(
+                hash_key, outer_encap_format, rand_src_port, ip_dst, ip_src, dport, sport, ip_proto)
+            self.check_matched_ports(matched_port, rMatched_port)
+            hit_count_map[rMatched_port] = hit_count_map.get(
+                rMatched_port, 0) + 1
+        hit_count_map[matched_port] = hit_count_map.get(
+            matched_port, 0) + 1
 
     def check_ip_route(self, hash_key, outer_encap_format, src_port, ip_src, ip_dst, sport, dport, ip_proto):
         if (outer_encap_format == 'vxlan'):
