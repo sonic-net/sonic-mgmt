@@ -388,8 +388,8 @@ def _create_parser():
                       required=False, default='golden-code')
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
                       default=False)           
-    parser.add_argument('--additional_tests', action=str, help='Additional Testscases to test',
-                      default='')
+    parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
+                      required=False, default='')
     return parser
 
 
