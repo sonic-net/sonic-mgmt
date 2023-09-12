@@ -35,6 +35,14 @@ class SnappiTestParams():
                                                    (default: 2)
             poll_device_runtime (bool): whether or not to poll the device for stats when traffic is running
                                         (default: False)
+                for priorities 3 and 4
+            ecn_params (dict): ECN parameters
+                Dict values:
+                    kmin: minimum ECN marking threshold
+                    kmax: maximum ECN marking threshold
+                    pmax: maximum ECN marking probability
+            pkt_size (int): packet size for background and test traffic
+            pkt_count (int): packet count for background and test traffic
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -48,3 +56,6 @@ class SnappiTestParams():
         self.gen_background_traffic = True
         self.pause_flow_params = None
         self.poll_device_runtime = True
+        self.ecn_params = None
+        self.pkt_size = 1024
+        self.pkt_count = 1
