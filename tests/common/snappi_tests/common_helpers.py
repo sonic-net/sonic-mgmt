@@ -850,6 +850,18 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
+class traffic_flow(Enum):
+    """
+    ENUM of traffic settings
+    NO_CAPTURE - No capture
+    PFC_CAPTURE - PFC capture enabled
+    IP_CAPTURE - IP capture enabled
+    """
+    NO_CAPTURE = "No_Capture"
+    PFC_CAPTURE = "PFC_Capture"
+    IP_CAPTURE = "IP_Capture"
+
+
 def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
