@@ -93,6 +93,10 @@ parameters:
     type: string
     default: ""
 
+  - name: STOP_ON_FAILURE
+    type: string
+    default: "False"
+
 
 
 steps:
@@ -114,7 +118,7 @@ steps:
       SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
       AFFINITY: ${{ parameters.AFFINITY }}
       REPO_NAME: "sonic-mgmt-int"
-      STOP_ON_FAILURE: "False"
+      STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
       TEST_PLAN_TYPE: "NIGHTLY"
       PLATFORM: "PHYSICAL"
       DUMP_KVM_IF_FAIL: "False"
