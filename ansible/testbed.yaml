@@ -1115,7 +1115,7 @@
 
 - conf-name: vms21-dpu-01
   group-name: vms21-10
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms21-10
   ptf_ip: 10.64.247.29/23
@@ -1124,12 +1124,13 @@
   vm_base: VM21040
   dut:
     - str2-bluefield-01
+  inv_name: str2
   auto_recover: 'True'
   comment: lawlee
 
 - conf-name: vms21-dpu-02
   group-name: vms21-11
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms21-11
   ptf_ip: 10.64.247.241/23
@@ -1138,12 +1139,13 @@
   vm_base: VM21042
   dut:
     - str2-bluefield-02
+  inv_name: str2
   auto_recover: 'True'
   comment: lawlee
 
 - conf-name: vms21-dpu-03
   group-name: vms21-12
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms27-1
   ptf_ip: 10.64.246.234/23
@@ -1152,6 +1154,7 @@
   vm_base: VM27000
   dut:
     - str2-pensando-3
+  inv_name: str2
   auto_recover: 'True'
   comment: junhuazhai
 
