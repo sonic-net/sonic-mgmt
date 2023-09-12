@@ -4,6 +4,31 @@ if [[ $(id -u) -ne 0 ]]; then
     exit
 fi
 
+function show_help_and_exit()
+{
+    echo "Usage ${SCRIPT} [options]"
+    echo "    options with (*) must be provided"
+    echo "    -h -?                  : get this help"
+    echo "    -d                     : Delete existed bridge"
+
+
+    exit $1
+}
+
+DEL_EXISTED_BRIDGE=false
+
+while getopts "h?d" opt; do
+    case ${opt} in
+        h|\? )
+            show_help_and_exit 0
+            ;;
+        d)
+            DEL_EXISTED_BRIDGE=true
+            ;;
+    esac
+done
+
+
 echo "Refreshing apt package lists..."
 apt-get update
 echo
@@ -41,13 +66,15 @@ if ! command -v ethtool; then
 fi
 echo
 
-# todo, add parameter to indicate whether remove br1 forcefully
-echo "STEP 5: Remove existed br1..."
-if ifconfig br1; then
+echo "STEP 5: Delete existed br1..."
+if [ "$DEL_EXISTED_BRIDGE" = true ] && ifconfig br1 >/dev/null 2>&1; then
     echo "br1 exists, remove it."
     ifconfig br1 down
     brctl delbr br1
+else
+    echo "Not delete existed bridge or br1 not exists, skipping..."
 fi
+echo
 
 echo "STEP 6: Checking if bridge br1 already exists..."
 if ! ifconfig br1; then
