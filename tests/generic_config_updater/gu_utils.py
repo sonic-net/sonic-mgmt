@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
-GCU_SONIC_DIR_PATH = "/usr/local/lib/python3.9/dist-packages/generic_config_updater"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 
@@ -292,7 +291,9 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
 
 
 def get_gcu_field_operations_conf(duthost):
-    gcu_conf = duthost.shell('cat {}/{}'.format(GCU_SONIC_DIR_PATH, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
+    get_gcu_dir_path_cmd = 'python3 -c \"import generic_config_updater ; print(generic_config_updater.__path__)\"'
+    gcu_dir_path = duthost.shell("{}".format(get_gcu_dir_path_cmd))['stdout'].replace("[", "").replace("]", "")
+    gcu_conf = duthost.shell('cat {}/{}'.format(gcu_dir_path, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
     gcu_conf_json = json.loads(gcu_conf)
     return gcu_conf_json
 
