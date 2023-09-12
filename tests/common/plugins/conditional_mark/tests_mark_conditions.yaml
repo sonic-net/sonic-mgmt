@@ -782,6 +782,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'dualtor' in topo_name"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
+        - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####         platform_tests      #####
