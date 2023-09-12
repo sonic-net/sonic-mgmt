@@ -80,7 +80,7 @@ parameters:
     type: string
     default: '[
       {"name": "platform_tests/api/test_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
-      {"name": "platform_tests/test_power_off_reboot.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
+      {"name": "platform_tests/test_power_off_reboot.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3", "testbed-str2-pikez-acs-1"]},
       {"name": "snmp/test_snmp_psu.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]},
       {"name": "snmp/test_snmp_phy_entity.py", "op": "NOT_ON", "value": ["testbed-bjw-can-720dt-3"]}
     ]'
