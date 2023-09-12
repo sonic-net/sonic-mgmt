@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class TestBfdStaticRoute(BfdBase):
     test_case_status = True
-    total_iterations = 1
+    total_iterations = 100
 
     def test_bfd_static_route_deletion(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
         """
@@ -128,7 +128,7 @@ class TestBfdStaticRoute(BfdBase):
 
         return src_asic, dst_asic, src_dut, dst_dut, src_dut_nexthops, dst_dut_nexthops, src_prefix, dst_prefix
 
-    def test_bfd_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance):
+    def test_bfd_flap(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
         """
         Test case #2 - To flap the BFD session ( Up <--> Down <---> Up) between linecards for 100 times.
             Test Steps:
@@ -330,12 +330,12 @@ class TestBfdStaticRoute(BfdBase):
         # Extract portchannel interfaces on src
         list_of_portchannels_on_src = dst_dut_nexthops.keys()
         request.config.portchannels_on_dut = "src"
-        request.config.selected_portchannels = list_of_portchannels_on_src
-
+        
         #Shutdown PortChannel members
         for portchannel_interface in list_of_portchannels_on_src:
             action = "shutdown"
             list_of_portchannel_members_on_src = bfd_base_instance.extract_backend_portchannels(src_dut)[portchannel_interface]['members']
+            request.config.selected_portchannel_members = list_of_portchannel_members_on_src
             for each_member in list_of_portchannel_members_on_src:
                 self.control_interface_state(src_dut, src_asic, bfd_base_instance, each_member, action)
         
@@ -364,7 +364,7 @@ class TestBfdStaticRoute(BfdBase):
         self.verify_static_route(request, dst_asic, dst_prefix, dst_dut, dst_dut_nexthops, "Route Addition", bfd_base_instance)
         self.verify_static_route(request, src_asic, src_prefix, src_dut, src_dut_nexthops, "Route Addition", bfd_base_instance)
     
-    def test_bfd_config_reload(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance):
+    def test_bfd_config_reload(self, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
         logger.info("Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix")
@@ -411,7 +411,7 @@ class TestBfdStaticRoute(BfdBase):
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
     
-    def test_bfd_with_lc_reboot(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance):
+    def test_bfd_with_lc_reboot(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
         logger.info("Selecting Source dut, destination dut, source asic, destination asic, source prefix, destination prefix")
@@ -458,7 +458,7 @@ class TestBfdStaticRoute(BfdBase):
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
  
-    def test_bfd_with_rp_reboot(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname):
+    def test_bfd_with_rp_reboot(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname, bfd_cleanup_db):
         rp = duthosts[enum_supervisor_dut_hostname]
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -510,7 +510,7 @@ class TestBfdStaticRoute(BfdBase):
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
     
-    def test_bfd_with_rp_config_reload(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname):
+    def test_bfd_with_rp_config_reload(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname, bfd_cleanup_db):
         rp = duthosts[enum_supervisor_dut_hostname]
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -562,7 +562,7 @@ class TestBfdStaticRoute(BfdBase):
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
 
-    def test_bfd_with_bad_fc_asic(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname):
+    def test_bfd_with_bad_fc_asic(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, enum_supervisor_dut_hostname, bfd_cleanup_db):
         rp = duthosts[enum_supervisor_dut_hostname]
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
