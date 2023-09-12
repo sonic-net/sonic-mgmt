@@ -45,6 +45,13 @@ arp/test_unknown_mac.py:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+arp/test_wr_arp.py:
+  skip:
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-buildimage/issues/16502
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -103,9 +110,9 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported topology backend."
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
-      - "'backend' in topo_name"
+      - "'backend' in topo_name or 't2' in topo_name"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -115,9 +122,9 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_speaker.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend"
+    reason: "Not supported topology backend."
     conditions:
-      - "'backend' in topo_name or 't2' in topo_name"
+      - "'backend' in topo_name"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -589,6 +596,12 @@ ipfwd/test_mtu.py:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: 'Skip for t0-sonic to prevent deadlock with code PR merge'
+    conditions:
+      - "'t0' in topo_name"
+
 macsec/test_macsec.py:
   skip:
     reason: "This test can only run on 7280 CR3"

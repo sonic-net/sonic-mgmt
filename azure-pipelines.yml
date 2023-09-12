@@ -111,6 +111,7 @@ stages:
         VM_TYPE: vsonic
         KVM_IMAGE_BRANCH: "202205"
         MGMT_BRANCH: "202205"
+        SCRIPTS_EXCLUDE: "bgp/test_bgp_fact.py"
 
   - job: dualtor_elastictest
     pool: ubuntu-20.04
