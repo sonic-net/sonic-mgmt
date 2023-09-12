@@ -415,7 +415,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         delete_untagged_vlan: check to delete unttaged vlan
     '''
     cmds = []
-    port_mode_added = {}    # Keep track of whether switchport mode has been added for each port
     logger.info("Add vlans, assign IPs")
     for k, v in list(vlan_intfs_dict.items()):
         if v['orig']:
@@ -440,10 +439,8 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-            if vlan_port['dev'] not in port_mode_added:
-                switchport_mode_set(duthost, vlan_port['dev'])
-                logger.info("trunk mode added")
-                port_mode_added[vlan_port['dev']] = True
+            switchport_mode_set(duthost, vlan_port['dev'])
+            logger.info("trunk mode added")
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
