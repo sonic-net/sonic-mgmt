@@ -32,6 +32,11 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
+TOPO_TYPE_TO_TOPO_FILE_MAP = {
+    "t0-64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml",
+    "t1-64-lag": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+}
+
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
 def get_dut_names(data):
@@ -63,7 +68,7 @@ def _create_parser():
     parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
                       required=False,default="http://172.29.93.10/sonic-images/golden-code/golden_code_202012.tar.gz")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
-                      required=True,default=None)
+                      required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
@@ -882,6 +887,10 @@ def main():
     cicd_clean = args['cicd_clean']
     additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
+
+    #get topo_yaml from topo_type
+    if not topo_yaml and topo_type in TOPO_TYPE_TO_TOPO_FILE_MAP:
+        topo_yaml = TOPO_TYPE_TO_TOPO_FILE_MAP[topo_type]
 
     ptf_intfcount = 32
 
