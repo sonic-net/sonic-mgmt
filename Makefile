@@ -33,7 +33,7 @@ create_sonic_topo:
 		--cicd \
 		--clean \
 		--create_allure_report \
-		--additional_tests $(ADDITIONAL_TESTS)\
+		--additional_tests '$(ADDITIONAL_TESTS)'\
 	"
 
 run_sanity_using_cfg_file:
