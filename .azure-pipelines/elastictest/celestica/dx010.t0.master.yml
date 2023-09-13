@@ -1,0 +1,123 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+schedules:
+  - cron: "0 4 * * 5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+    displayName: "AGENT POOL"
+
+  - name: TESTBED_NAME
+    type: string
+    default: "vms7-t0-dx010-4"
+    displayName: "Testbed Name"
+
+  # ============ Upgrade parameters ============
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_PUBLIC)
+    displayName: "Image URL"
+
+  - name: UPGRADE_IMAGE_PARAM
+    type: string
+    default: "--always-power-cycle=True"
+    displayName: "Upgrade image parameter"
+
+  # ============ Deploy parameters ============
+  - name: DEPLOY_MG_EXTRA_PARAMS
+    type: string
+    default: "-e enable_data_plane_acl=false"
+
+
+  # ============ Test Parameters ============
+  - name: MGMT_BRANCH
+    type: string
+    default: internal
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: "vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
+    displayName: "Scripts to be excluded"
+
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: "platform_tests, generic_config_updater"
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: '--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)'
+    displayName: "Common test parameters"
+
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 3600
+
+stages:
+  - stage: Test
+
+    variables:
+      - group: SONiC-Elastictest
+
+    jobs:
+      - job:
+        displayName: "dx010.t0.master.NightlyTest_by_Elastictest"
+        timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        continueOnError: false
+        pool: ${{ parameters.AGENT_POOL }}
+        steps:
+          - template: ../../run-test-nightly-elastictest-template.yml
+            parameters:
+              TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+              SCRIPTS: ${{ parameters.SCRIPTS }}
+              FEATURES: ${{ parameters.FEATURES }}
+              SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+              FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+              COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+              MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+              MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+              IMAGE_URL: ${{ parameters.IMAGE_URL }}
+              UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+              DEPLOY_MG_EXTRA_PARAMS: ${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}
