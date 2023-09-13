@@ -73,8 +73,8 @@ def neighbor_ip(request, mux_config):       # noqa F811
     active_standby_ports = []
     for key in mux_config.keys():
         if mux_config[key]["SERVER"].get("cable_type") is None or \
-        mux_config[key]["SERVER"]["cable_type"] == "active-standby":
-            active_standby_ports.append(key)
+            mux_config[key]["SERVER"]["cable_type"] == "active-standby":
+                active_standby_ports.append(key)
 
     if not active_standby_ports:
         pytest.skip("no active-standby port found in mux config. Skip cable type 'active-active'")
