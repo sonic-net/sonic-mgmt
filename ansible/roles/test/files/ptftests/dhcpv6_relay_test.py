@@ -1,4 +1,5 @@
 import ast
+import socket
 import subprocess
 
 # Packet Test Framework imports
@@ -115,11 +116,11 @@ class DHCPTest(DataplaneBaseTest):
         self.relay_iface_mac = self.test_params['relay_iface_mac']
         self.relay_link_local = self.test_params['relay_link_local']
         self.relay_linkaddr = '::'
-
         self.vlan_ip = self.test_params['vlan_ip']
-
         self.client_mac = self.dataplane.get_mac(0, self.client_port_index)
         self.uplink_mac = self.test_params['uplink_mac']
+        self.loopback_ipv6 = self.test_params['loopback_ipv6']
+        self.is_dualtor = True if self.test_params['is_dualtor'] == 'True' else False
 
     def generate_client_interace_ipv6_link_local_address(self, client_port_index):
         # Shutdown and startup the client interface to generate a proper IPv6 link-local address
@@ -156,10 +157,17 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_solicit_relay_forward_packet(self):
         solicit_relay_forward_packet = Ether(src=self.uplink_mac)
-        solicit_relay_forward_packet /= IPv6()
+        if self.is_dualtor:
+            solicit_relay_forward_packet /= IPv6(src=self.loopback_ipv6, dst=self.server_ip)
+        else:
+            solicit_relay_forward_packet /= IPv6(src=self.relay_iface_ip, dst=self.server_ip)
+        self.loopback_ipv6 = self.test_params['loopback_ipv6']
+        self.is_dualtor = True if self.test_params['is_dualtor'] == 'True' else False
         solicit_relay_forward_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         solicit_relay_forward_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         solicit_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
+        if self.is_dualtor:
+            solicit_relay_forward_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
         solicit_relay_forward_packet /= DHCP6OptRelayMsg()
         solicit_relay_forward_packet /= DHCP6_Solicit(trid=12345)
 
@@ -176,7 +184,10 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_advertise_relay_reply_packet(self):
         advertise_relay_reply_packet = Ether(dst=self.uplink_mac)
-        advertise_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        if self.is_dualtor:
+            advertise_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            advertise_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         advertise_relay_reply_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         advertise_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         advertise_relay_reply_packet /= DHCP6OptRelayMsg()
@@ -194,10 +205,15 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_request_relay_forward_packet(self):
         request_relay_forward_packet = Ether(src=self.uplink_mac)
-        request_relay_forward_packet /= IPv6()
+        if self.is_dualtor:
+            request_relay_forward_packet /= IPv6(src=self.loopback_ipv6, dst=self.server_ip)
+        else:
+            request_relay_forward_packet /= IPv6(src=self.relay_iface_ip, dst=self.server_ip)
         request_relay_forward_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         request_relay_forward_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         request_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
+        if self.is_dualtor:
+            request_relay_forward_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
         request_relay_forward_packet /= DHCP6OptRelayMsg()
         request_relay_forward_packet /= DHCP6_Request(trid=12345)
 
@@ -213,7 +229,10 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_reply_relay_reply_packet(self):
         reply_relay_reply_packet = Ether(dst=self.uplink_mac)
-        reply_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        if self.is_dualtor:
+            reply_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            reply_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         reply_relay_reply_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         reply_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         reply_relay_reply_packet /= DHCP6OptRelayMsg()
@@ -233,9 +252,14 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_relayed_relay_packet(self):
         relayed_relay_packet = Ether(src=self.uplink_mac)
-        relayed_relay_packet /= IPv6()
+        if self.is_dualtor:
+            relayed_relay_packet /= IPv6(src=self.loopback_ipv6, dst=self.server_ip)
+        else:
+            relayed_relay_packet /= IPv6(src=self.relay_iface_ip, dst=self.server_ip)
         relayed_relay_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         relayed_relay_packet /= DHCP6_RelayForward(msgtype=12, hopcount = 1, linkaddr=self.relay_linkaddr, peeraddr=self.client_link_local)
+        if self.is_dualtor:
+            relayed_relay_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
         relayed_relay_packet /= DHCP6OptRelayMsg()
         relayed_relay_packet /= DHCP6_RelayForward(msgtype=12, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         relayed_relay_packet /= DHCP6OptRelayMsg()
@@ -245,9 +269,14 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_relay_relay_reply_packet(self):
         relay_relay_reply_packet = Ether(dst=self.uplink_mac)
-        relay_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
+        if self.is_dualtor:
+            relay_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.loopback_ipv6)
+        else:
+            relay_relay_reply_packet /= IPv6(src=self.server_ip, dst=self.relay_iface_ip)
         relay_relay_reply_packet /= UDP(sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount = 1, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
+        if self.is_dualtor:
+            relay_relay_reply_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6, self.vlan_ip))
         relay_relay_reply_packet /= DHCP6OptRelayMsg()
         relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, linkaddr=self.vlan_ip, peeraddr=self.client_link_local)
         relay_relay_reply_packet /= DHCP6OptRelayMsg()
@@ -285,7 +314,6 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(solicit_relay_forward_packet)
         masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
-        masked_packet.set_do_not_care_scapy(IPv6, "src")
         masked_packet.set_do_not_care_scapy(IPv6, "dst")
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
         masked_packet.set_do_not_care_scapy(IPv6, "tc")
@@ -296,10 +324,8 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(DHCP6OptClientLinkLayerAddr, "clladdr")
         masked_packet.set_do_not_care_scapy(scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
 
-        # Count the number of these packets received on the ports connected to our leaves
-        solicit_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices, timeout=4.0)
-        self.assertTrue(solicit_count >= 1,
-                "Failed: Solicit count of %d" % solicit_count)
+        # verify packets received on the ports connected to our leaves
+        testutils.verify_packet_any_port(self, masked_packet, self.server_port_indices)
 
     # Simulate a DHCP server sending a DHCPv6 RELAY-REPLY encapsulating ADVERTISE packet message to client.
     # We do this by injecting a RELAY-REPLY encapsulating ADVERTISE message on the link connected to one
@@ -318,7 +344,7 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(advertise_packet)
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
-        masked_packet.set_do_not_care_scapy(IPv6, "src") # dual tor uses relay_iface_ip as ip src
+        #  dual tor uses loopback0 ipv6 address as source
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
 
@@ -340,7 +366,6 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(request_relay_forward_packet)
         masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
-        masked_packet.set_do_not_care_scapy(IPv6, "src")
         masked_packet.set_do_not_care_scapy(IPv6, "dst")
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
         masked_packet.set_do_not_care_scapy(IPv6, "tc")
@@ -351,10 +376,8 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(DHCP6OptClientLinkLayerAddr, "clladdr")
         masked_packet.set_do_not_care_scapy(scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
         
-        # Count the number of these packets received on the ports connected to our leaves
-        request_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices, timeout=4.0)
-        self.assertTrue(request_count >= 1,
-                "Failed: Request count of %d" % request_count)
+        # verify packets received on the ports connected to our leaves
+        testutils.verify_packet_any_port(self, masked_packet, self.server_port_indices)
                 
     # Simulate a DHCP server sending a DHCPv6 RELAY-REPLY encapsulating REPLY packet message to client.
     def server_send_reply_relay_reply(self):
@@ -371,7 +394,7 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(reply_packet)
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
-        masked_packet.set_do_not_care_scapy(IPv6, "src") # dual tor uses relay_iface_ip as ip src
+        #  dual tor uses loopback0 ipv6 address as source
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
 
@@ -392,7 +415,6 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(relayed_relay_forward_count)
         masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
-        masked_packet.set_do_not_care_scapy(IPv6, "src")
         masked_packet.set_do_not_care_scapy(IPv6, "dst")
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
         masked_packet.set_do_not_care_scapy(IPv6, "tc")
@@ -401,9 +423,7 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
 
-        relayed_relay_forward_count = testutils.count_matched_packets_all_ports(self, masked_packet, self.server_port_indices, timeout=4.0)
-        self.assertTrue(relayed_relay_forward_count >= 1,
-                "Failed: Relayed Relay Forward count of %d" % relayed_relay_forward_count)
+        testutils.verify_packet_any_port(self, masked_packet, self.server_port_indices)
 
     # Simulate a DHCP server sending a DHCPv6 RELAY-REPLY encapsulating RELAY-REPLY packet message to next relay agent
     def server_send_relay_relay_reply(self):
@@ -420,7 +440,7 @@ class DHCPTest(DataplaneBaseTest):
         # Mask off fields we don't care about matching
         masked_packet = Mask(relay_reply_packet)
         masked_packet.set_do_not_care_scapy(IPv6, "fl")
-        masked_packet.set_do_not_care_scapy(IPv6, "src") # dual tor uses relay_iface_ip as ip src
+        # dual tor uses relay_iface_ip as ip src
         masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
 

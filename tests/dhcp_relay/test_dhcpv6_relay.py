@@ -69,7 +69,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     """
     duthost = duthosts[rand_one_dut_hostname]
     dhcp_relay_data_list = []
-    uplink_interface_link_local = ""
+    downlink_interface_link_local = ""
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -119,18 +119,24 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
                     if not iface_is_portchannel_member:
                         uplink_interfaces.append(iface_name)
                     uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
-        if uplink_interface_link_local == "":
-            command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1".format(uplink_interfaces[0])
+        if downlink_interface_link_local == "":
+            command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1"\
+                      .format(downlink_vlan_iface['name'])
             res = duthost.shell(command)
             if res['stdout'] != "":
-                uplink_interface_link_local = res['stdout']
+                downlink_interface_link_local = res['stdout']
 
         dhcp_relay_data = {}
         dhcp_relay_data['downlink_vlan_iface'] = downlink_vlan_iface
         dhcp_relay_data['client_iface'] = client_iface
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
-        dhcp_relay_data['uplink_interface_link_local'] = uplink_interface_link_local
+        dhcp_relay_data['downlink_interface_link_local'] = downlink_interface_link_local
+        dhcp_relay_data['loopback_ipv6'] = mg_facts['minigraph_lo_interfaces'][1]['addr']
+        if 'dualtor' in tbinfo['topo']['name']:
+            dhcp_relay_data['is_dualtor'] = True
+        else:
+            dhcp_relay_data['is_dualtor'] = False
 
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
         dhcp_relay_data['uplink_mac'] = res['stdout']
@@ -153,10 +159,12 @@ def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_da
         rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
         assert len(rtInfo["nexthops"]) > 0, "Failed to find route to DHCP server '{0}'".format(dhcp_server)
 
+
 def check_interface_status(duthost):
     if ":547" in duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8"):
         return True
     return False
+
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     duthost = duthosts[rand_one_dut_hostname]
@@ -168,7 +176,10 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
     output = duthost.shell("docker exec -it dhcp_relay ss -nlp | grep dhcp6relay")["stdout"].encode("utf-8")
     logger.info(output)
     for dhcp_relay in dut_dhcp_relay_data:
-        assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output, "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or ("*:*" in output, "dhcp6relay socket is not properly binded")
+        assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output, "{} is not found in {}"\
+                .format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or \
+               ("*:*" in output, "dhcp6relay socket is not properly binded")
+
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                               toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
@@ -197,16 +208,26 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
                            "dut_mac": str(dhcp_relay['uplink_mac']),
-                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
-                           "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr'])},
+                           "relay_link_local": str(dhcp_relay['downlink_interface_link_local']),
+                           "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                           "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPCounterTest.log")
         
         for message in messages:
-            get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'.format(dhcp_relay['downlink_vlan_iface']['name'], message)
-            message_count = duthost.shell(get_message)['stdout']
-            assert int(message_count) > 0, "Missing {} count".format(message)
+            if message == "Relay-Reply" and dhcp_relay['is_dualtor']:
+                get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|Loopback0" {}'.format(message)
+                message_count = duthost.shell(get_message)['stdout']
+                assert int(message_count) > 0, "Missing {} count".format(message)
+            else:
+                get_message = 'sonic-db-cli STATE_DB hget "DHCPv6_COUNTER_TABLE|{}" {}'\
+                              .format(dhcp_relay['downlink_vlan_iface']['name'], message)
+                message_count = duthost.shell(get_message)['stdout']
+                assert int(message_count) > 0, "Missing {} count".format(message)
 
-def test_dhcp_relay_default(tbinfo, ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
+
+def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -229,13 +250,14 @@ def test_dhcp_relay_default(tbinfo, ptfhost, duthosts, rand_one_dut_hostname, du
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
+                           "relay_link_local": str(dhcp_relay['downlink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                           "uplink_mac": str(dhcp_relay['uplink_mac'])},
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
 
-
-def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
+def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology after uplinks flap
        For each DHCP relay agent running on the DuT, with relay agent running, flap the uplinks,
        then test whether the DHCP relay agent relays packets properly.
@@ -273,13 +295,15 @@ def test_dhcp_relay_after_link_flap(ptfhost, duthosts, rand_one_dut_hostname, du
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
+                           "relay_link_local": str(dhcp_relay['downlink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                           "uplink_mac": str(dhcp_relay['uplink_mac'])},
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
 
 
-def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
+def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config):
     """Test DHCP relay functionality on T0 topology when relay agent starts with uplinks down
        For each DHCP relay agent running on the DuT, bring the uplinks down, then restart the
        relay agent while the uplinks are still down. Then test whether the DHCP relay agent
@@ -328,7 +352,9 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, duthosts, rand_one_dut_host
                            "server_ip": str(dhcp_relay['downlink_vlan_iface']['dhcpv6_server_addrs'][0]),
                            "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
                            "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
-                           "relay_link_local": str(dhcp_relay['uplink_interface_link_local']),
+                           "relay_link_local": str(dhcp_relay['downlink_interface_link_local']),
                            "vlan_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
-                           "uplink_mac": str(dhcp_relay['uplink_mac'])},
+                           "uplink_mac": str(dhcp_relay['uplink_mac']),
+                           "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
+                           "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log")
