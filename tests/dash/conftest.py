@@ -141,7 +141,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, localhost, skip_config, skip_cleanup):
+def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -156,7 +156,7 @@ def apply_config(duthost, localhost, skip_config, skip_cleanup):
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
         if ENABLE_GNMI_API is True:
-            apply_gnmi_file(duthost, localhost, dest_path)
+            apply_gnmi_file(duthost, ptfhost, dest_path)
         else:
             apply_swssconfig_file(duthost, dest_path)
 
@@ -223,7 +223,7 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     if ENABLE_GNMI_API is False:
         yield
         return
@@ -231,7 +231,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     duthost.shell("docker exec gnmi rm /usr/local/yang-models/sonic-dash.yang", module_ignore_errors=True)
     generate_gnmi_cert(localhost, duthost)
-    apply_gnmi_cert(duthost)
+    apply_gnmi_cert(duthost, ptfhost)
     yield
     recover_gnmi_cert(duthost)
 

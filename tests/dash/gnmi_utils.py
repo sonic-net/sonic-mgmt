@@ -131,12 +131,16 @@ def generate_gnmi_cert(localhost, duthost):
     localhost.shell(local_command)
 
 
-def apply_gnmi_cert(duthost):
+def apply_gnmi_cert(duthost, ptfhost):
     env = GNMIEnvironment(duthost)
     # Copy CA certificate and server certificate over to the DUT
     duthost.copy(src=env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
     duthost.copy(src=env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
     duthost.copy(src=env.gnmi_server_key, dest='/etc/sonic/telemetry/')
+    # Copy CA certificate and client certificate over to the PTF
+    ptfhost.copy(src=env.gnmi_ca_cert, dest='/root/')
+    ptfhost.copy(src=env.gnmi_client_cert, dest='/root/')
+    ptfhost.copy(src=env.gnmi_client_key, dest='/root/')
     port = env.gnmi_port
     assert int(port) > 0, "Invalid GNMI port"
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
@@ -168,59 +172,82 @@ def recover_gnmi_cert(duthost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def gnmi_capabilities(duthost, localhost, client_cert):
+def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "dash/gnmi_cli -client_types=gnmi -a %s:%s " % (ip, port)
-    cmd += "-logtostderr -client_crt ./%s -client_key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
-    cmd += "-ca_crt ./%s -capabilities" % (env.gnmi_ca_cert)
-    output = localhost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
-
-
-def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
-    env = GNMIEnvironment(duthost)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = "dash/gnmi_set -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
-    cmd += "-ca ./%s -time_out 60s " % (env.gnmi_ca_cert)
-    cmd += "-xpath_target MIXED "
-    for delete in delete_list:
-        cmd += " -delete " + delete
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/%s ' % (env.gnmi_ca_cert)
+    cmd += '-pkey /root/%s ' % (env.gnmi_client_key)
+    cmd += '-cchain /root/%s ' % (env.gnmi_client_cert)
+    cmd += '-m set-update '
+    xpath = ''
+    xvalue = ''
+    for path in delete_list:
+        path = path.replace('sonic-db:', '')
+        xpath += ' ' + path
+        xvalue += ' ""'
     for update in update_list:
-        cmd += " -update " + update
+        update = update.replace('sonic-db:', '')
+        result = update.rsplit(':', 1)
+        xpath += ' ' + result[0]
+        xvalue += ' ' + result[1]
     for replace in replace_list:
-        cmd += " -replace " + replace
-    output = localhost.shell(cmd, module_ignore_errors=True)
+        replace = replace.replace('sonic-db:', '')
+        result = replace.rsplit(':', 1)
+        xpath += ' ' + result[0]
+        if '#' in result[1]:
+            xvalue += ' ""'
+        else:
+            xvalue += ' ' + result[1]
+    cmd += '--xpath ' + xpath
+    cmd += ' '
+    cmd += '--value ' + xvalue
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
+    error = "GRPC error\n"
+    if error in output['stdout']:
+        result = output['stdout'].split(error, 1)
+        return -1, result[1]
     if output['stderr']:
         return -1, output['stderr']
     else:
         return 0, output['stdout']
 
 
-def gnmi_get(duthost, localhost, path_list):
+def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = "dash/gnmi_get -target_addr %s:%s " % (ip, port)
-    cmd += "-alsologtostderr -cert ./%s -key ./%s " % (env.gnmi_client_cert, env.gnmi_client_key)
-    cmd += "-ca ./%s " % (env.gnmi_ca_cert)
-    cmd += "-xpath_target MIXED "
+    cmd = 'python2 /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd += '--timeout 30 '
+    cmd += '-t %s -p %u ' % (ip, port)
+    cmd += '-xo sonic-db '
+    cmd += '-rcert /root/%s ' % (env.gnmi_ca_cert)
+    cmd += '-pkey /root/%s ' % (env.gnmi_client_key)
+    cmd += '-cchain /root/%s ' % (env.gnmi_client_cert)
+    cmd += '--encoding 4 '
+    cmd += '-m get '
+    cmd += '--xpath '
     for path in path_list:
-        cmd += " -xpath " + path
-    output = localhost.shell(cmd, module_ignore_errors=True)
+        path = path.replace('sonic-db:', '')
+        cmd += " " + path
+    output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         return -1, [output['stderr']]
     else:
         msg = output['stdout'].replace('\\', '')
-        find_list = re.findall(r'json_ietf_val:\s*"(.*?)"\s*>', msg)
-        if find_list:
-            return 0, find_list
+        error = "GRPC error\n"
+        if error in msg:
+            result = msg.split(error, 1)
+            return -1, [result[1]]
+        mark = 'The GetResponse is below\n' + '-'*25 + '\n'
+        if mark in msg:
+            result = msg.split(mark, 1)
+            msg_list = result[1].split('-'*25)[0:-1]
+            return 0, [msg.strip("\n") for msg in msg_list]
         else:
             return -1, [msg]
 
@@ -285,7 +312,7 @@ def json_to_proto(key, json_obj):
     return pb.SerializeToString()
 
 
-def apply_gnmi_file(duthost, localhost, dest_path):
+def apply_gnmi_file(duthost, ptfhost, dest_path):
     logger.info("Applying config files on DUT")
     dut_command = "cat %s" % dest_path
     ret = duthost.shell(dut_command)
@@ -311,23 +338,24 @@ def apply_gnmi_file(duthost, localhost, dest_path):
                     text = json.dumps(v)
                     with open(filename, "w") as file:
                         file.write(text)
-                k = k.replace("/", "\\\\/", 1)
-                k = k.replace(":", "/", 1)
+                ptfhost.copy(src=filename, dest='/root/')
+                keys = k.split(":", 1)
+                k = keys[0] + "[key=" + keys[1] + "]"
                 if ENABLE_PROTO:
-                    path = "/sonic-db:APPL_DB/%s:$./%s" % (k, filename)
+                    path = "/APPL_DB/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/sonic-db:APPL_DB/%s:@%s" % (k, filename)
+                    path = "/APPL_DB/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
                 if k == "OP":
                     continue
-                k = k.replace("/", "\\\\/", 1)
-                k = k.replace(":", "/", 1)
-                path = "/sonic-db:APPL_DB/%s" % (k)
+                keys = k.split(":", 1)
+                k = keys[0] + "[key=" + keys[1] + "]"
+                path = "/APPL_DB/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
-    ret, msg = gnmi_set(duthost, localhost, delete_list, update_list, [])
+    ret, msg = gnmi_set(duthost, ptfhost, delete_list, update_list, [])
     assert ret == 0, msg
     time.sleep(5)
