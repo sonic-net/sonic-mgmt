@@ -2014,3 +2014,13 @@ class QosSaiBase(QosBase):
                 "This test needs to be revisited for HBM enabled systems.")
         yield
         return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm_dst_asic(self, get_src_dst_asic_and_duts):
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if dst_hbm_enabled:
+            pytest.skip(
+                "This test is skipped for egress asic HBM enabled systems.")
+        yield
+        return
