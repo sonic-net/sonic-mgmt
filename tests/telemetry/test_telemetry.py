@@ -1,4 +1,5 @@
 import time
+from multiprocessing.pool import ThreadPool
 import threading
 import logging
 import re
@@ -9,6 +10,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
 from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
+from tests.common.helpers.dut_utils import check_container_state
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -22,7 +25,15 @@ METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
 SUBMODE_ONCHANGE = 1
-
+CHECK_MEM_USAGE_COUNTER = 10
+CONTAINER_NAME = "telemetry"
+WAITING_SYSLOG_MSG_SECS = 300
+CONTAINER_STOP_THRESHOLD_SECS = 200
+CONTAINER_RESTART_THRESHOLD_SECS = 180
+CONTAINER_CHECK_INTERVAL_SECS = 1
+MONIT_RESTART_THRESHOLD_SECS = 320
+MONIT_CHECK_INTERVAL_SECS = 5
+GNMI_CONNECTION_NUMBER = 65535
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
@@ -247,3 +258,214 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
         time.sleep(MEMORY_CHECKER_WAIT)
 
     client_thread.join()
+
+def run_gnmi_client(ptfhost, dut_ip, gnxi_path, num_connections):
+    """Runs python gNMI client in the corresponding PTF docker to query valid/invalid
+    tables in 'STATE_DB' on the DuT.
+    Args:
+        pfthost: PTF docker binding to the selected DuT.
+        dut_ip: Management IP of DuT.
+        num_connections: The number of gNMI client connections created with server side.
+    Returns:
+        None.
+    """
+    gnmi_cli_cmd = 'python ' + gnxi_path + '/gnmi_cli_py/py_gnmicli.py -g -t {} -p {} -m subscribe --subscribe_mode 0\
+                   -x DOCKER_STATS,TEST_STATS -xt STATE_DB -o ndastreamingservertest --create_connections {}'.format(dut_ip, TELEMETRY_PORT, num_connections)
+    logger.info("Starting to run python gNMI client with command '{}' in PTF docker '{}'"
+                .format(gnmi_cli_cmd, ptfhost.mgmt_ip))
+    ptfhost.shell(gnmi_cli_cmd)
+
+
+def backup_monit_config_files(duthost):
+    """Backs up Monit configuration files on DuT.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+    Returns:
+        None.
+    """
+    logger.info("Backing up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
+    duthost.shell("cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("mv -f /etc/monit/conf.d/monit_* /tmp/")
+    duthost.shell("cp -f /tmp/monit_telemetry /etc/monit/conf.d/")
+    logger.info("Monit configuration files on DuT '{}' is backed up.".format(duthost.hostname))
+
+
+def customize_monit_config_files(duthost, temp_config_line):
+    """Customizes the Monit configuration file on DuT.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        temp_config_line: A string to replace the initial Monit configuration.
+    Returns:
+        None.
+    """
+    logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
+    duthost.shell("sed -i '$s/^./#/' /etc/monit/conf.d/monit_telemetry")
+    duthost.shell("echo '{}' | tee -a /etc/monit/conf.d/monit_telemetry".format(temp_config_line))
+    duthost.shell("sed -i '/with start delay 300/s/^./#/' /etc/monit/monitrc")
+    logger.info("Modifying Monit config to eliminate start delay and decrease interval are done.")
+
+
+def restore_monit_config_files(duthost):
+    """Restores the initial Monit configuration file on DuT.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+    Returns:
+        None.
+    """
+    logger.info("Restoring original Monit configuration files on DuT '{}' ...".format(duthost.hostname))
+    duthost.shell("mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("mv -f /tmp/monit_* /etc/monit/conf.d/")
+    logger.info("Original Monit configuration files on DuT '{}' are restored.".format(duthost.hostname))
+
+
+def check_monit_running(duthost):
+    """Checks whether Monit is running or not.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+    Returns:
+        Returns True if Monit is running; Otherwist, returns False.
+    """
+    monit_services_status = duthost.get_monit_services_status()
+    if not monit_services_status:
+        return False
+
+    return True
+
+
+def restart_monit_service(duthost):
+    """Restarts Monit service and polls Monit running status.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+    Returns:
+        None.
+    """
+    logger.info("Restarting Monit service ...")
+    duthost.shell("systemctl restart monit")
+    logger.info("Monit service is restarted.")
+
+    logger.info("Checks whether Monit is running or not after restarted ...")
+    is_monit_running = wait_until(MONIT_RESTART_THRESHOLD_SECS,
+                                  MONIT_CHECK_INTERVAL_SECS,
+                                  0,
+                                  check_monit_running,
+                                  duthost)
+    pytest_assert(is_monit_running, "Monit is not running after restarted!")
+    logger.info("Monit is running!")
+
+
+def check_critical_processes(duthost, container_name):
+    """Checks whether the critical processes are running after container was restarted.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: Name of container.
+    Returns:
+        None.
+    """
+    status_result = duthost.critical_process_status(container_name)
+    if status_result["status"] is False or len(status_result["exited_critical_process"]) > 0:
+        return False
+
+    return True
+
+
+def postcheck_critical_processes(duthost, container_name):
+    """Checks whether the critical processes are running after container was restarted.
+    Args:
+        duthost: The AnsibleHost object of DuT.
+        container_name: Name of container.
+    Returns:
+        None.
+    """
+    logger.info("Checking the running status of critical processes in '{}' container ..."
+                .format(container_name))
+    is_succeeded = wait_until(CONTAINER_RESTART_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 0,
+                              check_critical_processes, duthost, container_name)
+    if not is_succeeded:
+        pytest.fail("Not all critical processes in '{}' container are running!"
+                    .format(container_name))
+    logger.info("All critical processes in '{}' container are running.".format(container_name))
+
+
+@pytest.fixture(params=['if status == 3 for 1 times within 2 cycles then exec "/usr/bin/restart_service telemetry" repeat every 2 cycles'],
+                ids=["monit_config_line"])
+def test_mem_spike_setup_and_cleanup(duthosts, rand_one_dut_hostname, setup_streaming_telemetry, request):
+    """Customizes Monit configuration files before testing and restores them after testing.
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT.
+        setup_streaming_telemetry: Fixture to setup telemetry server authentication before testing.
+    Returns:
+        None.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    backup_monit_config_files(duthost)
+    customize_monit_config_files(duthost, request.param)
+    restart_monit_service(duthost)
+
+    yield
+
+    restore_monit_config_files(duthost)
+    restart_monit_service(duthost)
+
+
+@pytest.mark.disable_loganalyzer
+def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, test_mem_spike_setup_and_cleanup, gnxi_path):
+    """Test whether memory usage of telemetry container will increase and be restarted
+    or not by Monit if python gNMI client continuously creates channels with gNMI server.
+    Args:
+        duthosts: list of DUTs.
+        rand_one_dut_hostname: The fixture returns a randomly selected DuT.
+        pfthost: PTF docker binding to the selected DuT.
+        test_mem_spike_setup_and_cleanup: Fixture does testing setup and cleanup.
+    Returns:
+        None.
+    """
+    logger.info("Starting to test the memory spike issue of '{}' ...".format(CONTAINER_NAME))
+
+    duthost = duthosts[rand_one_dut_hostname]
+    dut_ip = duthost.mgmt_ip
+
+    logger.info("Checking whether the '{}' container is running before testing...".format(CONTAINER_NAME))
+    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                            CONTAINER_CHECK_INTERVAL_SECS,
+                            0,
+                            check_container_state, duthost, CONTAINER_NAME, True)
+    pytest_assert(is_running, "'{}' is not running on DuT!".format(CONTAINER_NAME))
+    logger.info("'{}' is running on DuT!".format(CONTAINER_NAME))
+
+    expected_alerting_messages = []
+    expected_alerting_messages.append(".*restart_service.*Restarting service 'telemetry'.*")
+    expected_alerting_messages.append(".*Stopping Telemetry container.*")
+    expected_alerting_messages.append(".*Stopped Telemetry container.*")
+    expected_alerting_messages.append(".*Starting Telemetry container.*")
+    expected_alerting_messages.append(".*Started Telemetry container.*")
+
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_restart_due_to_memory")
+    loganalyzer.expect_regex = []
+    loganalyzer.expect_regex.extend(expected_alerting_messages)
+    marker = loganalyzer.init()
+
+    client_thread = ThreadPool(processes=1)
+    client_thread.apply_async(run_gnmi_client, (ptfhost, dut_ip, gnxi_path, GNMI_CONNECTION_NUMBER))
+    logger.info("Sleep '{}' seconds to wait for the syslog messages related to '{}' container restarted ..."
+                .format(WAITING_SYSLOG_MSG_SECS, CONTAINER_NAME))
+    time.sleep(WAITING_SYSLOG_MSG_SECS)
+
+    logger.info("Checking the syslog messages related to '{}' container restarted ...".format(CONTAINER_NAME))
+    analyzing_result = loganalyzer.analyze(marker, fail=False)
+    if analyzing_result["total"]["expected_match"] < len(expected_alerting_messages):
+        duthost.service(name="telemetry", state="restarted")
+        pytest.fail("Failed to find all expected syslog messages!")
+    else:
+        logger.info("Found all the expected syslog messages!")
+
+    logger.info("Checking whether the '{}' container is running after testing...".format(CONTAINER_NAME))
+    is_running = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                            CONTAINER_CHECK_INTERVAL_SECS,
+                            0,
+                            check_container_state, duthost, CONTAINER_NAME, True)
+    pytest_assert(is_running, "'{}' is not running on DuT!".format(CONTAINER_NAME))
+    logger.info("'{}' is running on DuT!".format(CONTAINER_NAME))
+
+    postcheck_critical_processes(duthost, CONTAINER_NAME)
