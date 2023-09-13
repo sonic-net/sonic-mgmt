@@ -27,6 +27,7 @@ ENABLE_PROTO = True
 class GNMIEnvironment(object):
     def __init__(self, duthost):
         self.duthost = duthost
+        self.work_dir = "/tmp/" + str(uuid.uuid4()) + "/"
         self.use_gnmi_container = duthost.shell("docker ps | grep -w gnmi", module_ignore_errors=True)['rc'] == 0
         if self.use_gnmi_container:
             self.gnmi_config_table = "GNMI"
@@ -63,8 +64,9 @@ IP      = %s
 
 def generate_gnmi_cert(localhost, duthost):
     env = GNMIEnvironment(duthost)
+    localhost.shell("mkdir "+env.work_dir, module_ignore_errors=True)
     # Create Root key
-    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_ca_key)
+    local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_ca_key)
     localhost.shell(local_command)
 
     # Create Root cert
@@ -76,11 +78,11 @@ def generate_gnmi_cert(localhost, duthost):
                         -sha256 \
                         -days 1825 \
                         -subj '/CN=test.gnmi.sonic' \
-                        -out %s" % (env.gnmi_ca_key, env.gnmi_ca_cert)
+                        -out %s" % (env.work_dir+env.gnmi_ca_key, env.work_dir+env.gnmi_ca_cert)
     localhost.shell(local_command)
 
     # Create server key
-    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_server_key)
+    local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_server_key)
     localhost.shell(local_command)
 
     # Create server CSR
@@ -88,26 +90,32 @@ def generate_gnmi_cert(localhost, duthost):
                         -new \
                         -key %s \
                         -subj '/CN=test.server.gnmi.sonic' \
-                        -out gnmiserver.csr" % (env.gnmi_server_key)
+                        -out %s" % (
+                            env.work_dir+env.gnmi_server_key,
+                            env.work_dir+"gnmiserver.csr")
     localhost.shell(local_command)
 
     # Sign server certificate
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    create_ext_conf(duthost.mgmt_ip, env.work_dir+"extfile.cnf")
     local_command = "openssl x509 \
                         -req \
-                        -in gnmiserver.csr \
+                        -in %s \
                         -CA %s \
                         -CAkey %s \
                         -CAcreateserial \
                         -out %s \
                         -days 825 \
                         -sha256 \
-                        -extensions req_ext -extfile extfile.cnf" % (
-                            env.gnmi_ca_cert, env.gnmi_ca_key, env.gnmi_server_cert)
+                        -extensions req_ext -extfile %s" % (
+                            env.work_dir+"gnmiserver.csr",
+                            env.work_dir+env.gnmi_ca_cert,
+                            env.work_dir+env.gnmi_ca_key,
+                            env.work_dir+env.gnmi_server_cert,
+                            env.work_dir+"extfile.cnf")
     localhost.shell(local_command)
 
     # Create client key
-    local_command = "openssl genrsa -out %s 2048" % (env.gnmi_client_key)
+    local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_client_key)
     localhost.shell(local_command)
 
     # Create client CSR
@@ -115,32 +123,38 @@ def generate_gnmi_cert(localhost, duthost):
                         -new \
                         -key %s \
                         -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr" % (env.gnmi_client_key)
+                        -out %s" % (
+                            env.work_dir+env.gnmi_client_key,
+                            env.work_dir+"gnmiclient.csr")
     localhost.shell(local_command)
 
     # Sign client certificate
     local_command = "openssl x509 \
                         -req \
-                        -in gnmiclient.csr \
+                        -in %s \
                         -CA %s \
                         -CAkey %s \
                         -CAcreateserial \
                         -out %s \
                         -days 825 \
-                        -sha256" % (env.gnmi_ca_cert, env.gnmi_ca_key, env.gnmi_client_cert)
+                        -sha256" % (
+                            env.work_dir+"gnmiclient.csr",
+                            env.work_dir+env.gnmi_ca_cert,
+                            env.work_dir+env.gnmi_ca_key,
+                            env.work_dir+env.gnmi_client_cert)
     localhost.shell(local_command)
 
 
 def apply_gnmi_cert(duthost, ptfhost):
     env = GNMIEnvironment(duthost)
     # Copy CA certificate and server certificate over to the DUT
-    duthost.copy(src=env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.gnmi_server_key, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.work_dir+env.gnmi_server_key, dest='/etc/sonic/telemetry/')
     # Copy CA certificate and client certificate over to the PTF
-    ptfhost.copy(src=env.gnmi_ca_cert, dest='/root/')
-    ptfhost.copy(src=env.gnmi_client_cert, dest='/root/')
-    ptfhost.copy(src=env.gnmi_client_key, dest='/root/')
+    ptfhost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/root/')
+    ptfhost.copy(src=env.work_dir+env.gnmi_client_cert, dest='/root/')
+    ptfhost.copy(src=env.work_dir+env.gnmi_client_key, dest='/root/')
     port = env.gnmi_port
     assert int(port) > 0, "Invalid GNMI port"
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
@@ -159,8 +173,9 @@ def apply_gnmi_cert(duthost, ptfhost):
     time.sleep(env.gnmi_server_start_wait_time)
 
 
-def recover_gnmi_cert(duthost):
+def recover_gnmi_cert(localhost, duthost):
     env = GNMIEnvironment(duthost)
+    localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
@@ -313,6 +328,7 @@ def json_to_proto(key, json_obj):
 
 
 def apply_gnmi_file(duthost, ptfhost, dest_path):
+    env = GNMIEnvironment(duthost)
     logger.info("Applying config files on DUT")
     dut_command = "cat %s" % dest_path
     ret = duthost.shell(dut_command)
@@ -332,13 +348,13 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 filename = "update%u" % update_cnt
                 if ENABLE_PROTO:
                     message = json_to_proto(k, v)
-                    with open(filename, "wb") as file:
+                    with open(env.work_dir+filename, "wb") as file:
                         file.write(message)
                 else:
                     text = json.dumps(v)
-                    with open(filename, "w") as file:
+                    with open(env.work_dir+filename, "w") as file:
                         file.write(text)
-                ptfhost.copy(src=filename, dest='/root/')
+                ptfhost.copy(src=env.work_dir+filename, dest='/root/')
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if ENABLE_PROTO:

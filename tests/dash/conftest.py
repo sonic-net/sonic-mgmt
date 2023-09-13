@@ -233,7 +233,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     generate_gnmi_cert(localhost, duthost)
     apply_gnmi_cert(duthost, ptfhost)
     yield
-    recover_gnmi_cert(duthost)
+    recover_gnmi_cert(localhost, duthost)
 
 
 @pytest.fixture(scope="function")
