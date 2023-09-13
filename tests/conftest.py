@@ -1124,8 +1124,8 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
                 else:
                     tuple_list.append((a_dut, a_asic, None))
         else:
-            if "features" in meta[dut]:
-                for a_feature in meta[dut]["features"].keys():
+            if "features" in meta[a_dut]:
+                for a_feature in meta[a_dut]["features"].keys():
                     if a_feature not in skip_feature_list:
                         tuple_list.append((a_dut, None, a_feature))
             else:

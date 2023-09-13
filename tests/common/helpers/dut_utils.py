@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
@@ -266,12 +267,12 @@ def verify_orchagent_running_or_assert(duthost):
     """
     Verifies that orchagent is running, asserts otherwise
 
-    Args: 
+    Args:
         duthost: Device Under Test (DUT)
     """
-   
+
     def _orchagent_running():
-        cmds = 'docker exec swss supervisorctl status orchagent' 
+        cmds = 'docker exec swss supervisorctl status orchagent'
         output = duthost.shell(cmds, module_ignore_errors=True)
         pytest_assert(not output['rc'], "Unable to check orchagent status output")
         return 'RUNNING' in output['stdout']

@@ -4,6 +4,7 @@ Test the feature of monitoring critical processes on 20191130 image (Monit),
 """
 from collections import defaultdict
 import logging
+import time
 
 import pytest
 
