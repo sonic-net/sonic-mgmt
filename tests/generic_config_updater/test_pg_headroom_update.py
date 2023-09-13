@@ -2,7 +2,7 @@ import ast
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
@@ -78,6 +78,8 @@ def ensure_application_of_updated_config(duthost, xoff, values):
 
 @pytest.mark.parametrize("operation", ["replace"])
 def test_pg_headroom_update(duthost, ensure_dut_readiness, operation):
+    asic_type = duthost.get_asic_name()
+    pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
 
     json_patch = list()
@@ -87,7 +89,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation):
     for profile in lossless_profiles:
         profile_name = profile.split('|')[-1]
         value = duthost.shell('sonic-db-cli CONFIG_DB hget "{}" "xoff"'.format(profile))['stdout']
-        value = ast.literal_eval(value)
+        value = int(value)
         value -= 1000
         xoff[profile_name] = str(value)
         values.append(str(value))
