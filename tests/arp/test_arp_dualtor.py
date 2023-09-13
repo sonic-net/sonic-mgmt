@@ -69,19 +69,21 @@ def neighbor_ip(request, mux_config):       # noqa F811
     Randomly select an IP from the server IPs configured in the config DB MUX_CABLE table
     """
     ip_version = request.param
-    # Get all active-standby ports in mux_config and select one randomly to test
+    # Get all active-standby ports in mux_config and select randomly to test
     active_standby_ports = []
     for key in mux_config.keys():
-        if mux_config[key]["SERVER"].get("cable_type") is None or \
-           mux_config[key]["SERVER"]["cable_type"] is "active-standby":
-           active_standby_ports.append(key)
+        if mux_config[key]["SERVER"].get("cable_type") is None or
+        mux_config[key]["SERVER"]["cable_type"] == "active-standby":
+            active_standby_ports.append(key)
 
     if not active_standby_ports:
         pytest.skip("no active-standby port found in mux config. Skip cable type 'active-active'")
+
     selected_intf = random.choice(active_standby_ports)
     neigh_ip = ip_interface(mux_config[selected_intf]["SERVER"][ip_version]).ip
     logger.info("Using {} as neighbor IP".format(neigh_ip))
     return neigh_ip
+
 
 @pytest.fixture
 def clear_neighbor_table(duthosts, pause_arp_update, pause_garp_service):       # noqa F811
