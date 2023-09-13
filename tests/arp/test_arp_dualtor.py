@@ -72,7 +72,7 @@ def neighbor_ip(request, mux_config):       # noqa F811
     # Get all active-standby ports in mux_config and select randomly to test
     active_standby_ports = []
     for key in mux_config.keys():
-        if mux_config[key]["SERVER"].get("cable_type") is None or
+        if mux_config[key]["SERVER"].get("cable_type") is None or \
         mux_config[key]["SERVER"]["cable_type"] == "active-standby":
             active_standby_ports.append(key)
 
