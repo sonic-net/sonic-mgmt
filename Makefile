@@ -46,7 +46,10 @@ run_sanity_using_cfg_file:
 
 run_sanity:
 	echo "run sanity..."
-	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
+	bash -c "
+	cd infra; 
+	source pyats/bin/activate; \
+	python3.8 -u run_scripts_remote.py  \
 	--host_address=${HOST_ADDRESS} \
 	--username=${USERNAME} \
 	--password=${PASSWORD} \
