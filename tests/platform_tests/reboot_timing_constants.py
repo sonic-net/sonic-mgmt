@@ -1,3 +1,6 @@
+import re
+
+
 REQUIRED_PATTERNS = {
     "time_span": [
         "SAI_CREATE_SWITCH",

@@ -1,3 +1,5 @@
+import os
+import time
 import pytest
 import logging
 
@@ -151,7 +153,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         # Redirect logs to tmpfs
         #
         duthost.shell("sudo mkdir {}".format(LOG_DIR))
-        
+
         conf_path = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), "000-ro_disk.conf")
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
@@ -166,7 +168,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         time.sleep(2)
 
         # Remove file, so the reboot at the end of test will revert this logs redirect.
-        duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf") 
+        duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf")
 
         # Set disk in RO state
         simulate_ro(duthost)
@@ -178,7 +180,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #   Monit does not start upon boot for 5 minutes.
         #   Note: Monit invokes disk check every 5 cycles/minutes
         #   We need to wait solid +10mins before concluding.
-        #         
+        #
         res = wait_until(900, 20, 0, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd")
         logger.info("res={}".format(res))
