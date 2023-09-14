@@ -1376,9 +1376,14 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                    duthost,
-                                                    bufferConfig)
+            qpm = qos_param_generator.QosParamCisco(
+                      qosConfigs['qos_params'][dutAsic][dutTopo],
+                      duthost,
+                      dutAsic,
+                      dutTopo,
+                      bufferConfig,
+                      portSpeedCableLength)
+
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
