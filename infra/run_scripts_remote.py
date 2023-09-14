@@ -29,8 +29,14 @@ def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ss
     ssh.connect(host, ssh_port, username, password)
     print("connected")
     ftp_client=ssh.open_sftp()
-    ftp_client.put(script_file,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
+    uploaded_script_files = []
+    for script_file_path in script_file.split(","):
+        script_filename = script_file_path.rsplit('/', 1)[-1]
+        ftp_client.put(script_file_path,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_filename))
+        uploaded_script_files.append(script_filename)
     ftp_client.close()
+
+    return uploaded_script_files
 
 def get_build_project_name():
     if os.getenv("MODE"):
@@ -122,6 +128,10 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         additional_params += " --create_allure_report "
     if additional_tests:
         additional_params += " --additional_tests={} ".format(additional_tests)
+
+
+    print("Run command:")
+    print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
 
     chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
     
@@ -336,9 +346,11 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     sonic_test_dir = tmp_sonic_test_dir
 
 
-    upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
-    print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-    run_result = run_scripts(host, username, password, script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report, additional_tests, ssh_port, topo_name, docker_mgmt_container)
+    uploaded_script_files = upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
+    uploaded_script_files_str = ",".join(uploaded_script_files)
+
+    print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
+    run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests, ssh_port, topo_name, docker_mgmt_container)
     sanity_end_time = datetime.datetime.now()
 
 
