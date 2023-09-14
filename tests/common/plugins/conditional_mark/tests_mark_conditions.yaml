@@ -837,7 +837,7 @@ platform_tests/test_service_warm_restart.py:
   skip:
     reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
     conditions:
-      - "asic_type not in ['mellanox'] or release in ['202205']"
+      - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
 
 #######################################
 #####           qos               #####
