@@ -1,3 +1,4 @@
+import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
