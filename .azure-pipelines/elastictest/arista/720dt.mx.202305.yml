@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 2"
+  - cron: "0 4 * * 0,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -42,12 +42,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202205)
+    default: $(BJW_IMAGE_BRCM_ABOOT_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal-202305
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -96,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 720dt.mx.202205.NightlyTest_by_Elastictest
+    displayName: 720dt.mx.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
