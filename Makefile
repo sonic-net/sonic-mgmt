@@ -45,7 +45,7 @@ run_sanity_using_cfg_file:
 	--additional_tests="${ADDITIONAL_TESTS}"
 
 run_sanity:
-	echo "run sanity on HW..."
+	echo "run sanity..."
 	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
 	--host_address=${HOST_ADDRESS} \
 	--username=${USERNAME} \
@@ -54,10 +54,10 @@ run_sanity:
 	--topo_name=${TOPO_NAME} \
 	--script_file=${TESTFILE} \
 	--device_type=${DEVICE_TYPE} \
-	--docker_mgmt_container=${DOCKER_MGMT_CONTAINER} \
-	--sonic_test_dir=${SONIC_TEST_DIR} \
+	--docker_mgmt_container='${DOCKER_MGMT_CONTAINER}' \
+	--sonic_test_dir='${SONIC_TEST_DIR}' \
 	--create_allure_report \
-	--additional_tests="${ADDITIONAL_TESTS}"
+	--additional_tests='${ADDITIONAL_TESTS}'"
 
 t0_run:
 	echo "run T0 testing..."
