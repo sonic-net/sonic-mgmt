@@ -465,9 +465,18 @@ cat << EOF >  %s
 }
 EOF
 ''' % (mode_json)
-
     duthost.shell(mode_set)
-    duthost.command("sudo config load {} -y".format(mode_json))
+    jq_command = (
+     'sudo jq --argfile modeJson {} '
+     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
+     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
+     'then .value.mode = "trunk" else . end)\' '
+     '/etc/sonic/config_db.json > /tmp/dump.json'
+    ).format(mode_json)
+    duthost.shell(jq_command)
+    duthost.command("sudo config load -y {}".format(mode_json))
+    duthost.command("sudo mv /tmp/dump.json /etc/sonic/config_db.json")
+
     yield
     duthost.command("rm {}".format(mode_json))
     logger.info("Json dump-file added in to the DUT")
