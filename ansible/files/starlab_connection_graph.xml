@@ -681,7 +681,7 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet53" StartDevice="str-msn2700-03" StartPort="Ethernet112"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet54" StartDevice="str-msn2700-03" StartPort="Ethernet116"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet55" StartDevice="str-msn2700-03" StartPort="Ethernet120"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet56" StartDevice="str-msn2700-03" StartPort="Ethernet124"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-15" EndPort="Ethernet57" StartDevice="str-msn2700-03" StartPort="Ethernet124"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-05" EndPort="Ethernet1" StartDevice="str-msn2700-04" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-05" EndPort="Ethernet2" StartDevice="str-msn2700-04" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-05" EndPort="Ethernet3" StartDevice="str-msn2700-04" StartPort="Ethernet8"/>
@@ -4296,7 +4296,7 @@
       <InterfaceVlan mode="Access" portname="Ethernet53" vlanids="773"/>
       <InterfaceVlan mode="Access" portname="Ethernet54" vlanids="774"/>
       <InterfaceVlan mode="Access" portname="Ethernet55" vlanids="775"/>
-      <InterfaceVlan mode="Access" portname="Ethernet56" vlanids="776"/>
+      <InterfaceVlan mode="Access" portname="Ethernet57" vlanids="776"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-16">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.238/23"/>
