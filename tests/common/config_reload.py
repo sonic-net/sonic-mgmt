@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 
-def config_system_checks_passed(duthost):
+def config_system_checks_passed(duthost, delayed_services=[]):
     logging.info("Checking if system is running")
     out = duthost.shell("systemctl is-system-running", module_ignore_errors=True)
     if "running" not in out['stdout_lines']:
@@ -44,6 +44,29 @@ def config_system_checks_passed(duthost):
         if int(out['stdout'].strip()) < 120:
             return False
 
+    logging.info("Checking delayed services")
+    # let's cache the delayed services in the function argument
+    if not delayed_services:
+        list_timer_out = duthost.shell(
+            "systemctl list-dependencies --plain sonic-delayed.target | sed '1d'",
+            module_ignore_errors=True
+        )
+        if not list_timer_out["failed"]:
+            check_timer_out = duthost.shell(
+                "systemctl is-enabled %s" % list_timer_out["stdout"].replace("\n", " "),
+                module_ignore_errors=True
+            )
+            if not check_timer_out["failed"]:
+                timers = [_.strip() for _ in list_timer_out["stdout"].strip().splitlines()]
+                states = [_.strip() for _ in check_timer_out["stdout"].strip().splitlines()]
+                delayed_services.extend(
+                    timer.replace("timer", "service") for timer, state in zip(timers, states) if state == "enabled"
+                )
+
+    for service in delayed_services:
+        out = duthost.shell("systemctl is-active %s" % service, module_ignore_errors=True)
+        if out["stdout"].strip().lower() != "active":
+            return False
     logging.info("All checks passed")
     return True
 
