@@ -922,7 +922,7 @@ def main():
 
     vcr_configure_end = datetime.datetime.now()
 
-    export_sim_cfg_to_file(data, "docker-ptf", device_type, "golden-code")
+    export_sim_cfg_to_file(data, "docker-ptf", device_type, "docker-sonic-mgmt")
 
     if run_sanity:
         run_scripts_remote(
