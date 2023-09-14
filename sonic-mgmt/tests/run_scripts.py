@@ -41,8 +41,8 @@ def _create_parser():
                       required=False, default=None)
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
                       default=False)  
-    parser.add_argument('--additional_tests', action=str, help='Additional Sanity Test to run',
-                      default="")
+    parser.add_argument('--additional_tests', type=str, help='Additional Sanity Test to run',
+                      required=False, default="")
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -73,14 +73,28 @@ def generate_allure_report(build_id, current_result_file):
         current_result_file.flush()
 
 def get_testcases(script_file, additional_tests=''):
+    #adding all testcases from all files into one list, ordered
+    tcs_dict = {}
     tcs = []
+
     for filename in script_file.split(","):
         tcs_file = open(filename, 'r')
-        tcs += tcs_file.readlines()
+        for tc in tcs_file.readlines():
+            if tc not in tcs_dict:
+                tcs.append(tc)
+                tcs_dict[tc] = ""
         tcs_file.close()
     
     if additional_tests:
-        tcs += additional_tests.split(",")
+        for tc in additional_tests.split(","):
+            if tc not in tcs_dict:
+                tcs.append(tc)
+                tcs_dict[tc] = ""
+
+    
+    print("script files are '{}', additional testscases are: '{}'".format(script_file, additional_tests))
+    print("\nTestcases are:")
+    print("".join(tcs))
     
     return tcs
 
