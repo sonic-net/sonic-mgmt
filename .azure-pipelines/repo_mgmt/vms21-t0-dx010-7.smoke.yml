@@ -27,6 +27,11 @@ parameters:
     default: $(IMAGE_BRCM_INTERNAL)
     displayName: "Image URL"
 
+  - name: ALWAYS_POWER_CYCLE_DUTS
+    type: boolean
+    default: true
+    displayName: "Always Power cycle"
+
   # Deploy parameters
   - name: ENABLE_DATAACL
     type: boolean
@@ -89,6 +94,7 @@ stages:
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      ALWAYS_POWER_CYCLE_DUTS: ${{ parameters.ALWAYS_POWER_CYCLE_DUTS }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
