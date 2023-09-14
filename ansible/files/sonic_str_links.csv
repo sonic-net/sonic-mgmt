@@ -574,7 +574,7 @@ str-msn2700-03,Ethernet108,str-7260-15,Ethernet52,40000,772,Access
 str-msn2700-03,Ethernet112,str-7260-15,Ethernet53,40000,773,Access
 str-msn2700-03,Ethernet116,str-7260-15,Ethernet54,40000,774,Access
 str-msn2700-03,Ethernet120,str-7260-15,Ethernet55,40000,775,Access
-str-msn2700-03,Ethernet124,str-7260-15,Ethernet56,40000,776,Access
+str-msn2700-03,Ethernet124,str-7260-15,Ethernet57,40000,776,Access
 str-msn2700-04,Ethernet0,str-7260-05,Ethernet1,40000,777,Access
 str-msn2700-04,Ethernet4,str-7260-05,Ethernet2,40000,778,Access
 str-msn2700-04,Ethernet8,str-7260-05,Ethernet3,40000,779,Access
