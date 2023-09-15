@@ -276,8 +276,12 @@ class LabGraph(object):
                 elif all([port in self._get_port_alias_set(device) for port in ports_group_by_devices[device]]):
                     convert_alias_to_name.append(device)
                 elif not all([port in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):
-                    raise Exception("[Failed] For device {}, please check {} and ensure all ports use port name, "
-                            "or ensure all ports use port alias.".format(device, ports_group_by_devices[device]))
+                    raise Exception(
+                        "[Failed] For device {}, please check {} and ensure all ports use "
+                        "port name, or ensure all ports use port alias.".format(
+                            device, ports_group_by_devices[device]
+                        )
+                    )
 
         logging.debug("convert_alias_to_name {}".format(convert_alias_to_name))
 
