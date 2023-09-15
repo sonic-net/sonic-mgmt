@@ -10,14 +10,6 @@ resources:
     name: sonic-metadata
     ref: master
 
-schedules:
-  - cron: "0 9 * * 0,2,4"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal-202205
-    always: true
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
