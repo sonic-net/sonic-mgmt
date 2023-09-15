@@ -30,6 +30,8 @@ def _backup_and_restore_config_db(duts, scope='function'):
         duthosts = duts
 
     for duthost in duthosts:
+        switchport_mode_set(duthost)
+        duthost.shell("Added Mode on Config DB")
         logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
         duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
@@ -439,7 +441,8 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-            switchport_mode_set(duthost, vlan_port['dev'])
+            switchport_mode_set(duthost)
+
             logger.info("trunk mode added")
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
@@ -450,7 +453,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-def switchport_mode_set(duthost, port):
+def switchport_mode_set(duthost):
 
     mode_json = "/tmp/mode_set.json"
 
@@ -458,7 +461,7 @@ def switchport_mode_set(duthost, port):
 cat << EOF >  %s
 {
    "PORT": {
-        "{port}": {
+        "Ethernet4": {
             "mode": "trunk"
         }
   }
@@ -473,12 +476,12 @@ EOF
      'then .value.mode = "trunk" else . end)\' '
      '/etc/sonic/config_db.json > /tmp/dump.json'
     ).format(mode_json)
-    duthost.shell(jq_command)
-    duthost.command("sudo config load -y {}".format(mode_json))
-    duthost.command("sudo mv /tmp/dump.json /etc/sonic/config_db.json")
 
-    yield
+    duthost.shell(jq_command)
+    duthost.command("config load -y {}".format(mode_json))
+    duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
     duthost.command("rm {}".format(mode_json))
+    duthost.shell("Mode added on Port")
     logger.info("Json dump-file added in to the DUT")
 
 
