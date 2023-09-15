@@ -3997,6 +3997,12 @@
       <PowerControlLinkInfo EndDevice="str3-8101-fanout-12" EndPort="PSU2" StartDevice="pdu-101" StartPort="48"/>
       <PowerControlLinkInfo EndDevice="str3-acs-serv-63" EndPort="PSU1" StartDevice="pdu-115" StartPort="38"/>
       <PowerControlLinkInfo EndDevice="str3-acs-serv-63" EndPort="PSU2" StartDevice="pdu-115" StartPort="39"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-66" EndPort="PSU1" StartDevice="pdu-93" StartPort="21"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-66" EndPort="PSU2" StartDevice="pdu-94" StartPort="21"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-67" EndPort="PSU1" StartDevice="pdu-93" StartPort="17"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-67" EndPort="PSU2" StartDevice="pdu-94" StartPort="25"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-68" EndPort="PSU1" StartDevice="pdu-93" StartPort="13"/>
+      <PowerControlLinkInfo EndDevice="str3-acs-serv-68" EndPort="PSU2" StartDevice="pdu-94" StartPort="26"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU1" StartDevice="pdu-120" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-1" EndPort="PSU2" StartDevice="pdu-119" StartPort="32"/>
       <PowerControlLinkInfo EndDevice="str3-7060-acs-2" EndPort="PSU1" StartDevice="pdu-89" StartPort="10"/>
