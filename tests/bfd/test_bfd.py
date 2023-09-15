@@ -351,6 +351,8 @@ def verify_bfd_queue_counters(duthost, dut_intf):
     bfd_queue = 7
     queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, int(bfd_queue))
     logger.debug("Queue counters: {}".format(queue_pkt_count))
+    if queue_pkt_count == 0:
+        pytest.fail('Queue 7 packet count is zero, no BFD traffic')
 
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
