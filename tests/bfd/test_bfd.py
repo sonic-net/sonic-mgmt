@@ -16,6 +16,7 @@ BFD_RESPONDER_SCRIPT_DEST_PATH = '/opt/bfd_responder.py'
 
 logger = logging.getLogger(__name__)
 
+
 def is_dualtor(tbinfo):
     """Check if the testbed is dualtor."""
     return "dualtor" in tbinfo["topo"]["name"]
@@ -307,6 +308,7 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
     temp = duthost.shell('show bfd summary')
     logger.info("BFD Summary dump: {}".format(temp['stdout']))
 
+
 def remove_bfd_sessions(duthost, neighbor_addrs):
     # Create a tempfile for BFD sessions
     bfd_file_dir = duthost.shell('mktemp')['stdout']
@@ -335,19 +337,21 @@ def update_bfd_session_state(ptfhost, neighbor_addr, local_addr, state):
 def update_bfd_state(ptfhost, neighbor_addr, local_addr, state):
     ptfhost.shell("bfdd-control session local {} remote {} {}".format(neighbor_addr, local_addr, state))
 
+
 def verify_bfd_queue_counters(duthost, dut_intf):
     queue_output = duthost.shell("show queue counters {}".format(dut_intf))
     logger.debug("Queue output: {}".format(queue_output['stdout']))
 
     for queue_val in range(0, 7):
-      queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, int(queue_val))
-      logger.debug("Interface {}, Queue {}, counter {}".format(dut_intf, queue_val, queue_pkt_count))
-      if queue_pkt_count != 0:
-        pytest.fail('Queue {} count is not zero, BFD packets might use this'.format(queue_val))
+        queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, int(queue_val))
+        logger.debug("Interface {}, Queue {}, counter {}".format(dut_intf, queue_val, queue_pkt_count))
+        if queue_pkt_count != 0:
+            pytest.fail('Queue {} count is not zero, BFD packets might use this'.format(queue_val))
 
     bfd_queue = 7
     queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, int(bfd_queue))
     logger.debug("Queue counters: {}".format(queue_pkt_count))
+
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
@@ -438,9 +442,8 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
     duthost = rand_selected_dut
 
     bfd_session_cnt = int(request.config.getoption('--num_sessions'))
-    loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs, dut_intf = get_neighbors_multihop(duthost,
-                                                                               tbinfo, ipv6,
-                                                                               count=bfd_session_cnt)
+    loopback_addr, ptf_intf, nexthop_ip, neighbor_addrs, dut_intf = get_neighbors_multihop(duthost, tbinfo, ipv6,
+                                                                                           count=bfd_session_cnt)
     try:
         cmd_buffer = ""
         for neighbor in neighbor_addrs:
