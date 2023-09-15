@@ -242,8 +242,15 @@ RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
 
-# Setup python3 virtual env
-RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ] && [ -d /var/AzDevOps/env-python3 ]; then \
+# Setup python3 virtual env if some conditions are met:
+# 1. pytest is not globally installed. If pytest is gloablly installed, this assumes that all the packages in
+#    the python3 virtual env are installed globally. No need to create python3 virtual env.
+# 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
+#    No need to install it again when current user is AzDevOps.
+# 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
+RUN if ! pip3 list | grep -c pytest >/dev/null && \
+[ '{{ USER_NAME }}' != 'AzDevOps' ] && \
+[ -d /var/AzDevOps/env-python3 ]; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
