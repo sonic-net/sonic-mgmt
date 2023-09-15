@@ -48,7 +48,6 @@ run_sanity:
 	echo "run sanity..."
 	bash -c " \
 		cd infra; \
-		source pyats/bin/activate; \
 		python3.8 -u run_scripts_remote.py  \
 		--host_address=${HOST_ADDRESS} \
 		--username=${USERNAME} \
