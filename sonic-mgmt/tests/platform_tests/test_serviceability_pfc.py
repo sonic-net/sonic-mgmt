@@ -3,7 +3,7 @@ Tests for the `show platform npu...` PFC commands in SONiC
 - show platform npu rx
 - show platform npu tx
 - show platform npu voq
-- show platform npuglobal
+- show platform npu global
 """
 import time
 import logging
@@ -23,10 +23,7 @@ def get_asic_facts(duthost):
     def get_ports_with_status(config_facts):
         status_dict = {}
         for p, v in config_facts['PORT'].items():
-            logging.info(v)
-            logging.info(p)
             status = v.get('admin_status', None)
-            logging.info(status_dict)
             if status not in status_dict.keys():
                 status_dict[status] = []
             status_dict[status].append(p)
