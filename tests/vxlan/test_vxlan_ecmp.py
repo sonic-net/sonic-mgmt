@@ -1261,6 +1261,21 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         Logger.info("Verify the rest of the traffic still works.")
         self.dump_self_info_and_run_ptf("tc7", encap_type, True)
 
+        # perform cleanup by removing all the routes added by this test class.
+        # reset to add only the routes added in the setup phase.
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "DEL")
+
+        self.setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
+        ecmp_utils.set_routes_in_dut(
+            self.setup['duthost'],
+            self.setup[encap_type]['dest_to_nh_map'],
+            ecmp_utils.get_payload_version(encap_type),
+            "SET")
+
     def test_vxlan_route2_single_nh(self, setUp, encap_type):
         '''
             tc8: set tunnel route 2 to single endpoint b1.
