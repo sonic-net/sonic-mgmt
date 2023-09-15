@@ -217,6 +217,13 @@ class LabGraph(object):
         self._cache_port_name_to_alias[hwsku] = port_name_to_alias_map
         return port_name_to_alias_map
 
+    def _get_port_name_set(self, device_hostname):
+        """
+        Retrive port name set of a specific hwsku.
+        """
+        hwsku = self.graph_facts["devices"][device_hostname]['HwSku']
+        return set(self._get_port_name_to_alias_map(hwsku).keys())
+
     def _get_port_alias_set(self, device_hostname):
         """
         Retrive port alias set of a specific hwsku.
@@ -244,75 +251,81 @@ class LabGraph(object):
         links = {}
         port_vlans = {}
         links_group_by_devices = {}
-        ports_group_by_start_devices = {}
-        ports_group_by_end_devices = {}
+        ports_group_by_devices = {}
 
         for entry in self.csv_facts["links"]:
             if entry['StartDevice'] not in links_group_by_devices:
                 links_group_by_devices[entry['StartDevice']] = []
-            if entry['StartDevice'] not in ports_group_by_start_devices:
-                ports_group_by_start_devices[entry['StartDevice']] = []
-            if entry['EndDevice'] not in ports_group_by_end_devices:
-                ports_group_by_end_devices[entry['EndDevice']] = []
+            if entry['EndDevice'] not in links_group_by_devices:
+                links_group_by_devices[entry['EndDevice']] = []
+            if entry['StartDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['StartDevice']] = []
+            if entry['EndDevice'] not in ports_group_by_devices:
+                ports_group_by_devices[entry['EndDevice']] = []
 
             links_group_by_devices[entry['StartDevice']].append(entry)
-            ports_group_by_start_devices[entry['StartDevice']].append(entry['StartPort'])
-            ports_group_by_end_devices[entry['EndDevice']].append(entry['EndPort'])
+            links_group_by_devices[entry['EndDevice']].append(entry)
+            ports_group_by_devices[entry['StartDevice']].append(entry['StartPort'])
+            ports_group_by_devices[entry['EndDevice']].append(entry['EndPort'])
 
+        convert_alias_to_name = []
         for device, device_links in links_group_by_devices.items():
-            convert_alias_to_name_start_device = False
-            convert_alias_to_name_end_device = False
             if self.graph_facts["devices"][device].get("Os", "").lower() == "sonic":
-                if device in ports_group_by_start_devices and all([port in self._get_port_alias_set(device) for port in ports_group_by_start_devices[device]]):   # noqa: E501
-                    convert_alias_to_name_start_device = True
-                if device in ports_group_by_end_devices and all([port in self._get_port_alias_set(device) for port in ports_group_by_end_devices[device]]):       # noqa: E501
-                    convert_alias_to_name_end_device = True
+                if any([port not in self._get_port_alias_set(device) and port not in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):  # noqa: E501
+                    continue
+                elif all([port in self._get_port_alias_set(device) for port in ports_group_by_devices[device]]):
+                    convert_alias_to_name.append(device)
+                elif not all([port in self._get_port_name_set(device) for port in ports_group_by_devices[device]]):
+                    raise Exception("[Failed] For device {}, please check {} and ensure all ports use port name, "
+                            "or ensure all ports use port alias.".format(device, ports_group_by_devices[device]))
 
-            for link in device_links:
-                start_device = link["StartDevice"]
-                end_device = link["EndDevice"]
-                start_port = link["StartPort"]
-                end_port = link["EndPort"]
+        logging.debug("convert_alias_to_name {}".format(convert_alias_to_name))
 
-                if convert_alias_to_name_start_device and device == start_device:
-                    start_port = self._port_alias_to_name(device, link['StartPort'])
-                if convert_alias_to_name_end_device and device == end_device:
-                    end_port = self._port_alias_to_name(device, link['EndPort'])
+        for link in self.csv_facts["links"]:
+            start_device = link["StartDevice"]
+            end_device = link["EndDevice"]
+            start_port = link["StartPort"]
+            end_port = link["EndPort"]
 
-                band_width = link["BandWidth"]
-                vlan_ID = link["VlanID"]
-                vlan_mode = link["VlanMode"]
+            if link["StartDevice"] in convert_alias_to_name:
+                start_port = self._port_alias_to_name(link["StartDevice"], link['StartPort'])
+            if link["EndDevice"] in convert_alias_to_name:
+                end_port = self._port_alias_to_name(link["EndDevice"], link['EndPort'])
 
-                if start_device not in links:
-                    links[start_device] = {}
-                if end_device not in links:
-                    links[end_device] = {}
-                if start_device not in port_vlans:
-                    port_vlans[start_device] = {}
-                if end_device not in port_vlans:
-                    port_vlans[end_device] = {}
+            band_width = link["BandWidth"]
+            vlan_ID = link["VlanID"]
+            vlan_mode = link["VlanMode"]
 
-                links[start_device][start_port] = {
-                    "peerdevice": end_device,
-                    "peerport": end_port,
-                    "speed": band_width,
-                }
-                links[end_device][end_port] = {
-                    "peerdevice": start_device,
-                    "peerport": start_port,
-                    "speed": band_width,
-                }
+            if start_device not in links:
+                links[start_device] = {}
+            if end_device not in links:
+                links[end_device] = {}
+            if start_device not in port_vlans:
+                port_vlans[start_device] = {}
+            if end_device not in port_vlans:
+                port_vlans[end_device] = {}
 
-                port_vlans[start_device][start_port] = {
-                    "mode": vlan_mode,
-                    "vlanids": vlan_ID,
-                    "vlanlist": self._port_vlanlist(vlan_ID),
-                }
-                port_vlans[end_device][end_port] = {
-                    "mode": vlan_mode,
-                    "vlanids": vlan_ID,
-                    "vlanlist": self._port_vlanlist(vlan_ID),
-                }
+            links[start_device][start_port] = {
+                "peerdevice": end_device,
+                "peerport": end_port,
+                "speed": band_width,
+            }
+            links[end_device][end_port] = {
+                "peerdevice": start_device,
+                "peerport": start_port,
+                "speed": band_width,
+            }
+
+            port_vlans[start_device][start_port] = {
+                "mode": vlan_mode,
+                "vlanids": vlan_ID,
+                "vlanlist": self._port_vlanlist(vlan_ID),
+            }
+            port_vlans[end_device][end_port] = {
+                "mode": vlan_mode,
+                "vlanids": vlan_ID,
+                "vlanlist": self._port_vlanlist(vlan_ID),
+            }
 
         self.graph_facts["links"] = links
         self.graph_facts["port_vlans"] = port_vlans
