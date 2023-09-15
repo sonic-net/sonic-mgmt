@@ -322,7 +322,6 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
                 vlan_port['permit_vlanid'].append(vlan['vlanid'])
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
-
     return vlan_ports_list
 
 
@@ -435,12 +434,13 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
                     cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
             except KeyError:
                 continue
-
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
+            switchport_mode_set(duthost, vlan_port['dev'])
+            logger.info("trunk mode added")
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -448,6 +448,38 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+def switchport_mode_set(duthost, port):
+
+    mode_json = "/tmp/mode_set.json"
+
+    mode_set = '''
+cat << EOF >  %s
+{
+   "PORT": {
+        "{port}": {
+            "mode": "trunk"
+        }
+  }
+}
+EOF
+''' % (mode_json)
+    duthost.shell(mode_set)
+    jq_command = (
+     'sudo jq --argfile modeJson {} '
+     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
+     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
+     'then .value.mode = "trunk" else . end)\' '
+     '/etc/sonic/config_db.json > /tmp/dump.json'
+    ).format(mode_json)
+    duthost.shell(jq_command)
+    duthost.command("sudo config load -y {}".format(mode_json))
+    duthost.command("sudo mv /tmp/dump.json /etc/sonic/config_db.json")
+
+    yield
+    duthost.command("rm {}".format(mode_json))
+    logger.info("Json dump-file added in to the DUT")
 
 
 def _dut_qos_map(dut):
