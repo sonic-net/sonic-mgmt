@@ -18,6 +18,9 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from abc import abstractmethod
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.utilities import check_skip_release
+from tests.common.utilities import get_neighbor_ptf_port_list
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +30,7 @@ pytestmark = [
 ]
 
 DEFAULT_VLANID = 1000
-ACL_COUNTERS_UPDATE_INTERVAL = 10
+ACL_COUNTERS_UPDATE_INTERVAL = 15
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -263,8 +266,7 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_ac
         dst_port: Destination port
         pkt_action: Packet action (forward or drop)
     """
-
-    ptfadapter.dataplane.flush()
+    ptfadapter.reinit()
     logger.info("Send packet from port {} to port {}".format(src_port, dst_port))
     testutils.send(ptfadapter, src_port, pkt)
 
@@ -626,7 +628,14 @@ def skip_sonic_leaf_fanout(fanouthosts):
     """
     for fanouthost in list(fanouthosts.values()):
         if fanouthost.get_fanout_os() == 'sonic':
-            pytest.skip("Not supporteds on SONiC leaf-fanout")
+            # Skips this test if the SONiC image installed on fanout is < 202205
+            is_skip, _ = check_skip_release(fanouthost, ["201811", "201911", "202012", "202106", "202111"])
+            if is_skip:
+                pytest.skip("OS Version of fanout is older than 202205, unsupported")
+            asic_type = fanouthost.facts['asic_type']
+            platform = fanouthost.facts["platform"]
+            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
 
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
@@ -736,16 +745,15 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         self._teardown_arp_responder(ptfhost)
 
     def setup_cfg(self, duthost, tbinfo, vlan_setup, tagged_mode, ip_version):
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         cfg = {}
         cfg['stage'] = EGRESS
         cfg['vlan_id'] = 10     # Dummy inner vlan id
         cfg['dst_mac'] = duthost.facts['router_mac']    # MAC address should be router_mac rather than ptf mac
         # We will inject packet with vlan from portchannel. The packet will egress from the
         # interface we setup
-        minigraph_portchannels = mg_facts['minigraph_portchannels']
-        member = list(minigraph_portchannels.values())[-1]['members'][-1]
-        cfg['src_port'] = mg_facts['minigraph_ptf_indices'][member]
+        upstream_neightbor_name = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]]
+        ptf_src_ports = get_neighbor_ptf_port_list(duthost, upstream_neightbor_name, tbinfo)
+        cfg['src_port'] = ptf_src_ports[-1]
         if TYPE_TAGGED == tagged_mode:
             cfg['dst_port'] = vlan_setup[100]['tagged_ports'][1]
             cfg['outer_vlan_id'] = 100

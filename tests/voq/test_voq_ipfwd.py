@@ -288,9 +288,28 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                 continue
             cfg_facts = asic_cfg['ansible_facts']
             cfgd_intfs = cfg_facts['INTERFACE'] if 'INTERFACE' in cfg_facts else {}
+            cfgd_dev_neighbor = cfg_facts['DEVICE_NEIGHBOR'] if 'DEVICE_NEIGHBOR' in cfg_facts else {}
+            cfgd_dev_neigh_md = cfg_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in cfg_facts else {}
             cfgd_pos = cfg_facts['PORTCHANNEL_INTERFACE'] if 'PORTCHANNEL_INTERFACE' in cfg_facts else {}
-            eths = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
+            cfgd_pc_members = cfg_facts['PORTCHANNEL_MEMBER'] if 'PORTCHANNEL_MEMBER' in cfg_facts else {}
+            eths_orig = [intf for intf in cfgd_intfs if "ethernet" in intf.lower() and cfgd_intfs[intf] != {}]
             pos = [intf for intf in cfgd_pos if "portchannel" in intf.lower()]
+
+            # Remove the interface from eths and pos if the BGP neighbor is of type RegionalHub
+            dev_rh_neigh = [neigh for neigh in cfgd_dev_neigh_md
+                            if cfgd_dev_neigh_md[neigh]["type"] == "RegionalHub"]
+
+            # Interfaces to be excluded
+            intfs_exclude = [intf for intf in cfgd_dev_neighbor if cfgd_dev_neighbor[intf]["name"] in dev_rh_neigh]
+            eths = [eth for eth in eths_orig if eth not in intfs_exclude]
+
+            # portchannels to be excluded
+            for k, v in cfgd_pc_members.items():
+                keys = v.keys()
+                for intf in keys:
+                    if intf in intfs_exclude and k in pos:
+                        pos.remove(k)
+
             if len(eths) != 0:
                 if port_type_a == "ethernet":
                     intfs_to_test['portC'] = get_info_for_a_port(
@@ -688,7 +707,10 @@ class TestVoqIPFwd(object):
         check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_ip', src_ip_fld='nbr_lb',
                      dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
-    @pytest.mark.parametrize('ttl, size', [(2, 64), (128, 64), (255, 1456), (1, 1456)])
+    @pytest.mark.parametrize('ttl, size', [(2, 64),
+                                           pytest.param(128, 64, marks=pytest.mark.express),
+                                           (255, 1456),
+                                           (1, 1456)])  # (1, 1500), ,(255, 1500), (128, 64), (128, 9000) (1, 1456)
     @pytest.mark.parametrize('version', [4, 6])
     @pytest.mark.parametrize('porttype', ["ethernet", "portchannel"])
     def test_voq_inband_ping(self, duthosts, all_cfg_facts, ttl, size, version, porttype, nbrhosts, tbinfo):
@@ -939,7 +961,7 @@ def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, po
         log_file = "/tmp/voq.ttl0.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
         logger.info("Call TTL0 PTF runner")
         ptf_runner(ptfhost, 'ptftests', "voq.TTL0", '/root/ptftests', params=params,
-                   log_file=log_file, timeout=10)
+                   log_file=log_file, timeout=10, is_python3=True)
         logger.info("TTL0 PTF runner completed")
 
 
@@ -1171,5 +1193,5 @@ def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, por
     log_file = "/tmp/voq.mtu.v{}.{}.{}.log".format(version, porttype, datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
     logger.info("Call MTU PTF runner")
     ptf_runner(ptfhost, 'ptftests', "voq.MtuTest", '/root/ptftests', params=params,
-               log_file=log_file, timeout=10, socket_recv_size=16384)
+               log_file=log_file, timeout=10, socket_recv_size=16384, is_python3=True)
     logger.info("MTU PTF runner completed")
