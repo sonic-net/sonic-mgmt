@@ -200,6 +200,10 @@ class AdvancedReboot:
         self.rebootData['vlan_mac'] = vlan_mac
         self.rebootData['lo_prefix'] = "%s/%s" % (self.mgFacts['minigraph_lo_interfaces'][0]['addr'],
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
+        self.rebootData['lo_prefix2'] = ""
+        for data in self.mgFacts['minigraph_lo_interfaces'][1:]:
+            if (data['prefixlen'] == 32):
+                self.rebootData['lo_prefix2'] = "%s/%s" % (data['addr'], data['prefixlen'])
 
         vlan_ip_range = dict()
         for vlan in self.mgFacts['minigraph_vlan_interfaces']:
@@ -697,6 +701,7 @@ class AdvancedReboot:
             "dut_mac": self.rebootData['dut_mac'],
             "vlan_mac": self.rebootData['vlan_mac'],
             "lo_prefix": self.rebootData['lo_prefix'],
+            "lo_prefix2": self.rebootData['lo_prefix2'],
             "default_ip_range": self.rebootData['default_ip_range'],
             "vlan_ip_range": self.rebootData['vlan_ip_range'],
             "lo_v6_prefix": self.rebootData['lo_v6_prefix'],
