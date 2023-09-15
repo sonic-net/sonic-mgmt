@@ -512,8 +512,8 @@ class VXLAN(BaseTest):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            b = base64.b64encode(bytes(str(pkt), 'utf-8')) # bytes
-            base64_str = b.decode('utf-8') # convert bytes to string
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
             self.packets.append((ptf_port, base64_str))
 
         finally:
@@ -769,8 +769,8 @@ class VxLAN_in_VxLAN(VXLAN):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            b = base64.b64encode(bytes(str(pkt), 'utf-8')) # bytes
-            base64_str = b.decode('utf-8') # convert bytes to string
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
             self.packets.append((ptf_port, base64_str))
 
         finally:

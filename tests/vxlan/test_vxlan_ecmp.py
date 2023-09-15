@@ -2071,11 +2071,11 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
             time.sleep(10)
             # verifying overlay_dmac
             result = \
-                self.vxlan_test_setup['duthost'].shell("sonic-db-cli APPL_DB HGET 'VNET_MONITOR_TABLE:{}:{}/{}' 'overlay_dmac'"
-                                            .format(
-                                                tc1_end_point_list[0],
-                                                tc1_new_dest,
-                                                ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]))
+                self.vxlan_test_setup['duthost'].shell(
+                    "sonic-db-cli APPL_DB HGET 'VNET_MONITOR_TABLE:{}:{}/{}' 'overlay_dmac'".format(
+                        tc1_end_point_list[0],
+                        tc1_new_dest,
+                        ecmp_utils.HOST_MASK[ecmp_utils.get_payload_version(encap_type)]))
             assert str(result['stdout']) == ecmp_utils.OVERLAY_DMAC
 
             self.dump_self_info_and_run_ptf("test1", encap_type, True)
@@ -2145,7 +2145,8 @@ class Test_VxLAN_ECMP_Priority_endpoints(Test_VxLAN):
                 tc1_end_point_list,
                 [tc1_end_point_list[0]],
                 "DEL")
-            self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.vxlan_test_setup[encap_type]['dest_to_nh_map_orignal'])
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(
+                self.vxlan_test_setup[encap_type]['dest_to_nh_map_orignal'])
 
         except Exception:
             ecmp_utils.create_and_apply_priority_config(
