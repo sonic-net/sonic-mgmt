@@ -1201,7 +1201,7 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_route_tests::test_vxlan_single_endpoint:
     reason: "This test can only run on 4600c and 8102"
     conditions:
       - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-8102_64h_o-r0']"
-       - asic_type=="cisco-8000"
+      - asic_type=="cisco-8000"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
   skip:
@@ -1212,7 +1212,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
 #######################################
 #####           vxlan            #####
 #######################################
->>>>>>> c82a9f8b542cf08b27dfd7e3eda7499ad998e4a9
 vxlan/test_vnet_vxlan.py:
   skip:
     reason: "1. Enable tests only for: mellanox, barefoot
