@@ -59,6 +59,8 @@ all:
           ansible_host: 10.64.246.11
         vms64-4:
           ansible_host: 10.64.246.84
+        vms64-5:
+          ansible_host: 10.64.247.68
 
     pdu:
       hosts:
@@ -100,6 +102,9 @@ all:
           protocol: snmp
         pdu-101:
           ansible_host: 10.3.155.101
+          protocol: snmp
+        pdu-103:
+          ansible_host: 10.3.155.103
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -158,6 +163,8 @@ fanout:
       ansible_host: 10.3.147.120
     str3-7260cx3-acs-fan-38:
       ansible_host: 10.3.147.121
+    str3-7260cx3-acs-fan-39:
+      ansible_host: 10.3.147.43
     str3-z9332f-01:
       ansible_host: 10.3.146.248
       os: sonic
@@ -1173,6 +1180,24 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "FGN224303HG"
+    str3-7260cx3-acs-14:
+      ansible_host: 10.3.147.60
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: FGN224303NB
+      base_mac: 38:38:a6:98:e9:60
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250508B0"
+        "0x23": "FGN224303NB"
+        "0x24": "38:38:a6:98:e9:60"
+        "0x25": "2020/08/03 10:19:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "FGN224303NB"
 
 sonic_mlnx_4700:
   hosts:
