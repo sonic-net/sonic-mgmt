@@ -336,7 +336,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
         delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def switchport_mode_set(duthost, port):
+def switchport_mode_set(duthost, first_avai_vlan_port):
 
     mode_json = "/tmp/mode_set.json"
 
@@ -344,7 +344,7 @@ def switchport_mode_set(duthost, port):
 cat << EOF >  %s
 {
    "PORT": {
-        "{port}": {
+        "{first_avai_vlan_port}": {
             "mode": "trunk"
         }
   }
@@ -352,16 +352,8 @@ cat << EOF >  %s
 EOF
 ''' % (mode_json)
     duthost.shell(mode_set)
-    jq_command = (
-     'sudo jq --argfile modeJson {} '
-     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
-     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
-     'then .value.mode = "trunk" else . end)\' '
-     '/etc/sonic/config_db.json > /tmp/dump.json'
-    ).format(mode_json)
-    duthost.shell(jq_command)
     duthost.command("config load -y {}".format(mode_json))
-    duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
+    duthost.command("mv /tmp/mode_set.json /etc/sonic/config_db.json")
     duthost.command("rm {}".format(mode_json))
     logger.info("Mode added on Port")
     logger.info("Json dump-file added in to the DUT")
