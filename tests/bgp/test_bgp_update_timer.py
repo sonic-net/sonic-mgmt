@@ -444,10 +444,13 @@ def test_bgp_update_timer_session_down(
 
         with tempfile.NamedTemporaryFile() as tmp_pcap:
             duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
-            duthost.file(path=bgp_pcap, state="absent")
+            # FIXME: Let's keep the bgp pcap file for debug purpose
+            # duthost.file(path=bgp_pcap, state="absent")
             bgp_updates = bgp_update_packets(tmp_pcap.name)
 
         for bgp_update in bgp_updates:
+            logging.debug("bgp update packet, capture time %s, packet details:\n%s",
+                          bgp_update.time, bgp_update.show(dump=True))
             for i, route in enumerate(constants.routes):
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
                     withdraw_intervals[i] = bgp_update.time - current_time
