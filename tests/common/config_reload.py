@@ -141,7 +141,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                           "PFC_WD is missing in CONFIG-DB")
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, sonic_host),
+            link_up_wait_time = 360 if modular_chassis else 300
+            pytest_assert(wait_until(link_up_wait_time, 20, 0, check_interface_status_of_up_ports, sonic_host),
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
