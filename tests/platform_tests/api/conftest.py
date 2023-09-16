@@ -16,12 +16,6 @@ PLATFORM_API_SERVER_MAX_TRY = 3
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-            dut_ip = duthost.mgmt_ip
-
-
 def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
 
     res = localhost.wait_for(host=dut_ip,
