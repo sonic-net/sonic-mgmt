@@ -305,9 +305,6 @@ def get_cacl_tables_and_rules(duthost):
         # First two lines make up the table header. Get rid of them.
         stdout_lines = stdout_lines[2:]
         for line in stdout_lines:
-            tokens = line.strip().split()
-            if len(tokens) == 7 and tokens[0] == table["name"]:
-                table["rules"].append({"name": tokens[1], "priority": tokens[2], "action": tokens[3]})
             tokens = get_token_values(line, fld_rngs)
             if len(tokens) == len(fld_rngs) and tokens[0] == table["name"]:
                 table["rules"].append({"name": tokens[1], "priority": tokens[2].strip(), "action": tokens[3].strip()})
