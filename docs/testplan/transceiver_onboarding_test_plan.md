@@ -2,7 +2,7 @@
 
 ### Scope
 
-The scope of this test plan is to layout a framework of automated tests to ensure feature parity of new transceivers being onboarded to SONiC with the existing feature support.
+The scope of this test plan is to layout a framework of tests to ensure feature parity of new transceivers being onboarded to SONiC with the existing feature support. The test plan is planned to be automated.
 
 The below features/properties of the transceiver are to be tested in this test plan.
 
