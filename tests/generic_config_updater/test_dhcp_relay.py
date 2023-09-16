@@ -352,10 +352,17 @@ cat << EOF >  %s
 EOF
 ''' % (mode_json)
     duthost.shell(mode_set)
+    jq_command = (
+     'sudo jq --argfile modeJson {} '
+     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
+     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
+     'then .value.mode = "trunk" else . end)\' '
+     '/etc/sonic/config_db.json > /tmp/dump.json'
+    ).format(mode_json)
+    duthost.shell(jq_command)
     duthost.command("config load -y {}".format(mode_json))
-    duthost.command("mv /tmp/mode_set.json /etc/sonic/config_db.json")
-    logger.info("Mode added on Port")
-    logger.info("Json dump-file added in to the DUT")
+    duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
+    duthost.shell("echo mode added on port")
 
 
 def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
