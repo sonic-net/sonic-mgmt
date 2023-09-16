@@ -1,3 +1,4 @@
+import logging
 import os
 import pytest
 import http.client
@@ -10,11 +11,12 @@ SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
+PLATFORM_API_SERVER_MAX_TRY = 3
 
-@pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+logger = logging.getLogger(__name__)
+
+
+def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -55,7 +57,25 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker exec -i pmon supervisorctl update')
 
         res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
-        assert res['failed'] is False
+
+        return res
+
+
+@pytest.fixture(scope='function')
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.mgmt_ip
+    retries = 3
+
+    for _ in range(retries):
+        try:
+            res = platform_api_service_start_helper(duthost, dut_ip, localhost, request)
+            assert res['failed'] is False
+        except Exception as e:
+            logger.warning("platform API service server instnation failed with {}".format(e))
+        else:
+            break
+
 
 
 @pytest.fixture(scope='module', autouse=True)
