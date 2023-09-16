@@ -1722,7 +1722,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         # Setup DSCP decap config on DUT
