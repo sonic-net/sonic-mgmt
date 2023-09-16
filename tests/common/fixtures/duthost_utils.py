@@ -31,7 +31,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
 
     for duthost in duthosts:
         switchport_mode_set(duthost)
-        duthost.shell("Added Mode on Config DB")
+        logger.info("Added Mode on Config DB")
         logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
         duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
@@ -442,7 +442,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             switchport_mode_set(duthost)
-
             logger.info("trunk mode added")
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
@@ -481,7 +480,7 @@ EOF
     duthost.command("config load -y {}".format(mode_json))
     duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
     duthost.command("rm {}".format(mode_json))
-    duthost.shell("Mode added on Port")
+    logger.info("Mode added on Port")
     logger.info("Json dump-file added in to the DUT")
 
 
