@@ -77,7 +77,7 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
         'permit_vlanid': [key for key, value in list(vlan_intfs_dict.items())],
         'pvid': 0
     }]
-    switchport_mode_set(duthost, first_avai_vlan_port)
+
     utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict, delete_untagged_vlan=False)
     logger.info("CREATE TEST VLANS DONE")
 
@@ -144,6 +144,7 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
 def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
+    switchport_mode_set(duthost, first_avai_vlan_port)
 
     # --------------------- Setup -----------------------
     create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
@@ -335,7 +336,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
         delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def switchport_mode_set(duthost, first_avai_vlan_port):
+def switchport_mode_set(duthost, port):
 
     mode_json = "/tmp/mode_set.json"
 
@@ -343,7 +344,7 @@ def switchport_mode_set(duthost, first_avai_vlan_port):
 cat << EOF >  %s
 {
    "PORT": {
-        "{first_avai_vlan_port}": {
+        "{port}": {
             "mode": "trunk"
         }
   }
