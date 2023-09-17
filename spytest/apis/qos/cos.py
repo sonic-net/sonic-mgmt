@@ -1,9 +1,21 @@
-import json, re
+import json
+import re
 from spytest import st
-from utilities.utils import get_interface_number_from_name
-from utilities.common import make_list, filter_and_select
+from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
+from utilities.common import make_list, filter_and_select, get_query_params
 from apis.system.rest import config_rest, delete_rest, get_rest, rest_status
 errors_list = ['error', 'invalid', 'usage', 'illegal', 'unrecognized']
+
+try:
+    import apis.yang.codegen.messages.qos as umf_qos
+    from apis.yang.utils.common import Operation
+except ImportError:
+    pass
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
 
 
 def config_port_qos_map(dut, obj_name, interface, **kwargs):
@@ -15,7 +27,7 @@ def config_port_qos_map(dut, obj_name, interface, **kwargs):
             st.log("Please provide obj_name like 'AZURE' and interface like 'Ethernet0,Ethernet1'")
             return False
         else:
-            cos_specific_dict = {"tc_to_queue_map": obj_name, "dscp_to_tc_map": obj_name}
+            cos_specific_dict = {"tc_to_queue_map": "[TC_TO_QUEUE_MAP|" + obj_name + "]", "dscp_to_tc_map": "[DSCP_TO_TC_MAP|" + obj_name + "]"}
             temp_data[interface] = cos_specific_dict
         final_data['PORT_QOS_MAP'] = temp_data
         final_data = json.dumps(final_data)
@@ -55,28 +67,53 @@ def config_port_qos_map_all(dut, qos_maps, cli_type=''):
     :param cli_type:
     :type cli_type:
     """
-    qos_maps=make_list(qos_maps)
+    qos_maps = make_list(qos_maps)
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        qos_obj = umf_qos.Qos()
+        for qos_map in qos_maps:
+            qosbind_obj = umf_qos.Interface(InterfaceId=qos_map['port'], Qos=qos_obj)
+            if qos_map['map'] == 'dot1p_to_tc_map':
+                qosbind_obj.Dot1pToForwardingGroup = qos_map['obj_name']
+            elif qos_map['map'] == 'dscp_to_tc_map':
+                qosbind_obj.DscpToForwardingGroup = qos_map['obj_name']
+            elif qos_map['map'] == 'pfc_to_queue_map':
+                qosbind_obj.PfcPriorityToQueue = qos_map['obj_name']
+            elif qos_map['map'] == 'tc_to_dot1p_map':
+                qosbind_obj.ForwardingGroupToDot1p = qos_map['obj_name']
+            elif qos_map['map'] == 'tc_to_dscp_map':
+                qosbind_obj.ForwardingGroupToDscp = qos_map['obj_name']
+            elif qos_map['map'] == 'tc_to_pg_map':
+                qosbind_obj.ForwardingGroupToPriorityGroup = qos_map['obj_name']
+            elif qos_map['map'] == 'tc_to_queue_map':
+                qosbind_obj.ForwardingGroupToQueue = qos_map['obj_name']
+            else:
+                st.error('Invalid map: {}'.format(qos_map['map']))
+                return False
+            result = qosbind_obj.configure(dut, cli_type=cli_type)
+            if not result:
+                st.error("Failed configure PORT_QOS_MAP")
+                return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         for qos_map in qos_maps:
             if qos_map['port'] not in temp_data:
                 temp_data[qos_map['port']] = {}
             if qos_map['map'] == 'dot1p_to_tc_map':
-                temp_data[qos_map['port']].update(dot1p_to_tc_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(dot1p_to_tc_map="[DOT1P_TO_TC_MAP|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'dscp_to_tc_map':
-                temp_data[qos_map['port']].update(dscp_to_tc_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(dscp_to_tc_map="[DSCP_TO_TC_MAP|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'pfc_to_queue_map':
-                temp_data[qos_map['port']].update(pfc_to_queue_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(pfc_to_queue_map="[MAP_PFC_PRIORITY_TO_QUEUE|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_dot1p_map':
-                temp_data[qos_map['port']].update(tc_to_dot1p_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_dot1p_map="[TC_TO_DOT1P_MAP|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_dscp_map':
-                temp_data[qos_map['port']].update(tc_to_dscp_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_dscp_map="[TC_TO_DSCP_MAP|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_pg_map':
-                temp_data[qos_map['port']].update(tc_to_pg_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_pg_map="[TC_TO_PRIORITY_GROUP_MAP|{}]".format(qos_map['obj_name']))
             elif qos_map['map'] == 'tc_to_queue_map':
-                temp_data[qos_map['port']].update(tc_to_queue_map="{}".format(qos_map['obj_name']))
+                temp_data[qos_map['port']].update(tc_to_queue_map="[TC_TO_QUEUE_MAP|{}]".format(qos_map['obj_name']))
             else:
                 st.error('Invalid map: {}'.format(qos_map['map']))
                 return False
@@ -131,7 +168,7 @@ def config_port_qos_map_all(dut, qos_maps, cli_type=''):
             else:
                 st.error('Invalid map: {}'.format(qos_map['map']))
                 return False
-        
+
             if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=port_qos_map_data):
                 st.error("Failed configure PORT_QOS_MAP")
                 return False
@@ -143,7 +180,28 @@ def config_port_qos_map_all(dut, qos_maps, cli_type=''):
 
 def config_tc_to_queue_map(dut, obj_name, tc_to_queue_map_dict, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        if "gnmi_operation" in kwargs and kwargs["gnmi_operation"] == 'patch':
+            operation = Operation.UPDATE
+        else:
+            operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        tcq_obj = umf_qos.ForwardingGroupQueueMap(Name=obj_name, Qos=qos_obj)
+        tcq_obj.configure(dut, operation=operation, cli_type=cli_type)
+        tcq_dict = {}
+        tc_to_queue_map_dict = get_non_range_map_data_from_range_map_data(tc_to_queue_map_dict)
+        for tc, queue in tc_to_queue_map_dict.items():
+
+            fwd_obj = umf_qos.ForwardingGroup(Name=str(tc), Qos=qos_obj)
+            tcq_dict = {"FwdGroup": fwd_obj, "OutputQueueIndex": int(queue)}
+            tcqmap_obj = umf_qos.ForwardingGroupQueueMapEntry(**tcq_dict)
+            tcq_obj.add_ForwardingGroupQueueMapEntry(tcqmap_obj)
+        tcq_obj.configure(dut, operation=operation, cli_type=cli_type)
+        result = tcqmap_obj.configure(dut, operation=operation, cli_type=cli_type)
+        if not result.ok():
+            st.error("Failed to map TC to QUEUE with data: {}".format(tc_to_queue_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         tc_to_queue_map_dict = get_non_range_map_data_from_range_map_data(tc_to_queue_map_dict)
@@ -183,7 +241,26 @@ def config_tc_to_queue_map(dut, obj_name, tc_to_queue_map_dict, **kwargs):
 
 def config_dscp_to_tc_map(dut, obj_name, dscp_to_tc_map_dict, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        if "gnmi_operation" in kwargs and kwargs["gnmi_operation"] == 'patch':
+            operation = Operation.UPDATE
+        else:
+            operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        dscp_obj = umf_qos.DscpMap(Name=obj_name, Qos=qos_obj)
+        dscp_obj.configure(dut, operation=operation, cli_type=cli_type)
+        dscp_tc_dict = {}
+        dscp_to_tc_map_dict = get_non_range_map_data_from_range_map_data(dscp_to_tc_map_dict)
+        for dscp, tc in dscp_to_tc_map_dict.items():
+            dscp_tc_dict = {"Dscp": int(dscp), "FwdGroup": str(tc)}
+            dscp_entry_obj = umf_qos.DscpMapEntry(**dscp_tc_dict)
+            dscp_obj.add_DscpMapEntry(dscp_entry_obj)
+        dscp_obj.configure(dut, operation=operation, cli_type=cli_type)
+        result = dscp_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Config map DSCP to TC with data: {}".format(dscp_to_tc_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         dscp_to_tc_map_dict = get_non_range_map_data_from_range_map_data(dscp_to_tc_map_dict)
@@ -223,7 +300,27 @@ def config_dscp_to_tc_map(dut, obj_name, dscp_to_tc_map_dict, **kwargs):
 
 def config_tc_to_pg_map(dut, obj_name, tc_to_pg_map_dict, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        if "gnmi_operation" in kwargs and kwargs["gnmi_operation"] == 'patch':
+            operation = Operation.UPDATE
+        else:
+            operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        tcpg_obj = umf_qos.ForwardingGroupPriorityGroupMap(Name=obj_name, Qos=qos_obj)
+        tcpg_obj.configure(dut, cli_type=cli_type)
+        tc_pg_dict = {}
+        tc_to_pg_map_dict = get_non_range_map_data_from_range_map_data(tc_to_pg_map_dict)
+        for tc, pg in tc_to_pg_map_dict.items():
+            fwd_obj = umf_qos.ForwardingGroup(Name=str(tc), Qos=qos_obj)
+            tc_pg_dict = {"FwdGroup": fwd_obj, "PriorityGroupIndex": int(pg)}
+            tcpg_entry_obj = umf_qos.ForwardingGroupPriorityGroupMapEntry(**tc_pg_dict)
+            tcpg_obj.add_ForwardingGroupPriorityGroupMapEntry(tcpg_entry_obj)
+        tcpg_obj.configure(dut, operation=operation, cli_type=cli_type)
+        result = tcpg_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("Failed to map TC to PG with data: {}".format(tc_to_pg_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         tc_to_pg_map_dict = get_non_range_map_data_from_range_map_data(tc_to_pg_map_dict)
@@ -273,7 +370,27 @@ def config_dot1p_to_tc_map(dut, obj_name, dot1p_to_tc_map_dict, **kwargs):
     :type dict:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        if "gnmi_operation" in kwargs and kwargs["gnmi_operation"] == 'patch':
+            operation = Operation.UPDATE
+        else:
+            operation = Operation.CREATE
+        operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        dot1p_obj = umf_qos.Dot1pMap(Name=obj_name, Qos=qos_obj)
+        dot1p_obj.configure(dut, operation=operation, cli_type=cli_type)
+        dot1p_tc_dict = {}
+        dot1p_to_tc_map_dict = get_non_range_map_data_from_range_map_data(dot1p_to_tc_map_dict)
+        for dot1p, tc in dot1p_to_tc_map_dict.items():
+            dot1p_tc_dict = {"Dot1p": int(dot1p), "FwdGroup": str(tc)}
+            dot1p_entry_obj = umf_qos.Dot1pMapEntry(**dot1p_tc_dict)
+            dot1p_obj.add_Dot1pMapEntry(dot1p_entry_obj)
+        dot1p_obj.configure(dut, operation=operation, cli_type=cli_type)
+        result = dot1p_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Config map DOT1P to TC with data: {}".format(dot1p_to_tc_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         dot1p_to_tc_map_dict = get_non_range_map_data_from_range_map_data(dot1p_to_tc_map_dict)
@@ -323,7 +440,26 @@ def config_pfc_priority_to_queue_map(dut, obj_name, pfc_priority_to_queue_map_di
     :type dict:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        if "gnmi_operation" in kwargs and kwargs["gnmi_operation"] == 'patch':
+            operation = Operation.UPDATE
+        else:
+            operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        pfcq_obj = umf_qos.PfcPriorityQueueMap(Name=obj_name, Qos=qos_obj)
+        pfcq_obj.configure(dut, cli_type=cli_type)
+        pfcq_dict = {}
+        pfc_priority_to_queue_map_dict = get_non_range_map_data_from_range_map_data(pfc_priority_to_queue_map_dict)
+        for pfc_priority, queue in pfc_priority_to_queue_map_dict.items():
+            pfcq_dict = {"Dot1p": int(pfc_priority), "OutputQueueIndex": int(queue)}
+            pfcq_entry_obj = umf_qos.PfcPriorityQueueMapEntry(**pfcq_dict)
+            pfcq_obj.add_PfcPriorityQueueMapEntry(pfcq_entry_obj)
+        pfcq_obj.configure(dut, operation=operation, cli_type=cli_type)
+        result = pfcq_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("Failed to map PFC_PRIORITY to QUEUE with data: {}".format(pfc_priority_to_queue_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         pfc_priority_to_queue_map_dict = get_non_range_map_data_from_range_map_data(pfc_priority_to_queue_map_dict)
@@ -373,7 +509,24 @@ def config_tc_to_dot1p_map(dut, obj_name, tc_to_dot1p_map_dict, **kwargs):
     :type dict:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        tcdot1p_obj = umf_qos.ForwardingGroupDot1pMap(Name=obj_name, Qos=qos_obj)
+        tcdot1p_obj.configure(dut, operation=operation, cli_type=cli_type)
+        tc_to_dot1p_map_dict = get_non_range_map_data_from_range_map_data(tc_to_dot1p_map_dict)
+        tc_dot1p_dict = {}
+        for tc, dot1p in tc_to_dot1p_map_dict.items():
+            fwd_obj = umf_qos.ForwardingGroup(Name=str(tc), Qos=qos_obj)
+            tc_dot1p_dict = {"FwdGroup": fwd_obj, "Dot1p": int(dot1p)}
+            tcdot1p_entry_obj = umf_qos.ForwardingGroupDot1pMapEntry(**tc_dot1p_dict)
+            tcdot1p_obj.add_ForwardingGroupDot1pMapEntry(tcdot1p_entry_obj)
+        tcdot1p_obj.configure(dut, cli_type=cli_type)
+        result = tcdot1p_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Config map TC to DOT1P with data: {}".format(tc_to_dot1p_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         tc_to_dot1p_map_dict = get_non_range_map_data_from_range_map_data(tc_to_dot1p_map_dict)
@@ -423,7 +576,24 @@ def config_tc_to_dscp_map(dut, obj_name, tc_to_dscp_map_dict, **kwargs):
     :type dict:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        operation = Operation.CREATE
+        qos_obj = umf_qos.Qos()
+        tcdscp_obj = umf_qos.ForwardingGroupDscpMap(Name=obj_name, Qos=qos_obj)
+        tcdscp_obj.configure(dut, operation=operation, cli_type=cli_type)
+        tc_to_dscp_map_dict = get_non_range_map_data_from_range_map_data(tc_to_dscp_map_dict)
+        tc_dscp_dict = {}
+        for tc, dscp in tc_to_dscp_map_dict.items():
+            fwd_obj = umf_qos.ForwardingGroup(Name=str(tc), Qos=qos_obj)
+            tc_dscp_dict = {"FwdGroup": fwd_obj, "Dscp": int(dscp)}
+            tcdscp_entry_obj = umf_qos.ForwardingGroupDscpMapEntry(**tc_dscp_dict)
+            tcdscp_obj.add_ForwardingGroupDscpMapEntry(tcdscp_entry_obj)
+        tcdscp_obj.configure(dut, cli_type=cli_type)
+        result = tcdscp_entry_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Config map TC to DSCP with data: {}".format(tc_to_dscp_map_dict))
+            return False
+    elif cli_type == 'click':
         final_data = dict()
         temp_data = dict()
         tc_to_dscp_map_dict = get_non_range_map_data_from_range_map_data(tc_to_dscp_map_dict)
@@ -476,9 +646,9 @@ def clear_qos_map_entries(dut, map_type, obj_name, maps_dict, **kwargs):
     """
     cli_type = st.get_ui_type(dut, **kwargs)
     qos_clear = kwargs.get('qos_clear', False)
-    if (not qos_clear) and cli_type=='click':
+    if (not qos_clear) and cli_type == 'click':
         cli_type = 'klish'
-    if cli_type=='click':
+    if cli_type == 'click':
         command = 'config qos clear'
         response = st.config(dut, command, type=cli_type)
         if any(error in response.lower() for error in errors_list):
@@ -498,7 +668,7 @@ def clear_qos_map_entries(dut, map_type, obj_name, maps_dict, **kwargs):
         elif map_type == 'tc_to_dot1p_map':
             commands.append('qos map tc-dot1p {}'.format(obj_name))
             commands.extend(['no traffic-class {}'.format(map) for map in maps_dict.keys()])
-        elif map_type== 'tc_to_dscp_map':
+        elif map_type == 'tc_to_dscp_map':
             commands.append('qos map tc-dscp {}'.format(obj_name))
             commands.extend(['no traffic-class {}'.format(map) for map in maps_dict.keys()])
         elif map_type == 'tc_to_pg_map':
@@ -516,14 +686,14 @@ def clear_qos_map_entries(dut, map_type, obj_name, maps_dict, **kwargs):
             if any(error in response.lower() for error in errors_list):
                 st.error("The response is: {}".format(response))
                 return False
-    elif cli_type in['rest-patch', 'rest-put']:
+    elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         urls_map = {'dot1p_to_tc_map': rest_urls['dot1p_tc_entry_config'],
                     'dscp_to_tc_map': rest_urls['dscp_tc_entry_config'],
                     'pfc_to_queue_map': rest_urls['pfc_priority_queue_entry_config'],
                     'tc_to_dot1p_map': rest_urls['tc_dot1p_entry_config'],
                     'tc_to_dscp_map': rest_urls['tc_dscp_entry_config'],
-                    'tc_to_pg_map':  rest_urls['tc_pg_entry_config'],
+                    'tc_to_pg_map': rest_urls['tc_pg_entry_config'],
                     'tc_to_queue_map': rest_urls['tc_queue_entry_config']}
         if map_type in urls_map:
             url = urls_map[map_type]
@@ -531,7 +701,7 @@ def clear_qos_map_entries(dut, map_type, obj_name, maps_dict, **kwargs):
             st.error('Invalid map type: {}'.format(map_type))
             return False
         for map in maps_dict.keys():
-            if not delete_rest(dut, rest_url = url.format(obj_name, map)):
+            if not delete_rest(dut, rest_url=url.format(obj_name, map)):
                 st.error("Failed to remove entry {} for {}".format(map, map_type))
                 return False
     else:
@@ -555,9 +725,43 @@ def clear_qos_map_table(dut, qos_maps, **kwargs):
     skip_error = kwargs.get('skip_error', False)
     error_msg = kwargs.get('error_msg', False)
     errors = make_list(error_msg) if error_msg else errors_list
-    if (not qos_clear) and cli_type=='click':
+    if (not qos_clear) and cli_type == 'click':
         cli_type = 'klish'
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        qos_obj = umf_qos.Qos()
+        for qos_map in qos_maps:
+            if qos_map['map'] == 'dot1p_to_tc_map':
+                dot1ptc_obj = umf_qos.Dot1pMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = dot1ptc_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'dscp_to_tc_map':
+                dscptc_obj = umf_qos.DscpMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = dscptc_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'pfc_to_queue_map':
+                pfcq_obj = umf_qos.PfcPriorityQueueMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = pfcq_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'tc_to_dot1p_map':
+                tcdot1p_obj = umf_qos.ForwardingGroupDot1pMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = tcdot1p_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'tc_to_dscp_map':
+                tcdscp_obj = umf_qos.ForwardingGroupDscpMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = tcdscp_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'tc_to_pg_map':
+                tcpg_obj = umf_qos.ForwardingGroupPriorityGroupMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = tcpg_obj.unConfigure(dut, cli_type=cli_type)
+            elif qos_map['map'] == 'tc_to_queue_map':
+                tcq_obj = umf_qos.ForwardingGroupQueueMap(Name=qos_map['obj_name'], Qos=qos_obj)
+                result = tcq_obj.unConfigure(dut, cli_type=cli_type)
+            if not result.ok():
+                if skip_error:
+                    if any(error.lower() in result.message for error in errors):
+                        return False
+                    else:
+                        st.error("Deletion allowed to clear {} table: {}".format(qos_map['map'], qos_map['obj_name']))
+                        return False
+                else:
+                    st.error("Failed to clear {} table: {}".format(qos_map['map'], qos_map['obj_name']))
+                    return False
+    elif cli_type == 'click':
         command = 'config qos clear'
         response = st.config(dut, command, type=cli_type, skip_error_check=skip_error)
         if any(error.lower() in response.lower() for error in errors):
@@ -624,12 +828,37 @@ def clear_port_qos_map_all(dut, qos_maps, **kwargs):
     :param cli_type:
     :type cli_type:
     """
-    qos_maps=make_list(qos_maps)
+    qos_maps = make_list(qos_maps)
     cli_type = st.get_ui_type(dut, **kwargs)
     qos_clear = kwargs.get('qos_clear', False)
-    if (not qos_clear) and cli_type=='click':
+    if (not qos_clear) and cli_type == 'click':
         cli_type = 'klish'
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        qos_obj = umf_qos.Qos()
+        for qos_map in qos_maps:
+            qosbind_obj = umf_qos.Interface(InterfaceId=qos_map['port'], Qos=qos_obj)
+            if qos_map['map'] == 'dot1p_to_tc_map':
+                target_attr = qosbind_obj.Dot1pToForwardingGroup
+            elif qos_map['map'] == 'dscp_to_tc_map':
+                target_attr = qosbind_obj.DscpToForwardingGroup
+            elif qos_map['map'] == 'pfc_to_queue_map':
+                target_attr = qosbind_obj.PfcPriorityToQueue
+            elif qos_map['map'] == 'tc_to_dot1p_map':
+                target_attr = qosbind_obj.ForwardingGroupToDot1p
+            elif qos_map['map'] == 'tc_to_dscp_map':
+                target_attr = qosbind_obj.ForwardingGroupToDscp
+            elif qos_map['map'] == 'tc_to_pg_map':
+                target_attr = qosbind_obj.ForwardingGroupToPriorityGroup
+            elif qos_map['map'] == 'tc_to_queue_map':
+                target_attr = qosbind_obj.ForwardingGroupToQueue
+            if 'PortChannel' in qos_map['port']:
+                result = qosbind_obj.unConfigure(dut, target_path="interface-maps", cli_type=cli_type)
+            else:
+                result = qosbind_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
+            if not result.ok():
+                st.error("Failed clear {} table on port: {}".format(qos_map['map'], qos_map['port']))
+                return False
+    elif cli_type == 'click':
         command = 'config qos clear'
         response = st.config(dut, command, type=cli_type)
         if any(error in response.lower() for error in errors_list):
@@ -660,7 +889,6 @@ def clear_port_qos_map_all(dut, qos_maps, **kwargs):
             if any(error in response.lower() for error in errors_list):
                 st.error("The response is: {}".format(response))
                 return False
-
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         for qos_map in qos_maps:
@@ -699,6 +927,7 @@ def show_qos_map_table(dut, type, obj_name='', **kwargs):
     """
     cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = 'klish' if cli_type == 'click' else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == 'klish':
         if type == 'dot1p_to_tc_map':
             command = 'show qos map dot1p-tc {}'.format(obj_name) if obj_name else 'show qos map dot1p-tc'
@@ -763,7 +992,7 @@ def _get_rest_qos_map_output(data, table):
                  'pfc_to_queue_map': {'parent': 'pfc-priority-queue-map-entries', 'child': 'pfc-priority-queue-map-entry', 'attr': 'pfc_priority,queue,dot1p,output-queue-index'},
                  'tc_to_dot1p_map': {'parent': 'forwarding-group-dot1p-map-entries', 'child': 'forwarding-group-dot1p-map-entry', 'attr': 'tc,dot1p,fwd-group,dot1p'},
                  'tc_to_dscp_map': {'parent': 'forwarding-group-dscp-map-entries', 'child': 'forwarding-group-dscp-map-entry', 'attr': 'tc,dscp,fwd-group,dscp'},
-                 'tc_to_pg_map': {'parent': 'forwarding-group-priority-group-map-entries', 'child': 'forwarding-group-priority-group-map-entry', 'attr':'tc,pg,fwd-group,priority-group-index'},
+                 'tc_to_pg_map': {'parent': 'forwarding-group-priority-group-map-entries', 'child': 'forwarding-group-priority-group-map-entry', 'attr': 'tc,pg,fwd-group,priority-group-index'},
                  'tc_to_queue_map': {'parent': 'forwarding-group-queue-map-entries', 'child': 'forwarding-group-queue-map-entry', 'attr': 'tc,queue,fwd-group,output-queue-index'}}
     if table not in table_map:
         st.error("Invalid map: {}".format(table))
@@ -806,18 +1035,87 @@ def verify_qos_map_table(dut, type, obj_name, mapping_dict, **kwargs):
     Eg: verify_qos_map_table(vars.D1, 'pfc_to_queue_map', 'AZURE', {"1": "1", "2": "2"})
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    output = show_qos_map_table(dut, type, obj_name, cli_type=cli_type)
     mapping_dict = get_non_range_map_data_from_range_map_data(mapping_dict)
-    if output:
-        params_map = {'dot1p_to_tc_map': ['dot1p', 'tc'], 'dscp_to_tc_map': ['dscp', 'tc'], 'pfc_to_queue_map': ['pfc_priority', 'queue'], 'tc_to_dot1p_map': ['tc', 'dot1p'], 'tc_to_dscp_map': ['tc', 'dscp'], 'tc_to_pg_map': ['tc', 'pg'], 'tc_to_queue_map': ['tc', 'queue']}
-        param1, param2 = params_map[type]
-        for key, value in mapping_dict.items():
-            match = {'table': obj_name, param1: str(key), param2: str(value)}
-            ent = filter_and_select(output, None, match)
-            if not ent:
-                st.error("entry not found for {}: {}, {}: {} in {}: {}".format(param1, key, param2, value, type, obj_name))
-                return False
-    return True
+    if cli_type in get_supported_ui_type_list():
+        gnmi_result = True
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        qos_obj = umf_qos.Qos()
+        if type == 'dot1p_to_tc_map':
+            dot1p_obj = umf_qos.Dot1pMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                dot1p_tc_dict = {"Dot1p": int(key), "FwdGroup": str(value)}
+                dot1p_map_obj = umf_qos.Dot1pMapEntry(**dot1p_tc_dict)
+                dot1p_obj.add_Dot1pMapEntry(dot1p_map_obj)
+            verify_obj = dot1p_obj
+        elif type == 'dscp_to_tc_map':
+            dscp_obj = umf_qos.DscpMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                dscp_tc_dict = {"Dscp": int(key), "FwdGroup": str(value)}
+                dscp_entry_obj = umf_qos.DscpMapEntry(**dscp_tc_dict)
+                dscp_obj.add_DscpMapEntry(dscp_entry_obj)
+            verify_obj = dscp_obj
+        elif type == 'pfc_to_queue_map':
+            pfcq_obj = umf_qos.PfcPriorityQueueMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                pfcq_dict = {"Dot1p": int(key), "OutputQueueIndex": int(value)}
+                pfcq_entry_obj = umf_qos.PfcPriorityQueueMapEntry(**pfcq_dict)
+                pfcq_obj.add_PfcPriorityQueueMapEntry(pfcq_entry_obj)
+            verify_obj = pfcq_obj
+        elif type == 'tc_to_dot1p_map':
+            tcdot1p_obj = umf_qos.ForwardingGroupDot1pMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                tc_dot1p_dict = {"FwdGroup": str(key), "Dot1p": int(value)}
+                tcdot1p_entry_obj = umf_qos.ForwardingGroupDot1pMapEntry(**tc_dot1p_dict)
+                tcdot1p_obj.add_ForwardingGroupDot1pMapEntry(tcdot1p_entry_obj)
+            verify_obj = tcdot1p_obj
+        elif type == 'tc_to_dscp_map':
+            tcdscp_obj = umf_qos.ForwardingGroupDscpMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                tc_dscp_dict = {"FwdGroup": str(key), "Dscp": int(value)}
+                tcdscp_entry_obj = umf_qos.ForwardingGroupDscpMapEntry(**tc_dscp_dict)
+                tcdscp_obj.add_ForwardingGroupDscpMapEntry(tcdscp_entry_obj)
+            verify_obj = tcdscp_obj
+        elif type == 'tc_to_pg_map':
+            tcpg_obj = umf_qos.ForwardingGroupPriorityGroupMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                tc_pg_dict = {"FwdGroup": str(key), "PriorityGroupIndex": int(value)}
+                tcpg_entry_obj = umf_qos.ForwardingGroupPriorityGroupMapEntry(**tc_pg_dict)
+                tcpg_obj.add_ForwardingGroupPriorityGroupMapEntry(tcpg_entry_obj)
+            verify_obj = tcpg_obj
+        elif type == 'tc_to_queue_map':
+            tcq_obj = umf_qos.ForwardingGroupQueueMap(Name=obj_name, Qos=qos_obj)
+            for key, value in mapping_dict.items():
+                tcq_dict = {"FwdGroup": str(key), "OutputQueueIndex": int(value)}
+                tcqmap_obj = umf_qos.ForwardingGroupQueueMapEntry(**tcq_dict)
+                tcq_obj.add_ForwardingGroupQueueMapEntry(tcqmap_obj)
+            verify_obj = tcq_obj
+        else:
+            st.error("Invalid type: {}".format(type))
+            return False
+        result = verify_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log("GNMI verify failed for qos map {} : {}".format(type, obj_name))
+            gnmi_result = False
+        return gnmi_result
+    else:
+        output = show_qos_map_table(dut, type, obj_name, cli_type=cli_type)
+        if output:
+            params_map = {'dot1p_to_tc_map': ['dot1p', 'tc'], 'dscp_to_tc_map': ['dscp', 'tc'],
+                          'pfc_to_queue_map': ['pfc_priority', 'queue'], 'tc_to_dot1p_map': ['tc', 'dot1p'],
+                          'tc_to_dscp_map': ['tc', 'dscp'], 'tc_to_pg_map': ['tc', 'pg'],
+                          'tc_to_queue_map': ['tc', 'queue']}
+            param1, param2 = params_map[type]
+            for key, value in mapping_dict.items():
+                match = {'table': obj_name, param1: str(key), param2: str(value)}
+                ent = filter_and_select(output, None, match)
+                if not ent:
+                    st.error("entry not found for {}: {}, {}: {} in {}: {}".format(param1, key,
+                                                                                   param2, value, type, obj_name))
+                    return False
+            return True
+        else:
+            return False
 
 
 def get_non_range_map_data_from_range_map_data(dict_data):
@@ -828,16 +1126,17 @@ def get_non_range_map_data_from_range_map_data(dict_data):
     :type dict_data:
     """
     retval = dict()
-    for key,value in dict_data.items():
-        temp=list()
+    for key, value in dict_data.items():
+        temp = list()
         key, value = str(key).replace(" ", "").replace(",", " "), str(value)
-        range_entries=re.findall(r'\d+\-\d+', key)
+        range_entries = re.findall(r'\d+\-\d+', key)
         if range_entries:
-            for entry in range_entries:key=key.replace(entry, "")
             for entry in range_entries:
-                ents=entry.split("-")
-                temp.extend([str(i) for i in range(int(ents[0]), int(ents[1])+1)])
+                key = key.replace(entry, "")
+            for entry in range_entries:
+                ents = entry.split("-")
+                temp.extend([str(i) for i in range(int(ents[0]), int(ents[1]) + 1)])
         temp.extend(re.findall(r"\d+", key))
-        retval.update({i:value for i in temp})
+        retval.update({i: value for i in temp})
     st.debug("The updated non-range map data is: {}".format(retval))
     return retval
