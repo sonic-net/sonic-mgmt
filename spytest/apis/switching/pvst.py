@@ -1,21 +1,37 @@
 import re
-
-from spytest import st, cutils
-
-import apis.switching.portchannel as portchannel
-import apis.system.basic as basic
-import apis.switching.mac as mac_api
 import json
 import copy
-import utilities.utils as utils
-from utilities.parallel import ensure_no_exception, exec_foreach, exec_all, ExecAllFunc
+
+from spytest import st
+
+from apis.switching import portchannel
+from apis.system import basic
+import apis.switching.mac as mac_api
 from apis.system.rest import config_rest, delete_rest, get_rest
+
+from utilities import utils
+import utilities.common as cutils
+from utilities.parallel import ExecAllFunc, exec_all, exec_foreach
+from utilities.utils import segregate_intf_list_type, is_a_single_intf
+from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
+
+try:
+    import apis.yang.codegen.messages.spanning_tree.SpanningTree as umf_stp
+except ImportError:
+    pass
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
+
 
 debug_log_path = r"/var/log/stplog"
 SHOW_STP_VLAN = "show spanning_tree vlan {}"
 SHOW_STP_VLAN_KLISH = "show spanning-tree vlan {}"
 BLOCKING_STATE = "BLOCKING"
 CONFIGURED_STP_PROTOCOL = dict()
+
 
 def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
@@ -28,13 +44,40 @@ def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type
     :param cli_type:
     :return:
     """
-    global CONFIGURED_STP_PROTOCOL
     CONFIGURED_STP_PROTOCOL[dut] = feature
-    featureMap = {"pvst":"pvst", "rpvst":"rapid-pvst"}
+    featureMap = {"pvst": "pvst", "rpvst": "rapid-pvst", "mstp": "mst"}
+    if featureMap[feature] == 'mst':
+        cli_type = "klish" if cli_type == "click" else cli_type
     command = ''
     no_form = 'no' if mode != 'enable' else ""
     st.log("{} spanning_tree {}".format(mode, feature))
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        result_val = True
+        if vlan:
+            stp_gbl_obj = umf_stp.Stp(DisabledVlans=[vlan])
+            if mode == 'disable':
+                result = stp_gbl_obj.configure(dut, cli_type=cli_type)
+            else:
+                command = "spanning-tree vlan {}".format(vlan)
+                st.config(dut, command, type='klish')
+                result_val = False
+        else:
+            featureMap = {"pvst": "PVST", "rpvst": "RAPID_PVST", "mstp": "MSTP"}
+            if feature == 'mstp':
+                stp_gbl_obj = umf_stp.Stp(EnabledProtocol=featureMap[feature], GlobalHelloTime=2, GlobalMaxAge=20, GlobalForwardingDelay=15, BridgePriority=32768, BpduFilter=False)
+            else:
+                stp_gbl_obj = umf_stp.Stp(EnabledProtocol=featureMap[feature], GlobalHelloTime=2, GlobalMaxAge=20, GlobalForwardingDelay=15, BridgePriority=32768, BpduFilter=False, RootguardTimeout=30)
+            if mode == 'enable':
+                result = stp_gbl_obj.configure(dut, cli_type=cli_type)
+                if feature != 'mstp':
+                    result = stp_gbl_obj.unConfigure(dut, target_attr=stp_gbl_obj.RootguardTimeout, cli_type=cli_type)
+            else:
+                result = stp_gbl_obj.unConfigure(dut, cli_type=cli_type)
+        if result_val and not result.ok():
+            st.log('test_step_failed: Enabling of STP {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'click':
         if vlan:
             command = "config spanning_tree vlan {} {}".format(mode, vlan)
         else:
@@ -88,6 +131,8 @@ def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
+    return True
+
 
 def config_stp_parameters(dut, no_form='', **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
@@ -102,20 +147,36 @@ def config_stp_parameters(dut, no_form='', **kwargs):
     """
     no_form = 'no' if no_form else ''
 
-    for each_key in kwargs.keys():
-        if cli_type == 'click':
-            command = "config spanning_tree {} {}".format(each_key, kwargs[each_key])
-        elif cli_type == 'klish':
-            if each_key == 'max_age':
-                command = "{} spanning-tree max-age {}".format(no_form, kwargs[each_key])
-            elif each_key == 'forward_delay':
-                command = "{} spanning-tree forward-time {}".format(no_form, kwargs[each_key])
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        for each_key in kwargs.keys():
+            if each_key == "forward_delay":
+                setattr(stp_gbl_obj, 'GlobalForwardingDelay', int(kwargs[each_key]))
+            elif each_key == "max_age":
+                setattr(stp_gbl_obj, 'GlobalMaxAge', int(kwargs[each_key]))
             else:
-                command = "{} spanning-tree {} {}".format(no_form, each_key, kwargs[each_key])
-        else:
-            st.error("Invalid CLI type - {}".format(cli_type))
-            return
-        st.config(dut, command, type=cli_type)
+                setattr(stp_gbl_obj, 'BridgePriority', int(kwargs[each_key]))
+        result = stp_gbl_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Configuring global STP parameters {}'.format(result.data))
+            return False
+    elif cli_type == 'click':
+        for each_key in kwargs.keys():
+            command = "config spanning_tree {} {}".format(each_key, int(kwargs[each_key]))
+            st.config(dut, command, type=cli_type)
+    elif cli_type == 'klish':
+        for each_key in kwargs.keys():
+            if each_key == 'max_age':
+                command = "{} spanning-tree max-age {}".format(no_form, int(kwargs[each_key]))
+            elif each_key == 'forward_delay':
+                command = "{} spanning-tree forward-time {}".format(no_form, int(kwargs[each_key]))
+            else:
+                command = "{} spanning-tree {} {}".format(no_form, each_key, int(kwargs[each_key]))
+            st.config(dut, command, type=cli_type)
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+    return True
 
 
 def config_stp_vlan_parameters(dut, vlan, **kwargs):
@@ -128,23 +189,101 @@ def config_stp_vlan_parameters(dut, vlan, **kwargs):
     :return:
     """
     no_form = 'no' if kwargs.setdefault('no_form', False) else ''
+    instance = kwargs.pop('instance', None)
     if 'cli_type' in kwargs:
         del kwargs['cli_type']
     del kwargs['no_form']
-    click_2_klish = {'forward_delay': 'forward-time', 'hello': 'hello-time', 'max_age': 'max-age'}
-
-    for each_key, value in kwargs.items():
-        if cli_type == 'click':
+    click_2_klish = {'forward_delay': 'forward-time', 'hello': 'hello-time', 'max_age': 'max-age', 'max_hops': 'max-hops'}
+    mode = kwargs.pop('mode', 'pvst')
+    if mode == 'mstp':
+        cli_type = 'klish' if cli_type == 'click' else cli_type
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        res = True
+        flag1, flag2 = False, False
+        if mode == 'mstp':
+            for each_key, value in kwargs.items():
+                if each_key == "forward_delay":
+                    flag1 = True
+                    setattr(stp_gbl_obj, 'MstpForwardingDelay', int(value))
+                elif each_key == "hello":
+                    flag1 = True
+                    setattr(stp_gbl_obj, 'MstpHelloTime', int(value))
+                elif each_key == "max_age":
+                    flag1 = True
+                    setattr(stp_gbl_obj, 'MstpMaxAge', int(value))
+                elif each_key == "priority":
+                    flag2 = True
+                    stp_mst_inst_obj = umf_stp.MstInstance(MstId=int(instance), Stp=stp_gbl_obj)
+                    setattr(stp_mst_inst_obj, 'BridgePriority', int(value))
+            if flag1 is True and flag2 is True:
+                result = stp_gbl_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    res = False
+                result = stp_mst_inst_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    res = False
+            elif flag1 is True:
+                result = stp_gbl_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    res = False
+            else:
+                result = stp_mst_inst_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    res = False
+        elif CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+            stp_vlan_obj = umf_stp.Vlans(VlanId=int(vlan), Stp=stp_gbl_obj)
+            for each_key, value in kwargs.items():
+                if each_key == "forward_delay":
+                    setattr(stp_vlan_obj, 'ForwardingDelay', int(value))
+                elif each_key == "hello":
+                    setattr(stp_vlan_obj, 'HelloTime', int(value))
+                elif each_key == "max_age":
+                    setattr(stp_vlan_obj, 'MaxAge', int(value))
+                elif each_key == "priority":
+                    setattr(stp_vlan_obj, 'BridgePriority', int(value))
+            result = stp_vlan_obj.configure(dut, cli_type=cli_type)
+            if not result.ok():
+                res = False
+        elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
+            stp_vlan_obj = umf_stp.Vlan(VlanId=int(vlan), Stp=stp_gbl_obj)
+            for each_key, value in kwargs.items():
+                if each_key == "forward_delay":
+                    setattr(stp_vlan_obj, 'ForwardingDelay', int(value))
+                elif each_key == "hello":
+                    setattr(stp_vlan_obj, 'HelloTime', int(value))
+                elif each_key == "max_age":
+                    setattr(stp_vlan_obj, 'MaxAge', int(value))
+                elif each_key == "priority":
+                    setattr(stp_vlan_obj, 'BridgePriority', int(value))
+            result = stp_vlan_obj.configure(dut, cli_type=cli_type)
+            if not result.ok():
+                res = False
+        if not res:
+            st.log('test_step_failed: Configuring STP vlan interface parameters {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'click':
+        for each_key, value in kwargs.items():
             command = "config spanning_tree vlan {} {} {}".format(each_key, vlan, value)
             st.config(dut, command, type=cli_type)
-        elif cli_type == 'klish':
+    elif cli_type == 'klish':
+        for each_key, value in kwargs.items():
             each_key1 = click_2_klish.get(each_key, each_key)
             if not each_key1:
                 st.error("Provided Key not found")
                 return False
-            command = "{} spanning-tree vlan {} {} {}".format(no_form, vlan, each_key1, value)
+            value = "" if no_form else value
+            if mode == 'mstp':
+                if each_key1 == 'priority':
+                    command = ["{} spanning-tree mst {} {} {}".format(no_form, instance, each_key1, value)]
+                else:
+                    command = ["{} spanning-tree mst {} {}".format(no_form, each_key1, value)]
+            else:
+                command = "{} spanning-tree vlan {} {} {}".format(no_form, vlan, each_key1, value)
             st.config(dut, command, type=cli_type)
-        elif cli_type in ["rest-put", "rest-patch"]:
+    elif cli_type in ["rest-put", "rest-patch"]:
+        for each_key, value in kwargs.items():
             cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
             rest_urls = st.get_datastore(dut, "rest_urls")
             map = {'forward_delay': 'forwarding-delay', 'hello': 'hello-time', 'max_age': 'max-age', 'priority': 'bridge-priority'}
@@ -177,9 +316,11 @@ def config_stp_vlan_parameters(dut, vlan, **kwargs):
                     payload["openconfig-spanning-tree:bridge-priority"] = value
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                 return False
-        else:
-            st.log("Invalid cli_type provided: {}".format(cli_type))
-            return False
+    else:
+        st.log("Invalid cli_type provided: {}".format(cli_type))
+        return False
+    return True
+
 
 def config_stp_vlan_parameters_parallel(dut_list, thread=True, **kwargs):
     cli_type = st.get_ui_type(dut_list[0], **kwargs)
@@ -193,16 +334,22 @@ def config_stp_vlan_parameters_parallel(dut_list, thread=True, **kwargs):
     :return:
     """
     st.log("Configuring STP vlan parameters in paraller on all DUT's ... ")
+    st.log("kwargs : {}".format(kwargs))
+    mode = kwargs.pop('mode', 'pvst')
+    if mode == "mstp":
+        inst_li = list(kwargs['instance']) if isinstance(kwargs['instance'], list) else [kwargs['instance']]
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     vlan_li = list(kwargs['vlan']) if isinstance(kwargs['vlan'], list) else [kwargs['vlan']]
     priority_li = list(kwargs['priority']) if isinstance(kwargs['priority'], list) else [kwargs['priority']]
     if not len(dut_li) == len(vlan_li) == len(priority_li):
         return False
     params = list()
-    for i,each in enumerate(dut_list):
-        params.append(ExecAllFunc(config_stp_vlan_parameters, each, vlan_li[i], priority=priority_li[i], cli_type=cli_type))
-    [out, exceptions] = exec_all(thread, params)
-    ensure_no_exception(exceptions)
+    for i, each in enumerate(dut_list):
+        if mode == "mstp":
+            params.append(ExecAllFunc(config_stp_vlan_parameters, each, vlan_li[i], instance=inst_li[i], priority=priority_li[i], mode=mode, cli_type=cli_type))
+        else:
+            params.append(ExecAllFunc(config_stp_vlan_parameters, each, vlan_li[i], priority=priority_li[i], cli_type=cli_type))
+    [out, _] = exec_all(thread, params)
     return False if False in out else True
 
 
@@ -218,24 +365,72 @@ def config_stp_vlan_interface(dut, vlan, iface, value, mode='cost', **kwargs):
     :return:
     """
     no_form = 'no' if kwargs.get('no_form') else ''
-
+    st_mode = kwargs.get('st_mode', 'pvst')
+    st_inst = kwargs.pop('st_inst', 0)
+    if st_mode == "mstp":
+        cli_type = 'klish' if cli_type == 'click' else cli_type
     if mode in ['cost', 'priority']:
-        if cli_type == 'click':
-            command = "config spanning_tree vlan interface {} {} {} {} ".format(mode, vlan, iface, value)
+        command = list()
+        if cli_type in get_supported_ui_type_list():
+            port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+            interface_list = port_hash_list['intf_list_all']
+            for intf in interface_list:
+                stp_gbl_obj = umf_stp.Stp()
+                if st_mode == "mstp":
+                    stp_mst_inst_obj = umf_stp.MstInstance(MstId=st_inst, Stp=stp_gbl_obj)
+                    if mode == 'cost':
+                        stp_mst_intf_obj = umf_stp.MstInstanceInterface(Name=intf, Cost=value, MstInstance=stp_mst_inst_obj)
+                    else:
+                        stp_mst_intf_obj = umf_stp.MstInstanceInterface(Name=intf, PortPriority=value, MstInstance=stp_mst_inst_obj)
+                    result = stp_mst_intf_obj.configure(dut, cli_type=cli_type)
+                elif CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+                    stp_vlan_obj = umf_stp.Vlans(VlanId=vlan, Stp=stp_gbl_obj)
+                    if mode == 'cost':
+                        stp_vlan_intf_obj = umf_stp.VlansInterface(Name=intf, Cost=value, Vlans=stp_vlan_obj)
+                    else:
+                        stp_vlan_intf_obj = umf_stp.VlansInterface(Name=intf, PortPriority=value, Vlans=stp_vlan_obj)
+                    result = stp_vlan_intf_obj.configure(dut, cli_type=cli_type)
+                elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
+                    stp_vlan_obj = umf_stp.Vlan(VlanId=vlan, Stp=stp_gbl_obj)
+                    if mode == 'cost':
+                        stp_vlan_intf_obj = umf_stp.VlanInterface(Name=intf, Cost=value, Vlan=stp_vlan_obj)
+                    else:
+                        stp_vlan_intf_obj = umf_stp.VlanInterface(Name=intf, PortPriority=value, Vlan=stp_vlan_obj)
+                    result = stp_vlan_intf_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: Configuring of vlan interface/mstp instance parameters {}'.format(result.data))
+                    return False
+            return True
+        elif cli_type == 'click':
+            port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+            interface_list = port_hash_list['intf_list_all']
+            for intf in interface_list:
+                command.append("config spanning_tree vlan interface {} {} {} {} ".format(mode, vlan, intf, value))
             st.config(dut, command, type=cli_type)
         elif cli_type == 'klish':
             mode = "port-priority" if mode == "priority" else mode
-            interface_data = utils.get_interface_number_from_name(iface)
-            command = ['interface {} {}'.format(interface_data["type"], interface_data["number"]),
-                       '{} spanning-tree vlan {} {} {}'.format(no_form, vlan, mode, value), "exit"]
+            port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+            interface_list = port_hash_list['intf_list_all']
+            for intf in interface_list:
+                if not is_a_single_intf(intf):
+                    command.append("interface range {}".format(intf))
+                else:
+                    intf = get_interface_number_from_name(intf)
+                    command.append("interface {} {}".format(intf['type'], intf['number']))
+                value = '' if no_form else value
+                if st_mode == "mstp":
+                    command.append('{} spanning-tree mst {} {} {}'.format(no_form, st_inst, mode, value))
+                else:
+                    command.append('{} spanning-tree vlan {} {} {}'.format(no_form, vlan, mode, value))
+                command.append("exit")
             st.config(dut, command, type=cli_type)
         elif cli_type in ["rest-put", "rest-patch"]:
             cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
             rest_urls = st.get_datastore(dut, "rest_urls")
             url = rest_urls['{}_vlan_interface_parameters_config'.format(CONFIGURED_STP_PROTOCOL[dut])]
             if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
-                node = "openconfig-spanning-tree-ext:vlan"
-                payload = json.loads("""{"openconfig-spanning-tree-ext:vlan": [
+                node = "openconfig-spanning-tree-ext:vlans"
+                payload = json.loads("""{"openconfig-spanning-tree-ext:vlans": [
                                             {
                                               "vlan-id": 0,
                                               "interfaces": {
@@ -270,26 +465,27 @@ def config_stp_vlan_interface(dut, vlan, iface, value, mode='cost', **kwargs):
                                       ]
                                     }""")
 
-            if mode == "cost":
+            port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+            interface_list = port_hash_list['intf_list_all']
+            for intf in interface_list:
                 payload[node][0]["vlan-id"] = vlan
-                payload[node][0]["interfaces"]["interface"][0]["name"] = iface
-                payload[node][0]["interfaces"]["interface"][0]["config"]["name"] = iface
-                payload[node][0]["interfaces"]["interface"][0]["config"]["cost"] = value
-            else:
-                payload[node][0]["vlan-id"] = vlan
-                payload[node][0]["interfaces"]["interface"][0]["name"] = iface
-                payload[node][0]["interfaces"]["interface"][0]["config"]["name"] = iface
-                payload[node][0]["interfaces"]["interface"][0]["config"]["port-priority"] = value
-            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
-                return False
+                payload[node][0]["interfaces"]["interface"][0]["name"] = intf
+                payload[node][0]["interfaces"]["interface"][0]["config"]["name"] = intf
+                if mode == "cost":
+                    payload[node][0]["interfaces"]["interface"][0]["config"]["cost"] = value
+                else:
+                    payload[node][0]["interfaces"]["interface"][0]["config"]["port-priority"] = value
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
         else:
             st.log("Invalid cli_type provided: {}".format(cli_type))
             return False
     else:
         st.log("Invalid mode = {}".format(mode))
-        return
+        return False
 
-def config_stp_enable_interface(dut, iface, mode="enable", cli_type=""):
+
+def config_stp_enable_interface(dut, iface, mode="enable", cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
 
@@ -298,22 +494,37 @@ def config_stp_enable_interface(dut, iface, mode="enable", cli_type=""):
     :param mode:
     :return:
     """
-    if cli_type == "click":
-        command = "config spanning_tree interface {} {}".format(mode, iface)
+    command = list()
+    port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+    interface_list = port_hash_list['intf_list_all']
+    if cli_type in get_supported_ui_type_list():
+        mode_dict = {'enable': True, 'disable': False}
+        for intf in interface_list:
+            stp_intf_obj = umf_stp.StpInterface(Name=intf, SpanningTreeEnable=mode_dict[mode])
+            result = stp_intf_obj.configure(dut, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Enabling of STP on interface {}'.format(result.data))
+                return False
+        return True
+    elif cli_type == "click":
+        for intf in interface_list:
+            command.append("config spanning_tree interface {} {}".format(mode, intf))
         st.config(dut, command, type=cli_type)
     elif cli_type == "klish":
-        interface_data = utils.get_interface_number_from_name(iface)
-        command = ['interface {} {}'.format(interface_data["type"], interface_data["number"])]
-        if mode =="enable":
-            command.append("spanning-tree {}".format(mode))
-        else:
-            command.append("no spanning-tree enable")
-        command.append("exit")
+        for intf in interface_list:
+            if not is_a_single_intf(intf):
+                command.append("interface range {}".format(intf))
+            else:
+                intf = get_interface_number_from_name(intf)
+                command.append("interface {} {}".format(intf['type'], intf['number']))
+            if mode == "enable":
+                command.append("spanning-tree {}".format(mode))
+            else:
+                command.append("no spanning-tree enable")
+            command.append("exit")
         st.config(dut, command, type=cli_type)
     elif cli_type in ["rest-put", "rest-patch"]:
         cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
-        rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls['stp_interface_config_enable'].format(iface)
         if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
             if mode == "enable":
                 payload = json.loads("""{"openconfig-spanning-tree-ext:spanning-tree-enable": true}""")
@@ -324,16 +535,20 @@ def config_stp_enable_interface(dut, iface, mode="enable", cli_type=""):
                 payload = json.loads("""{"openconfig-spanning-tree:spanning-tree-enable": true}""")
             else:
                 payload = json.loads("""{"openconfig-spanning-tree:spanning-tree-enable": false}""")
-        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
-            return False
+        for intf in interface_list:
+            rest_urls = st.get_datastore(dut, "rest_urls")
+            url = rest_urls['stp_interface_config_enable'].format(intf)
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                return False
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
+    return True
+
 
 def config_stp_interface_params(dut, iface, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
     """
-
     :param dut:
     :param iface:
     :param cli_type:
@@ -341,45 +556,108 @@ def config_stp_interface_params(dut, iface, **kwargs):
     :return:
     """
     click_2_klish = {"root_guard": " guard root", "bpdu_guard": "bpduguard ", "portfast": "portfast",
-                     "uplink_fast": "uplinkfast"}
-
-    if cli_type == 'click':
-        for each_key in kwargs.keys():
-            if each_key == "priority" or each_key == "cost":
-                command = "config spanning_tree interface {} {} {}".format(each_key, iface, kwargs[each_key])
-            elif each_key == "bpdu_guard_action":
-                command = "config spanning_tree interface bpdu_guard enable {} {}".format(iface, kwargs[each_key])
+                     "uplink_fast": "uplinkfast", "priority": "port-priority"}
+    command = list()
+    mode = kwargs.pop('mode', None)
+    if cli_type in get_supported_ui_type_list():
+        port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+        interface_list = port_hash_list['intf_list_all']
+        mode_dict = {'enable': True, 'disable': False}
+        guard_dict = {'root_guard': 'ROOT', 'loop_guard': "LOOP"}
+        ptype_dict = {'enable': 'EDGE_ENABLE', 'disable': 'EDGE_DISABLE'}
+        for intf in interface_list:
+            stp_gbl_obj = umf_stp.Stp()
+            stp_intf_obj = umf_stp.StpInterface(Name=intf, Stp=stp_gbl_obj)
+            for each_key in kwargs.keys():
+                flag = True
+                mode = 'disable' if kwargs[each_key] in ['disable', 'none'] else 'enable'
+                if each_key == "bpdufilter":
+                    setattr(stp_intf_obj, 'BpduFilter', mode_dict[mode])
+                elif each_key == "bpdu_guard":
+                    setattr(stp_intf_obj, 'BpduGuard', mode_dict[mode])
+                elif each_key == "bpdu_guard_action":
+                    setattr(stp_intf_obj, 'BpduGuardPortShutdown', mode_dict[mode])
+                elif each_key == "enable":
+                    setattr(stp_intf_obj, 'SpanningTreeEnable', mode_dict[mode])
+                elif each_key == "portfast":
+                    setattr(stp_intf_obj, 'Portfast', mode_dict[mode])
+                elif each_key == "port-type":
+                    setattr(stp_intf_obj, 'EdgePort', ptype_dict[mode])
+                elif each_key == "uplink_fast":
+                    setattr(stp_intf_obj, 'UplinkFast', mode_dict[mode])
+                elif each_key == "cost":
+                    if mode == 'enable':
+                        setattr(stp_intf_obj, 'Cost', int(kwargs[each_key]))
+                elif each_key == "link-type":
+                    if mode == 'enable':
+                        setattr(stp_intf_obj, 'LinkType', kwargs[each_key])
+                elif each_key == "priority":
+                    if mode == 'enable':
+                        setattr(stp_intf_obj, 'PortPriority', kwargs[each_key])
+                elif each_key in ["root_guard", "loop_guard"]:
+                    if mode == 'enable':
+                        setattr(stp_intf_obj, 'Guard', guard_dict[each_key])
+                    elif mode == "disable":
+                        flag = False
+            if flag:
+                result = stp_intf_obj.configure(dut, cli_type=cli_type)
             else:
-                command = "config spanning_tree interface {} {} {}".format(each_key, kwargs[each_key], iface)
+                result = stp_intf_obj.unConfigure(dut, target_attr=stp_intf_obj.Guard, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Configuring STP interface parameters {}'.format(result.data))
+                return False
+        return True
+    elif cli_type == 'click':
+        port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+        interface_list = port_hash_list['intf_list_all']
+        for intf in interface_list:
+            for each_key in kwargs.keys():
+                if each_key == "priority" or each_key == "cost":
+                    command.append("config spanning_tree interface {} {} {}".format(each_key, intf, kwargs[each_key]))
+                elif each_key == "bpdu_guard_action":
+                    command.append("config spanning_tree interface bpdu_guard enable {} {}".format(intf, kwargs[each_key]))
+                else:
+                    command.append("config spanning_tree interface {} {} {}".format(each_key, kwargs[each_key], intf))
             if not st.config(dut, command):
                 return False
-            return True
+        return True
     elif cli_type == 'klish':
-        interface_data = utils.get_interface_number_from_name(iface)
-        command = ['interface {} {}'.format(interface_data["type"], interface_data["number"])]
-        for each_key in kwargs.keys():
-            no_form = 'no' if kwargs[each_key] == 'disable' else ''
-            if each_key == "priority" or each_key == "cost":
-                command.append('spanning-tree {} {}'.format(each_key, kwargs[each_key]))
-            elif each_key == "bpdu_guard_action":
-                command.append('{} spanning-tree bpduguard port-shutdown'.format(no_form))
-            elif each_key == "loop_guard":
-                if kwargs[each_key] == "enable":
-                    command.append('spanning-tree guard loop')
-                elif kwargs[each_key] == "none":
-                    command.append('spanning-tree guard none')
-                elif kwargs[each_key] == "disable":
-                    command.append('no spanning-tree guard')
-            elif each_key == "root_guard":
-                if kwargs[each_key] == "enable":
-                    command.append('spanning-tree guard root')
-                elif kwargs[each_key] == "none":
-                    command.append('spanning-tree guard none')
-                elif kwargs[each_key] == "disable":
-                    command.append('no spanning-tree guard')
+        port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+        interface_list = port_hash_list['intf_list_all']
+        for intf in interface_list:
+            if not is_a_single_intf(intf):
+                command.append("interface range {}".format(intf))
             else:
-                command.append("{} spanning-tree {}".format(no_form, click_2_klish[each_key]))
-        command.append('exit')
+                intf = get_interface_number_from_name(intf)
+                command.append("interface {} {}".format(intf['type'], intf['number']))
+            for each_key in kwargs.keys():
+                no_form = 'no' if kwargs[each_key] == 'disable' else ''
+                if each_key == "priority" or each_key == "cost":
+                    value = kwargs[each_key]
+                    each_key = "port-priority" if each_key == "priority" else each_key
+                    if value == "disable":
+                        command.append('{} spanning-tree {}'.format(no_form, each_key))
+                    else:
+                        command.append('spanning-tree {} {}'.format(each_key, value))
+                elif each_key == "bpdu_guard_action":
+                    command.append('{} spanning-tree bpduguard port-shutdown'.format(no_form))
+                elif each_key == "loop_guard":
+                    if kwargs[each_key] == "enable":
+                        command.append('spanning-tree guard loop')
+                    elif kwargs[each_key] == "none":
+                        command.append('spanning-tree guard none')
+                    elif kwargs[each_key] == "disable":
+                        command.append('no spanning-tree guard')
+                elif each_key == "root_guard":
+                    if kwargs[each_key] == "enable":
+                        command.append('spanning-tree guard root')
+                    elif kwargs[each_key] == "none":
+                        command.append('spanning-tree guard none')
+                    elif kwargs[each_key] == "disable":
+                        command.append('no spanning-tree guard')
+                else:
+                    command.append("{} spanning-tree {}".format(no_form, click_2_klish[each_key]))
+            command.append('exit')
         out = st.config(dut, command, skip_error_check=True, type=cli_type)
         if "%Error" in out:
             return False
@@ -387,88 +665,95 @@ def config_stp_interface_params(dut, iface, **kwargs):
     elif cli_type in ["rest-put", "rest-patch"]:
         cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
         rest_urls = st.get_datastore(dut, "rest_urls")
-        for each_key in kwargs.keys():
-            flag = True
-            mode = 'disable' if kwargs[each_key] == 'disable' else 'enable'
-            if each_key == "bpdufilter":
-                url = rest_urls['stp_interface_config_bpdufilter'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": false}""")
-            elif each_key == "root_guard":
-                url = rest_urls['stp_interface_config_rootguard'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:guard": "ROOT"}""")
-                elif mode == "disable":
-                    flag = False
-                    if not delete_rest(dut, rest_url=url):
+        port_hash_list = segregate_intf_list_type(intf=iface, range_format=False)
+        interface_list = port_hash_list['intf_list_all']
+        for intf in interface_list:
+            for each_key in kwargs.keys():
+                flag = True
+                mode = 'disable' if kwargs[each_key] == 'disable' else 'enable'
+                if each_key == "bpdufilter":
+                    url = rest_urls['stp_interface_config_bpdufilter'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": false}""")
+                elif each_key == "root_guard":
+                    url = rest_urls['stp_interface_config_rootguard'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree:guard": "ROOT"}""")
+                    elif mode == "disable":
+                        flag = False
+                        if not delete_rest(dut, rest_url=url):
+                            return False
+                elif each_key == "loop_guard":
+                    url = rest_urls['stp_interface_config_rootguard'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree:guard": "LOOP"}""")
+                    elif mode == "disable":
+                        flag = False
+                        if not delete_rest(dut, rest_url=url):
+                            return False
+                elif each_key == "bpdu_guard":
+                    url = rest_urls['stp_interface_config_bpduguard'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree:bpdu-guard": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree:bpdu-guard": false}""")
+                elif each_key == "bpdu_guard_action":
+                    url = rest_urls['stp_interface_config_bpduguard_port_shutdown'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:bpdu-guard-port-shutdown": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:bpdu-guard-port-shutdown": false}""")
+                elif each_key == "cost":
+                    url = rest_urls['stp_interface_config_cost'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:cost": 0}""")
+                        payload["openconfig-spanning-tree-ext:cost"] = kwargs[each_key]
+                elif each_key == "enable":
+                    url = rest_urls['stp_interface_config_enable'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:spanning-tree-enable": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:spanning-tree-enable": false}""")
+                elif each_key == "link-type":
+                    url = rest_urls['stp_interface_config_linktype'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree:link-type": "P2P"}""")
+                        payload["openconfig-spanning-tree:link-type"] = kwargs[each_key]
+                elif each_key == "portfast":
+                    url = rest_urls['stp_interface_config_portfast'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:portfast": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:portfast": false}""")
+                elif each_key == "priority":
+                    url = rest_urls['stp_interface_config_port_priority'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:port-priority": 0}""")
+                        payload["openconfig-spanning-tree-ext:port-priority"] = kwargs[each_key]
+                elif each_key == "port-type":
+                    url = rest_urls['stp_interface_config_edgeport'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads(
+                            """{"openconfig-spanning-tree:edge-port": "openconfig-spanning-tree-types:EDGE_ENABLE"}""")
+                    elif mode == "disable":
+                        payload = json.loads(
+                            """{"openconfig-spanning-tree:edge-port": "openconfig-spanning-tree-types:EDGE_DISABLE}""")
+                elif each_key == "uplink_fast":
+                    url = rest_urls['stp_interface_config_uplinkfast'].format(intf)
+                    if mode == "enable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:uplink-fast": true}""")
+                    elif mode == "disable":
+                        payload = json.loads("""{"openconfig-spanning-tree-ext:uplink-fast": false}""")
+                if flag:
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                         return False
-            elif each_key == "loop_guard":
-                url = rest_urls['stp_interface_config_rootguard'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:guard": "LOOP"}""")
-                elif mode == "disable":
-                    flag = False
-                    if not delete_rest(dut, rest_url=url):
-                        return False
-            elif each_key == "bpdu_guard":
-                url = rest_urls['stp_interface_config_bpduguard'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-guard": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-guard": false}""")
-            elif each_key == "bpdu_guard_action":
-                url = rest_urls['stp_interface_config_bpduguard_port_shutdown'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:bpdu-guard-port-shutdown": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:bpdu-guard-port-shutdown": false}""")
-            elif each_key == "cost":
-                url = rest_urls['stp_interface_config_cost'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:cost": 0}""")
-                    payload["openconfig-spanning-tree-ext:cost"] = kwargs[each_key]
-            elif each_key == "enable":
-                url = rest_urls['stp_interface_config_enable'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:spanning-tree-enable": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:spanning-tree-enable": false}""")
-            elif each_key == "link-type":
-                url = rest_urls['stp_interface_config_linktype'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:link-type": "P2P"}""")
-                    payload["openconfig-spanning-tree:link-type"] = kwargs[each_key]
-            elif each_key == "portfast":
-                url = rest_urls['stp_interface_config_portfast'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:portfast": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:portfast": false}""")
-            elif each_key == "priority":
-                url = rest_urls['stp_interface_config_port_priority'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:port-priority": 0}""")
-                    payload["openconfig-spanning-tree-ext:port-priority"] = kwargs[each_key]
-            elif each_key == "port-type":
-                url = rest_urls['stp_interface_config_edgeport'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree:edge-port": "openconfig-spanning-tree-types:EDGE_ENABLE"}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree:edge-port": "openconfig-spanning-tree-types:EDGE_DISABLE}""")
-            elif each_key == "uplink_fast":
-                url = rest_urls['stp_interface_config_uplinkfast'].format(iface)
-                if mode == "enable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:uplink-fast": true}""")
-                elif mode == "disable":
-                    payload = json.loads("""{"openconfig-spanning-tree-ext:uplink-fast": false}""")
-            if flag:
-                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
-                    return False
+        return True
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
+
 
 def config_stp_interface(dut, iface, mode="enable", cli_type=""):
     """
@@ -478,12 +763,13 @@ def config_stp_interface(dut, iface, mode="enable", cli_type=""):
     :param mode:
     :return:
     """
-    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    command = "config spanning_tree interface {} {} ".format(mode, iface)
-    st.config(dut, command)
+    return config_stp_enable_interface(dut, iface, mode=mode, cli_type=cli_type)
+
 
 def show_stp(dut, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skiperr = kwargs.pop('skip_error', False)
     """
 
     :param dut:
@@ -504,10 +790,13 @@ def show_stp(dut, **kwargs):
                 command = "show spanning-tree inconsistentports"
             else:
                 command = "show spanning-tree {}".format(kwargs['sub_cmd'])
-    return st.show(dut, command, type=cli_type)
+    return st.show(dut, command, type=cli_type, skip_error_check=skiperr)
 
-def show_stp_vlan(dut, vlan, cli_type=""):
+
+def show_stp_vlan(dut, vlan, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skip_error_check = kwargs.get("skip_error_check", False)
     """
 
     :param dut:
@@ -517,18 +806,21 @@ def show_stp_vlan(dut, vlan, cli_type=""):
     """
     output = ""
     st.log("show spanning_tree vlan <id>")
-    if cli_type=="click":
+    if cli_type == "click":
         command = SHOW_STP_VLAN.format(vlan)
         output = st.show(dut, command, type=cli_type)
     elif cli_type == "klish":
         command = SHOW_STP_VLAN_KLISH.format(vlan)
-        output = st.show(dut, command, type=cli_type)
+        try:
+            output = st.show(dut, command, skip_error_check=skip_error_check, type=cli_type)
+        except Exception:
+            return False
     elif cli_type in ["rest-put", "rest-patch"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         stp_output = []
         url = rest_urls['{}_vlan_show'.format(CONFIGURED_STP_PROTOCOL[dut])].format(vlan)
         if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
-            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree-ext:vlan"][0]
+            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree-ext:vlans"][0]
         elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
             payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree:vlan"][0]
         table_data = {'br_lasttopo': '0', 'rt_pathcost': '0', 'br_hello': '2', 'vid': '10', 'rt_maxage': '20', 'port_name': 'Ethernet0', 'port_pathcost': '2000', 'rt_fwddly': '15', 'br_id': '800a80a23597eac1', 'br_topoch': '0', 'port_desigcost': '0', 'stp_mode': 'PVST', 'port_state': 'LISTENING', 'role': '', 'br_maxage': '20', 'port_desigrootid': '800a80a23597eac1', 'rt_hello': '2', 'port_portfast': 'Y', 'p2pmac': '', 'port_priority': '128', 'inst': '0', 'br_fwddly': '15', 'edgeport': '', 'rt_id': '800a80a23597eac1', 'br_hold': '1', 'port_uplinkfast': 'N', 'rt_port': 'Root', 'rt_desigbridgeid': '800a80a23597eac1', 'port_desigbridgeid': '800a80a23597eac1', 'port_bpdufilter': ''}
@@ -579,8 +871,10 @@ def show_stp_vlan(dut, vlan, cli_type=""):
         return False
     return output
 
+
 def show_stp_vlan_iface(dut, vlan, iface, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     """
 
     :param dut:
@@ -597,15 +891,17 @@ def show_stp_vlan_iface(dut, vlan, iface, cli_type=""):
         return list()
     return st.show(dut, command, type=cli_type)
 
+
 def show_stp_stats(dut, cli_type=""):
     """
 
     :param dut:
     :return:
     """
-    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    # cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = "show spanning_tree statistics"
     return st.show(dut, command)
+
 
 def show_stp_stats_vlan(dut, vlan, cli_type=""):
     """
@@ -615,6 +911,7 @@ def show_stp_stats_vlan(dut, vlan, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
         command = "show spanning_tree statistics vlan {} ".format(vlan)
         return st.show(dut, command, type=cli_type)
@@ -626,7 +923,7 @@ def show_stp_stats_vlan(dut, vlan, cli_type=""):
         stp_output = []
         url = rest_urls['{}_vlan_show'.format(CONFIGURED_STP_PROTOCOL[dut])].format(vlan)
         if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
-            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree-ext:vlan"][0]
+            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree-ext:vlans"][0]
         elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
             payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree:vlan"][0]
 
@@ -653,6 +950,7 @@ def show_stp_stats_vlan(dut, vlan, cli_type=""):
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
 
+
 def debug_stp(dut, *argv):
     """
 
@@ -674,6 +972,7 @@ def debug_stp(dut, *argv):
         st.config(dut, command2)
     return True
 
+
 def get_debug_stp_log(dut, filter_list=[]):
     """"
 
@@ -693,6 +992,7 @@ def get_debug_stp_log(dut, filter_list=[]):
     out_list = reg_output.split('\n')
     return out_list
 
+
 def clear_debug_stp_log(dut):
     """
     :param dut:
@@ -701,6 +1001,7 @@ def clear_debug_stp_log(dut):
     command = "dd if=/dev/null of={}".format(debug_log_path)
     st.config(dut, command)
     return True
+
 
 def verify_stp_vlan_iface(dut, **kwargs):
     """
@@ -717,6 +1018,7 @@ def verify_stp_vlan_iface(dut, **kwargs):
             st.log("{} and {} is not match ".format(each, kwargs[each]))
             return False
     return True
+
 
 def verify_stp_statistics_vlan(dut, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
@@ -735,6 +1037,7 @@ def verify_stp_statistics_vlan(dut, **kwargs):
             return False
     return True
 
+
 def check_dut_is_root_bridge_for_vlan(dut, vlanid, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
@@ -743,41 +1046,18 @@ def check_dut_is_root_bridge_for_vlan(dut, vlanid, cli_type=""):
         :param vlanid:
         :return:
     """
-    if cli_type == "click":
-        cmd = SHOW_STP_VLAN.format(vlanid)
-        stp_output = st.show(dut, cmd, type=cli_type)
-    elif cli_type == "klish":
-        cmd = SHOW_STP_VLAN_KLISH.format(vlanid)
-        stp_output = st.show(dut, cmd, type=cli_type)
-    elif cli_type in ["rest-put", "rest-patch"]:
-        rest_urls = st.get_datastore(dut, "rest_urls")
-        stp_output = []
-        url = rest_urls['{}_vlan_show'.format(CONFIGURED_STP_PROTOCOL[dut])].format(vlanid)
-        table_data = {"rt_id": '', "br_id": '', "rt_port": ''}
-        if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
-            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree-ext:vlan"][0]
-            table_data["br_id"] = payload["state"]["bridge-address"]
-            table_data["rt_id"] = payload["state"]["designated-root-address"]
-            table_data["rt_port"] = payload["state"]["root-port-name"]
-        elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
-            payload = get_rest(dut, rest_url=url)["output"]["openconfig-spanning-tree:vlan"][0]
-            table_data["br_id"] = payload["state"]["bridge-address"]
-            table_data["rt_id"] = payload["state"]["designated-root-address"]
-            table_data["rt_port"] = payload["state"]["openconfig-spanning-tree-ext:root-port-name"]
-        stp_output.append(copy.deepcopy(table_data))
-    else:
-        st.log("Invalid cli_type provided: {}".format(cli_type))
-        return False
-
+    stp_output = show_stp_vlan(dut, vlanid, cli_type=cli_type)
     if len(stp_output) > 0:
-        root_bridge=stp_output[0]["rt_id"]
-        dut_bridge_id=stp_output[0]["br_id"]
+        root_bridge = stp_output[0]["rt_id"]
+        dut_bridge_id = stp_output[0]["br_id"]
         return (root_bridge == dut_bridge_id) and stp_output[0]["rt_port"] == "Root"
     else:
         return False
 
-def get_stp_bridge_param(dut, vlanid, bridge_param, cli_type=""):
+
+def get_stp_bridge_param(dut, vlanid, bridge_param, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     """
         This is used to provide value of the  bridge_param for given dut and vlanid
         :param dut:
@@ -818,26 +1098,35 @@ def get_stp_bridge_param(dut, vlanid, bridge_param, cli_type=""):
                              'rt_port',
                              'rt_maxage',
                              'rt_hello',
-                             'rt_fwddly']
+                             'rt_fwddly', 'oper_hello_time', 'oper_fwd_delay', 'oper_max_age', 'mst_instance', 'vlan_map', 'bridge_address', 'root_address', 'regional_root_address',
+                             'max_hops', 'internal_cost', 'rem_hops', 'path_cost']
+
+    mstp_mode = kwargs.get("mstp_mode", None)
+    cli_type = "klish" if (mstp_mode and cli_type == "click") else cli_type
 
     if bridge_param not in stp_bridge_param_list:
         st.error("Please provide the valid stp bridge parameter")
         return
     if cli_type == "click":
-        cmd = SHOW_STP_VLAN.format(vlanid)
-        stp_output = st.show(dut, cmd, type=cli_type)
+        stp_output = show_stp_vlan(dut, vlanid, cli_type=cli_type)
     elif cli_type == "klish":
-        cmd = SHOW_STP_VLAN_KLISH.format(vlanid)
-        stp_output = st.show(dut, cmd, type=cli_type)
+        if mstp_mode:
+            cmd = "show spanning-tree mst"
+            stp_output = st.show(dut, cmd, type=cli_type)
+            stp_output = cutils.filter_and_select(stp_output, None, {'mst_instance': vlanid})
+        else:
+            stp_output = show_stp_vlan(dut, vlanid, cli_type=cli_type)
     elif cli_type in ["rest-put", "rest-patch"]:
-        stp_output = show_stp_vlan(dut, vlanid)
+        stp_output = show_stp_vlan(dut, vlanid, cli_type=cli_type)
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
     return stp_output[0][bridge_param]
 
-def get_stp_port_param(dut, vlanid, ifname, ifparam, cli_type=""):
+
+def get_stp_port_param(dut, vlanid, ifname, ifparam, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     """
         This is used to provide value of the  bridge_param for given dut and vlanid
         :param dut:
@@ -863,17 +1152,28 @@ def get_stp_port_param(dut, vlanid, ifname, ifparam, cli_type=""):
                            'port_state',
                            'port_desigcost',
                            'port_desigrootid',
-                           'port_desigbridgeid']
+                           'port_desigbridgeid',
+                           'port_edgeport']
+
+    mstp_mode = kwargs.get("mstp_mode", None)
+    cli_type = "klish" if (mstp_mode and cli_type == "click") else cli_type
 
     if ifparam not in stp_port_param_list:
         st.error("Please provide the valid stp port parameter")
         return
     if cli_type == "click":
-        cmd = SHOW_STP_VLAN.format(vlanid)+" interface {}".format(ifname)
+        cmd = SHOW_STP_VLAN.format(vlanid) + " interface {}".format(ifname)
         stp_output = st.show(dut, cmd, type=cli_type)
     elif cli_type == "klish":
-        cmd = SHOW_STP_VLAN_KLISH.format(vlanid)+" interface {}".format(ifname)
-        stp_output = st.show(dut, cmd, type=cli_type)
+        if mstp_mode:
+            cmd = "show spanning-tree mst" + " interface {}".format(ifname)
+            stp_output = st.show(dut, cmd, type=cli_type)
+            stp_output = cutils.filter_and_select(stp_output, None, {'instance': vlanid})
+            if len(stp_output):
+                stp_output[0]["port_edgeport"] = "Y" if stp_output[0]["port_edgeport"] == "True" else "N"
+        else:
+            cmd = SHOW_STP_VLAN_KLISH.format(vlanid) + " interface {}".format(ifname)
+            stp_output = st.show(dut, cmd, type=cli_type)
     elif cli_type in ["rest-put", "rest-patch"]:
         stp_output = []
         rest_urls = st.get_datastore(dut, "rest_urls")
@@ -905,6 +1205,7 @@ def get_stp_port_param(dut, vlanid, ifname, ifparam, cli_type=""):
         return False
     return None if len(stp_output) == 0 else stp_output[0][ifparam]
 
+
 def get_default_root_bridge(dut_list, cli_type=""):
     cli_type = st.get_ui_type(dut_list[0], cli_type=cli_type)
     """
@@ -916,9 +1217,10 @@ def get_default_root_bridge(dut_list, cli_type=""):
     if duts_mac_list:
         min_mac_addr = min(duts_mac_list.values())
         root_bridge = [dut for dut, mac_addr in duts_mac_list.items() if mac_addr == min_mac_addr][0]
-        return  [dut for dut in dut_list if dut==root_bridge][0]
+        return [dut for dut in dut_list if dut == root_bridge][0]
     else:
         return None
+
 
 def get_duts_mac_address(duts, cli_type=""):
     """
@@ -927,16 +1229,17 @@ def get_duts_mac_address(duts, cli_type=""):
         :return : Duts and its mac addresses mapping
 
     """
-    #cli_type = st.get_ui_type(duts[0], cli_type=cli_type)
+    # cli_type = st.get_ui_type(duts[0], cli_type=cli_type)
     duts_mac_addresses = {}
     for dut in duts:
         if st.is_vsonic(dut):
             mac = basic.get_ifconfig_ether(dut)
             duts_mac_addresses[dut] = mac
             continue
-        duts_mac_addresses[dut] = mac_api.get_sbin_intf_mac(dut, "eth0").replace(":","")
+        duts_mac_addresses[dut] = mac_api.get_sbin_intf_mac(dut, "eth0").replace(":", "")
     st.log("DUT MAC ADDRESS -- {}".format(duts_mac_addresses))
     return duts_mac_addresses
+
 
 def _get_duts_list_in_order(vars, cli_type=""):
     cli_type = st.get_ui_type(vars, cli_type=cli_type)
@@ -946,9 +1249,10 @@ def _get_duts_list_in_order(vars, cli_type=""):
         :return : Duts and its mac addresses mapping
 
     """
-    duts_mac_addresses = get_duts_mac_address(vars["dut_list"],cli_type=cli_type)
+    duts_mac_addresses = get_duts_mac_address(vars["dut_list"], cli_type=cli_type)
 
     return sorted(zip(duts_mac_addresses.values(), duts_mac_addresses.keys()))
+
 
 def get_ports_based_on_state(vars, vlanid, port_state, dut=None, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
@@ -968,9 +1272,10 @@ def get_ports_based_on_state(vars, vlanid, port_state, dut=None, cli_type=""):
         selected_non_root = [dut_key for dut_key, dut_value in vars.items() if dut_value == dut][0]
     stp_output = show_stp_vlan(vars[selected_non_root], vlanid, cli_type=cli_type)
     ports_list = [row["port_name"] for row in stp_output if
-                     row["port_state"] == port_state and int(row["vid"]) == vlanid]
+                  row["port_state"] == port_state and int(row["vid"]) == vlanid]
 
     return ports_list
+
 
 def poll_for_root_switch(dut, vlanid, iteration=20, delay=1, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
@@ -995,7 +1300,8 @@ def poll_for_root_switch(dut, vlanid, iteration=20, delay=1, cli_type=""):
         i += 1
         st.wait(delay)
 
-def poll_for_stp_status(dut, vlanid, interface, status, iteration=20, delay=1, cli_type=""):
+
+def poll_for_stp_status(dut, vlanid, interface, status, iteration=20, delay=1, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to poll for stp stauts for an interface
@@ -1008,7 +1314,7 @@ def poll_for_stp_status(dut, vlanid, interface, status, iteration=20, delay=1, c
     """
     i = 1
     while True:
-        if get_stp_port_param(dut, vlanid, interface, "port_state", cli_type=cli_type) == status:
+        if get_stp_port_param(dut, vlanid, interface, "port_state", cli_type=cli_type, **kwargs) == status:
             st.log("Port status is changed to  {} after {} sec".format(status, i))
             return True
         if i > iteration:
@@ -1017,8 +1323,10 @@ def poll_for_stp_status(dut, vlanid, interface, status, iteration=20, delay=1, c
         i += 1
         st.wait(delay)
 
-def get_root_guard_details(dut, vlan=None, ifname=None , rg_param="rg_timeout", cli_type=""):
+
+def get_root_guard_details(dut, vlan=None, ifname=None, rg_param="rg_timeout", cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     """
      API will return Root Guard timeout if vlan and interface won't provide , otherwise Root Guard state will return
     :param dut:
@@ -1058,6 +1366,7 @@ def get_root_guard_details(dut, vlan=None, ifname=None , rg_param="rg_timeout", 
                 rg_value = row[rg_param]
     return rg_value
 
+
 def check_rg_current_state(dut, vlan, ifname, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
@@ -1073,8 +1382,10 @@ def check_rg_current_state(dut, vlan, ifname, cli_type=""):
     else:
         return rg_status == ""
 
+
 def check_bpdu_guard_action(dut, ifname, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     """
     API will check the BPDU Guard action config and it's operational status
     :param dut:
@@ -1124,6 +1435,7 @@ def check_bpdu_guard_action(dut, ifname, **kwargs):
         config_shut, opr_shut = "", ""
     return kwargs['config_shut'] == config_shut and kwargs['opr_shut'] == opr_shut
 
+
 def stp_clear_stats(dut, **kwargs):
     """
 
@@ -1133,12 +1445,21 @@ def stp_clear_stats(dut, **kwargs):
                     interface : interface name
     :return:
     """
-    cmd = "sonic-clear spanning_tree statistics"
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    cli_type = 'klish' if cli_type in ["rest-put", "rest-patch"] else cli_type
+    if cli_type == "click":
+        cmd = "sonic-clear spanning_tree statistics"
+    elif cli_type == "klish":
+        cmd = "clear spanning-tree counters"
     if 'vlan' in kwargs and 'interface' not in kwargs:
         cmd += ' vlan {}'.format(kwargs['vlan'])
     if 'vlan' in kwargs and 'interface' in kwargs:
         cmd += ' vlan-interface {} {}'.format(kwargs['vlan'], kwargs['interface'])
-    st.config(dut, cmd)
+    if 'vlan' not in kwargs and 'interface' in kwargs:
+        cmd += ' interface {}'.format(kwargs['interface'])
+    st.config(dut, cmd, type=cli_type)
+
 
 def get_stp_stats(dut, vlan, interface, param, cli_type=""):
     """
@@ -1160,7 +1481,30 @@ def get_stp_stats(dut, vlan, interface, param, cli_type=""):
     st.banner(value_list)
     return None if len(output) == 0 else int(value_list[0])
 
-def verify_stp_ports_by_state(dut, vlan, port_state, port_list, cli_type=""):
+
+def get_mstp_stats(dut, instance, interface, param, cli_type=""):
+    """
+
+    :param dut:
+    :param vlan:
+    :param interface:
+    :param param:
+                    tx_bpdu : BPDU Transmission count
+                    rx_bpdu : BPDU Receive count
+                    tx_tcn  : TCN Transmission count
+                    rx_tcn  : TCN Receive count
+
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = 'klish' if cli_type == 'click' else cli_type
+    output = show_mstp(dut, mstp_instance=instance, mstp_detail=True, cli_type=cli_type)
+    value_list = [row[param] for row in output if int(row['instance']) == instance and row['interface'] == interface]
+    st.banner(value_list)
+    return None if len(output) == 0 else int(value_list[0])
+
+
+def verify_stp_ports_by_state(dut, vlan, port_state, port_list, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API Will check the port state in the VLAN.
@@ -1172,22 +1516,43 @@ def verify_stp_ports_by_state(dut, vlan, port_state, port_list, cli_type=""):
     :param cli_type:
     :return:
     """
+    depth = kwargs.get("depth", 3)
+    filter_type = kwargs.get("filter_type", "NON_CONFIG")
     port_li = list(port_list) if isinstance(port_list, list) else [port_list]
-    stp_output = show_stp_vlan(dut, vlan, cli_type=cli_type)
-    ports_list = [row["port_name"] for row in stp_output if
-                     row["port_state"] == port_state and int(row["vid"]) == vlan]
-
     result = True
-    for each_port in port_li:
-        if each_port not in ports_list:
-           st.log("{} is not {} state ".format(each_port, port_state))
-           result = False
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+            stp_vlan_obj = umf_stp.Vlans(VlanId=int(vlan), Stp=stp_gbl_obj)
         else:
-           st.log("{} is {} state ".format(each_port, port_state))
+            stp_vlan_obj = umf_stp.Vlan(VlanId=int(vlan), Stp=stp_gbl_obj)
+        for each_port in port_li:
+            if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+                stp_vlan_intf_obj = umf_stp.VlansInterface(Name=each_port, PortState=port_state, Vlans=stp_vlan_obj)
+            else:
+                stp_vlan_intf_obj = umf_stp.VlanInterface(Name=each_port, PortState=port_state, Vlan=stp_vlan_obj)
+            query_params_obj = cutils.get_query_params(yang_data_type=filter_type, depth=depth, cli_type=cli_type)
+            rv = stp_vlan_intf_obj.verify(dut, query_param=query_params_obj, match_subset=True)
+            if not rv.ok():
+                st.log('test_step_failed: {} is not is {} state'.format(each_port, port_state))
+                result = False
+            else:
+                st.log("{} is {} state ".format(each_port, port_state))
+    else:
+        stp_output = show_stp_vlan(dut, vlan, cli_type=cli_type)
+        ports_list = [row["port_name"] for row in stp_output if row["port_state"] == port_state and int(row["vid"]) == vlan]
+        for each_port in port_li:
+            if each_port not in ports_list:
+                st.log("{} is not {} state ".format(each_port, port_state))
+                result = False
+            else:
+                st.log("{} is {} state ".format(each_port, port_state))
     return result
 
-def get_stp_port_list(dut, vlan, exclude_port=[], cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+def get_stp_port_list(dut, vlan, exclude_port=[], **kwargs):
+
+    cli_type = st.get_ui_type(dut, **kwargs)
     """
      API will return all ports of VLAN instance.
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -1197,16 +1562,22 @@ def get_stp_port_list(dut, vlan, exclude_port=[], cli_type=""):
     :param cli_type:
     :return:
     """
+    mstp_instance = kwargs.get('mstp_instance', 0)
     ex_port_li = list(exclude_port) if isinstance(exclude_port, list) else [exclude_port]
-    stp_output = show_stp_vlan(dut, vlan, cli_type=cli_type)
-    ports_list = [row["port_name"] for row in stp_output]
+    if mstp_instance:
+        stp_output = show_mstp(dut, mstp_instance=mstp_instance, cli_type=cli_type)
+        ports_list = [row["interface"] for row in stp_output]
+    else:
+        stp_output = show_stp_vlan(dut, vlan, cli_type=cli_type)
+        ports_list = [row["port_name"] for row in stp_output]
     for each_int in ex_port_li:
         if each_int in ports_list:
             ports_list.remove(each_int)
             st.log("{} is excluded".format(each_int))
     return ports_list
 
-def get_stp_root_port(dut, vlan, cli_type=""):
+
+def get_stp_root_port(dut, vlan, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API will return Root/Forwarding port of the device in the VLAN.
@@ -1216,16 +1587,34 @@ def get_stp_root_port(dut, vlan, cli_type=""):
     :param cli_type:
     :return:
     """
-    out = show_stp_vlan(dut, vlan, cli_type=cli_type)
+    mstp_mode = kwargs.get("mstp_mode", False)
+    mstp_inst = kwargs.get("mstp_inst", False)
+
+    if mstp_mode:
+        cli_type = 'klish' if cli_type == 'click' else cli_type
+        out = show_mstp(dut, mstp_instance=mstp_inst, cli_type=cli_type)
+    else:
+        out = show_stp_vlan(dut, vlan, cli_type=cli_type)
+
     if not out:
         st.error("No Root/Forwarding port found")
         return False
-    if out[0]['rt_port'] == "Root":
-        st.error("Given device is ROOT Bridge.")
-        return False
-    return out[0]['rt_port']
 
-def get_stp_next_root_port(dut, vlan, cli_type=""):
+    if mstp_mode:
+        if out[0]['root_port'] == "Root":
+            st.error("Given device is ROOT Bridge.")
+            return False
+        else:
+            return out[0]['root_port']
+    else:
+        if out[0]['rt_port'] == "Root":
+            st.error("Given device is ROOT Bridge.")
+            return False
+        else:
+            return out[0]['rt_port']
+
+
+def get_stp_next_root_port(dut, vlan, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API will return Next possible Root/Forwarding port of the device in the VLAN.
@@ -1235,25 +1624,41 @@ def get_stp_next_root_port(dut, vlan, cli_type=""):
     :param cli_type:
     :return:
     """
-
-    partner = None
+    mstp_mode = kwargs.get("mstp_mode", False)
+    mstp_inst = kwargs.get("mstp_inst", False)
+    partner = kwargs.get("partner", None)
     next_root_port = None
     sort_list = lambda list1, list2: [x for _, x in sorted(zip(list2, list1))]
-
-    out = show_stp_vlan(dut, vlan, cli_type=cli_type)
+    if mstp_mode:
+        cli_type = 'klish' if cli_type == 'click' else cli_type
+        out = show_mstp(dut, mstp_instance=mstp_inst, cli_type=cli_type)
+    else:
+        out = show_stp_vlan(dut, vlan, cli_type=cli_type)
     if not out:
         st.error("No Initial Root/Forwarding port found")
         return next_root_port
 
-    if out[0]['rt_port'] == "Root":
-        st.error("Given device is ROOT Bridge.")
-        return next_root_port
+    if mstp_mode:
+        if out[0]['root_port'] == "Root":
+            st.error("Given device is ROOT Bridge.")
+            return next_root_port
+    else:
+        if out[0]['rt_port'] == "Root":
+            st.error("Given device is ROOT Bridge.")
+            return next_root_port
 
     partner_ports = st.get_dut_links(dut)
-    root_port = out[0]['rt_port']
-    tempVar = cutils.filter_and_select(out, ['port_pathcost'], {'port_name': root_port})
+    if mstp_mode:
+        root_port = out[0]['root_port']
+        tempVar = cutils.filter_and_select(out, ['cost'], {'interface': root_port})
+    else:
+        root_port = out[0]['rt_port']
+        tempVar = cutils.filter_and_select(out, ['port_pathcost'], {'port_name': root_port})
     if len(tempVar) != 0:
-        root_cost = int(tempVar[0]['port_pathcost'])
+        if mstp_mode:
+            root_cost = int(tempVar[0]['cost'])
+        else:
+            root_cost = int(tempVar[0]['port_pathcost'])
     else:
         root_cost = 0
     st.log('root_port : {}, root_cost: {}'.format(root_port, root_cost))
@@ -1279,22 +1684,35 @@ def get_stp_next_root_port(dut, vlan, cli_type=""):
     # Preparing DATA to process and find the next Root/Forwarding port.
     cut_data = {}
     pc_list = []
-    for lag_intf in cutils.iterable(portchannel.get_portchannel_list(partner)):
+    for lag_intf in portchannel.get_portchannel_list(partner):
         if cli_type == "click":
             pc_list.append(lag_intf["teamdev"])
-        elif cli_type in ["klish", "rest-put", "rest-patch"]:
+        elif cli_type in ["klish", "rest-put", "rest-patch", "rest", "gnmi"]:
             pc_list.append(lag_intf["name"])
-    for each in out:
-        port = each['port_name']
-        if "Eth" in port and port in dut_partner_ports_map:
-            port = dut_partner_ports_map[each['port_name']]
-            ifindex = int(re.findall(r'\d+', port)[0])
-            cut_data[port] = [ifindex, each['port_state'], int(each['port_pathcost'])]
-        elif port in pc_list:
-            ifindex = int(re.findall(r'\d+', port)[0])
-            cut_data[port] = [ifindex, each['port_state'], int(each['port_pathcost'])]
-        else:
-            pass
+    if mstp_mode:
+        for each in out:
+            port = each['interface']
+            if "Eth" in port and port in dut_partner_ports_map:
+                port = dut_partner_ports_map[each['interface']]
+                ifindex = int(re.findall(r'\d+', port)[0])
+                cut_data[port] = [ifindex, each['state'], int(each['cost'])]
+            elif port in pc_list:
+                ifindex = int(re.findall(r'\d+', port)[0])
+                cut_data[port] = [ifindex, each['state'], int(each['cost'])]
+            else:
+                pass
+    else:
+        for each in out:
+            port = each['port_name']
+            if "Eth" in port and port in dut_partner_ports_map:
+                port = dut_partner_ports_map[each['port_name']]
+                ifindex = int(re.findall(r'\d+', port)[0])
+                cut_data[port] = [ifindex, each['port_state'], int(each['port_pathcost'])]
+            elif port in pc_list:
+                ifindex = int(re.findall(r'\d+', port)[0])
+                cut_data[port] = [ifindex, each['port_state'], int(each['port_pathcost'])]
+            else:
+                pass
     st.log('cut_data == {}'.format(str(cut_data)))
 
     cost_vs_port = {}
@@ -1346,6 +1764,7 @@ def get_stp_next_root_port(dut, vlan, cli_type=""):
         st.error("No Match")
     return next_root_port
 
+
 def config_stp_in_parallel(dut_list, feature="pvst", mode="enable", vlan=None, thread=True, cli_type=""):
     cli_type = st.get_ui_type(dut_list, cli_type=cli_type)
     """
@@ -1366,6 +1785,7 @@ def config_stp_in_parallel(dut_list, feature="pvst", mode="enable", vlan=None, t
     if params:
         exec_all(thread, params)
 
+
 def show_stp_in_parallel(dut_list, thread=True, cli_type=""):
     cli_type = st.get_ui_type(dut_list, cli_type=cli_type)
     """
@@ -1380,6 +1800,7 @@ def show_stp_in_parallel(dut_list, thread=True, cli_type=""):
     dut_li = cutils.make_list(dut_list)
     exec_foreach(thread, dut_li, show_stp, cli_type=cli_type)
 
+
 def get_root_bridge_for_vlan(dut_vlan_data, thread=True, cli_type=""):
     cli_type = st.get_ui_type(dut_vlan_data, cli_type=cli_type)
     params = list()
@@ -1389,9 +1810,10 @@ def get_root_bridge_for_vlan(dut_vlan_data, thread=True, cli_type=""):
     if params:
         [out, _] = exec_all(thread, params)
         st.banner("Getting root bridge details")
-        for i,response in enumerate(out):
+        for i, response in enumerate(out):
             result[params[i][1]] = response
     return result
+
 
 def check_for_single_root_bridge_per_vlan(dut_list, vlan_list, dut_vlan_data, cli_type=""):
     cli_type = st.get_ui_type(dut_list, cli_type=cli_type)
@@ -1443,7 +1865,8 @@ def check_for_single_root_bridge_per_vlan(dut_list, vlan_list, dut_vlan_data, cl
                 st.report_fail("observed_more_than_1_root_bridge", vlan)
     return True
 
-def verify_root_bridge_interface_state(dut, vlan, interface_list, cli_type=""):
+
+def verify_root_bridge_interface_state(dut, vlan, interface_list, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to verify the root bridge interface state to be forwarded
@@ -1454,27 +1877,94 @@ def verify_root_bridge_interface_state(dut, vlan, interface_list, cli_type=""):
     :param cli_type:
     :return:
     """
+    mstp_instance = kwargs.get('mstp_instance', False)
     fail_states = ["BLOCKING", "DISABLED", "DISCARDING"]
     pass_states = ["FORWARDING"]
     forwarding_counter = 0
-    result = show_stp_vlan(dut, vlan, cli_type=cli_type)
-    if result:
-        for data in result:
-            if data["port_name"] not in interface_list:
-                st.log("Interface {} not found in expected list ...".format(data["port_name"]))
-            if data["port_state"] in fail_states:
-                st.log("Observed that interface {} state is {} for root bridge".format(data["port_name"],fail_states))
-            if data["port_state"] in pass_states:
-                forwarding_counter+=1
-        if forwarding_counter != len(interface_list):
-            return False
+    filter_type = kwargs.get("filter_type", "ALL")
+    result = True
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        if mstp_instance:
+            stp_vlan_obj = umf_stp.MstInstance(MstId=int(mstp_instance), Stp=stp_gbl_obj)
+        elif CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+            stp_vlan_obj = umf_stp.Vlans(VlanId=int(vlan), Stp=stp_gbl_obj)
         else:
-            return True
-    else:
-        st.log("No STP data found for {} and {} instance".format(dut, vlan))
-        return False
+            stp_vlan_obj = umf_stp.Vlan(VlanId=int(vlan), Stp=stp_gbl_obj)
+        query_params_obj = cutils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        rv = stp_vlan_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+        if rv.ok():
+            stp_data = rv.payload
+            if CONFIGURED_STP_PROTOCOL[dut] == "mstp":
+                if stp_data.get("openconfig-spanning-tree:mst-instance"):
+                    stp_vlan_data = stp_data.get("openconfig-spanning-tree:mst-instance")[0]['interfaces']['interface']
+                else:
+                    result = False
+            elif CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+                if stp_data.get("openconfig-spanning-tree-ext:vlans"):
+                    stp_vlan_data = stp_data.get("openconfig-spanning-tree-ext:vlans")[0]['interfaces']['interface']
+                else:
+                    result = False
+            elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
+                if stp_data.get("openconfig-spanning-tree:vlan"):
+                    stp_vlan_data = stp_data.get("openconfig-spanning-tree:vlan")[0]['interfaces']['interface']
+                else:
+                    result = False
 
-def poll_root_bridge_interfaces(dut_vlan_list, interfaces_list, iteration=30, delay=1, cli_type=""):
+            intf_name_list = []
+            port_state_list = []
+            for data in stp_vlan_data:
+                intf_name_list.append(data["name"])
+                port_state_list.append(data["state"]["port-state"].strip("openconfig-spanning-tree-types:").strip("openconfig-spanning-tree-ext:"))
+
+            for intf_name, port_state in zip(intf_name_list, port_state_list):
+                st.log("Intf name : {}, Port state : {}".format(intf_name, port_state))
+                if intf_name not in interface_list:
+                    st.log("Interface {} not found in expected list ...".format(intf_name))
+                if port_state in fail_states:
+                    st.log("Observed that interface {} state is {} for root bridge".format(intf_name, fail_states))
+                if port_state in pass_states:
+                    forwarding_counter += 1
+            if forwarding_counter != len(interface_list):
+                result = False
+        else:
+            st.log("test_step_failed: No STP data found for {} and {} instance".format(dut, mstp_instance))
+            result = False
+    else:
+        if mstp_instance:
+            output = show_mstp(dut, mstp_instance=mstp_instance, cli_type=cli_type)
+            if output:
+                for data in output:
+                    if data["interface"] not in interface_list:
+                        st.log("Interface {} not found in expected list ...".format(data["interface"]))
+                    if data["state"] in fail_states:
+                        st.log("Observed that interface {} state is {} for root bridge".format(data["interface"], fail_states))
+                    if data["state"] in pass_states:
+                        forwarding_counter += 1
+                if forwarding_counter != len(interface_list):
+                    result = False
+            else:
+                st.log("No STP data found for {} and {} instance".format(dut, mstp_instance))
+                result = False
+        else:
+            output = show_stp_vlan(dut, vlan, cli_type=cli_type)
+            if output:
+                for data in output:
+                    if data["port_name"] not in interface_list:
+                        st.log("Interface {} not found in expected list ...".format(data["port_name"]))
+                    if data["port_state"] in fail_states:
+                        st.log("Observed that interface {} state is {} for root bridge".format(data["port_name"], fail_states))
+                    if data["port_state"] in pass_states:
+                        forwarding_counter += 1
+                if forwarding_counter != len(interface_list):
+                    result = False
+            else:
+                st.log("No STP data found for {} and {} instance".format(dut, vlan))
+                result = False
+    return result
+
+
+def poll_root_bridge_interfaces(dut_vlan_list, interfaces_list, iteration=30, delay=1, cli_type="", **kwargs):
     cli_type = st.get_ui_type()
     """
     API to get the root bridge interfaces to be forwarded
@@ -1486,20 +1976,31 @@ def poll_root_bridge_interfaces(dut_vlan_list, interfaces_list, iteration=30, de
     :return:
     """
     st.log("Polling for root bridge interfaces ...")
+    mode = kwargs.get('mode', None)
     if dut_vlan_list and interfaces_list:
         no_of_duts = len(dut_vlan_list)
-        check=0
+        check = 0
         for dut, vlan in dut_vlan_list.items():
-            i=1
+            i = 1
             while True:
-                if verify_root_bridge_interface_state(dut, vlan, interfaces_list[dut], cli_type=cli_type):
-                    st.log("Root bridge interface verification succeeded.")
-                    check+=1
-                    break
-                if i > iteration:
-                    st.log("Max iteration limit reached.")
-                    break
-                i+=1
+                if mode == "mstp":
+                    if verify_root_bridge_interface_state(dut, vlan, interfaces_list[dut], cli_type=cli_type, mstp_instance=vlan):
+                        st.log("Root bridge interface verification succeeded.")
+                        check += 1
+                        break
+                    if i > iteration:
+                        st.log("Max iteration limit reached.")
+                        break
+                    i += 1
+                else:
+                    if verify_root_bridge_interface_state(dut, vlan, interfaces_list[dut], cli_type=cli_type):
+                        st.log("Root bridge interface verification succeeded.")
+                        check += 1
+                        break
+                    if i > iteration:
+                        st.log("Max iteration limit reached.")
+                        break
+                    i += 1
                 st.wait(delay)
         if check != no_of_duts:
             st.log("Number of root DUTs check failed ...")
@@ -1509,7 +2010,8 @@ def poll_root_bridge_interfaces(dut_vlan_list, interfaces_list, iteration=30, de
         st.log("Empty DUT VLAN LIST dut_vlan_list AND INTERFACE LIST interfaces_list")
         return False
 
-def verify_root_bridge_on_stp_instances(dut_list, vlan, bridge_identifier, cli_type=""):
+
+def verify_root_bridge_on_stp_instances(dut_list, vlan, bridge_identifier, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut_list, cli_type=cli_type)
     """
     API to verify the bridge identifier with root bridge identifier
@@ -1518,25 +2020,56 @@ def verify_root_bridge_on_stp_instances(dut_list, vlan, bridge_identifier, cli_t
     :param bridge_identifier:
     :return:
     """
+    mstp_mode = kwargs.get('mstp_mode', None)
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    params = list()
-    for dut in dut_li:
-        params.append([get_stp_bridge_param, dut, vlan, "rt_id", cli_type])
-    if params:
-        [out, exceptions] = exec_all(True, params)
-        for value in exceptions:
-            if value is not None:
-                st.log("Exception occured {}".format(value))
-                return False
+    filter_type = kwargs.get("filter_type", "ALL")
+    result = True
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        for each_dut in dut_li:
+            if CONFIGURED_STP_PROTOCOL[each_dut] == "pvst":
+                stp_vlan_obj = umf_stp.Vlans(VlanId=int(vlan), Stp=stp_gbl_obj)
+            elif CONFIGURED_STP_PROTOCOL[each_dut] == "rpvst":
+                stp_vlan_obj = umf_stp.Vlan(VlanId=int(vlan), Stp=stp_gbl_obj)
+            else:
+                stp_vlan_obj = umf_stp.MstInstance(MstId=int(vlan), Stp=stp_gbl_obj)
+            query_params_obj = cutils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+            rv = stp_vlan_obj.get_payload(each_dut, query_param=query_params_obj, cli_type=cli_type)
+            if rv.ok():
+                stp_vlan_data = rv.payload
+                identifier = ""
+                if CONFIGURED_STP_PROTOCOL[each_dut] == "pvst":
+                    if stp_vlan_data.get("openconfig-spanning-tree-ext:vlans"):
+                        identifier = stp_vlan_data.get("openconfig-spanning-tree-ext:vlans")[0]['state']['designated-root-address']
+                elif CONFIGURED_STP_PROTOCOL[each_dut] == "rpvst":
+                    if stp_vlan_data.get("openconfig-spanning-tree:vlan"):
+                        identifier = stp_vlan_data.get("openconfig-spanning-tree:vlan")[0]['state']['designated-root-address']
+                else:
+                    if stp_vlan_data.get("openconfig-spanning-tree:mst-instance"):
+                        identifier = stp_vlan_data.get("openconfig-spanning-tree:mst-instance")[0]['state']['designated-root-address']
+                st.log("Comparing ROOT bridge ID {} with Provided ID {}".format(identifier, bridge_identifier))
+                if identifier != bridge_identifier:
+                    st.log("test_step_failed: Mismatch in root and bridge identifiers")
+                    result = False
+                else:
+                    st.log("Root Bridge Identifier {} is matched with provided identifier {}".format(identifier, bridge_identifier))
+            else:
+                result = False
+    else:
+        if mstp_mode:
+            params = {"vlanid": vlan, "bridge_param": "root_address", "mstp_mode": mstp_mode, "cli_type": cli_type}
+        else:
+            params = {"vlanid": vlan, "bridge_param": "rt_id", "cli_type": cli_type}
+        [out, _] = st.exec_each2(dut_li, get_stp_bridge_param, [params] * len(dut_li))
         for identifier in out:
             st.log("Comparing ROOT bridge ID {} with Provided ID {}".format(identifier, bridge_identifier))
             if identifier != bridge_identifier:
                 st.log("Mismatch in root and bridge identifiers")
-                return False
+                result = False
             else:
                 st.log("Root Bridge Identifier {} is matched with provided identifier {}".format(identifier, bridge_identifier))
-                return True
-    return False
+    return result
+
 
 def config_bpdu_filter(dut, **kwargs):
     cli_type = st.get_ui_type(dut, **kwargs)
@@ -1558,10 +2091,38 @@ def config_bpdu_filter(dut, **kwargs):
     :param kwargs:
     :return:
     """
-    interface=kwargs.get("interface",None)
-    no_form=kwargs.get("no_form", None)
-    action=kwargs.get("action", "enable")
-    if cli_type in ["click", "klish"]:
+    interface = kwargs.get("interface", None)
+    no_form = kwargs.get("no_form", None)
+    action = kwargs.get("action", "enable")
+    if interface:
+        port_hash_list = segregate_intf_list_type(intf=interface, range_format=False)
+        interface_list = port_hash_list['intf_list_all']
+    if cli_type in get_supported_ui_type_list():
+        mode_dict = {'enable': True, 'disable': False}
+        if interface:
+            for intf in interface_list:
+                if no_form:
+                    stp_intf_obj = umf_stp.StpInterface(Name=intf)
+                    result = stp_intf_obj.unConfigure(dut, target_attr=stp_intf_obj.BpduFilter, cli_type=cli_type)
+                else:
+                    stp_intf_obj = umf_stp.StpInterface(Name=intf, BpduFilter=mode_dict[action])
+                    result = stp_intf_obj.configure(dut, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: Configuring of BpduFilter on interface {}'.format(result.data))
+                    return False
+            return True
+        else:
+            if no_form:
+                stp_glb_obj = umf_stp.Stp(BpduFilter=None)
+                result = stp_glb_obj.unConfigure(dut, target_attr=stp_glb_obj.BpduFilter, cli_type=cli_type)
+            else:
+                stp_glb_obj = umf_stp.Stp(BpduFilter=mode_dict[action])
+                result = stp_glb_obj.configure(dut, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Configuring of BpduFilter on global {}'.format(result.data))
+                return False
+            return True
+    elif cli_type in ["click", "klish"]:
         commands = list()
         if not interface:
             command = "spanning-tree edge-port bpdufilter default"
@@ -1569,20 +2130,22 @@ def config_bpdu_filter(dut, **kwargs):
                 command = "no {}".format(command)
             commands.append(command)
         else:
-            interface_details = utils.get_interface_number_from_name(interface)
-            if not interface_details:
-                st.log("Interface details not found {}".format(interface_details))
-                return False
-            commands.append("interface {} {}".format(interface_details.get("type"), interface_details.get("number")))
-            command = "spanning-tree bpdufilter"
-            if no_form:
-                command = "no {}".format(command)
-            elif action:
-                command = "{} {}".format(command, action)
-            else:
-                command = ""
-            if command:
-                commands.append(command)
+            for intf in interface_list:
+                if not is_a_single_intf(intf):
+                    commands.append("interface range {}".format(intf))
+                else:
+                    intf = get_interface_number_from_name(intf)
+                    commands.append("interface {} {}".format(intf['type'], intf['number']))
+                command = "spanning-tree bpdufilter"
+                if no_form:
+                    command = "no {}".format(command)
+                elif action:
+                    command = "{} {}".format(command, action)
+                else:
+                    command = ""
+                if command:
+                    commands.append(command)
+                commands.append('exit')
         if commands:
             st.config(dut, commands, type="klish")
             return True
@@ -1592,25 +2155,38 @@ def config_bpdu_filter(dut, **kwargs):
         rest_urls = st.get_datastore(dut, "rest_urls")
         if not interface:
             url = rest_urls['stp_global_config_bpdufilter']
-        else:
-            url = rest_urls['stp_interface_config_bpdufilter'].format(interface)
-
-        if no_form:
-            if delete_rest(dut, rest_url=url):
-                return True
+            if no_form:
+                if delete_rest(dut, rest_url=url):
+                    return True
+                else:
+                    return False
+            elif action == "disable":
+                payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": false}""")
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
             else:
-                return False
-        elif action == "disable":
-            payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": false}""")
+                payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": true}""")
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
         else:
-            payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": true}""")
-        if config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
-            return True
-        else:
-            return False
+            for intf in interface_list:
+                url = rest_urls['stp_interface_config_bpdufilter'].format(intf)
+                if no_form:
+                    if not delete_rest(dut, rest_url=url):
+                        return False
+                elif action == "disable":
+                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": false}""")
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                        return False
+                else:
+                    payload = json.loads("""{"openconfig-spanning-tree:bpdu-filter": true}""")
+                    if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                        return False
+        return True
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
+
 
 def config_stp_root_bridge_by_vlan(stp_data, cli_type=""):
     """
@@ -1618,13 +2194,20 @@ def config_stp_root_bridge_by_vlan(stp_data, cli_type=""):
     """
     params = list()
     for dut, data in stp_data.items():
+        mode = data.get("mode", False)
+        st.log('mode is {}'.format(mode))
         cli_type = st.get_ui_type(dut, cli_type=cli_type)
         cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
-        params.append(ExecAllFunc(config_stp_vlan_parameters, dut, data["vlan"], priority=data["priority"], cli_type=cli_type))
-    [_, exceptions] = exec_all(True, params)
-    ensure_no_exception(exceptions)
+        if mode:
+            params.append(
+                ExecAllFunc(config_stp_vlan_parameters, dut, data["vlan"], priority=data["priority"], cli_type=cli_type,
+                            instance=data["instance"], mode=data["mode"]))
+        else:
+            params.append(ExecAllFunc(config_stp_vlan_parameters, dut, data["vlan"], priority=data["priority"], cli_type=cli_type))
+    exec_all(True, params)
 
-def config_port_type(dut, interface, stp_type="rpvst", port_type="edge", no_form=False, cli_type=""):
+
+def config_port_type(dut, interface, stp_type="rpvst", port_type="edge", no_form=False, cli_type="", skip_error=False):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to config/unconfig the port type in RPVST
@@ -1633,33 +2216,52 @@ def config_port_type(dut, interface, stp_type="rpvst", port_type="edge", no_form
     :param no_form:
     :return:
     """
-    if cli_type in ["click", "klish"]:
+    port_hash_list = segregate_intf_list_type(intf=interface, range_format=False)
+    interface_list = port_hash_list['intf_list_all']
+    if cli_type in get_supported_ui_type_list():
+        for intf in interface_list:
+            if not no_form:
+                stp_intf_obj = umf_stp.StpInterface(Name=intf, EdgePort='EDGE_ENABLE')
+                result = stp_intf_obj.configure(dut, cli_type=cli_type)
+            else:
+                stp_intf_obj = umf_stp.StpInterface(Name=intf)
+                result = stp_intf_obj.unConfigure(dut, target_attr=stp_intf_obj.EdgePort, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Enabling of EdgePort on interface {}'.format(result.data))
+                return False
+        return True
+    elif cli_type in ["click", "klish"]:
         commands = list()
         command = "spanning-tree port type {}".format(port_type) if not no_form else "no spanning-tree port type"
-        interface_details = utils.get_interface_number_from_name(interface)
-        if not interface_details:
-            st.log("Interface details not found {}".format(interface_details))
+        for intf in interface_list:
+            if not is_a_single_intf(intf):
+                commands.append("interface range {}".format(intf))
+            else:
+                intf = get_interface_number_from_name(intf)
+                commands.append("interface {} {}".format(intf['type'], intf['number']))
+            commands.append(command)
+            commands.append('exit')
+        out = st.config(dut, commands, type="klish", skip_error_check=skip_error)
+        if "%Error" in out:
             return False
-        commands.append("interface {} {}".format(interface_details.get("type"), interface_details.get("number")))
-        commands.append(command)
-        commands.append('exit')
-        st.config(dut, commands, type="klish")
         return True
     elif cli_type in ["rest-put", "rest-patch"]:
         cli_type = "rest-patch" if cli_type == "rest-put" else cli_type
         rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls['stp_interface_config_edgeport'].format(interface)
-        payload = json.loads("""{"openconfig-spanning-tree:edge-port": "string"}""")
-        payload["openconfig-spanning-tree:edge-port"] = "openconfig-spanning-tree-types:EDGE_ENABLE"
-        if not no_form:
-            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
-                return False
-        else:
-            if not delete_rest(dut, rest_url=url):
-                return False
+        for intf in interface_list:
+            url = rest_urls['stp_interface_config_edgeport'].format(intf)
+            payload = json.loads("""{"openconfig-spanning-tree:edge-port": "string"}""")
+            payload["openconfig-spanning-tree:edge-port"] = "openconfig-spanning-tree-types:EDGE_ENABLE"
+            if not no_form:
+                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
+                    return False
+            else:
+                if not delete_rest(dut, rest_url=url):
+                    return False
     else:
         st.log("Invalid cli_type provided: {}".format(cli_type))
         return False
+
 
 def show_stp_config_using_klish(dut, type="", vlan="", intf="", cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
@@ -1675,7 +2277,8 @@ def show_stp_config_using_klish(dut, type="", vlan="", intf="", cli_type=""):
         # command = "show spanning-tree vlan {}".format(vlan)
     st.show(dut, command, type=cli_type, skip_tmpl=True)
 
-def verify_stp_intf_status(dut, vlanid, interface, status, cli_type=""):
+
+def verify_stp_intf_status(dut, vlanid, interface, status, cli_type="", **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     API to poll for stp stauts for an interface
@@ -1686,22 +2289,44 @@ def verify_stp_intf_status(dut, vlanid, interface, status, cli_type=""):
     :param status:
     :return:
     """
-    if get_stp_port_param(dut, vlanid, interface, "port_state", cli_type=cli_type) == status:
-        st.log("Port status is changed to  {}".format(status))
-        return True
-    return False
-
-def get_loop_guard_details(dut, vlan=None, ifname=None , lg_param="lg_global_mode", cli_type=""):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    lg_value = ""
-    if cli_type == "click" or cli_type == "klish":
-        cmd = "show spanning-tree inconsistentports"
-        output = st.show(dut, cmd, type=cli_type)
-        if len(output) >= 2:
-            output = output[1:]
+    depth = kwargs.get("depth", 3)
+    filter_type = kwargs.get('filter_type', 'NON_CONFIG')
+    result = True
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        query_params_obj = cutils.get_query_params(yang_data_type=filter_type, depth=depth, cli_type=cli_type)
+        if CONFIGURED_STP_PROTOCOL[dut] == "pvst":
+            stp_vlan_obj = umf_stp.Vlans(VlanId=int(vlanid), Stp=stp_gbl_obj)
+            stp_intf_obj = umf_stp.VlansInterface(Name=interface, PortState=status, Vlans=stp_vlan_obj)
+        elif CONFIGURED_STP_PROTOCOL[dut] == "rpvst":
+            stp_vlan_obj = umf_stp.Vlan(VlanId=int(vlanid), Stp=stp_gbl_obj)
+            stp_intf_obj = umf_stp.VlanInterface(Name=interface, PortState=status, Vlan=stp_vlan_obj)
+        else:
+            stp_mst_inst_obj = umf_stp.MstInstance(MstId=int(vlanid), Stp=stp_gbl_obj)
+            stp_intf_obj = umf_stp.MstInstanceInterface(Name=interface, PortState=status, MstInstance=stp_mst_inst_obj)
+        rv = stp_intf_obj.verify(dut, query_param=query_params_obj, match_subset=True)
+        if not rv.ok():
+            st.log("test_step_failed: Port status is not changed to  {}".format(status))
+            result = False
+        else:
+            st.log("Port status is changed to  {}".format(status))
     else:
-        st.log("Invalid cli_type provided: {}".format(cli_type))
-        return False
+        if get_stp_port_param(dut, vlanid, interface, "port_state", cli_type=cli_type, **kwargs) == status:
+            st.log("Port status is changed to  {}".format(status))
+        else:
+            result = False
+    return result
+
+
+def get_loop_guard_details(dut, vlan=None, ifname=None, lg_param="lg_global_mode", cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    lg_value = ""
+    cli_type = "klish" if cli_type in ["click", "rest-put", "rest-patch"] else cli_type
+    cmd = "show spanning-tree inconsistentports"
+    output = st.show(dut, cmd, type=cli_type)
+    if len(output) >= 2:
+        output = output[1:]
 
     if len(output) != 0:
         if vlan is None and ifname is None:
@@ -1709,12 +2334,16 @@ def get_loop_guard_details(dut, vlan=None, ifname=None , lg_param="lg_global_mod
         else:
             for row in output:
                 if row["rg_ifname"] == ifname and int(row["rg_vid"]) == vlan:
-                    lg_value = row[lg_param]
+                    if lg_param == "rg_status":
+                        lg_value = "" if row[lg_param].strip() != 'Loop Inconsistent' else row[lg_param].strip()
+                    else:
+                        lg_value = row[lg_param].strip()
     return lg_value
+
 
 def check_lg_current_state(dut, vlan, ifname, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    lg_status = get_root_guard_details(dut, vlan, ifname, "rg_status", cli_type=cli_type)
+    lg_status = get_loop_guard_details(dut, vlan, ifname, "rg_status", cli_type=cli_type)
     if cli_type in ["click"]:
         return lg_status == "Consistent state"
     else:
@@ -1723,7 +2352,15 @@ def check_lg_current_state(dut, vlan, ifname, cli_type=""):
 
 def config_loopguard_global(dut, mode=None, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == 'klish':
+    if cli_type in get_supported_ui_type_list():
+        mode_dict = {'enable': True, 'disable': False}
+        stp_obj = umf_stp.Stp(LoopGuard=mode_dict[mode])
+        result = stp_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Enabling of LoopGuard {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'klish':
         if mode == 'enable':
             cmd = "spanning-tree loopguard default"
         else:
@@ -1747,3 +2384,41 @@ def config_loopguard_global(dut, mode=None, cli_type=""):
         st.log("UNSUPPORTED CLI TYPE")
         return False
 
+
+def show_mstp(dut, **kwargs):
+    '''
+
+    :param dut:
+    :param kwargs:
+    :return:
+
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    cli_type = 'klish' if cli_type == 'click' else cli_type
+    mstp_instance = kwargs.get('mstp_instance', False)
+    mstp_detail = kwargs.get('mstp_detail', False)
+    mstp_intf = kwargs.get('mstp_intf', False)
+    skip_error_check = kwargs.get("skip_error_check", False)
+
+    if cli_type == 'klish':
+        if mstp_instance and mstp_detail:
+            cmd = 'show spanning-tree mst {} detail'.format(mstp_instance)
+        elif mstp_instance:
+            cmd = 'show spanning-tree mst {}'.format(mstp_instance)
+        elif mstp_intf:
+            intf_details = get_interface_number_from_name(mstp_intf)
+            cmd = 'show spanning-tree mst interface {} {}'.format(intf_details['type'], intf_details['number'])
+        else:
+            cmd = 'show spanning-tree mst'
+        try:
+            output = st.show(dut, cmd, skip_error_check=skip_error_check, type=cli_type)
+        except Exception:
+            return False
+        return output
+    elif cli_type in ["rest-put", "rest-patch"]:
+        # code will be added later
+        pass
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
