@@ -38,7 +38,7 @@ class gNMI(object):
         return self
 
     def reinit(self, ip, port=8080):
-        self.ip = ip.decode('utf-8') if type(ip) == bytes else str(ip)
+        self.ip = ip.decode('utf-8') if isinstance(ip, bytes) else str(ip)
         self.port = int(port)
         self.target_addr = "{}:{}".format(self.ip, self.port)
         return self
