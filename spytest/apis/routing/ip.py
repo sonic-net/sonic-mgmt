@@ -6,17 +6,40 @@ import ipaddress
 import subprocess
 
 from spytest import st
-from spytest.utils import filter_and_select
 
-from apis.system.rest import config_rest, delete_rest ,get_rest
+from apis.system.rest import config_rest, delete_rest, get_rest
 from apis.routing.ip_rest import get_subinterface_index
 from apis.routing.sag import config_sag_ip
+import apis.system.boot_up as bootup_api
 
 import utilities.common as utils
 from utilities.utils import get_interface_number_from_name
+from utilities.utils import segregate_intf_list_type
+from utilities.utils import is_a_single_intf
+from utilities.utils import get_supported_ui_type_list
 from utilities.utils import is_valid_ipv4_address
 from utilities.utils import is_valid_ipv6_address
 from utilities.utils import is_valid_ip_address
+from utilities.utils import get_intf_short_name, convert_intf_name_to_component
+
+try:
+    import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
+    import apis.yang.codegen.messages.routing_policy as umf_rp
+    from apis.yang.utils.common import Operation
+
+except ImportError:
+    pass
+
+# below  time_out is for Rest/Gnmi url timeout
+time_out = 125
+
+get_phy_port = lambda intf: re.search(r"(\S+)\.\d+", intf).group(1) if re.search(r"(\S+)\.\d+", intf) else intf
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
+
 
 def config_ipv6(dut, action='disable'):
     """
@@ -27,13 +50,18 @@ def config_ipv6(dut, action='disable'):
     """
     command = "config ipv6 {}".format(action)
     if st.is_feature_supported("config-ipv6-command", dut):
-        return st.config(dut, command)
+        st.config(dut, command)
+    elif action == "disable":
+        st.community_unsupported(command, dut)
+        st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=1")
+        st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+        st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=1")
+    else:
+        st.community_unsupported(command, dut)
+        st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+        st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6=0")
+        st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6=0")
 
-    st.community_unsupported(command, dut)
-    value = "1" if action == "disable" else "0"
-    st.config(dut, "sysctl -w net.ipv6.conf.all.disable_ipv6={}".format(value))
-    st.config(dut, "sysctl -w net.ipv6.conf.default.disable_ipv6={}".format(value))
-    st.config(dut, "sysctl -w net.ipv6.conf.lo.disable_ipv6={}".format(value))
 
 def show_ipv6(dut):
     """
@@ -61,14 +89,29 @@ def ping(dut, addresses, family='ipv4', **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    cli_type = "klish" if cli_type != 'click' else cli_type
+    conn_index = kwargs.get("conn_index", None)
+    exec_mode = kwargs.get("exec_mode", "")
     ping_pattern = r'(\d+)\s+packets\s+transmitted,\s+(\d+)\s+received,(.*)\s+(\d+)%\s+packet\s+loss,\s+time\s+(\d+)ms'
+    ping_pattern1 = r'(\d+)\s+bytes\s+from(.*)time=(.*)\s+ms\s+\(DUP\!\)'
     external = kwargs.get("external", False)
 
     # add defaults
     kwargs['tgen'] = kwargs.get('tgen', False)
     kwargs['count'] = kwargs.get('count', 3)
+    if 'interface' in kwargs and '.' in kwargs['interface']:
+        kwargs['interface'] = kwargs['interface'].replace('Ethernet', 'Eth')
+        kwargs['interface'] = kwargs['interface'].replace('PortChannel', 'Po')
 
+    '''
+    if st.get_ifname_type(dut) == 'std-ext':
+        cli_type = 'click'
+        if 'interface' in kwargs:
+            kwargs['interface'] = convert_intf_name_to_component(dut, kwargs['interface'])
+    '''
+    if family == "ipv4":
+        if is_valid_ipv6_address(addresses):
+            family = "ipv6"
     if family.lower() == "ipv4":
         if external:
             command = "ping {} -c {} ".format(addresses, kwargs['count'])
@@ -76,8 +119,8 @@ def ping(dut, addresses, family='ipv4', **kwargs):
             if cli_type == 'click':
                 command = "ping -4 {} -c {} ".format(addresses, kwargs['count'])
             elif cli_type == 'klish':
-                if 'interface' in kwargs and 'Vrf' in kwargs['interface']:
-                    command = "ping vrf {} {} -c {} ".format(kwargs['interface'], addresses, kwargs['count'])
+                if 'interface' in kwargs and ('Vrf' in kwargs['interface'] or 'mgmt' in kwargs['interface']):
+                    command = "ping vrf {} {} -c {} -4 ".format(kwargs['interface'], addresses, kwargs['count'])
                     kwargs.pop('interface')
                 else:
                     command = "ping {} -c {} ".format(addresses, kwargs['count'])
@@ -92,7 +135,7 @@ def ping(dut, addresses, family='ipv4', **kwargs):
             if cli_type == 'click':
                 command = "ping -6 {} -c {} ".format(addresses, kwargs['count'])
             elif cli_type == 'klish':
-                if 'interface' in kwargs and 'Vrf' in kwargs['interface']:
+                if 'interface' in kwargs and ('Vrf' in kwargs['interface'] or 'mgmt' in kwargs['interface']):
                     command = "ping6 vrf {} {} -c {} ".format(kwargs['interface'], addresses, kwargs['count'])
                     kwargs.pop('interface')
                 else:
@@ -119,6 +162,8 @@ def ping(dut, addresses, family='ipv4', **kwargs):
         command = command + "-I {} ".format(kwargs['source_ip'])
     if 'packetsize' in kwargs:
         command = command + "-s {} ".format(kwargs['packetsize'])
+    if 'interval' in kwargs:
+        command = command + "-i {} ".format(kwargs['interval'])
 
     if st.is_dry_run():
         return True
@@ -131,8 +176,9 @@ def ping(dut, addresses, family='ipv4', **kwargs):
         st.log(rv)
         st.log(err)
     else:
-        rv = st.config(dut, command, type=cli_type)
+        rv = st.config(dut, command, type=cli_type, conn_index=conn_index, exec_mode=exec_mode)
     out = re.findall(ping_pattern, rv)
+    out_dup = re.findall(ping_pattern1, rv)
 
     if not out:
         st.error("Failed to get the ping output.")
@@ -140,9 +186,13 @@ def ping(dut, addresses, family='ipv4', **kwargs):
     if '0' < out[0][3] <= '100':
         st.error("Ping failed with packet loss.")
         return False
+    if out_dup:
+        st.error("Ping failed because of duplicate ping reply.")
+        return False
     return True
 
-def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', family="ipv4", config='add', skip_error = False, **kwargs):
+
+def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', family="ipv4", config='add', skip_error=False, **kwargs):
     """
     Config ip address to interface
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -155,8 +205,11 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
     :param config: add | remove
     :return:
     """
+    st.log('API_NAME: config_ip_addr_interface, API_ARGS: {}'.format(locals()))
     cli_type = st.get_ui_type(dut, **kwargs)
-    is_secondary_ip = kwargs.get('is_secondary_ip','no').lower()
+    is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
+    max_time = kwargs.get('max_time', 600)
+    gw_addr = kwargs.get('gw_addr', None)
     if cli_type == 'click':
         if config == 'add':
             try:
@@ -175,6 +228,7 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
                     if not is_valid_ipv6_address(ip_address):
                         st.error("Invalid IPv6 address.")
                         return False
+                interface_name = convert_intf_name_to_component(dut, interface_name, component="applications")
                 command = "config interface ip add {} {}/{}".format(interface_name, ip_address, subnet)
                 output = st.config(dut, command, skip_error_check=skip_error)
             except Exception as e:
@@ -192,27 +246,35 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
     elif cli_type == 'klish':
         if config == 'add':
             try:
-                if interface_name =='eth0':
+                expect_ipchange = False
+                if interface_name == 'eth0':
+                    expect_ipchange = True
                     command = "interface Management 0"
-                    command = command + "\n" + "ip address {}/{}".format(ip_address, subnet)
+                    if not gw_addr:
+                        command = command + "\n" + "ip address {}/{}".format(ip_address, subnet)
+                    else:
+                        command = command + "\n" + "ip address {}/{} gwaddr {}".format(ip_address, subnet, gw_addr)
                 else:
                     intf = get_interface_number_from_name(interface_name)
                     command = "interface {} {}".format(intf['type'], intf['number'])
-                    fam = "ip" if family=='ipv4' else 'ipv6'
+                    fam = "ip" if family == 'ipv4' else 'ipv6'
                     command = command + "\n" + "{} address {}/{}".format(fam, ip_address, subnet)
                     if is_secondary_ip == 'yes':
                         command += ' secondary'
                     command = command + "\n" + "exit"
-                output = st.config(dut, command, skip_error_check=skip_error, type="klish", conf=True)
+                output = st.config(dut, command, skip_error_check=skip_error, type="klish",
+                                   conf=True, expect_ipchange=expect_ipchange, skip_error_report=True)
                 if "Could not connect to Management REST Server" in output:
                     st.error("klish mode not working.")
+                    return False
+                if skip_error and 'Error' in output:
                     return False
             except Exception as e:
                 st.log(e)
                 return False
             return True
         elif config == 'remove':
-            return delete_ip_interface(dut, interface_name, ip_address, subnet, family, cli_type=cli_type, is_secondary_ip=is_secondary_ip)
+            return delete_ip_interface(dut, interface_name, ip_address, subnet, family, cli_type=cli_type, is_secondary_ip=is_secondary_ip, max_time=max_time)
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         index = get_subinterface_index(dut, interface_name)
@@ -220,28 +282,29 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
             st.error("Failed to get index for interface: {}".format(interface_name))
             index = 0
         if config == 'add':
+            interface_name = get_phy_port(interface_name)
             if "PortChannel" in interface_name:
                 if is_secondary_ip == 'yes':
                     url = rest_urls['subinterface_config'].format(interface_name, index)
-                    ip_config = {"openconfig-interfaces:subinterface": [ {  "index": int(index), "config": { "index": int(index) },
-                            "openconfig-if-ip:{}".format(family): { "addresses": {  "address": [{
-                            "ip": ip_address, "config": { "ip": ip_address, "prefix-length": int(subnet),
-                            "openconfig-interfaces-ext:secondary":True }} ] }} }]}
+                    ip_config = {"openconfig-interfaces:subinterface": [{"index": int(index), "config": {"index": int(index)},
+                                                                         "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{
+                                                                             "ip": ip_address, "config": {"ip": ip_address, "prefix-length": int(subnet),
+                                                                                                          "openconfig-interfaces-ext:secondary": True}}]}}}]}
                 else:
                     url = rest_urls['subinterface_config'].format(interface_name, index)
-                    ip_config = {"openconfig-interfaces:subinterface": [ {  "index": int(index), "config": { "index": int(index) },
-                            "openconfig-if-ip:{}".format(family): { "addresses": {  "address": [{
-                            "ip": ip_address, "config": { "ip": ip_address, "prefix-length": int(subnet) }} ] }} }]}
+                    ip_config = {"openconfig-interfaces:subinterface": [{"index": int(index), "config": {"index": int(index)},
+                                                                         "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{
+                                                                             "ip": ip_address, "config": {"ip": ip_address, "prefix-length": int(subnet)}}]}}}]}
             elif "Vlan" in interface_name:
                 if is_secondary_ip == 'yes':
                     url_identifier = "routed_vlan_config_v6" if family == "ipv6" else "routed_vlan_config_v4"
                     url = rest_urls[url_identifier].format(interface_name)
                     ip_config = {"openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address,
-                                "config": {"ip": ip_address, "prefix-length": int(subnet),"openconfig-interfaces-ext:secondary":True}}]}}}
+                                                                                                   "config": {"ip": ip_address, "prefix-length": int(subnet), "openconfig-interfaces-ext:secondary": True}}]}}}
                 else:
                     url_identifier = "routed_vlan_config_v6" if family == "ipv6" else "routed_vlan_config_v4"
                     url = rest_urls[url_identifier].format(interface_name)
-                    ip_config = {"openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address,"config": {"ip": ip_address, "prefix-length": int(subnet)}}]}}}
+                    ip_config = {"openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address, "prefix-length": int(subnet)}}]}}}
             elif 'Loopback' in interface_name.capitalize():
                 loopback_intfs = get_loopback_interfaces(dut)
                 if interface_name.capitalize() not in loopback_intfs:
@@ -251,23 +314,23 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
                 if is_secondary_ip == 'yes':
                     url = rest_urls['sub_interface_config'].format(interface_name)
                     ip_config = {"openconfig-interfaces:subinterfaces": {"subinterface": [{"index": int(index), "config": {"index": int(index)},
-                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address,
-                             "prefix-length": int(subnet),"openconfig-interfaces-ext:secondary":True}}]}}}]}}
+                                                                                           "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address,
+                                                                                                                                                                                          "prefix-length": int(subnet), "openconfig-interfaces-ext:secondary": True}}]}}}]}}
                 else:
                     url = rest_urls['sub_interface_config'].format(interface_name)
                     ip_config = {"openconfig-interfaces:subinterfaces": {"subinterface": [{"index": int(index), "config": {"index": int(index)},
-                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address,
-                             "prefix-length": int(subnet)}}]}}}]}}
+                                                                                           "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address,
+                                                                                                                                                                                          "prefix-length": int(subnet)}}]}}}]}}
             else:
                 if is_secondary_ip == 'yes':
                     url = rest_urls['sub_interface_config'].format(interface_name)
                     ip_config = {"openconfig-interfaces:subinterfaces": {"subinterface": [{"index": int(index), "config": {"index": int(index)},
-                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address,
-                             "config": {"ip": ip_address,"prefix-length": int(subnet),"openconfig-interfaces-ext:secondary":True}}]}}}]}}
+                                                                                           "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address,
+                                                                                                                                                             "config": {"ip": ip_address, "prefix-length": int(subnet), "openconfig-interfaces-ext:secondary": True}}]}}}]}}
                 else:
                     url = rest_urls['sub_interface_config'].format(interface_name)
                     ip_config = {"openconfig-interfaces:subinterfaces": {"subinterface": [{"index": int(index), "config": {"index": int(index)},
-                             "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address, "prefix-length": int(subnet)}}]}}}]}}
+                                                                                           "openconfig-if-ip:{}".format(family): {"addresses": {"address": [{"ip": ip_address, "config": {"ip": ip_address, "prefix-length": int(subnet)}}]}}}]}}
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=ip_config, timeout=100):
                 st.error("Failed to configure {} address: {}/{} on interface: {}".format(family, ip_address, subnet, interface_name))
                 return False
@@ -278,13 +341,14 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
         st.error("Invalid cli_type for this API - {}.".format(cli_type))
         return False
 
+
 def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ipv4", skip_error=False, **kwargs):
     """
     Deleting ip address to interface
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
 
     :param dut:
-    :param interface_name:
+    :param interface_name: interface name can be list of range ex:['Ethernet0-1','PortChannel10-11'] or ['Ethernet0-1'] or 'Ethernet3' but not the combination of single and range intf.
     :param ip_address:
     :param subnet:
     :param skip_error:
@@ -294,48 +358,70 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
     if family == "ipv4":
         if not is_valid_ipv4_address(ip_address):
             st.error("Invalid IP address.")
-            return False
     elif family == "ipv6":
         if not is_valid_ipv6_address(ip_address):
             st.error("Invalid IPv6 address.")
-            return False
     cli_type = st.get_ui_type(dut, **kwargs)
-    is_secondary_ip = kwargs.get('is_secondary_ip','no').lower()
+    is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
+    max_time = kwargs.get('max_time', 600)
+
     if cli_type == 'click':
+        if not is_a_single_intf(interface_name):
+            st.error("Range intf not supported in cli_type CLICK")
+            return False
+        interface_name = convert_intf_name_to_component(dut, interface_name, component="applications")
         command = "config interface ip remove {} {}/{}".format(interface_name, ip_address, subnet)
         st.config(dut, command, skip_error_check=skip_error)
         return True
     elif cli_type == 'klish':
-        if interface_name == 'eth0':
-            command = "interface Management 0"
-        else:
-            intf = get_interface_number_from_name(interface_name)
-            command = "interface {} {}".format(intf['type'], intf['number'])
-        fam = "ip" if family=='ipv4' else 'ipv6'
-        # Subnet not required while removing IP/IPv6 address.
-        command = command + "\n" + "no {} address {}/{}".format(fam, ip_address, subnet)
-        if is_secondary_ip == 'yes':
-            command += ' secondary'
-        command = command + "\n" + "exit"
-        output = st.config(dut, command, skip_error_check=skip_error, type="klish", conf=True)
+        fam = "ip" if family == 'ipv4' else 'ipv6'
+        interface_name = [interface_name] if isinstance(interface_name, str) else interface_name
+        port_hash_list = segregate_intf_list_type(intf=interface_name, range_format=True)
+        interface_list = port_hash_list['intf_list_all']
+        command = list()
+        for ifname in interface_list:
+            if not is_a_single_intf(ifname):
+                command.append("interface range {}".format(ifname))
+                command.append("no {} address".format(fam))
+            elif ifname == 'eth0':
+                command.append("interface Management 0")
+                command.append("no {} address {}/{}".format(fam, ip_address, subnet))
+            else:
+                intf = get_interface_number_from_name(ifname)
+                command.append("interface {} {}".format(intf['type'], intf['number']))
+                sub_cmd = "no {} address {}/{}".format(fam, ip_address, subnet)
+                if is_secondary_ip == 'yes':
+                    sub_cmd += ' secondary'
+                command.append(sub_cmd)
+            command.append("exit")
+            output = st.config(dut, command, skip_error_check=skip_error, type=cli_type, conf=True, max_time=max_time)
         if "Could not connect to Management REST Server" in output:
             st.error("klish mode not working.")
             return False
+        if "%Error: Primary IPv4 address delete not permitted when secondary IPv4 address exists" in output:
+            st.error("secondary ip address exists")
+            return False
+        if "cannot be deleted, Vxlan is configured" in output:
+            return False
         return True
     elif cli_type in ["rest-patch", "rest-put"]:
+        if not is_a_single_intf(interface_name):
+            st.error("Range intf not supported in cli_type CLICK")
+            return False
         rest_urls = st.get_datastore(dut, 'rest_urls')
         if "Vlan" in interface_name:
             if is_secondary_ip == 'yes':
-                url = rest_urls['clear_logical_port_sec_ipv4_addr'] if family=='ipv4' else rest_urls['clear_logical_port_ipv6_addr']
+                url = rest_urls['clear_logical_port_sec_ipv4_addr'] if family == 'ipv4' else rest_urls['clear_logical_port_ipv6_addr']
             else:
-                url = rest_urls['clear_logical_port_ipv4_addr'] if family=='ipv4' else rest_urls['clear_logical_port_ipv6_addr']
+                url = rest_urls['clear_logical_port_ipv4_addr'] if family == 'ipv4' else rest_urls['clear_logical_port_ipv6_addr']
             url = url.format(interface_name, ip_address)
         else:
             index = get_subinterface_index(dut, interface_name)
             if is_secondary_ip == 'yes':
-                url = rest_urls['ipv4_sec_address_config'] if family=='ipv4' else rest_urls['ipv6_address_config']
+                url = rest_urls['ipv4_sec_address_config'] if family == 'ipv4' else rest_urls['ipv6_address_config']
             else:
-                url = rest_urls['ipv4_address_config'] if family=='ipv4' else rest_urls['ipv6_address_config']
+                url = rest_urls['ipv4_address_config'] if family == 'ipv4' else rest_urls['ipv6_address_config']
+            interface_name = get_phy_port(interface_name)
             url = url.format(interface_name, index, ip_address)
         if not delete_rest(dut, rest_url=url, timeout=100):
             st.error("Failed to remove IP address: {} on interface: {}".format(ip_address, interface_name))
@@ -346,7 +432,7 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
         return False
 
 
-def get_interface_ip_address(dut, interface_name=None, family="ipv4",cli_type=''):
+def get_interface_ip_address(dut, interface_name=None, family="ipv4", cli_type=''):
     """
     To Get  ip address on interface
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -357,13 +443,19 @@ def get_interface_ip_address(dut, interface_name=None, family="ipv4",cli_type=''
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type == 'click':
+        interface_name = get_intf_short_name(interface_name)
+    else:
+        if interface_name == "eth0":
+            interface_name = "Management0"
     if cli_type in ['rest-patch', 'rest-put']:
-        cli_type = 'klish'                      #OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
+        cli_type = 'klish'  # OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
     if cli_type in ['click', 'klish']:
         command = "show ip interface"
         if family == "ipv6":
             command = "show ipv6 interface"
-        output = st.show(dut, command,type=cli_type)
+        output = st.show(dut, command, type=cli_type)
         result = output if family == "ipv4" else prepare_show_ipv6_interface_output(output)
         if interface_name:
             match = {"interface": interface_name}
@@ -371,7 +463,7 @@ def get_interface_ip_address(dut, interface_name=None, family="ipv4",cli_type=''
         return output
 
 
-def verify_interface_ip_address(dut, interface_name, ip_address, family="ipv4", vrfname='', flags = '',cli_type=''):
+def verify_interface_ip_address(dut, interface_name, ip_address, family="ipv4", vrfname='', flags='', cli_type='', **kwargs):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     :param dut:
@@ -382,20 +474,55 @@ def verify_interface_ip_address(dut, interface_name, ip_address, family="ipv4", 
     :param flags:
     :return:
     """
-    cli_type=st.get_ui_type(dut, cli_type=cli_type)
+    st.log('API_NAME: verify_interface_ip_address, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+#    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    intf_status = kwargs.get('intf_status', None)
+    interfaces = utils.make_list(interface_name)
+    ip_addrs = utils.make_list(ip_address)
+    # adding suport for multiple vrf
+    vrf = vrfname
+    build_avail = bootup_api.sonic_installer_list(dut)
+
+    # if cli_type in get_supported_ui_type_list():
+    #    vrf = 'default' if vrfname == '' else vrfname
+    vrfs = utils.make_list(vrf)
+    if len(vrfs) != len(interfaces):
+        vrfs = vrfs * len(interfaces)
+    negative = kwargs.pop('negative', False)
     if cli_type in ['rest-patch', 'rest-put']:
-        cli_type = 'klish'                      #OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
-    command = "show ip interface"
-    if family == "ipv6":
-        command = "show ipv6 interface"
-    output = st.show(dut, command,type=cli_type)
-    result = output if family == "ipv4" else prepare_show_ipv6_interface_output(output)
-    match = {"interface": interface_name, "vrf": vrfname, "ipaddr": ip_address, "flags": flags}
-    entries = utils.filter_and_select(result, ["interface"], match)
-    return True if entries else False
+        cli_type = 'klish'  # OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
+    # gnmi related code is not complete as some of the values are not available
+    if cli_type in ['klish', 'click']:
+        command = "show ip interface"
+        if family == "ipv6":
+            command = "show ipv6 interface"
+        output = st.show(dut, command, type=cli_type)
+        result = output if family == "ipv4" else prepare_show_ipv6_interface_output(output)
+
+    for intf, ip_addr, vrf_name in zip(interfaces, ip_addrs, vrfs):
+        if cli_type == 'click':
+            intf = get_intf_short_name(intf)
+        else:
+            if intf == "eth0":
+                intf = "Management0"
+        if vrf_name == 'default':
+            vrf_name = ''
+        if intf_status:
+            match = {"interface": intf, "vrf": vrf_name, "ipaddr": ip_addr, "status": intf_status} if 'master' in build_avail['Current'] else {"interface": intf, "vrf": vrf_name, "ipaddr": ip_addr, "status": intf_status, "flags": flags}
+        else:
+            match = {"interface": intf, "vrf": vrf_name, "ipaddr": ip_addr} if 'master' in build_avail['Current'] else {"interface": intf, "vrf": vrf_name, "ipaddr": ip_addr, "flags": flags}
+        entries = utils.filter_and_select(result, ["interface"], match)
+        if negative and entries:
+            st.debug("Entries found for the match - {}".format(match))
+            return False
+        if not negative and not entries:
+            st.debug("No entries found for the match - {}".format(match))
+            return False
+    return True
 
 
-def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", family='ipv4', interface = None, vrf = None, **kwargs):
+def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", family='ipv4', interface=None, vrf=None, **kwargs):
     """
     To create static route
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -407,14 +534,16 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
     :param family: ipv4|ipv6
     :return:
     """
+    st.log('API_NAME: create_static_route, API_ARGS: {}'.format(locals()))
     if shell != 'vtysh':
         st.log("shell parameter is obsolete and will be ignored. Please use cli_type.")
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     if cli_type == 'click':
         cli_type = 'vtysh'
-    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type #Due to JIRA: SONIC-28182 we are fallback to klish
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type  # Due to JIRA: SONIC-28182 we are fallback to klish
     distance = kwargs.pop('distance', None)
     nexthop_vrf = kwargs.pop('nexthop_vrf', None)
+    track = kwargs.pop('track', None)
     if not (static_ip and '/' in static_ip):
         st.error("Provide static_ip with proper format")
         return False
@@ -439,14 +568,14 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
             else:
                 command = "ipv6 route {}".format(static_ip)
         if interface:
-            command +=" {}".format(interface)
+            command += " {}".format(interface)
         if vrf:
-            command +=" vrf {}".format(vrf)
+            command += " vrf {}".format(vrf)
         if nexthop_vrf:
             command += " nexthop-vrf {}".format(nexthop_vrf)
-        if "track" in kwargs:
-            command += " track {}".format(kwargs["track"])
-        st.config(dut, command, type='vtysh')
+        if track:
+            command += " track {}".format(track)
+        st.config(dut, command, type='vtysh', **kwargs)
     elif cli_type == 'click':
         if family.lower() == "ipv4" or family.lower() == "":
             if next_hop:
@@ -459,8 +588,8 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
             else:
                 command = "ip -6 route add {}".format(static_ip)
         if interface:
-            command +=" dev {}".format(interface)
-        st.config(dut, command)
+            command += " dev {}".format(interface)
+        st.config(dut, command, **kwargs)
     elif cli_type == "klish":
         command = "ip route"
         if family.lower() == "ipv6":
@@ -478,14 +607,16 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
                 command += " {}".format(next_hop)
         if interface:
             intf = get_interface_number_from_name(interface)
-            command +=" interface {} {}".format(intf['type'], intf['number'])
+            command += " interface {} {}".format(intf['type'], intf['number'])
         if nexthop_vrf:
             command += " nexthop-vrf {}".format(nexthop_vrf)
-        if "track" in kwargs:
-            command += " track {}".format(kwargs["track"])
+        if track:
+            command += " track {}".format(track)
         if distance:
             command += " {}".format(distance)
-        st.config(dut, command, type="klish", conf=True)
+        out = st.config(dut, command, type="klish", conf=True, **kwargs)
+        if kwargs.get('skip_error_check') and 'error' in str(out).lower():
+            return False
 
     elif cli_type in ['rest-patch', 'rest-put']:
         cli_type = "rest-patch"
@@ -497,27 +628,27 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
             return False
         instance = vrf if vrf else 'default'
         if next_hop:
-            if not re.search(r':|\.',next_hop) and not 'blackhole' in next_hop:
+            if not re.search(r':|\.', next_hop) and 'blackhole' not in next_hop:
                 add_data = {"interface-ref": {"config": {"interface": next_hop}}}
                 params_data.update(add_data)
                 interface = None
             elif 'blackhole' in next_hop:
                 next_hop = 'DROP'
-                params_data['config'].update({"openconfig-local-routing-ext:blackhole": True})
+                params_data['config'].update({"blackhole": True})
             else:
                 params_data['config'].update({"next-hop": next_hop})
         elif interface:
             add_data = {"interface-ref": {"config": {"interface": interface}}}
             params_data.update(add_data)
         if nexthop_vrf:
-            params_data['config'].update({"openconfig-local-routing-ext:nexthop-network-instance": nexthop_vrf})
+            params_data['config'].update({"network-instance": nexthop_vrf})
         if distance:
             params_data['config'].update(metric=int(distance))
         index = "{}_{}_{}".format(interface, next_hop, nexthop_vrf).replace('None', '').replace("__", "_").strip("_")
         params_data["index"] = index
         params_data["config"]["index"] = index
         config_data = {"openconfig-network-instance:network-instances": {"network-instance": [{"name": instance, "config": {"name": instance},
-        "protocols": {"protocol": [{"identifier": "STATIC", "name": "static", "config": {"identifier": "STATIC", "name": "static"}, "static-routes": {"static": [{"prefix": static_ip, "config": {"prefix": static_ip}, "next-hops": {"next-hop": [params_data]}}]}}]}}]}}
+                                                                                               "protocols": {"protocol": [{"identifier": "STATIC", "name": "static", "config": {"identifier": "STATIC", "name": "static"}, "static-routes": {"static": [{"prefix": static_ip, "config": {"prefix": static_ip}, "next-hops": {"next-hop": [params_data]}}]}}]}}]}}
         if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data):
             st.error("Failed to create IP address")
             return False
@@ -527,7 +658,7 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
     return True
 
 
-def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", interface = None, vrf = None, **kwargs):
+def delete_static_route(dut, next_hop=None, static_ip=None, family='ipv4', shell="vtysh", interface=None, vrf=None, **kwargs):
     """
     To delete static route
     Author: Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -541,13 +672,15 @@ def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", 
     """
     if shell != 'vtysh':
         st.log("shell parameter is obsolete and will be ignored. Please use cli_type.")
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     if cli_type == 'click':
         cli_type = 'vtysh'
     cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     nexthop_vrf = kwargs.pop('nexthop_vrf', None)
     command = ''
-    if cli_type == "vtysh":
+    if cli_type in get_supported_ui_type_list():
+        return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, shell="vtysh", family=family, interface=interface, vrf=vrf, config='no')
+    elif cli_type == "vtysh":
         if family.lower() == "ipv4" or family.lower() == "":
             if next_hop is None:
                 command = "no ip route {}".format(static_ip)
@@ -559,9 +692,9 @@ def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", 
             else:
                 command = "no ipv6 route {} {}".format(static_ip, next_hop)
         if interface:
-            command +=" {}".format(interface)
+            command += " {}".format(interface)
         if vrf:
-            command +=" vrf {}".format(vrf)
+            command += " vrf {}".format(vrf)
         if nexthop_vrf:
             command += " nexthop-vrf {}".format(nexthop_vrf)
         if "track" in kwargs:
@@ -569,17 +702,17 @@ def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", 
         st.config(dut, command, type='vtysh')
     elif cli_type == "click":
         if family.lower() == "ipv4" or family.lower() == "":
-            if next_hop != None:
+            if next_hop is not None:
                 command = "ip route del {} via {}".format(static_ip, next_hop)
             else:
                 command = "ip route del {}".format(static_ip)
         elif family.lower() == "ipv6":
-            if next_hop != None:
+            if next_hop is not None:
                 command = "ip -6 route del {}  via {}".format(static_ip, next_hop)
             else:
                 command = "ip -6 route del {}".format(static_ip)
         if interface:
-            command +=" dev {}".format(interface)
+            command += " dev {}".format(interface)
         st.config(dut, command)
     elif cli_type == "klish":
         command = "no ip route"
@@ -598,7 +731,7 @@ def delete_static_route(dut, next_hop, static_ip, family='ipv4', shell="vtysh", 
                 command += " {}".format(next_hop)
         if interface:
             intf = get_interface_number_from_name(interface)
-            command +=" interface {} {}".format(intf['type'], intf['number'])
+            command += " interface {} {}".format(intf['type'], intf['number'])
         if nexthop_vrf:
             command += " nexthop-vrf {}".format(nexthop_vrf)
         st.config(dut, command, type="klish", conf=True)
@@ -625,18 +758,27 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     """
 
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
-    cli_type = "vtysh" if cli_type == 'click' else "klish"
-    summary_routes = ' summary' if kwargs.get('summary_routes') else ''
-    if vrf_name:
-        cmd = "show ip route vrf " + vrf_name + summary_routes
-    else:
-        cmd = "show ip route" + summary_routes
+    # format = kwargs.get("format", True)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type in ['click', 'vtysh']:
+        cli_type = 'click'
+    elif cli_type in ["rest-patch", "rest-put"]:
+        cli_type = "klish"
+    elif cli_type in ["rest", "gnmi"]:
+        cli_type = "klish"
 
-    if family == "ipv6":
+    summary_routes = ' summary' if kwargs.get('summary_routes') else ''
+    if cli_type in ['click', 'klish']:
         if vrf_name:
-            cmd = "show ipv6 route vrf " + vrf_name + summary_routes
+            cmd = "show ip route vrf " + vrf_name + summary_routes
         else:
-            cmd = "show ipv6 route" + summary_routes
+            cmd = "show ip route" + summary_routes
+
+        if family == "ipv6":
+            if vrf_name:
+                cmd = "show ipv6 route vrf " + vrf_name + summary_routes
+            else:
+                cmd = "show ipv6 route" + summary_routes
 
     output = st.show(dut, cmd, type=cli_type)
     return output
@@ -668,8 +810,13 @@ def verify_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     :return:
     """
 
+    st.log('API_NAME: verify_ip_route, API_ARGS: {}'.format(locals()))
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
-    cli_type = "vtysh" if cli_type == 'click' else "klish"
+    if cli_type == 'click':
+        cli_type = 'vtysh'
+    if cli_type in ['rest-patch', 'rest-put']:
+        cli_type = 'klish'
+#    cli_type = force_cli_type_to_klish(cli_type=cli_type)
 
     if family == "ipv6":
         if vrf_name:
@@ -685,7 +832,11 @@ def verify_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     result = st.show(dut, cmd, type=cli_type)
 
     ret_val = False
-
+    if 'interface' in kwargs and cli_type == 'vtysh':
+        kwargs['interface'] = get_intf_short_name(kwargs['interface'])
+    if 'interface' in kwargs:
+        if kwargs['interface'] == "eth0":
+            kwargs['interface'] = "Management0"
     if 'ip_address' in kwargs:
         st.banner("Verify Route:{}".format(kwargs['ip_address']))
         result = utils.filter_and_select(result, None, match={'ip_address': kwargs['ip_address']})
@@ -703,7 +854,7 @@ def verify_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
         else:
             for key in kwargs:
                 if rlist[key] != kwargs[key]:
-                    st.log("No-Match: Match key {} NOT found, Expect:{} =>  Got:{}\nCurrent Route:{}\n".format(key, kwargs[key], rlist[key],rlist))
+                    st.log("No-Match: Match key {} NOT found, Expect:{} =>  Got:{}\nCurrent Route:{}\n".format(key, kwargs[key], rlist[key], rlist))
 
     if not ret_val:
         st.log("Fail: Not Matched all args in passed dict {} from parsed dict".format(kwargs))
@@ -723,14 +874,14 @@ def fetch_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, match=None,
     """
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
     if family == "ipv4":
-        result = show_ip_route(dut, family, shell, vrf_name,cli_type=cli_type)
+        result = show_ip_route(dut, family, shell, vrf_name, cli_type=cli_type)
     else:
-        result = show_ip_route(dut, family, shell, vrf_name,cli_type=cli_type)
+        result = show_ip_route(dut, family, shell, vrf_name, cli_type=cli_type)
     entries = utils.filter_and_select(result, select, match)
     return entries
 
 
-def increment_ip_addr(ipaddr, increment_type,family = "ipv4"):
+def increment_ip_addr(ipaddr, increment_type, family="ipv4"):
     """
     Author: Ramprakash Reddy <ramprakash-reddy.kanala@broadcom.com>
     :param ipaddr:
@@ -763,7 +914,7 @@ def increment_ip_addr(ipaddr, increment_type,family = "ipv4"):
         if increment_type == "host":
             temp_ip += 1
         elif increment_type == "network":
-            if family=="ipv4":
+            if family == "ipv4":
                 temp_ip += 256
             else:
                 temp_ip += 2 ** (128 - netmask)
@@ -801,6 +952,7 @@ def _clear_ip_configuration_helper(dut_list, family="ipv4", cli_type='', skip_er
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
+#    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if family == "ipv4":
         family_li = ['ipv4']
     elif family == "ipv6":
@@ -824,9 +976,7 @@ def _clear_ip_configuration_helper(dut_list, family="ipv4", cli_type='', skip_er
                         config_sag_ip(dut, interface=each_ip['interface'], gateway=ip, mask=subnet, config="remove", cli_type=cli_type)
                     elif not each_ip['ipaddr'].startswith('fe80::'):
                         delete_ip_interface(dut, each_ip['interface'], ip, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
-                    else:
-                        ip_link_local = ip.split('%')[0] if '%' in ip else ip
-                        delete_ip_interface(dut, each_ip['interface'], ip_link_local, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
+
     return True
 
 
@@ -840,6 +990,8 @@ def clear_ip_configuration(dut_list, family='ipv4', thread=True, cli_type='', sk
     :param thread: True (Default) / False
     :return:
     """
+    if not thread:
+        return _clear_ip_configuration_helper(dut_list, family, cli_type, skip_error_check)
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
     [out, _] = utils.exec_foreach(thread, dut_li, _clear_ip_configuration_helper, family, cli_type=cli_type, skip_error_check=skip_error_check)
@@ -869,7 +1021,7 @@ def _clear_loopback_config_helper(dut_list):
         st.log("############## {} : Loopback intfs Cleanup ################".format(dut))
         output = get_loopback_interfaces(dut)
         for intf in output:
-            configure_loopback(dut,loopback_name=intf,config="no")
+            configure_loopback(dut, loopback_name=intf, config="no")
     return True
 
 
@@ -973,7 +1125,7 @@ def create_neighbor(dut, neigh, mac, interface, family='ipv4'):
     :return:
     """
     if '/' in interface:
-        interface = st.get_other_names(dut,[interface])[0]
+        interface = st.get_other_names(dut, [interface])[0]
 
     command = ''
     if family.lower() == "ipv4":
@@ -994,7 +1146,7 @@ def delete_neighbor(dut, neigh, mac, interface, family='ipv4'):
     :return:
     """
     if '/' in interface:
-        interface = st.get_other_names(dut,[interface])[0]
+        interface = st.get_other_names(dut, [interface])[0]
 
     command = ''
     if family.lower() == "ipv4":
@@ -1004,7 +1156,7 @@ def delete_neighbor(dut, neigh, mac, interface, family='ipv4'):
     st.config(dut, command)
 
 
-def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gateway=None, external=False):
+def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gateway=None, external=False, **kwargs):
     """
     traceroute(dut1,addresses='10.75.224.184')
     traceroute(dut1,addresses='10.75.224.184',vrf_name ='Vrf-RED')
@@ -1017,22 +1169,37 @@ def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gatew
     :param external: True | False (Default: False) # Used True for traceroute from external server. (Ex: VDI)
     :return:
     """
+
+    interface = kwargs.get('interface', '')
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type != 'click' else cli_type
     trace_route1 = r'(.*)\s+\(' + addresses + r'\)\s+(\d+\.\d+)\s+ms\s+(\d+\.\d+)\s+ms\s+(\d+\.\d+)\s+ms'
     trace_route2 = r'(\d+)\s+(' + addresses + r')\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms'
-    trace_route = r"{}|{}".format(trace_route1, trace_route2)
-    command = "traceroute -4 {}".format(addresses)
-    if external:
+    trace_route3 = r'(\d+)\s+(' + addresses.rstrip() + r')\s+\(' + addresses.rstrip() + r'\)\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms'
+    trace_route4 = r'(\d+)\s+(' + addresses.rstrip() + r'\%' + interface + r')\s+\(' + addresses.rstrip() + r'\%' + interface + r'\)\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms\s+(\d+\.\d+)\s*ms'
+    trace_route = r"{}|{}|{}|{}".format(trace_route1, trace_route2, trace_route3, trace_route4)
+    if family == "ipv4":
+        if is_valid_ipv6_address(addresses):
+            family = "ipv6"
+    if cli_type == "click":
+        command = "traceroute -4 {}".format(addresses)
+        if family.lower() == "ipv6":
+            command = "traceroute -6 {}".format(addresses)
+    if cli_type == "klish" or external:
         command = "traceroute {}".format(addresses)
-    if family.lower() == "ipv6":
-        command = "traceroute -6 {}".format(addresses)
-        if external:
+        if family.lower() == "ipv6":
             command = "traceroute6 {}".format(addresses)
     if vrf_name:
         command = command + " -i {} ".format(vrf_name)
+    if interface:
+        command = command + " -i {} ".format(interface)
     if timeout:
         command = command + " -w {} ".format(timeout)
     if gateway:
         command = command + " -g {} ".format(gateway)
+
+    if st.is_dry_run():
+        return True
 
     if external:
         st.log(command)
@@ -1042,7 +1209,7 @@ def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gatew
         st.log(rv)
         st.log(err)
     else:
-        rv = st.config(dut, command)
+        rv = st.config(dut, command, type=cli_type)
     result = re.findall(trace_route, str(rv))
     if result:
         st.log("Traceroute to destination address " + addresses + " Passed")
@@ -1084,9 +1251,16 @@ def config_route_map(dut, route_map, config='yes', **kwargs):
     :param :dut:
     :param :route-map: name of the route map
     :param :community: name of the community
+    :param :weight: set weight attribute
+    :param :match_evpn_vni: match evpn vni
+    :param :match_evpn_route_type: match evpn route-type
+    :param :match_source_protocol: match source-protocol
+    :param :local_preference: set local-preference
+    :param :origin: set origin attribute
     :EX: config_route_map(dut, route_map='rmap1', config='yes', sequence='10', community='100:100')
          config_route_map(dut, route_map='rmap1', config='no')
-         config_route_map(dut, route_map='rmap1', config='no', sequence='10')
+         config_route_map(dut, route_map='rmap1', config='no', sequence='10',weight="100")
+         config_route_map(dut, route_map='rmap1', sequence='20',weight="100")
     :Caution: while creating the route-map (config='yes'), sequence number must be mentioned and it should be
               the first parameter of the variable argument, because other arguments have newline appended.
     :return:
@@ -1101,6 +1275,20 @@ def config_route_map(dut, route_map, config='yes', **kwargs):
             cmd += "\n set metric {}".format(kwargs['metric'])
         if 'community' in kwargs:
             cmd += "\n set community {}".format(kwargs['community'])
+        if 'delcommunity' in kwargs:
+            cmd += "\n no set community {}".format(kwargs['delcommunity'])
+        if 'weight' in kwargs:
+            cmd += "\n set weight {}".format(kwargs['weight'])
+        if 'local_preference' in kwargs:
+            cmd += "\n set local-preference {}".format(kwargs['local_preference'])
+        if 'origin' in kwargs:
+            cmd += "\n set origin {}".format(kwargs['origin'])
+        if 'match_evpn_vni' in kwargs:
+            cmd += "\n match evpn vni {}".format(kwargs['match_evpn_vni'])
+        if 'match_evpn_route_type' in kwargs:
+            cmd += "\n match evpn route-type {}".format(kwargs['match_evpn_route_type'])
+        if 'match_source_protocol' in kwargs:
+            cmd += "\n match source-protocol {}".format(kwargs['match_source_protocol'])
         cmd += "\n"
         cmd += "exit\n"
         st.config(dut, cmd, type=cli_type)
@@ -1153,8 +1341,12 @@ def config_static_route_vrf(dut, dest, dest_subnet, next_hop, family='ipv4', vrf
     :param config:
     :return:
     """
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
-    if cli_type == 'click':
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    if cli_type in get_supported_ui_type_list():
+        config = 'yes' if config != 'no' else config
+        static_ip = '{}/{}'.format(dest, dest_subnet)
+        return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, vrf=vrf_name, cli_type=cli_type, config=config)
+    elif cli_type == 'click':
         my_cmd = ''
         if family.lower() == "ipv4" or family.lower() == "":
             my_cmd = "{} ip route {}/{} {} vrf {}".format(config, dest, dest_subnet, next_hop, vrf_name)
@@ -1170,7 +1362,7 @@ def config_static_route_vrf(dut, dest, dest_subnet, next_hop, family='ipv4', vrf
             return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, vrf=vrf_name, cli_type=cli_type)
 
 
-def create_static_route_nexthop_vrf(dut, next_hop, static_ip, shell="vtysh", family='ipv4',vrf_name="", nhopvrf="",
+def create_static_route_nexthop_vrf(dut, next_hop=None, static_ip=None, shell="vtysh", family='ipv4', vrf_name="", nhopvrf="",
                                     config="yes", **kwargs):
     """
     To create static route with nexthop as vrf
@@ -1184,13 +1376,16 @@ def create_static_route_nexthop_vrf(dut, next_hop, static_ip, shell="vtysh", fam
     :param config: yes|no
     :return:
     """
-
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
-    if cli_type in ["klish", "rest-put", "rest-patch"]:
+    interface = kwargs.get('interface')
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    if cli_type in get_supported_ui_type_list():
+        config = 'yes' if config != 'no' else config
+        return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, interface=interface, vrf=vrf_name, nexthop_vrf=nhopvrf, cli_type=cli_type, config=config)
+    elif cli_type in ["klish", "rest-put", "rest-patch"]:
         if config == 'no':
-            return delete_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, vrf=vrf_name, nexthop_vrf=nhopvrf, cli_type=cli_type)
+            return delete_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, interface=interface, vrf=vrf_name, nexthop_vrf=nhopvrf, cli_type=cli_type)
         else:
-            return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, vrf=vrf_name, nexthop_vrf=nhopvrf, cli_type=cli_type)
+            return create_static_route(dut, next_hop=next_hop, static_ip=static_ip, family=family, interface=interface, vrf=vrf_name, nexthop_vrf=nhopvrf, cli_type=cli_type)
 
     if shell == "vtysh":
         if config == "no":
@@ -1199,29 +1394,29 @@ def create_static_route_nexthop_vrf(dut, next_hop, static_ip, shell="vtysh", fam
             command = ""
         if family.lower() == "ipv4" or family.lower() == "":
             if vrf_name and nhopvrf:
-                command += "ip route {} {} vrf {} nexthop-vrf {}".format(static_ip, next_hop,vrf_name,nhopvrf)
+                command += "ip route {} {} vrf {} nexthop-vrf {}".format(static_ip, next_hop, vrf_name, nhopvrf)
                 st.config(dut, command, type='vtysh')
-            if vrf_name and nhopvrf=="":
-                command += "ip route {} {} vrf {}".format(static_ip, next_hop,vrf_name)
+            if vrf_name and nhopvrf == "":
+                command += "ip route {} {} vrf {}".format(static_ip, next_hop, vrf_name)
                 st.config(dut, command, type='vtysh')
             if vrf_name == "" and nhopvrf:
-                command += "ip route {} {} nexthop-vrf {}".format(static_ip, next_hop,nhopvrf)
+                command += "ip route {} {} nexthop-vrf {}".format(static_ip, next_hop, nhopvrf)
                 st.config(dut, command, type='vtysh')
-            if vrf_name =="" and nhopvrf=="":
+            if vrf_name == "" and nhopvrf == "":
                 command += "ip route {} {} ".format(static_ip, next_hop)
                 st.config(dut, command, type='vtysh')
 
         elif family.lower() == "ipv6":
             if vrf_name and nhopvrf:
-                command += "ipv6 route {} {} vrf {} nexthop-vrf {}".format(static_ip, next_hop,vrf_name,nhopvrf)
+                command += "ipv6 route {} {} vrf {} nexthop-vrf {}".format(static_ip, next_hop, vrf_name, nhopvrf)
                 st.config(dut, command, type='vtysh')
-            if vrf_name and nhopvrf=="":
-                command += "ipv6 route {} {} vrf {}".format(static_ip, next_hop,vrf_name)
+            if vrf_name and nhopvrf == "":
+                command += "ipv6 route {} {} vrf {}".format(static_ip, next_hop, vrf_name)
                 st.config(dut, command, type='vtysh')
             if vrf_name == "" and nhopvrf:
-                command += "ipv6 route {} {} nexthop-vrf {}".format(static_ip, next_hop,nhopvrf)
+                command += "ipv6 route {} {} nexthop-vrf {}".format(static_ip, next_hop, nhopvrf)
                 st.config(dut, command, type='vtysh')
-            if vrf_name == "" and nhopvrf=="":
+            if vrf_name == "" and nhopvrf == "":
                 command += "ipv6 route {} {} ".format(static_ip, next_hop)
                 st.config(dut, command, type='vtysh')
     else:
@@ -1231,7 +1426,6 @@ def create_static_route_nexthop_vrf(dut, next_hop, static_ip, shell="vtysh", fam
         elif family.lower() == "ipv6":
             command = "ip -6 route add {} via {}".format(static_ip, next_hop)
             st.config(dut, command)
-
 
 
 def config_route_map_mode(dut, tag, operation, sequence, config='yes', **kwargs):
@@ -1272,8 +1466,7 @@ def config_route_map_mode(dut, tag, operation, sequence, config='yes', **kwargs)
     return True
 
 
-
-def config_route_map_match_ip_address(dut, tag, operation, sequence, value, family = 'ipv4',**kwargs):
+def config_route_map_match_ip_address(dut, tag, operation, sequence, value, family='ipv4', **kwargs):
     """
     :param dut:
     :param tag: route-map name
@@ -1282,28 +1475,43 @@ def config_route_map_match_ip_address(dut, tag, operation, sequence, value, fami
     :param value: access_list / prefix-list/ prefix-len
     :return:
     """
+    config = kwargs.get("config", "yes")
+    mode = "no" if config == "no" else ""
     family = 'ip' if family == 'ipv4' else 'ipv6'
     cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else cli_type
+    community = kwargs.get('community', False)
+    command = ''
+    if cli_type in get_supported_ui_type_list() and config == 'no':
+        # Forcing to klish till infra issue is fixed
+        cli_type = 'klish'
     if not config_route_map_mode(dut, tag, operation, sequence, cli_type=cli_type):
         st.error("Route map mode configuration failed")
         return False
-    command = ''
     if cli_type == 'vtysh':
-        command += 'match {} address {}\n'.format(family,value)
+        command += '{} match {} address {}\n'.format(mode, family, value)
         command += 'exit\n'
-        st.config(dut, command, type = cli_type)
+        st.config(dut, command, type=cli_type)
     elif cli_type == 'klish':
-        command += 'match {} address prefix-list {}\n'.format(family,value)
-        command += 'exit\n'
-        st.config(dut, command, type = cli_type)
+        if community:
+            command += '{} match community {}\n'.format(mode, community)
+            command += 'exit\n'
+        else:
+            command += '{} match {} address prefix-list {}\n'.format(mode, family, value)
+            command += 'exit\n'
+        st.config(dut, command, type=cli_type)
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         url = rest_urls['match_prefix_set_config'].format(tag, sequence)
-        config_data = {"openconfig-routing-policy:config": {"prefix-set": str(value)}}
-        if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data):
-            st.error("Failed to configure route map match IP address")
-            return False
+        if config == "yes":
+            config_data = {"openconfig-routing-policy:config": {"prefix-set": str(value)}}
+            if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data):
+                st.error("Failed to configure route map match IP address")
+                return False
+        else:
+            if not delete_rest(dut, rest_url=url):
+                st.error("Failed to DELETE route map match IP address")
+                return False
     else:
         st.error("Invalid cli_type for this API - {}.".format(cli_type))
         return False
@@ -1323,8 +1531,23 @@ def config_route_map_set_aspath(dut, tag, operation, sequence, value, option='pr
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else cli_type
     config_route_map_mode(dut, tag, operation, sequence, cli_type=cli_type)
-    if cli_type in ['vtysh', 'klish']:
+    if cli_type in get_supported_ui_type_list():
+        operation = Operation.CREATE
+        rp_pd_obj = umf_rp.PolicyDefinition(Name=tag)
+        rp_rule_obj = umf_rp.Statement(StatementName=str(sequence), AsnList=str(value))
+        rp_pd_obj.add_Statement(rp_rule_obj)
+        result = rp_pd_obj.configure(dut, operation=operation, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Configure Route Map Match {}'.format(result.data))
+            return False
+        return True
+
+    if cli_type in ['klish']:
         command = "set as-path {} {}\n".format(option, value)
+        command += "exit\n"
+        st.config(dut, command, type=cli_type)
+    elif cli_type in ['vtysh']:
+        command = "set as-path {} {}\n".format(option, value.replace(",", " "))
         command += "exit\n"
         st.config(dut, command, type=cli_type)
     elif cli_type in ['rest-patch', 'rest-put']:
@@ -1375,7 +1598,7 @@ def configure_loopback(dut, **kwargs):
     return config_loopback_interfaces(dut, **kwargs)
 
 
-def config_unconfig_interface_ip_addresses(dut, if_data_list=[], config='add',cli_type='',ip_type=''):
+def config_unconfig_interface_ip_addresses(dut, if_data_list=[], config='add', cli_type='', ip_type=''):
     """
     Configure IP addresses on multiple interfaces
     Author: Naveena Suvarna (naveen.suvarna@broadcom.com)
@@ -1388,8 +1611,7 @@ def config_unconfig_interface_ip_addresses(dut, if_data_list=[], config='add',cl
     if config != 'add' and config != 'remove':
         st.error("Invalid config type {}".format(config))
         return False
-    cli_type=st.get_ui_type(dut, cli_type=cli_type)
-
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = ''
     for if_data in if_data_list:
         if not if_data['name']:
@@ -1399,28 +1621,37 @@ def config_unconfig_interface_ip_addresses(dut, if_data_list=[], config='add',cl
         if not is_valid_ip_address(if_data['ip'], if_data['family'], if_data['subnet']):
             st.error("Invalid IP address or family or subnet {} ".format(if_data))
             return False
-        if cli_type == 'click':
+
+        if cli_type in get_supported_ui_type_list():
+            kwargs = dict()
+            kwargs['cli_type'] = cli_type
+            kwargs['is_secondary_ip'] = 'yes' if ip_type == 'secondary' else 'no'
+            result = config_ip_addr_interface(dut, interface_name=if_data['name'], ip_address=if_data['ip'], subnet=if_data['subnet'], family=if_data['family'], config=config, skip_error_check=True, **kwargs)
+            if not result:
+                return result
+
+        elif cli_type == 'click':
             command += "sudo config interface ip {} {} {}/{} ; ".format(config,
-                                                                if_data['name'], if_data['ip'], if_data['subnet'])
+                                                                        if_data['name'], if_data['ip'], if_data['subnet'])
         elif cli_type == 'klish':
-            #config = '' if config == 'add' else 'no'
+            # config = '' if config == 'add' else 'no'
             family = 'ip' if if_data['family'] == 'ipv4' else 'ipv6'
             # if config == 'add':
             #     command += "interface {} \n {} address {}/{}\n".format(if_data['name'],family,if_data['ip'],if_data['subnet'])
             if config == 'add':
                 intf = get_interface_number_from_name(if_data['name'])
                 if ip_type == 'secondary':
-                    command += "interface {} {} \n {} address {}/{} secondary \n".format(intf['type'], intf['number'],family,if_data['ip'],if_data['subnet'])
+                    command += "interface {} {} \n {} address {}/{} secondary \n".format(intf['type'], intf['number'], family, if_data['ip'], if_data['subnet'])
                 else:
-                    command += "interface {} {} \n {} address {}/{}\n".format(intf['type'], intf['number'],family,if_data['ip'],if_data['subnet'])
+                    command += "interface {} {} \n {} address {}/{}\n".format(intf['type'], intf['number'], family, if_data['ip'], if_data['subnet'])
             # else:
             #     command += "interface {} \n no {} address {}/{}\n".format(if_data['name'],family,if_data['ip'],if_data['subnet'])
             else:
                 intf = get_interface_number_from_name(if_data['name'])
                 if ip_type == 'secondary':
-                    command += "interface {} {}\n no {} address {}/{} secondary \n".format(intf['type'], intf['number'],family,if_data['ip'],if_data['subnet'])
+                    command += "interface {} {}\n no {} address {}/{} secondary \n".format(intf['type'], intf['number'], family, if_data['ip'], if_data['subnet'])
                 else:
-                    command += "interface {} {}\n no {} address {}/{}\n".format(intf['type'], intf['number'],family,if_data['ip'],if_data['subnet'])
+                    command += "interface {} {}\n no {} address {}/{}\n".format(intf['type'], intf['number'], family, if_data['ip'], if_data['subnet'])
         elif cli_type in ['rest-patch', 'rest-put']:
             secondary_ip = 'no'
             if ip_type == 'secondary':
@@ -1439,7 +1670,7 @@ def config_unconfig_interface_ip_addresses(dut, if_data_list=[], config='add',cl
                 st.log(e)
                 return False
         elif cli_type == 'klish':
-            output = st.config(dut,command,type=cli_type,conf=True,skip_error_check=True)
+            output = st.config(dut, command, type=cli_type, conf=True, skip_error_check=True)
             if "Could not connect to Management REST Server" in output:
                 st.error("klish mode not working.")
                 return False
@@ -1508,13 +1739,13 @@ class PrefixList:
     prefix_list.execute_command(dut, config='no')
     """
 
-    def __init__(self, name, family='ipv4',cli_type=''):
+    def __init__(self, name, family='ipv4', cli_type=''):
         self.name = name
         self.description = ''
         self.family = family
         self.match_sequence = []
         self.cli_type = st.get_ui_type(cli_type=cli_type)
-        self.cli_type = 'vtysh' if self.cli_type in ['click','vtysh'] else 'klish'
+        self.cli_type = 'vtysh' if self.cli_type in ['click', 'vtysh'] else 'klish'
         if self.family == 'ipv6':
             self.cmdkeyword = 'ipv6 prefix-list'
         else:
@@ -1534,7 +1765,6 @@ class PrefixList:
                     le = '128'
         self.match_sequence.append((seq_num, 'permit', prefix, ge, le))
 
-
     def add_match_deny_sequence(self, prefix, ge='', le='', seq_num=''):
         if self.cli_type == 'klish':
             if prefix == 'any':
@@ -1545,7 +1775,6 @@ class PrefixList:
                     prefix = '::/0'
                     le = '128'
         self.match_sequence.append((seq_num, 'deny', prefix, ge, le))
-
 
     def config_command_string(self):
         command = ''
@@ -1579,7 +1808,7 @@ class PrefixList:
         command = 'no {} {}\n'.format(self.cmdkeyword, self.name)
         return command
 
-    def execute_command(self, dut, config='yes',cli_type=''):
+    def execute_command(self, dut, config='yes', cli_type=''):
         if config == 'no':
             command = self.unconfig_command_string()
         else:
@@ -1587,7 +1816,7 @@ class PrefixList:
         if self.cli_type == 'vtysh':
             st.config(dut, command, type='vtysh')
         elif self.cli_type == 'klish':
-            output = st.config(dut,command,type='klish',conf=True)
+            output = st.config(dut, command, type='klish', conf=True)
             if "Could not connect to Management REST Server" in output:
                 st.error("klish mode not working.")
                 return False
@@ -1595,7 +1824,6 @@ class PrefixList:
             st.warn("UNSUPPORTED CLI TYPE - {}".format(cli_type))
             return False
         return True
-
 
 
 class AccessList:
@@ -1630,14 +1858,14 @@ class AccessList:
     def add_description(self, description):
         self.description = description
 
-    def add_match_permit_sequence(self, prefix, exact_match='false', rule_seq = None):
+    def add_match_permit_sequence(self, prefix, exact_match='false', rule_seq=None):
         if self.cli_type == 'klish':
             if not rule_seq:
                 rule_seq = self.def_rule_seq
                 self.def_rule_seq += 1
         self.match_sequence.append(('permit', prefix, exact_match, rule_seq))
 
-    def add_match_deny_sequence(self, prefix, exact_match='false', rule_seq = None):
+    def add_match_deny_sequence(self, prefix, exact_match='false', rule_seq=None):
         if self.cli_type == 'klish':
             if not rule_seq:
                 rule_seq = self.def_rule_seq
@@ -1686,14 +1914,15 @@ def get_link_local_addresses(dut, interface, **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type
+    if cli_type == 'click':
+        interface = get_intf_short_name(interface)
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put', 'vtysh'] else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     output = get_interface_ip_address(dut, interface, family="ipv6", cli_type=cli_type)
     ipv6_list = utils.dicts_list_values(output, 'ipaddr')
-    st.log("IPV6 LIST: {}".format(ipv6_list))
-    if cli_type == 'click':
-        return [each.split("%")[0] for each in ipv6_list if '%' in each]
-    if cli_type == 'klish':
-        return [each.split("/")[0] for each in ipv6_list if each.startswith('fe80::')]
+    st.log("{} IPV6 LIST: {}".format(interface, ipv6_list), dut=dut)
+    return [each.split("/")[0] for each in ipv6_list if each.startswith('fe80::')]
+
 
 def config_interface_ip6_link_local(dut, interface_list, action='enable', **kwargs):
     """
@@ -1711,28 +1940,51 @@ def config_interface_ip6_link_local(dut, interface_list, action='enable', **kwar
         return False
     interfaces = list(interface_list) if isinstance(interface_list, list) else [interface_list]
     command = ''
-    if cli_type == 'click':
+
+    if cli_type in get_supported_ui_type_list():
+        state = True if action == 'enable' else False
+        port_hash_list = segregate_intf_list_type(intf=interfaces, range_format=False)
+        interfaces = port_hash_list['intf_list_all']
+        for interface in interfaces:
+            index = get_subinterface_index(dut, interface)
+            interface = get_phy_port(interface)
+            intf_obj = umf_intf.Interface(Name=interface)
+            sub_intf_obj = umf_intf.Subinterface(Index=int(index), SubIntfIpv6Enabled=state, Interface=intf_obj)
+            result = sub_intf_obj.configure(dut, cli_type=cli_type, timeout=time_out)
+            if not result.ok():
+                st.log('test_step_failed: Config of link-local {}'.format(result.data))
+                return False
+    elif cli_type == 'click':
+        port_hash_list = segregate_intf_list_type(intf=interfaces, range_format=False)
+        interfaces = port_hash_list['intf_list_all']
         for interface in interfaces:
             if not interface:
                 st.error("Please provide interface name in {} ".format(interface))
                 return False
-            command += "sudo config interface ipv6 {} use-link-local-only {} ; ".format(action,interface)
+            command += "sudo config interface ipv6 {} use-link-local-only {} ; ".format(action, interface)
     elif cli_type == 'klish':
         command = list()
+        port_hash_list = segregate_intf_list_type(intf=interfaces, range_format=True)
+        interfaces = port_hash_list['intf_list_all']
         for interface in interfaces:
-            if not interface:
-                st.error("Please provide interface name in {} ".format(interface))
-                return False
-            intf = get_interface_number_from_name(interface)
-            #Need to split interface name due to defect in portchannel
-            command.append('interface {} {}'.format(intf["type"], intf["number"]))
+            if not is_a_single_intf(interface):
+                command.append("interface range {}".format(interface))
+            else:
+                if not interface:
+                    st.error("Please provide interface name in {} ".format(interface))
+                    return False
+                intf = get_interface_number_from_name(interface)
+                command.append('interface {} {}'.format(intf["type"], intf["number"]))
             command.append('ipv6 enable' if action.lower() == 'enable' else 'no ipv6 enable')
             command.append('exit')
     elif cli_type in ['rest-patch', 'rest-put']:
         state = True if action == 'enable' else False
         rest_urls = st.get_datastore(dut, 'rest_urls')
+        port_hash_list = segregate_intf_list_type(intf=interfaces, range_format=False)
+        interfaces = port_hash_list['intf_list_all']
         for interface in interfaces:
             index = get_subinterface_index(dut, interface)
+            interface = get_phy_port(interface)
             url = rest_urls['ipv6_enable_config'].format(interface, index)
             config_data = {"openconfig-if-ip:config": {"enabled": state}}
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data, timeout=100):
@@ -1758,7 +2010,7 @@ def config_interface_ip_addresses(dut, if_data_list={}, config='yes', cli_type='
         config = 'add'
     elif config == 'no' or config == 'del':
         config = 'remove'
-    else :
+    else:
         st.error("Invalid config type {}".format(config))
         return False
 
@@ -1774,23 +2026,30 @@ def config_interface_ip_addresses(dut, if_data_list={}, config='yes', cli_type='
             st.error("Invalid IP address or family or subnet {} ".format(if_data))
             return False
 
-        if cli_type == 'click':
+        if cli_type in get_supported_ui_type_list():
+            kwargs = dict()
+            kwargs['cli_type'] = cli_type
+            kwargs['is_secondary_ip'] = 'no'
+            result = config_ip_addr_interface(dut, interface_name=if_data['name'], ip_address=if_data['ip'], subnet=if_data['subnet'], family=if_data['family'], config=config, skip_error_check=True, **kwargs)
+            if not result:
+                return result
+        elif cli_type == 'click':
             cmd_str = "sudo config interface ip {} {} {}/{} ".format(config,
-                                      if_data['name'], if_data['ip'], if_data['subnet'])
+                                                                     if_data['name'], if_data['ip'], if_data['subnet'])
             command.append(cmd_str)
         elif cli_type == 'klish':
             intf_info = get_interface_number_from_name(if_data['name'])
             cmd_str = 'interface {} {}'.format(intf_info["type"], intf_info["number"])
             command.append(cmd_str)
             cmd_str = "no " if config == 'remove' else ''
-            cmd_str +="ip address {}/{}".format(if_data['ip'], if_data['subnet'])
+            cmd_str += "ip address {}/{}".format(if_data['ip'], if_data['subnet'])
             command.append(cmd_str)
             command.append('exit')
         elif cli_type in ['rest-patch', 'rest-put']:
             st.error("Spytest API not yet supported for REST type")
             return False
 
-    if cli_type in ['click', 'klish' ] :
+    if cli_type in ['click', 'klish']:
         try:
             st.config(dut, command, type=cli_type)
         except Exception as e:
@@ -1798,6 +2057,7 @@ def config_interface_ip_addresses(dut, if_data_list={}, config='yes', cli_type='
             return False
 
     return True
+
 
 def config_unnumbered_interface(dut, **kwargs):
     """
@@ -1807,16 +2067,15 @@ def config_unnumbered_interface(dut, **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    family = kwargs.get("family","ipv4")
-    action = kwargs.get("action","add")
+    family = kwargs.get("family", "ipv4")
+    action = kwargs.get("action", "add")
     interface = kwargs.get("interface", None)
     loop_back = kwargs.get("loop_back", None)
     skip_error = kwargs.get('skip_error', False)
     intf_name = get_interface_number_from_name(interface)
-
     if cli_type == "click":
         commands = list()
-        if action not in ["add","del"]:
+        if action not in ["add", "del"]:
             st.log("Unsupported action provided")
             return False
         if not interface:
@@ -1834,7 +2093,8 @@ def config_unnumbered_interface(dut, **kwargs):
     elif cli_type == "klish":
         commands = list()
         if interface and loop_back and family == "ipv4":
-            command = "interface {} {}".format(intf_name["type"],intf_name["number"])
+            intf_name = get_interface_number_from_name(interface)
+            command = "interface {} {}".format(intf_name["type"], intf_name["number"])
             commands.append(command)
             if action == "add":
                 command = "ip unnumbered {} \n exit \n".format(loop_back)
@@ -1848,12 +2108,18 @@ def config_unnumbered_interface(dut, **kwargs):
         if interface and loop_back and family == "ipv4":
             rest_urls = st.get_datastore(dut, 'rest_urls')
             index = get_subinterface_index(dut, interface)
+            interface = get_phy_port(interface)
             if action == 'add':
                 url = rest_urls['ipv4_unnumbered_interface_config'].format(interface, index)
-                config_data = {"openconfig-if-ip:config": {"interface": loop_back, "subinterface": int(index)}}
-                if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data, timeout=100):
-                    st.error("Failed to configure unnumbered interface")
-                    return False
+                config_data = {"openconfig-if-ip:config": {"interface": loop_back}}
+                rest_response = config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data, timeout=100)
+                if not rest_response:
+                    if skip_error:
+                        st.log("Skipping the error as skip_error=True")
+                        return True
+                    else:
+                        st.error("Failed to configure unnumbered interface")
+                        return False
             elif action == "del":
                 url = rest_urls['ipv4_unnumbered_interface_config'].format(interface, int(index))
                 if not delete_rest(dut, rest_url=url, timeout=100):
@@ -1864,16 +2130,14 @@ def config_unnumbered_interface(dut, **kwargs):
             return False
         return True
     if commands:
-        if skip_error:
-            try:
-                st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
-                return True
-            except Exception:
-                st.log("Error handled..by API")
+        try:
+            output = st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
+            if skip_error and 'Error' in output:
                 return False
-        else:
-            st.config(dut, commands, skip_error_check=skip_error, type=cli_type)
-            return True
+        except Exception as e:
+            st.log(e)
+            return False
+        return True
 
 
 def prepare_show_ipv6_interface_output(data):
@@ -1895,7 +2159,7 @@ def prepare_show_ipv6_interface_output(data):
             result.append(value[0])
             if len(value) > 1:
                 for attr in ip_keys:
-                    value[1][attr] = value[1][attr] if value[1][attr] else value[0][attr]
+                    value[1][attr] = value[1][attr] if value[1][attr] else ""
                 result.append(value[1])
     return result
 
@@ -1912,7 +2176,7 @@ def config_ip_prefix_list(dut, prefix_list, ip_addr, family="ipv4", action="perm
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
-    config = kwargs.get('config','')
+    config = kwargs.get('config', '')
     seq_num = kwargs.get('seq_num', '')
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else 'klish'
     command = ''
@@ -1928,13 +2192,13 @@ def config_ip_prefix_list(dut, prefix_list, ip_addr, family="ipv4", action="perm
             command += "{} prefix-list {} {} {}".format(ip_cmd, prefix_list, action, ip_address)
         else:
             command += "{} {} prefix-list {} ".format(config, ip_cmd, prefix_list)
-        st.config(dut, command, type=cli_type,skip_error_check=skip_error_check)
+        st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     elif cli_type == 'klish':
         if seq_num != '':
-            command+= "{} {} prefix-list {} seq {} {} {}".format(config, ip_cmd, prefix_list, seq_num, action, ip_address)
+            command += "{} {} prefix-list {} seq {} {} {}".format(config, ip_cmd, prefix_list, seq_num, action, ip_address)
         else:
-            command+= "{} {} prefix-list {} {} {}".format(config, ip_cmd, prefix_list, action, ip_address)
-        st.config(dut, command, type=cli_type,skip_error_check=skip_error_check)
+            command += "{} {} prefix-list {} {} {}".format(config, ip_cmd, prefix_list, action, ip_address)
+        st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         if config == '':
@@ -2002,6 +2266,7 @@ def kill_dhclient_on_interface(dut, interface):
         st.error("PID not found")
         return False
 
+
 def config_loopback_interfaces(dut, **kwargs):
     """
     :param :loopback_name:
@@ -2024,13 +2289,16 @@ def config_loopback_interfaces(dut, **kwargs):
         return False
     loopback_interface = utils.make_list(loopback_name)
     config = kwargs.get("config", "yes")
-    if config == 'yes': msg = "Config"
-    elif config == 'no': msg = "Unconfig"
-    else :
+    skip_error = kwargs.get("skip_error", False)
+    if config == 'yes':
+        msg = "Config"
+    elif config == 'no':
+        msg = "Unconfig"
+    else:
         st.error("Invalid config type {}".format(config))
         return False
     if not st.is_feature_supported("config-loopback-add-command", dut):
-        st.log("Community build doesn't need Loopback interface {}uration".format(msg))
+        st.warn("build doesn't need Loopback interface {}uration".format(msg), dut=dut)
         return True
     if cli_type == 'click':
         cmds = []
@@ -2049,9 +2317,12 @@ def config_loopback_interfaces(dut, **kwargs):
                 cmds.append("exit")
             elif config == 'no':
                 cmds.append("no interface {} {}".format(intf_s['type'], intf_s['number']))
-        output = st.config(dut, cmds, type="klish", conf=True)
+        output = st.config(dut, cmds, skip_error_check=skip_error, type="klish", conf=True)
         if "Could not connect to Management REST Server" in output:
             st.error("klish mode not working.")
+            return False
+        if "cannot be deleted, Vxlan is configured" in output:
+            st.error("Loopback can not be deleted as present under VxLAN interface")
             return False
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
@@ -2121,11 +2392,11 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
 
     Created by: Julius <julius.mariyan@broadcom.com
     """
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
-    skip_error = kwargs.pop('skip_error',False)
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    skip_error = kwargs.pop('skip_error', False)
     if cli_type == "click" or cli_type == 'klish':
         if config == 'yes':
-            cmd = "ip sla {} \n {} {}".format(sla_num,sla_type,dst_ip)
+            cmd = "ip sla {} \n {} {}".format(sla_num, sla_type, dst_ip)
             if "tcp_port" in kwargs:
                 cmd += " port {}".format(kwargs["tcp_port"])
             if "vrf_name" in kwargs:
@@ -2135,10 +2406,11 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
                 cmd += "\n source-address {}".format(kwargs["src_addr"])
             if "src_intf" in kwargs:
                 if cli_type == 'klish':
-                    #src_intf = get_interface_number_from_name(kwargs["src_intf"])
-                    #cmd += "\n source-interface {} {}".format(src_intf['type'],src_intf['number'])
+                    # src_intf = get_interface_number_from_name(kwargs["src_intf"])
+                    # cmd += "\n source-interface {} {}".format(src_intf['type'],src_intf['number'])
                     cmd += "\n source-interface {}".format(kwargs['src_intf'])
                 else:
+                    kwargs['src_intf'] = get_intf_short_name(kwargs['src_intf'])
                     cmd += "\n source-interface {}".format(kwargs['src_intf'])
             if "src_port" in kwargs:
                 cmd += "\n source-port {}".format(kwargs["src_port"])
@@ -2165,7 +2437,7 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
                     cmd += "\n no {}".format(sla_type)
                     cmd += "\n exit"
                 else:
-                    cmd += "\n {} {}".format(sla_type,dst_ip)
+                    cmd += "\n {} {}".format(sla_type, dst_ip)
                     if "tcp_port" in kwargs:
                         cmd += " port {}".format(kwargs["tcp_port"])
                     sla_type_level = True
@@ -2173,19 +2445,19 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
                     if len(del_cmd_list) > 0:
                         if "vrf_name" in del_cmd_list:
                             cmd += "\n no source-vrf"
-                            sla_type_level =True
+                            sla_type_level = True
                         if "src_addr" in del_cmd_list:
                             cmd += "\n no source-address"
-                            sla_type_level =True
+                            sla_type_level = True
                         if "src_intf" in del_cmd_list:
                             cmd += "\n no source-interface"
-                            sla_type_level =True
+                            sla_type_level = True
                         if "data_size" in del_cmd_list:
                             cmd += "\n no request-data-size"
                             sla_type_level = True
-                        if  "src_port" in del_cmd_list:
+                        if "src_port" in del_cmd_list:
                             cmd += "\n no source-port"
-                            sla_type_level =True
+                            sla_type_level = True
                         if "tos" in del_cmd_list:
                             cmd += "\n no tos"
                             sla_type_level = True
@@ -2193,25 +2465,28 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
                             cmd += "\n no ttl"
                             sla_type_level = True
                         if 'frequency' in del_cmd_list:
-                            if sla_type_level: cmd += '\n exit'
+                            if sla_type_level:
+                                cmd += '\n exit'
                             cmd += '\n no frequency'
                             sla_type_level = False
                         if 'threshold' in del_cmd_list:
-                            if sla_type_level: cmd += '\n exit'
+                            if sla_type_level:
+                                cmd += '\n exit'
                             cmd += '\n no threshold'
                             sla_type_level = False
                         if 'timeout' in del_cmd_list:
-                            if sla_type_level: cmd += '\n exit'
+                            if sla_type_level:
+                                cmd += '\n exit'
                             cmd += '\n no timeout'
                             sla_type_level = False
                     cmd += "\n exit\n exit" if sla_type_level else '\n exit'
 
         if cli_type == 'click':
-            st.config(dut, cmd, type="vtysh",skip_error_check=skip_error)
+            st.config(dut, cmd, type="vtysh", skip_error_check=skip_error)
         else:
-            st.config(dut, cmd, type="klish",skip_error_check=skip_error)
+            st.config(dut, cmd, type="klish", skip_error_check=skip_error)
         return
-    elif cli_type in ['rest-put','rest-patch']:
+    elif cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         base_url = rest_urls['config_sla'].format(sla_num)
         ocdata = {}
@@ -2245,7 +2520,7 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
                 ocdata[key]['threshold'] = int(kwargs['threshold'])
             if "timeout" in kwargs:
                 ocdata[key]['timeout'] = int(kwargs['timeout'])
-            response = config_rest(dut,http_method=cli_type, rest_url=base_url, json_data=ocdata)
+            response = config_rest(dut, http_method=cli_type, rest_url=base_url, json_data=ocdata)
             if not response:
                 return False
         else:
@@ -2322,7 +2597,8 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
 
         return
 
-def verify_ip_sla(dut,inst,**kwargs):
+
+def verify_ip_sla(dut, inst, **kwargs):
     '''
     purpose:
             This definition is used to verify the o/p of "show ip sla"
@@ -2353,41 +2629,41 @@ def verify_ip_sla(dut,inst,**kwargs):
     Created by: Julius <julius.mariyan@broadcom.com
     '''
     success = True
-
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    id_list = list(map(str, inst)) if isinstance(inst, list) else [inst]
     if cli_type == "click":
-        cli_type="vtysh"
-    if cli_type in ['rest-put','rest-patch']:
+        cli_type = "vtysh"
+    if cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['show_ip_sla']
-        output = get_rest(dut,rest_url=rest_url)['output']['openconfig-ip-sla:ip-slas']
-        cli_out = convert_sla_rest_output(output,parse_type='summary')
+        output = get_rest(dut, rest_url=rest_url)['output']['openconfig-ip-sla:ip-slas']
+        cli_out = convert_sla_rest_output(output, parse_type='summary')
     else:
-        cli_out=st.show(dut,"show ip sla",type=cli_type)
+        cli_out = st.show(dut, "show ip sla", type=cli_type)
     if "return_output" in kwargs:
         return cli_out
-    id_list = map(str, inst) if isinstance(inst, list) else [inst]
     id_len = len(id_list)
-    for key,value in kwargs.items():
+    for key, value in kwargs.items():
         if len(value) != id_len:
             st.error("Number of elements in each parameter list need to match.")
             return False
     for i in range(len(id_list)):
-        fil_out = filter_and_select(cli_out, kwargs.keys(), {"inst": id_list[i]})
+        fil_out = utils.filter_and_select(cli_out, kwargs.keys(), {"inst": id_list[i]})
         if not fil_out:
             st.error("No entry found for SLA instance: {} in output: {}".format(id_list[i], cli_out))
             return False
         else:
             fil_out = fil_out[0]
 
-            for key,val in kwargs.items():
+            for key, val in kwargs.items():
                 if str(fil_out[key]) != str(val[i]):
-                    success=False
-                    st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key,val[i],fil_out[key]))
+                    success = False
+                    st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key, val[i], fil_out[key]))
     return True if success else False
 
 
-def verify_ip_sla_inst(dut,inst,**kwargs):
+def verify_ip_sla_inst(dut, inst, **kwargs):
     '''
     purpose:
             This definition is used to verify the o/p of "show ip sla <instance_num>"
@@ -2447,36 +2723,39 @@ def verify_ip_sla_inst(dut,inst,**kwargs):
     '''
     success = True
 
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
-        cli_type="vtysh"
-    if cli_type in ['rest-patch','rest-put']:
+        cli_type = "vtysh"
+    if cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['show_ip_sla_inst'].format(inst)
-        output = get_rest(dut,rest_url=rest_url)['output']['openconfig-ip-sla:ip-sla']
-        cli_out = convert_sla_rest_output(output,parse_type='inst')
+        output = get_rest(dut, rest_url=rest_url)['output']['openconfig-ip-sla:ip-sla']
+        cli_out = convert_sla_rest_output(output, parse_type='inst')
     else:
         cmd = "show ip sla {}".format(inst)
-        cli_out=st.show(dut,cmd,type=cli_type)
+        cli_out = st.show(dut, cmd, type=cli_type)
     st.log(cli_out)
     if "return_output" in kwargs:
         return cli_out
-    fil_out = filter_and_select(cli_out, kwargs.keys(), {"inst": inst})
+    fil_out = utils.filter_and_select(cli_out, kwargs.keys(), {"inst": inst})
     if not fil_out:
         st.error("No entry found for SLA instance: {} in output: {}".format(inst, cli_out))
         return False
     else:
+        if cli_type == 'vtysh' and 'src_intf' in kwargs:
+            kwargs['src_intf'] = get_intf_short_name(kwargs['src_intf'])
         fil_out = fil_out[0]
-        for key,val in kwargs.items():
+        for key, val in kwargs.items():
             if str(fil_out[key]) == str(val):
-                st.log("MATCH found for key \"{}\"; expected: {}; found {}".format(key,val,fil_out[key]))
+                st.log("MATCH found for key \"{}\"; expected: {}; found {}".format(key, val, fil_out[key]))
             else:
-                success=False
-                st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key,val,fil_out[key]))
+                success = False
+                st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key, val, fil_out[key]))
     return True if success else False
 
 
-def verify_ip_sla_history(dut,inst,**kwargs):
+def verify_ip_sla_history(dut, inst, **kwargs):
     '''
     purpose:
             This definition is used to verify the o/p of "show ip sla"
@@ -2504,94 +2783,97 @@ def verify_ip_sla_history(dut,inst,**kwargs):
     '''
     success = True
 
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut, **kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
 
     if cli_type == "click":
-        cli_type="vtysh"
+        cli_type = "vtysh"
 
     if cli_type not in ['rest-patch', 'rest-put']:
-        cli_out=st.show(dut,"show ip sla {} history".format(inst),type=cli_type)
+        cli_out = st.show(dut, "show ip sla {} history".format(inst), type=cli_type)
     else:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['show_ip_sla_history']
-        ocdata = {"openconfig-ip-sla:input":{"ip-sla-id":inst}}
-        output = config_rest(dut,rest_url=rest_url,http_method='post',json_data=ocdata,get_response=True)['output']
-        cli_out = convert_sla_rest_output(output,parse_type='history')
+        ocdata = {"openconfig-ip-sla:input": {"ip-sla-id": inst}}
+        output = config_rest(dut, rest_url=rest_url, http_method='post', json_data=ocdata, get_response=True)['output']
+        cli_out = convert_sla_rest_output(output, parse_type='history')
 
     if "return_output" in kwargs:
         return cli_out
     if len(cli_out) == 0:
         st.error("Output is Empty")
         return False
-    verify_sequence = kwargs.pop('verify_sequence',False)
+    verify_sequence = kwargs.pop('verify_sequence', False)
     if verify_sequence:
-        event = kwargs.pop('event',None)
-        expected_sequence = [event] if type(event) is str else list(event)
-        #Sort output based on timestamp
-        #Fri Jul 10 11:35:21 2020
+        event = kwargs.pop('event', None)
+        expected_sequence = [event] if isinstance(event, str) else list(event)
+        # Sort output based on timestamp
+        # Fri Jul 10 11:35:21 2020
         import time
-        sorted_output = sorted(cli_out, key=lambda x: time.strptime(x['event_time'],'%a %b %d %H:%M:%S %Y'))
+        sorted_output = sorted(cli_out, key=lambda x: time.strptime(x['event_time'], '%a %b %d %H:%M:%S %Y'))
         actual_sequence = [out['event'].rstrip() for out in sorted_output]
         if set(actual_sequence) != set(expected_sequence):
-            st.error("FAIL: SLA history Mismatch: Expected-{} Actual- {}".format(expected_sequence,actual_sequence))
+            st.error("FAIL: SLA history Mismatch: Expected-{} Actual- {}".format(expected_sequence, actual_sequence))
             return False
     else:
-        for item in cli_out: item['event'] = str(item['event']).rstrip()
-        entries = filter_and_select(cli_out,kwargs.keys(),match={'event':kwargs['event']})
+        for item in cli_out:
+            item['event'] = str(item['event']).rstrip()
+        entries = utils.filter_and_select(cli_out, kwargs.keys(), match={'event': kwargs['event']})
         if entries:
             for key in kwargs.keys():
                 if str(kwargs[key]) != str(entries[0][key]).rstrip():
-                    success=False
-                    st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key,kwargs[key],cli_out[0][key]))
+                    success = False
+                    st.error("MATCH NOT found for key \"{}\"; expected: {} but found {}".format(key, kwargs[key], cli_out[0][key]))
         else:
             st.error("Event {} not found in SLA history".format(kwargs['event']))
             success = False
     return True if success else False
 
 
-
-def clear_ip_sla(dut,**kwargs):
+def clear_ip_sla(dut, **kwargs):
     """
     :param dut:
     :param inst:
     :return:
     """
-    cli_type = kwargs.pop('cli_type',st.get_ui_type(dut,**kwargs))
-    inst = kwargs.pop('inst','all')
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    inst = kwargs.pop('inst', 'all')
     cmd = 'clear ip sla {}'.format(inst)
     if cli_type == 'click':
-        st.config(dut,cmd,type='vtysh',conf=False)
+        st.config(dut, cmd, type='vtysh', conf=False)
     elif cli_type == 'klish':
         st.config(dut, cmd, type='klish', conf=False)
-    elif cli_type in ['rest-put','rest-patch']:
+    elif cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['clear_ip_sla']
         ocdata = {"sonic-ip-sla:input": {"ip_sla_id": inst}}
-        response = config_rest(dut,http_method='post',rest_url=rest_url,json_data=ocdata)
+        response = config_rest(dut, http_method='post', rest_url=rest_url, json_data=ocdata)
         if not response:
             return False
 
 
-
-def convert_sla_rest_output(output,parse_type='sla_summary'):
-    transformed_output_list =[]
+def convert_sla_rest_output(output, parse_type='sla_summary'):
+    transformed_output_list = []
     if 'summary' in parse_type:
         for item in output['ip-sla']:
             transformed_output = {}
             transformed_output['inst'] = item.pop('ip-sla-id', '')
             if 'icmp-dst-ip' in item['config'].keys():
-                transformed_output['type'] = 'ICMP-echo';type_str='icmp'
-                add_port_str =''
+                transformed_output['type'] = 'ICMP-echo'
+                type_str = 'icmp'
+                add_port_str = ''
             else:
-                transformed_output['type']='TCP-connect';type_str='tcp'
-                tcp_dst_port= item.get('state',{}).get('tcp-dst-port','')
+                transformed_output['type'] = 'TCP-connect'
+                type_str = 'tcp'
+                tcp_dst_port = item.get('state', {}).get('tcp-dst-port', '')
                 add_port_str = '({})'.format(tcp_dst_port)
-            transformed_output['target'] = item.get('state',{}).get('{}-dst-ip'.format(type_str))+add_port_str
-            transformed_output['vrf_name'] = item.get('state',{}).get('{}-vrf'.format(type_str),'default')
-            state = item.get('state',{}).get('{}-operation-state'.format(type_str),'OPER_UP')
+            transformed_output['target'] = item.get('state', {}).get('{}-dst-ip'.format(type_str)) + add_port_str
+            transformed_output['vrf_name'] = item.get('state', {}).get('{}-vrf'.format(type_str), 'default')
+            state = item.get('state', {}).get('{}-operation-state'.format(type_str), 'OPER_UP')
             transformed_output['state'] = 'Up' if 'OPER_UP' in state else 'Down'
-            transformed_output['transitions'] = item.get('state',{}).get('transition-count','')
-            transformed_output['last_chg'] = (item.get('state',{}).get('timestamp','').strip(r'\s*ago')).rstrip()
+            transformed_output['transitions'] = item.get('state', {}).get('transition-count', '')
+            transformed_output['last_chg'] = (item.get('state', {}).get('timestamp', '').strip(r'\s*ago')).rstrip()
             transformed_output_list.append(transformed_output)
     elif 'inst' in parse_type:
         for item in output:
@@ -2601,7 +2883,7 @@ def convert_sla_rest_output(output,parse_type='sla_summary'):
                 return transformed_output_list
             if 'icmp-dst-ip' in item['config'].keys():
                 transformed_output['type'] = 'ICMP-echo'
-                transformed_output['icmp_req_cnt'] = item.get('state',{}).get('icmp-echo-req-counter','')
+                transformed_output['icmp_req_cnt'] = item.get('state', {}).get('icmp-echo-req-counter', '')
                 transformed_output['icmp_succ_cnt'] = item.get('state', {}).get('icmp-echo-reply-counter', '')
                 transformed_output['icmp_err_cnt'] = item.get('state', {}).get('icmp-fail-counter', '')
                 transformed_output['icmp_size'] = item.get('state', {}).get('icmp-size', '')
@@ -2613,8 +2895,8 @@ def convert_sla_rest_output(output,parse_type='sla_summary'):
                 transformed_output['ttl'] = item.get('state', {}).get('icmp-ttl', '')
                 transformed_output['tos'] = item.get('state', {}).get('icmp-tos', '')
             elif 'tcp-dst-ip' in item['config'].keys():
-                transformed_output['type']='TCP-connect'
-                transformed_output['dst_port'] = item.get('state',{}).get('tcp-dst-port','')
+                transformed_output['type'] = 'TCP-connect'
+                transformed_output['dst_port'] = item.get('state', {}).get('tcp-dst-port', '')
                 transformed_output['tcp_req_cnt'] = item.get('state', {}).get('tcp-connect-req-counter', '')
                 transformed_output['tcp_succ_cnt'] = item.get('state', {}).get('tcp-connect-success-counter', '')
                 transformed_output['tcp_err_cnt'] = item.get('state', {}).get('tcp-connect-fail-counter', '')
@@ -2628,24 +2910,25 @@ def convert_sla_rest_output(output,parse_type='sla_summary'):
                 transformed_output['tos'] = item.get('state', {}).get('tcp-tos', '')
             else:
                 transformed_output['type'] = 'None'
-                state='Down'
-                key_list=['icmp_req_cnt','icmp_succ_cnt','icmp_err_cnt','icmp_size','dst_addr','vrf_name','src_addr','src_intf',
-                          'src_port','dst_port','tcp_req_cnt','tcp_succ_cnt','tcp_err_cnt','ttl','tos']
-                for key in key_list: transformed_output[key] = ''
+                state = 'Down'
+                key_list = ['icmp_req_cnt', 'icmp_succ_cnt', 'icmp_err_cnt', 'icmp_size', 'dst_addr', 'vrf_name', 'src_addr', 'src_intf',
+                            'src_port', 'dst_port', 'tcp_req_cnt', 'tcp_succ_cnt', 'tcp_err_cnt', 'ttl', 'tos']
+                for key in key_list:
+                    transformed_output[key] = ''
 
             transformed_output['freq'] = item.get('state', {}).get('frequency', '')
             transformed_output['threshold'] = item.get('state', {}).get('threshold', '')
             transformed_output['timeout'] = item.get('state', {}).get('timeout', '')
             transformed_output['oper_state'] = 'Up' if 'OPER_UP' in state else 'Down'
-            transformed_output['tx_cnt'] = item.get('state',{}).get('transition-count','')
-            transformed_output['last_chg'] = (item.get('state',{}).get('timestamp','').strip(r'\s*ago')).rstrip()
+            transformed_output['tx_cnt'] = item.get('state', {}).get('transition-count', '')
+            transformed_output['last_chg'] = (item.get('state', {}).get('timestamp', '').strip(r'\s*ago')).rstrip()
             transformed_output_list.append(transformed_output)
     else:
-        new_output = output.get('sonic-ip-sla:output',{}).get('IPSLA_HISTORY',[])
+        new_output = output.get('sonic-ip-sla:output', {}).get('IPSLA_HISTORY', [])
         for item in new_output:
-            transformed_output={}
-            transformed_output['event'] = item.get('event','')
-            transformed_output['event_time']= item.get('timestamp','')
+            transformed_output = {}
+            transformed_output['event'] = item.get('event', '')
+            transformed_output['event_time'] = item.get('timestamp', '')
             transformed_output_list.append(transformed_output)
     return transformed_output_list
 
@@ -2656,6 +2939,7 @@ def _clear_ipsla_configuration_helper(dut_list, cli_type=''):
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
 
     if cli_type == 'click':
         cli_type = 'vtysh'
@@ -2675,6 +2959,7 @@ def _clear_ipsla_configuration_helper(dut_list, cli_type=''):
 
     return True
 
+
 def clear_ipsla_configuration(dut_list, thread=True, cli_type=''):
     """
     Find and clear IP SLA configuration in the lsit of DUTs
@@ -2683,7 +2968,6 @@ def clear_ipsla_configuration(dut_list, thread=True, cli_type=''):
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
     [out, _] = utils.exec_foreach(thread, dut_li, _clear_ipsla_configuration_helper, cli_type=cli_type)
     return False if False in out else True
-
 
 
 def verify_multiple_routes(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
@@ -2712,10 +2996,10 @@ def verify_multiple_routes(dut, family="ipv4", shell="sonic", vrf_name=None, **k
     :return:
     """
 
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     cli_type = "vtysh" if cli_type == 'click' else "klish"
 
-    output = show_ip_route(dut,family=family,vrf_name=vrf_name,cli_type=cli_type)
+    output = show_ip_route(dut, family=family, vrf_name=vrf_name, cli_type=cli_type)
     ret_val = False
     if 'ip_address' in kwargs:
         st.log("Verify Routes:{}".format(kwargs['ip_address']))
@@ -2728,6 +3012,8 @@ def verify_multiple_routes(dut, family="ipv4", shell="sonic", vrf_name=None, **k
         for rlist in result:
             count = 0
             for key in kwargs:
+                if key == 'interface' and cli_type == 'vtysh':
+                    kwargs[key] = [get_intf_short_name(item) for item in kwargs[key]]
                 if rlist[key] == kwargs[key][i]:
                     count = count + 1
                 else:
@@ -2744,24 +3030,44 @@ def verify_multiple_routes(dut, family="ipv4", shell="sonic", vrf_name=None, **k
     return ret_val
 
 
-
-def config_system_max_routes(dut,**kwargs):
+def config_system_max_routes(dut, **kwargs):
     """
     Author: Sooriya.Gajendrababu@broadcom.com
     :param dut:
     :param kwargs:
     :return:
+    res=ip_api.config_system_max_routes(dut, hosts=True)
     """
-    #This cli is yet to be supported in klish
-    cli_type = kwargs.pop('cli_type', 'click')
-    route_cnt = kwargs.get('route_count','max')
-    cmd =''
-    if cli_type == 'click':
-        cmd = 'sudo config switch-resource route-scale routes {} -y'.format(route_cnt)
-        if not st.is_feature_supported("config_max_route_scale", dut):
-            st.community_unsupported(cmd, dut)
-            return False
-    st.config(dut,cmd,type=cli_type)
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    skiperr = kwargs.pop('skip_error', False)
+    my_cmd = ''
+    if 'config' in kwargs:
+        config = kwargs['config']
+    else:
+        config = 'yes'
+    if config.lower() == 'yes':
+        config_cmd = ''
+    else:
+        config_cmd = 'no'
+
+    if cli_type == 'klish' or cli_type == 'click':
+        if 'route_count' in kwargs:
+            my_cmd += 'switch-resource \n'
+            my_cmd += '{} route-scale routes {} \n exit'.format(config_cmd, kwargs['route_count'])
+            st.config(dut, my_cmd, type='klish')
+        if 'hosts' in kwargs:
+            host_type = kwargs['hosts']
+            host_type = '' if config_cmd == 'no' else host_type
+            my_cmd += 'switch-resource \n'
+            my_cmd += '{} route-scale hosts {} \n exit'.format(config_cmd, host_type)
+            out = st.config(dut, my_cmd, type=cli_type, skip_error_check=skiperr)
+            if '%Error:' in out:
+                return False
+            return True
+    else:
+        st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False
+
 
 def config_ip_loadshare_hash(dut, **kwargs):
     """
@@ -2771,9 +3077,11 @@ def config_ip_loadshare_hash(dut, **kwargs):
     :param kwargs: key (ip|ipv6|seed), val (single or list), config
     :return:
     """
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    st.log('API_NAME: config_ip_loadshare_hash, API_ARGS: {}'.format(locals()))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     # For now this is supported only in klish.
     cli_type = 'klish' if cli_type == 'click' else cli_type
+    # cli_type = force_cli_type_to_klish(cli_type=cli_type)
 
     if "val" not in kwargs:
         st.error("Please provide the value for the key.")
@@ -2781,9 +3089,9 @@ def config_ip_loadshare_hash(dut, **kwargs):
 
     config = kwargs.pop('config', 'yes')
     key = kwargs.pop('key', 'ipv4')
-    key = 'ipv4' if key=='ip' else key
+    key = 'ipv4' if key == 'ip' else key
     val = kwargs.pop('val', '')
-    val = [val] if type(val) is str else val
+    val = [val] if isinstance(val, str) else val
     skiperr = True if kwargs.get('skip_error') else False
 
     config_type = ''
@@ -2794,30 +3102,37 @@ def config_ip_loadshare_hash(dut, **kwargs):
     command = []
     if cli_type == 'klish':
         for v in val:
-            command = command + [config_type+'ip load-share hash {} {}'.format(key,v)]
-        st.config(dut, command, type=cli_type, skip_error_check=skiperr)
+            command = command + [config_type + 'ip load-share hash {} {}'.format(key, v)]
+        out = st.config(dut, command, type=cli_type, skip_error_check=skiperr)
+        if '%Error:' in out:
+            return False
+        return True
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         for v in val:
             if key == 'seed':
                 v_seed = v
                 v = 'ecmp-hash-seed'
-            url = rest_urls['ecmp_config_loadshare_'+key].format(v)
+            # changing symmetric to ipv4/6-symmetric.
+            if v == 'symmetric':
+                v = "{}-{}".format(key, v)
+            url = rest_urls['ecmp_config_loadshare_' + key].format(v)
             if config_type == 'no ':
                 if not delete_rest(dut, rest_url=url):
-                    st.error("Failed to delete key={}, val={}.".format(key,v))
+                    st.error("Failed to delete key={}, val={}.".format(key, v))
                     return False
             else:
-                config_data = {"openconfig-loadshare-mode-ext:"+v:True}
+                config_data = {"openconfig-loadshare-mode-ext:" + v: True}
                 if key == 'seed':
-                    config_data = {"openconfig-loadshare-mode-ext:"+v:int(v_seed)}
+                    config_data = {"openconfig-loadshare-mode-ext:" + v: int(v_seed)}
                 if not config_rest(dut, rest_url=url, http_method=cli_type, json_data=config_data):
-                    st.error("Failed to configure key={}, val={}".format(key,v))
+                    st.error("Failed to configure key={}, val={}".format(key, v))
                     return False
     else:
         st.error("Supported mode is only KLISH")
         return False
     return True
+
 
 def show_ip_loadshare(dut, **kwargs):
     """
@@ -2829,9 +3144,10 @@ def show_ip_loadshare(dut, **kwargs):
     :param :skip_error:
     :return:
     """
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut,**kwargs))
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     # This is not supported in click.
     cli_type = 'klish' if cli_type == 'click' else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     skip_error = kwargs.get('skip_error', False)
     if cli_type == 'klish':
         command = "show ip load-share"
@@ -2840,23 +3156,36 @@ def show_ip_loadshare(dut, **kwargs):
         rest_urls = st.get_datastore(dut, 'rest_urls')
         url = rest_urls['ecmp_show_ip_loadshare_hash']
         out = get_rest(dut, rest_url=url)
-        var=out['output']['openconfig-loadshare-mode-ext:state']
-        ip_var=''
-        ipv6_var=''
-        seed_var=str(var['ecmp-hash-seed'])
-        var.pop('ecmp-hash-seed')
-        for v in var.keys():
+        var = out['output']['openconfig-loadshare-mode-ext:loadshare']
+        ip_var = ''
+        ipv6_var = ''
+        seed_var = str(var['seed-attrs']['state']['ecmp-hash-seed'])
+        ip_mode = 'Default'
+        ipv6_mode = 'Default'
+        state_keys = []
+        if 'state' in var['ipv4-attrs'].keys():
+            state_keys = list(var['ipv4-attrs']['state'].keys())
+            if 'ipv4-symmetric' in var['ipv4-attrs']['state'].keys():
+                ip_mode = 'Symmetric'
+                var['ipv4-attrs']['state'].pop('ipv4-symmetric')
+        if 'state' in var['ipv6-attrs'].keys():
+            state_keys = state_keys + list(var['ipv6-attrs']['state'].keys())
+            if 'ipv6-symmetric' in var['ipv6-attrs']['state'].keys():
+                ipv6_mode = 'Symmetric'
+                var['ipv6-attrs']['state'].pop('ipv6-symmetric')
+        for v in state_keys:
             if 'ipv6' in v:
-                ipv6_var = ipv6_var + ' '+ v
+                ipv6_var = ipv6_var + ' ' + v
             else:
-                ip_var = ip_var + ' '+ v
+                ip_var = ip_var + ' ' + v
         ip_var = str(ip_var.strip())
         ipv6_var = str(ipv6_var.strip())
-        output = [{'ip':ip_var, 'ipv6':ipv6_var, 'seed':seed_var}]
+        output = [{'ip_mode': ip_mode, 'ipv6_mode': ipv6_mode, 'ip': ip_var, 'ipv6': ipv6_var, 'seed': seed_var}]
         return output
     else:
         st.error("Unsupported CLI_TYPE: {}.".format(cli_type))
     return False
+
 
 def verify_ip_loadshare(dut, **kwargs):
     """
@@ -2871,14 +3200,17 @@ def verify_ip_loadshare(dut, **kwargs):
     :param :skip_error:
     :return:
     """
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    st.log('API_NAME: verify_ip_loadshare, API_ARGS: {}'.format(locals()))
+
     return_key = True
     output = show_ip_loadshare(dut, **kwargs)
-    st.log("output={}, kwargs={}".format(output,kwargs))
+    st.log("output={}, kwargs={}".format(output, kwargs))
     for key in ['cli_type', 'skip_error']:
         kwargs.pop(key, None)
 
     for key in kwargs.keys():
-        val_list = [kwargs[key]] if type(kwargs[key]) is str else kwargs[key]
+        val_list = [kwargs[key]] if isinstance(kwargs[key], str) else kwargs[key]
         if key in output[0]:
             out_list = output[0][key].split()
             for v in val_list:
@@ -2892,13 +3224,14 @@ def verify_ip_loadshare(dut, **kwargs):
 
 
 def create_route_leak(dut, vrf, network, **kwargs):
+    # API_Not_Used: To Be removed in CyrusPlus
     """
     To configure route leak
     Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
     """
-    #cli_type = st.get_ui_type(dut, **kwargs)
-    #cli_type = 'vtysh' if cli_type == 'click' else cli_type
-    cli_type = 'vtysh' ##CLI_TYPE hard-coded because the route leak configuration support is not available in other UIs
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'vtysh' if cli_type == 'click' else cli_type
+    cli_type = 'vtysh'  # CLI_TYPE hard-coded because the route leak configuration support is not available in other UIs
     family = kwargs.get('family', 'ipv4')
     if not (network and '/' in network):
         st.error("Provide network with proper format")
@@ -2917,23 +3250,23 @@ def create_route_leak(dut, vrf, network, **kwargs):
         command.append("vrf {}".format(vrf))
         cmd = 'ip route {}'.format(network) if family.lower() == 'ipv4' else 'ipv6 route {}'.format(network)
         if kwargs.get('next_hop'):
-            cmd+=' {}'.format(kwargs['next_hop'])
+            cmd += ' {}'.format(kwargs['next_hop'])
         if kwargs.get('interface'):
-            cmd+=' {}'.format(kwargs['interface'])
+            cmd += ' {}'.format(kwargs['interface'])
         if kwargs.get('nexthop_vrf'):
-            cmd+=' nexthop-vrf {}'.format(kwargs['nexthop_vrf'])
+            cmd += ' nexthop-vrf {}'.format(kwargs['nexthop_vrf'])
         if kwargs.get('tag'):
-            cmd+=' tag {}'.format(kwargs['tag'])
+            cmd += ' tag {}'.format(kwargs['tag'])
         if kwargs.get('track'):
-            cmd+=' track {}'.format(kwargs['track'])
+            cmd += ' track {}'.format(kwargs['track'])
         if kwargs.get('table'):
-            cmd+=' table {}'.format(kwargs['table'])
+            cmd += ' table {}'.format(kwargs['table'])
         if kwargs.get('label'):
-            cmd+=' label {}'.format(kwargs['label'])
+            cmd += ' label {}'.format(kwargs['label'])
         if kwargs.get('onlink'):
-            cmd+=' onlink'
+            cmd += ' onlink'
         if kwargs.get('distance'):
-            cmd+=' {}'.format(kwargs['distance'])
+            cmd += ' {}'.format(kwargs['distance'])
         command.append(cmd)
         command.append('exit-vrf')
         st.config(dut, command, type='vtysh')
