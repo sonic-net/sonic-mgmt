@@ -1,9 +1,22 @@
 # Author(Rest Porting): Prudvi Mangadu.
 from spytest import st
-from spytest.utils import filter_and_select
-from utilities.utils import get_interface_number_from_name
+from apis.common.asic import asic_show
 from apis.common import redis
 from apis.system.rest import config_rest, get_rest, delete_rest
+from utilities.common import filter_and_select
+from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
+
+try:
+    import apis.yang.codegen.messages.nat.Nat as umf_nat
+    import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
+    from apis.yang.utils.common import Operation
+except ImportError:
+    pass
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
 
 
 def config_nat_feature(dut, oper='enable', cli_type="", skip_error_check=True):
@@ -19,7 +32,20 @@ def config_nat_feature(dut, oper='enable', cli_type="", skip_error_check=True):
     """
     instance = 0
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type == "click":
+    #Forcing UI Type klish due to SONIC-25818
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+    if cli_type in get_supported_ui_type_list():
+        operation = True if oper == "enable" else False
+        nat_obj = umf_nat.Instance(Id=instance, Enable=operation)
+        if operation == 'enable':
+            result = nat_obj.configure(dut, cli_type=cli_type)
+        else:
+            result = nat_obj.unConfigure(dut, target_attr=nat_obj.Enable, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Enabling NAT {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == "click":
         command = "config nat feature {}".format(oper)
     elif cli_type == "klish":
         command = list()
@@ -74,7 +100,30 @@ def config_nat_static(dut, **kwargs):
         return result
     cli_type = st.get_ui_type(dut, **kwargs)
     skip_error_check = kwargs.get("skip_error_check", True)
-    if cli_type == "click":
+    if cli_type in get_supported_ui_type_list():
+        nat_obj = umf_nat.Instance(Id=instance)
+        protocol_no = 6 if kwargs['protocol'] == 'tcp' else 17
+        if kwargs.get("config") == "add":
+            operation = Operation.CREATE
+            if kwargs['protocol'] == 'all':
+                nat_ent_obj = umf_nat.NatMappingEntry(ExternalAddress=kwargs["global_ip"], InternalAddress=kwargs["local_ip"], Instance=nat_obj)
+            elif kwargs['protocol'] in ['tcp', 'udp']:
+                nat_ent_obj = umf_nat.NaptMappingEntry(ExternalAddress=kwargs["global_ip"], InternalAddress=kwargs["local_ip"], Protocol=protocol_no, InternalPort=int(kwargs["local_port_id"]), ExternalPort=int(kwargs["global_port_id"]), Instance=nat_obj)
+            if "nat_type" in kwargs:
+                nat_ent_obj.Type = kwargs["nat_type"].upper()
+            if "twice_nat_id" in kwargs:
+                nat_ent_obj.TwiceNatId = int(kwargs["twice_nat_id"])
+            result = nat_ent_obj.configure(dut, operation=operation, cli_type=cli_type)
+        else:
+            if kwargs['protocol'] == 'all':
+                nat_ent_obj = umf_nat.NatMappingEntry(ExternalAddress=kwargs["global_ip"], Instance=nat_obj)
+            elif kwargs['protocol'] in ['tcp', 'udp']:
+                nat_ent_obj = umf_nat.NaptMappingEntry(ExternalAddress=kwargs["global_ip"], Protocol=protocol_no, ExternalPort=int(kwargs["global_port_id"]), Instance=nat_obj)
+            result = nat_ent_obj.unConfigure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Config Static NAT {}".format(result.data))
+            return False
+    elif cli_type == "click":
         if kwargs["config"] == "add":
             if kwargs['protocol'] == 'all':
                 command = "config nat add static basic {} {} ".format(kwargs["global_ip"], kwargs["local_ip"])
@@ -184,7 +233,7 @@ def config_nat_pool(dut, **kwargs):
     result = False
     command = ''
     cli_type = st.get_ui_type(dut, **kwargs)
-    skip_error_check = kwargs.get("skip_error_check", True)
+    skip_error_check = kwargs.get("skip_error_check", False)
     if "pool_name" not in kwargs and "config" not in kwargs:
         st.error("Mandatory params pool_name, config are not provided")
         return result
@@ -193,7 +242,20 @@ def config_nat_pool(dut, **kwargs):
             st.error("Mandatory params pool_name, config, global_ip_range, global_port_range not provided")
             return result
     if kwargs["config"] == "add":
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            operation = Operation.CREATE
+            nat_obj = umf_nat.Instance(Id=instance)
+            nat_pool_obj = umf_nat.NatPoolEntry(PoolName=kwargs["pool_name"], Instance=nat_obj)
+            if "global_ip_range" in kwargs:
+                nat_pool_obj.NatIp = kwargs['global_ip_range']
+            if "global_port_range" in kwargs:
+                nat_pool_obj.NatPort = kwargs['global_port_range']
+            result = nat_pool_obj.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.error("test_step_failed: NAT Pool Config {}".format(result.data))
+                return False
+            return True
+        elif cli_type == "click":
             command = "config nat add pool {} ".format(kwargs["pool_name"])
             if "global_ip_range" in kwargs:
                 command += " {}".format(kwargs['global_ip_range'])
@@ -224,7 +286,19 @@ def config_nat_pool(dut, **kwargs):
             st.log("UNSUPPORTE CLI TYPE")
             return False
     if kwargs["config"] == "del":
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_nat.Instance(Id=instance)
+            nat_pool_obj = umf_nat.NatPoolEntry(PoolName=kwargs["pool_name"], Instance=nat_obj)
+            result = nat_pool_obj.unConfigure(dut, cli_type=cli_type)
+            if skip_error_check:
+                if not result.ok():
+                    return True
+            else:
+                if not result.ok():
+                    st.error("test_step_failed: NAT Pool Config {}".format(result.data))
+                    return False
+            return True
+        elif cli_type == "click":
             command = "config nat remove pool {}".format(kwargs["pool_name"])
         elif cli_type == "klish":
             commands = list()
@@ -276,7 +350,7 @@ def config_nat_pool_binding(dut, **kwargs):
     command = ''
     cli_type = st.get_ui_type(dut, **kwargs)
     skip_error_check = kwargs.get("skip_error_check", True)
-    if cli_type not in ["click", "klish", "rest-patch", "rest-put"]:
+    if cli_type not in ["click", "klish", "rest-patch", "rest-put"]+get_supported_ui_type_list():
         st.log("UNSUPPORTE CLI TYPE")
         return False
     if "binding_name" not in kwargs and "config" not in kwargs:
@@ -287,7 +361,22 @@ def config_nat_pool_binding(dut, **kwargs):
         if "pool_name" not in kwargs:
             st.error("Mandatory params pool_name is not provided ")
             return result
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            operation = Operation.CREATE
+            nat_obj = umf_nat.Instance(Id=instance)
+            nat_ent_obj = umf_nat.NatAclPoolBindingEntry(Name=kwargs["binding_name"], NatPool=kwargs["pool_name"], Instance=nat_obj)
+            if "acl_name" in kwargs:
+                nat_ent_obj.AccessList = kwargs["acl_name"]
+            if "nat_type" in kwargs:
+                nat_ent_obj.Type = kwargs["nat_type"].upper()
+            if "twice_nat_id" in kwargs:
+                nat_ent_obj.TwiceNatId = int(kwargs["twice_nat_id"])
+            result = nat_ent_obj.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: NAT Pool Binding {}'.format(result.data))
+                return False
+            return True
+        elif cli_type == "click":
             command = "config nat add binding {} {}".format(kwargs["binding_name"], kwargs["pool_name"])
             if "acl_name" in kwargs:
                 command += " {}".format(kwargs["acl_name"])
@@ -320,7 +409,15 @@ def config_nat_pool_binding(dut, **kwargs):
             return True
 
     if kwargs["config"] == "del":
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_nat.Instance(Id=instance)
+            nat_ent_obj = umf_nat.NatAclPoolBindingEntry(Name=kwargs["binding_name"], NatPool=kwargs["pool_name"], Instance=nat_obj)
+            result = nat_ent_obj.unConfigure(dut, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Unconfig Binding {}'.format(result.data))
+                return False
+            return True
+        elif cli_type == "click":
             command = "config nat remove binding {} ".format(kwargs['binding_name'])
         elif cli_type == "klish":
             command = list()
@@ -352,7 +449,7 @@ def config_nat_interface(dut, **kwargs):
     command = ''
     cli_type = st.get_ui_type(dut, **kwargs)
     skip_error_check = kwargs.get("skip_error_check", True)
-    if cli_type not in ["klish", "click", "rest-patch", "rest-put"]:
+    if cli_type not in ["klish", "click", "rest-patch", "rest-put"]+get_supported_ui_type_list():
         st.log("UNSUPPORTE CLI TYPE")
         return False
     if "interface_name" not in kwargs and "config" not in kwargs:
@@ -362,7 +459,14 @@ def config_nat_interface(dut, **kwargs):
         if "zone_value" not in kwargs:
             st.error("Mandatory params zone_vlaue not provided")
             return result
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_intf.Interface(Name=kwargs["interface_name"], NatZone=kwargs["zone_value"])
+            result = nat_obj.configure(dut, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: config NAT ZONE {}'.format(result.data))
+                return False
+            return True
+        elif cli_type == "click":
             command = "config nat add interface {} -nat_zone {}".format(kwargs["interface_name"], kwargs["zone_value"])
         elif cli_type == "klish":
             command = list()
@@ -377,7 +481,14 @@ def config_nat_interface(dut, **kwargs):
             return True
 
     if kwargs["config"] == "del":
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_intf.Interface(Name=kwargs["interface_name"], NatZone=kwargs["zone_value"])
+            result = nat_obj.unConfigure(dut, target_attr=nat_obj.NatZone, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: unconfig NAT ZONE {}'.format(result.data))
+                return False
+            return True
+        elif cli_type == "click":
             command = "config nat remove interface {}".format(kwargs["interface_name"])
         elif cli_type == "klish":
             command = list()
@@ -416,14 +527,20 @@ def config_nat_timeout(dut, **kwargs):
         return False
     cli_type = kwargs.get("cli_type", st.get_ui_type(dut, **kwargs))
     skip_error_check = kwargs.get("skip_error_check", True)
-    if cli_type not in ["click", "klish", "rest-patch", "rest-put"]:
+    if cli_type not in ["click", "klish", "rest-patch", "rest-put"]+get_supported_ui_type_list():
         st.log("UNSUPPORTED CLI TYPE")
         return False
     if cli_type == "klish":
         command = list()
         command.append("nat")
     if "timeout" in kwargs:
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_nat.Instance(Id=instance)
+            if kwargs["config"] == "set":
+                nat_obj.Timeout = int(kwargs["timeout"])
+            else:
+                nat_obj.Timeout = 600
+        elif cli_type == "click":
             if kwargs["config"] == "set":
                 command = "config nat set timeout {}".format(kwargs["timeout"])
             else:
@@ -439,7 +556,13 @@ def config_nat_timeout(dut, **kwargs):
             else:
                 data["openconfig-nat:config"]['timeout'] = 600
     if "udp_timeout" in kwargs:
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_nat.Instance(Id=instance)
+            if kwargs["config"] == "set":
+                nat_obj.UdpTimeout = int(kwargs["udp_timeout"])
+            else:
+                nat_obj.UdpTimeout = 300
+        elif cli_type == "click":
             if kwargs["config"] == "set":
                 command = "config nat set udp-timeout {}".format(kwargs["udp_timeout"])
             else:
@@ -455,7 +578,13 @@ def config_nat_timeout(dut, **kwargs):
             else:
                 data["openconfig-nat:config"]['udp-timeout'] = 300
     if "tcp_timeout" in kwargs:
-        if cli_type == "click":
+        if cli_type in get_supported_ui_type_list():
+            nat_obj = umf_nat.Instance(Id=instance)
+            if kwargs["config"] == "set":
+                nat_obj.TcpTimeout = int(kwargs["tcp_timeout"])
+            else:
+                nat_obj.TcpTimeout = 86400
+        elif cli_type == "click":
             if kwargs["config"] == "set":
                 command = "config nat set tcp-timeout {}".format(kwargs["tcp_timeout"])
             else:
@@ -475,6 +604,12 @@ def config_nat_timeout(dut, **kwargs):
     if cli_type in ["rest-patch", "rest-put"]:
         url = st.get_datastore(dut, "rest_urls")['config_nat_feature'].format(instance)
         config_rest(dut, http_method=cli_type, rest_url=url, json_data=data)
+        return True
+    if cli_type in get_supported_ui_type_list():
+        result = nat_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: NAT Timeout {}'.format(result.data))
+            return False
         return True
     st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
     return True
@@ -519,6 +654,7 @@ def clear_nat(dut, **kwargs):
     """
     command = ''
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type)
     if cli_type == "click":
         if "translations" in kwargs:
             command = "sonic-clear nat translations"
@@ -556,6 +692,7 @@ def show_nat_translations(dut, cli_type=""):
     """
     instance = 0
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type)
     if 'rest' in cli_type:
         return _get_nat_oc_yang_output(dut, call='translations', instance=instance)
     else:
@@ -574,6 +711,7 @@ def show_nat_statistics(dut, cli_type=""):
     """
     instance = 0
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type)
     if 'rest' in cli_type:
         return _get_nat_oc_yang_output(dut, call='statistics', instance=instance)
     else:
@@ -669,33 +807,35 @@ def verify_nat_statistics(dut, **kwargs):
     stats = ['packets', 'bytes']
     cli_type = st.get_ui_type(dut, **kwargs)
     output = show_nat_statistics(dut, cli_type=cli_type)
-    match = {}
-    match1 = {}
+
+    src_match, dst_match = {}, {}
+
+    min_pkts = int(kwargs.get("packets", "1"))
 
     if 'protocol' in kwargs:
-        match['protocol'] = kwargs['protocol']
-        match1['protocol'] = kwargs['protocol']
+        src_match['protocol'] = kwargs['protocol']
+        dst_match['protocol'] = kwargs['protocol']
     if 'src_ip' in kwargs:
-        match['src_ip'] = kwargs['src_ip']
+        src_match['src_ip'] = kwargs['src_ip']
     if 'src_ip_port' in kwargs:
-        match['src_ip_port'] = kwargs['src_ip_port']
+        src_match['src_ip_port'] = kwargs['src_ip_port']
 
     if 'dst_ip' in kwargs:
-        match1['dst_ip'] = kwargs['dst_ip']
+        dst_match['dst_ip'] = kwargs['dst_ip']
     if 'dst_ip_port' in kwargs:
-        match1['dst_ip_port'] = kwargs['dst_ip_port']
+        dst_match['dst_ip_port'] = kwargs['dst_ip_port']
 
-    st.debug(match)
-    st.debug(match1)
-    entries = filter_and_select(output, stats, match)
-    entries1 = filter_and_select(output, stats, match1)
+    st.debug("Match Min-Pkts {} SRC {} DST {}".format(min_pkts, src_match, dst_match))
 
-    if entries and (int(entries[0]['packets']) > 0):
+    entries = filter_and_select(output, stats, src_match)
+    if entries and (int(entries[0]['packets']) >= min_pkts):
         return True
-    elif entries1 and (int(entries1[0]['packets']) > 0):
+
+    entries = filter_and_select(output, stats, dst_match)
+    if entries and (int(entries[0]['packets']) >= min_pkts):
         return True
-    else:
-        return False
+
+    return False
 
 
 def verify_twice_nat_statistics(dut, **kwargs):
@@ -886,8 +1026,8 @@ def verify_static_nat_entry(dut, port=None, prot=None, global_ip=None, global_po
     else:
         match = {"target": "DNAT", "prot": prot, "destination": global_ip, "trans_ip": local_ip}
         match1 = {"target": "SNAT", "prot": prot, "source": local_ip, "trans_ip": global_ip}
-    print(match)
-    print(match1)
+    print (match)
+    print (match1)
 
     entries = filter_and_select(output, None, match)
     print(entries)
@@ -1000,7 +1140,7 @@ def verify_conntrack_table(dut, **kwargs):
     return True
 
 
-def verify_bcmcmd_static_nat_entry_ingress_entry(dut, **kwargs):
+def verify_asic_static_nat_entry_ingress_entry(dut, **kwargs):
     """
     Author:anuja.dhopeshwarkar@broadcom.com
     :param dut:
@@ -1008,8 +1148,7 @@ def verify_bcmcmd_static_nat_entry_ingress_entry(dut, **kwargs):
     if "destIp" not in kwargs and "srcIp" not in kwargs:
         st.error("Mandatory params are not provided destIp, srcIp not given")
         return False
-    cmd = "bcmcmd 'l3 nat_ingress show'"
-    output = st.show(dut, cmd)
+    output = asic_show(dut, 'l3 nat_ingress show')
     st.debug(kwargs["destIp"])
     st.debug(kwargs["srcIp"])
     st.debug(output)
@@ -1029,7 +1168,7 @@ def verify_bcmcmd_static_nat_entry_ingress_entry(dut, **kwargs):
         return False
 
 
-def verify_bcmcmd_static_nat_entry_egress_entry(dut, **kwargs):
+def verify_asic_static_nat_entry_egress_entry(dut, **kwargs):
     """
     Author:anuja.dhopeshwarkar@broadcom.com
     :param dut:
@@ -1038,8 +1177,7 @@ def verify_bcmcmd_static_nat_entry_egress_entry(dut, **kwargs):
     if "destIp" not in kwargs and "srcIp" not in kwargs:
         st.error("Mandatory params are not provided destIp, srcIp not given")
         return False
-    cmd = "bcmcmd 'l3 nat_egress show'"
-    output = st.show(dut, cmd)
+    output = asic_show(dut, 'l3 nat_egress show')
     st.debug(kwargs["destIp"])
     st.debug(kwargs["srcIp"])
     st.debug(output)
@@ -1074,6 +1212,7 @@ def clear_nat_config(dut, *argv, **kwargs):
     """
     instance = 0
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type)
     skip_error_check = kwargs.get("skip_error_check", True)
     if cli_type not in ["klish", "click", "rest-patch", "rest-put"]:
         st.log("UNSUPPORTED CLI TYPE")
@@ -1100,14 +1239,6 @@ def clear_nat_config(dut, *argv, **kwargs):
             command.append("no bindings")
         elif cli_type not in ["rest-patch", "rest-put"]:
             url = st.get_datastore(dut, "rest_urls")['clear_nat_bindings'].format(instance)
-            delete_rest(dut, rest_url=url)
-    if "interfaces" in argv or 'all' in argv:
-        if cli_type == "click":
-            command += "sudo config nat remove interfaces;"
-        elif cli_type == "klish":
-            command.append("no nat interfaces")
-        elif cli_type not in ["rest-patch", "rest-put"]:
-            url = st.get_datastore(dut, "rest_urls")['clear_nat_interfaces'].format(instance)
             delete_rest(dut, rest_url=url)
     if "pools" in argv or 'all' in argv:
         if cli_type == "click":
@@ -1137,7 +1268,7 @@ def get_nat_translations_count(dut, counter_name=None, cli_type=""):
     if 'rest' in cli_type:
         output = _get_nat_oc_yang_output(dut, call='translations_count', instance=instance)
         if counter_name:
-            if counter_name in output[0]:
+            if output and counter_name in output[0]:
                 return int(output[0][counter_name])
             else:
                 return 0
@@ -1190,16 +1321,18 @@ def _get_nat_oc_yang_output(dut, call='translations', instance=0):
     twice_out = []
     twice_napt_out = []
     counter = {e: 0 for e in ct_head}
-
-    if 'nat-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
-        nat_out = rest_out['output']['openconfig-nat:instance'][0]['nat-mapping-table']['nat-mapping-entry']
-    if 'napt-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
-        napt_out = rest_out['output']['openconfig-nat:instance'][0]['napt-mapping-table']['napt-mapping-entry']
-    if 'nat-twice-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
-        twice_out = rest_out['output']['openconfig-nat:instance'][0]['nat-twice-mapping-table']['nat-twice-entry']
-    if 'napt-twice-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
-        twice_napt_out = rest_out['output']['openconfig-nat:instance'][0]['napt-twice-mapping-table']['napt-twice-entry']
-
+    if rest_out['output']:
+        if 'nat-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
+            nat_out = rest_out['output']['openconfig-nat:instance'][0]['nat-mapping-table']['nat-mapping-entry']
+        if 'napt-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
+            napt_out = rest_out['output']['openconfig-nat:instance'][0]['napt-mapping-table']['napt-mapping-entry']
+        if 'nat-twice-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
+            twice_out = rest_out['output']['openconfig-nat:instance'][0]['nat-twice-mapping-table']['nat-twice-entry']
+        if 'napt-twice-mapping-table' in rest_out['output']['openconfig-nat:instance'][0].keys():
+            twice_napt_out = rest_out['output']['openconfig-nat:instance'][0]['napt-twice-mapping-table']['napt-twice-entry']
+    else:
+        st.debug("msg","returned empty output")
+        return final
     if call == 'translations' or call == 'translations_count':
         for each in napt_out + nat_out:
             if each.get('state'):
@@ -1351,6 +1484,7 @@ def show_nat_config(dut, mode, **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type)
     cli_type = "klish" if cli_type in ["rest-patch", "rest-put"] else cli_type
     nat_config_modes = ['globalvalues', 'static', 'pool', 'bindings']
     if mode not in nat_config_modes:
@@ -1375,3 +1509,7 @@ def show_nat_config(dut, mode, **kwargs):
         else:
             return entries
     return output
+
+def init_default_config(dut):
+    if not st.is_feature_supported("nat-default-enabled", dut):
+        st.config(dut, "config feature state nat enabled")
