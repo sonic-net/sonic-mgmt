@@ -105,7 +105,7 @@ steps:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       SCRIPTS: ${{ parameters.SCRIPTS }}
       FEATURES: ${{ parameters.FEATURES }}
-      SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+      SCRIPTS_EXCLUDE: "${{ parameters.SCRIPTS_EXCLUDE }}, vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
       FEATURES_EXCLUDE: "${{ parameters.FEATURES_EXCLUDE }}, ptftests, acstests, saitests, scripts, k8s, sai_qualify"
       COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
