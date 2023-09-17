@@ -82,18 +82,23 @@ class BfdBase:
             else:
                 assert wait_until(180, 10, 0, lambda: self.extract_backend_portchannels(dut)[interface]['status'] == target_state)
     
-    def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic):
+    def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic, version):
         backend_port_channels = self.extract_backend_portchannels(dut)
-        data  = dut.show_and_parse("show ip int -d all -n asic{}".format(dut_asic.asic_index))
+        if version == "ipv4":
+            command = "show ip int -d all"
+        elif version == "ipv6":
+            command = "show ipv6 int -d all"
+        data  = dut.show_and_parse("{} -n asic{}".format(command, dut_asic.asic_index))
         result_dict = {}
-
         for item in data:
-            ip_address = item.get('ipv4 address/mask', '').split('/')[0]
+            if version == "ipv4":
+                ip_address = item.get('ipv4 address/mask', '').split('/')[0]
+            elif version == "ipv6":
+                ip_address = item.get('ipv6 address/mask', '').split('/')[0]
             interface = item.get('interface', '')
 
             if interface in backend_port_channels:
                 result_dict[interface] = ip_address
-
         return result_dict
     
     def delete_bfd(self, asic_number, prefix, dut):
@@ -129,9 +134,10 @@ class BfdBase:
                 return False
         return True
     
-    def extract_routes(self, static_route_output):
+    def extract_routes(self, static_route_output, version):
         asic_routes = {}
         asic = None
+
         for line in static_route_output:
             if line.startswith("asic"):
                 asic = line.split(':')[0]
@@ -139,9 +145,24 @@ class BfdBase:
             elif line.startswith("S>*") or line.startswith("  *"):
                 parts = line.split(',')
                 if line.startswith("S>*"):
-                    prefix = re.search(r"(\d+\.\d+\.\d+\.\d+/\d+)", parts[0]).group(1)
-                next_hop = re.search(r"via\s+(\d+\.\d+\.\d+\.\d+)", parts[0]).group(1)
-                asic_routes[asic].setdefault(prefix, []).append(next_hop)
+                    if version == "ipv4":
+                        prefix_match = re.search(r"(\d+\.\d+\.\d+\.\d+/\d+)", parts[0])
+                    elif version == "ipv6":
+                        prefix_match = re.search(r"([0-9a-fA-F:.\/]+)", parts[0])
+                    if prefix_match:
+                        prefix = prefix_match.group(1)
+                    else:
+                        continue
+                if version == "ipv4":
+                    next_hop_match = re.search(r"via\s+(\d+\.\d+\.\d+\.\d+)", parts[0])
+                elif version == "ipv6":
+                    next_hop_match = re.search(r"via\s+([0-9a-fA-F:.\/]+)", parts[0])
+                if next_hop_match:
+                    next_hop = next_hop_match.group(1)
+                else:
+                    continue
+                
+                asic_routes[asic].setdefault(prefix, []).append(next_hop)  
         return asic_routes
     
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
