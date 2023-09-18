@@ -233,7 +233,13 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes"):
+        if is_valid_platform_and_version(
+            duthost,
+            "BUFFER_POOL",
+            "Shared/headroom pool size changes",
+            configdb_field,
+            operation
+        ):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, configdb_field, value)
         else:
