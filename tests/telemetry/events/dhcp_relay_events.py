@@ -13,7 +13,7 @@ IPV4_ADDRESS = ""
 IPV6_ADDRESS = ""
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test dhcp-relay events")
     backup_ip_address(duthost)
     try:
