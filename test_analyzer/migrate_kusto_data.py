@@ -218,8 +218,12 @@ def main():
     logger.info("Before running, the existing total number of data for TestReportUnionData is:{}".format(existing_number))
 
     current_time = datetime.now(tz=pytz.UTC)
+    # There will be 5-6 minutes delay if data is upload to kusto
+    # If we use current timestamp, there is uploading right now, these part of data would probably be missed
+    # We need to minus 7 mins to avoid this issue
+    end_time = current_time - timedelta(minutes=7)
     latest_timestamp = kusto_connector.get_latest_timestamp()
-    response = kusto_connector.query_data(start_time=latest_timestamp, end_time=current_time)
+    response = kusto_connector.query_data(start_time=latest_timestamp, end_time=end_time)
     df = dataframe_from_result_table(response.primary_results[0])
     list_of_dicts = df.to_dict(orient="records")
     for row in list_of_dicts:
