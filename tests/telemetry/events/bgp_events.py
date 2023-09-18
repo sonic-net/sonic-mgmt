@@ -25,7 +25,7 @@ def drop_tcp_packets(duthost):
     ret = duthost.shell("iptables -I INPUT -p tcp --sport 179 -j DROP")
     assert ret["rc"] == 0, "Unable to add DROP rule to iptables"
 
-    time.sleep(10)  # Give time for hold timer expiry notification to fire
+    time.sleep(10)  # Give time for hold timer expiry notif to fire, val from config db
 
     ret = duthost.shell("iptables -D INPUT -p tcp --dport 179 -j DROP")
     assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
