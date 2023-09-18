@@ -6,18 +6,12 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "1,31 * * * *"
+  - cron: "15,45 * * * *"
     displayName: MigrateKustoData
     branches:
       include:
         - internal
     always: true
-
-parameters:
-  - name: NEW_ICM_NUMBER_LIMIT
-    type: number
-    default: 30
-    displayName: "The maximum number of new IcM for this run."
 
 stages:
   - stage: KustoDataMigrting

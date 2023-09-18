@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 5"
+  - cron: "0 4 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -43,17 +43,17 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202305_SLIM)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--docker-folder-size 3000M"
+    default: "--docker-folder-size 4000M"
     displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal-202305
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -79,7 +79,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -95,7 +95,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060cx.t1.202205.NightlyTest_by_Elastictest
+    displayName: 7060cx.t1.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
