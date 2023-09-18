@@ -44,29 +44,12 @@ def config_system_checks_passed(duthost, delayed_services=[]):
         if int(out['stdout'].strip()) < 120:
             return False
 
-    logging.info("Checking delayed services")
-    # let's cache the delayed services in the function argument
-    if not delayed_services:
-        list_timer_out = duthost.shell(
-            "systemctl list-dependencies --plain sonic-delayed.target | sed '1d'",
-            module_ignore_errors=True
-        )
-        if not list_timer_out["failed"]:
-            check_timer_out = duthost.shell(
-                "systemctl is-enabled %s" % list_timer_out["stdout"].replace("\n", " "),
-                module_ignore_errors=True
-            )
-            if not check_timer_out["failed"]:
-                timers = [_.strip() for _ in list_timer_out["stdout"].strip().splitlines()]
-                states = [_.strip() for _ in check_timer_out["stdout"].strip().splitlines()]
-                delayed_services.extend(
-                    timer.replace("timer", "service") for timer, state in zip(timers, states) if state == "enabled"
-                )
-
+    logging.info("Checking delayed services: %s", delayed_services)
     for service in delayed_services:
         out = duthost.shell("systemctl is-active %s" % service, module_ignore_errors=True)
         if out["stdout"].strip().lower() != "active":
             return False
+
     logging.info("All checks passed")
     return True
 
