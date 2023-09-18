@@ -9,6 +9,7 @@ from .vnet_constants import TEMPLATE_DIR, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_M
     DUT_VNET_NBR_JSON, DUT_VNET_ROUTE_JSON, APPLY_NEW_CONFIG_KEY, VXLAN_RANGE_ENABLE_KEY, IPV6_VXLAN_TEST_KEY
 from .vnet_constants import VXLAN_PORT, VXLAN_MAC
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,9 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
     """
     if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         logger.info("Applying config files on DUT")
-
+        timeout = num_routes/50  # Sufficent time to configure routes
+        num_routes_before_add = count_routes_from_asic_db(duthost)
+        logger.info("Routes number before adding: {}".format(num_routes_before_add))
         config_files = [DUT_VNET_INTF_JSON,
                         DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
         for config in config_files:
@@ -149,8 +152,10 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
         duthost.shell(
             "docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        if num_routes > 3000:
-            sleep(300)
+        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
+                      num_routes_before_add, 'add'), "Routes weren't configured successfully, test Failed.")
+        routes_after = count_routes_from_asic_db(duthost)
+        logger.info("Routes number after adding: {}".format(routes_after))
 
         if vnet_test_params[VXLAN_RANGE_ENABLE_KEY]:
             logger.info(
@@ -232,7 +237,22 @@ def cleanup_vnet_routes(duthost, vnet_config, num_routes):
     duthost.shell(
         "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    if num_routes > 3000:
-        sleep(300)
-    else:
-        sleep(3)
+    current_route_num = count_routes_from_asic_db(duthost)
+    timeout = num_routes/50
+    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
+                  current_route_num, 'clean'), "Routes weren't configured successfully, test Failed.")
+
+
+def count_routes_from_asic_db(duthost):
+    num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
+    return num_routes
+
+
+def verify_routes_configured(duthost, expected_routes, routes_num_before_change, action):
+    configured_routes_num = count_routes_from_asic_db(duthost)
+    actual_routes_changed = abs(configured_routes_num - routes_num_before_change)
+    if not (actual_routes_changed >= expected_routes):
+        logger.warning("Expected {} routes to be {}ed, but actually {}ed only {}"
+                       .format(expected_routes, action, action, actual_routes_changed))
+        return False
+    return True
