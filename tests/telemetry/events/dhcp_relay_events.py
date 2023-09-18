@@ -36,7 +36,7 @@ def backup_ip_address(duthost):
     global IPV4_ADDRESS, IPV6_ADDRESS
     IPV4_ADDRESS = interface_facts[INTERFACE]['ipv4']['address']
     IPV6_ADDRESS = interface_facts[INTERFACE]['ipv6']['address']
-    assert IPV4_ADDRESS is not "" && IPV6_ADDRESS is not ""
+    assert IPV4_ADDRESS is not "" and IPV6_ADDRESS is not ""
 
 
 def flush_ip_address(duthost):
@@ -54,4 +54,3 @@ def invoke_dhcp_relay_bind_failure(duthost):
     time.sleep(30)  # dhcp retries to bind to socket 6 times with 5 sec after each retry
     # src: https://github.com/sonic-net/sonic-dhcp-relay/blob/2b33d76dbac69d3d9ad9e9f2d37252db525f07b9/src/relay.cpp#L714
     restore_ip_address(duthost)
-
