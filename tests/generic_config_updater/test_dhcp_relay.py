@@ -43,7 +43,10 @@ def first_avai_vlan_port(rand_selected_dut, tbinfo):
     for v in list(mg_facts['minigraph_vlans'].values()):
         for p in v['members']:
             if p.startswith("Ethernet"):
-                return p
+                if 'mode' not in mg_facts['minigraph_ports'][p]:
+                    logger.info("trunk mode in Port added")
+                    mg_facts['minigraph_ports'][p]['mode'] = 'trunk'
+                    return p
 
     logger.error("No vlan port member ready for test")
     pytest_assert(False, "No vlan port member ready for test")
