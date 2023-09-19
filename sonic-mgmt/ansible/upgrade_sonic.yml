@@ -14,7 +14,7 @@
       block:
         - name: Set default testbed file
           set_fact:
-            testbed_file: testbed.csv
+            testbed_file: testbed.yaml
           when: testbed_file is not defined
 
         - name: Gather testbed information

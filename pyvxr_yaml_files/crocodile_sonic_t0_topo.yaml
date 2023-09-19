@@ -7,10 +7,10 @@ simulation:
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v2.qcow2
     linux_username: root
     linux_password: lab
-    linux_prompt: root@docker-ptf:/#
+    linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
     extended_pci_bus: True
     vcpu: 4

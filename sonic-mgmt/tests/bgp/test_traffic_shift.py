@@ -422,12 +422,13 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
 
 
 def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                   bgpmon_setup_teardown, nbrhosts):
+                                   bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_neighbors = {}
+    duts_data = core_dump_and_config_check
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
@@ -457,6 +458,15 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # Wait until bgp sessions are established on DUT
         pytest_assert(wait_until(100, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
+
+        # If expected core dump files exist, add it into duts_data
+        if "20191130" in duthost.os_version:
+            existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+        else:
+            existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
+        for core_dump in existing_core_dumps:
+            if re.match("dplane_fpm_nl", core_dump):
+                duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}

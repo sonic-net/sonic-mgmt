@@ -14,13 +14,13 @@ patterns:
     # =====================================================================
     # Generic Patterns
     # =====================================================================
-    normal-user: 'admin@(sonic|{}):.*[#|\$]\s*$'
+    normal-user: '(admin|{username})@(sonic|{}):.*[#|\$]\s*$'
     root-user: 'root@(sonic|{}):.*[#|\$]\s*$'
     # =====================================================================
     # VTYSH Patterns
     # =====================================================================
     vtysh-user: '(sonic|{})#'
-    vtysh-config: '(sonic|{})\(config\)#'
+    vtysh-config: '(sonic|{})\(config(-s)?\)#'
     vtysh-intf-config: '(sonic|{})\(config-if\)#'
     vtysh-bfd-config: '(sonic|{})\(config-bfd\)#'
     vtysh-bfd-peer-config: '(sonic|{})\(config-bfd-peer\)#'
@@ -44,8 +44,9 @@ patterns:
     # MGMT-CLI Patterns
     # =====================================================================
     mgmt-user: '--sonic-mgmt--#'
-    mgmt-config: '--sonic-mgmt--\(config\)#'
-    mgmt-intf-config: '--sonic-mgmt--\(conf-if-Eth.*\)#'
+    mgmt-config: '--sonic-mgmt--\(config(-s)?\)#'
+    mgmt-intf-config: '--sonic-mgmt--\(conf\w*-if-Eth.*\)#'
+    mgmt-subintf-config: '--sonic-mgmt--\(conf\w*-subif-Eth.*\)#'
     mgmt-ipv4-acl-config: '--sonic-mgmt--\(config-ipv4-acl\)#'
     mgmt-ipv6-acl-config: '--sonic-mgmt--\(config-ipv6-acl\)#'
     mgmt-mac-acl-config: '--sonic-mgmt--\(config-mac-acl\)#'
@@ -54,24 +55,27 @@ patterns:
     # added by Dell-EMC
     # =============================================================
     mgmt-session-config: '--sonic-mgmt--\(config-session-name\)#'
-    mgmt-intf-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
-    mgmt-intf-po-config: '--sonic-mgmt--\(conf-if-po.*\)#'
-    mgmt-intf-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
-    mgmt-intf-range-eth-config: '--sonic-mgmt--\(conf-if-range-eth\*\*\)#'
-    mgmt-intf-range-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
-    mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
-    mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
-    mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
+    mgmt-intf-management-config: '--sonic-mgmt--\(conf\w*-if-Management.*\)#'
+    mgmt-intf-po-config: '--sonic-mgmt--\(conf\w*-if-po.*\)#'
+    mgmt-subintf-po-config: '--sonic-mgmt--\(conf\w*-subif-PortChannel.*\)#'
+    mgmt-intf-vlan-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*\)#'
+    mgmt-intf-range-eth-config: '--sonic-mgmt--\(conf\w*-if-range-eth\*\*\)#'
+    mgmt-intf-range-po-config: '--sonic-mgmt--\(conf\w*-if-range-po\*\*\)#'
+    mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf\w*-if-range-po\*\*\)#'
+    mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
+    mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf\w*-if-range-vl\*\*\)#'
+    mgmt-vlan-vrrp-ipv4-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*-vrrp-ipv4-.*\)#'
+    mgmt-vlan-vrrp-ipv6-config: '--sonic-mgmt--\(conf\w*-if-Vlan.*-vrrp-ipv6-.*\)#'
     # =============================================================
 
     mgmt-mirror-session-config: '--sonic-mgmt--\(config-mirror-.*\)#'
     #mgmt-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
     #mgmt-lag-config: '--sonic-mgmt--\(conf-if-po.*\)#'
     #mgmt-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
-    mgmt-cpu-config: '--sonic-mgmt--\(conf-if-CPU\)#'
+    mgmt-cpu-config: '--sonic-mgmt--\(conf\w*-if-CPU\)#'
 
-    mgmt-evpn-view: '--sonic-mgmt--\(conf-if-evpn\)#'
-    mgmt-vxlan-view: '--sonic-mgmt--\(conf-if-Vxlan-.*\)#'
+    mgmt-evpn-view: '--sonic-mgmt--\(conf\w*-if-evpn\)#'
+    mgmt-vxlan-view: '--sonic-mgmt--\(conf\w*-if-Vxlan-.*\)#'
 
     mgmt-tam-view: '--sonic-mgmt--\(config-tam\)#'
     mgmt-tam-ifa-view: '--sonic-mgmt--\(config-tam-ifa\)#'
@@ -88,10 +92,10 @@ patterns:
     # =============================================================
 
 
-    mgmt-lo-view: '--sonic-mgmt--\(conf-if-lo.*\)#'
+    mgmt-lo-view: '--sonic-mgmt--\(conf\w*-if-lo.*\)#'
 
-    mgmt-bfd-view: '--sonic-mgmt--\(conf-bfd\)#'
-    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf-bfd-peer\)#'
+    mgmt-bfd-view: '--sonic-mgmt--\(conf\w*-bfd\)#'
+    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf\w*-bfd-peer\)#'
 
     mgmt-route-map-view: '--sonic-mgmt--\(config-route-map\)#'
 
@@ -108,22 +112,22 @@ patterns:
 
     mgmt-router-ospf-view: '--sonic-mgmt--\(config-router-ospf\)#'
 
-    mgmt-wred-view: '--sonic-mgmt--\(conf-wred-.*\)#'
+    mgmt-wred-view: '--sonic-mgmt--\(conf\w*-wred-.*\)#'
     mgmt-line-vty-view: '--sonic-mgmt--\(config-line-vty\)#'
-    mgmt-qos-sched-policy-view: '--sonic-mgmt--\(conf-sched-policy-.*\)#'
-    mgmt-qos-sched-policy-queue-view: '--sonic-mgmt--\(conf-scheduler-.*-queue-.*\)#'
-    mgmt-qos-sched-policy-port-view: '--sonic-mgmt--\(conf-scheduler-.*-port\)#'
-    mgmt-qos-intf-view: '--sonic-mgmt--\(conf-qos-.*\)#'
+    mgmt-qos-sched-policy-view: '--sonic-mgmt--\(conf\w*-sched-policy-.*\)#'
+    mgmt-qos-sched-policy-queue-view: '--sonic-mgmt--\(conf\w*-scheduler-.*-queue-.*\)#'
+    mgmt-qos-sched-policy-port-view: '--sonic-mgmt--\(conf\w*-scheduler-.*-port\)#'
+    mgmt-qos-intf-view: '--sonic-mgmt--\(conf\w*-qos-.*\)#'
     mgmt-hardware-view: '--sonic-mgmt--\(config-hardware\)#'
     mgmt-hardware-acl-view: '--sonic-mgmt--\(config-hardware-acl\)#'
 
-    mgmt-dscp-map-view: '--sonic-mgmt--\(conf-dscp-tc-map-.*\)#'
-    mgmt-dot1p-map-view: '--sonic-mgmt--\(conf-dot1p-tc-map-.*\)#'
-    mgmt-tc-queue-map-view: '--sonic-mgmt--\(conf-tc-queue-map-.*\)#'
-    mgmt-tc-pg-map-view: '--sonic-mgmt--\(conf-tc-pg-map-.*\)#'
-    mgmt-pfc-map-view: '--sonic-mgmt--\(conf-pfc-priority-queue-map-.*\)#'
-    mgmt-tc-dot1p-map-view: '--sonic-mgmt--\(conf-tc-dot1p-map-.*\)#'
-    mgmt-tc-dscp-map-view: '--sonic-mgmt--\(conf-tc-dscp-map-.*\)#'
+    mgmt-dscp-map-view: '--sonic-mgmt--\(conf\w*-dscp-tc-map-.*\)#'
+    mgmt-dot1p-map-view: '--sonic-mgmt--\(conf\w*-dot1p-tc-map-.*\)#'
+    mgmt-tc-queue-map-view: '--sonic-mgmt--\(conf\w*-tc-queue-map-.*\)#'
+    mgmt-tc-pg-map-view: '--sonic-mgmt--\(conf\w*-tc-pg-map-.*\)#'
+    mgmt-pfc-map-view: '--sonic-mgmt--\(conf\w*-pfc-priority-queue-map-.*\)#'
+    mgmt-tc-dot1p-map-view: '--sonic-mgmt--\(conf\w*-tc-dot1p-map-.*\)#'
+    mgmt-tc-dscp-map-view: '--sonic-mgmt--\(conf\w*-tc-dscp-map-.*\)#'
 
     # =============================================================
     # modified by Dell-EMC
@@ -138,15 +142,17 @@ patterns:
     # =============================================================================
 
     mgmt-ifa : '--sonic-mgmt--\(config-tam-int-ifa\)#'
-    mgmt-intf-lo-config : '--sonic-mgmt--\(conf-if-lo.*\)#'
+    mgmt-intf-lo-config : '--sonic-mgmt--\(conf\w*-if-lo.*\)#'
     mgmt-route-map-config : '--sonic-mgmt--\(config-route-map.*\)#'
     mgmt-router-bgp-address-family-ipv4-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
     mgmt-router-bgp-address-family-ipv6-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
     mgmt-router-bgp-address-family-l2vpn-evpn-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
     mgmt-router-bgp-config : '--sonic-mgmt--\(config-router-bgp\)#'
     mgmt-router-bgp-neighbor-intf-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-subintf-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
     mgmt-router-bgp-neighbor-intf-af-ipv6-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
     mgmt-router-bgp-neighbor-intf-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-neighbor-subintf-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
     mgmt-router-bgp-neighbor-ipv4-af-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
     mgmt-router-bgp-neighbor-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
     mgmt-router-bgp-neighbor-ipv6-af-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
@@ -159,8 +165,8 @@ patterns:
     vtysh_maybe_config_prompt : '(sonic|{})#|(sonic|{})\(config.*\)#'
     # =============================================================================
 
-    mgmt-vrrp-ipv4-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv4-.*\)#'
-    mgmt-vrrp-ipv6-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv6-.*\)#'
+    mgmt-vrrp-ipv4-view : '--sonic-mgmt--\(conf\w*-if-.*-vrrp-ipv4-.*\)#'
+    mgmt-vrrp-ipv6-view : '--sonic-mgmt--\(conf\w*-if-.*-vrrp-ipv6-.*\)#'
 
     mgmt-switch-resource-view : '--sonic-mgmt--\(config-switch-resource\)#'
 
@@ -182,6 +188,12 @@ patterns:
 
     mgmt-policy-map-flow-view : '--sonic-mgmt--\(config-policy-map-flow\)#'
 
+    mgmt-bfd-config: '--sonic-mgmt--\(conf\w*-bfd\)#'
+    mgmt-bfd-profile-config: '--sonic-mgmt--\(conf\w*-bfd-profile\)#'
+
+    mgmt-fields-classmap-config : '--sonic-mgmt--\(config-class-map\)#'
+    mgmt-policy-map-config : '--sonic-mgmt--\(config-policy-map\)#'
+    mgmt-policy-map-flow-config : '--sonic-mgmt--\(config-policy-map-flow\)#'
 
 ##########################################################################
 # MODES:
@@ -222,9 +234,10 @@ modes:
     # =====================================================================
     # MGMT-CLI modes
     # =====================================================================
-    mgmt-user: ['normal-user', 'sonic-cli prompt=--sonic-mgmt--', 'exit']
+    mgmt-user: ['normal-user', 'sonic-cli prompt=--sonic-mgmt-- -t 0', 'exit']
     mgmt-config: ['mgmt-user', 'configure terminal', 'exit']
     mgmt-intf-config: ['mgmt-config', 'interface {}', 'exit']
+    mgmt-subintf-config: ['mgmt-config', 'interface {}', 'exit']
     mgmt-ipv4-acl-config: ['mgmt-config', 'ip access-list {}', 'exit']
     mgmt-ipv6-acl-config: ['mgmt-config', 'ipv6 access-list {}', 'exit']
     mgmt-mac-acl-config: ['mgmt-config', 'mac access-list {}', 'exit']
@@ -234,9 +247,10 @@ modes:
     # =============================================================
     mgmt-session-config: ['mgmt-config', 'mirror session {}', 'exit']
     mgmt-intf-management-config: ['mgmt-config', 'interface Management {}', 'exit']
-    mgmt-intf-po-config: ['mgmt-config', 'interface portchannel {} {}', 'exit']
-    mgmt-intf-vlan-config: ['mgmt-config', 'interface vlan {}', 'exit']
-    mgmt-intf-range-eth-config: 
+    mgmt-intf-po-config: ['mgmt-config', 'interface PortChannel {} {}', 'exit']
+    mgmt-subintf-po-config: ['mgmt-config', 'interface PortChannel {} {}', 'exit']
+    mgmt-intf-vlan-config: ['mgmt-config', 'interface Vlan {}', 'exit']
+    mgmt-intf-range-eth-config:
         native: ['mgmt-config', 'interface range Ethernet {}', 'exit']
         alias: ['mgmt-config', 'interface range Eth {}', 'exit']
     mgmt-intf-range-vlan-config: ['mgmt-config', 'interface range Vlan {}', 'exit']
@@ -308,10 +322,13 @@ modes:
     mgmt-router-bgp-address-family-ipv4-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-address-family-ipv6-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv6 unicast', 'exit']
     mgmt-router-bgp-address-family-l2vpn-evpn-config : ['mgmt-router-bgp-config', 'address-family l2vpn evpn', 'exit']
-    mgmt-router-bgp-config : ['mgmt-config', 'router bgp {}', 'exit']
+    #mgmt-router-bgp-config : ['mgmt-config', 'router bgp {}', 'exit']
+    mgmt-router-bgp-config : ['mgmt-config', 'router bgp {} {}', 'exit']
     mgmt-router-bgp-neighbor-intf-af-ipv4-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-neighbor-subintf-af-ipv4-config : ['mgmt-router-bgp-neighbor-subintf-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-neighbor-intf-af-ipv6-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv6 unicast', 'exit']
     mgmt-router-bgp-neighbor-intf-config : ['mgmt-router-bgp-config', 'neighbor interface {}', 'exit']
+    mgmt-router-bgp-neighbor-subintf-config : ['mgmt-router-bgp-config', 'neighbor interface {}', 'exit']
     mgmt-router-bgp-neighbor-ipv4-af-config : ['mgmt-router-bgp-neighbor-ipv4-config', 'address-family ipv4 unicast', 'exit']
     mgmt-router-bgp-neighbor-ipv4-config : ['mgmt-router-bgp-config', 'neighbor {}', 'exit']
     mgmt-router-bgp-neighbor-ipv6-af-config : ['mgmt-router-bgp-neighbor-ipv6-config', 'address-family ipv6 unicast', 'exit']
@@ -321,6 +338,13 @@ modes:
     mgmt-router-bgp-peer-group-af-ipv6-config : ['mgmt-router-bgp-peer-group-config', 'address-family ipv6 unicast', 'exit']
     mgmt-router-bgp-peer-group-config : ['mgmt-router-bgp-config', 'peer-group {}', 'exit']
     mgmt-tam : ['mgmt-config', 'tam', 'exit']
+    mgmt-bfd-config: ['mgmt-config', 'bfd', 'exit']
+    mgmt-bfd-profile-config: ['mgmt-bfd-config', 'profile {}', 'exit']
+    mgmt-vlan-vrrp-ipv4-config : ['mgmt-intf-vlan-config', 'vrrp {} address-family ipv4', 'exit']
+    mgmt-vlan-vrrp-ipv6-config : ['mgmt-intf-vlan-config', 'vrrp {} address-family ipv6', 'exit']
+    mgmt-fields-classmap-config : ['mgmt-config', 'class-map {} match-type fields match-all', 'exit']
+    mgmt-policy-map-config : ['mgmt-config', 'policy-map {} type {}', 'exit']
+    mgmt-policy-map-flow-config: ['mgmt-policy-map-config', 'class {} priority {}', 'exit']
     # =============================================================
 
     mgmt-vrrp-ipv4-view : ['mgmt-intf-config', 'vrrp {} address-family ipv4', 'exit']
@@ -367,6 +391,7 @@ required_args:
     vtysh-vrf-config: ['vrf_name']
 
     mgmt-intf-config: ['interface']
+    mgmt-subintf-config: ['interface']
     mgmt-ipv4-acl-config: ['aclname']
     mgmt-ipv6-acl-config: ['aclname']
     mgmt-mac-acl-config: ['aclname']
@@ -377,6 +402,7 @@ required_args:
     mgmt-session-config: ['session_name']
     mgmt-intf-management-config: ['number']
     mgmt-intf-po-config: ['portchannel', '?option']
+    mgmt-subintf-po-config: ['portchannel', '?option']
     mgmt-intf-range-eth-config: ['range']
     mgmt-intf-range-vlan-config: ['range']
     mgmt-intf-range-create-vlan-config: ['range']
@@ -387,6 +413,11 @@ required_args:
     #mgmt-lag-config: ['portchannel']
     #mgmt-management-config: ['management']
     mgmt-mirror-session-config: ['session_name']
+    mgmt-vlan-vrrp-ipv4-config: ['vrrp_id', 'vlan']
+    mgmt-vlan-vrrp-ipv6-config: ['vrrp_id', 'vlan']
+    mgmt-fields-classmap-config : ['classmap_name']
+    mgmt-policy-map-config : ['policy_map', 'policy_type']
+    mgmt-policy-map-flow-config: ['class_name', 'priority_id']
     # =============================================================
 
     mgmt-evpn-view: ['evpnname']
@@ -450,11 +481,14 @@ required_args:
     # =============================================================
     mgmt-intf-lo-config : ['loopback']
     mgmt-route-map-config : ['tag_name', 'action', 'seq_num']
-    mgmt-router-bgp-config : ['local_asn']
+    #mgmt-router-bgp-config : ['local_asn']
+    mgmt-router-bgp-config : ['local_asn', '?vrf_name']
     mgmt-router-bgp-neighbor-intf-config : ['intf']
+    mgmt-router-bgp-neighbor-subintf-config : ['intf']
     mgmt-router-bgp-neighbor-ipv4-config : ['ipv4']
     mgmt-router-bgp-neighbor-ipv6-config : ['ipv6']
     mgmt-router-bgp-peer-group-config : ['peer_group']
+    mgmt-bfd-profile-config: ['profile']
     # =============================================================
 
 ##########################################################################

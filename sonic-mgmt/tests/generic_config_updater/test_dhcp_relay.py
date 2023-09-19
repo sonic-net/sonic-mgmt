@@ -70,7 +70,6 @@ def create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
     |       109 | 192.168.9.1/24   | Ethernet4 | tagged         | disabled    |                       |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     """
-
     logger.info("CREATE TEST VLANS START")
     vlan_ports_list = [{
         'dev': first_avai_vlan_port,

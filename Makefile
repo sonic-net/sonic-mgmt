@@ -19,12 +19,26 @@ endif
 
 t0_run:
 	echo "run T0 testing..."
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0 -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report"
+	bash -c "python3.8 update_topo.py T0"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report"
+
+run_hw:
+	echo "run T0 testing on HW..."
+	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
+	--host_address=${HOST_ADDRESS} \
+	--username=${USERNAME} \
+	--password=${PASSWORD} \
+	--topo_name=${TOPO_NAME} \
+	--script_file=${TESTFILE} \
+	--device_type=${DEVICE_TYPE} \
+	--docker_mgmt_container=${DOCKER_MGMT_CONTAINER} \
+	--sonic_test_dir=${SONIC_TEST_DIR} \
+	--create_allure_report"
 
 t1_run:
 	echo "run T1 testing..."
 	bash -c "python3.8 update_topo.py T1"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report"
+	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -r -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report"
 
 collect:
 	echo "collect test result..."
@@ -43,3 +57,11 @@ ut_t0:
 	echo "Running UT on T0 with ${TEMP_TESTFILE}"
 	$(MAKE) TESTFILE=$(TEMP_TESTFILE) t0_run
 	rm $(TEMP_TESTFILE)
+
+ut_t0_hw:
+	echo $(TEST_LIST) | sed 's/,/\n/g' > $(TEMP_TESTFILE)
+	cat infra/$(TESTFILE) >> $(TEMP_TESTFILE)
+	echo "Running UT on T0 with ${TEMP_TESTFILE}"
+	$(MAKE) TESTFILE=$(TEMP_TESTFILE) run_hw
+	rm $(TEMP_TESTFILE)
+	

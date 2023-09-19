@@ -30,6 +30,7 @@ import subprocess
 import sys
 from jinja2 import Environment, FileSystemLoader
 import re
+from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -65,6 +66,8 @@ def _create_parser():
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+    parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
+                      required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
                       required=False,default="YourPaSsWoRd")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
@@ -512,24 +515,6 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('topo_t1.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
     ftp_client.close()
 
-def upload_sanity_file(data,script_file):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    ftp_client=ssh.open_sftp()
-    ftp_client.put(script_file,'golden-code/sonic-test/sonic-mgmt/tests/{}'.format(script_file.rsplit('/', 1)[-1]))
-    ftp_client.close()
-
-def get_report_file(data):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    ftp_client=ssh.open_sftp()
-    #ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/test-results.xml.html','test-results.xml.html')
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.html','report.html')
-    ftp_client.close() 
-
 def replace_dut_mgmt_address(data):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -676,230 +661,6 @@ def add_vEOS_cfg(data):
 
     ssh.close()
 
-def run_scripts(data,script_file,drop_version,log_dir,device_type,create_allure_report):
-
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-
-    chan.send('cd /data/tests \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-
-    if os.getenv("MODE"):
-        sanity_mode = os.getenv("MODE").replace("_", "")
-    elif os.getenv("SANITY_MODE"):
-        sanity_mode = os.getenv("SANITY_MODE").replace("_", "")
-    else:
-        sanity_mode = ""
-
-    sanity_index = os.getenv("SANITY_INDEX")
-    if os.getenv("JOB_BASE_NAME"):
-        job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
-    else:
-        job_base_name = ""
-    if os.getenv("TIMESTAMP"):
-        timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
-    else:
-        timestamp = ""
-    
-    build_id = os.getenv("BUILD_ID")
-    if build_id is None:
-        build_id = 99999
-
-    if sanity_index:
-        build_project_name = "sonic-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, sanity_index, timestamp)
-    else:
-        build_project_name = "sonic-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, timestamp)
-
-    build_project_name = build_project_name.lower()
-
-    print("calling run_scripts.py, the allure report build name is ", build_project_name)
-
-    delta1 = datetime.datetime.now()
-    tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
-    if create_allure_report:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,build_project_name))
-    else:
-        chan.send('./run_scripts.py  -s {} -v {} -l {} -d {} -t {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp))
-    time.sleep(3)
-    resp = chan.recv(9999)
-
-    chan.send('exit\n')
-    time.sleep(10)
-
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    result_file = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    later = datetime.datetime.now() + datetime.timedelta(hours=20)
-    while True:
-        chan.send('ps -ef | grep run_scripts.py\n')
-        time.sleep(3)
-        resp = chan.recv(9999)
-        print(resp.decode("ascii"))
-
-        if script_file in resp.decode("ascii"):
-            time.sleep(150)
-            chan.send('cat /data/tests/{} \n'.format(result_file))
-            time.sleep(3)
-            resp = chan.recv(9999)
-            print(resp.decode("ascii"))
-            if datetime.datetime.now() < later:
-                time.sleep(150)
-            else:
-                print("Looks like test is taking longer than six hours. Check list of sanity scripts or increase time to wait")
-                break
-        else:
-            break
-    
-    chan.send('cat /data/tests/{} \n'.format(result_file))
-    time.sleep(3)
-    resp = chan.recv(9999)
-    print(resp.decode("ascii"))
-    if "Exiting" in resp.decode("ascii"):
-        run_status = False
-    else:
-        run_status = True
-    ssh.close()
-    delta2 = datetime.datetime.now()
-    time_delta = (delta2 - delta1)
-    total_seconds = time_delta.total_seconds()
-    minutes = total_seconds/60
-
-    print("Total run time for sanity suite: {} mins".format(minutes))
-    return run_status
-
-def parse_report(data):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    ftp_client=ssh.open_sftp()
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/report.txt','report.txt')
-    ftp_client.close()
-    ssh.close()
-
-    read_report = open('report.txt', 'r')
-    report_file = open('full_report.txt', 'w')
-    out = read_report.read().splitlines()
-    total, passed, fail, skip, error, xfail = 0, 0, 0, 0, 0, 0
-    for line in out:
-        if 'total' not in line.lower():
-            continue
-        print(line)
-        report_file.write(line + "\n")
-        report_file.flush()
-        tc = line.split(',')
-        if 'total' not in tc[1].lower():
-            continue
-        total += int(tc[1].strip(' ').split(' ')[0])
-        passed += int(tc[2].strip(' ').split(' ')[0])
-        fail += int(tc[3].strip(' ').split(' ')[0])
-        skip += int(tc[4].strip(' ').split(' ')[0])
-        error += int(tc[5].strip(' ').split(' ')[0])
-        xfail += int(tc[6].strip(' ').split(' ')[0])
-    resp = "Total TCs: {}, {} Pass, {} Fail, {} Skipped, {} Error, {} xFail\n".format(total,passed,fail,skip,error,xfail)
-    report_file.write("=================================================================\n")
-    print("=================================================================\n")
-    print(resp)
-    report_file.write(resp  + "\n")
-    report_file.flush()
-    report_file.close()
-    return resp
-
-def create_report_html(data,log_dir):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
-    time.sleep(3)
-    
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/DT/test-results.xml\n'.format(log_dir))
-    time.sleep(3)
-
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
-    time.sleep(3)
-
-    chan.send('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
-    time.sleep(3)
-
-    ssh.close()
-
-def get_log_files(data,log_dir):
-
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("cd golden-code/sonic-test/sonic-mgmt/tests/{} \n".format(log_dir))
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("tar -cvf sanity_logs.tar * \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    chan.send("gzip sanity_logs.tar \n")
-    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir)):
-        resp = chan.recv(9999)
-        buff += resp.decode("ascii")
-        print(resp.decode("ascii"))
-    time.sleep(3)
-
-    ftp_client=ssh.open_sftp()
-    ftp_client.get('golden-code/sonic-test/sonic-mgmt/tests/{}/sanity_logs.tar.gz'.format(log_dir),'sanity_logs.tar.gz')
-    ftp_client.close() 
-    ssh.close()
-
 # The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
 # We still run TestbedProcessing.py to generate other important output files
 # But then we overwrite the lab file with our own (in YAML instead of ini, for readability)
@@ -912,45 +673,11 @@ def overwrite_lab_file(vxr_ports):
         "/home/vxr/golden-code/sonic-test/sonic-mgmt/ansible/lab"
     )
 
-# VXR sim failed
-def handle_sim_failure():
-    SUMMARY_REPORT_FILENAME = "results.json"
-    COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
-
-    SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
-    COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
-
-    # Include sim_status field to indicate failure
-    sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_failure"}
-
-    for file_path in [SUMMARY_REPORT_PATH, COMMON_REPORT_PATH]:
-        with open(file_path, "w") as output_file:
-            json.dump(sum, output_file)
-
-
-def main():
-    argparser = _create_parser()
-    args = vars(argparser.parse_args())
-    topo_yaml = args['topo_yaml']
-    clean_sim = args['clean_sim']
-    run_sanity = args['run_sanity']
-    dut_passwd = args['dut_passwd']
-    dut_uname = args['dut_uname']
-    topo_type = args['topo_type']
-    device_type = args['device_type']
-    script_file = args['script_file']
-    drop_version = args['drop_version']
-    log_dir = args['log_dir']
-    tar_ball = args['tar_ball']
-    cicd = args['cicd']
-    cicd_clean = args['cicd_clean']
-    create_allure_report = args['create_allure_report']
-
-    ptf_intfcount = 32
+def get_dut_platform(device_type):
     if device_type == 'sherman':
-        dut_platform = "sherman"
+         return "sherman"
     elif device_type == 'sfd':
-        dut_platform = 'sfd'
+         return 'sfd'
     elif device_type == 'crocodile':
         dut_platform = 'crocodile'
     elif device_type == 'churchill':
@@ -958,8 +685,10 @@ def main():
             topo_yaml = '../pyvxr_yaml_files/churchill_sonic_t0_topo.yaml'
         dut_platform = 'churchill'
     else:
-        dut_platform = "mathilda"
+         return "mathilda"
 
+def determine_base_topo(topo_type, device_type):
+    ptf_intfcount = 32
     if topo_type in ['t2-vs', 't2-min']:
         assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
         os.system("cp sonic_t2/* .")
@@ -972,6 +701,7 @@ def main():
     elif topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
         vEOS_count = 4
+        ptf_intfcount = 32
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'crocodile':
@@ -987,6 +717,7 @@ def main():
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 32
+        ptf_intfcount = 32
     elif topo_type == 'dualtor-56':
         os.system("cp sonic_dualtor_56/* .")
         vEOS_count = 4
@@ -1022,43 +753,33 @@ def main():
             base_topo_file = 'testbed-churchill-t0.yaml'
         else:
             base_topo_file = 'testbed-mth64-t0-64.yaml'
+    
+    return base_topo_file, vEOS_count, ptf_intfcount
 
-    print("USING BASE TOPO {}".format(base_topo_file))
-
-    input_file = args['input_file']
-
-    delta1 = datetime.datetime.now()
+def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    if input_file:
+        return vxr_path, input_file
+    
     if cicd:
         vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
 
-    if input_file is None:
-        if clean_sim:
-            os.system("{} clean".format(vxr_path))
+    if clean_sim:
+        os.system("{} clean".format(vxr_path))
 
-        os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
-        
-        sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
+    os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
+    
+    sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
 
-        # Populate results file with failure data
-        if not int(sim_output):
-            handle_sim_failure()
-            sys.exit("Sim is not up. Exiting now")
+    # Populate results file with failure data
+    if not int(sim_output):
+        handle_sim_failure("sim_failure")
+        sys.exit("Sim is not up. Exiting now")
 
-        os.system("{} ports > vxr_ports.yaml".format(vxr_path))
-        input_file = "vxr_ports.yaml"
-    delta2 = datetime.datetime.now()
+    os.system("{} ports > vxr_ports.yaml".format(vxr_path))
+    return vxr_path, "vxr_ports.yaml"
 
-    with open(input_file) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
-
-    for dut_name in get_dut_names(data):
-        data[dut_name]['uname'] = dut_uname
-        data[dut_name]['passwd'] = dut_passwd
-
-    data['tar_ball'] = tar_ball
-    data['ptf_intf_count'] = ptf_intfcount
-
+def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
@@ -1090,69 +811,8 @@ def main():
     print("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
 
-    for dut_name in get_dut_names(data):
-        device = data[dut_name]
-        print("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
-    print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
-
-    print("PTF (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['docker_ptf']['HostAgent'], data['docker_ptf']['serial0'], data['docker_ptf']['xr_mgmt_ip'], data['docker_ptf']['xr_redir22']))
-    if 'dualtor' in device_type:
-        print("MUX SIM (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['mux_sim']['HostAgent'], data['mux_sim']['serial0'], data['mux_sim']['xr_mgmt_ip'], data['mux_sim']['xr_redir22']))
-
-    print("VEOS (admin/123456): ")
-    for i in range (1,vEOS_count+1):
-        print("VEOS{}:  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(str(i-1), data['veos'+ str(i)]['HostAgent'], data['veos'+ str(i)]['serial0'], data['veos'+ str(i)]['xr_mgmt_ip'], data['veos'+ str(i)]['xr_redir22'] ))
-
-    print("******************************************************************************************************************************************************************************\n")
-    if device_type == 'sherman':
-        print("Device name is sherman. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    elif device_type == 'crocodile':
-        print("Device name is crocodile. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    elif device_type == 'churchill':
-        print("Device name is churchill. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    else:
-        print("Device name is mth32 or m64. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
-    print("******************************************************************************************************************************************************************************\n")
-
-    delta3 = datetime.datetime.now()
-
-    if run_sanity:
-        print("Upload Sanity Script file")
-        upload_sanity_file(data,script_file)
-        print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-        run_result = run_scripts(data,script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report)
-        delta4 = datetime.datetime.now()
-        if run_result:
-            create_report_html(data,log_dir)
-            parse_report(data)
-            get_report_file(data)
-            get_log_files(data,log_dir)
-        else:
-            report_file = open('full_report.txt', 'w')
-            report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-            report_file.flush()
-            report_file.close()
-            print("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. There seems to be some issue with the sim setup. Exiting now")
-
-    sim_time_delta = (delta2 - delta1).total_seconds()
-    profile_time_delta = (delta3 - delta2).total_seconds()
-    if run_sanity:
-        sanity_time_delta = (delta4 - delta3).total_seconds()
-
-    print("******************************************************************************************************************************************************************************\n")
-    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
-    print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
-    if run_sanity:
-        print("Time taken for the sanity tests to run : {} mins".format(sanity_time_delta/60))
-        if not run_result:
-            print("Sanity run unsuccesful !!!, Check log files for more details")
-    print("******************************************************************************************************************************************************************************\n")
-
+def print_env_info(data, device_type, vEOS_count):
     for dut_name in get_dut_names(data):
         device = data[dut_name]
         print("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
@@ -1173,18 +833,93 @@ def main():
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'churchill':
         print("Device name is churchill. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d churchill-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
-        print("Device name is mth32. To execute a pytest script:\n")
+        print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
-    # if cicd_clean:
-    #     print("****** Clearing SIM at the end of CICD run ******** ")
-    #     os.system("{} clean".format(vxr_path))
+def main():
+    argparser = _create_parser()
+    args = vars(argparser.parse_args())
+    topo_yaml = args['topo_yaml']
+    clean_sim = args['clean_sim']
+    run_sanity = args['run_sanity']
+    dut_passwd = args['dut_passwd']
+    dut_uname = args['dut_uname']
+    topo_type = args['topo_type']
+    device_type = args['device_type']
+    script_file = args['script_file']
+    drop_version = args['drop_version']
+    log_dir = args['log_dir']
+    tar_ball = args['tar_ball']
+    cicd = args['cicd']
+    cicd_clean = args['cicd_clean']
+    create_allure_report = args['create_allure_report']
+
+    ptf_intfcount = 32
+
+    dut_platform = get_dut_platform(device_type)
+    
+    base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type)
+
+    print("USING BASE TOPO {}".format(base_topo_file))
+    
+    vxr_start_begin = datetime.datetime.now()
+    
+    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
+
+    vxr_start_end = datetime.datetime.now()
+
+    with open(input_file) as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    for dut_name in get_dut_names(data):
+        data[dut_name]['uname'] = dut_uname
+        data[dut_name]['passwd'] = dut_passwd
+
+    data['tar_ball'] = tar_ball
+    data['ptf_intf_count'] = ptf_intfcount
+
+    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type)
+
+    print_env_info(data, device_type, vEOS_count)
+
+    vcr_configure_end = datetime.datetime.now()
+
+    if run_sanity:
+        run_scripts_remote(
+            data['sonic_mgmt']['HostAgent'], 
+            "vxr", 
+            "cisco123", 
+            script_file,
+            drop_version,
+            log_dir,
+            device_type,
+            create_allure_report, 
+            ssh_port=data['sonic_mgmt']['xr_redir22']
+        )
+
+    sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
+    profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
+
+    print("******************************************************************************************************************************************************************************\n")
+    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+    print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
+    print("******************************************************************************************************************************************************************************\n")
+
+    print_env_info(data, device_type, vEOS_count)
+
+    if cicd_clean:
+        print("****** Clearing SIM at the end of CICD run ******** ")
+        os.system("{} clean".format(vxr_path))
+
+    if cicd_clean:
+        print("****** Clearing SIM at the end of CICD run ******** ")
+        os.system("{} clean".format(vxr_path))
 
 
 if __name__ == '__main__':

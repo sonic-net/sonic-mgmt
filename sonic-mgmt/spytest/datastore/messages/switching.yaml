@@ -32,6 +32,13 @@ vlan_config_member_add_Fail: Vlan Member addition is failed
 vlan_scaling: Vlan scaling '{}'
 mac_scaling: mac scaling '{}'
 max_vlan_config_retain_after_save_fast_warm_reboot : max vlan config is retained after fast and warm reboot
+switchport_trunk_allowed_vlan_option : switchport trunk allowed vlan {} verification {}.
+switchport_access_vlan_option : switchport access vlan config validation {} before or after trunk allowed vlan option config.
+switchport_trunk_allowed_vlan_option_save : switchport trunk allowed vlan options config verification {} after save and reboot
+reserved_vlan_failed: Failed to Verify Reserved VLAN for {}
+reserved_vlan_passed: Successfully Verified Reserved VLAN for {}
+failed_l2_to_l3_port: Failed to port L2 config to L3 config
+
 
 ##portchannel
 portchannel_member_state_failed : PortChannel member state verification failed with expected state
@@ -124,6 +131,7 @@ feature_module_data_check_failed: module data check is failed for {}
 feature_module_config_data_not_found: module config data not found for {}
 tg_object_not_found: Tg object is not found
 exception: exception {} is occured
+gnmi_unsupported_platform: GNMI is unsupported on this platform
 
 # IGMP Snooping
 igmp_snooping_verification_successful_for_igmpv2 : IGMP v2 hosts joins are successful and mcast data forwarded to hosts joined ports.
@@ -161,7 +169,7 @@ igmp_snooping_verification_shut_no_shut: After shut no shut on the interface IGM
 igmp_snooping_verification_warm_boot: IGMP snooping verification with warm boot is {}.
 igmp_snooping_verification_rest: IGMP snooping REST operation is {}.
 igmp_snooping_verification_gnmi: IGMP snooping gNMI operation is {}.
-
+igmp_snooping_static_group: Static group entry {} is not found in Table.
 
 #MCLAG
 mclag_state_verification_failed: MCLAG state verification FAILED with {}
@@ -241,3 +249,51 @@ port_discarding_fail: Port failed to move to discarding state
 port_forwarding_fail: Port failed to move to forwarding state
 loopguard_pvst_should_fail: IN PVST mode loopguard config should fail
 
+#PMS
+pms_disabled_by_default: PMS is {}disabled by default on {}.
+mac_learning_status: MAC learning {} on {}.
+port_mac_security_config_status: Port MAC security config {} on {}.
+fdb_not_cleared_after_pms_enable: FDB entries not cleared after PMS enabled, test scenario failed.
+pms_config_verification_status: PMS config verification for {} {}.
+running_config_has_pms: Running configuration has PMS configuration - {}.
+running_config_has_no_pms: Running configuration has no PMS configuration - {}.
+mac_addr_mistmach_dut_tg: Observed mismatch between learned and sent mac address - {}.
+pms_behavior_verification_status: PMS behavior verified {}.
+pms_disable_status: Disabling PMS is {} on {}.
+fdb_not_cleared_after_pms_disable: FDB entries not cleared after PMS disabled, test scenario failed.
+mac_aging_time_verification_status_with_pms: MAC age out after aging time when PMS enabled on {} DUT is {}.
+new_mac_entry_not_learned: New MAC entry not learned even even after exiting mac entry is deleted.
+pms_config_max_mac_out_of_range: PMS configuration with out of range MAX MAC {}.
+pms_config_max_mac_with_in_range: PMS configuration with MAX MAC with in the range 1-4097 is {}.
+mismatch_syslog_msg_count_violated_count: Mismatch in SYSLOG MSG count with VIOLATED MAC COUNT on {} {}.
+fdb_not_cleared_after_change_in_config: FDB not cleared even after changing the {} on {}.
+pms_prop_config_non_pms_intf_status: PMS properties configuration on a NON PMS interface {}.
+fdb_entries_not_cleared_after_shutting_down_interface: FDB entries not cleared after shutting down the interface {}.
+fdb_entries_cleared_after_starting_up_interface: FDB entries cleared after starting up the interface {}.
+traffic_not_rcvd_pms_enabled: Traffic not recevied on {} interface when PMS enabled and violation.
+traffic_rcvd_pms_enabled: Traffic recevied on {} interface when PMS enabled and violation.
+pms_config_on_vlan_inteface_status: PMS configuration on vlan interface is {}successful, test case {}.
+pms_l3_traffic_fwd_status: L3 traffic forwarding with PMS configuration is {}.
+pms_behavior_on_portchannel_status: Verification of PMS on Static/Dynamic PortChannel {}.
+pms_behavior_with_portchannel_status: Verifification of PMS functionality on Dynamic PortChannel interface {}.
+pms_behavior_with_static_portchannel_status: Verifification of PMS functionality on Static PortChannel interface {}.
+pms_behavior_shut_no_shut_status: Verifification of PMS functionality by shut/no shut the portchannel interface {}.
+pms_behavior_with_bpdu_violation_status: PMS behavior with BPDU violatio is {}.
+fdb_clear_after_pms_enabled: Verification of FDB clear when PMS enabled on interface is successful.
+pms_behavior_status: Verification the port mac security functionality by sending the number of L2 packets equals/exceeds the configured number of maximum mac address is {}.
+pms_behavior_syslog_msg_status: Verification of warning syslog message at the time of PMS violation {}.
+fbd_clear_when_pms_disabled_status: Verification of MAC entries in FDB are cleared when we disable the PMS {}.
+traffic_verify_pms_disable_status: Verification of traffic forwarding when violation is disabled {}
+dropped_traffic_learning_after_deletion_status: Verification of dropped unlearned traffic learning after deletion of exisiting entries {}.
+max_allowed_mac_addr_reconfig_status: Verification of reconfiguring the number of maximum allowed addresses dynamically {}.
+pms_shut_no_shut_intf_status: Verification of PMS behavior when shut/no shut an physical interface {}.
+pms_verification_with_boot_type_status: Verification on PMS behavior with {} boot is {}.
+pms_verification_with_multiple_intfs: Verification of PMS functionality by enabling it on multiple interfaces on the same switch is {}.
+fdb_not_cleared_after_shutting_down_interface: FDB is not cleared after shutting down {} interface.
+enable_pms_on_switchport_failed: Enabling PMS on a switch port interface {} is failed.
+mismatch_on_pms_properties: Verification of PMS properties - {}
+pms_on_l3_interface_status: Verification of impact on l3 traffic when PMS is configured - {}.
+
+mirror_session_on_member_port_status: Observed that member port is part of mirror session - {}
+stp_convergance_should_no_be_observed: Observed that STP convergence on mirror port - {}
+mirror_port_vlan_stp_status: Verification of mirror port not be part of VLAN or STP - {}

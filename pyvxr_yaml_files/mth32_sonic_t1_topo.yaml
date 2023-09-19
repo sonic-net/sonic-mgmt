@@ -6,10 +6,10 @@ simulation:
 devices:
   docker_ptf:
     platform: linux
-    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker.qcow2
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v2.qcow2
     linux_username: root
     linux_password: lab
-    linux_prompt: root@docker-ptf:/#
+    linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
     extended_pci_bus: True
     vcpu: 4
@@ -26,7 +26,7 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/4265/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
     linecard_types: [matilda32]
 
   sonic_mgmt :

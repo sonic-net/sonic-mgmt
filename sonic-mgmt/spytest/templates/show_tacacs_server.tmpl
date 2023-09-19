@@ -1,7 +1,8 @@
-Value global_src_intf (\w+)
-Value global_timeout (\d+)
-Value global_auth_type (\w+)
-Value global_passkey (\w+)
+Value Filldown global_src_intf (\w+)
+Value Filldown global_timeout (\d+)
+Value Filldown global_auth_type (\w+)
+Value Filldown global_passkey (\w+)
+Value Filldown global_key_configured (\w+)
 Value host (\S+)
 Value auth_type (\w+)
 Value passkey (\w+)
@@ -11,10 +12,11 @@ Value timeout (\d+)
 Value vrf (\w+)
 
 Start
-  ^\s*source-interface\s+:\s+${global_src_intf}\s*$$ -> Record
-  ^\s*timeout\s+:\s+${global_timeout}\s*$$ -> Record
-  ^\s*auth-type\s+:\s+${global_auth_type}\s*$$ -> Record
-  ^\s*key\s+:\s+${global_passkey}\s*$$ -> Record
+  ^\s*source-interface\s+:\s+${global_src_intf}\s*$$
+  ^\s*timeout\s+:\s+${global_timeout}\s*$$
+  ^\s*auth-type\s+:\s+${global_auth_type}\s*$$
+  ^\s*key\s+:\s+${global_passkey}\s*$$
+  ^\s*key configured\s+:\s+${global_key_configured}\s*$$
   ^\s*${host}\s+${auth_type}\s+${passkey}\s+${port}\s+${priority}\s+${timeout}\s+${vrf}\s*$$ -> Record
   ^\s*${host}\s+${auth_type}\s+${port}\s+${priority}\s+${timeout}\s+${vrf}\s*$$ -> Record
   ^\s*${host}\s+${passkey}\s+${port}\s+${priority}\s+${timeout}\s+${vrf}\s*$$ -> Record

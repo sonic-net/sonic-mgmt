@@ -90,7 +90,7 @@ def nic_simulator_info(request, tbinfo):
 
     server = tbinfo["server"]
     vmset_name = tbinfo["group-name"]
-    inv_files = request.config.option.ansible_inventory
+    inv_files = utilities.get_inventory_files(request)
     ip = tbinfo["netns_mgmt_ip"].split("/")[0]
     _port_map = utilities.get_group_visible_vars(inv_files, server).get('nic_simulator_grpc_port')
     port = _port_map[tbinfo['conf-name']]

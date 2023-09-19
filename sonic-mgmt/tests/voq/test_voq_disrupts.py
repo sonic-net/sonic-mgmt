@@ -124,7 +124,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
 
-                check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
+                check_packet(eos_ping, ports, 'portD', 'portA', dst_ip_fld='my_lb4096_ip', src_ip_fld='nbr_lb',
                              dev=vm_host_to_A, size=size, ttl=ttl)
 
                 # loopbacks
@@ -143,7 +143,7 @@ def check_ip_fwd(duthosts, all_cfg_facts, nbrhosts, tbinfo):
                              ttl=ttl, ttl_change=0)
 
                 vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
-                check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_lb_ip', src_ip_fld='nbr_lb',
+                check_packet(eos_ping, ports, 'portA', 'portA', dst_ip_fld='my_lb4096_ip', src_ip_fld='nbr_lb',
                              dev=vm_host_to_A, size=size, ttl=ttl, ttl_change=0)
 
                 # end to end

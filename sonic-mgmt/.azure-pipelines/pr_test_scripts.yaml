@@ -48,6 +48,7 @@ t0:
   - snmp/test_snmp_cpu.py
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_link_local_ip.py
   - snmp/test_snmp_lldp.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
@@ -82,7 +83,7 @@ t0-sonic:
   - macsec/test_fault_handling.py
   - macsec/test_interop_protocol.py
   - pc/test_retry_count.py
-#  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
 dualtor:
   - arp/test_arp_extended.py
@@ -117,6 +118,7 @@ multi-asic-t1-lag:
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_update_timer.py
   - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_link_local_ip.py
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py

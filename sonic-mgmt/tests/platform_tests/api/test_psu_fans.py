@@ -6,7 +6,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis, psu, psu_fan
 
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3

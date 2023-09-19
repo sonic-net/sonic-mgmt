@@ -322,7 +322,6 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
                 vlan_port['permit_vlanid'].append(vlan['vlanid'])
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
-
     return vlan_ports_list
 
 
@@ -354,6 +353,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
+    if 'VLAN_INTERFACE' not in cfg_facts:
+        return vlan_intfs_dict
     for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
@@ -433,12 +434,13 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
                     cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
             except KeyError:
                 continue
-
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
+            switchport_mode_set(duthost, vlan_port['dev'])
+            logger.info("trunk mode added")
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -448,10 +450,41 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope='module')
-def dut_qos_maps(rand_selected_front_end_dut):
+def switchport_mode_set(duthost, port):
+
+    mode_json = "/tmp/mode_set.json"
+
+    mode_set = '''
+cat << EOF >  %s
+{
+   "PORT": {
+        "{port}": {
+            "mode": "trunk"
+        }
+  }
+}
+EOF
+''' % (mode_json)
+    duthost.shell(mode_set)
+    jq_command = (
+     'sudo jq --argfile modeJson {} '
+     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
+     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
+     'then .value.mode = "trunk" else . end)\' '
+     '/etc/sonic/config_db.json > /tmp/dump.json'
+    ).format(mode_json)
+    duthost.shell(jq_command)
+    duthost.command("sudo config load -y {}".format(mode_json))
+    duthost.command("sudo mv /tmp/dump.json /etc/sonic/config_db.json")
+
+    yield
+    duthost.command("rm {}".format(mode_json))
+    logger.info("Json dump-file added in to the DUT")
+
+
+def _dut_qos_map(dut):
     """
-    A module level fixture to get QoS map from DUT host.
+    A helper function to get QoS map from DUT host.
     Return a dict
     {
         "dscp_to_tc_map": {
@@ -467,43 +500,62 @@ def dut_qos_maps(rand_selected_front_end_dut):
     """
     maps = {}
     try:
-        if rand_selected_front_end_dut.is_multi_asic:
+        if dut.is_multi_asic:
             sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
         else:
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
-        port_qos_map_data = rand_selected_front_end_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['port_qos_map'] = json.loads(port_qos_map_data) if port_qos_map_data else None
+        port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['port_qos_map'] = json.loads(port_qos_map) if port_qos_map else None
+
         # dscp_to_tc_map
-        dscp_to_tc_map_data = rand_selected_front_end_dut.shell(
-            "{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map_data) if dscp_to_tc_map_data else None
+        dscp_to_tc_map = dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map) if dscp_to_tc_map else None
+
         # tc_to_queue_map
-        tc_to_queue_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map_data) if tc_to_queue_map_data else None
+        tc_to_queue_map = dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map) if tc_to_queue_map else None
+
         # tc_to_priority_group_map
-        tc_to_priority_group_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_priority_group_map'] = json.loads(
-            tc_to_priority_group_map_data) if tc_to_priority_group_map_data else None
+        tc_to_priority_group_map = dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_priority_group_map'] = json.loads(tc_to_priority_group_map) if tc_to_priority_group_map else None
+
         # tc_to_dscp_map
-        tc_to_dscp_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map_data) if tc_to_dscp_map_data else None
+        tc_to_dscp_map = dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map) if tc_to_dscp_map else None
     except Exception as e:
         logger.error("Got exception: " + repr(e))
     return maps
 
 
-def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+@pytest.fixture(scope='class')
+def dut_qos_maps(get_src_dst_asic_and_duts):
+    """
+    A class level fixture to get QoS map from DUT host.
+    Return a dict
+    """
+    dut = get_src_dst_asic_and_duts['src_dut']
+    return _dut_qos_map(dut)
+
+
+@pytest.fixture(scope='module')
+def dut_qos_maps_module(rand_selected_front_end_dut):
+    """
+    A module level fixture to get QoS map from DUT host.
+    return a dict
+    """
+    dut = rand_selected_front_end_dut
+    return _dut_qos_map(dut)
+
+
+def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in list(dut_qos_maps['port_qos_map'].items()):
+    for port_name, qos_map in dut_qos_maps_module['port_qos_map'].items():
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
@@ -512,20 +564,20 @@ def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
     return False
 
 
-def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
+def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to PG map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
         # Load tc_to_pg_map
-        tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
+        tc_to_pg_map = dut_qos_maps_module['tc_to_priority_group_map'][tc_to_pg_map_name]
         # Calculate dscp to pg map
         dscp_to_pg_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):
@@ -536,20 +588,20 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         return {}
 
 
-def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
+def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to Queue map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
         # Load tc_to_queue_map
-        tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
+        tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
         # Calculate dscp to queue map
         dscp_to_queue_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):
@@ -558,3 +610,23 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
     except:     # noqa E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
+
+
+def check_bgp_router_id(duthost, mgFacts):
+    """
+    Check bgp router ID is same as Loopback0
+    """
+    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+    try:
+        bgp_summary_json = json.loads(bgp_summary['stdout'])
+        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
+        loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
+        if router_id == loopback0:
+            logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
+            return True
+        else:
+            logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
+            return False
+    except Exception as e:
+        logger.error("Error loading BGP routerID - {}".format(e))

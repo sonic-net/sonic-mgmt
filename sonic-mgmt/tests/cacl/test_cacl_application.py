@@ -16,21 +16,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-ignored_iptable_rules = []
-
-
-@pytest.fixture(scope="module", autouse=True)
-def ignore_hardcoded_cacl_rule_on_dualtor(tbinfo):
-    global ignored_iptable_rules
-    # There are some hardcoded cacl rule for dualtot testbed, which should be ignored
-    if "dualtor" in tbinfo['topo']['name']:
-        rules_to_ignore = [
-                           "-A INPUT -p udp -m udp --dport 67 -j DHCP",
-                           "-A DHCP -j RETURN",
-                           "-N DHCP"
-                           ]
-        ignored_iptable_rules += rules_to_ignore
-
 
 @pytest.fixture(scope="function", params=["active_tor", "standby_tor"])
 def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
@@ -337,7 +322,7 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         # There are non-ip_address keys in ifaces. We ignore them with the except
                         ip_ntwrk = ipaddress.ip_network(iface_cidr, strict=False)
                     except ValueError:
-                        pass
+                        continue
                     # For VLAN interfaces, the IP address we want to block is the default gateway (i.e.,
                     # the first available host IP address of the VLAN subnet)
                     ip_addr = next(ip_ntwrk.hosts()) if iface_table_name == "VLAN_INTERFACE" \
@@ -437,6 +422,15 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # Allow all incoming IPv6 DHCP packets
     iptables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
     ip6tables_rules.append("-A INPUT -p udp -m udp --dport 546:547 -j ACCEPT")
+
+    # There are some hardcoded cacl rule for dualtor testbed
+    if "dualtor" in tbinfo['topo']['name']:
+        rules_to_expect_for_dualtor = [
+                                       "-A INPUT -p udp -m udp --dport 67 -j DHCP",
+                                       "-A DHCP -j RETURN",
+                                       "-N DHCP"
+                                      ]
+        iptables_rules.extend(rules_to_expect_for_dualtor)
 
     # On standby tor, it has expected dhcp mark iptables rules.
     if expected_dhcp_rules_for_standby:

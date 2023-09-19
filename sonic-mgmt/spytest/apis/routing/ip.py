@@ -64,14 +64,19 @@ def ping(dut, addresses, family='ipv4', **kwargs):
     cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
     ping_pattern = r'(\d+)\s+packets\s+transmitted,\s+(\d+)\s+received,(.*)\s+(\d+)%\s+packet\s+loss,\s+time\s+(\d+)ms'
     external = kwargs.get("external", False)
-
+    distributed = kwargs.get("distributed", False)
     # add defaults
+    
     kwargs['tgen'] = kwargs.get('tgen', False)
     kwargs['count'] = kwargs.get('count', 3)
+    asic = kwargs.get('asic',0)
+    size = kwargs.get('size',56)
 
     if family.lower() == "ipv4":
         if external:
             command = "ping {} -c {} ".format(addresses, kwargs['count'])
+        elif distributed:
+            command = "sudo ip netns exec asic{} ping {} -c {} -s {} -M do -i 0 ".format(asic,addresses, kwargs['count'], size)
         else:
             if cli_type == 'click':
                 command = "ping -4 {} -c {} ".format(addresses, kwargs['count'])
@@ -111,7 +116,7 @@ def ping(dut, addresses, family='ipv4', **kwargs):
             timeout = 7
 
     if timeout:
-        command = command + "-W {} ".format(timeout)
+        command = command + " -W {} ".format(timeout)
 
     if 'interface' in kwargs:
         command = command + "-I {} ".format(kwargs['interface'])

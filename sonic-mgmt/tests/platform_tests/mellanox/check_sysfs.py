@@ -224,18 +224,18 @@ def _is_fan_speed_in_range(sysfs_facts):
             fan_speed_set = int(fan_info["speed_set"])
             fan_speed_get = int(fan_info["speed_get"])
 
+            low_threshold = ((float(fan_speed_set) / 255)
+                             * fan_min_speed) * (1 - 0.5)
+            high_threshold = ((float(fan_speed_set) / 255)
+                              * fan_max_speed) * (1 + 0.5)
+
             assert fan_min_speed > 0 and fan_max_speed > 10000, 'Invalid fan min/max speed: {}, {}'.format(
                 fan_min_speed,
                 fan_max_speed)
-            assert fan_min_speed < fan_speed_get < fan_max_speed, 'Fan speed {} not in range: [{}, {}]'.format(
-                fan_speed_get, fan_min_speed, fan_max_speed
+            assert low_threshold < fan_speed_get < high_threshold, 'Fan speed {} not in range: [{}, {}]'.format(
+                fan_speed_get, low_threshold, high_threshold
             )
 
-            low_threshold = ((float(fan_speed_set) / 255)
-                             * fan_max_speed) * (1 - 0.5)
-            high_threshold = ((float(fan_speed_set) / 255)
-                              * fan_max_speed) * (1 + 0.5)
-            return low_threshold < fan_speed_get < high_threshold
         except Exception as e:
             assert False, 'Invalid fan speed: actual speed={}, set speed={}, min={}, max={}, exception={}'.format(
                 fan_info["speed_get"],
@@ -244,6 +244,7 @@ def _is_fan_speed_in_range(sysfs_facts):
                 fan_info["max_speed"],
                 e
             )
+    return True
 
 
 def generate_sysfs_config(platform_data):

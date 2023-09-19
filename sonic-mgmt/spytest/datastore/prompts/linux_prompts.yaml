@@ -1,0 +1,481 @@
+##########################################################################
+# Note:
+#    Use only single quotes for enclosing the regular expression patterns.
+##########################################################################
+
+##########################################################################
+# PATTERNS:
+#    Mapping different prompt patterns to a name(same as in modes)
+##########################################################################
+patterns:
+    login_prompt: '\S+\s+login:\s*$'
+    onie_prompt: '\s*ONIE:/ #\s*$'
+    onie_resque_prompt: '\s+Please press Enter to activate this console.\s*$'
+    # =====================================================================
+    # Generic Patterns
+    # =====================================================================
+    normal-user: '({username}|root)@(linux|{}):.*[#|\$]\s*$'
+    root-user: 'root@(linux|{}):.*[#|\$]\s*$'
+    # =====================================================================
+    # VTYSH Patterns
+    # =====================================================================
+    vtysh-user: '(Linux|{})#'
+    vtysh-config: '(Linux|{})\(config\)#'
+    vtysh-intf-config: '(Linux|{})\(config-if\)#'
+    vtysh-bfd-config: '(Linux|{})\(config-bfd\)#'
+    vtysh-bfd-peer-config: '(Linux|{})\(config-bfd-peer\)#'
+    vtysh-key-chain-config: '(Linux|{})\(config-keychain\)#'
+    vtysh-key-chain-Identifier-config: '(Linux|{})\(config-keychain-key\)#'
+    vtysh-line-vty-config: '(Linux|{})\(config-line\)#'
+    vtysh-l2vpn-config: '(Linux|{})\(config-l2vpn\)#'
+    vtysh-nhgroup-config: '(Linux|{})\(config-nh-group\)#'
+    vtysh-pbr-map-config: '(Linux|{})\(config-pbr-map\)#'
+    vtysh-pseudowire-config: '(Linux|{})\(config-pw\)#'
+    vtysh-route-map-config: '(Linux|{})\(config-route-map\)#'
+    vtysh-router-config: '(Linux|{})\(config-router\)#'
+    vtysh-router-af-config: '(Linux|{})\(config-router-af\)#'
+    vtysh-vrf-config: '(Linux|{})\(config-vrf\)#'
+    vtysh-any-config: '(Linux|{})\(config[^)]*\)#'
+    # =====================================================================
+    # LLDP Patterns
+    # =====================================================================
+    lldp-user: '\[lldpcli\]\s*#\s*$'
+    # =====================================================================
+    # MGMT-CLI Patterns
+    # =====================================================================
+    mgmt-user: '--sonic-mgmt--#'
+    mgmt-config: '--sonic-mgmt--\(config\)#'
+    mgmt-intf-config: '--sonic-mgmt--\(conf-if-Eth.*\)#'
+    mgmt-subintf-config: '--sonic-mgmt--\(conf-subif-Eth.*\)#'
+    mgmt-ipv4-acl-config: '--sonic-mgmt--\(config-ipv4-acl\)#'
+    mgmt-ipv6-acl-config: '--sonic-mgmt--\(config-ipv6-acl\)#'
+    mgmt-mac-acl-config: '--sonic-mgmt--\(config-mac-acl\)#'
+
+    # =============================================================
+    # added by Dell-EMC
+    # =============================================================
+    mgmt-session-config: '--sonic-mgmt--\(config-session-name\)#'
+    mgmt-intf-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
+    mgmt-intf-po-config: '--sonic-mgmt--\(conf-if-po.*\)#'
+    mgmt-subintf-po-config: '--sonic-mgmt--\(conf-subif-PortChannel.*\)#'
+    mgmt-intf-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
+    mgmt-intf-range-eth-config: '--sonic-mgmt--\(conf-if-range-eth\*\*\)#'
+    mgmt-intf-range-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
+    mgmt-intf-range-create-po-config: '--sonic-mgmt--\(conf-if-range-po\*\*\)#'
+    mgmt-intf-range-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
+    mgmt-intf-range-create-vlan-config: '--sonic-mgmt--\(conf-if-range-vl\*\*\)#'
+    # =============================================================
+
+    mgmt-mirror-session-config: '--sonic-mgmt--\(config-mirror-.*\)#'
+    #mgmt-vlan-config: '--sonic-mgmt--\(conf-if-Vlan.*\)#'
+    #mgmt-lag-config: '--sonic-mgmt--\(conf-if-po.*\)#'
+    #mgmt-management-config: '--sonic-mgmt--\(conf-if-eth.*\)#'
+    mgmt-cpu-config: '--sonic-mgmt--\(conf-if-CPU\)#'
+
+    mgmt-evpn-view: '--sonic-mgmt--\(conf-if-evpn\)#'
+    mgmt-vxlan-view: '--sonic-mgmt--\(conf-if-Vxlan-.*\)#'
+
+    mgmt-tam-view: '--sonic-mgmt--\(config-tam\)#'
+    mgmt-tam-ifa-view: '--sonic-mgmt--\(config-tam-ifa\)#'
+    mgmt-tam-ts-view: '--sonic-mgmt--\(config-tam-ts\)#'
+    mgmt-tam-dm-view: '--sonic-mgmt--\(config-tam-dm\)#'
+
+    mgmt-nat-view: '--sonic-mgmt--\(config-nat\)#'
+    # =============================================================
+    # modified by Dell-EMC
+    # =============================================================
+    mgmt-mclag-view: '--sonic-mgmt--\(config-mclag-domain-.*\)#'
+    # =============================================================
+    #mgmt-mclag-view: '--sonic-mgmt--\(mclag-domain-.*\)#'
+    # =============================================================
+
+
+    mgmt-lo-view: '--sonic-mgmt--\(conf-if-lo.*\)#'
+
+    mgmt-bfd-view: '--sonic-mgmt--\(conf-bfd\)#'
+    mgmt-bfd-peer-view: '--sonic-mgmt--\(conf-bfd-peer\)#'
+
+    mgmt-route-map-view: '--sonic-mgmt--\(config-route-map\)#'
+
+    mgmt-link-state-track-view: '--sonic-mgmt--\(config-link-track\)#'
+
+    mgmt-router-bgp-view: '--sonic-mgmt--\(config-router-bgp\)#'
+    mgmt-router-bgp-af-view: '--sonic-mgmt--\(config-router-bgp-af\)#'
+    mgmt-router-bgp-nbr-view: '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-nbr-af-view: '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-template-view: '--sonic-mgmt--\(config-router-bgp-pg\)#'
+    mgmt-router-bgp-template-af-view: '--sonic-mgmt--\(config-router-bgp-pg-af\)#'
+    mgmt-router-bgp-l2vpn-vni-view: '--sonic-mgmt--\(config-router-bgp-af-vni\)#'
+    mgmt-router-bgp-vrf-view: '--sonic-mgmt--\(config-router-bgp-.*-vrf\)#'
+
+    mgmt-router-ospf-view: '--sonic-mgmt--\(config-router-ospf\)#'
+
+    mgmt-wred-view: '--sonic-mgmt--\(conf-wred-.*\)#'
+    mgmt-line-vty-view: '--sonic-mgmt--\(config-line-vty\)#'
+    mgmt-qos-sched-policy-view: '--sonic-mgmt--\(conf-sched-policy-.*\)#'
+    mgmt-qos-sched-policy-queue-view: '--sonic-mgmt--\(conf-scheduler-.*-queue-.*\)#'
+    mgmt-qos-sched-policy-port-view: '--sonic-mgmt--\(conf-scheduler-.*-port\)#'
+    mgmt-qos-intf-view: '--sonic-mgmt--\(conf-qos-.*\)#'
+    mgmt-hardware-view: '--sonic-mgmt--\(config-hardware\)#'
+    mgmt-hardware-acl-view: '--sonic-mgmt--\(config-hardware-acl\)#'
+
+    mgmt-dscp-map-view: '--sonic-mgmt--\(conf-dscp-tc-map-.*\)#'
+    mgmt-dot1p-map-view: '--sonic-mgmt--\(conf-dot1p-tc-map-.*\)#'
+    mgmt-tc-queue-map-view: '--sonic-mgmt--\(conf-tc-queue-map-.*\)#'
+    mgmt-tc-pg-map-view: '--sonic-mgmt--\(conf-tc-pg-map-.*\)#'
+    mgmt-pfc-map-view: '--sonic-mgmt--\(conf-pfc-priority-queue-map-.*\)#'
+    mgmt-tc-dot1p-map-view: '--sonic-mgmt--\(conf-tc-dot1p-map-.*\)#'
+    mgmt-tc-dscp-map-view: '--sonic-mgmt--\(conf-tc-dscp-map-.*\)#'
+
+    # =============================================================
+    # modified by Dell-EMC
+    # =============================================================
+    mgmt-any-config: '--sonic-mgmt--\((config|conf[ig]*-[^)]*)\)#'
+    # =============================================================
+    #mgmt-any-config: '--sonic-mgmt--\((config|conf[ig]*-[^)]*|mclag-domain-.*)\)#'
+    # =============================================================
+
+    # =============================================================================
+    # Patterns added by Dell-EMC
+    # =============================================================================
+
+    mgmt-ifa : '--sonic-mgmt--\(config-tam-int-ifa\)#'
+    mgmt-intf-lo-config : '--sonic-mgmt--\(conf-if-lo.*\)#'
+    mgmt-route-map-config : '--sonic-mgmt--\(config-route-map.*\)#'
+    mgmt-router-bgp-address-family-ipv4-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
+    mgmt-router-bgp-address-family-ipv6-unicast-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
+    mgmt-router-bgp-address-family-l2vpn-evpn-config : '--sonic-mgmt--\(config-router-bgp-af\)#'
+    mgmt-router-bgp-config : '--sonic-mgmt--\(config-router-bgp\)#'
+    mgmt-router-bgp-neighbor-intf-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-subintf-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-intf-af-ipv6-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-intf-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-neighbor-subintf-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-neighbor-ipv4-af-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-neighbor-ipv6-af-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-ipv6-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-neighbor-af\)#'
+    mgmt-router-bgp-neighbor-ipv6-config : '--sonic-mgmt--\(config-router-bgp-neighbor\)#'
+    mgmt-router-bgp-peer-group-af-ipv4-config : '--sonic-mgmt--\(config-router-bgp-pg-af\)#'
+    mgmt-router-bgp-peer-group-af-ipv6-config : '--sonic-mgmt--\(config-router-bgp-pg-af\)#'
+    mgmt-router-bgp-peer-group-config : '--sonic-mgmt--\(config-router-bgp-pg\)#'
+    mgmt-tam : '--sonic-mgmt--\(config-tam\)#'
+    vtysh_maybe_config_prompt : '(Linux|{})#|(Linux|{})\(config.*\)#'
+    # =============================================================================
+
+    mgmt-vrrp-ipv4-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv4-.*\)#'
+    mgmt-vrrp-ipv6-view : '--sonic-mgmt--\(conf-if-.*-vrrp-ipv6-.*\)#'
+
+    mgmt-switch-resource-view : '--sonic-mgmt--\(config-switch-resource\)#'
+
+    mgmt-ipsla-view : '--sonic-mgmt--\(config-ipsla-.*\)#'
+    mgmt-ipsla-icmp-view : '--sonic-mgmt--\(config-ipsla-.*-icmp\)#'
+    mgmt-ipsla-tcp-view : '--sonic-mgmt--\(config-ipsla-.*-tcp\)#'
+
+    mgmt-copp-action-view : '--sonic-mgmt--\(config-action\)#'
+
+    #mgmt-acl-classmap-view : '--sonic-mgmt--\(config-class-map\)#'
+    #mgmt-fields-classmap-view : '--sonic-mgmt--\(config-class-map\)#'
+    #mgmt-copp-classmap-view : '--sonic-mgmt--\(config-class-map\)#'
+
+    mgmt-acl-classifier-view : '--sonic-mgmt--\(config-class-map\)#'
+    mgmt-fields-classifier-view : '--sonic-mgmt--\(config-class-map\)#'
+    mgmt-copp-classifier-view : '--sonic-mgmt--\(config-class-map\)#'
+
+    mgmt-policy-map-view : '--sonic-mgmt--\(config-policy-map\)#'
+
+    mgmt-policy-map-flow-view : '--sonic-mgmt--\(config-policy-map-flow\)#'
+
+
+##########################################################################
+# MODES:
+#    Mapping of commands to enter and exit from a parent mode
+#    Commands may be static or dynamic. If a command needs a value,
+#    keep a place holder and provide the names for them in required_args.
+##########################################################################
+modes:
+    # =====================================================================
+    # Generic modes
+    # =====================================================================
+    normal-user: ['', '', '']
+    root-user: ['normal-user', 'sudo su', 'exit']
+    # =====================================================================
+    # VTYSH modes
+    # =====================================================================
+    vtysh-user: ['normal-user', 'sudo vtysh', 'exit']
+    vtysh-config: ['vtysh-user', 'configure terminal', 'exit']
+    vtysh-intf-config: ['vtysh-config', 'interface {}', 'exit']
+    vtysh-bfd-config: ['vtysh-config', 'bfd', 'exit']
+    vtysh-bfd-peer-config: ['vtysh-bfd-config', 'peer {}', 'exit']
+    vtysh-key-chain-config: ['vtysh-config', 'key chain {}', 'exit']
+    vtysh-key-chain-Identifier-config: ['vtysh-key-chain-config', 'key {}', 'exit']
+    vtysh-line-vty-config: ['vtysh-config', 'line vty', 'exit']
+    vtysh-l2vpn-config: ['vtysh-config', 'l2vpn {} type vpls', 'exit']
+    vtysh-nhgroup-config: ['vtysh-config', 'nexthop-group {}', 'exit']
+    vtysh-pbr-map-config: ['vtysh-config', 'pbr-map {} seq {}', 'exit']
+    vtysh-pseudowire-config: ['vtysh-config', 'pseudowire {}', 'exit']
+    vtysh-route-map-config: ['vtysh-config', 'route-map {} {} {}', 'exit']
+    vtysh-router-config: ['vtysh-config', 'router {} {}', 'exit']
+    vtysh-router-af-config: ['vtysh-router-config', 'address-family {} {}', 'exit']
+    vtysh-vrf-config: ['vtysh-config', 'vrf {}', 'exit']
+    vtysh-any-config: ['vtysh-user', '', 'end']
+    # =====================================================================
+    # LLDP modes
+    # =====================================================================
+    lldp-user: ['normal-user', 'docker exec -it lldp lldpcli', 'exit']
+    # =====================================================================
+    # MGMT-CLI modes
+    # =====================================================================
+    mgmt-user: ['normal-user', 'sonic-cli prompt=--sonic-mgmt-- -t 0', 'exit']
+    mgmt-config: ['mgmt-user', 'configure terminal', 'exit']
+    mgmt-intf-config: ['mgmt-config', 'interface {}', 'exit']
+    mgmt-subintf-config: ['mgmt-config', 'interface {}', 'exit']
+    mgmt-ipv4-acl-config: ['mgmt-config', 'ip access-list {}', 'exit']
+    mgmt-ipv6-acl-config: ['mgmt-config', 'ipv6 access-list {}', 'exit']
+    mgmt-mac-acl-config: ['mgmt-config', 'mac access-list {}', 'exit']
+
+    # =============================================================
+    # added by Dell-EMC
+    # =============================================================
+    mgmt-session-config: ['mgmt-config', 'mirror session {}', 'exit']
+    mgmt-intf-management-config: ['mgmt-config', 'interface Management {}', 'exit']
+    mgmt-intf-po-config: ['mgmt-config', 'interface PortChannel {} {}', 'exit']
+    mgmt-subintf-po-config: ['mgmt-config', 'interface PortChannel {} {}', 'exit']
+    mgmt-intf-vlan-config: ['mgmt-config', 'interface Vlan {}', 'exit']
+    mgmt-intf-range-eth-config:
+        native: ['mgmt-config', 'interface range Ethernet {}', 'exit']
+        alias: ['mgmt-config', 'interface range Eth {}', 'exit']
+    mgmt-intf-range-vlan-config: ['mgmt-config', 'interface range Vlan {}', 'exit']
+    mgmt-intf-range-create-vlan-config: ['mgmt-config', 'interface range create Vlan {}', 'exit']
+    mgmt-intf-range-po-config: ['mgmt-config', 'interface range PortChannel {}', 'exit']
+    mgmt-intf-range-create-po-config: ['mgmt-config', 'interface range create PortChannel {}', 'exit']
+    # =============================================================
+
+    mgmt-mirror-session-config: ['mgmt-config', 'mirror-session {}', 'exit']
+    #mgmt-vlan-config: ['mgmt-config', 'interface Vlan {}', 'exit']
+    #mgmt-lag-config: ['mgmt-config', 'interface PortChannel {}', 'exit']
+    #mgmt-management-config: ['mgmt-config', 'interface Management {}', 'exit']
+    mgmt-cpu-config: ['mgmt-config', 'interface CPU', 'exit']
+
+    mgmt-evpn-view: ['mgmt-config', 'evpn {}', 'exit']
+    mgmt-vxlan-view: ['mgmt-config', 'interface Vxlan {}', 'exit']
+
+    mgmt-tam-view: ['mgmt-config', 'tam', 'exit']
+    mgmt-tam-ifa-view: ['mgmt-tam-view', 'ifa', 'exit']
+    mgmt-tam-ts-view: ['mgmt-tam-view', 'tail-stamping', 'exit']
+    mgmt-tam-dm-view: ['mgmt-tam-view', 'drop-monitor', 'exit']
+
+    mgmt-nat-view: ['mgmt-config', 'nat', 'exit']
+    mgmt-mclag-view: ['mgmt-config', 'mclag domain {}', 'exit']
+    mgmt-lo-view: ['mgmt-config', 'interface Loopback {}', 'exit']
+
+    mgmt-bfd-view: ['mgmt-config', 'bfd', 'exit']
+    mgmt-bfd-peer-view: ['mgmt-bfd-view', 'peer {}', 'exit']
+
+    mgmt-route-map-view: ['mgmt-config', 'route-map {} {} {}', 'exit']
+
+    mgmt-link-state-track-view: ['mgmt-config', 'link state track {}', 'exit']
+
+    mgmt-router-bgp-view: ['mgmt-config', 'router bgp {} {}', 'exit']
+    mgmt-router-bgp-af-view: ['mgmt-router-bgp-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-nbr-view: ['mgmt-router-bgp-view', 'neighbor {}', 'exit']
+    mgmt-router-bgp-nbr-af-view: ['mgmt-router-bgp-nbr-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-template-view: ['mgmt-router-bgp-view', 'peer-group {}', 'exit']
+    mgmt-router-bgp-template-af-view: ['mgmt-router-bgp-template-view', 'address-family {} {}', 'exit']
+    mgmt-router-bgp-l2vpn-vni-view: ['mgmt-router-bgp-af-view', 'vni {}', 'exit']
+
+    mgmt-router-ospf-view: ['mgmt-config', 'router ospf vrf {}', 'exit']
+
+    mgmt-wred-view: ['mgmt-config', 'qos wred-policy {}', 'exit']
+    mgmt-line-vty-view: ['mgmt-config', 'line vty', 'exit']
+    mgmt-qos-sched-policy-view: ['mgmt-config', 'qos scheduler-policy {}', 'exit']
+    mgmt-qos-sched-policy-queue-view: ['mgmt-qos-sched-policy-view', 'queue {}', 'exit']
+    mgmt-qos-sched-policy-port-view: ['mgmt-qos-sched-policy-view', 'port', 'exit']
+    mgmt-qos-intf-view: ['mgmt-config', 'qos interface {}', 'exit']
+    mgmt-hardware-view: ['mgmt-config', 'hardware', 'exit']
+    mgmt-hardware-acl-view: ['mgmt-hardware-view', 'access-list', 'exit']
+
+    mgmt-any-config: ['mgmt-user', '', 'end']
+
+    mgmt-dscp-map-view: ['mgmt-config', 'qos map dscp-tc {}', 'exit']
+    mgmt-dot1p-map-view: ['mgmt-config', 'qos map dot1p-tc {}', 'exit']
+    mgmt-tc-queue-map-view: ['mgmt-config', 'qos map tc-queue {}', 'exit']
+    mgmt-tc-pg-map-view: ['mgmt-config', 'qos map tc-pg {}', 'exit']
+    mgmt-pfc-map-view: ['mgmt-config', 'qos map pfc-priority-queue {}', 'exit']
+    mgmt-tc-dot1p-map-view: ['mgmt-config', 'qos map tc-dot1p {}', 'exit']
+    mgmt-tc-dscp-map-view: ['mgmt-config', 'qos map tc-dscp {}', 'exit']
+
+    # ======================================================================================
+    # Modes added by Dell-EMC
+    # ======================================================================================
+    mgmt-ifa : ['mgmt-tam', 'int-ifa', 'exit']
+    mgmt-intf-lo-config : ['mgmt-config', 'interface loopback {}', 'exit']
+    mgmt-route-map-config : ['mgmt-config', 'route-map {} {} {}', 'exit']
+    mgmt-router-bgp-address-family-ipv4-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-address-family-ipv6-unicast-config : ['mgmt-router-bgp-config', 'address-family ipv6 unicast', 'exit']
+    mgmt-router-bgp-address-family-l2vpn-evpn-config : ['mgmt-router-bgp-config', 'address-family l2vpn evpn', 'exit']
+    mgmt-router-bgp-config : ['mgmt-config', 'router bgp {}', 'exit']
+    mgmt-router-bgp-neighbor-intf-af-ipv4-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-neighbor-subintf-af-ipv4-config : ['mgmt-router-bgp-neighbor-subintf-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-neighbor-intf-af-ipv6-config : ['mgmt-router-bgp-neighbor-intf-config', 'address-family ipv6 unicast', 'exit']
+    mgmt-router-bgp-neighbor-intf-config : ['mgmt-router-bgp-config', 'neighbor interface {}', 'exit']
+    mgmt-router-bgp-neighbor-subintf-config : ['mgmt-router-bgp-config', 'neighbor interface {}', 'exit']
+    mgmt-router-bgp-neighbor-ipv4-af-config : ['mgmt-router-bgp-neighbor-ipv4-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-neighbor-ipv4-config : ['mgmt-router-bgp-config', 'neighbor {}', 'exit']
+    mgmt-router-bgp-neighbor-ipv6-af-config : ['mgmt-router-bgp-neighbor-ipv6-config', 'address-family ipv6 unicast', 'exit']
+    mgmt-router-bgp-neighbor-ipv6-af-ipv4-config : ['mgmt-router-bgp-neighbor-ipv6-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-neighbor-ipv6-config : ['mgmt-router-bgp-config', 'neighbor {}', 'exit']
+    mgmt-router-bgp-peer-group-af-ipv4-config : ['mgmt-router-bgp-peer-group-config', 'address-family ipv4 unicast', 'exit']
+    mgmt-router-bgp-peer-group-af-ipv6-config : ['mgmt-router-bgp-peer-group-config', 'address-family ipv6 unicast', 'exit']
+    mgmt-router-bgp-peer-group-config : ['mgmt-router-bgp-config', 'peer-group {}', 'exit']
+    mgmt-tam : ['mgmt-config', 'tam', 'exit']
+    # =============================================================
+
+    mgmt-vrrp-ipv4-view : ['mgmt-intf-config', 'vrrp {} address-family ipv4', 'exit']
+    mgmt-vrrp-ipv6-view : ['mgmt-intf-config', 'vrrp {} address-family ipv6', 'exit']
+
+    mgmt-switch-resource-view : ['mgmt-config', 'switch-resource', 'exit']
+
+    mgmt-ipsla-view : ['mgmt-config', 'ip sla {}', 'exit']
+    mgmt-ipsla-icmp-view : ['mgmt-ipsla-view', 'icmp-echo {}', 'exit']
+    mgmt-ipsla-tcp-view : ['mgmt-ipsla-view', 'tcp-connect {} port {}', 'exit']
+
+    mgmt-copp-action-view :  ['mgmt-config', 'copp-action {}', 'exit']
+
+    #mgmt-acl-classmap-view : ['mgmt-config', 'classmap {} match-type acl', 'exit']
+    #mgmt-fields-classmap-view : ['mgmt-config', 'classmap {} match-type fields match-all', 'exit']
+    #mgmt-copp-classmap-view : ['mgmt-config', 'classmap {} match-type copp', 'exit']
+
+    mgmt-acl-classifier-view : ['mgmt-config', 'classifier {} match-type acl', 'exit']
+    mgmt-fields-classifier-view : ['mgmt-config', 'classifier {} match-type fields match-all', 'exit']
+    mgmt-copp-classifier-view : ['mgmt-config', 'classifier {} match-type copp', 'exit']
+
+    mgmt-policy-map-view : ['mgmt-config', 'policy-map {} type {}', 'exit']
+
+    mgmt-policy-map-flow-view : ['mgmt-config', 'class {} priority {}', 'exit']
+
+
+##########################################################################
+# REQUIRED_ARGS:
+#    To enter a mode, some times, we may need a mandatory value,
+#    to provide along with the command.
+##########################################################################
+required_args:
+    vtysh-intf-config: ['interface']
+    vtysh-bfd-peer-config: ['peer_ip']
+    vtysh-key-chain-config: ['key_chain']
+    vtysh-key-chain-Identifier-config: ['key_id']
+    vtysh-l2vpn-config: ['l2vpn_name']
+    vtysh-nhgroup-config: ['group_name']
+    vtysh-pbr-map-config: ['map_name', 'seq_id']
+    vtysh-pseudowire-config: ['interface']
+    vtysh-route-map-config: ['tag_name', 'action', 'seq_num']
+    vtysh-router-config: ['router', 'instance']
+    vtysh-router-af-config: ['addr_family', 'modifier']
+    vtysh-vrf-config: ['vrf_name']
+
+    mgmt-intf-config: ['interface']
+    mgmt-subintf-config: ['interface']
+    mgmt-ipv4-acl-config: ['aclname']
+    mgmt-ipv6-acl-config: ['aclname']
+    mgmt-mac-acl-config: ['aclname']
+
+    # =============================================================
+    # added by Dell-EMC
+    # =============================================================
+    mgmt-session-config: ['session_name']
+    mgmt-intf-management-config: ['number']
+    mgmt-intf-po-config: ['portchannel', '?option']
+    mgmt-subintf-po-config: ['portchannel', '?option']
+    mgmt-intf-range-eth-config: ['range']
+    mgmt-intf-range-vlan-config: ['range']
+    mgmt-intf-range-create-vlan-config: ['range']
+    mgmt-intf-range-po-config: ['range']
+    mgmt-intf-range-create-po-config: ['range']
+    mgmt-intf-vlan-config: ['vlan']
+    #mgmt-vlan-config: ['vlan']
+    #mgmt-lag-config: ['portchannel']
+    #mgmt-management-config: ['management']
+    mgmt-mirror-session-config: ['session_name']
+    # =============================================================
+
+    mgmt-evpn-view: ['evpnname']
+    mgmt-vxlan-view: ['vxlan']
+
+    mgmt-mclag-view: ['domain_id']
+    mgmt-lo-view: ['loopback_id']
+
+    mgmt-bfd-peer-view: ['peer_ip']
+
+    mgmt-route-map-view: ['map_name', 'action', 'seq_num']
+
+    mgmt-link-state-track-view: ['track_name']
+
+    mgmt-router-bgp-view: ['bgp_instance', '?bgp_vrf_name']
+    mgmt-router-bgp-af-view: ['af_type', 'af_family']
+    mgmt-router-bgp-nbr-view: ['ip_address']
+    mgmt-router-bgp-nbr-af-view: ['nbr_af_type', 'nbr_af_family']
+    mgmt-router-bgp-template-view: ['group_name']
+    mgmt-router-bgp-template-af-view: ['tpl_af_type', 'tpl_af_family']
+    mgmt-router-bgp-l2vpn-vni-view: ['vxlan_id']
+
+    mgmt-router-ospf-view: ['ospf_vrf_name']
+
+    mgmt-wred-view: ['wred_name']
+    mgmt-qos-sched-policy-view: ['sched_policy_name']
+    mgmt-qos-sched-policy-queue-view: ['queue_id']
+    mgmt-qos-intf-view: ['qos_interface']
+
+    mgmt-dscp-map-view: ['dscp_map']
+    mgmt-dot1p-map-view: ['dot1p_map']
+    mgmt-tc-queue-map-view: ['tc_queue_map']
+    mgmt-tc-pg-map-view: ['tc_pg_map']
+    mgmt-pfc-map-view: ['pfc_map']
+    mgmt-tc-dot1p-map-view: ['tc_dot1p_map']
+    mgmt-tc-dscp-map-view: ['tc_dscp_map']
+
+    mgmt-vrrp-ipv4-view : ['vrrp_id']
+    mgmt-vrrp-ipv6-view : ['vrrp_id']
+
+    mgmt-ipsla-view : ['sla_id']
+    mgmt-ipsla-icmp-view : ['dst_ip_address']
+    mgmt-ipsla-tcp-view : ['dst_ip_address', 'dst_port']
+
+    mgmt-copp-action-view :  ['action_name']
+
+    #mgmt-acl-classmap-view : ['classmap_name']
+    #mgmt-fields-classmap-view : ['classmap_name']
+    #mgmt-copp-classmap-view : ['classmap_name']
+
+    mgmt-acl-classifier-view : ['classifier_name']
+    mgmt-fields-classifier-view : ['classifier_name']
+    mgmt-copp-classifier-view : ['classifier_name']
+
+    mgmt-policy-map-view : ['policy_map', 'type']
+
+    mgmt-policy-map-flow-view : ['class_name', 'priority_id']
+
+    # =============================================================
+    # List of required_args added by Dell-EMC
+    # =============================================================
+    mgmt-intf-lo-config : ['loopback']
+    mgmt-route-map-config : ['tag_name', 'action', 'seq_num']
+    mgmt-router-bgp-config : ['local_asn']
+    mgmt-router-bgp-neighbor-intf-config : ['intf']
+    mgmt-router-bgp-neighbor-subintf-config : ['intf']
+    mgmt-router-bgp-neighbor-ipv4-config : ['ipv4']
+    mgmt-router-bgp-neighbor-ipv6-config : ['ipv6']
+    mgmt-router-bgp-peer-group-config : ['peer_group']
+    # =============================================================
+
+##########################################################################
+# SUDO_INCLUDE_PROMPTS:
+#    Prompts where config commands should be executed with SUDO.
+##########################################################################
+sudo_include_prompts: ['normal-user']
+
+##########################################################################
+# do_exclude_prompts:
+#    Prompts where show commands should be not be executed with DO.
+##########################################################################
+do_exclude_prompts: ['normal-user', 'vtysh-user', 'mgmt-user', 'root-user']

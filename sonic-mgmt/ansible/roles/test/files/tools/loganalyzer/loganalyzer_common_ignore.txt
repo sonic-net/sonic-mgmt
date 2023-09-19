@@ -54,7 +54,9 @@ r, ".* ERR syncd#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: found port
 r, ".* ERR syncd#syncd:.*SAI_API_LAG: resolve_feat_over_member_ports: port index .* now selected.*"
 r, ".* ERR syncd#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"
 r, ".* ERR syncd#syncd:.*updateSupportedBufferPoolCounters: BUFFER_POOL_WATERMARK_STAT_COUNTER: counter SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES is not supported on buffer pool .* rv: SAI_STATUS_NOT_IMPLEMENTED.*"
-r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code 45.*"
+r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code .*"
+r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
+
 r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
 
 # Sim related - Cisco
@@ -209,3 +211,9 @@ r, ".* ERR .*CounterCheck: Invalid port oid.*"
 # https://msazure.visualstudio.com/One/_workitems/edit/17617756
 # https://msazure.visualstudio.com/One/_workitems/edit/17863895
 r, ".* ERR syncd\d*#syncd.*SAI_API_ACL:_brcm_sai_acl_entry_bind.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/24564189
+r, ".* ERR pmon#sensord: Error getting sensor data: dps.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/24444744/
+r, ".* ERR syncd\d*#syncd.*SAI_API_UNSPECIFIED:sai_bulk_object_get_stats.*"

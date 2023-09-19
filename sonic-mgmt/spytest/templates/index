@@ -1,15 +1,5 @@
-# First line is the header fields for columns and is mandatory.
-# Regular expressions are supported in all fields except the first.
-# Last field supports variable length command completion.
-# abc[[xyz]] is expanded to abc(x(y(z)?)?)?, regexp inside [[]] is not supported
-#
-# Rules of Ordering:
-#  - OS in alphbetical order
-#  - Command in length other
-#  - When Length is the same, use alphabetical order
-#  - Keep space between OS's
-#
 Template, Hostname, Platform, Command
+<<<<<<< HEAD
 
 show_interfaces_status_qa.tmpl, .*, sonic, show interfaces status
 show_interfaces_portchannel_fallback.tmpl, .*, sonic, show interfaces portchannel \w+ fallback
@@ -152,12 +142,25 @@ show_platform_psustatus.tmpl, .*, sonic, show platform psustatus
 show_processes_memory.tmpl, .*, sonic, show processes memory
 show_int_transceiver_eeprom.tmpl, .*, sonic, show int transceiver eeprom
 show_users.tmpl, .*, sonic, show users
+show_image_list.tmpl, .*, sonic, show image list
+docker_ps.tmpl, .*, sonic, docker ps
+show_storm_control.tmpl, .*, sonic, show storm-control .*
+show_system_status.tmpl, .*, sonic, (show system status|sudo show system status)
+show_vlan_count.tmpl, .*, sonic, show vlan count
+route_n.tmpl, .*, sonic, sudo route -n
+show_platform_summary.tmpl, .*, sonic, show platform summary
+show_sflow.tmpl, .*, sonic, show sflow$
+show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv(4|6) (unicast\s+)?(vrf .*\s+)?summary
+show_ip_bgp_summary.tmpl, .*, sonic, show (ip\s+|ipv6\s+)?bgp (vrf .*\s+)?summary
+show_qos_map_tc_queue.tmpl, .*, sonic, show qos map tc-queue
+free.tmpl, .*, sonic, free
+show_acl_rule_qa.tmpl, .*, sonic, show acl rule
 show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
-show_mac_aging_time_klish.tmpl, .*, sonic, show mac address-table aging-time
-show_mac_address_table_count.tmpl, .*, sonic, show mac address-table count$
+show_ip_interfaces.tmpl, .*, sonic, show (ip|ipv6) interface
+show_qos_map_tc_dscp.tmpl, .*, sonic, show qos map tc-dscp
+show_vxlan_tunnel.tmpl, .*, sonic, show vxlan (tunnel|remotevtep)
 show_mac_address_table.tmpl, .*, sonic, show mac address-table
 show_mac_count.tmpl, .*, sonic, show mac count
-show_mac_aging_time.tmpl, .*, sonic, show mac aging-time
 show_ip_access_lists.tmpl, .*, sonic, show (ip|ipv6|mac){1} access-lists
 show_mac_dampening_disabled_ports.tmpl, .*, sonic, show mac (dampening-disabled-ports|dampening_disabled_ports)
 show_mac_dampening_threshold.tmpl, .*, sonic, show mac (dampening-threshold|dampening_threshold)
@@ -190,63 +193,44 @@ top.tmpl, .*, sonic, top
 docker_ps.tmpl, .*, sonic, docker ps
 docker_stats_ps_no_stream.tmpl, .*, sonic, docker stats -a --no-stream
 show_tpcm_list.tmpl, .*, sonic, show tpcm list
+linux/ip_route_list_dev.tmpl, .*,sonic, /sbin/ip route list dev eth0
+linux/ip_route_list_dev.tmpl, .*,sonic, ip route list dev eth0
 show_version.tmpl, .*, sonic, show version
-bcmcmd_l2_show.tmpl, .* , sonic, bcmcmd "l2 show"
-bcmcmd_vlan_show.tmpl, .* , sonic, bcmcmd "vlan show"
-bcmcmd_pvlan_show.tmpl, .* , sonic, bcmcmd "pvlan show"
-bcmcmd_trunk_show.tmpl, .* , sonic, bcmcmd "trunk show"
-show_ndp.tmpl, .*, sonic, show ndp
-pfcstat.tmpl, .*, sonic, pfcstat
-show_c.tmpl, .*, sonic, bcmcmd "show c.*"
-show_platform_syseeprom.tmpl, .*, sonic, show platform syseeprom
-show_bgp_neighbor_detail.tmpl, .*,  sonic, show bgp neighbors .*
-show_bgp_neighbor.tmpl, .*,  sonic, show bgp vrf.*
-show_queue_counters_interface_CPU.tmpl, .*,  sonic, show queue counters interface CPU.*
-show_queue_counters_interface.tmpl, .*, sonic, show queue counters interface .*
-show_queue_counters.tmpl, .*, sonic, show queue counters
-show_queue_threshold_multicast.tmpl, .*,  sonic, show queue threshold multicast
-show_queue_threshold_unicast.tmpl, .*,  sonic, show queue threshold unicast
-show_priority_group_threshold.tmpl, .*,  sonic, show priority-group threshold .*
-bcmcmd_pmap.tmpl, .*, sonic, bcmcmd "show pmap"
-bcmcmd_ps.tmpl, .*, sonic, bcmcmd "ps"
-show_bfd_peers_brief.tmpl, .* , sonic, show bfd peers brief
-show_bfd_couters.tmpl, .*, sonic, show bfd peers counters
-show_bfd_couters.tmpl, .*, sonic, show bfd peer.* counters
-show_bfd_couters.tmpl, .*, sonic, show bfd peer counters.*
-show_bfd_peer.tmpl, .*, sonic, show bfd peer*
-show_bfd_peers_brief.tmpl, .* , sonic, show bfd vrf .* peers brief
-show_bfd_couters.tmpl, .*, sonic, show bfd vrf .* peers counters
-show_bfd_couters.tmpl, .*, sonic, show bfd vrf .* peer .* counters
-show_bfd_peer.tmpl, .*, sonic, show bfd vrf .* peer*
-show_nat_config_bindings.tmpl, .*, sonic, show nat config bindings
-show_nat_config_globalvalues.tmpl, .*, sonic, show nat config globalvalues
-show_nat_config_pool.tmpl, .*, sonic, show nat config pool
-show_nat_config_static.tmpl, .*, sonic, show nat config static
-show_warm_restart_config.tmpl, .*, sonic, show warm_restart config
-show_warm_restart_state.tmpl, .*, sonic, show warm_restart state
-show_nat_translations_count.tmpl, .*, sonic, show nat translations count
-show_nat_translations.tmpl, .*, sonic, show nat translations
-show_nat_statistics.tmpl, .*, sonic, show nat statistics
-bcmcmd_nat_entry_ingress.tmpl, .*, sonic, bcmcmd 'l3 nat_ingress show'
-bcmcmd_nat_entry_egress.tmpl, .*, sonic, bcmcmd 'l3 nat_egress show'
-show_ssh_vrf.tmpl, .*, sonic, show ssh-server vrfs
-show_ip_tables_s.tmpl, .*, sonic, sudo iptables -S
-show_ip_tables_s.tmpl, .*, sonic, sudo ip6tables -S
-show_ip_tables.tmpl, .*, sonic, sudo iptables -t nat -v -n -L
-bcmcmd_l3_intf_show.tmpl, .*, sonic, bcmcmd 'l3 intf show'
-bcmcmd_l3_egress_show.tmpl, .* , sonic, bcmcmd "l3 egress show"
-show_conntrack_table.tmpl, .*, sonic, sudo conntrack -j -L
-show_docker_ps.tmpl, .*, sonic, sudo docker ps
-show_spanning_tree.tmpl, .*, sonic, show spanning_tree$
-show_spanning_tree.tmpl, .*, sonic, show spanning-tree$
-show_vrf_management.tmpl, .*, sonic, show vrf management
-show_ip_vrf_management.tmpl, .*, sonic, show ip vrf mgmt
-show_ip_vrf_vrfname.tmpl, .*, sonic, show ip vrf \w+
+show_psample_stats.tmpl, .*, sonic, sudo cat /proc/bcm/knet-cb/psample/stats
+show_interfaces_status_qa.tmpl, .*, sonic, show interfaces status
+show_lldp_table.tmpl, .*, sonic, show lldp table
+show_lldp_statistics.tmpl, .*, sonic, show lldp statistics
+show_lldp_statistics.tmpl, .*, sonic, docker exec -it lldp lldpcli show statistics ports
+show_clock.tmpl, .*, sonic, show clock
+show_interfaces_counters_detailed.tmpl, .*, sonic, show (interfaces|interface) counters (detailed|Ethernet\d+|Eth\d+\/\d+\/\d+|Eth\d+\/\d+)
+show_qos_map_tc_pg.tmpl, .*, sonic, show qos map tc-pg
+show_qos_map_pfc_priority_queue.tmpl, .*, sonic, show qos map pfc-priority-queue
+sonic_snmp_yml.tmpl, .*, sonic, cat /etc/sonic/snmp.yml
+show_uptime.tmpl, .*, sonic, show uptime
+show_acl_table_qa.tmpl, .*, sonic, show acl table
+show_ip_vrf.tmpl, .*, sonic, show ip vrf$
 show_vrf_verbose.tmpl,.*,sonic,show vrf --verbose
+show_bgp_ipv4_unicast_vrf_dampened_paths.tmpl, .*,  sonic, show bgp ipv4 unicast (vrf .*\s+)?dampening dampened-paths
+show_ip_arp.tmpl, .*, sonic, show ip arp.*
+unix_ifcfg.tmpl, .*,sonic, /sbin/ifconfig
+unix_ifcfg.tmpl, .*, sonic, /sbin/ifconfig .*
+show_tacacs.tmpl, .*, sonic, show tacacs
+show_interfaces_counters.tmpl, .*, sonic, (sudo )?show interfaces counters( -a| -i)?
+show_ip_route.tmpl, .*, sonic, show (ip|ipv6) route(\s+vrf .*)?(\s+ospf)?
+show_mac_aging_time_klish.tmpl, .*, sonic, show mac address-table aging-time
+show_ndp.tmpl, .*, sonic, show ndp
+show_intf_portchannel.tmpl, .*, sonic, show interface (P|p)ort(C|c)hannel(\s*|\s+\d+)
+show_intf_portchannel.tmpl, .*, sonic, show interface PortChannel(\s*|\s+\d+)
+show_interface_counters_rif.tmpl, .*, sonic, (sudo )?show (interfaces|interface) counters rif
+show_lldp_neighbor.tmpl, .*, sonic, show lldp neighbor
+show_qos_map_tc_dot1p.tmpl, .*, sonic, show qos map tc-dot1p
+show_ntpstat.tmpl, .*, sonic, ntpstat
+show_ntpstat.tmpl, .*, sonic, sudo cgexec -g l3mdev:mgmt ntpstat
+show_ntpstat.tmpl, .*, sonic, sudo ip vrf exec mgmt ntpstat
+show_bgp_ipv4v6uni_prefix.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf \w+\s+)?\d+
+show_portchannel_summary.tmpl, .*, sonic, show (p|P)ort(c|C)hannel summary.*
 show_vrf.tmpl,.*,sonic,show vrf
-show_ip_route.tmpl, .*, sonic, show ip route vrf .*
-show_ip_route.tmpl, .*, sonic, show ipv6 route vrf .*
-show_threshold_breaches.tmpl, .*, sonic, show threshold breaches
+how_threshold_breaches.tmpl, .*, sonic, show threshold breaches
 bcmcmd_l3_defip_show.tmpl, .*, sonic, bcmcmd 'l3 defip show'
 bcmcmd_l3_ip6route_show.tmpl, .*, sonic, bcmcmd 'l3 ip6route show'
 bcmcmd_l3_l3table_show.tmpl, .*, sonic, bcmcmd 'l3 l3table show'
@@ -588,26 +572,35 @@ ethtool_interface.tmpl, .*, sonic, /sbin/ethtool .*
 show_ip_access_group.tmpl, .*, sonic, show ip access-group
 show_ip_arp_interface_ethernet_summary.tmpl, .*, sonic, show ip arp interface (Ethernet|Eth|PortChannel|Vlan|Loopback|Management|Vxlan) ([0-9/:]+) summary
 show_ip_arp.tmpl, .*, sonic, show ip arp.*
+show_bgp_nexthop.tmpl, .*, sonic, show bgp nexthop
+show_vlan_brief.tmpl, .*, sonic, show vlan brief
+show_qos_map_dot1p_tc.tmpl, .*, sonic, show qos map dot1p-tc
+show_qos_map_dscp_tc.tmpl, .*, sonic, show qos map dscp-tc
+show_interface_counters.tmpl, .*, sonic, (sudo )?show interface counters( -i)?
+show_Vlan.tmpl, .*, sonic, show (v|V)lan.*
+sudo_sonic_installer_list.tmpl, .*, sonic, (sudo sonic_installer|show image) list
+show_system_reserved_vlan.tmpl, .*, sonic, show system vlan reserved
+show_bgp_ipv4_prefix.tmpl, .*, sonic, show bgp ipv4\s*([\d\.\/]+)
+show_interfaces_portchannel_qa.tmpl, .*, sonic, show interfaces portchannel
+top.tmpl, .*, sonic, top
+show_mac.tmpl, .*, sonic, show mac
 show_ipv6_neighbors.tmpl, .*, sonic, show ipv6 neighbors
-show_priority_group_threshold.tmpl, .*,  sonic, show threshold priority-group (shared|headroom)
-show_queue_threshold_multicast.tmpl, .*,  sonic, show threshold queue multicast
-show_queue_threshold_unicast.tmpl, .*,  sonic, show threshold queue unicast
-show_buffer_pool_threshold.tmpl, .*, sonic, show buffer_pool threshold buffer_pool_all
-show_buffer_pool_threshold.tmpl, .*, sonic, show threshold buffer-pool
-show_queue_threshold_cpu.tmpl, .*, sonic, show queue threshold CPU .*
-show_queue_threshold_cpu.tmpl, .*, sonic, show threshold queue CPU
-#########################################################################################
-show_vtysh_running_config.tmpl, .*, sonic, show running-config ospfd
-show_vtysh_running_config_pim.tmpl, .*, sonic, show running-config pimd
-show_vtysh_running_config.tmpl, .*, sonic, show running-config
-show_vtysh_running_config.tmpl, .*, sonic, write terminal
-show_vtysh_running_config.tmpl, .*, sonic, show startup-config
-#########################################################################################
-show_ip_sla_inst_history.tmpl, .*, sonic, show ip sla \d+ history
-show_ip_sla_inst.tmpl, .*, sonic, show ip sla \d+
-show_ip_sla.tmpl, .*, sonic, show ip sla
-free.tmpl, .*, sonic, free
-show_ldap_server.tmpl,.*,sonic,show ldap-server
-show_logging_servers.tmpl, .*, sonic, show logging servers
-show_kdump_status.tmpl, .*, sonic, show kdump status
-show_kdump_status.tmpl, .*, sonic, sudo show kdump status
+show_lldp_neighbors.tmpl, .*, sonic, show (lldp\s+)?neighbors
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?route-map
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+vrf .*
+show_ip_bgp.tmpl, .*, sonic, show ip bgp
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv4(\s+unicast)?
+show_ip_bgp.tmpl, .*, sonic, show bgp ipv6(\s+unicast)?
+show_interface_status.tmpl, .*, sonic, show interface status
+show_ip_access_lists.tmpl, .*, sonic, show (ip|ipv6|mac){1} access-lists
+show_nat_translations.tmpl, .*, sonic, show nat translations
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp ipv(4|6) unicast (vrf .*\s+)?neighbor
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp all (vrf .*\s+)?neighbors
+show_bgp_neighbor.tmpl, .*,  sonic, show ip bgp (vrf .*\s+)?(ipv4\s+|ipv6\s+)?(unicast\s+)?neighbor
+show_bgp_neighbor.tmpl, .*,  sonic, show bgp (vrf .*\s+)?(ipv4\s+|ipv6\s+)?(unicast\s+)?neighbor
+show_arp.tmpl, .*, sonic, show arp
+show_watermark_telemetry_interval.tmpl, .*,  sonic, show watermark telemetry interval
+show_nat_statistics.tmpl, .*, sonic, show nat statistics
+show_tacacs_server.tmpl, .*, sonic, show tacacs-server.*
+show_vlan_config.tmpl, .*, sonic, show vlan config
+show_ntp.tmpl, .*, sonic, show ntp.*
