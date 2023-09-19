@@ -30,7 +30,7 @@ OTHER_PATTERNS = {
     "COMMON": {
         "PORT_INIT|Start": re.compile(r'.*NOTICE swss#orchagent.*initPort: Initialized port.*'),
         "PORT_READY|Start": re.compile
-        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set down to up.*'),
+        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set (down|unknown|up) to up.*'),
         "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
         "FINALIZER|End": re.compile(
             r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),
@@ -63,7 +63,7 @@ OTHER_PATTERNS = {
         "SYNCD_CREATE_SWITCH|Start": re.compile(
             r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
         "SYNCD_CREATE_SWITCH|End": re.compile(
-            r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*'),
+            r'.*syncd#syncd.*(performWarmRestartSingleSwitch: Warm boot: create switch VID.*|brcm_sai_create_switch:\d+ SAI Timing: SDK init time \d+ seconds)'),
         "FDB_EVENT_OTHER_MAC_EXPIRY|Start": re.compile(
             r".* INFO syncd#syncd.*SAI_API_FDB.*fdbEvent: 0 for mac (?!00-06-07-08-09-0A).*"),
         "FDB_EVENT_SCAPY_MAC_EXPIRY|Start": re.compile(
