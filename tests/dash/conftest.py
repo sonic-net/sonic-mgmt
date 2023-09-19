@@ -8,8 +8,12 @@ from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_
     ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from dash_acl import acl_test_conf  # noqa: F401
+from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 
 logger = logging.getLogger(__name__)
+
+ENABLE_GNMI_API = True
+# ENABLE_GNMI_API = False
 
 
 def pytest_addoption(parser):
@@ -35,6 +39,12 @@ def pytest_addoption(parser):
         help="Skip config cleanup after test"
     )
 
+    parser.addoption(
+        "--skip_dataplane_checking",
+        action="store_true",
+        help="Skip dataplane checking"
+    )
+
 
 @pytest.fixture(scope="module")
 def config_only(request):
@@ -49,6 +59,11 @@ def skip_config(request):
 @pytest.fixture(scope="module")
 def skip_cleanup(request):
     return request.config.getoption("--skip_cleanup")
+
+
+@pytest.fixture(scope="module")
+def skip_dataplane_checking(request):
+    return request.config.getoption("--skip_dataplane_checking")
 
 
 @pytest.fixture(scope="module")
@@ -129,7 +144,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, skip_config, skip_cleanup):
+def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -143,7 +158,10 @@ def apply_config(duthost, skip_config, skip_cleanup):
         template_name = "{}.j2".format(config)
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
-        apply_swssconfig_file(duthost, dest_path)
+        if ENABLE_GNMI_API is True:
+            apply_gnmi_file(duthost, ptfhost, dest_path)
+        else:
+            apply_swssconfig_file(duthost, dest_path)
 
     yield _apply_config
 
@@ -205,3 +223,26 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
     del dash_outbound_configs[VNET2_NAME]
 
     apply_config(dash_outbound_configs)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    if ENABLE_GNMI_API is False:
+        yield
+        return
+
+    duthost = duthosts[rand_one_dut_hostname]
+    duthost.shell("docker exec gnmi rm /usr/local/yang-models/sonic-dash.yang", module_ignore_errors=True)
+    generate_gnmi_cert(localhost, duthost)
+    apply_gnmi_cert(duthost, ptfhost)
+    yield
+    recover_gnmi_cert(localhost, duthost)
+
+
+@pytest.fixture(scope="function")
+def asic_db_checker(duthost):
+    def _check_asic_db(tables):
+        for table in tables:
+            output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
+            assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
+    yield _check_asic_db
