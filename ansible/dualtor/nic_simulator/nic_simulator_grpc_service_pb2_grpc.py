@@ -155,7 +155,7 @@ def add_DualToRActiveServicer_to_server(servicer, server):
         'DualToRActive', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 
 
 class DualToRActive(object):
