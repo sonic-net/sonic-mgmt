@@ -19,6 +19,10 @@ parameters:
     type: string
     default: ""
 
+  - name: LOCK_WAIT_TIMEOUT_SECONDS
+    type: string
+    default: ""
+
   - name: NUM_ASIC
     type: number
     default: 1
@@ -172,6 +176,7 @@ steps:
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
       --max-worker ${{ parameters.MAX_WORKER }} \
+      --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \

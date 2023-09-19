@@ -30,7 +30,7 @@ pytestmark = [
 ]
 
 DEFAULT_VLANID = 1000
-ACL_COUNTERS_UPDATE_INTERVAL = 10
+ACL_COUNTERS_UPDATE_INTERVAL = 15
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -266,8 +266,7 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port, dst_port, pkt_ac
         dst_port: Destination port
         pkt_action: Packet action (forward or drop)
     """
-
-    ptfadapter.dataplane.flush()
+    ptfadapter.reinit()
     logger.info("Send packet from port {} to port {}".format(src_port, dst_port))
     testutils.send(ptfadapter, src_port, pkt)
 
