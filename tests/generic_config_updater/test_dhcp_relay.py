@@ -43,10 +43,7 @@ def first_avai_vlan_port(rand_selected_dut, tbinfo):
     for v in list(mg_facts['minigraph_vlans'].values()):
         for p in v['members']:
             if p.startswith("Ethernet"):
-                if 'mode' not in mg_facts['minigraph_ports'][p]:
-                    logger.info("trunk mode in Port added")
-                    mg_facts['minigraph_ports'][p]['mode'] = 'trunk'
-                    return p
+                return p
 
     logger.error("No vlan port member ready for test")
     pytest_assert(False, "No vlan port member ready for test")
@@ -166,7 +163,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     # Second rollback is to back to original setup
     try:
         # load first
-        switchport_mode_set_rm(duthost, first_avai_vlan_port)
+        switchport_mode_set_rm(duthost)
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
@@ -368,10 +365,9 @@ EOF
     duthost.shell(jq_command)
     duthost.command("config load -y {}".format(mode_json))
     duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
-    duthost.shell("echo mode added on port")
 
 
-def switchport_mode_set_rm(duthost, port):
+def switchport_mode_set_rm(duthost):
 
     duthost.shell('sudo config save -y')
     duthost.shell('sudo jq \'del(.PORT[] | .mode)\' /etc/sonic/config_db.json > /tmp/patchfree.json')
