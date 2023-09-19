@@ -12,6 +12,7 @@ import traceback
 import logging
 import docker
 import ipaddress
+import six
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -69,6 +70,7 @@ Parameters:
     - ptf_mgmt_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_mgmt_ip_gw: default gateway for the injected docker container
     - ptf_mgmt_ipv6_gw: default ipv6 gateway for the injected docker container
+    - ptf_extra_mgmt_ip_addr: list of ip addresses with prefixlen for the injected docker container
     - ptf_bp_ip_addr: ipv6 address with prefixlen for the injected docker container
     - ptf_bp_ipv6_addr: ipv6 address with prefixlen for the injected docker container
     - mgmt_bridge: a bridge which is used as mgmt bridge on the host
@@ -96,6 +98,7 @@ EXAMPLES = '''
     ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 }}"
+    ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip }}"
     ptf_bp_ip_addr: "{{ ptf_ip }}"
     ptf_bp_ipv6_addr: "{{ ptf_ip }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
@@ -112,6 +115,7 @@ EXAMPLES = '''
     ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
     ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
     ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+    ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
     vm_names: ""
 '''
@@ -470,7 +474,8 @@ class VMTopology(object):
                     self.add_veth_if_to_docker(ext_if, int_if)
 
     def add_mgmt_port_to_docker(self, mgmt_bridge, mgmt_ip, mgmt_gw,
-                                mgmt_ipv6_addr=None, mgmt_gw_v6=None, api_server_pid=None):
+                                mgmt_ipv6_addr=None, mgmt_gw_v6=None, extra_mgmt_ip_addr=None,
+                                api_server_pid=None):
         if api_server_pid:
             self.pid = api_server_pid
         if VMTopology.intf_not_exists(MGMT_PORT_NAME, pid=self.pid):
@@ -481,7 +486,8 @@ class VMTopology(object):
                 self.add_br_if_to_docker(
                     mgmt_bridge, 'apiserver', MGMT_PORT_NAME)
         self.add_ip_to_docker_if(MGMT_PORT_NAME, mgmt_ip, mgmt_ipv6_addr=mgmt_ipv6_addr,
-                                 mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6, api_server_pid=api_server_pid)
+                                 mgmt_gw=mgmt_gw, mgmt_gw_v6=mgmt_gw_v6,
+                                 extra_mgmt_ip_addr=extra_mgmt_ip_addr, api_server_pid=api_server_pid)
 
     def add_bp_port_to_docker(self, mgmt_ip, mgmt_ipv6):
         self.add_br_if_to_docker(
@@ -539,7 +545,8 @@ class VMTopology(object):
         VMTopology.iface_up(int_if, netns=self.netns)
 
     def add_ip_to_docker_if(self, int_if, mgmt_ip_addr, mgmt_ipv6_addr=None,
-                            mgmt_gw=None, mgmt_gw_v6=None, api_server_pid=None):
+                            mgmt_gw=None, mgmt_gw_v6=None, extra_mgmt_ip_addr=None,
+                            api_server_pid=None):
         if api_server_pid:
             self.pid = api_server_pid
 
@@ -548,6 +555,11 @@ class VMTopology(object):
                            (self.pid, int_if))
             VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
                            (self.pid, mgmt_ip_addr, int_if))
+            if extra_mgmt_ip_addr is not None:
+                for ip_addr in extra_mgmt_ip_addr:
+                    if ip_addr != "":
+                        VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
+                                       (self.pid, ip_addr, int_if))
             if mgmt_gw:
                 if api_server_pid:
                     VMTopology.cmd(
@@ -1230,7 +1242,7 @@ class VMTopology(object):
                         "Kernel only supports up to 252 additional routing tables")
                 rt_name = ns_if
                 ns_if_addr = ipaddress.ip_interface(
-                    self.mux_cable_facts[host_ifindex]["soc_ipv4"].decode())
+                    six.ensure_text(self.mux_cable_facts[host_ifindex]["soc_ipv4"]))
                 gateway_addr = str(ns_if_addr.network.network_address + 1)
                 if rt_slot not in rt_tables:
                     # add route table mapping, use interface name as route table name
@@ -1240,8 +1252,11 @@ class VMTopology(object):
                     self.netns, ns_if, rt_name))
                 VMTopology.cmd("ip netns exec %s ip rule add from %s table %s" % (
                     self.netns, ns_if_addr.ip, rt_name))
+                # issue: https://www.mail-archive.com/debian-bugs-dist@lists.debian.org/msg1811241.html
+                # When the route table is empty, the ip route flush command will fail.
+                # So ignore the error here.
                 VMTopology.cmd(
-                    "ip netns exec %s ip route flush table %s" % (self.netns, rt_name))
+                    "ip netns exec %s ip route flush table %s" % (self.netns, rt_name), ignore_errors=True)
                 VMTopology.cmd("ip netns exec %s ip route add %s dev %s table %s" % (
                     self.netns, ns_if_addr.network, ns_if, rt_name))
                 VMTopology.cmd("ip netns exec %s ip route add default via %s dev %s table %s" % (
@@ -1377,7 +1392,7 @@ class VMTopology(object):
             return VMTopology.cmd('nsenter -t %s -n ethtool -K %s tx off' % (pid, iface_name))
 
     @staticmethod
-    def cmd(cmdline, grep_cmd=None, retry=1, negative=False, shell=False, split_cmd=True):
+    def cmd(cmdline, grep_cmd=None, retry=1, negative=False, shell=False, split_cmd=True, ignore_errors=False):
         """Execute a command and return the output
 
         Args:
@@ -1385,6 +1400,7 @@ class VMTopology(object):
             grep_cmd (str, optional): Grep command line. Defaults to None.
             retry (int, optional): Max number of retry if command result is unexpected. Defaults to 1.
             negative (bool, optional): If negative is True, expect the command to fail. Defaults to False.
+            ignore_errors (bool, optional): If ignore_errors is True, return the output even if the command fails.
 
         Raises:
             Exception: If command result is unexpected after max number of retries, raise an exception.
@@ -1446,10 +1462,13 @@ class VMTopology(object):
                     # Result is unexpected, need to retry
                     continue
 
-        # Reached max retry, fail with exception
-        err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
-            % (ret_code, err, cmdline_ori, ' | ' + grep_cmd_ori if grep_cmd_ori else '')
-        raise Exception(err_msg)
+        if ignore_errors:
+            return out
+        else:
+            # Reached max retry, fail with exception
+            err_msg = 'ret_code=%d, error message="%s". cmd="%s%s"' \
+                % (ret_code, err, cmdline_ori, ' | ' + grep_cmd_ori if grep_cmd_ori else '')
+            raise Exception(err_msg)
 
     @staticmethod
     def get_ovs_br_ports(bridge):
@@ -1682,6 +1701,7 @@ def main():
             ptf_mgmt_ipv6_addr=dict(required=False, type='str'),
             ptf_mgmt_ip_gw=dict(required=False, type='str'),
             ptf_mgmt_ipv6_gw=dict(required=False, type='str'),
+            ptf_extra_mgmt_ip_addr=dict(required=False, type='list', default=[]),
             ptf_bp_ip_addr=dict(required=False, type='str'),
             ptf_bp_ipv6_addr=dict(required=False, type='str'),
             mgmt_bridge=dict(required=False, type='str'),
@@ -1723,6 +1743,7 @@ def main():
                                   'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_mgmt_ipv6_gw',
+                                  'ptf_extra_mgmt_ip_addr',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
@@ -1753,12 +1774,13 @@ def main():
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
+            ptf_extra_mgmt_ip_addr = module.params['ptf_extra_mgmt_ip_addr']
             mgmt_bridge = module.params['mgmt_bridge']
             netns_mgmt_ip_addr = module.params['netns_mgmt_ip_addr']
 
             # Add management port to PTF docker and configure IP
-            net.add_mgmt_port_to_docker(
-                mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw,
+                                        ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw, ptf_extra_mgmt_ip_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']
@@ -1795,18 +1817,20 @@ def main():
                                   'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_mgmt_ipv6_gw',
+                                  'ptf_extra_mgmt_ip_addr',
                                   'mgmt_bridge'], cmd)
 
             ptf_mgmt_ip_addr = module.params['ptf_mgmt_ip_addr']
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
+            ptf_extra_mgmt_ip_addr = module.params['ptf_extra_mgmt_ip_addr']
             mgmt_bridge = module.params['mgmt_bridge']
 
             api_server_pid = net.get_pid('apiserver')
 
-            net.add_mgmt_port_to_docker(
-                mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw, api_server_pid)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw,
+                                        ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw, ptf_extra_mgmt_ip_addr, api_server_pid)
         elif cmd == 'unbind':
             check_params(module, ['vm_set_name',
                                   'topo',
@@ -1861,6 +1885,7 @@ def main():
                                   'ptf_mgmt_ipv6_addr',
                                   'ptf_mgmt_ip_gw',
                                   'ptf_mgmt_ipv6_gw',
+                                  'ptf_extra_mgmt_ip_addr',
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
@@ -1892,11 +1917,12 @@ def main():
             ptf_mgmt_ipv6_addr = module.params['ptf_mgmt_ipv6_addr']
             ptf_mgmt_ip_gw = module.params['ptf_mgmt_ip_gw']
             ptf_mgmt_ipv6_gw = module.params['ptf_mgmt_ipv6_gw']
+            ptf_extra_mgmt_ip_addr = module.params['ptf_extra_mgmt_ip_addr']
             mgmt_bridge = module.params['mgmt_bridge']
             netns_mgmt_ip_addr = module.params['netns_mgmt_ip_addr']
 
-            net.add_mgmt_port_to_docker(
-                mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw, ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw)
+            net.add_mgmt_port_to_docker(mgmt_bridge, ptf_mgmt_ip_addr, ptf_mgmt_ip_gw,
+                                        ptf_mgmt_ipv6_addr, ptf_mgmt_ipv6_gw, ptf_extra_mgmt_ip_addr)
 
             ptf_bp_ip_addr = module.params['ptf_bp_ip_addr']
             ptf_bp_ipv6_addr = module.params['ptf_bp_ipv6_addr']

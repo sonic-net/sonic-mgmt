@@ -27,6 +27,7 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
@@ -979,6 +980,9 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt,
     return port_packet_count
 
 
+# behavior has changed with such that ecmp groups that span across multiple
+# mux interfaces are not balanced. Instead we expect packets to be sent to
+# a single mux interface.
 def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                            tbinfo, downlink_ints, nexthops_count):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
@@ -1045,6 +1049,57 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                 balance = False
                 pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
                     pc))
+
+
+def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num):
+    for pc, intfs in portchannel_ports.items():
+        count = 0
+        # Collect the packets count within a single portchannel
+        for member in intfs:
+            uplink_int = int(member.strip("eth"))
+            count = count + port_packet_count.get(uplink_int, 0)
+        logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
+        if count > 0 and count != expect_packet_num:
+            pytest.fail("Packets not sent up single standby port {}".format(pc))
+
+
+# verify nexthops are only sent to single active or standby mux
+def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                   tbinfo, downlink_ints):
+    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    expect_packet_num = 10000
+
+    # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
+    expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
+    port_packet_count = dict()
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
+        # expect multi-mux nexthops to focus packets to one downlink
+        all_allowed_ports = expected_downlink_ports
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter, exp_packet=exp_pkt, exp_tunnel_pkt=exp_tunnel_pkt,
+                                                         ports=all_allowed_ports, timeout=0.1, count=1)
+
+        for ptf_idx, pkt_count in ptf_port_count.items():
+            port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
+
+    logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    for downlink_int in expected_downlink_ports:
+        # packets should be either 0 or expect_packet_num:
+        count = port_packet_count.get(downlink_int, 0)
+        logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
+        if count > 0 and count != expect_packet_num:
+            pytest.fail("Packets not sent down single active port {}".format(downlink_int))
+
+    if len(downlink_ints) == 0:
+        # All nexthops are now connected to standby mux, and the packets will be sent towards a single portchanel int
+        # Check if uplink distribution is towards a single portchannel
+        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num)
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
@@ -1480,7 +1535,8 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
 
 @pytest.fixture
-def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost, tbinfo):                 # noqa F811
+def validate_active_active_dualtor_setup(
+    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
     """Validate that both ToRs are active for active-active mux ports."""
 
     def check_active_active_port_status(duthost, ports, status):
@@ -1497,11 +1553,11 @@ def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost,
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
-    # verify icmp_responder is running
-    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
-    if "RUNNING" not in icmp_responder_status:
-        ptfhost.shell("supervisorctl start icmp_responder")
+    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        restart_nic_simulator()
+        ptfhost.shell("supervisorctl restart icmp_responder")
 
+    # verify icmp_responder is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
 

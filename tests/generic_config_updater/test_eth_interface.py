@@ -71,6 +71,10 @@ def get_ethernet_port_not_in_portchannel(duthost):
     port_name = ""
     ports = list(config_facts['PORT'].keys())
     port_channel_members = []
+    if 'PORTCHANNEL_MEMBER' not in config_facts:
+        if len(ports) > 0:
+            port_name = ports[0]
+        return port_name
     port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
     for port_channel in list(port_channel_member_facts.keys()):
         for member in list(port_channel_member_facts[port_channel].keys()):
@@ -201,7 +205,7 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 def test_replace_fec(duthost, ensure_dut_readiness, fec):
     json_patch = [
         {
-            "op": "replace",
+            "op": "add",
             "path": "/PORT/Ethernet0/fec",
             "value": "{}".format(fec)
         }
@@ -293,6 +297,7 @@ def test_update_speed(duthost, ensure_dut_readiness):
             if is_valid:
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
+                current_status_speed = current_status_speed.replace("M", "")
                 pytest_assert(current_status_speed == speed,
                               "Failed to properly configure interface speed to requested value {}".format(speed))
             else:

@@ -9,11 +9,14 @@ import json
 import logging
 import os
 import re
+import random
 import six
 import sys
 import threading
 import time
 import traceback
+import copy
+import tempfile
 from io import StringIO
 from ast import literal_eval
 
@@ -75,6 +78,19 @@ def skip_release_for_platform(duthost, release_list, platform_list):
             any(platform in duthost.facts['platform'] for platform in platform_list):
         pytest.skip("DUT has version {} and platform {} and test does not support {} for {}".format(
                     duthost.os_version, duthost.facts['platform'], ", ".join(release_list), ", ".join(platform_list)))
+
+
+def get_sup_node_or_random_node(duthosts):
+    # accomodate for T2 chassis, which only SUP has pdu info
+    # try to find sup node in multi-dut
+    for dut in duthosts:
+        if dut.is_supervisor_node():
+            return dut
+    # if not chassis, it's dualtor or single-dut, return random node or itself
+    if len(duthosts) > 1:
+        duthosts = random.sample(list(duthosts), 1)
+    logger.info("Randomly select dut {} for testing".format(duthosts[0]))
+    return duthosts[0]
 
 
 def wait(seconds, msg=""):
@@ -819,6 +835,61 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
     return None
 
 
+def run_until(interval, delay, retry, condition, function, *args, **kwargs):
+    """
+    @summary: Execute function until condition or retry number met.
+    @param interval: Interval between function execution.
+    @param delay: delay before start function call
+    @param retry: Number of retries until function meets condition.
+    @param condition: The expected condition for function to be met.
+    @param function: The function to be executed.
+    @param *args: Extra args required by the 'function'.
+    @param **kwargs: Extra args required by the 'function'.
+    @return: If the function meets conditions returns function output before finish specified retries. If no conditions
+        specified or was not meet - returns last function call output.
+    """
+    logger.debug("Wait until %s meet condition %s or %s retries, interval between calls is %s seconds" %
+                 (function.__name__, condition, retry, interval))
+    if delay > 0:
+        time.sleep(delay)
+
+    def compare_base_on_result_type(condition, result):
+        # Check exact match
+        if condition == result:
+            return True
+        # Check if function returns dict
+        elif isinstance(result, dict):
+            if condition in result.items():
+                return True
+        # Check if function returns string, list, set or tuple
+        elif isinstance(result, str) or isinstance(result, list) or isinstance(result, set) or \
+                isinstance(result, tuple):
+            if condition in result:
+                return True
+        else:
+            return False
+
+    for _ in range(retry):
+        try:
+            func_call_result = function(*args, **kwargs)
+            # Check if condition meets function result
+            if compare_base_on_result_type(condition, func_call_result):
+                break
+        except Exception as e:
+            exc_info = sys.exc_info()
+            details = traceback.format_exception(*exc_info)
+            logger.error(
+                "Exception caught while checking {}:{}, error:{}".format(
+                    function.__name__, "".join(details), e
+                )
+            )
+        finally:
+            # Wait if interval is set
+            if interval > 0:
+                time.sleep(interval)
+    return func_call_result
+
+
 def convert_scapy_packet_to_bytes(packet):
     """Convert scapy packet to bytes for python2 and python3 compatibility
     Args:
@@ -830,3 +901,119 @@ def convert_scapy_packet_to_bytes(packet):
         return str(packet)
     else:
         return bytes(packet)
+
+
+def update_pfcwd_default_state(duthost, filepath, default_pfcwd_value):
+    """
+    Set default_pfcwd_status in the specified file with parameter default_pfcwd_value
+    The path is expected to be one of:
+    - /etc/sonic/init_cfg.json
+    - /etc/sonic/config_db.json
+
+    Args:
+        duthost (AnsibleHost): instance
+        default_pfcwd_value: value of default_pfcwd_status, enable or disable
+
+    Returns:
+        original value of default_pfcwd_status
+    """
+    output = duthost.shell("cat {} | grep default_pfcwd_status".format(filepath))['stdout']
+    matched = re.search('"default_pfcwd_status": "(.*)"', output)
+    if matched:
+        original_value = matched.group(1)
+    else:
+        pytest.fail("There is no default_pfcwd_status in /etc/sonic/init_cfg.json.")
+
+    sed_command = ("sed -i \'s/\"default_pfcwd_status\": \"{}\"/\"default_pfcwd_status\": \"{}\"/g\' {}"
+                   .format(original_value, default_pfcwd_value, filepath))
+    duthost.shell(sed_command)
+
+    return original_value
+
+
+def delete_running_config(config_entry, duthost, is_json=True):
+    if is_json:
+        duthost.copy(content=json.dumps(config_entry, indent=4), dest="/tmp/del_config_entry.json")
+    else:
+        duthost.copy(src=config_entry, dest="/tmp/del_config_entry.json")
+    duthost.shell("configlet -d -j {}".format("/tmp/del_config_entry.json"))
+    duthost.shell("rm -f {}".format("/tmp/del_config_entry.json"))
+
+
+def get_data_acl(duthost):
+    acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
+    pre_acl_rules = acl_facts.get("DATAACL", {}).get("rules", None)
+    return pre_acl_rules
+
+
+def recover_acl_rule(duthost, data_acl):
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, "templates")
+    acl_rules_template = "default_acl_rules.json"
+    dut_tmp_dir = "/tmp"
+    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+    for key, value in data_acl.items():
+        if key != "DEFAULT_RULE":
+            seq_id = key.split('_')[1]
+            acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
+            acl_entry_template = \
+                acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+            acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
+
+            acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
+            acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
+            acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
+            acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
+            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
+
+    with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
+        json.dump(acl_config, fp)
+        fp.flush()
+        logger.info("Generating config for ACL rule, ACL table - DATAACL")
+        duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
+
+    logger.info("Applying {}".format(dut_conf_file_path))
+    duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get ipv4 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv4_address(ip):
+                    loopback_ip = ip
+                    break
+
+    return loopback_ip
+
+
+def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
+    """
+    Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
+    corresponding queue value.
+
+    Args:
+        dscp_value (int): DSCP value
+        dscp_to_tc_map (str dict): DSCP to TC map
+        tc_to_queue_map (str dict): TC to queue map
+    Returns:
+        int: queue value
+    """
+    if str(dscp_value) not in dscp_to_tc_map:
+        return None
+
+    tc_value = dscp_to_tc_map[str(dscp_value)]
+    if tc_value not in tc_to_queue_map:
+        return None
+
+    return int(tc_to_queue_map[tc_value])
