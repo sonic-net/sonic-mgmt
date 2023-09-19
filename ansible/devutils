@@ -62,21 +62,42 @@ def retrieve_hosts(group, limit):
 def get_pdu_info_from_conn_graph(hostname):
     """
     Read pdu info from conn graph.
-    Returns a dict like this:
-    {'PSU1': {'Protocol': 'snmp', 'ManagementIp': '10.3.155.107', 'HwSku': 'Sentry',
-              'Type': 'Pdu', 'peerdevice': 'pdu-107', 'peerport': '39'},
-     'PSU2': xxx}
+    Returns a list like this:
+    {
+        "PSU1": {
+            "A": {
+                "peerdevice": "pdu-2",
+                "peerport": "5",
+                "feed": "A",
+                "Protocol": "snmp",
+                "ManagementIp": "10.3.155.107",
+                "HwSku": "Sentry",
+                "Type": "Pdu",
+            },
+            "B": {
+                "peerdevice": "pdu-2",
+                "peerport": "6",
+                "feed": "B",
+                "Protocol": "snmp",
+                "ManagementIp": "10.3.155.108",
+                "HwSku": "Sentry",
+                "Type": "Pdu",
+            }
+        },
+    }
     """
     global g_inv_mgr, g_conn_graph_facts
-    results = {}
-    if hostname in g_conn_graph_facts['device_pdu_info']:
-        for pdu_idx, pdu_info in g_conn_graph_facts['device_pdu_info'][hostname].items():
-            pdu_name = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerdevice']
-            results[pdu_name] = {}
-            results[pdu_name]['ansible_host'] = pdu_info['ManagementIp']
-            results[pdu_name]['protocol'] = pdu_info['Protocol']
-            results[pdu_name]['pdu_port'] = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerport']
-            results[pdu_name].update(g_inv_mgr.get_host_vars(pdu_name))
+    device_pdu_links = g_conn_graph_facts['device_pdu_links']
+    results = device_pdu_links.get(hostname, {})
+    for psu, pdu_links_of_psu in results.items():
+        for feed, pdu_links_of_feed in pdu_links_of_psu.items():
+            pdu_name = pdu_links_of_feed['peerdevice']
+            """
+            #pdu_links_of_feed['ansible_host'] = pdu_links_of_feed['ManagementIp']
+            #pdu_links_of_feed['protocol'] = pdu_links_of_feed['Protocol']
+            #pdu_links_of_feed['pdu_port'] = pdu_links_of_feed['peerport']
+            """
+            pdu_links_of_feed.update(g_inv_mgr.get_host_vars(pdu_name))
     return results
 
 
