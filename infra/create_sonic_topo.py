@@ -679,11 +679,9 @@ def get_dut_platform(device_type):
     elif device_type == 'sfd':
          return 'sfd'
     elif device_type == 'crocodile':
-        dut_platform = 'crocodile'
+        return 'crocodile'
     elif device_type == 'churchill':
-        if topo_type == 't0':
-            topo_yaml = '../pyvxr_yaml_files/churchill_sonic_t0_topo.yaml'
-        dut_platform = 'churchill'
+         return 'churchill'
     else:
          return "mathilda"
 
