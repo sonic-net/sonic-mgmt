@@ -11,7 +11,11 @@ service DualToRActive {
 
   rpc QueryServerVersion(ServerVersionRequest) returns (ServerVersionReply) {}
 
-  rpc SetDrop(DropRequest) returns (DropReply) {}
+  rpc SetDrop(DropRequest) returns(DropReply) {}
+
+  rpc QueryFlapCounter(FlapCounterRequest) returns(FlapCounterReply) {}
+
+  rpc ResetFlapCounter(FlapCounterRequest) returns(FlapCounterReply) {}
 }
 
 message AdminRequest {
@@ -59,4 +63,13 @@ message DropRequest {
 message DropReply {
   repeated int32 portid = 1;
   repeated bool success = 2;
+}
+
+message FlapCounterRequest {
+    repeated int32 portid = 1;
+}
+
+message FlapCounterReply {
+    repeated int32 portid = 1;
+    repeated int32 flaps = 2;
 }
