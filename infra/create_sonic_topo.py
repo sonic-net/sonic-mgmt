@@ -834,7 +834,7 @@ def print_env_info(data, device_type, vEOS_count):
     print("******************************************************************************************************************************************************************************\n")
 
 def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
-    sim_cfg_filename = "../sim_credentials.json"
+    sim_cfg_filename = "sim_credentials.json"
     sim_cfg = {}
 
     for dut_name in get_dut_names(data):
