@@ -154,6 +154,7 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
 
     dhcp_relay_info_before_test = get_dhcp_relay_info_from_all_vlans(duthost)
     create_checkpoint(duthost, SETUP_ENV_CP)
+
     # --------------------- Testing -----------------------
     yield
 
@@ -161,6 +162,8 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     # Rollback twice. First rollback to checkpoint just before 'yield'
     # Second rollback is to back to original setup
     try:
+        # load first
+        switchport_mode_set_rm(duthost, first_avai_vlan_port)
         output = rollback(duthost, SETUP_ENV_CP)
         pytest_assert(
             not output['rc'] and "Config rolled back successfull" in output['stdout'],
@@ -363,6 +366,31 @@ EOF
     duthost.command("config load -y {}".format(mode_json))
     duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
     duthost.shell("echo mode added on port")
+
+
+def switchport_mode_set_rm(duthost, port):
+
+    duthost.shell('sudo config save -y')
+    duthost.shell('sudo jq \'del(.PORT[] | .mode)\' /etc/sonic/config_db.json > /tmp/patchfree.json')
+    duthost.shell('sudo mv /tmp/patchfree.json /etc/sonic/config_db.json')
+    jq_del_patch_command = (
+        "sudo jq 'del(.PORT[] | .mode)'"
+        "/etc/sonic/checkpoints/test_setup_checkpoint.cp.json"
+    )
+    duthost.shell(f'{jq_del_patch_command} > /tmp/patchremove.cp.json')
+    duthost.shell('sudo mv /tmp/patchremove.cp.json /etc/sonic/checkpoints/test_setup_checkpoint.cp.json')
+    duthost.shell('config reload -y')
+    duthost.shell('sudo config save -y')
+    shell_script = '''
+cat << EOF > %s
+if jq 'any(.PORT[]; has("mode"))' /etc/sonic/config_db.json; then
+    sudo cp /etc/sonic/config_db.json /etc/sonic/checkpoints/test_checkpoint.cp.json
+    sudo mv /etc/sonic/checkpoints/test_checkpoint.cp.json
+    /etc/sonic/checkpoints/test_setup_checkpoint.cp.json
+fi
+EOF
+'''
+    duthost.shell({shell_script})
 
 
 def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
