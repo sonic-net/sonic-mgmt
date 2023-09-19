@@ -159,7 +159,7 @@
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-14" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet54/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-03" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet55/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-13" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet56/1"/>
-      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet57/1"/>
+      <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7060cx-32s-02" EndPort="Ethernet32/1" StartDevice="str-7260cx3-11" StartPort="Ethernet9/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-08" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet58/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-22" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet59/1"/>
       <DeviceInterfaceLink BandWidth="40000" EndDevice="str-7260-06" EndPort="Ethernet64" StartDevice="str-7260cx3-11" StartPort="Ethernet60/1"/>
