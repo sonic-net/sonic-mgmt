@@ -35,8 +35,8 @@ def backup_ip_address(duthost):
     # grab ip_addresses with subnet mask
     interface_facts = duthost.interface_facts()['ansible_facts']
     global ipv4_address, ipv6_address
-    ipv4_address = interface_facts['ansible_interface_facts'][interface]['ipv4']['address']
-    ipv6_address = interface_facts['ansible_interface_facts'][interface]['ipv6']['address']
+    ipv4_address = interface_facts()['ansible_interface_facts'][interface]['ipv4']['address']
+    ipv6_address = interface_facts()['ansible_interface_facts'][interface]['ipv6']['address']
     assert ipv4_address != "" and ipv6_address != ""
 
 
