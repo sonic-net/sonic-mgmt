@@ -8,9 +8,9 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
 
-INTERFACE = "Vlan1000"
-IPV4_ADDRESS = ""
-IPV6_ADDRESS = ""
+interface = "Vlan1000"
+ipv4_address = ""
+ipv6_address = ""
 
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
@@ -33,20 +33,20 @@ def restart_dhcp_container(duthost):
 
 def backup_ip_address(duthost):
     # grab ip_addresses with subnet mask
-    interface_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts']
-    global IPV4_ADDRESS, IPV6_ADDRESS
-    IPV4_ADDRESS = interface_facts[INTERFACE]['ipv4']['address']
-    IPV6_ADDRESS = interface_facts[INTERFACE]['ipv6']['address']
-    assert IPV4_ADDRESS != "" and IPV6_ADDRESS != ""
+    interface_facts = duthost.interface_facts()['ansible_facts']
+    global ipv4_address, ipv6_address
+    ipv4_address = interface_facts['ansible_interface_facts'][interface]['ipv4']['address']
+    ipv6_address = interface_facts['ansible_interface_facts'][interface]['ipv6']['address']
+    assert ipv4_address != "" and ipv6_address != ""
 
 
 def flush_ip_address(duthost):
-    duthost.shell("ip address flush dev {}".format(INTERFACE))
+    duthost.shell("ip address flush dev {}".format(interface))
 
 
 def restore_ip_address(duthost):
-    duthost.shell("ip address add {} dev {}".format(IPV4_ADDRESS, INTERFACE))
-    duthost.shell("ip address add {} dev {}".format(IPV6_ADDRESS, INTERFACE))
+    duthost.shell("ip address add {} dev {}".format(ipv4_address, interface))
+    duthost.shell("ip address add {} dev {}".format(ipv6_address, interface))
 
 
 def invoke_dhcp_relay_bind_failure(duthost):
