@@ -505,7 +505,8 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     logger.info("Adding routes with vnid: 7039114 to VNET vnet-guid-10")
     r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-
+    # Wait 2 seconds for routes to be syncd
+    time.sleep(2)
     # Verify routes
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
@@ -529,7 +530,8 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     logger.info("Deleting routes with vnid: 7039114 from VNET vnet-guid-10")
     r = restapi.patch_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-
+    # Wait 2 seconds for routes to be syncd
+    time.sleep(2)
     # Verify routes
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(construct_url, 'vnet-guid-10', params)

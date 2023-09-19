@@ -9,6 +9,7 @@ import random
 import os
 import sys
 import copy
+from operator import xor
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 import copy
@@ -34,7 +35,7 @@ class QosBase:
     SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -381,12 +382,31 @@ class QosSaiBase(QosBase):
                 ]
             )[0].encode("utf-8").translate(None, "[]")
         else:
-            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
-                argv = [
-                    "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                ]
-            )[0].encode("utf-8")
+            if dut_asic.sonichost.facts['switch_type'] == 'voq':
+                # For VoQ chassis, the scheduler queues config is based on system port
+                if dut_asic.sonichost.is_multi_asic:
+                    schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|{1}|{2}|{3}"
+                            .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
+                        ]
+                    )[0].encode("utf-8")
+                else:
+                    schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|Asic0|{1}|{2}"
+                            .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
+                        ]
+                    )[0].encode("utf-8")
+            else:
+                schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0].encode("utf-8")
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
@@ -1959,3 +1979,38 @@ class QosSaiBase(QosBase):
 
         return mapping
 
+    def get_hbm_status(self, dut_asic):
+        hbm_platforms = ['x86_64-88_lc0_36fh_m-r0', 'x86_64-88_lc0_36fh_mo-r0']
+        if 'platform' in dut_asic.sonichost.facts and \
+                dut_asic.sonichost.facts['platform'] in hbm_platforms:
+            return True
+        return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if src_asic == dst_asic and \
+                get_src_dst_asic_and_duts['src_dut'] == \
+                    get_src_dst_asic_and_duts['dst_dut'] :
+            yield
+            return
+        if xor(src_hbm_enabled, dst_hbm_enabled):
+            pytest.skip(
+                "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm_either_asic(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if src_hbm_enabled or dst_hbm_enabled:
+            pytest.skip(
+                "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return

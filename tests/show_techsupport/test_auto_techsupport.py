@@ -29,6 +29,7 @@ DEFAULT_STATE = 'enabled'
 DEFAULT_RATE_LIMIT_GLOBAL = 180
 DEFAULT_RATE_LIMIT_FEATURE = 600
 DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
+DEFAULT_AVAILABLE_MEM_THRESHOLD = 10.0
 DEFAULT_MAX_CORE_LIMIT = 5
 DEFAULT_SINCE = '2 days ago'
 
@@ -126,7 +127,8 @@ class TestAutoTechSupport:
 
         yield
 
-        update_auto_techsupport_feature(self.duthost, self.test_docker, rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
+        update_auto_techsupport_feature(self.duthost, self.test_docker,
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
 
     def test_sanity(self, cleanup_list):
         """
@@ -599,7 +601,8 @@ def add_delete_auto_techsupport_feature(duthost, feature, action=None, state=DEF
 
     command = base_cmd
     if action == 'add':
-        command = '{}--state {} --rate-limit-interval {}'.format(base_cmd, state, rate_limit)
+        command = '{}--state {} --rate-limit-interval {} ' \
+                  '--available-mem-threshold {}'.format(base_cmd, state, rate_limit, DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     with allure.step('Doing {} feature {} config: {}'.format(action, feature, command)):
         duthost.shell(command)

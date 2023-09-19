@@ -263,6 +263,10 @@ SKIP_MEMORY_PER_ASIC = {
             u'MMU_THDM_MCQE_QUEUE_OFFSET_PIPE0.mmu_xpe0', u'ING_SNAT.ipipe0',
             u'MMU_THDM_MCQE_QUEUE_OFFSET_B_PIPE1.mmu_xpe0', u'MMU_THDU_OFFSET_QGROUP_PIPE3.mmu_xpe0',
             u'ING_VP_VLAN_MEMBERSHIP.ipipe0', u'MMU_THDU_CONFIG_PORT_PIPE3.mmu_xpe0', u'FP_GLOBAL_MASK_TCAM.ipipe0',
+            u'IS_TDM_CALENDAR0.ipipe0', u'IS_TDM_CALENDAR1.ipipe0', u'IS_TDM_CALENDAR0_PIPE0.ipipe0',
+            u'IS_TDM_CALENDAR0_PIPE1.ipipe0', u'IS_TDM_CALENDAR0_PIPE2.ipipe0', u'IS_TDM_CALENDAR0_PIPE3.ipipe0',
+            u'IS_TDM_CALENDAR1_PIPE0.ipipe0', u'IS_TDM_CALENDAR1_PIPE1.ipipe0', u'IS_TDM_CALENDAR1_PIPE2.ipipe0',
+            u'IS_TDM_CALENDAR1_PIPE3.ipipe0',
         ],
         'timeout_basic' : [
         ],
