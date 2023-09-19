@@ -34,6 +34,17 @@ devices:
     device_type: DevSonic
     hwsku: 32x400Gb
     os: sonic
+  docker-ptf:
+    ansible:
+      ansible_host: 192.168.122.75/24
+      ansible_hostv6: fc0b::1/64
+      ansible_ssh_pass: root
+      ansible_ssh_user: root
+    credentials:
+      password: root
+      username: root
+    device_type: blank
+    hwsku: null
   nexus-5:
     alias: null
     ansible:
@@ -63,17 +74,6 @@ devices:
     device_type: server
     hwsku: TestServ
     mgmt_subnet_mask_length: '24'
-  docker-ptf:
-    device_type: blank
-    hwsku: null
-    ansible:
-        ansible_ssh_user: root
-        ansible_host: 192.168.122.75/24
-        ansible_hostv6: fc0b::1/64
-        ansible_ssh_pass: root
-    credentials:
-        password: root
-        username: root
 docker_registry:
   docker_registry_host: sonicdev-microsoft.azurecr.io:443
   docker_registry_password: sonic
@@ -86,25 +86,24 @@ host_vars:
     mgmt_prefixlen: 24
 testbed:
   docker-ptf:
-    comment: Test ptf churchill
-    dut: churchill-01
-    group-name: sonic_cisco
-    ptf_image_name: docker-ptf-churchill
-    ptf_ip: 192.168.122.75/24
-    ptf_ipv6: fc0b::1/64
-    ptf: docker-ptf
-    server: server_1
-    topo: t0
-    vm_base: VM0100
     ansible:
-      ansible_ssh_user: root
       ansible_host: 192.168.122.75/24
       ansible_hostv6: fc0b::1/64
       ansible_ssh_pass: root
+      ansible_ssh_user: root
+    comment: Test ptf churchill
     credentials:
       password: root
       username: root
-
+    dut: churchill-01
+    group-name: sonic_cisco
+    ptf: docker-ptf
+    ptf_image_name: docker-ptf-churchill
+    ptf_ip: 192.168.122.75/24
+    ptf_ipv6: fc0b::1/64
+    server: server_1
+    topo: t0
+    vm_base: VM0100
 testbed_config:
   alias: churchilltopologyTestbed
   name: testbed-churchill-t0
@@ -321,14 +320,14 @@ veos:
   root_path: /home/azure/veos-vm
   skip_image_downloading: false
   vm_console_base: 7000
+  vm_host_1:
+    STR-ACS-SERV-01:
+      ansible_host: 172.29.94.42
   vm_host_ansible:
     ansible_password: cisco123
     ansible_sudo_pass: cisco123
     ansible_user: vxr
   vm_images_url: https://acsbe.blob.core.windows.net/vmimages
-  vm_host_1:
-    STR-ACS-SERV-01:
-      ansible_host: 172.29.94.42
   vms_1:
     VM0100:
       ansible_host: 192.168.122.66
