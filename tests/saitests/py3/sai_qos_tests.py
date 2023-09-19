@@ -3402,7 +3402,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert diff > 0, "Failed to cause TX drop on port {}".format(self.dst_port_id)
             xmit_counters_base = xmit_counters
             # Find a separate flow that uses alternate queue
-            for index, (second_pkt, _) in enumerate(pkt_list):
+            for index, (second_pkt, _, _) in enumerate(pkt_list):
                  # Start out with i=0 to match flow_1 to confirm drop
                 xmit_counters_base = xmit_counters
                 send_packet(self, self.src_port_id, second_pkt, 1)
