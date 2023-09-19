@@ -110,20 +110,19 @@ class KustoConnector(object):
         logger.info("Query the latest timestamp from TestReportUnionData:{}".format(query_str))
         result = self.query(query_str)
         latest_timestamp = result.primary_results[0].rows[0][0]
-        logger.info("The latest timestamp is:{}".format(latest_timestamp))
         return latest_timestamp
 
-    def query_data(self, start_time, end_time):
+    def query_data(self, testplan_ids):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
         """
-
         query_str = '''
+            let IncludedTestplan = dynamic({});
             FlatTestReportViewV5
-            | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
+            | where BuildId in (IncludedTestplan)
             | order by UploadTimestamp asc
-            '''.format(start_time, end_time)
+            '''.format(testplan_ids)
         logger.info("Query cases:{}".format(query_str))
         return self.query(query_str)
 
@@ -142,6 +141,19 @@ class KustoConnector(object):
         total_count = result.primary_results[0].rows[0][0]
         logger.info("The total count is:{}".format(total_count))
         return total_count
+
+    def query_missing_testplan(self):
+        query_str = '''
+            FlatTestReportViewV5
+            | distinct BuildId
+            | join kind=leftanti TestReportUnionData on BuildId
+            '''
+        logger.info("Query missing testplan IDs:{}".format(query_str))
+        result = self.query(query_str)
+        # testplan_ids = result.primary_results[0].rows
+        testplan_ids = list(set(row["BuildId"] for row in result.primary_results[0]))
+        logger.info("The missing testplan IDs are:{}".format(testplan_ids))
+        return testplan_ids
 
 def backup_history_data(kusto_connector):
     """
@@ -217,13 +229,15 @@ def main():
     existing_number = kusto_connector.query_total_count()
     logger.info("Before running, the existing total number of data for TestReportUnionData is:{}".format(existing_number))
 
-    current_time = datetime.now(tz=pytz.UTC)
-    # There will be 5-6 minutes delay if data is upload to kusto
-    # If we use current timestamp, there is uploading right now, these part of data would probably be missed
-    # We need to minus 7 mins to avoid this issue
-    end_time = current_time - timedelta(minutes=7)
+    # current_time = datetime.now(tz=pytz.UTC)
+    # # There will be 5-6 minutes delay if data is upload to kusto
+    # # If we use current timestamp, there is uploading right now, these part of data would probably be missed
+    # # We need to minus 7 mins to avoid this issue
+    # end_time = current_time - timedelta(minutes=7)
     latest_timestamp = kusto_connector.get_latest_timestamp()
-    response = kusto_connector.query_data(start_time=latest_timestamp, end_time=end_time)
+    logger.info("The latest UploadTimestamp in TestReportUnionData is:{}".format(latest_timestamp))
+    missing_testplan_ids = kusto_connector.query_missing_testplan()
+    response = kusto_connector.query_data(missing_testplan_ids)
     df = dataframe_from_result_table(response.primary_results[0])
     list_of_dicts = df.to_dict(orient="records")
     for row in list_of_dicts:
@@ -246,7 +260,7 @@ def main():
     while True:
         number_of_data = kusto_connector.query_total_count()
         logger.info("Total number for TestReportUnionData:{}".format(number_of_data))
-        if number_of_data == existing_number + upload_data_number:
+        if number_of_data >= existing_number + upload_data_number:
             logger.info("Upload {} rows data into table.".format(upload_data_number))
             break
         sleep_mins += 1
