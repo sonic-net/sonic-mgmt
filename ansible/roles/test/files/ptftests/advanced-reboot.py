@@ -250,9 +250,6 @@ class ReloadTest(BaseTest):
             alt_password=self.test_params.get('alt_password')
         )
 
-        self.sender_thr = threading.Thread(target=self.send_in_background)
-        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
-
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
         platform_type = str(stdout[0]).replace('\n', '')
@@ -1038,11 +1035,6 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
-        # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
-            time.sleep(1)
-
-        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1371,10 +1363,10 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         if not self.kvm_test and\
-                (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
-                 self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            # Event for the sniff_in_background status.
-            self.sniffer_started = threading.Event()
+            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type):
+            self.sender_thr = threading.Thread(target = self.send_in_background)
+            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+            self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
             self.sniff_thr.start()
             self.sender_thr.start()
 
