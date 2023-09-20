@@ -11,6 +11,8 @@ SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
+MAX_SERVER_RETRY_TIMEOUT = 60
+MAX_SERVER_RETRY_INTERVAL = 10
 
 @pytest.fixture(scope='function')
 def skip_unsupported_hwskus(duthosts, enum_rand_one_per_hwsku_hostname):
@@ -78,8 +80,9 @@ def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request, skip_unsupported_hwskus):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
+    
 
-    wait_until(120, 10, 0, platform_api_service_start_helper, duthost, dut_ip, localhost, request)
+    wait_until(MAX_SERVER_RETRY_TIMEOUT, MAX_SERVER_RETRY_INTERVAL, 0, platform_api_service_start_helper, duthost, dut_ip, localhost, request)
 
 
 @pytest.fixture(scope='module', autouse=True)
