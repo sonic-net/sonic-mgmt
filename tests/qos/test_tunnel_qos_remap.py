@@ -16,6 +16,9 @@ from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
+from tests.common.dualtor.nic_simulator_control import drop_flow_tor_active_active,\
+    drop_flow_upper_tor_active_active, is_active_active, active_active_ports,\
+    set_drop_active_active, cable_type
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
     get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled                           # noqa F401
 
@@ -68,8 +71,10 @@ def _last_port_in_last_lag(lags):
     return lags[last_lag][-1]
 
 
-def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,                            # noqa F811
-                            toggle_all_simulator_ports_to_lower_tor, tbinfo, ptfadapter, tunnel_qos_maps):       # noqa F811
+@pytest.mark.enable_active_active
+def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,                                    # noqa F811
+                            toggle_all_simulator_ports_to_lower_tor, drop_flow_upper_tor_active_active, # noqa F811
+                            tbinfo, ptfadapter, tunnel_qos_maps):                                       # noqa F811
     """
     The test is to verify the dscp rewriting of encapped packets.
     Test steps
@@ -78,6 +83,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
     3. Send the generated packets via portchannels
     4. Verify the packets are encapped with expected DSCP value
     """
+    drop_flow_upper_tor_active_active(verify=True) # No-op if not A-A
     REQUIRED_DSCP_COMBINATIONS = [
         # DSCP in generated packets, expected DSCP in encapped packets
         (8, 8),
@@ -131,8 +137,10 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
     logger.info("Verified {} DSCP inner->outer combinations".format(len(DSCP_COMBINATIONS)))
 
 
+@pytest.mark.enable_active_active
 def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host,        # noqa F811
                                                 toggle_all_simulator_ports_to_lower_tor,        # noqa F811
+                                                drop_flow_upper_tor_active_active,              # noqa F811
                                                 tbinfo, ptfadapter):
     """
     The test case is to verify the encapped packet is mapped to the correct queue
@@ -142,6 +150,7 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
     3. Send the generated packets via portchannels
     4. Verify the packets are outgoing from expected queue
     """
+    drop_flow_upper_tor_active_active(verify=True)
     TEST_DATA = [
         # DSCP QUEUE
         (8, 0),
@@ -187,8 +196,10 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
                       "The queue counter for DSCP {} Queue {} is not as expected".format(dscp, queue))
 
 
+@pytest.mark.enable_active_active
 def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut,
                                             toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
+                                            drop_flow_tor_active_active, # noqa F811
                                             tbinfo, ptfadapter, tunnel_qos_maps): # noqa F811
     """
     The test case is to verify the decapped packet on active ToR are egressed to server from expected queue.
@@ -198,6 +209,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     3. Send the generated packets via portchannels
     4. Verify the packets are decapped, and outgoing from the expected queue
     """
+    drop_flow_tor_active_active(rand_unselected_dut, verify=True)
     dualtor_meta = dualtor_info(
         ptfhost, rand_unselected_dut, rand_selected_dut, tbinfo)
     t1_ports = get_t1_active_ptf_ports(rand_selected_dut, tbinfo)
@@ -499,8 +511,10 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
             time.sleep(5)
 
 
+@pytest.mark.enable_active_active
 def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
+        toggle_all_simulator_ports_to_rand_unselected_tor, drop_flow_tor_active_active, tbinfo, ptfadapter,
+        conn_graph_facts, fanout_graph_facts, dut_config):
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -514,6 +528,7 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
     4. Verify the lossless traffic queue watermark has increased over the baseline.
 
     """
+    drop_flow_tor_active_active(rand_selected_dut, verify=True)
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority
         (3, 2, 2, 2),
@@ -597,8 +612,10 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                 queue_wmk, required_wmk_bytes)
 
 
+@pytest.mark.enable_active_active
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts): # noqa F811
+        toggle_all_simulator_ports_to_rand_selected_tor, drop_flow_tor_active_active, tbinfo, ptfadapter, # noqa F811
+        conn_graph_facts, fanout_graph_facts):
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -611,6 +628,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     3. Generate PFC pause on fanout switch (Server facing ports)
     4. Verify the lossless traffic queue watermark has increased over the baseline.
     """
+    drop_flow_tor_active_active(rand_unselected_dut, verify=True)
     TEST_DATA = {
         # Inner DSCP, Outer DSCP, Priority, Queue
         (3, 2, 3, 3),

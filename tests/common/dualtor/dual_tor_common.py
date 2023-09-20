@@ -28,6 +28,12 @@ class ActiveActivePortID(object):
     UPPER_TOR = 1
     LOWER_TOR = 0
 
+    @staticmethod
+    def to_string(portid):
+        mapping = {ActiveActivePortID.UPPER_TOR: "upper",
+                   ActiveActivePortID.LOWER_TOR: "lower"}
+        return mapping[portid]
+
 
 @pytest.fixture(params=[CableType.active_standby, CableType.active_active])
 def cable_type(request, active_active_ports, active_standby_ports, tbinfo):

@@ -6,6 +6,7 @@ import collections
 import logging
 
 from tests.common import utilities
+from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.dual_tor_common import cable_type                     # noqa F401
 from tests.common.dualtor.dual_tor_common import mux_config                     # noqa F401
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa F401
@@ -417,6 +418,7 @@ def simulator_server_down_active_active(active_active_ports, set_drop_active_act
     return _simulate_server_down
 
 
+
 @pytest.fixture
 def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
     """Return a helper function to retrieve flap counter for active-active ports."""
@@ -445,3 +447,56 @@ def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
         return [dict(zip(_.portid, _.flaps)) for _ in flap_counter_replies]
 
     return _get_nic_simulator_flap_counter
+
+
+@pytest.fixture(scope="function")
+def is_active_active(tbinfo, cable_type):
+    return 'dualtor' in tbinfo['topo']['name'] and cable_type == CableType.active_active
+
+
+@pytest.fixture(scope="function")
+def drop_flow_tor_active_active(is_active_active, active_active_ports, set_drop_active_active,
+                                upper_tor_host, lower_tor_host):
+    direction = TrafficDirection.UPSTREAM
+
+    def _drop_flow_tor_active_active(portid, verify=False):
+        '''
+        portid: Either ActiveActivePortID int, or MultiAsicSonicHost object.
+        '''
+        if not is_active_active:
+            logger.info('Skipping nic sim drop on non-dualtor testbed or active-standby dualtor topo.')
+            return
+        if not isinstance(portid, int):
+            assert isinstance(portid, type(upper_tor_host)), "Invalid type {}".format(type(portid))
+            portid = ActiveActivePortID.UPPER_TOR if portid == upper_tor_host else ActiveActivePortID.LOWER_TOR
+        logging.debug("Start set drop for %s ToR at %s", ActiveActivePortID.to_string(portid), time.time())
+        for port in active_active_ports:
+            logging.debug("Set drop on port %s, portid %s, direction %s" % (port, portid, direction))
+        portids = [portid for _ in active_active_ports]
+        directions = [direction for _ in active_active_ports]
+        set_drop_active_active(active_active_ports, portids, directions)
+
+        if verify:
+            # Verify one tor now has ports in standby mode due to traffic drop
+            if portid == ActiveActivePortID.UPPER_TOR:
+                active_host, standby_host = lower_tor_host, upper_tor_host
+            else:
+                active_host, standby_host = upper_tor_host, lower_tor_host
+            verify_tor_states(active_host, standby_host, expected_standby_health="unhealthy",
+                              cable_type=CableType.active_active, skip_state_db=True, skip_tunnel_route=True)
+
+    return _drop_flow_tor_active_active
+
+
+@pytest.fixture(scope="function")
+def drop_flow_lower_tor_active_active(drop_flow_tor_active_active):
+    def _drop_flow_lower_tor_active_active(verify=False):
+        return drop_flow_tor_active_active(ActiveActivePortID.LOWER_TOR, verify)
+    return _drop_flow_lower_tor_active_active
+
+
+@pytest.fixture(scope="function")
+def drop_flow_upper_tor_active_active(drop_flow_tor_active_active):
+    def _drop_flow_upper_tor_active_active(verify=False):
+        return drop_flow_tor_active_active(ActiveActivePortID.UPPER_TOR, verify)
+    return _drop_flow_upper_tor_active_active
