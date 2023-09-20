@@ -53,7 +53,8 @@ class Feed():
         if psu_peer_of_feed['Protocol'] != 'snmp':
             logger.warning('Protocol {} is currently not supported'.format(psu_peer_of_feed['Protocol']))
             return False
-        self.host = psu_peer_of_feed['ManagementIp']
+        self.hostname = psu_peer_of_feed['Hostname']
+        self.ip = psu_peer_of_feed['ManagementIp']
         self.protocol = psu_peer_of_feed['Protocol']
         self.hwsku = psu_peer_of_feed['HwSku']
         self.type = psu_peer_of_feed['Type']
@@ -67,20 +68,21 @@ class Feed():
             outlet = peerport if peerport.startswith('.') else '.' + peerport
         outlets = self.controller.get_outlet_status(hostname=self.psu.dut_name, outlet=outlet)
         for outlet in outlets:
+            outlet['pdu_name'] = self.hostname
             outlet['psu_name'] = self.psu.psu_name
             outlet['feed_name'] = self.feed_name
         self.outlets = outlets
         return len(self.outlets) > 0
 
     def _build_controller(self, pdu_vars):
-        if self.host in Feed.controllers:
-            self.controller = Feed.controllers[self.host]
+        if self.ip in Feed.controllers:
+            self.controller = Feed.controllers[self.ip]
         else:
-            self.controller = get_pdu_controller(self.host, pdu_vars, self.hwsku, self.type)
+            self.controller = get_pdu_controller(self.ip, pdu_vars, self.hwsku, self.type)
             if not self.controller:
                 logger.warning('Failed creating pdu controller: {}'.format(self.psu_peer))
                 return False
-            Feed.controllers[self.host] = self.controller
+            Feed.controllers[self.ip] = self.controller
         return True
 
 
@@ -170,9 +172,11 @@ class PduManager():
         status = []
         if outlet is not None:
             outlets = self._get_controller(outlet).get_outlet_status(outlet=outlet['outlet_id'])
+            pdu_name = outlet['pdu_name']
             psu_name = outlet['psu_name']
             feed_name = outlet['feed_name']
             for outlet in outlets:
+                outlet['pdu_name'] = pdu_name
                 outlet['psu_name'] = psu_name
                 outlet['feed_name'] = feed_name
             status = status + outlets
@@ -181,8 +185,10 @@ class PduManager():
             for psu_name, psu in self.PSUs.items():
                 for feed_name, feed in psu.feeds.items():
                     for outlet in feed.outlets:
+                        pdu_name = outlet['pdu_name']
                         outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'])
                         for outlet in outlets:
+                            outlet['pdu_name'] = pdu_name
                             outlet['psu_name'] = psu_name
                             outlet['feed_name'] = feed_name
                         status = status + outlets
