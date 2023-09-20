@@ -19,12 +19,12 @@ description: For controlling PTF container, for example killing processes runnin
 
 Parameters:
     - ctn_name: Name of the PTF container
-    - 1command: Command to run, currently only support "kill"
+    - command: Command to run, currently only support "kill"
 
 '''
 
 EXAMPLES = '''
-- name: Kill exabgp and ptfnn_agent processes in PTF container
+- name: Kill exabgp and ptf_nn_agent processes in PTF container
   ptf_control:
     ctn_name: "ptf_vms6-1"
     command: kill
@@ -75,11 +75,40 @@ class PtfControl(object):
         self.cmd('docker exec -t {} bash -c "kill -9 {}"'.format(self.ctn_name, pid), ignore_failure=True)
 
     def kill_processes(self):
-        for pattern in ["/usr/share/exabgp/http_api.py", "/usr/local/bin/exabgp", "/usr/bin/ptf_nn_agent"]:
-            logging.info("=== Kill process %s ===" % pattern)
-            for pid in self.get_process_pids(pattern):
-                self.kill_process(pid)
+        self.cmd('docker exec -t {} bash -c "ps -ef"'.format(self.ctn_name))
+        for i in range(3):
+            logging.info("=== Attempt %d ===" % (i + 1))
+            logging.info("=== Use supervisorctl to stop processes ===")
+            self.cmd(
+                'docker exec -t {} bash -c "supervisorctl stop exabgpv4:*"'.format(self.ctn_name),
+                ignore_failure=True
+            )
+            self.cmd(
+                'docker exec -t {} bash -c "supervisorctl stop exabgpv6:*"'.format(self.ctn_name),
+                ignore_failure=True
+            )
+            self.cmd(
+                'docker exec -t {} bash -c "supervisorctl stop ptf_nn_agent"'.format(self.ctn_name),
+                ignore_failure=True
+            )
+            self.cmd(
+                'docker exec -t {} bash -c "supervisorctl stop ptf_tgen"'.format(self.ctn_name),
+                ignore_failure=True
+            )
+            self.cmd(
+                'docker exec -t {} bash -c "ps -ef"'.format(self.ctn_name)
+            )
 
+            for pattern in [
+                "/usr/share/exabgp/http_api.py",
+                "/usr/local/bin/exabgp",
+                "ptf_nn_agent.py"
+            ]:
+                logging.info("=== Kill process %s ===" % pattern)
+                for pid in self.get_process_pids(pattern):
+                    self.kill_process(pid)
+
+            self.cmd('docker exec -t {} bash -c "ps -ef"'.format(self.ctn_name))
 
 def main():
     module = AnsibleModule(
@@ -94,7 +123,7 @@ def main():
     if command not in ['kill']:
         module.fail_json(msg="command %s is not supported" % command)
 
-    config_module_logging('kill_ptf_processes_' + ctn_name)
+    config_module_logging('ptf_control_' + ctn_name)
 
     try:
         ptf = PtfControl(module, ctn_name)
