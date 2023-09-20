@@ -23,6 +23,34 @@ pytestmark = [
 ]
 
 
+@pytest.fixture(scope="module")
+def delayed_services(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Return the delayed services."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    delayed_services = []
+
+    # NOTE: in the follow versions, config reload checks for the delayed services
+    # up states:
+    # - 202205
+    if any(version in duthost.os_version for version in ("202205",)):
+        list_timer_out = duthost.shell(
+            "systemctl list-dependencies --plain sonic-delayed.target | sed '1d'",
+            module_ignore_errors=True
+        )
+        if not list_timer_out["failed"]:
+            check_timer_out = duthost.shell(
+                "systemctl is-enabled %s" % list_timer_out["stdout"].replace("\n", " "),
+                module_ignore_errors=True
+            )
+            if not check_timer_out["failed"]:
+                timers = [_.strip() for _ in list_timer_out["stdout"].strip().splitlines()]
+                states = [_.strip() for _ in check_timer_out["stdout"].strip().splitlines()]
+                delayed_services.extend(
+                    timer.replace("timer", "service") for timer, state in zip(timers, states) if state == "enabled"
+                )
+    return delayed_services
+
+
 def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
                               conn_graph_facts, xcvr_skip_list):       # noqa F811
     """
@@ -79,7 +107,7 @@ def check_database_status(duthost):
     return True
 
 
-def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to test various system checks in config reload
@@ -103,7 +131,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # config reload command shouldn't work immediately after system reboot
     assert "Retry later" in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     # After the system checks succeed the config reload command should not throw error
     out = duthost.shell("sudo config reload -y",
@@ -119,7 +147,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     out = duthost.shell("sudo config reload -y",
                         executable="/bin/bash", module_ignore_errors=True)
     assert "Retry later" in out['stdout']
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     logging.info("Stopping swss docker and checking config reload")
     if duthost.is_multi_asic:
@@ -138,7 +166,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
     assert "Retry later" not in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
 
 def check_interfaces_config_service_status(duthost):
