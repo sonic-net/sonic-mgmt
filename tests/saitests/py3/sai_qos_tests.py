@@ -3364,8 +3364,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     if cntr == 1:
-                        print ("recv_counters_base: %d, recv_counters: %d" %(recv_counters_base[cntr], recv_counters[cntr]),file=sys.stderr)
-                        assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                        print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
+                                                                             recv_counters[cntr]), file=sys.stderr)
+                        assert(recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
                     assert(recv_counters[cntr] == recv_counters_base[cntr])
             # xmit port no egress drop
