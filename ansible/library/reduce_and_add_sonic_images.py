@@ -3,7 +3,6 @@
 import logging
 import sys
 from os import path
-import time
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
 
@@ -213,12 +212,6 @@ exit 0
 '''
         with open("/usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check", 'w') as out_file:
             out_file.write(file_content)
-    # change batch size from 8192 to 1024 for s6100 on 20220531 image
-    _, out, _   = exec_command(module, cmd="show version", ignore_error=True)
-    if 'SONiC.20220531.' in out:
-        exec_command(module, cmd="docker exec swss sed -i 's/8192/1024/g' /usr/bin/orchagent.sh", ignore_error=True)
-        exec_command(module, cmd="sudo systemctl restart swss", ignore_error=True)
-        time.sleep(120)
 
 def main():
     module = AnsibleModule(

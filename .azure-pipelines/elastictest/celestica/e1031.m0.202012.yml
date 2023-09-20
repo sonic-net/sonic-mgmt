@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 1,3,5"
+  - cron: "0 12 * * 0,1,2,3,4,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,22 +37,31 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7215-1, testbed-bjw-can-7215-6, testbed-str2-7215-acs-1"
+    default: "testbed-str-e1031-acs-1"
     displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "1"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MARVELL_202205)
+    default: $(IMAGE_BRCM_202012_SLIM)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal-202012
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
     default: " "
+    displayName:
     displayName: "Scripts to be executed"
 
   - name: FEATURES
@@ -63,7 +72,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "platform_tests/link_flap/test_cont_link_flap.py, platform_tests/test_memory_exhaustion.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -73,15 +82,8 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology m0,any --no_dscp_uniform"
+    default: "--topology m0,any --no_dscp_uniform --py_saithrift_url=$(SAITHRIFT_BRCM_202012)"
     displayName: "Common test parameters"
-
-  - name: SPECIFIC_PARAM
-    type: string
-    default: '[
-      {"name": "test_posttest.py", "param": "--posttest_show_tech_since @0"}
-    ]'
-    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -96,7 +98,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7215.m0.202205.NightlyTest_by_Elastictest
+    displayName: e1031.m0.202012.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -112,4 +114,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
