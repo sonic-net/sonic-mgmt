@@ -38,8 +38,8 @@ def backup_ip_address(duthost):
 
     global ipv4_address, ipv6_address
 
-    logger.info("ipv4 facts are {}".format(ipv4_interface_facts['ip_interfaces']))
-    logger.info("ipv6 facts are {}".format(ipv6_interface_facts['ansible_interface_facts']))
+    logger.info("ipv4 facts are {}".format(ipv4_interface_facts))
+    logger.info("ipv6 facts are {}".format(ipv6_interface_facts))
 
     ipv4_address = ipv4_interface_facts['ipv4']
     ipv4_prefix_len = ipv4_interface_facts['prefix_len']
