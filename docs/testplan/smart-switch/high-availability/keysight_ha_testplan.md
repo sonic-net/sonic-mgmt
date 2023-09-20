@@ -38,15 +38,15 @@ These tests are targeted on a fully functioning SmartSwitch system. We will be m
 ### Keysight Testbed
 Tests will run on the following testbeds.
 
-![HA_TestBed](images/ha_testbed.png)
+![HA_TestBed](images/ha_testbed.svg)
 
 Model expanded to show Keysight chassis, UHD, and SmartSwitch.  The UHD and SmartSwitchs can be used to conifgure various test case scenarios and network configurations.  For example, simulating DPUs within the same SmartSwitch or pairing distant DPUs to form HA sets.  The UHD has the ability to be configured in such a way to simulate individual ToRs.  The UHD shall additionally be used with Stateful traffic for VxLan encapsulation and decapsulation.
 
-![HA_SmartSwitch_Topology](images/smartswitch_ha_topology.png)
+![HA_SmartSwitch_Topology](images/smartswitch_ha_topology.svg)
 
 ## Topology
 ### Configuration for HA testing
-![HA_topology](images/ha_test_topology.png)
+![HA_topology](images/ha_test_topology.svg)
 
 ## Setup Configuration
 Two DPUs will use similar network configurations (VxLAN, ENI) forming an HA set.  One DPU will be designated as the Active the second Standby.
@@ -88,7 +88,7 @@ As soon as failover/switchover is initiated a timer will be initiated to measure
 #### Test Objective 1
 In this scenario we will test the switchover between an Active DPU to it's paired Standby DPU.
 
-![HA_LinkLoss](images/ha_linkloss_test.png)
+![HA_LinkLoss](images/ha_linkloss_test.svg)
 #### Steps for Test Case 1
 * Configure 2 DPUs networked within the same SmartSwitch forming a HA set between DPU0 and DPU1.
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
@@ -111,7 +111,7 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 #### Test Objective 2
 In this scenario we will test the switchover between an Active DPU to it's paired DPU from a separate SmartSwitch
 
-![HA_LinkLoss_NotLocal](images/ha_linkloss_test_not_local.png)
+![HA_LinkLoss_NotLocal](images/ha_linkloss_test_not_local.svg)
 #### Steps for Test Case 2
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.  Both DPUs will be placed into their own SmartSwitch.
 * The UHD will be configured to split ToR traffic into two separate entities.
@@ -133,7 +133,7 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 ### Test case3 DPULoss Local SmartSwitch
 #### Test Objective 3
 
-![HA_DPULoss_Local](images/ha_dpuloss_test.png)
+![HA_DPULoss_Local](images/ha_dpuloss_test.svg)
 #### Steps for Test Case 3
 * Configure 2 DPUs networked within the same SmartSwitch forming a HA set.
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
@@ -156,7 +156,7 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 ### Test case4 DPULoss Separate SmartSwitch
 #### Test Objective 4
 
-![HA_DPULoss_NotLocal](images/ha_dpuloss_not_local.png)
+![HA_DPULoss_NotLocal](images/ha_dpuloss_not_local.svg)
 
 #### Steps for Test Case 4
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.  Both DPUs will be placed into their own SmartSwitch.
@@ -179,7 +179,7 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 ### Test case5 ToR Loss Local SmartSwitch
 #### Test Objective 5
 
-![HA_TorLoss](images/ha_torloss_test.png)
+![HA_TorLoss](images/ha_torloss_test.svg)
 #### Steps for Test Case 5
 * Configure 2 DPUs networked within the same SmartSwitch forming a HA set.
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.
@@ -202,7 +202,7 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 ### Test case6 ToR Loss Separate SmartSwitch
 #### Test Objective 6
 
-![HA_TorLoss_NotLocal](images/ha_torloss_not_local.png)
+![HA_TorLoss_NotLocal](images/ha_torloss_not_local.svg)
 #### Steps for Test Case 6
 * The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.  Both DPUs will be placed into their own SmartSwitch.
 * The UHD will be configured to split ToR traffic into two separate entities.
