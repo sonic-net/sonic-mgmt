@@ -72,7 +72,7 @@ def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
         if res['failed'] is False:
             return False
 
-        return True
+    return True
 
 
 
