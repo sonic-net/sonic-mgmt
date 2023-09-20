@@ -208,7 +208,7 @@ def test_bgp_neighbor_password(setup):
 
     time.sleep(bgp_config_sleeptime)
 
-    # verify sessions are not established
+    # verify BGP sessions are not established
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
 
     logger.debug(setup['duthost'].shell('show ip bgp summary'))
