@@ -7,8 +7,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
                                                 utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
-
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
 ]
@@ -163,12 +162,6 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     # Second rollback is to back to original setup
     try:
         # load first
-        switchport_mode_set_rm(duthost)
-        output = rollback(duthost, SETUP_ENV_CP)
-        pytest_assert(
-            not output['rc'] and "Config rolled back successfull" in output['stdout'],
-            "Rollback to previous setup env failed."
-        )
 
         dhcp_relay_info_after_test = get_dhcp_relay_info_from_all_vlans(duthost)
         pytest_assert(
@@ -365,31 +358,6 @@ EOF
     duthost.shell(jq_command)
     duthost.command("config load -y {}".format(mode_json))
     duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
-
-
-def switchport_mode_set_rm(duthost):
-
-    duthost.shell('sudo config save -y')
-    duthost.shell('sudo jq \'del(.PORT[] | .mode)\' /etc/sonic/config_db.json > /tmp/patchfree.json')
-    duthost.shell('sudo mv /tmp/patchfree.json /etc/sonic/config_db.json')
-    jq_del_patch_command = (
-        "sudo jq 'del(.PORT[] | .mode)'"
-        "/etc/sonic/checkpoints/test_setup_checkpoint.cp.json"
-    )
-    duthost.shell(f'{jq_del_patch_command} > /tmp/patchremove.cp.json')
-    duthost.shell('sudo mv /tmp/patchremove.cp.json /etc/sonic/checkpoints/test_setup_checkpoint.cp.json')
-    duthost.shell('config reload -y')
-    duthost.shell('sudo config save -y')
-    shell_script = '''
-cat << EOF > %s
-if jq 'any(.PORT[]; has("mode"))' /etc/sonic/config_db.json; then
-    sudo cp /etc/sonic/config_db.json /etc/sonic/checkpoints/test_checkpoint.cp.json
-    sudo mv /etc/sonic/checkpoints/test_checkpoint.cp.json
-    /etc/sonic/checkpoints/test_setup_checkpoint.cp.json
-fi
-EOF
-'''
-    duthost.shell({shell_script})
 
 
 def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
