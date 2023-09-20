@@ -714,6 +714,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
 
         logger.info("Start arp_responder")
         ptfhost.command('supervisorctl start arp_responder')
+        time.sleep(10)
         return ip_list
 
     def _teardown_arp_responder(self, ptfhost):
@@ -736,7 +737,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         # Populate ARP table on DUT
         cmds = []
         for ip in ip_list:
-            cmds.append("ping -c 1 {}".format(ip))
+            cmds.append("ping -c 3 {}".format(ip))
         duthost.shell_cmds(cmds=cmds, module_ignore_errors=True)
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
