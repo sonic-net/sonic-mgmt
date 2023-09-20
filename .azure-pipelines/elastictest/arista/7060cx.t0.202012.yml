@@ -80,9 +80,10 @@ parameters:
     default: " "
     displayName: "Scripts to be excluded"
 
+  # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "metadata-scripts"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
