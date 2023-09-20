@@ -10,16 +10,20 @@ logger = logging.getLogger(__name__)
 
 NO_PRIVILEGED_CONTAINERS = [
     'bgp',
+    'lldp',
+    'teamd'
 ]
 
 
-def test_container_privileged(duthost):
+def test_container_privileged(duthost, enum_asic_index):
     """
     Test container without --privileged flag has no access to /dev/vda* or /dev/sda*
     """
-    for container_name in NO_PRIVILEGED_CONTAINERS:
+    for container in NO_PRIVILEGED_CONTAINERS:
+        asic = duthost.asic_instance(enum_asic_index)
+        container_name = asic.get_docker_name(container)
         docker_exec_cmd = 'docker exec {} bash -c '.format(container_name)
-        cmd = duthost.shell(docker_exec_cmd + "'df -h | grep /etc/hosts' | awk '{print $1}'")
+        cmd = duthost.shell(docker_exec_cmd + "df -h | awk '{print $1}' | grep /dev/")
         rc, device = cmd['rc'], cmd['stdout']
         pytest_assert(rc == 0, 'Failed to get the device name.')
         pytest_assert(device.startswith('/dev/'), 'Invalid device {}.'.format(device))
