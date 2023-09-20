@@ -33,11 +33,13 @@ def restart_dhcp_container(duthost):
 
 def backup_ip_address(duthost):
     # grab ip_addresses with subnet mask
-    interface_facts = duthost.interface_facts(up_ports=[interface])['ansible_facts']
+    ipv4_interface_facts = duthost.show_ip_interface()['ansible_facts']
+    ipv6_interface_facts = duthost.interface_facts()['ansible_facts']
     global ipv4_address, ipv6_address
-    logger.info("facts are {}".format(interface_facts['ansible_interface_facts']))
-    ipv4_address = interface_facts['ansible_interface_facts'][interface]['ipv4']['address']
-    ipv6_address = interface_facts['ansible_interface_facts'][interface]['ipv6']['address']
+    logger.info("ipv4 facts are {}".format(ipv4_interface_facts['ip_interfaces']))
+    logger.info("ipv6 facts are {}".format(ipv6_interface_facts['ansible_interface_facts']))
+    ipv4_address = ipv4_interface_facts['ip_interfaces'][interface]['ipv4']
+    ipv6_address = ipv6_interface_facts['ansible_interface_facts'][interface]['ipv6']['address']
     assert ipv4_address != "" and ipv6_address != ""
 
 
