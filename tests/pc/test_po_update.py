@@ -337,7 +337,7 @@ def test_po_update_io_no_loss(
             testutils.send(ptfadapter, in_ptf_index, pkt)
             send_count += 1
             if send_count > 100:
-                time.sleep(0)
+                time.sleep(0.001)
             member_update_thread_finished = \
                 (not member_update_finished_flag.empty()) and member_update_finished_flag.get()
             reach_max_time = time.time() > t_max
