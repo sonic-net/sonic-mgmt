@@ -1,0 +1,13 @@
+diff --git a/version/BUILD.bazel b/version/BUILD.bazel
+index e047013..5dbb1c6 100644
+--- a/version/BUILD.bazel
++++ b/version/BUILD.bazel
+@@ -11,7 +11,7 @@ proto_library(
+     srcs = [
+         "version.proto",
+     ],
+-    deps = ["@com_github_openconfig_gnoi//types:types_proto"],
++    deps = ["@com_github_openconfig_gnoi//types:gnoi_types_proto"],
+     import_prefix = "github.com/openconfig/gnsi",
+     visibility = ["//visibility:public"],
+ )
