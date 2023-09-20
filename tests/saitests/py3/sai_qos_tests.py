@@ -3362,10 +3362,10 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
-                    print("recv_counters_base: %d, recv_counters: %d" % (recv_counters_base[cntr],
-                                                                         recv_counters[cntr]), file=sys.stderr)
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                if platform_asic and platform_asic == "broadcom-dnx":
+                    if cntr == 1:
+                        print ("recv_counters_base: %d, recv_counters: %d" %(recv_counters_base[cntr], recv_counters[cntr]),file=sys.stderr)
+                        assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
                 else:
                     assert(recv_counters[cntr] == recv_counters_base[cntr])
             # xmit port no egress drop
@@ -3386,8 +3386,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             assert (recv_counters[pg] == recv_counters_base[pg])
             # recv port no ingress drop
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx" and cntr == 1:
-                    assert (recv_counters[cntr] > recv_counters_base[cntr])
+                if platform_asic and platform_asic == "broadcom-dnx":
+                    if cntr == 1:
+                        assert (recv_counters[cntr] > recv_counters_base[cntr])
                 else:
                     assert (recv_counters[cntr] == recv_counters_base[cntr])
 
