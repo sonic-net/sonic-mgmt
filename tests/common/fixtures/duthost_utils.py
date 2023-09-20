@@ -440,7 +440,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
             if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
-                cmds.append('config switchportmode trunk {port}'.format(port=vlan_port['dev']))
+                cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
