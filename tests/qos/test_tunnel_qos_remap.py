@@ -18,7 +18,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
     toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
 from tests.common.dualtor.nic_simulator_control import drop_flow_tor_active_active,\
     drop_flow_upper_tor_active_active, is_active_active, active_active_ports,\
-    set_drop_active_active, cable_type
+    set_drop_active_active, cable_type                                                                  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
     get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled                           # noqa F401
 
@@ -83,7 +83,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
     3. Send the generated packets via portchannels
     4. Verify the packets are encapped with expected DSCP value
     """
-    drop_flow_upper_tor_active_active(verify=True) # No-op if not A-A
+    drop_flow_upper_tor_active_active(verify=True)  # No-op if not A-A
     REQUIRED_DSCP_COMBINATIONS = [
         # DSCP in generated packets, expected DSCP in encapped packets
         (8, 8),
@@ -513,8 +513,9 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
 
 @pytest.mark.enable_active_active
 def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_unselected_tor, drop_flow_tor_active_active, tbinfo, ptfadapter,
-        conn_graph_facts, fanout_graph_facts, dut_config):
+                                              toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa F811
+                                              drop_flow_tor_active_active, tbinfo, ptfadapter,    # noqa F811
+                                              conn_graph_facts, fanout_graph_facts, dut_config):  # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -614,8 +615,9 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
 
 @pytest.mark.enable_active_active
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-        toggle_all_simulator_ports_to_rand_selected_tor, drop_flow_tor_active_active, tbinfo, ptfadapter, # noqa F811
-        conn_graph_facts, fanout_graph_facts):
+                                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                             drop_flow_tor_active_active, tbinfo, ptfadapter,  # noqa F811
+                                             conn_graph_facts, fanout_graph_facts):            # noqa F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 

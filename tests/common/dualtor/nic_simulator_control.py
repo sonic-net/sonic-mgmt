@@ -454,7 +454,7 @@ def is_active_active(tbinfo, cable_type): # noqa F811
 
 
 @pytest.fixture(scope="function")
-def drop_flow_tor_active_active(is_active_active, active_active_ports, set_drop_active_active,
+def drop_flow_tor_active_active(is_active_active, active_active_ports, set_drop_active_active, # noqa F811
                                 upper_tor_host, lower_tor_host):
     direction = TrafficDirection.UPSTREAM
 

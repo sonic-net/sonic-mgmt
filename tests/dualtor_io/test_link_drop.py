@@ -17,7 +17,6 @@ from tests.common.dualtor.nic_simulator_control import set_drop_active_active   
 from tests.common.dualtor.nic_simulator_control import is_active_active                         # noqa F401
 from tests.common.dualtor.nic_simulator_control import drop_flow_tor_active_active              # noqa F401
 from tests.common.dualtor.nic_simulator_control import drop_flow_upper_tor_active_active        # noqa F401
-from tests.common.dualtor.nic_simulator_control import TrafficDirection
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # noqa F401
