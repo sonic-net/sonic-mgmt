@@ -1414,16 +1414,14 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            # For dnx few extra ipv6 NS/RA pkt received from VM, adding to counter value
-            # & may give inconsistent test results
-            # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
-                    assert (recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN),\
-                        'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    if cntr == 1:
+                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter ' \
+                                                                                'not increase, {}'.format(test_stage)
                 else:
-                    assert(recv_counters[cntr] > recv_counters_base[cntr]),\
-                        'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+                                                                            ' not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
                 assert(xmit_counters[cntr] == xmit_counters_base[cntr]),\
