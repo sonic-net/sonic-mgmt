@@ -11,7 +11,7 @@ function show_help_and_exit()
     echo "    -d <dut name>  : specify comma-separated DUT names (default: DUT name associated with testbed in testbed file)"
     echo "    -e <parameters>: specify extra parameter(s) (default: none)"
     echo "    -E             : exit for any error (default: False)"
-    echo "    -f <tb file>   : specify testbed file (default testbed.csv)"
+    echo "    -f <tb file>   : specify testbed file (default testbed.yaml)"
     echo "    -i <inventory> : specify inventory name"
     echo "    -I <folders>   : specify list of test folders, filter out test cases not in the folders (default: none)"
     echo "    -k <file log>  : specify file log level: error|warning|info|debug (default debug)"
@@ -45,14 +45,14 @@ function get_dut_from_testbed_file() {
             DUT_NAME=${ARRAY[9]//[\[\] ]/}
         elif [[ $TESTBED_FILE == *.yaml ]];
         then
-            content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
+            content=$(python3 -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$TESTBED_FILE')) if '$TESTBED_NAME'==tb['conf-name']))")
             if [[ -z ${content} ]]; then
                 echo "Unable to find testbed '$TESTBED_NAME' in testbed file '$TESTBED_FILE'"
                 show_help_and_exit 4
             fi
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
-            DUT_NAME=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+            DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
         fi
     fi
 }
@@ -101,7 +101,7 @@ function setup_environment()
     RETAIN_SUCCESS_LOG="False"
     SKIP_SCRIPTS=""
     SKIP_FOLDERS="ptftests acstests saitests scripts k8s sai_qualify"
-    TESTBED_FILE="${BASE_PATH}/ansible/testbed.csv"
+    TESTBED_FILE="${BASE_PATH}/ansible/testbed.yaml"
     TEST_CASES=""
     TEST_INPUT_ORDER="False"
     TEST_METHOD='group'
@@ -130,7 +130,7 @@ function setup_test_options()
     # for the scenario of specifying test scripts using pattern like `subfolder/test_*.py`. The pattern will be
     # expanded to matched test scripts by bash. Among the expanded scripts, we may want to skip a few. Then we can
     # explicitly specify the script to be skipped.
-    ignores=$(python -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
+    ignores=$(python3 -c "print('|'.join('''$SKIP_FOLDERS'''.split()))")
     if [[ -z ${TEST_CASES} ]]; then
         # When TEST_CASES is not specified, find all the possible scripts, ignore the scripts under $SKIP_FOLDERS
         all_scripts=$(find ./ -name 'test_*.py' | sed s:^./:: | grep -vE "^(${ignores})")
@@ -143,18 +143,18 @@ function setup_test_options()
     fi
     # Ignore the scripts specified in $SKIP_SCRIPTS
     if [[ x"${TEST_INPUT_ORDER}" == x"True" ]]; then
-        TEST_CASES=$(python -c "print('\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())]))")
+        TEST_CASES=$(python3 -c "print('\n'.join([testcase for testcase in list('''$all_scripts'''.split()) if testcase not in set('''$SKIP_SCRIPTS'''.split())]))")
     else
-        TEST_CASES=$(python -c "print('\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split())))" | sort)
+        TEST_CASES=$(python3 -c "print('\n'.join(set('''$all_scripts'''.split()) - set('''$SKIP_SCRIPTS'''.split())))" | sort)
     fi
 
     # Check against $INCLUDE_FOLDERS, filter out test cases not in the specified folders
     FINAL_CASES=""
-    includes=$(python -c "print('|'.join('''$INCLUDE_FOLDERS'''.split()))")
+    includes=$(python3 -c "print('|'.join('''$INCLUDE_FOLDERS'''.split()))")
     for test_case in ${TEST_CASES}; do
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
-    TEST_CASES=$(python -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
+    TEST_CASES=$(python3 -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
 
     if [[ -z $TEST_CASES ]]; then
         echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
@@ -264,22 +264,22 @@ function pre_post_extra_params()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    python3 -m pytest ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    python3 -m pytest ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
 {
     echo "=== Running tests in groups ==="
-    echo Running: pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-    pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
+    echo Running: python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+    python3 -m pytest ${TEST_CASES} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} --cache-clear
 }
 
 function run_individual_tests()
@@ -300,23 +300,9 @@ function run_individual_tests()
             TEST_LOGGING_OPTIONS="--log-file ${LOG_PATH}/${test_dir}/${test_name}.log --junitxml=${LOG_PATH}/${test_dir}/${test_name}.xml"
         fi
 
-        echo Running: pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
-        USE_PY3=0
-        for i in `cat python3_test_files.txt`
-        do
-            USE_PY3=`expr match ${test_script} ${i}`
-            [[ ${USE_PY3} != 0 ]] && break
-        done
-        if [ ${USE_PY3} != 0 ]; then
-            echo Activate Python3 venv
-            source /var/AzDevOps/env-python3/bin/activate
-        fi
-            pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
-            ret_code=$?
-        if [ ${USE_PY3} != 0 ]; then
-            echo Deactivate Python3 venv
-            deactivate
-        fi
+        echo Running: python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS}
+        python3 -m pytest ${test_script} ${PYTEST_COMMON_OPTS} ${TEST_LOGGING_OPTIONS} ${TEST_TOPOLOGY_OPTIONS} ${EXTRA_PARAMETERS} ${CACHE_CLEAR}
+        ret_code=$?
 
         # Clear pytest cache for the first run
         if [[ -n ${CACHE_CLEAR} ]]; then

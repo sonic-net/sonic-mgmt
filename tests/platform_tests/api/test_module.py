@@ -5,7 +5,7 @@ import pytest
 from time import sleep
 from tests.common.helpers.platform_api import chassis, module
 from tests.platform_tests.cli.util import get_skip_mod_list
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 

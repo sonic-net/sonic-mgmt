@@ -24,8 +24,10 @@ LOOP_TIMES_LEVEL_MAP = {
 STRESS_ACL_TABLE_TEMPLATE = "acl/templates/acltb_test_stress_acl_table.j2"
 STRESS_ACL_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_rules.j2"
 STRESS_ACL_READD_RULE_TEMPLATE = "acl/templates/acltb_test_stress_acl_readd_rules.j2"
+DEL_STRESS_ACL_TABLE_TEMPLATE = "acl/templates/del_acltb_test_stress_acl_table.j2"
 STRESS_ACL_TABLE_JSON_FILE = "/tmp/acltb_test_stress_acl_table.json"
 STRESS_ACL_RULE_JSON_FILE = "/tmp/acltb_test_stress_acl_rules.json"
+DEL_STRESS_ACL_TABLE_JSON_FILE = "/tmp/del_acltb_test_stress_acl_table.json"
 
 LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
@@ -40,6 +42,12 @@ def prepare_test_file(rand_selected_dut):
     rand_selected_dut.shell("sonic-cfggen -j {} -w".format(STRESS_ACL_TABLE_JSON_FILE))
     # Copy acl rules
     rand_selected_dut.copy(src=STRESS_ACL_RULE_TEMPLATE, dest=STRESS_ACL_RULE_JSON_FILE, mode="0755")
+
+    yield
+
+    rand_selected_dut.copy(src=DEL_STRESS_ACL_TABLE_TEMPLATE, dest=DEL_STRESS_ACL_TABLE_JSON_FILE)
+    rand_selected_dut.shell("configlet -d -j {}".format(DEL_STRESS_ACL_TABLE_JSON_FILE))
+    rand_selected_dut.shell("rm -f {}".format(DEL_STRESS_ACL_TABLE_JSON_FILE))
 
 
 @pytest.fixture(scope='module')
@@ -127,32 +135,33 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
     verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "forward")
+    try:
+        loops = 0
+        while loops <= loop_times:
+            logger.info("loops: {}".format(loops))
+            if loops == 0:
+                rand_selected_dut.shell(cmd_add_rules)
+            else:
+                readd_id = loops + ACL_RULE_NUMS
+                ip_addr1 = readd_id % 256
+                ip_addr2 = int(readd_id / 256)
+                rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
+                                        "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
+                                        .format(readd_id, ip_addr2, ip_addr1, readd_id))
+                acl_rule_list.append(readd_id)
 
-    loops = 0
-    while loops <= loop_times:
-        logger.info("loops: {}".format(loops))
-        if loops == 0:
-            rand_selected_dut.shell(cmd_add_rules)
-        else:
-            readd_id = loops + ACL_RULE_NUMS
-            ip_addr1 = readd_id % 256
-            ip_addr2 = int(readd_id / 256)
-            rand_selected_dut.shell('sonic-db-cli CONFIG_DB hset "ACL_RULE|STRESS_ACL| RULE_{}" \
-                                    "SRC_IP" "20.0.{}.{}/32" "PACKET_ACTION" "DROP" "PRIORITY" "{}"'
-                                    .format(readd_id, ip_addr2, ip_addr1, readd_id))
-            acl_rule_list.append(readd_id)
+            wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
 
-        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
+            del_rule_id = random.choice(acl_rule_list)
+            rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
+            wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
+            verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
+                             acl_rule_list, del_rule_id, "drop")
+            acl_rule_list.remove(del_rule_id)
 
-        del_rule_id = random.choice(acl_rule_list)
-        rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
-        wait(wait_time, "Waiting {} sec acl rules to be loaded".format(wait_time))
-        verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, del_rule_id, "drop")
-        acl_rule_list.remove(del_rule_id)
-
-        loops += 1
-
-    rand_selected_dut.shell(cmd_rm_all_rules)
-    rand_selected_dut.shell(cmd_remove_table)
-    logger.info("End")
+            loops += 1
+    finally:
+        rand_selected_dut.shell(cmd_rm_all_rules)
+        rand_selected_dut.shell(cmd_remove_table)
+        logger.info("End")
