@@ -186,6 +186,7 @@ sonic:
     sonic_cisco_8102:
     sonic_mlnx_sn3800:
     sonic_mlnx_sn4600c:
+    sonic_nokia_sup:
     sonic_nokia_lc_400G:
 
 sonic_arista_7050qx_32s_q32:
@@ -631,6 +632,52 @@ sonic_mlnx_sn4600c:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x4D23FBB2"
+
+sonic_nokia_sup:
+  vars:
+    HwSku:  Nokia-IXR7250E-SUP-10
+    sonic_hwsku:  Nokia-IXR7250E-SUP-10
+    sonic_hw_platform:  x86_64-nokia_ixr7250e_sup-r0
+    slot_num: slot0
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+  hosts:
+    bjw-can-7250-sup-1:
+      ansible_host: 10.150.22.144
+      hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS225262106
+      base_mac: 9C:E0:41:D0:01:FC
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS225262106"
+        "0x24": "9C:E0:41:D0:01:FC"
+        "0x25": "01042023"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0xD37D218D"
+      skip_modules:
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
+      asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 sonic_nokia_lc_400G:
   vars:
