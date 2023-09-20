@@ -7,7 +7,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig, \
                                                 utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload, rollback
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
 ]
@@ -143,7 +143,6 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
 def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
-    switchport_mode_set(duthost, first_avai_vlan_port)
 
     # --------------------- Setup -----------------------
     create_test_vlans(duthost, cfg_facts, vlan_intfs_dict, first_avai_vlan_port)
@@ -162,6 +161,11 @@ def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan
     # Second rollback is to back to original setup
     try:
         # load first
+        output = rollback(duthost, SETUP_ENV_CP)
+        pytest_assert(
+            not output['rc'] and "Config rolled back successfull" in output['stdout'],
+            "Rollback to previous setup env failed."
+        )
 
         dhcp_relay_info_after_test = get_dhcp_relay_info_from_all_vlans(duthost)
         pytest_assert(
@@ -330,34 +334,6 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
         expect_res_success_by_vlanid(rand_selected_dut, vlan_intfs_list[1], [], unexpected_content_list)
     finally:
         delete_tmpfile(rand_selected_dut, tmpfile)
-
-
-def switchport_mode_set(duthost, port):
-
-    mode_json = "/tmp/mode_set.json"
-
-    mode_set = '''
-cat << EOF >  %s
-{
-   "PORT": {
-        "{port}": {
-            "mode": "trunk"
-        }
-  }
-}
-EOF
-''' % (mode_json)
-    duthost.shell(mode_set)
-    jq_command = (
-     'sudo jq --argfile modeJson {} '
-     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
-     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
-     'then .value.mode = "trunk" else . end)\' '
-     '/etc/sonic/config_db.json > /tmp/dump.json'
-    ).format(mode_json)
-    duthost.shell(jq_command)
-    duthost.command("config load -y {}".format(mode_json))
-    duthost.command("mv /tmp/dump.json /etc/sonic/config_db.json")
 
 
 def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
