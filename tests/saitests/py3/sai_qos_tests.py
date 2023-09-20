@@ -4639,6 +4639,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # but small margin still needed during boundary checks below
                 pkts_num = 1
                 expected_wm = pkts_num_fill_min * cell_occupancy
+                total_shared = pkts_num_fill_shared * cell_occupancy
             else:
                 pkts_num = (1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):
