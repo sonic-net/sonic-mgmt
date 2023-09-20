@@ -1,9 +1,9 @@
-import logging
 import os
 import pytest
 import http.client
 
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.utilities import wait_until
 
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
@@ -11,9 +11,19 @@ SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
-PLATFORM_API_SERVER_MAX_TRY = 3
 
-logger = logging.getLogger(__name__)
+@pytest.fixture(scope='function')
+def skip_unsupported_hwskus(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Skip the test on platform which don't support platform APIs yet
+    unsupported_hwskus = ['Nexus-3164']
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hwsku = duthost.facts['hwsku']
+    if hwsku in unsupported_hwskus:
+        pytest.skip(
+            'Platform APIs not supported on this {} , skipping...'.format(
+                hwsku))
+    """
 
 
 def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
@@ -22,7 +32,7 @@ def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
                              port=SERVER_PORT,
                              state='started',
                              delay=1,
-                             timeout=10,
+                             timeout=5,
                              module_ignore_errors=True)
     if res['failed'] is True:
 
@@ -56,26 +66,20 @@ def platform_api_service_start_helper(duthost, dut_ip, localhost, request):
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
 
-        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
+        if res['failed'] is False:
+            return False
 
-        return res
+        return True
+
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request, skip_unsupported_hwskus):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost.mgmt_ip
-    retries = 3
 
-    for _ in range(retries):
-        try:
-            res = platform_api_service_start_helper(duthost, dut_ip, localhost, request)
-            assert res['failed'] is False
-        except Exception as e:
-            logger.warning("platform API service server instnation failed with {}".format(e))
-        else:
-            break
-
+    wait_until(120, 10, 0, platform_api_service_start_helper, duthost, dut_ip, localhost, request)
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -127,3 +131,4 @@ def check_not_implemented_warnings(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
     loganalyzer.match_regex.extend(['WARNING pmon#platform_api_server.py: API.+not implemented'])
     loganalyzer.analyze(marker)
+
