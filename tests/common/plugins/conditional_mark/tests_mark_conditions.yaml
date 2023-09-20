@@ -45,6 +45,13 @@ arp/test_unknown_mac.py:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+arp/test_wr_arp.py:
+  skip:
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-buildimage/issues/16502
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -620,6 +627,12 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####           macsec            #####
 #######################################
@@ -683,9 +696,9 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag, t1-56-lag and t2 topology"
+    reason: "Only support t1-lag, t1-56-lag, t1-64-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag', 't1-56-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-56-lag', 't1-64-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
@@ -766,6 +779,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'dualtor' in topo_name"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
+        - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####         platform_tests      #####
