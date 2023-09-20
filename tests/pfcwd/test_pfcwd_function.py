@@ -811,6 +811,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         pytest_require(len(selected_ports) == 2, 'Pfcwd multi port test needs at least 2 ports')
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
+        dut_facts = self.dut.facts
         self.fake_storm = fake_storm
         self.storm_hndle = None
         self.rx_action = None
