@@ -1,0 +1,77 @@
+diff --git a/binding/abstract.go b/binding/abstract.go
+index 9e54e9a..643dbc6 100644
+--- a/binding/abstract.go
++++ b/binding/abstract.go
+@@ -36,18 +36,18 @@ import (
+	mpb "github.com/openconfig/gnoi/mpls"
+	ospb "github.com/openconfig/gnoi/os"
+	otpb "github.com/openconfig/gnoi/otdr"
+-	plqpb "github.com/openconfig/gnoi/packet_link_qualification"
++	plqpb "github.com/openconfig/gnoi/linkqual"
+	spb "github.com/openconfig/gnoi/system"
+	wpb "github.com/openconfig/gnoi/wavelength_router"
+	acctzpb "github.com/openconfig/gnsi/acctz"
+	authzpb "github.com/openconfig/gnsi/authz"
+	certzpb "github.com/openconfig/gnsi/certz"
+	credzpb "github.com/openconfig/gnsi/credentialz"
+	pathzpb "github.com/openconfig/gnsi/pathz"
+
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+	opb "github.com/openconfig/ondatra/proto"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+
+
+diff --git a/binding/binding.go b/binding/binding.go
+index ccc3601..175efee 100644
+--- a/binding/binding.go
++++ b/binding/binding.go
+@@ -37,18 +37,18 @@ import (
+	mpb "github.com/openconfig/gnoi/mpls"
+	ospb "github.com/openconfig/gnoi/os"
+	otpb "github.com/openconfig/gnoi/otdr"
+-	plqpb "github.com/openconfig/gnoi/packet_link_qualification"
++	plqpb "github.com/openconfig/gnoi/linkqual"
+	spb "github.com/openconfig/gnoi/system"
+	wpb "github.com/openconfig/gnoi/wavelength_router"
+	acctzpb "github.com/openconfig/gnsi/acctz"
+	authzpb "github.com/openconfig/gnsi/authz"
+	certzpb "github.com/openconfig/gnsi/certz"
+	credzpb "github.com/openconfig/gnsi/credentialz"
+	pathzpb "github.com/openconfig/gnsi/pathz"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+	opb "github.com/openconfig/ondatra/proto"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+
+
+
+diff --git a/internal/rawapis/rawapis.go b/internal/rawapis/rawapis.go
+index 4f57ed9..6f5b468 100644
+--- a/internal/rawapis/rawapis.go
++++ b/internal/rawapis/rawapis.go
+@@ -33,7 +33,7 @@ import (
+	"google.golang.org/grpc"
+ 
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+ 
+
+diff --git a/raw/raw.go b/raw/raw.go
+index ce85c92..5739128 100644
+--- a/raw/raw.go
++++ b/raw/raw.go
+@@ -26,7 +26,7 @@ import (
+	"github.com/openconfig/ondatra/internal/rawapis"
+ 
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
+

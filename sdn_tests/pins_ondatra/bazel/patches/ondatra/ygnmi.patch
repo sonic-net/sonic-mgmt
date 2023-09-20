@@ -1,0 +1,13 @@
+diff --git a/ygnmi/BUILD.bazel b/ygnmi/BUILD.bazel
+index 5760c6a..e9a5923 100644
+--- a/ygnmi/BUILD.bazel
++++ b/ygnmi/BUILD.bazel
+@@ -15,7 +15,7 @@ go_library(
+         "//internal/logutil",
+         "@com_github_golang_glog//:glog",
+         "@com_github_openconfig_gnmi//errlist",
+-        "@com_github_openconfig_gnmi//proto/gnmi",
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
+         "@com_github_openconfig_gocloser//:gocloser",
+         "@com_github_openconfig_goyang//pkg/yang",
+         "@com_github_openconfig_ygot//util",
