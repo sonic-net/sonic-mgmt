@@ -451,7 +451,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 
 
 def check_switchport_cmd(duthost, tport):
-    x = duthost.command('config switchportmode trunk {port}'.format(port=tport))
+    x = duthost.command('config switchport mode trunk {port}'.format(port=tport))
     if (x['rc'] == 0):
         return True
     return False
