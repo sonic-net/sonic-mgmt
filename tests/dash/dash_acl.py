@@ -3,8 +3,8 @@ import copy
 import abc
 
 from constants import *  # noqa: F403
-from dash_utils import render_template_to_host, apply_swssconfig_file
-
+from dash_utils import render_template_to_host
+from gnmi_utils import apply_gnmi_file
 
 ACL_GROUP_TEMPLATE = "dash_acl_group"
 ACL_RULE_TEMPLATE = "dash_acl_rule"
@@ -14,16 +14,18 @@ DEFAULT_ACL_GROUP = "default_acl_group"
 DEFAULT_ACL_STAGE = 1
 
 
-def apply_acl_config(duthost, template_name, acl_config_info, op):
+def apply_acl_config(duthost, ptfhost, template_name, acl_config_info, op):
     template_file = "{}.j2".format(template_name)
     dest_path = "/tmp/{}.json".format(template_name)
     render_template_to_host(template_file, duthost, dest_path, acl_config_info, op=op)
-    apply_swssconfig_file(duthost, dest_path)
+    # apply_swssconfig_file(duthost, dest_path)
+    apply_gnmi_file(duthost, ptfhost, dest_path)
 
 
 class AclGroup(object):
-    def __init__(self, duthost, acl_group, eni, ip_version="ipv4"):
+    def __init__(self, duthost, ptfhost, acl_group, eni, ip_version="ipv4"):
         self.duthost = duthost
+        self.ptfhost = ptfhost
         self.acl_group = acl_group
         self.eni = eni
         self.ip_version = ip_version
@@ -31,10 +33,10 @@ class AclGroup(object):
             ACL_GROUP: self.acl_group,
             IP_VERSION: self.ip_version
         }
-        apply_acl_config(self.duthost, ACL_GROUP_TEMPLATE, self.group_conf, op="SET")
+        apply_acl_config(self.duthost, self.ptfhost, ACL_GROUP_TEMPLATE, self.group_conf, op="SET")
 
     def __del__(self):
-        apply_acl_config(self.duthost, ACL_GROUP_TEMPLATE, self.group_conf, op="DEL")
+        apply_acl_config(self.duthost, self.ptfhost, ACL_GROUP_TEMPLATE, self.group_conf, op="DEL")
 
     def bind(self, stage):
         self.stage = stage
@@ -43,12 +45,12 @@ class AclGroup(object):
             ACL_GROUP: self.acl_group,
             ACL_STAGE: self.stage,
         }
-        apply_acl_config(self.duthost, BIND_ACL_OUT, self.bind_conf, op="SET")
-        apply_acl_config(self.duthost, BIND_ACL_IN, self.bind_conf, op="SET")
+        apply_acl_config(self.duthost, self.ptfhost, BIND_ACL_OUT, self.bind_conf, op="SET")
+        apply_acl_config(self.duthost, self.ptfhost, BIND_ACL_IN, self.bind_conf, op="SET")
 
     def unbind(self):
-        apply_acl_config(self.duthost, BIND_ACL_OUT, self.bind_conf, op="DEL")
-        apply_acl_config(self.duthost, BIND_ACL_IN, self.bind_conf, op="DEL")
+        apply_acl_config(self.duthost, self.ptfhost, BIND_ACL_OUT, self.bind_conf, op="DEL")
+        apply_acl_config(self.duthost, self.ptfhost, BIND_ACL_IN, self.bind_conf, op="DEL")
 
 
 class AclTestPacket(object):
@@ -67,9 +69,10 @@ class AclTestPacket(object):
 
 
 class AclTestCase(object):
-    def __init__(self, duthost, dash_config_info):
+    def __init__(self, duthost, ptfhost, dash_config_info):
         __metaclass__ = abc.ABCMeta  # noqa: F841
         self.duthost = duthost
+        self.ptfhost = ptfhost
         self.dash_config_info = dash_config_info
         self.test_pkts = []
 
@@ -83,10 +86,10 @@ class AclTestCase(object):
 
 
 class DefaultAclGroupTest(AclTestCase):
-    def __init__(self, duthost, dash_config_info):
-        super(DefaultAclGroupTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(DefaultAclGroupTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
-        self.group = AclGroup(self.duthost, self.acl_group, self.dash_config_info[ENI])
+        self.group = AclGroup(self.duthost, self.ptfhost, self.acl_group, self.dash_config_info[ENI])
 
     def config(self):
         self.group.bind(DEFAULT_ACL_STAGE)
@@ -97,13 +100,13 @@ class DefaultAclGroupTest(AclTestCase):
 
 
 class AclRuleTest(AclTestCase):
-    def __init__(self, duthost, dash_config_info):
-        super(AclRuleTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclRuleTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.rule_confs = []
 
     def add_rule(self, rule_conf):
         rule_conf[ACL_RULE] = self.__class__.__name__ + "_" + rule_conf[ACL_RULE]
-        apply_acl_config(self.duthost, ACL_RULE_TEMPLATE, rule_conf, op="SET")
+        apply_acl_config(self.duthost, self.ptfhost, ACL_RULE_TEMPLATE, rule_conf, op="SET")
         self.rule_confs.append(rule_conf)
 
     def add_test_pkt(self, test_pkt):
@@ -112,13 +115,13 @@ class AclRuleTest(AclTestCase):
 
     def teardown(self):
         for rule_conf in self.rule_confs:
-            apply_acl_config(self.duthost, ACL_RULE_TEMPLATE, rule_conf, op="DEL")
+            apply_acl_config(self.duthost, self.ptfhost, ACL_RULE_TEMPLATE, rule_conf, op="DEL")
         self.rule_confs = []
 
 
 class DefaultAclRule(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(DefaultAclRule, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(DefaultAclRule, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
 
     def config(self):
@@ -133,8 +136,8 @@ class DefaultAclRule(AclRuleTest):
 
 
 class AclPriorityTest(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(AclPriorityTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclPriorityTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
         self.src_ip = "10.0.0.2"
         self.src_ip_prefix = self.src_ip + "/32"
@@ -193,8 +196,8 @@ class AclPriorityTest(AclRuleTest):
 
 
 class AclActionTest(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(AclActionTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclActionTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
         self.src_ip = "10.0.0.2"
         self.src_ip_prefix = self.src_ip + "/32"
@@ -229,8 +232,8 @@ class AclActionTest(AclRuleTest):
 
 
 class AclProtocolTest(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(AclProtocolTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclProtocolTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
         self.src_ip = "10.0.0.2"
         self.src_ip_prefix = self.src_ip + "/32"
@@ -264,8 +267,8 @@ class AclProtocolTest(AclRuleTest):
 
 
 class AclAddressTest(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(AclAddressTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclAddressTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
 
     def config(self):
@@ -317,8 +320,8 @@ class AclAddressTest(AclRuleTest):
 
 
 class AclPortTest(AclRuleTest):
-    def __init__(self, duthost, dash_config_info):
-        super(AclPortTest, self).__init__(duthost, dash_config_info)
+    def __init__(self, duthost, ptfhost, dash_config_info):
+        super(AclPortTest, self).__init__(duthost, ptfhost, dash_config_info)
         self.acl_group = DEFAULT_ACL_GROUP
         self.src_ip = "10.0.0.2"
         self.src_ip_prefix = self.src_ip + "/32"
@@ -352,16 +355,16 @@ class AclPortTest(AclRuleTest):
 
 
 @pytest.fixture(scope="function")
-def acl_test_conf(duthost, dash_config_info):
+def acl_test_conf(duthost, ptfhost, dash_config_info):
     testcases = []
-    testcases.append(DefaultAclGroupTest(duthost, dash_config_info))
-    testcases.append(DefaultAclRule(duthost, dash_config_info))
-    testcases.append(AclPriorityTest(duthost, dash_config_info))
-    testcases.append(AclActionTest(duthost, dash_config_info))
+    testcases.append(DefaultAclGroupTest(duthost, ptfhost, dash_config_info))
+    testcases.append(DefaultAclRule(duthost, ptfhost, dash_config_info))
+    testcases.append(AclPriorityTest(duthost, ptfhost, dash_config_info))
+    testcases.append(AclActionTest(duthost, ptfhost, dash_config_info))
     # # Cannot passed testcases
-    # testcases.append(AclProtocolTest(duthost, dash_config_info))
-    # testcases.append(AclAddressTest(duthost, dash_config_info))
-    # testcases.append(AclPortTest(duthost, dash_config_info))
+    # testcases.append(AclProtocolTest(duthost, ptfhost, dash_config_info))
+    # testcases.append(AclAddressTest(duthost, ptfhost, dash_config_info))
+    # testcases.append(AclPortTest(duthost, ptfhost, dash_config_info))
 
     for t in testcases:
         t.config()

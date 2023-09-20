@@ -16,6 +16,11 @@ from dash_api.route_pb2 import Route
 from dash_api.route_rule_pb2 import RouteRule
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
+from dash_api.types_pb2 import IpVersion, IpPrefix, ValueOrRange
+from dash_api.acl_group_pb2 import AclGroup
+from dash_api.acl_out_pb2 import AclOut
+from dash_api.acl_in_pb2 import AclIn
+from dash_api.acl_rule_pb2 import AclRule, Action
 
 logger = logging.getLogger(__name__)
 
@@ -322,6 +327,58 @@ def json_to_proto(key, json_obj):
         pbi.action_name = json_obj["name"]
         pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
         pb.items.append(pbi)
+    elif table_name == "ACL_GROUP":
+        pb = AclGroup()
+        pb.guid.value = bytes.fromhex(uuid.UUID(json_obj["guid"]).hex)
+        pb.ip_version = IpVersion.IP_VERSION_IPV4
+    elif table_name == "ACL_OUT":
+        pb = AclOut()
+        pb.v4_acl_group_id = json_obj["acl_group_id"]
+    elif table_name == "ACL_IN":
+        pb = AclIn()
+        pb.v4_acl_group_id = json_obj["acl_group_id"]
+    elif table_name == "ACL_RULE":
+        pb = AclRule()
+        pb.priority = int(json_obj["priority"])
+        pb.action = Action.ACTION_DENY if json_obj["action"] == "deny" else Action.ACTION_PERMIT
+        pb.terminating = json_obj["terminating"] == "true"
+        if "src_addr" in json_obj:
+            for addr in json_obj["src_addr"].split(','):
+                net = ipaddress.IPv4Network(addr, False)
+                ip = IpPrefix()
+                ip.ip.ipv4 = socket.htonl(int(net.network_address))
+                ip.mask.ipv4 = socket.htonl(int(net.netmask))
+                pb.src_addr.append(ip)
+        if "dst_addr" in json_obj:
+            for addr in json_obj["dst_addr"].split(','):
+                net = ipaddress.IPv4Network(addr, False)
+                ip = IpPrefix()
+                ip.ip.ipv4 = socket.htonl(int(net.network_address))
+                ip.mask.ipv4 = socket.htonl(int(net.netmask))
+                pb.dst_addr.append(ip)
+        elif "src_port" in json_obj:
+            for port in json_obj["src_port"].split(','):
+                vr = ValueOrRange()
+                if "-" not in port:
+                    vr.value = int(port)
+                else:
+                    vr.range.min = int(port.split('-')[0])
+                    vr.range.max = int(port.split('-')[1])
+                pb.src_port.append(vr)
+        elif "dst_port" in json_obj:
+            for port in json_obj["dst_port"].split(','):
+                vr = ValueOrRange()
+                if "-" not in port:
+                    vr.value = int(port)
+                else:
+                    vr.range.min = int(port.split('-')[0])
+                    vr.range.max = int(port.split('-')[1])
+                pb.dst_port.append(vr)
+        elif "protocol" in json_obj:
+            for proto in json_obj["protocol"].split(','):
+                pb.protocol.append(int(proto))
+        else:
+            pytest.fail("Unknown attribute %s" % json_obj)
     else:
         pytest.fail("Unknown table %s" % table_name)
     return pb.SerializeToString()
