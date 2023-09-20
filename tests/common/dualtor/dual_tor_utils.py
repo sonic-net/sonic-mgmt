@@ -12,6 +12,7 @@ import re
 import string
 import sys
 import six
+import tabulate
 
 from collections import defaultdict
 from datetime import datetime
@@ -28,6 +29,9 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
+from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter                       # noqa F401
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                           # noqa F401
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
@@ -1622,3 +1626,96 @@ def config_active_active_dualtor_active_standby(
 
         for duthost in duthosts:
             duthost.shell_cmds(cmds=restore_cmds)
+
+
+@pytest.fixture(autouse=True)
+def check_simulator_flap_counter(
+    nic_simulator_flap_counter, simulator_flap_counter, active_active_ports, active_standby_ports, cable_type   # noqa F811
+):
+    """Check the flap count for mux ports."""
+
+    def set_expected_counter_diff(diff):
+        """Set expected counter difference."""
+        if isinstance(diff, list) or isinstance(diff, tuple):
+            expected_diff.extend(diff)
+        else:
+            expected_diff.append(diff)
+
+    def check_nic_simulator_flaps_helper(mux_ports):
+        logging.info("Check active-active mux port flap counters: %s", mux_ports)
+        result = nic_simulator_flap_counter(mux_ports)
+        mux_port_flaps = {}
+        for mux_port, flaps in zip(mux_ports, result):
+            mux_port_flaps[mux_port] = {
+                UPPER_TOR: flaps[ActiveActivePortID.UPPER_TOR],
+                LOWER_TOR: flaps[ActiveActivePortID.LOWER_TOR]
+            }
+        return mux_port_flaps
+
+    def check_mux_simulator_flaps_helper(mux_ports):
+        logging.info("Check active-standby mux port flap counters: %s", mux_ports)
+        mux_port_flaps = {}
+        for mux_port in mux_ports:
+            flaps = simulator_flap_counter(mux_port)
+            mux_port_flaps[mux_port] = {
+                UPPER_TOR: flaps,
+                LOWER_TOR: flaps
+            }
+        return mux_port_flaps
+
+    def check_flaps_diff_active_active(expected_diff, counter_diffs):
+        unexpected_flap_mux_ports = []
+        for mux_port, counter_diff in counter_diffs.items():
+            if (counter_diff[UPPER_TOR] != expected_diff[ActiveActivePortID.UPPER_TOR] or
+                    counter_diff[LOWER_TOR] != expected_diff[ActiveActivePortID.LOWER_TOR]):
+                unexpected_flap_mux_ports.append(mux_port)
+        return unexpected_flap_mux_ports
+
+    def check_flaps_diff_active_standby(expected_diff, counter_diffs):
+        unexpected_flap_mux_ports = []
+        for mux_port, counter_diff in counter_diffs.items():
+            if counter_diff[UPPER_TOR] != expected_diff[-1] or counter_diff[LOWER_TOR] != expected_diff[-1]:
+                unexpected_flap_mux_ports.append(mux_port)
+        return unexpected_flap_mux_ports
+
+    def log_flap_counter(flap_counters):
+        for mux_port, flaps in flap_counters.items():
+            logging.debug("Mux port %s flap counter: %s", mux_port, flaps)
+
+    expected_diff = []
+    if cable_type == CableType.active_active:
+        mux_ports = [str(_) for _ in active_active_ports]
+        check_flap_func = check_nic_simulator_flaps_helper
+        check_flap_diff_func = check_flaps_diff_active_active
+    elif cable_type == CableType.active_standby:
+        mux_ports = [str(_) for _ in active_standby_ports]
+        check_flap_func = check_mux_simulator_flaps_helper
+        check_flap_diff_func = check_flaps_diff_active_standby
+    else:
+        raise ValueError
+
+    counters_before = check_flap_func(mux_ports)
+    log_flap_counter(counters_before)
+    yield set_expected_counter_diff
+    counters_after = check_flap_func(mux_ports)
+    log_flap_counter(counters_after)
+
+    counter_diffs = {}
+    for mux_port in mux_ports:
+        counter_diffs[mux_port] = {
+            UPPER_TOR: counters_after[mux_port][UPPER_TOR] - counters_before[mux_port][UPPER_TOR],
+            LOWER_TOR: counters_after[mux_port][LOWER_TOR] - counters_before[mux_port][LOWER_TOR]
+        }
+    logging.info(
+        "\n%s\n",
+        tabulate.tabulate(
+            [[mux_port, flaps[UPPER_TOR], flaps[LOWER_TOR]] for mux_port, flaps in counter_diffs.items()],
+            headers=["port", "upper ToR flaps", "lower ToR flaps"]
+        )
+    )
+    if expected_diff:
+        unexpected_flap_mux_ports = check_flap_diff_func(expected_diff, counter_diffs)
+        error_str = json.dumps(unexpected_flap_mux_ports, indent=4)
+        if unexpected_flap_mux_ports:
+            logging.error(error_str)
+            raise ValueError(error_str)
