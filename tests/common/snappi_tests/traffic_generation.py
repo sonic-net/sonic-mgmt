@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
-PFC_FRAME_COUNT_TOL = 5
-PAUSE_FLOW_PORT_SPEED = -4
+PFC_FRAME_COUNT_TOL = 5  # Tolerance for PFC frame count when DUT is not expected to receive PFC pause frames
 
 
 def setup_base_traffic_config(testbed_config,
@@ -545,6 +544,7 @@ def verify_pause_frame_count_dut(duthost,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
                               .format(prios[prio]))
             else:
+                # PFC pause frames should not be transmitted when test traffic is not paused
                 pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
@@ -556,6 +556,7 @@ def verify_pause_frame_count_dut(duthost,
                               "PFC pause frames should be received and counted in RX PFC counters for priority {}"
                               .format(prios[prio]))
             else:
+                # PFC pause frames should not be received when test traffic is not paused
                 pytest_assert(pfc_pause_rx_frames <= PFC_FRAME_COUNT_TOL,
                               "PFC pause frames should not be received and counted in RX PFC counters")
 
@@ -578,12 +579,12 @@ def verify_tx_frame_count_dut(duthost,
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
-    tgen_tx_frames = snappi_extra_params.test_tx_frames
+    test_tx_frames = snappi_extra_params.test_tx_frames
 
     # RX frames on DUT must TX once DUT stops receiving PFC pause frames
     for peer_port, _ in dut_port_config[1].items():
         tx_frames, tx_drop_frames = get_tx_frame_count(duthost, peer_port)
-        pytest_assert(abs(sum(tgen_tx_frames) - tx_frames)/sum(tgen_tx_frames) <= tx_frame_count_deviation,
+        pytest_assert(abs(sum(test_tx_frames) - tx_frames)/sum(test_tx_frames) <= tx_frame_count_deviation,
                       "Additional frames are transmitted outside of deviation. Possible PFC frames are counted.")
         pytest_assert(tx_drop_frames <= tx_drop_frame_count_tol, "No frames should be dropped")
 
@@ -605,12 +606,12 @@ def verify_rx_frame_count_dut(duthost,
     """
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
-    tgen_tx_frames = snappi_extra_params.test_tx_frames
+    test_tx_frames = snappi_extra_params.test_tx_frames
 
     # TX on TGEN is RX on DUT
     for peer_port, _ in dut_port_config[0].items():
         rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
-        pytest_assert(abs(sum(tgen_tx_frames) - rx_frames)/sum(tgen_tx_frames) <= rx_frame_count_deviation,
+        pytest_assert(abs(sum(test_tx_frames) - rx_frames)/sum(test_tx_frames) <= rx_frame_count_deviation,
                       "Additional frames are received outside of deviation. Possible PFC frames are counted.")
         pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 
