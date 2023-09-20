@@ -5,6 +5,8 @@ import time
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # noqa F401
 from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                    # noqa F401
+from tests.common.dualtor.data_plane_utils import send_server_to_t1_with_action                 # noqa F401
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action                 # noqa F401
 from tests.common.dualtor.mux_simulator_control import set_drop                                 # noqa F401
 from tests.common.dualtor.mux_simulator_control import set_drop_all                             # noqa F401
 from tests.common.dualtor.mux_simulator_control import set_output                               # noqa F401
@@ -12,15 +14,15 @@ from tests.common.dualtor.mux_simulator_control import simulator_flap_counter   
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
 from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter               # noqa F401
 from tests.common.dualtor.nic_simulator_control import set_drop_active_active                   # noqa F401
-from tests.common.dualtor.nic_simulator_control import is_active_active                         # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import drop_flow_tor_active_active              # lgtm[py/unused-import]
-from tests.common.dualtor.nic_simulator_control import drop_flow_upper_tor_active_active        # lgtm[py/unused-import]
+from tests.common.dualtor.nic_simulator_control import is_active_active                         # noqa F401
+from tests.common.dualtor.nic_simulator_control import drop_flow_tor_active_active              # noqa F401
+from tests.common.dualtor.nic_simulator_control import drop_flow_upper_tor_active_active        # noqa F401
 from tests.common.dualtor.nic_simulator_control import TrafficDirection
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                            # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                         # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import ActiveActivePortID
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                            # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                           # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401

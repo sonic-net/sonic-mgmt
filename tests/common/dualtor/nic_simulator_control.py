@@ -418,7 +418,6 @@ def simulator_server_down_active_active(active_active_ports, set_drop_active_act
     return _simulate_server_down
 
 
-
 @pytest.fixture
 def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
     """Return a helper function to retrieve flap counter for active-active ports."""
@@ -450,7 +449,7 @@ def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
 
 
 @pytest.fixture(scope="function")
-def is_active_active(tbinfo, cable_type):
+def is_active_active(tbinfo, cable_type): # noqa F811
     return 'dualtor' in tbinfo['topo']['name'] and cable_type == CableType.active_active
 
 
