@@ -439,7 +439,8 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-            cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']), module_ignore_errors=True)
+            if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
+                cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -447,6 +448,20 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+def check_switchport_cmd(duthost, tport):
+    cmds = 'config switchport mode trunk {port}'.format(port=tport)
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    if output['rc'] == 0:
+        cmds = 'config switchport mode routed {port}'.format(port=tport)
+        logger.info("Commands: {}".format(cmds))
+        output = duthost.shell(cmds, module_ignore_errors=True)
+        return True
+
+    return False
 
 
 def _dut_qos_map(dut):
