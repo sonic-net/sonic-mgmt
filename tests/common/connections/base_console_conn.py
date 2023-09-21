@@ -10,7 +10,6 @@ from netmiko.ssh_exception import NetMikoAuthenticationException
 # For interactive shell
 import sys
 import socket
-from paramiko.py3compat import u
 import termios
 import tty
 import select
@@ -98,9 +97,6 @@ class BaseConsoleConn(CiscoBaseConnection):
             tty.setcbreak(sys.stdin.fileno())
             self.remote_conn.settimeout(0.0)
 
-            reload(sys)
-            sys.setdefaultencoding('utf8')
-
             while True:
                 r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
                 if self.remote_conn in r:
@@ -109,6 +105,8 @@ class BaseConsoleConn(CiscoBaseConnection):
                         if len(x) == 0:
                             sys.stdout.write("\r\n*** EOF\r\n")
                             break
+
+                        x = x.decode('ISO-8859-9')
                         sys.stdout.write(x)
                         sys.stdout.flush()
                     except socket.timeout:
