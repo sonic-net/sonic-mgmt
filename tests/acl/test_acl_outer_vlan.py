@@ -279,14 +279,9 @@ def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_li
     testutils.send(ptfadapter, src_port_list[0], pkt)
 
     if pkt_action == ACTION_FORWARD:
-        for dst_port in dst_port_list:
-            result = testutils.dp_poll(ptfadapter, port_number=dst_port, timeout=5, exp_pkt=exp_pkt)
-            if isinstance(result, ptfadapter.dataplane.PollSuccess):
-                return
-        ptfadapter.fail("Expected packet was not received on ports %s.\n" % (str(dst_port_list)))
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=dst_port_list, timeout=20)
     elif pkt_action == ACTION_DROP:
-        for dst_port in dst_port_list:
-            testutils.verify_no_packet(ptfadapter, exp_pkt, dst_port)
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=dst_port_list)
 
 
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
@@ -421,6 +416,8 @@ def check_mac_status(duthost, ptfadapter, vlan, mac, port):
     Returns:
         Bool value
     """
+    if isinstance(mac, bytes):
+        mac = mac.decode()
     # Populate mac table on DUT
     # Learn mac
     mac_pkt = testutils.simple_tcp_packet(eth_src=mac, dl_vlan_enable=True, vlan_vid=vlan)
@@ -429,7 +426,7 @@ def check_mac_status(duthost, ptfadapter, vlan, mac, port):
     for line in res:
         data = line.split()
         if data and len(data) == 5:
-            if data[1] == str(vlan) and data[2].lower().encode() == mac:
+            if data[1] == str(vlan) and data[2].lower() == mac:
                 return True
     return False
 
