@@ -51,6 +51,11 @@ arp/test_wr_arp.py:
     conditions:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-buildimage/issues/16502
+  xfail:
+    reason: "Warm reboot has a known issue on 7050cx3"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/10077
 
 #######################################
 #####            bfd              #####
@@ -786,9 +791,8 @@ pfcwd/test_pfcwd_warm_reboot.py:
    xfail:
      reason: "Warm Reboot is not supported in dualtor."
      conditions:
-        - "'dualtor' in topo_name"
+        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master'])"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
-        - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####         platform_tests      #####
@@ -828,6 +832,11 @@ platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
+
+platform_tests/test_cont_warm_reboot.py:
+  xfail:
+    reason: "warm reboot has a known issue on 7050cx3"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####           qos               #####
