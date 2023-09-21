@@ -620,7 +620,7 @@ class VMTopology(object):
                        (self.pid, vlan_sub_iface_name))
 
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
-
+        logging.info("=== Restore docker interface %s as dut interface %s ===" % (iface_name, dut_iface))
         if self.pid is None:
             return
 
@@ -864,6 +864,7 @@ class VMTopology(object):
                 VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
 
     def unbind_fp_ports(self):
+        logging.info("=== unbind front panel ports ===")
         for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
                 br_name = adaptive_name(
@@ -1261,6 +1262,7 @@ class VMTopology(object):
         """
         remove dut port from the ptf docker
         """
+        logging.info("=== Remove host ports ===")
         for i, intf in enumerate(self.host_interfaces):
             if self._is_multi_duts:
                 if isinstance(intf, list):

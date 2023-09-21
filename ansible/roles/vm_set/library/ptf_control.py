@@ -47,8 +47,8 @@ class PtfControl(object):
             msg = {
                 'cmd': cmdline,
                 'rc': rc,
-                'stdout': out.splitlines(),
-                'stderr': err.splitlines()
+                'stdout_lines': out.splitlines(),
+                'stderr_lines': err.splitlines()
             }
             logging.debug('***** RUN CMD:\n%s' % json.dumps(msg, indent=2))
 
@@ -71,30 +71,25 @@ class PtfControl(object):
         _, out, _ = self.cmd(cmd, ignore_failure=True)
         return [int(pid.strip()) for pid in out.splitlines()]
 
+    def get_supervisord_processes(self):
+        _, out, _ = self.cmd('docker exec -t {} bash -c "supervisorctl status"'.format(self.ctn_name), ignore_failure=True)
+        processes = [line.strip().split()[0] for line in out.splitlines() if "sshd" not in line]
+        return processes
+
     def kill_process(self, pid):
         self.cmd('docker exec -t {} bash -c "kill -9 {}"'.format(self.ctn_name, pid), ignore_failure=True)
 
     def kill_processes(self):
+        supervisord_processes = self.get_supervisord_processes()
         self.cmd('docker exec -t {} bash -c "ps -ef"'.format(self.ctn_name))
         for i in range(3):
             logging.info("=== Attempt %d ===" % (i + 1))
             logging.info("=== Use supervisorctl to stop processes ===")
-            self.cmd(
-                'docker exec -t {} bash -c "supervisorctl stop exabgpv4:*"'.format(self.ctn_name),
-                ignore_failure=True
-            )
-            self.cmd(
-                'docker exec -t {} bash -c "supervisorctl stop exabgpv6:*"'.format(self.ctn_name),
-                ignore_failure=True
-            )
-            self.cmd(
-                'docker exec -t {} bash -c "supervisorctl stop ptf_nn_agent"'.format(self.ctn_name),
-                ignore_failure=True
-            )
-            self.cmd(
-                'docker exec -t {} bash -c "supervisorctl stop ptf_tgen"'.format(self.ctn_name),
-                ignore_failure=True
-            )
+            for process in supervisord_processes:
+                self.cmd(
+                    'docker exec -t {} bash -c "supervisorctl stop {}"'.format(self.ctn_name, process),
+                    ignore_failure=True
+                )
             self.cmd(
                 'docker exec -t {} bash -c "ps -ef"'.format(self.ctn_name)
             )
