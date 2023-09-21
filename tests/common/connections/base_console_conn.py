@@ -3,6 +3,7 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+
 from netmiko.cisco_base_connection import CiscoBaseConnection
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
@@ -97,11 +98,14 @@ class BaseConsoleConn(CiscoBaseConnection):
             tty.setcbreak(sys.stdin.fileno())
             self.remote_conn.settimeout(0.0)
 
+            reload(sys)
+            sys.setdefaultencoding('utf8')
+
             while True:
                 r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
                 if self.remote_conn in r:
                     try:
-                        x = u(self.remote_conn.recv(1024))
+                        x = self.remote_conn.recv(1024)
                         if len(x) == 0:
                             sys.stdout.write("\r\n*** EOF\r\n")
                             break
