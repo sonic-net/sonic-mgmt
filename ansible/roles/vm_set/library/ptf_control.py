@@ -72,7 +72,9 @@ class PtfControl(object):
         return [int(pid.strip()) for pid in out.splitlines()]
 
     def get_supervisord_processes(self):
-        _, out, _ = self.cmd('docker exec -t {} bash -c "supervisorctl status"'.format(self.ctn_name), ignore_failure=True)
+        _, out, _ = self.cmd(
+            'docker exec -t {} bash -c "supervisorctl status"'.format(self.ctn_name), ignore_failure=True
+        )
         processes = [line.strip().split()[0] for line in out.splitlines() if "sshd" not in line]
         return processes
 
