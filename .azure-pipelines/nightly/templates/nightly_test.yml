@@ -304,7 +304,8 @@ stages:
                 NEED_SHUTDOWN='No'
                 SONIC_VERSION=$(ansible -i $(INVENTORY_NAME) $(echo $(DUT_LIST) | cut -d " " -f1) -m command -a "cat /etc/sonic/sonic_version.yml")
                 BRANCH_NAME=$(echo "$SONIC_VERSION" | grep branch: | cut -d "'" -f2)
-                if [ "$ENABLE_FIPS" == 'yes' ] || ([ "$ENABLE_FIPS" != 'no' ] && [[ "$BRANCH_NAME" == "internal" || "$BRANCH_NAME" == "master" ]]); then
+                RELEASE_BRANCH_VERSION=$(echo "$BRANCH_NAME" | sed 's/internal-//g' | cut -c 1-6)
+                if [ "$ENABLE_FIPS" == 'yes' ] || ([ "$ENABLE_FIPS" != 'no' ] && [[ "$BRANCH_NAME" == "internal" || "$BRANCH_NAME" == "master" || "$RELEASE_BRANCH_VERSION" -ge "202305" ]]); then
                     NEED_SHUTDOWN='yes'
                     for dut in $DUT_LIST; do
                         ansible -i $(INVENTORY_NAME) $dut -m command -a "sudo sonic-installer set-fips"
