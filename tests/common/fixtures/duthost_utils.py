@@ -421,7 +421,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
-
     # Delete untagged vlans from interfaces to avoid error message
     # when adding untagged vlan to interface that already have one
     if delete_untagged_vlan and '201911' not in duthost.os_version:
