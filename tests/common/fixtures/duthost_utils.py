@@ -449,6 +449,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
+
 def _dut_qos_map(dut):
     """
     A helper function to get QoS map from DUT host.
