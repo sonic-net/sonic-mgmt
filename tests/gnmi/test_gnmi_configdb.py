@@ -1,7 +1,6 @@
 import json
 import logging
 import pytest
-import re
 
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
 from tests.common.helpers.assertions import pytest_assert
