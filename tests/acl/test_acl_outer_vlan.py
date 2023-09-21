@@ -423,9 +423,7 @@ def check_mac_status(duthost, ptfadapter, vlan, mac, port):
     """
     # Populate mac table on DUT
     # Learn mac
-    mac_pkt = testutils.simple_tcp_packet(eth_src=mac,
-                                        dl_vlan_enable=True,
-                                        vlan_vid=vlan)
+    mac_pkt = testutils.simple_tcp_packet(eth_src=mac, dl_vlan_enable=True, vlan_vid=vlan)
     testutils.send(ptfadapter, port, mac_pkt)
     res = duthost.shell("show mac")['stdout_lines']
     for line in res:
