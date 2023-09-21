@@ -165,11 +165,7 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    config_ports = {
-        k: {**v, 'mode': 'trunk'}
-        for k, v in list(cfg_facts['PORT'].items())
-        if v.get('admin_status', 'down') == 'up'
-        }
+    config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
     config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
     ptf_ports_available_in_topo = {
         port_index: 'eth{}'.format(port_index) for port_index in list(config_port_indices.values())
@@ -269,11 +265,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_ports_list = []
-    config_ports = {
-        k: {**v, 'mode': 'trunk'}
-        for k, v in list(cfg_facts['PORT'].items())
-        if v.get('admin_status', 'down') == 'up'
-        }
+    config_ports = {k: v for k, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', 'down') == 'up'}
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_indices = {k: v for k, v in list(mg_facts['minigraph_ptf_indices'].items()) if k in config_ports}
     config_ports_vlan = collections.defaultdict(list)
@@ -447,6 +439,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
+
+            if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
+                cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -454,6 +449,15 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
+
+
+def check_switchport_cmd(duthost, tport):
+    cmds = 'config switchport mode trunk {port}'.format(port=tport)
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+    if (output['rc'] == 0):
+        return True
+    return False
 
 
 def _dut_qos_map(dut):
