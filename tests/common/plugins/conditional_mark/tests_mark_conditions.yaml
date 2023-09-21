@@ -642,6 +642,12 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: 'Skip for t0-sonic to prevent deadlock with code PR merge'
+    conditions:
+      - "'t0' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
