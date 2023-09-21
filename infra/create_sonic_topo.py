@@ -755,7 +755,7 @@ def determine_base_topo(topo_type, device_type):
     return base_topo_file, vEOS_count, ptf_intfcount
 
 def start_vxr(input_file, cicd, clean_sim, topo_yaml):
-    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py"
     if input_file:
         return vxr_path, input_file
     
@@ -910,10 +910,6 @@ def main():
     print("******************************************************************************************************************************************************************************\n")
 
     print_env_info(data, device_type, vEOS_count)
-
-    if cicd_clean:
-        print("****** Clearing SIM at the end of CICD run ******** ")
-        os.system("{} clean".format(vxr_path))
 
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
