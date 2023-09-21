@@ -61,7 +61,6 @@ parameters:
   - name: SCRIPTS
     type: string
     default: " "
-    displayName:
     displayName: "Scripts to be executed"
 
   - name: FEATURES
