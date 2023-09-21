@@ -208,7 +208,6 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
     for port_name in portchannel_setup[DUT_LAG_NAME]['member']:
         cmds.append("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
     rand_selected_dut.shell_cmds(cmds=cmds)
-    time.sleep(10)
 
     # Add ptf lag
     lag_ip = '192.100.0.2/28'
@@ -422,12 +421,12 @@ def check_mac_status(duthost, ptfadapter, vlan, mac, port):
     # Learn mac
     mac_pkt = testutils.simple_tcp_packet(eth_src=mac, dl_vlan_enable=True, vlan_vid=vlan)
     testutils.send(ptfadapter, port, mac_pkt)
-    res = duthost.shell("show mac")['stdout_lines']
-    for line in res:
-        data = line.split()
-        if data and len(data) == 5:
-            if data[1] == str(vlan) and data[2].lower() == mac:
-                return True
+    fdb_fact = duthost.fdb_facts()['ansible_facts']
+    for k, vl in list(fdb_fact.items()):
+        if k.lower() == mac:
+            for v in vl:
+                if vlan == v['vlan']:
+                    return True
     return False
 
 
@@ -443,11 +442,10 @@ def check_arp_status(duthost, ip):
     """
     # Populate ARP table on DUT
     duthost.shell("ping -c 1 {}".format(ip), module_ignore_errors=True)
-    res = duthost.shell("show arp")['stdout_lines']
-    for line in res:
-        data = line.split()
-        if data and data[0] == ip:
-            return True
+    # Get DUT arp table
+    switch_arptable = duthost.switch_arptable()['ansible_facts']
+    if ip in switch_arptable['arptable']['v4']:
+        return True
     return False
 
 
@@ -576,6 +574,8 @@ class AclVlanOuterTest_Base(object):
         elif stage == EGRESS:
             # Wait arp
             pytest_assert(wait_until(30, 1, 0, check_arp_status, duthost, dst_ip), "arp table is not updated")
+        else:
+            pytest.fail("Unexpected stage: {}".format(stage))
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
         try:
@@ -692,6 +692,7 @@ class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     Verify ACL rule matching outer vlan id in ingress
     """
     def pre_running_hook(self, duthost, ptfhost, ip_version, vlan_setup_info):
+        pytest_assert(len(vlan_setup_info) == 4, "Invalid Vlan setup")
         self._setup_acl_table(duthost, INGRESS, ip_version, vlan_setup_info[2])
 
     def post_running_hook(self, duthost, ptfhost, ip_version):
@@ -781,6 +782,7 @@ class TestAclVlanOuter_Egress(AclVlanOuterTest_Base):
         pytest_require(ip_version == IPV4,
                        "IPV6 EGRESS test not supported")
 
+        pytest_assert(len(vlan_setup_info) == 4, "Invalid Vlan setup")
         self._setup_acl_table(duthost, EGRESS, ip_version, vlan_setup_info[2])
         self.testing_acl_table_created = True
         ip_list = self._setup_arp_responder(ptfhost, vlan_setup_info)
