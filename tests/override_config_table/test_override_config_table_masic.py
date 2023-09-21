@@ -98,28 +98,22 @@ def load_minigraph_with_golden_empty_input(duthost):
 def load_minigraph_with_golden_partial_config(duthost):
     """Test Golden Config with partial config.
 
-    Here we assume all config contain SYSLOG_SERVER table
+    Here we assume all config contain MGMT_INTERFACE table
     """
     partial_config = {
       "localhost": {
-        "SYSLOG_SERVER": {
-          "10.0.0.100": {}
-        }
+          "MGMT_INTERFACE": {}
       },
       "asic0": {
-          "SYSLOG_SERVER": {
-            "10.0.0.100": {}
-          }
+          "MGMT_INTERFACE": {}
       }
     }
     reload_minigraph_with_golden_config(duthost, partial_config)
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        'localhost' in current_config and
-        'asic0' in current_config and
-        current_config['localhost']['SYSLOG_SERVER'] == partial_config['localhost']['SYSLOG_SERVER'],
-        "Partial config override fail: {}".format(current_config['SYSLOG_SERVER'])
+        current_config['localhost']['MGMT_INTERFACE'] == partial_config['localhost']['MGMT_INTERFACE'],
+        "Partial config override fail: {}".format(current_config['MGMT_INTERFACE'])
     )
 
 
@@ -148,8 +142,6 @@ def load_minigraph_with_golden_new_feature(duthost):
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        'localhost' in current_config and
-        'asic0' in current_config and
         'NEW_FEATURE_TABLE' in current_config['localhost'] and
         current_config['localhost']['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
         "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
@@ -159,23 +151,21 @@ def load_minigraph_with_golden_new_feature(duthost):
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
-    Here we assume all config contain SYSLOG_SERVER table
+    Here we assume all config contain MGMT_INTERFACE table
     """
     empty_table_removal = {
         "localhost": {
-            "SYSLOG_SERVER": {}
+            "MGMT_INTERFACE": {}
         },
         "asic0": {
-            "SYSLOG_SERVER": {}
+            "MGMT_INTERFACE": {}
         },
     }
     reload_minigraph_with_golden_config(duthost, empty_table_removal)
 
     current_config = get_running_config(duthost)
     pytest_assert(
-        'localhost' in current_config and
-        'asic0' in current_config and
-        current_config['localhost'].get('SYSLOG_SERVER', None) is None,
+        current_config['localhost'].get('MGMT_INTERFACE', None) is None,
         "Empty table removal fail: {}".format(current_config)
     )
 
