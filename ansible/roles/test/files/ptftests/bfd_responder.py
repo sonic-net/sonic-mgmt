@@ -104,16 +104,21 @@ class BFD_Responder(BaseTest):
                 continue
 
             session = {}
+            if self.sessions[ip_dst] != {}:
+                session['my_disc'] = self.sessions[ip_dst]['my_disc']
+                session["src_port"] = self.sessions[ip_dst]["src_port"]
+            else:
+                session["src_port"] = self.local_src_port
+                self.local_disc_base += 1
+                self.local_src_port += 1
+                session['my_disc'] = self.local_disc_base
+
             session['addr'] = ip_dst
             session['remote_addr'] = ip_src
             session['intf'] = result.port
             session['multihop'] = True
             session['mac'] = mac_dst
             session['pkt'] = ''
-            session["src_port"] = self.local_src_port
-            self.local_disc_base += 1
-            self.local_src_port += 1
-            session['my_disc'] = self.local_disc_base
             session["other_disc"] = bfd_remote_disc
 
             bfd_pkt_init = self.craft_bfd_packet(
