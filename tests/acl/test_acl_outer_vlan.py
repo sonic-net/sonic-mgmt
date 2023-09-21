@@ -593,6 +593,7 @@ class AclVlanOuterTest_Base(object):
         finally:
             self._remove_acl_rules(duthost, stage, ip_version)
 
+    @pytest.mark.po2vlan
     def test_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                               ):
@@ -602,6 +603,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_TAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                             ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                             ):
@@ -611,6 +613,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_TAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                 ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                 ):
@@ -620,6 +623,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_UNTAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                               ):
@@ -629,6 +633,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_UNTAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_combined_tagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                        ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                        ):
@@ -638,6 +643,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_TAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_combined_tagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                      ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                      ):
@@ -647,6 +653,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_TAGGED, ACTION_DROP)
 
+    @pytest.mark.po2vlan
     def test_combined_untagged_forwarded(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                          ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                          ):
@@ -656,6 +663,7 @@ class AclVlanOuterTest_Base(object):
         self._do_verification(ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                               ip_version, TYPE_COMBINE_UNTAGGED, ACTION_FORWARD)
 
+    @pytest.mark.po2vlan
     def test_combined_untagged_dropped(self, ptfadapter, rand_selected_dut, tbinfo, vlan_setup_info,
                                        ip_version, toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F811
                                        ):
