@@ -3,6 +3,7 @@ The SnappiTestParams module allows for modular pass through of test parameters f
 """
 
 from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
 
 
 class SnappiTestParams():
@@ -23,14 +24,13 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                 for priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
             ecn_params (dict): ECN parameters
                 Dict values:
                     kmin: minimum ECN marking threshold
                     kmax: maximum ECN marking threshold
                     pmax: maximum ECN marking probability
-            pkt_size (int): packet size for background and test traffic
-            pkt_count (int): packet count for background and test traffic
-                    
+            traffic_flow_config (TrafficFlowConfig obj): traffic flow configuration object
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -41,6 +41,6 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
+        self.gen_background_traffic = True
         self.ecn_params = None
-        self.pkt_size = 1024
-        self.pkt_count = 1
+        self.traffic_flow_config = TrafficFlowConfig()

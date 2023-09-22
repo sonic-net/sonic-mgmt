@@ -850,16 +850,46 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-class traffic_flow(Enum):
+class pfc_traffic_flow(Enum):
     """
-    ENUM of traffic settings
-    NO_CAPTURE - No capture
-    PFC_CAPTURE - PFC capture enabled
-    IP_CAPTURE - IP capture enabled
+    ENUM of pfc traffic settings
+    CONTINUOUS - -100
+    BURST - -99
+    FIXED_PACKETS - -98
+    FIXED_DURATION - -97
     """
-    NO_CAPTURE = "No_Capture"
-    PFC_CAPTURE = "PFC_Capture"
-    IP_CAPTURE = "IP_Capture"
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
+
+
+class data_traffic_flow(Enum):
+    """
+    ENUM of data/test traffic settings
+    CONTINUOUS - No capture
+    BURST - PFC capture enabled
+    FIXED_PACKETS - IP capture enabled
+    FIXED_DURATION - IP capture enabled
+    """
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
+
+
+class background_traffic_flow(Enum):
+    """
+    ENUM of background traffic settings
+    CONTINUOUS - -100
+    BURST - -99
+    FIXED_PACKETS - -98
+    FIXED_DURATION - -97
+    """
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
 
 
 def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
@@ -889,3 +919,19 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         ip_filter.value = '40'
         ip_filter.offset = 14  # Offset is the length of the Ethernet header
         ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+
+
+def calc_pfc_pause_flow_rate(port_speed, block_factor=2):
+    """
+    Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
+    factor.
+    Args:
+        port_speed (int): port speed in gbps ex. 100
+        block_factor (int): factor by which to block the port (default: 2)
+    Returns:
+        pps: pause frames to be sent per second to block port by block_factor
+    """
+    pause_dur = 65535 * 64 * 8.0 / (port_speed * 1e9)
+    pps = int(block_factor / pause_dur)
+
+    return pps
