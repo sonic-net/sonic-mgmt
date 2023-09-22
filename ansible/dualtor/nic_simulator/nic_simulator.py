@@ -183,7 +183,7 @@ class OVSGroup(StrObj):
 class OVSFlow(StrObj):
     """Object to represent an OVS flow."""
 
-    __slots__ = ("in_port", "output_ports", "group", "priority", "_str_prefix")
+    __slots__ = ("in_port", "output_ports", "group", "priority", "_str_prefix", "packet_filter", "drop")
 
     def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
         self.in_port = in_port
