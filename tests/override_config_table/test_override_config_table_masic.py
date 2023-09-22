@@ -114,12 +114,12 @@ def load_minigraph_with_golden_partial_config(duthost):
     partial_config = {
       "localhost": {
           "MGMT_INTERFACE": {
-              "eth0|0.0.0.0/23":{}
+              "eth0|0.0.0.0/23": {}
           }
       },
       "asic0": {
           "MGMT_INTERFACE": {
-              "eth0|0.0.0.0/23":{}
+              "eth0|0.0.0.0/23": {}
           }
       }
     }
@@ -175,6 +175,7 @@ def load_minigraph_with_golden_new_feature(duthost):
         "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
     )
 
+
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
@@ -201,6 +202,8 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
         asic0_current_config['asic0'].get('MGMT_INTERFACE', None) is None,
         "Empty table removal fail: {}".format(asic0_current_config)
     )
+
+
 def test_load_minigraph_with_golden_config(duthost, setup_env):
     """
     Test Golden Config override during load minigraph
