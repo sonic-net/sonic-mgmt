@@ -452,12 +452,12 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 def check_switchport_cmd(duthost, tport):
     cmds = 'config switchport mode trunk {port}'.format(port=tport)
     logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
+    out = duthost.shell(cmds, module_ignore_errors=True)
 
-    if output['rc'] == 0:
+    if out['rc'] == 0:
         cmds = 'config switchport mode routed {port}'.format(port=tport)
         logger.info("Commands: {}".format(cmds))
-        output = duthost.shell(cmds, module_ignore_errors=True)
+        out = duthost.shell(cmds, module_ignore_errors=True)
         return True
 
     return False
