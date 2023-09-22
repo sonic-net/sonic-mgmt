@@ -3,13 +3,13 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+
 from netmiko.cisco_base_connection import CiscoBaseConnection
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
 # For interactive shell
 import sys
 import socket
-from paramiko.py3compat import u
 import termios
 import tty
 import select
@@ -101,10 +101,12 @@ class BaseConsoleConn(CiscoBaseConnection):
                 r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
                 if self.remote_conn in r:
                     try:
-                        x = u(self.remote_conn.recv(1024))
+                        x = self.remote_conn.recv(1024)
                         if len(x) == 0:
                             sys.stdout.write("\r\n*** EOF\r\n")
                             break
+
+                        x = x.decode('ISO-8859-9')
                         sys.stdout.write(x)
                         sys.stdout.flush()
                     except socket.timeout:
