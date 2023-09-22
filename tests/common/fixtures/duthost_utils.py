@@ -421,7 +421,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
-
     # Delete untagged vlans from interfaces to avoid error message
     # when adding untagged vlan to interface that already have one
     if delete_untagged_vlan and '201911' not in duthost.os_version:
@@ -439,7 +438,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-
             if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
                 cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
@@ -454,9 +452,14 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
 def check_switchport_cmd(duthost, tport):
     cmds = 'config switchport mode trunk {port}'.format(port=tport)
     logger.info("Commands: {}".format(cmds))
-    output = duthost.shell(cmds, module_ignore_errors=True)
-    if (output['rc'] == 0):
+    out = duthost.shell(cmds, module_ignore_errors=True)
+
+    if out['rc'] == 0:
+        cmds = 'config switchport mode routed {port}'.format(port=tport)
+        logger.info("Commands: {}".format(cmds))
+        out = duthost.shell(cmds, module_ignore_errors=True)
         return True
+
     return False
 
 
