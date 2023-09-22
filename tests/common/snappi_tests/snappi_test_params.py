@@ -32,7 +32,7 @@ class SnappiTestParams():
             pmax (int): RED/ECN maximum marking probability in percentage
             pkt_size (int): data packet size in bytes
             pkt_cnt (int): data packet count
-            iters (int) : No of iterations in the test
+            test_iterations (int) : No of iterations in the test
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -51,4 +51,4 @@ class SnappiTestParams():
         self.pmax = 0
         self.pkt_size = 0
         self.pkt_cnt = 0
-        self.iters = 1
+        self.test_iterations = 1
