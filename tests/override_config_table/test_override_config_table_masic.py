@@ -85,12 +85,23 @@ def load_minigraph_with_golden_empty_input(duthost):
     empty_input = {}
     reload_minigraph_with_golden_config(duthost, empty_input)
 
-    current_config = get_running_config(duthost)
+    # Test host running config override
+    host_current_config = get_running_config(duthost)
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
         pytest_assert(
-            initial_config[table] == current_config[table],
+            initial_config[table] == host_current_config[table],
+            "empty input compare fail! {}".format(table)
+        )
+    
+    # Test asic0 running config override
+    asic0_current_config = get_running_config(duthost, "asic0")
+    for table in initial_config:
+        if table in NON_USER_CONFIG_TABLES:
+            continue
+        pytest_assert(
+            initial_config[table] == asic0_current_config[table],
             "empty input compare fail! {}".format(table)
         )
 
@@ -102,18 +113,28 @@ def load_minigraph_with_golden_partial_config(duthost):
     """
     partial_config = {
       "localhost": {
-          "MGMT_INTERFACE": {}
+          "MGMT_INTERFACE": {
+              "eth0|0.0.0.0/23":{}
+          }
       },
       "asic0": {
-          "MGMT_INTERFACE": {}
+          "MGMT_INTERFACE": {
+              "eth0|0.0.0.0/23":{}
+          }
       }
     }
     reload_minigraph_with_golden_config(duthost, partial_config)
 
-    current_config = get_running_config(duthost)
+    host_current_config = get_running_config(duthost)
     pytest_assert(
-        current_config['localhost']['MGMT_INTERFACE'] == partial_config['localhost']['MGMT_INTERFACE'],
-        "Partial config override fail: {}".format(current_config['MGMT_INTERFACE'])
+        host_current_config['localhost']['MGMT_INTERFACE'] == partial_config['localhost']['MGMT_INTERFACE'],
+        "Partial config override fail: {}".format(host_current_config['MGMT_INTERFACE'])
+    )
+
+    asic0_current_config = get_running_config(duthost, "asic0")
+    pytest_assert(
+        asic0_current_config['asic0']['MGMT_INTERFACE'] == partial_config['asic0']['MGMT_INTERFACE'],
+        "Partial config override fail: {}".format(asic0_current_config['MGMT_INTERFACE'])
     )
 
 
@@ -140,13 +161,19 @@ def load_minigraph_with_golden_new_feature(duthost):
     }
     reload_minigraph_with_golden_config(duthost, new_feature_config)
 
-    current_config = get_running_config(duthost)
+    host_current_config = get_running_config(duthost)
     pytest_assert(
-        'NEW_FEATURE_TABLE' in current_config['localhost'] and
-        current_config['localhost']['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
+        'NEW_FEATURE_TABLE' in host_current_config['localhost'] and
+        host_current_config['localhost']['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
+        "new feature config update fail: {}".format(host_current_config['NEW_FEATURE_TABLE'])
     )
 
+    asic0_current_config = get_running_config(duthost, "asic0")
+    pytest_assert(
+        'NEW_FEATURE_TABLE' in asic0_current_config['localhost'] and
+        asic0_current_config['asic0']['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
+        "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
+    )
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
@@ -163,13 +190,17 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     }
     reload_minigraph_with_golden_config(duthost, empty_table_removal)
 
-    current_config = get_running_config(duthost)
+    host_current_config = get_running_config(duthost)
     pytest_assert(
-        current_config['localhost'].get('MGMT_INTERFACE', None) is None,
-        "Empty table removal fail: {}".format(current_config)
+        host_current_config['localhost'].get('MGMT_INTERFACE', None) is None,
+        "Empty table removal fail: {}".format(host_current_config)
     )
 
-
+    asic0_current_config = get_running_config(duthost, "asic0")
+    pytest_assert(
+        asic0_current_config['asic0'].get('MGMT_INTERFACE', None) is None,
+        "Empty table removal fail: {}".format(asic0_current_config)
+    )
 def test_load_minigraph_with_golden_config(duthost, setup_env):
     """
     Test Golden Config override during load minigraph
