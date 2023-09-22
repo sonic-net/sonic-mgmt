@@ -3,6 +3,7 @@ The SnappiTestParams module allows for modular pass through of test parameters f
 """
 
 from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.multi_dut_params import MultiDUTParams
 
 
 class SnappiTestParams():
@@ -23,7 +24,7 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
-            ecn_params (dict): contains details of duthost objects, multidut_ports and other ecn parameters
+            multi_dut_params (obj): contains details of duthost objects, multidut_ports and other parameters
             test_iterations (int) : No of iterations in the test
         """
         self.headroom_test_params = None
@@ -35,5 +36,5 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
-        self.ecn_params = None
+        self.multi_dut_params = MultiDUTParams()
         self.test_iterations = 1

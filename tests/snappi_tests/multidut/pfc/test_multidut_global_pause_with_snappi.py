@@ -69,9 +69,9 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.ecn_params["duthost1"] = duthost1
-    snappi_extra_params.ecn_params["duthost2"] = duthost2
-    snappi_extra_params.ecn_params["multidut_ports"] = snappi_ports
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,

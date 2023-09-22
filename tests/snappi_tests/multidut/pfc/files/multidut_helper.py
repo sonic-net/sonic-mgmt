@@ -65,11 +65,11 @@ def run_pfc_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.ecn_params["duthost1"]
-    rx_port = snappi_extra_params.ecn_params["multidut_ports"][0]
-    rx_port_id = snappi_extra_params.ecn_params["multidut_ports"][0]["port_id"]
-    duthost2 = snappi_extra_params.ecn_params["duthost2"]
-    tx_port = snappi_extra_params.ecn_params["multidut_ports"][1]
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id = rx_port["port_id"]
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
