@@ -44,7 +44,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     Returns:
         N/A
     """
-    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice value passed in parameter")
+    pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
@@ -57,7 +57,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
-    pytest_assert(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test" )
+    pytest_assert(len(snappi_port_list) >= 2, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
