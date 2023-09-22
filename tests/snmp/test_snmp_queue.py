@@ -42,7 +42,9 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
             q_interfaces.add(intf[1])
         # Packet chassis 'QUEUE|<hostname>|<asic_ns>|Ethernet*|2'
         elif len(intf) == 5:
-            q_interfaces.add(intf[3])
+            # Choose only interfaces on current linecard.
+            if intf[1] == duthost.hostname:
+                q_interfaces.add(intf[3])
 
     snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c",
                                 community=creds_all_duts[duthost.hostname]["snmp_rocommunity"],
