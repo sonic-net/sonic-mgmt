@@ -1950,3 +1950,19 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info(f"Test ports ids is{test_port_ids}")
         return test_port_ids
+
+    @pytest.fixture(scope="function", autouse=False)
+    def _skip_watermark_multi_DUT(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        if not is_cisco_device(get_src_dst_asic_and_duts['src_dut']):
+            yield
+            return
+        if (get_src_dst_asic_and_duts['src_dut'] !=
+                get_src_dst_asic_and_duts['dst_dut']):
+            pytest.skip(
+                "All WM Tests are skipped for multiDUT for cisco platforms.")
+
+        yield
+        return
