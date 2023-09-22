@@ -19,8 +19,24 @@ pytestmark = [
 
 if sys.version_info.major == 3:
     UNICODE_TYPE = str
+
+    def dhcp_mac_to_chaddr(mac_addr):
+        """
+        Helper function to convert a 6-byte MAC address of form:
+        '00:01:02:03:04:05'
+        into a 16-byte chaddr byte string of form:
+        '\x00\x01\x02\x03\x04\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        """
+        byte_list = [int(b, 16) for b in mac_addr.split(b":")]
+        byte_list.extend([0] * (16 - len(byte_list)))
+        byte_bytes = bytes(byte_list)
+        return byte_bytes
+
 else:
     UNICODE_TYPE = unicode
+
+    def dhcp_mac_to_chaddr(mac_addr):
+        return testutils.__dhcp_mac_to_chaddr(mac_addr)
 
 INET_REG = r"(([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([1-9]?[0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])/\d+"
 DUMMY_MAC = "22:22:22:22:22:22"
@@ -220,7 +236,7 @@ def create_dhcp_offer_ack_packet(eth_client, eth_server, ip_server, ip_dst, netm
         yiaddr=ip_dst,
         siaddr=ip_server,
         giaddr=DEFAULT_RELAY_AGENT_IP,
-        chaddr=testutils.__dhcp_mac_to_chaddr(eth_client)
+        chaddr=dhcp_mac_to_chaddr(eth_client)
     )
     bootp /= scapy.DHCP(options=[
         ("message-type", dhcp_type),
@@ -288,7 +304,7 @@ def create_dhcp_discover_request_packet(request_param_list, eth_client="00:01:02
         yiaddr=DHCP_IP_DEFAULT_ROUTE,
         siaddr=DHCP_IP_DEFAULT_ROUTE,
         giaddr=DHCP_IP_DEFAULT_ROUTE,
-        chaddr=testutils.__dhcp_mac_to_chaddr(eth_client),
+        chaddr=dhcp_mac_to_chaddr(eth_client),
     )
     dhcp_options = [("message-type", dhcp_type), ("param_req_list", request_param_list)]
     if dhcp_type == REQUEST_STR:
