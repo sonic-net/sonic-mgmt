@@ -43,7 +43,7 @@ def run_pfc_test(api,
                  test_traffic_pause,
                  snappi_extra_params=None):
     """
-    Run a PFC test
+    Run a multidut PFC test
     Args:
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
