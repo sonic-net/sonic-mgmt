@@ -3,6 +3,7 @@ The SnappiTestParams module allows for modular pass through of test parameters f
 """
 
 from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
 
 
 class SnappiTestParams():
@@ -36,6 +37,7 @@ class SnappiTestParams():
             poll_device_runtime (bool): whether or not to poll the device for stats when traffic is running
                                         (default: False)
                 for priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
             ecn_params (dict): ECN parameters
                 Dict values:
                     kmin: minimum ECN marking threshold
@@ -43,6 +45,7 @@ class SnappiTestParams():
                     pmax: maximum ECN marking probability
             pkt_size (int): packet size for background and test traffic
             pkt_count (int): packet count for background and test traffic
+            traffic_flow_config (TrafficFlowConfig obj): traffic flow configuration object
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -57,5 +60,4 @@ class SnappiTestParams():
         self.pause_flow_params = None
         self.poll_device_runtime = True
         self.ecn_params = None
-        self.pkt_size = 1024
-        self.pkt_count = 1
+        self.traffic_flow_config = TrafficFlowConfig()
