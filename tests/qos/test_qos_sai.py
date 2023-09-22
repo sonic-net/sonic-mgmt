@@ -950,6 +950,7 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[bufPool]["ecn"],
             "pg": qosConfig[bufPool]["pg"],
             "queue": qosConfig[bufPool]["queue"],
+            "pkts_num_margin": qosConfig[bufPool].get("pkts_num_margin", 0),
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
