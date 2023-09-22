@@ -20,8 +20,9 @@ def restore_config(duthost, config, config_backup):
     duthost.shell("mv {} {}".format(config_backup, config))
 
 
-def get_running_config(duthost):
-    return json.loads(duthost.shell("sonic-cfggen -d --print-data")['stdout'])
+def get_running_config(duthost, asic=None):
+    ns = "-n " + asic if asic else ""
+    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data):
