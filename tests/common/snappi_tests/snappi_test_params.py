@@ -23,15 +23,7 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
-            duthost1 (obj): DUT 1 in case of multi-dut testbed environment
-            duthost2 (obj): DUT 2 in case of multi-dut testbed environment
-            multidut_ports (dict): Contains the details of the multidut snappi ports
-                            ex: {'peer_port': 'Ethernet12','prefix': u'24','asic_value':'asic1'}
-            kmin (int): RED/ECN minimum threshold in bytes
-            kmax (int): RED/ECN maximum threshold in bytes
-            pmax (int): RED/ECN maximum marking probability in percentage
-            pkt_size (int): data packet size in bytes
-            pkt_cnt (int): data packet count
+            ecn_params (dict): contains details of duthost objects, multidut_ports and other ecn parameters
             test_iterations (int) : No of iterations in the test
         """
         self.headroom_test_params = None
@@ -43,12 +35,5 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
-        self.duthost1 = None
-        self.duthost2 = None
-        self.multidut_ports = None
-        self.kmin = 0
-        self.kmax = 0
-        self.pmax = 0
-        self.pkt_size = 0
-        self.pkt_cnt = 0
+        self.ecn_params = None
         self.test_iterations = 1
