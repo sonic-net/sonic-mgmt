@@ -3,6 +3,8 @@ import ipaddress
 import sys
 
 from tests.common import constants
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
@@ -364,3 +366,33 @@ def fetch_vendor_specific_diagnosis_re(duthost):
         return ""
 
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
+
+def is_pfcwd_port_stormed( dut, storm_port ):
+   ''' storm_queue: Ethernet<num>:<queue_num>'''
+   stats = pfcwd_stats( dut )
+   for queue, status in stats.items():
+      if queue.startswith( storm_port ) and status == 'stormed':
+         return True
+   return False
+
+def pfcwd_stats( dut ):
+   result = dut.shell( "show pfcwd stats", module_ignore_errors=True, verbose=False )
+   if result['rc'] != 0:
+      return {}
+   return parse_pfcwd_stats( result[ 'stdout_lines' ] )
+
+def parse_pfcwd_stats( lines ):
+   stats = {}
+   for line in lines:
+      tokens = line.split()
+      queue = tokens[ 0 ]
+      if queue.startswith( 'Ether' ):
+         status = tokens[ 1 ]
+         stats[ queue ] = status
+   return stats
+
+def wait_until_pfcwd_stormed( dut, storm_port ):
+   is_stormed = wait_until(
+      10*60, 5, 0,
+      is_pfcwd_port_stormed, dut, storm_port )
+   pytest_assert( is_stormed, f"Port {storm_port} did not detect storm!" )

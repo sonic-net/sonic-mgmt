@@ -9,7 +9,7 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import start_wd_on_ports, wait_until_pfcwd_stormed
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
@@ -712,7 +712,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if self.pfc_wd['fake_storm']:
             PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
 
-        time.sleep(5)
+        wait_until_pfcwd_stormed( dut, port )
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
