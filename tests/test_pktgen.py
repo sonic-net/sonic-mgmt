@@ -108,21 +108,22 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
     pktgen_param = pktgen_param.split("\n")[0].encode('ascii')
-    pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000, 
-    "Mismatch between number of packets intended to be generated and number of packets generated")
+    pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000, /
+                  "Mismatch between number of packets intended to be generated and number of packets generated")
 
     # Verify packet count from interface
     interf_counters = duthost.show_interface(command="counter")['ansible_facts']['int_counter'][port]['TX_OK']
     interf_counters = interf_counters.replace(",", "")
-    pytest_assert(int(interf_counters) >= 15000, "Packets were not transmitted from the interface {}, \
+    pytest_assert(int(interf_counters) >= 15000, "Packets were not transmitted from the interface {}, /
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
 
     # Check CPU util after sending traffic
     cpu_after = duthost.shell("show processes cpu | awk '{print $9}'")["stdout_lines"]
-    pytest_assert(cpu_after > cpu_threshold , "Cpu util was above threshold {} for atleast 1 process after sending pktgen traffic".format(cpu_threshold))
+    pytest_assert(cpu_after > cpu_threshold, "Cpu util was above threshold {} for atleast 1 process /
+    after sending pktgen traffic".format(cpu_threshold))
 
     # Check number of new core/crash files
     core_files_new = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
     dump_files_new = duthost.shell("ls /var/dump | wc -l")["stdout_lines"][0]
-    pytest_assert(int(core_files_new)-int(core_files_pre) == 0 and int(dump_files_new)-int(dump_files_pre) == 0, \
-    "New core/dump files generated during packet generation")
+    pytest_assert(int(core_files_new)-int(core_files_pre) == 0 and int(dump_files_new)-int(dump_files_pre) == 0, /
+                  "New core/dump files generated during packet generation")
