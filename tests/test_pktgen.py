@@ -84,18 +84,17 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
     cpu_before = duthost.shell("show processes cpu | awk '{print $9}'")["stdout_lines"]
-    pytest_assert(cpu_before > cpu_threshold, "Cpu util was above threshold {} for atleast 1 process before sending pktgen traffic".format(cpu_threshold))
+    pytest_assert(cpu_before > cpu_threshold, "Cpu util was above threshold {} \
+    for atleast 1 process before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
     dump_files_pre = duthost.shell("ls /var/dump | wc -l")["stdout_lines"][0]
 
-
     # Select a random port to run traffic
     port_list = get_port_list(duthost, tbinfo)
     port = random.choice(port_list)
     
-
     # Populate packet details
     for cmd in PKTGEN_CMDS:
         if "src_mac" in cmd:
@@ -103,16 +102,16 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
         else:
             duthost.shell(cmd.format(port))
     
-    #Send packet
+    # Send packet
     duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
 
-    #Verify packet count from pktgen
+    # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
     pktgen_param = pktgen_param.split("\n")[0].encode('ascii')
     pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000, 
     "Mismatch between number of packets intended to be generated and number of packets generated")
 
-    #verify packet count from interface
+    # Verify packet count from interface
     interf_counters = duthost.show_interface(command="counter")['ansible_facts']['int_counter'][port]['TX_OK']
     interf_counters = interf_counters.replace(",", "")
     pytest_assert(int(interf_counters) >= 15000, "Packets were not transmitted from the interface {}, \
