@@ -61,7 +61,7 @@ class Sonic(host_device.HostDevice):
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
-                return stdout.read()
+                return six.ensure_str(stdout.read())
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
@@ -175,12 +175,12 @@ class Sonic(host_device.HostDevice):
         self.disconnect()
 
         # save data for troubleshooting
-        with open("/tmp/%s.data.pickle" % self.ip, "w") as fp:
+        with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
             pickle.dump(data, fp)
 
         # save debug data for troubleshooting
         if self.DEBUG:
-            with open("/tmp/%s.raw.pickle" % self.ip, "w") as fp:
+            with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
                 pickle.dump(debug_data, fp)
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
@@ -309,7 +309,7 @@ class Sonic(host_device.HostDevice):
         return 0, num_lag_flaps
 
     def parse_lacp(self, output):
-        return six.ensure_str(output).find('Bundled') != -1
+        return output.find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
