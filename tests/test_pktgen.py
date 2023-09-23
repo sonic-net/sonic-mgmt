@@ -66,6 +66,14 @@ def clear_pktgen(duthosts, enum_dut_hostname):
 
 
 def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer, setup_thresholds):
+    '''
+    Testcase does the following steps:
+    1. Check max CPU utilized , number of core and dump files before starting the run
+    2. Configure pktgen traffic and start it, check if the pktgen process has generated the packets and 
+       if the packets are seen across the interface
+    3. Check max CPU utilized , number of core and dump files after the run is complete and verify if there any additional 
+       core/dump files
+    '''
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
 
@@ -75,7 +83,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
     cpu_before = duthost.shell("show processes cpu | awk '{print $9}'")["stdout_lines"]
-    pytest_assert(cpu_before >cpu_threshold , "Cpu util was above threshold {} for atleast 1 process before sending pktgen traffic".format(cpu_threshold))
+    pytest_assert(cpu_before > cpu_threshold , "Cpu util was above threshold {} for atleast 1 process before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
