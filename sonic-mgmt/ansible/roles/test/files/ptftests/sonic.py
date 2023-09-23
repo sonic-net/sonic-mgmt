@@ -10,7 +10,7 @@ from operator import itemgetter
 import scapy.all as scapyall
 import ast
 import socket
-
+import six
 import host_device
 
 
@@ -309,7 +309,7 @@ class Sonic(host_device.HostDevice):
         return 0, num_lag_flaps
 
     def parse_lacp(self, output):
-        return output.find('Bundled') != -1
+        return six.ensure_str(output).find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False

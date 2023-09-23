@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, wait_until
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
@@ -83,12 +84,13 @@ def collect_data(duthost):
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    return {'keys': keys, 'data': dev_data}
+    data_dict = {'keys': keys, 'data': dev_data}
+    return OrderedDict(sorted(data_dict.items()))
 
 
 def wait_data(duthost, expected_key_count):
     class shared_scope:
-        data_after_restart = {}
+        data_after_restart = OrderedDict()
 
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)

@@ -1,8 +1,16 @@
 # This file contains the list of API's which performs config and reboot operation.
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 from spytest import st, utils
+from apis.system import basic
+from utilities.utils import get_supported_ui_type_list
 
-def config_save(dut,shell='sonic', skip_error_check=True, **kwargs):
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
+    return cli_type
+
+
+def config_save(dut, shell='sonic', skip_error_check=True, **kwargs):
     """
     To perform config save.
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -10,8 +18,9 @@ def config_save(dut,shell='sonic', skip_error_check=True, **kwargs):
     :param dut: single or list of duts
     :return:
     """
-    cli_type = kwargs.get('cli_type', st.get_ui_type(dut,**kwargs))
-    cli_type = 'klish' if cli_type in ['rest-put','rest-patch'] else cli_type
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in ['rest-put', 'rest-patch'] else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     dut_li = list(dut) if isinstance(dut, list) else [dut]
     st.log("Performing config save", dut=dut)
     if shell == 'sonic':
@@ -21,7 +30,7 @@ def config_save(dut,shell='sonic', skip_error_check=True, **kwargs):
         command = 'do copy running-config startup-config'
         [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type="vtysh", skip_error_check=skip_error_check)
     if cli_type == 'klish':
-        #Need to execute write mem in case of klish also. Once all klish conversion is complete, only one command will be executed.
+        # Need to execute write mem in case of klish also. Once all klish conversion is complete, only one command will be executed.
         command = "do write memory"
         [retvals, exceps] = utils.exec_foreach(True, dut_li, st.config, command, type=cli_type, skip_error_check=skip_error_check)
     st.debug([retvals, exceps])
@@ -66,8 +75,18 @@ def get_reboot_cause(dut):
     :param dut:
     :return:
     """
+    cli_type = st.get_ui_type(dut)
+    cli_type = 'klish' if cli_type in ['rest-put', 'rest-patch', 'gnmi'] else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     command = "show reboot-cause"
-    return st.show(dut, command)
+    return st.show(dut, command, type=cli_type)
+
+
+def warm_reboot(dut, **kwargs):
+    if (st.getenv("SPYTEST_UNSUPPORT_TD4_WARM_REBOOT") and basic.is_td4_platform(dut)) or basic.is_warm_boot_support(dut, is_support=False):
+        st.report_unsupported("test_case_unsupported", "warm reboot is not supported on this Device")
+    method = kwargs.pop("method", "warm")
+    return st.reboot(dut, method=method, **kwargs)
 
 
 def config_warm_restart(dut, **kwargs):
@@ -93,7 +112,7 @@ def config_warm_restart(dut, **kwargs):
     if "oper" in kwargs and 'tasks' not in kwargs:
         command = "config warm_restart {}".format(kwargs['oper'])
         st.config(dut, command)
-    if "oper" in kwargs  and "tasks" in kwargs:
+    if "oper" in kwargs and "tasks" in kwargs:
         task_list = list(kwargs['tasks']) if isinstance(kwargs['tasks'], list) else [kwargs['tasks']]
         for each_task in task_list:
             command = "config warm_restart {} {}".format(kwargs['oper'], each_task)
@@ -164,36 +183,48 @@ def poll_for_warm_restart_status(dut, pname, state, iteration=20, delay=2):
             st.error("For warm restart {}:{} status verification max iteration count {} reached".format(pname, state,
                                                                                                         itercount))
             return False
-        itercount += delay
+        itercount += 1
         st.wait(delay)
 
+
 def config_save_reboot(dut, cli_type=''):
-    #cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    # cli_type = st.get_ui_type(dut, cli_type=cli_type)
     config_save(dut, shell="sonic")
     config_save(dut, shell='vtysh')
     st.reboot(dut)
 
-def dut_reboot(dut, method='normal',cli_type=''):
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
 
+def dut_reboot(dut, **kwargs):
+    method = kwargs.pop("method", 'normal')
+    cli_type = kwargs.pop("cli_type", '')
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    cli_type = 'click' if method == 'shutdown -r' else cli_type
     if cli_type in ["rest-put", "rest-patch"]:
         cli_type = "klish"
 
     if method in ["normal", "reboot"]:
         reboot_cmd = "reboot"
         if cli_type != "klish":
-            output = st.config(dut, "fast-reboot -h", skip_error_check=True)
-            if "skip the user confirmation" in output:
+            if basic.is_reboot_confirm(dut):
                 reboot_cmd = "reboot -y"
+    elif method == "shutdown -r":
+        reboot_cmd = "shutdown -r now"
     elif method in ["fast", "fast-reboot"]:
         reboot_cmd = "fast-reboot"
     elif method in ["warm", "warm-reboot"]:
         reboot_cmd = "warm-reboot"
+        if (st.getenv("SPYTEST_UNSUPPORT_TD4_WARM_REBOOT") and basic.is_td4_platform(
+                dut)) or basic.is_warm_boot_support(dut, is_support=False):
+            st.report_unsupported("test_case_unsupported", "warm reboot is not supported on this device")
+
     else:
         reboot_cmd = "reboot"
 
-    output = st.config(dut, reboot_cmd, type=cli_type, conf=False,
-                       skip_error_check=True, max_time=1000, expect_reboot=True)
+    kwargs["max_time"] = kwargs.pop("max_time", 1000)
+    kwargs["min_time"] = kwargs.pop("min_time", 30)
+    kwargs["skip_error_check"] = True
+    kwargs["expect_reboot"] = True
+    output = st.config(dut, reboot_cmd, type=cli_type, conf=False, **kwargs)
 
     return output
-
