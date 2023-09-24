@@ -4547,6 +4547,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         pkts_num_fill_min = int(self.test_params['pkts_num_fill_min'])
         pkts_num_fill_shared = int(self.test_params['pkts_num_fill_shared'])
         cell_size = int(self.test_params['cell_size'])
+        pkts_num_margin = int(self.test_params['pkts_num_margin'])
+        if pkts_num_margin == 0:
+            pkts_num_margin = 2
 
         print("buf_pool_roid: %s" %
               (self.test_params['buf_pool_roid']), file=sys.stderr)
@@ -4581,9 +4584,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
         # or the leak out is simply less than expected as we have occasionally observed
-        upper_bound_margin = 2 * cell_occupancy
+        upper_bound_margin = pkts_num_margin * cell_occupancy
         if 'cisco-8000' in asic_type:
-            lower_bound_margin = 2 * cell_occupancy
+            lower_bound_margin = pkts_num_margin * cell_occupancy
         else:
             # On TD2, we found the watermark value is always short of the expected
             # value by 1
@@ -4639,6 +4642,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 # but small margin still needed during boundary checks below
                 pkts_num = 1
                 expected_wm = pkts_num_fill_min * cell_occupancy
+                total_shared = pkts_num_fill_shared * cell_occupancy
             else:
                 pkts_num = (1 + upper_bound_margin) // cell_occupancy
             while (expected_wm < total_shared):
