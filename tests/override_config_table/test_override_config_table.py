@@ -31,7 +31,7 @@ def check_image_version(duthost):
 
 @pytest.fixture(scope="module")
 def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost)
+    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
 
 
 @pytest.fixture(scope="module")
