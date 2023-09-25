@@ -1,4 +1,3 @@
-import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -16,6 +15,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
+
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
     """Skips this test if the SONiC image installed on DUT is older than 202111
@@ -27,6 +27,7 @@ def check_image_version(duthost):
         None.
     """
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
+
 
 @pytest.fixture(scope="module")
 def golden_config_exists_on_dut(duthost):
@@ -68,6 +69,7 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
 
     # Restore config before test
     config_reload(duthost)
+
 
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
