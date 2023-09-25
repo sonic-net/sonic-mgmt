@@ -151,6 +151,7 @@ all:
           - fullmesh
           - dualtor
           - dualtor-56
+          - dualtor-64
           - cable-test
           - dualtor-120
           - tgen-t0-3
@@ -1376,14 +1377,14 @@ vms_12:
       ansible_host: 172.16.131.62
     VM12031:
       ansible_host: 172.16.131.63
-    VM12036:
-      ansible_host: 172.16.131.68
-    VM12037:
-      ansible_host: 172.16.131.69
-    VM12038:
-      ansible_host: 172.16.131.70
-    VM12039:
-      ansible_host: 172.16.131.71
+    VM12032:
+      ansible_host: 172.16.131.64
+    VM12033:
+      ansible_host: 172.16.131.65
+    VM12034:
+      ansible_host: 172.16.131.66
+    VM12035:
+      ansible_host: 172.16.131.67
     VM12040:
       ansible_host: 172.16.131.72
     VM12041:
@@ -3524,6 +3525,38 @@ vms_64:
       ansible_host: 172.16.149.208
     VM64199:
       ansible_host: 172.16.149.209
+    VM64200:
+      ansible_host: 172.16.149.210
+    VM64201:
+      ansible_host: 172.16.149.211
+    VM64202:
+      ansible_host: 172.16.149.212
+    VM64203:
+      ansible_host: 172.16.149.213
+    VM64204:
+      ansible_host: 172.16.149.214
+    VM64205:
+      ansible_host: 172.16.149.215
+    VM64206:
+      ansible_host: 172.16.149.216
+    VM64207:
+      ansible_host: 172.16.149.217
+    VM64208:
+      ansible_host: 172.16.149.218
+    VM64209:
+      ansible_host: 172.16.149.219
+    VM64210:
+      ansible_host: 172.16.149.220
+    VM64211:
+      ansible_host: 172.16.149.221
+    VM64212:
+      ansible_host: 172.16.149.222
+    VM64213:
+      ansible_host: 172.16.149.223
+    VM64214:
+      ansible_host: 172.16.149.224
+    VM64215:
+      ansible_host: 172.16.149.225
 
 vms_66:
   hosts:
@@ -6344,6 +6377,25 @@ vms_bjw_13:
       ansible_host: 172.16.199.34
     VM74007:
       ansible_host: 172.16.199.35
+
+vms_bjw_14:
+  hosts:
+    VM71000:
+      ansible_host: 172.16.200.32
+    VM71001:
+      ansible_host: 172.16.200.33
+    VM71002:
+      ansible_host: 172.16.200.34
+    VM71003:
+      ansible_host: 172.16.200.35
+    VM71004:
+      ansible_host: 172.16.200.36
+    VM71005:
+      ansible_host: 172.16.200.37
+    VM71006:
+      ansible_host: 172.16.200.38
+    VM71007:
+      ansible_host: 172.16.200.39
 
 vms_bjw_16:
   hosts:

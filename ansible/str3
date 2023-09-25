@@ -55,6 +55,12 @@ all:
           ansible_host: 10.64.247.64
         vms64-2:
           ansible_host: 10.64.246.101
+        vms64-3:
+          ansible_host: 10.64.246.11
+        vms64-4:
+          ansible_host: 10.64.246.84
+        vms64-5:
+          ansible_host: 10.64.247.68
 
     pdu:
       hosts:
@@ -88,8 +94,17 @@ all:
         pdu-100:
           ansible_host: 10.3.155.100
           protocol: snmp
+        pdu-96:
+          ansible_host: 10.3.155.96
+          protocol: snmp
+        pdu-97:
+          ansible_host: 10.3.155.97
+          protocol: snmp
         pdu-101:
           ansible_host: 10.3.155.101
+          protocol: snmp
+        pdu-103:
+          ansible_host: 10.3.155.103
           protocol: snmp
         pdu-115:
           ansible_host: 10.3.155.115
@@ -136,9 +151,9 @@ fanout:
       ansible_host: 10.3.147.158
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.159
-    str3-7260cx3-acs-fan-11:
+    str3-7260qx-acs-fan-01:
       ansible_host: 10.3.147.76
-    str3-7260cx3-acs-fan-12:
+    str3-7260qx-acs-fan-02:
       ansible_host: 10.3.147.12
     str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
@@ -148,6 +163,8 @@ fanout:
       ansible_host: 10.3.147.120
     str3-7260cx3-acs-fan-38:
       ansible_host: 10.3.147.121
+    str3-7260cx3-acs-fan-39:
+      ansible_host: 10.3.147.43
     str3-z9332f-01:
       ansible_host: 10.3.146.248
       os: sonic
@@ -218,6 +235,7 @@ sonic:
     sonic_arista64_100:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
+    sonic_dell64_40:
 
 sonic_mlnx_4600C:
   vars:
@@ -1162,6 +1180,24 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "FGN224303HG"
+    str3-7260cx3-acs-14:
+      ansible_host: 10.3.147.60
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: FGN224303NB
+      base_mac: 38:38:a6:98:e9:60
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250508B0"
+        "0x23": "FGN224303NB"
+        "0x24": "38:38:a6:98:e9:60"
+        "0x25": "2020/08/03 10:19:42"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "FGN224303NB"
 
 sonic_mlnx_4700:
   hosts:
@@ -1192,6 +1228,56 @@ sonic_arista_400:
       base_mac: 2c:dd:e9:bf:b5:7e
   vars:
     iface_speed: 400000
+
+sonic_dell64_40:
+  hosts:
+    str3-s6100-acs-6:
+      ansible_host: 10.3.147.141
+      model: 06N1J1
+      serial: D14RG02
+      base_mac: d8:9e:f3:bb:c0:20
+      syseeprom_info:
+        "0x21": "S6100-ON"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES008270065"
+        "0x24": "D8:9E:F3:BB:C0:20"
+        "0x25": "02/25/2018 14:13:47"
+        "0x26": "1"
+        "0x27": "A04"
+        "0x28": "x86_64-dell_s6100_c2538-r0"
+        "0x29": "3.15.1.0"
+        "0x2A": "384"
+        "0x2B": "CES00"
+        "0x2C": "CN"
+        "0x2D": "DELL"
+        "0x2E": "3.25.4.1"
+        "0x2F": "D14RG02"
+        "0xFE": "0xD3ED328F"
+    str3-s6100-acs-7:
+      ansible_host: 10.3.147.171
+      model: 06N1J1
+      serial: DVWQG02
+      base_mac: d8:9e:f3:d8:50:60
+      syseeprom_info:
+        "0x21": "S6100-ON"
+        "0x22": "06N1J1"
+        "0x23": "CN06N1J1CES0083I0007"
+        "0x24": "D8:9E:F3:D8:50:60"
+        "0x25": "03/19/2018 10:12:12"
+        "0x26": "1"
+        "0x27": "A04"
+        "0x28": "x86_64-dell_s6100_c2538-r0"
+        "0x29": "3.15.1.0"
+        "0x2A": "384"
+        "0x2B": "CES00"
+        "0x2C": "CN"
+        "0x2D": "DELL"
+        "0x2E": "3.25.4.1"
+        "0x2F": "DVWQG02"
+        "0xFE": "0xA30214AA"
+  vars:
+    hwsku: Force10-S6100
+    iface_speed: 40000
 
 server:
   hosts:

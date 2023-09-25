@@ -1051,9 +1051,9 @@
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms63-t0-4600-7
+- conf-name: vms63-t0-dual-4600-1
   group-name: vms63-7
-  topo: t0-64
+  topo: dualtor-64
   ptf_image_name: docker-ptf
   ptf: vms63-7
   ptf_ip: 10.64.247.62/23
@@ -1062,24 +1062,11 @@
   vm_base: VM63104
   dut:
     - str3-msn4600c-acs-07
-  inv_name: str3
-  auto_recover: 'True'
-  comment: v-saidia
-
-- conf-name: vms63-t1-4600-8
-  group-name: vms63-8
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms63-8
-  ptf_ip: 10.64.247.63/23
-  ptf_ipv6:
-  server: server_63
-  vm_base: VM63108
-  dut:
     - str3-msn4600c-acs-08
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
+
 
 - conf-name: vms64-t1-4700-1
   group-name: vms64-1
@@ -1128,7 +1115,7 @@
 
 - conf-name: vms21-dpu-01
   group-name: vms21-10
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms21-10
   ptf_ip: 10.64.247.29/23
@@ -1137,12 +1124,13 @@
   vm_base: VM21040
   dut:
     - str2-bluefield-01
+  inv_name: str2
   auto_recover: 'True'
   comment: lawlee
 
 - conf-name: vms21-dpu-02
   group-name: vms21-11
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms21-11
   ptf_ip: 10.64.247.241/23
@@ -1151,12 +1139,13 @@
   vm_base: VM21042
   dut:
     - str2-bluefield-02
+  inv_name: str2
   auto_recover: 'True'
   comment: lawlee
 
 - conf-name: vms21-dpu-03
   group-name: vms21-12
-  topo: appliance
+  topo: dpu
   ptf_image_name: docker-ptf
   ptf: vms27-1
   ptf_ip: 10.64.246.234/23
@@ -1165,6 +1154,7 @@
   vm_base: VM27000
   dut:
     - str2-pensando-3
+  inv_name: str2
   auto_recover: 'True'
   comment: junhuazhai
 
@@ -1409,21 +1399,6 @@
   vm_base: VM24028
   dut:
     - str2-sn3800-azd
-  inv_name: str2
-  auto_recover: 'True'
-  comment: annarsia
-
-- conf-name: vms24-t0-3800-azd-2
-  group-name: vms24-4
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms24-4
-  ptf_ip: 10.64.246.110/23
-  ptf_ipv6:
-  server: server_24
-  vm_base: VM24032
-  dut:
-    - str2-sn3800-azd-2
   inv_name: str2
   auto_recover: 'True'
   comment: annarsia
@@ -2271,3 +2246,66 @@
   inv_name: str3
   auto_recover: 'True'
   comment: shiyanwang
+
+- conf-name: vms64-t0-s6100-1
+  group-name: vms64-3
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: vms64-3
+  ptf_ip: 10.64.246.11/23
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64164
+  dut:
+    - str3-s6100-acs-6
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zitingguo
+
+- conf-name: vms64-t1-s6100-1
+  group-name: vms64-4
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms64-4
+  ptf_ip: 10.64.246.84/23
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64168
+  dut:
+    - str3-s6100-acs-7
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zitingguo
+
+- conf-name: vms64-t1-7260-14
+  group-name: vms64-5
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms64-5
+  ptf_ip: 10.64.247.68/23
+  ptf_ipv6:
+  server: server_64
+  vm_base: VM64192
+  dut:
+    - str3-7260cx3-acs-14
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-saidia
+
+- conf-name: testbed-bjw-can-7250-1
+  group-name: bjw14-1
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: bjw14-1
+  ptf_ip: 10.150.23.70/23
+  ptf_ipv6:
+  server: server_bjw_14
+  vm_base: VM71000
+  dut:
+    - bjw-can-7250-lc1-1
+    - bjw-can-7250-lc2-1
+    - bjw-can-7250-sup-1
+
+  inv_name: bjw
+  auto_recover: 'False'
+  comment: Beijing Lab
