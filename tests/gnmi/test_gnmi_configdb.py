@@ -1,7 +1,6 @@
 import json
 import logging
 import pytest
-import re
 
 from .helper import gnmi_set, gnmi_get, gnoi_reboot
 from tests.common.helpers.assertions import pytest_assert
@@ -36,20 +35,10 @@ def get_first_interface(duthost):
 
 
 def get_interface_status(duthost, field, interface='Ethernet0'):
-    cmds = "show interface status {}".format(interface)
+    cmds = 'sonic-db-cli CONFIG_DB hget "PORT|{}" {}'.format(interface, field)
     output = duthost.shell(cmds)
     assert (not output['rc']), "No output"
-    status_data = output["stdout_lines"]
-    if field not in status_data[0]:
-        return None
-    field_index = status_data[0].split().index(field)
-    for line in status_data:
-        if interface in line:
-            interface_status = line.strip()
-            assert len(interface_status) > 0, "Failed to read {} interface properties".format(interface)
-            status = re.split(r" {2,}", interface_status)[field_index]
-            return status
-    return None
+    return output["stdout"]
 
 
 def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, localhost):
@@ -71,7 +60,7 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, localhost
     ret, msg = gnmi_set(duthost, localhost, [], update_list, [])
     assert ret == 0, msg
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "Admin", interface)
+    status = get_interface_status(duthost, "admin_status", interface)
     assert status == "down", "Incremental config failed to toggle interface %s status" % interface
     ret, msg_list = gnmi_get(duthost, localhost, path_list)
     assert ret == 0, msg_list[0]
@@ -84,7 +73,7 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, localhost
     ret, msg = gnmi_set(duthost, localhost, [], update_list, [])
     assert ret == 0, msg
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "Admin", interface)
+    status = get_interface_status(duthost, "admin_status", interface)
     assert status == "up", "Incremental config failed to toggle interface %s status" % interface
     ret, msg_list = gnmi_get(duthost, localhost, path_list)
     assert ret == 0, msg_list[0]
@@ -133,7 +122,7 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, localhost):
     ret, msg = gnmi_set(duthost, localhost, delete_list, update_list, [])
     assert ret == 0, msg
     # Check interface status and gnmi_get result
-    status = get_interface_status(duthost, "Admin", interface)
+    status = get_interface_status(duthost, "admin_status", interface)
     assert status == "up", "Port status is changed"
     # GNOI reboot
     ret, msg = gnoi_reboot(duthost, localhost, 0, 0, "abc")
@@ -145,7 +134,7 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, localhost):
         wait_until(300, 10, 0, check_interface_status_of_up_ports, duthost),
         "Not all ports that are admin up on are operationally up")
     # Check interface status
-    status = get_interface_status(duthost, "Admin", interface)
+    status = get_interface_status(duthost, "admin_status", interface)
     assert status == "down", "Full config failed to toggle interface %s status" % interface
     # Startup interface
     duthost.shell("config interface startup %s" % interface)
