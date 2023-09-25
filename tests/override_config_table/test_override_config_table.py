@@ -72,6 +72,7 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     # Restore config before test
     config_reload(duthost)
 
+
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
