@@ -1,20 +1,16 @@
-import time
-import dpkt
 import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+    fanout_graph_facts  # noqa F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api
+    snappi_api  # noqa F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
     config_capture_pkt, packet_capture, sec_to_nanosec, data_traffic_flow, pfc_traffic_flow,\
-    calc_pfc_pause_flow_rate
+    calc_pfc_pause_flow_rate  # noqa F401
 from tests.common.snappi_tests.read_pcap import get_ip_pkts
-from tests.common.snappi_tests.port import select_ports, select_tx_port
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     generate_pause_flows, run_traffic
 
@@ -100,7 +96,7 @@ def run_ecn_test(api,
             "data_flow_delay_sec": DATA_START_DELAY_SEC,
             "data_flow_traffic_type": data_traffic_flow.FIXED_PACKETS
         })
-  
+
     snappi_extra_params.traffic_flow_config.pause_flow_config = {
         "pause_flow_dur_sec": 3 + EXP_DURATION_SEC,
         "pause_flow_rate_percent": None,
