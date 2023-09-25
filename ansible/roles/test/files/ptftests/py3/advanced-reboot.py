@@ -1599,7 +1599,7 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.log("Error in HostDevice: {}".format(traceback_msg))
             self.fails[ip] = set()
-            self.fails[ip].add("HostDevice hit an exception") 
+            self.fails[ip].add("HostDevice hit an exception")
             self.info[ip] = set()
             self.cli_info[ip] = {
                     "lacp": [0, 0],
