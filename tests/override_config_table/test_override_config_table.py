@@ -1,3 +1,4 @@
+import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -8,16 +9,12 @@ from utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
-GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
-CONFIG_DB = "/etc/sonic/config_db.json"
-CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
-
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
@@ -31,10 +28,9 @@ def check_image_version(duthost):
     """
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
-
 @pytest.fixture(scope="module")
 def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
+    return file_exists_on_dut(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -49,10 +45,10 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
-    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    backup_config(duthost)
     # Backup Golden Config if exists.
     if golden_config_exists_on_dut:
-        backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
+        backup_config(duthost)
 
     # Reload test env with minigraph
     config_reload(duthost, config_source="minigraph", safe_reload=True)
@@ -63,16 +59,15 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     if topo_type in ["m0", "mx"]:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
-    restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    restore_config(duthost)
     # Restore Golden Config after test, else cleanup test file.
     if golden_config_exists_on_dut:
-        restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
+        restore_config(duthost)
     else:
         duthost.file(path=GOLDEN_CONFIG, state='absent')
 
     # Restore config before test
     config_reload(duthost)
-
 
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
