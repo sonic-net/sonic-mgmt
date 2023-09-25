@@ -53,3 +53,24 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         return False
 
     return True
+
+def get_ip_pkts(pcap_file_name):
+    """
+    Get IP packets from the pcap/pcapng file
+
+    Args:
+        pcap_file_name (str): name of the pcap/pcapng file to store captured packets
+
+    Returns:
+        Captured IP packets (list)
+    """
+    f = open(pcap_file_name, "rb")
+    pcap = dpkt.pcapng.Reader(f)
+
+    ip_pkts = []
+    for _, pkt in pcap:
+        eth = dpkt.ethernet.Ethernet(pkt)
+        if isinstance(eth.data, dpkt.ip.IP):
+            ip_pkts.append(eth.data)
+
+    return ip_pkts
