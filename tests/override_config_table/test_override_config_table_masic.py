@@ -9,10 +9,10 @@ from utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
-NON_ASIC_CONFIG_TABLES = ["TACPLUS_SERVER", "FLEX_COUNTER_TABLE", "DEVICE_METADATA",
-                           "MGMT_VRF_CONFIG", "SYSLOG_SERVER", "DHCP_SERVER", 
-                           "NTP_SERVER", "KUBERNETES_MASTER", "CONSOLE_PORT",
-                           "MUX_CABLE", "FG_NHG_MEMBER", "FG_NHG", "NEIGH",
+NON_ASIC_CONFIG_TABLES = ["TACPLUS_SERVER", "FLEX_COUNTER_TABLE", "DEVICE_METADATA",\
+                           "MGMT_VRF_CONFIG", "SYSLOG_SERVER", "DHCP_SERVER",\
+                           "NTP_SERVER", "KUBERNETES_MASTER", "CONSOLE_PORT",\
+                           "MUX_CABLE", "FG_NHG_MEMBER", "FG_NHG", "NEIGH",\
                            "SYSTEM_DEFAULTS"]
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -55,7 +55,7 @@ def setup_env(duthost, tbinfo):
         config = "/etc/sonic/config_db{}.json".format(asic_id)
         config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
         backup_config(duthost, config, config_backup)
-    backup_config(duthost,CONFIG_DB, CONFIG_DB_BACKUP)
+    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
     for asic_id in duthost.get_frontend_asic_ids():
         golden_config = "/etc/sonic/golden_config_db{}.json".format(asic_id)
@@ -203,6 +203,7 @@ def load_minigraph_with_golden_new_feature(duthost):
         asic0_current_config['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
         "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
     )
+
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
