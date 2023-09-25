@@ -237,7 +237,7 @@ def run_pfc_test(api,
                                                      exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
                                                      snappi_extra_params=snappi_extra_params)
 
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0

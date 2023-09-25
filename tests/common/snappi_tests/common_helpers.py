@@ -901,6 +901,7 @@ class packet_capture(Enum):
     PFC_CAPTURE = "PFC_Capture"
     IP_CAPTURE = "IP_Capture"
 
+
 class pfc_traffic_flow(Enum):
     """
     ENUM of pfc traffic settings
@@ -914,18 +915,20 @@ class pfc_traffic_flow(Enum):
     FIXED_PACKETS = -98
     FIXED_DURATION = -97
 
+
 class data_traffic_flow(Enum):
     """
     ENUM of data/test traffic settings
-    CONTINUOUS - No capture
-    BURST - PFC capture enabled
-    FIXED_PACKETS - IP capture enabled
-    FIXED_DURATION - IP capture enabled
+    CONTINUOUS - -100
+    BURST - -99
+    FIXED_PACKETS - -98
+    FIXED_DURATION - -97
     """
     CONTINUOUS = -100
     BURST = -99
     FIXED_PACKETS = -98
     FIXED_DURATION = -97
+
 
 class background_traffic_flow(Enum):
     """
@@ -940,7 +943,8 @@ class background_traffic_flow(Enum):
     FIXED_PACKETS = -98
     FIXED_DURATION = -97
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
+
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -949,7 +953,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
-
+        format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
     """
@@ -958,15 +962,17 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.port_names = []
     for p_name in port_names:
         cap.port_names.append(p_name)
-    cap.format = cap.PCAP
+    cap.format = format
+    # cap.overwrite = False
 
-    if capture_type == packet_capture.IP_CAPTURE:
-        # Capture IP packets
-        ip_filter = cap.filters.custom()[-1]
-        # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
-        ip_filter.value = '40'
-        ip_filter.offset = 14  # Offset is the length of the Ethernet header
-        ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+    # if capture_type == packet_capture.IP_CAPTURE:
+    #     # Capture IP packets
+    #     ip_filter = cap.filters.custom()[-1]
+    #     # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
+    #     ip_filter.value = '40'
+    #     ip_filter.offset = 14  # Offset is the length of the Ethernet header
+    #     ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+
 
 def calc_pfc_pause_flow_rate(port_speed, block_factor=2):
     """

@@ -156,7 +156,10 @@ def generate_test_flows(testbed_config,
         data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
         test_flow.size.fixed = data_flow_config["data_flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["data_flow_rate_percent"]
-        test_flow.duration.fixed_seconds.seconds =data_flow_config["data_flow_dur_sec"]
+        if data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_DURATION:
+            test_flow.duration.fixed_seconds.seconds = data_flow_config["data_flow_dur_sec"]
+        elif data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_PACKETS:
+            test_flow.duration.fixed_packets.packets = data_flow_config["data_flow_pkt_count"]
         test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
                                                                  (data_flow_config["data_flow_delay_sec"]))
 
@@ -274,15 +277,13 @@ def generate_pause_flows(testbed_config,
     pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
     pause_flow.rate.pps = pause_flow_config["pause_flow_rate_pps"]
     pause_flow.size.fixed = pause_flow_config["pause_flow_pkt_size"]
+    pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
+        pause_flow_config["pause_flow_delay_sec"]))
 
     if pause_flow_config["pause_flow_traffic_type"] == pfc_traffic_flow.FIXED_DURATION:
         pause_flow.duration.fixed_seconds.seconds = pause_flow_config["pause_flow_dur_sec"]
-        pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
-            pause_flow_config["pause_flow_delay_sec"]))
     elif pause_flow_config["pause_flow_traffic_type"] == pfc_traffic_flow.CONTINUOUS:
         pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
-        pause_flow.duration.continuous.delay.nanoseconds = int(sec_to_nanosec(
-            pause_flow_config["pause_flow_delay_sec"]))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True

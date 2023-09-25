@@ -56,10 +56,14 @@ def test_dequeue_ecn(request,
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
     snappi_extra_params.is_snappi_ingress_port_cap = True
-    snappi_extra_params.packet_capture_file = 'ecn_dequeue.pcapng'
     snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
-    snappi_extra_params.pkt_size = 1024
-    snappi_extra_params.pkt_count = 100
+    data_flow_pkt_size = 1024
+    data_flow_pkt_count = 100
+
+    snappi_extra_params.traffic_flow_config.data_flow_config = {
+            "data_flow_pkt_size": data_flow_pkt_size,
+            "data_flow_pkt_count": data_flow_pkt_count
+        }
 
     ip_pkts = run_ecn_test(api=snappi_api,
                            testbed_config=testbed_config,
@@ -74,8 +78,8 @@ def test_dequeue_ecn(request,
                            snappi_extra_params=snappi_extra_params)[0]
 
     """ Check if we capture all the packets """
-    pytest_assert(len(ip_pkts) == pkt_cnt,
-                  'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
+    pytest_assert(len(ip_pkts) == data_flow_pkt_count,
+                  'Only capture {}/{} IP packets'.format(len(ip_pkts), data_flow_pkt_count))
 
     """ Check if the first packet is marked """
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
