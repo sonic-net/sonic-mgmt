@@ -11,13 +11,14 @@ pytestmark = [
 ]
 
 BAUD_RATE_MAP = {
-    "default": "9600"
+    "default": "9600",
+    "x86_64-mlnx_msn4700-r0": "115200"
 }
 BOOT_TYPE = {
     "armhf-nokia_ixs7215_52x-r0": "UBoot-ONIE",
     "x86_64-arista_720dt_48s": "ABoot"
 }
-pass_config_test = True
+pass_config_test = False
 
 
 def is_sonic_console(conn_graph_facts, dut_hostname):
@@ -30,14 +31,14 @@ def test_console_baud_rate_config(duthost):
     res = duthost.shell("cat /proc/cmdline | grep -Eo 'console=ttyS[0-9]+,[0-9]+' | cut -d ',' -f2")
     pytest_require(res["stdout"] != "", "Cannot get baud rate")
     if res["stdout"] != expected_baud_rate:
-        global pass_config_test
-        pass_config_test = False
         pytest.fail("Baud rate {} is unexpected!".format(res["stdout"]))
+    global pass_config_test
+    pass_config_test = True
 
 
 @pytest.fixture(scope="module")
 def console_client_setup_teardown(duthost, conn_graph_facts, creds):
-    pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
+    pytest_require(pass_config_test, "Skip due to not pass test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
