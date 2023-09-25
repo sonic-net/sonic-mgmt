@@ -1593,7 +1593,24 @@ class ReloadTest(BaseTest):
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        try:
+            self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.log("Error in HostDevice: {}".format(traceback_msg))
+            self.fails[ip] = set()
+            self.fails[ip].add("HostDevice hit an exception") 
+            self.info[ip] = set()
+            self.cli_info[ip] = {
+                    "lacp": [0, 0],
+                    "po": [0, 0],
+                    "bgp_v4": [0, 0],
+                    "bgp_v6": [0, 0],
+                    }
+            self.logs_info[ip] = {}
+            self.lacp_pdu_times[ip] = {
+                    "lacp_all": []
+                    }
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
