@@ -23,7 +23,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 PKT_NUM = 2000
-PKT_COUNTER_MARGIN_PERCENT = 0.1  # The margin is used to ignore the background packtes.
+PKT_COUNTER_MARGIN_PERCENT = 0.1  # The margin is used to ignore the background packets.
 COUNTER_RANGE = [PKT_NUM * 2, PKT_NUM * 2 * (1 + PKT_COUNTER_MARGIN_PERCENT)]
 COUNTER_ZERO = [0, PKT_NUM * PKT_COUNTER_MARGIN_PERCENT]
 
