@@ -293,7 +293,7 @@ def check_server_received(ptfhost, data):
         res = ptfhost.shell(sed_command)
         logger.info(sed_command)
         logger.info(res["stdout_lines"])
-        if len(res["stdout_lines"]) > 0p:
+        if len(res["stdout_lines"]) > 0:
             return
 
         time.sleep(1)
