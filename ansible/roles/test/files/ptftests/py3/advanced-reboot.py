@@ -1385,14 +1385,18 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                         if x['mgmt_addr'] == neigh]
-            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                 None, self.test_params)
-            self.neigh_handle.connect()
-            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
-            self.neigh_handle.disconnect()
-            self.fails[neigh] |= fails
+            flap_cnt = None
+            if self.test_params['neighbor_type'] == "sonic":
+                flap_cnt = self.cli_info[neigh][1]
+            else:
+                self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                             if x['mgmt_addr'] == neigh]
+                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                     None, self.test_params)
+                self.neigh_handle.connect()
+                fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+                self.neigh_handle.disconnect()
+                self.fails[neigh] |= fails
             if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:

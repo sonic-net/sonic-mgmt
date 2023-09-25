@@ -484,6 +484,8 @@ class Sonic(host_device.HostDevice):
         # Note: this function may have false-positives (with regards to link flaps). The start time used here is
         # the system's boot time, not the test start time, which means any LAG flaps before the start of the test
         # would get included here.
+        #
+        # You probably really don't want to call this function.
         log_lines = self.do_cmd("sudo cat /var/log/teamd.log{,.1}").split('\n')
         boot_time = datetime.datetime.strptime(self.do_cmd("uptime -s").strip(), "%Y-%m-%d %H:%M:%S")
         _, flap_cnt = self.check_lag_flaps("PortChannel1", log_lines, time.mktime(boot_time.timetuple()))
