@@ -286,10 +286,20 @@ def check_server_received(ptfhost, data):
             E501 : Line too long. Following sed command difficult to split to multiple line.
     """
     sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
-    res = ptfhost.shell(sed_command)
-    logger.info(sed_command)
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
+
+    # After tacplus service receive data, it need take some time to update to log file.
+    wait_time = 0
+    while wait_time <= timeout:
+        res = ptfhost.shell(sed_command)
+        logger.info(sed_command)
+        logger.info(res["stdout_lines"])
+        if len(res["stdout_lines"]) > 0p:
+            return
+
+        time.sleep(1)
+        wait_time += 1
+
+    pytest_assert(False, "Not found data: {} in tacplus server log".format(data))
 
 
 def get_auditd_config_reload_timestamp(duthost):
