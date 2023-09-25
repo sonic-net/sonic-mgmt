@@ -7,4 +7,5 @@ steps:
     pytest test_cleanup_firmware.py
     pytest eos_to_sonic_test.py
     pytest test_rvtysh.py
+    pytest test_fix_cat.py
   displayName: Unit test SONiC metadata scripts
