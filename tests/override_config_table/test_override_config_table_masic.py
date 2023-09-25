@@ -113,7 +113,7 @@ def load_minigraph_with_golden_empty_input(duthost):
             initial_host_config[table] == host_current_config[table],
             "empty input compare fail! {}".format(table)
         )
-    
+
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
