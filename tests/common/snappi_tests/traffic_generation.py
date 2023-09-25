@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
-PFC_FRAME_COUNT_TOL = 5  # Tolerance for PFC frame count when DUT is not expected to receive PFC pause frames
+PFC_FRAME_COUNT_TOL = 0  # Tolerance for PFC frame count when DUT is not expected to receive PFC pause frames
 
 
 def setup_base_traffic_config(testbed_config,
