@@ -8,11 +8,16 @@ from tests.common.config_reload import config_reload
 from utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut
 
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
+NON_ASIC_CONFIG_TABLES = ["TACPLUS_SERVER", "FLEX_COUNTER_TABLE", "DEVICE_METADATA",
+                           "MGMT_VRF_CONFIG", "SYSLOG_SERVER", "DHCP_SERVER", 
+                           "NTP_SERVER", "KUBERNETES_MASTER", "CONSOLE_PORT",
+                           "MUX_CABLE", "FG_NHG_MEMBER", "FG_NHG", "NEIGH",
+                           "SYSTEM_DEFAULTS"]
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
 
 logger = logging.getLogger(__name__)
 
@@ -36,25 +41,28 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
-
-
-@pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
+def setup_env(duthost, tbinfo):
     """
     Setup/teardown
     Args:
         duthost: DUT.
-        golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
-    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+    for asic_id in duthost.get_frontend_asic_ids():
+        config = "/etc/sonic/config_db{}.json".format(asic_id)
+        config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
+        backup_config(duthost, config, config_backup)
+    backup_config(duthost,CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
-    if golden_config_exists_on_dut:
+    for asic_id in duthost.get_frontend_asic_ids():
+        golden_config = "/etc/sonic/golden_config_db{}.json".format(asic_id)
+        golden_config_backup = "/etc/sonic/golden_config_db{}.json_before_override".format(asic_id)
+        if file_exists_on_dut(duthost, golden_config):
+            backup_config(duthost, golden_config, golden_config_backup)
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
     # Reload test env with minigraph
@@ -66,13 +74,23 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
     if topo_type in ["m0", "mx"]:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
+    for asic_id in duthost.get_frontend_asic_ids():
+        config = "/etc/sonic/config_db{}.json".format(asic_id)
+        config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
+        restore_config(duthost, config, config_backup)
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Restore Golden Config after test, else cleanup test file.
-    if golden_config_exists_on_dut:
+    for asic_id in duthost.get_frontend_asic_ids():
+        golden_file = "/etc/sonic/golden_config_db{}.json".format(asic_id)
+        golde_file_backup = "/etc/sonic/golden_config_db{}.json_before_override".format(asic_id)
+        if file_exists_on_dut(duthost, golde_file_backup):
+            restore_config(duthost, golden_file, golde_file_backup)
+        else:
+            duthost.file(path=golde_file_backup, state='absent')
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG_BACKUP):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
         duthost.file(path=GOLDEN_CONFIG, state='absent')
-
     # Restore config before test
     config_reload(duthost)
 
@@ -80,28 +98,29 @@ def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
 def load_minigraph_with_golden_empty_input(duthost):
     """Test Golden Config with empty input
     """
-    initial_config = get_running_config(duthost)
+    initial_host_config = get_running_config(duthost)
+    initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     # Test host running config override
     host_current_config = get_running_config(duthost)
-    for table in initial_config:
+    for table in initial_host_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
         pytest_assert(
-            initial_config[table] == host_current_config[table],
+            initial_host_config[table] == host_current_config[table],
             "empty input compare fail! {}".format(table)
         )
     
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
-    for table in initial_config:
-        if table in NON_USER_CONFIG_TABLES:
+    for table in initial_asic0_config:
+        if table in NON_ASIC_CONFIG_TABLES:
             continue
         pytest_assert(
-            initial_config[table] == asic0_current_config[table],
+            initial_asic0_config[table] == asic0_current_config[table],
             "empty input compare fail! {}".format(table)
         )
 
@@ -109,32 +128,42 @@ def load_minigraph_with_golden_empty_input(duthost):
 def load_minigraph_with_golden_partial_config(duthost):
     """Test Golden Config with partial config.
 
-    Here we assume all config contain MGMT_INTERFACE table
+    Here we assume all config contain TELEMETRY table
     """
     partial_config = {
-      "localhost": {
-          "MGMT_INTERFACE": {
-              "eth0|0.0.0.0/23": {}
-          }
-      },
-      "asic0": {
-          "MGMT_INTERFACE": {
-              "eth0|0.0.0.0/23": {}
-          }
-      }
+        "localhost": {
+            "TELEMETRY": {
+                "gnmi": {},
+                "certs": {
+                    "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key",
+                    "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+                    "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer"
+                }
+            },
+        },
+        "asic0": {
+            "TELEMETRY": {
+                "gnmi": {},
+                "certs": {
+                    "server_key": "/etc/sonic/telemetry/streamingtelemetryserver.key",
+                    "ca_crt": "/etc/sonic/telemetry/dsmsroot.cer",
+                    "server_crt": "/etc/sonic/telemetry/streamingtelemetryserver.cer"
+                }
+            },
+        }
     }
     reload_minigraph_with_golden_config(duthost, partial_config)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
-        host_current_config['localhost']['MGMT_INTERFACE'] == partial_config['localhost']['MGMT_INTERFACE'],
-        "Partial config override fail: {}".format(host_current_config['MGMT_INTERFACE'])
+        host_current_config['TELEMETRY'] == partial_config["localhost"]['TELEMETRY'],
+        "Partial config override fail: {}".format(host_current_config['TELEMETRY'])
     )
 
     asic0_current_config = get_running_config(duthost, "asic0")
     pytest_assert(
-        asic0_current_config['asic0']['MGMT_INTERFACE'] == partial_config['asic0']['MGMT_INTERFACE'],
-        "Partial config override fail: {}".format(asic0_current_config['MGMT_INTERFACE'])
+        asic0_current_config['TELEMETRY'] == partial_config["asic0"]['TELEMETRY'],
+        "Partial config override fail: {}".format(asic0_current_config['TELEMETRY'])
     )
 
 
@@ -143,63 +172,62 @@ def load_minigraph_with_golden_new_feature(duthost):
     """
     new_feature_config = {
         "localhost": {
-          "NEW_FEATURE_TABLE": {
-            "entry": {
-              "field": "value",
-              "state": "disabled"
+            "NEW_FEATURE_TABLE": {
+                "entry": {
+                    "field": "value",
+                    "state": "disabled"
+                }
             }
-          }
         },
         "asic0": {
-          "NEW_FEATURE_TABLE": {
-            "entry": {
-              "field": "value",
-              "state": "disabled"
+            "NEW_FEATURE_TABLE": {
+                "entry": {
+                    "field": "value",
+                    "state": "disabled"
+                }
             }
-          }
-        },
+        }
     }
     reload_minigraph_with_golden_config(duthost, new_feature_config)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
-        'NEW_FEATURE_TABLE' in host_current_config['localhost'] and
-        host_current_config['localhost']['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
+        'NEW_FEATURE_TABLE' in host_current_config and
+        host_current_config['NEW_FEATURE_TABLE'] == new_feature_config['localhost']['NEW_FEATURE_TABLE'],
         "new feature config update fail: {}".format(host_current_config['NEW_FEATURE_TABLE'])
     )
 
     asic0_current_config = get_running_config(duthost, "asic0")
     pytest_assert(
-        'NEW_FEATURE_TABLE' in asic0_current_config['localhost'] and
-        asic0_current_config['asic0']['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
+        'NEW_FEATURE_TABLE' in asic0_current_config and
+        asic0_current_config['NEW_FEATURE_TABLE'] == new_feature_config['asic0']['NEW_FEATURE_TABLE'],
         "new feature config update fail: {}".format(asic0_current_config['NEW_FEATURE_TABLE'])
     )
-
 
 def load_minigraph_with_golden_empty_table_removal(duthost):
     """Test Golden Config with empty table removal.
 
-    Here we assume all config contain MGMT_INTERFACE table
+    Here we assume all config contain FEATURE table
     """
     empty_table_removal = {
         "localhost": {
-            "MGMT_INTERFACE": {}
+            "TELEMETRY": {}
         },
         "asic0": {
-            "MGMT_INTERFACE": {}
-        },
+            "TELEMETRY": {}
+        }
     }
     reload_minigraph_with_golden_config(duthost, empty_table_removal)
 
     host_current_config = get_running_config(duthost)
     pytest_assert(
-        host_current_config['localhost'].get('MGMT_INTERFACE', None) is None,
+        host_current_config.get('TELEMETRY', None) is None,
         "Empty table removal fail: {}".format(host_current_config)
     )
 
     asic0_current_config = get_running_config(duthost, "asic0")
     pytest_assert(
-        asic0_current_config['asic0'].get('MGMT_INTERFACE', None) is None,
+        asic0_current_config.get('TELEMETRY', None) is None,
         "Empty table removal fail: {}".format(asic0_current_config)
     )
 
