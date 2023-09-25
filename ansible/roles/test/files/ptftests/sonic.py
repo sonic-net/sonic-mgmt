@@ -61,6 +61,9 @@ class Sonic(host_device.HostDevice):
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
+                stderrOutput = six.ensure_str(stderr.read()).strip()
+                if len(stderrOutput) > 0:
+                    self.log("Output on stderr from command '{}': '{}'".format(cmd, stderrOutput))
                 return six.ensure_str(stdout.read())
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
