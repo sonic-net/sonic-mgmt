@@ -171,7 +171,8 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
                                                     check_tacacs,
-                                                    rw_user_client):
+                                                    rw_user_client,
+                                                    ensure_tacacs_server_running_after_ut):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -282,7 +283,8 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
                                                         check_tacacs,
-                                                        rw_user_client):
+                                                        rw_user_client,
+                                                        ensure_tacacs_server_running_after_ut):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
