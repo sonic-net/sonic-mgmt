@@ -61,10 +61,19 @@ class Sonic(host_device.HostDevice):
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
+                # Warning: This is a bit fragile. Both stdout and stderr use
+                # the same SSH channel, and if the buffer for that channel is
+                # full, then either stdout or stderr will block until there's
+                # space in the channel.
+                #
+                # Therefore, fully read stdout first before trying to read
+                # stderr. This assumes there's plenty of data on stdout to read,
+                # but not much on stderr.
+                stdoutOutput = six.ensure_str(stdout.read())
                 stderrOutput = six.ensure_str(stderr.read()).strip()
                 if len(stderrOutput) > 0:
                     self.log("Output on stderr from command '{}': '{}'".format(cmd, stderrOutput))
-                return six.ensure_str(stdout.read())
+                return stdoutOutput
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
@@ -380,7 +389,7 @@ class Sonic(host_device.HostDevice):
         return set(expects).issubset(prefixes)
 
     def parse_supported_show_lacp_command(self):
-        show_lacp_command = "show lacp neighbor"
+        show_lacp_command = "show interface portchannel"
         self.log("show lacp command is '{}'".format(show_lacp_command))
         return show_lacp_command
 
