@@ -1,26 +1,12 @@
 import logging
 import json
 import time
-import re
-import ipaddress
-import pytest
-import socket
 import uuid
 from functools import lru_cache
 
-from dash_api.appliance_pb2 import Appliance
-from dash_api.vnet_pb2 import Vnet
-from dash_api.eni_pb2 import Eni, State
-from dash_api.qos_pb2 import Qos
-from dash_api.route_pb2 import Route
-from dash_api.route_rule_pb2 import RouteRule
-from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
+import proto_utils
 
 logger = logging.getLogger(__name__)
-
-
-ENABLE_PROTO = True
 
 
 @lru_cache(maxsize=None)
@@ -267,66 +253,6 @@ def gnmi_get(duthost, ptfhost, path_list):
             return -1, [msg]
 
 
-def json_to_proto(key, json_obj):
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    if table_name == "APPLIANCE":
-        pb = Appliance()
-        pb.sip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["sip"])))
-        pb.vm_vni = int(json_obj["vm_vni"])
-    elif table_name == "VNET":
-        pb = Vnet()
-        pb.vni = int(json_obj["vni"])
-        pb.guid.value = bytes.fromhex(uuid.UUID(json_obj["guid"]).hex)
-    elif table_name == "VNET_MAPPING":
-        pb = VnetMapping()
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-        pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-        pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-        pb.use_dst_vni = json_obj["use_dst_vni"] == "true"
-    elif table_name == "QOS":
-        pb = Qos()
-        pb.qos_id = json_obj["qos_id"]
-        pb.bw = int(json_obj["bw"])
-        pb.cps = int(json_obj["cps"])
-        pb.flows = int(json_obj["flows"])
-    elif table_name == "ENI":
-        pb = Eni()
-        pb.eni_id = json_obj["eni_id"]
-        pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-        pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-        pb.admin_state = State.STATE_ENABLED if json_obj["admin_state"] == "enabled" else State.STATE_DISABLED
-        pb.vnet = json_obj["vnet"]
-        pb.qos = json_obj["qos"]
-    elif table_name == "ROUTE":
-        pb = Route()
-        if json_obj["action_type"] == "vnet":
-            pb.action_type = RoutingType.ROUTING_TYPE_VNET
-            pb.vnet = json_obj["vnet"]
-        elif json_obj["action_type"] == "vnet_direct":
-            pb.action_type = RoutingType.ROUTING_TYPE_VNET_DIRECT
-            pb.vnet_direct.vnet = json_obj["vnet"]
-            pb.vnet_direct.overlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["overlay_ip"])))
-        elif json_obj["action_type"] == "direct":
-            pb.action_type = RoutingType.ROUTING_TYPE_DIRECT
-        else:
-            pytest.fail("Unknown action type %s" % json_obj["action_type"])
-    elif table_name == "ROUTE_RULE":
-        pb = RouteRule()
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-        pb.priority = int(json_obj["priority"])
-        pb.pa_validation = json_obj["pa_validation"] == "true"
-        pb.vnet = json_obj["vnet"]
-    elif table_name == "ROUTING_TYPE":
-        pb = RouteType()
-        pbi = RouteTypeItem()
-        pbi.action_name = json_obj["name"]
-        pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
-        pb.items.append(pbi)
-    else:
-        pytest.fail("Unknown table %s" % table_name)
-    return pb.SerializeToString()
-
-
 def apply_gnmi_file(duthost, ptfhost, dest_path):
     env = GNMIEnvironment(duthost)
     logger.info("Applying config files on DUT")
@@ -346,8 +272,8 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 logger.info("Config Json %s" % k)
                 update_cnt += 1
                 filename = "update%u" % update_cnt
-                if ENABLE_PROTO:
-                    message = json_to_proto(k, v)
+                if proto_utils.ENABLE_PROTO:
+                    message = proto_utils.json_to_proto(k, v)
                     with open(env.work_dir+filename, "wb") as file:
                         file.write(message)
                 else:
@@ -357,7 +283,7 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 ptfhost.copy(src=env.work_dir+filename, dest='/root/')
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                if ENABLE_PROTO:
+                if proto_utils.ENABLE_PROTO:
                     path = "/APPL_DB/%s:$/root/%s" % (k, filename)
                 else:
                     path = "/APPL_DB/%s:@/root/%s" % (k, filename)
