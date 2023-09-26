@@ -451,6 +451,15 @@ class SonicHost(AnsibleHostBase):
 
         return len(status["stdout_lines"]) > 1
 
+    def is_host_service_running(self, service):
+        """
+        Check if the specified service is running or not
+        @param service: Service name
+        @return: True if specified service is running, else False
+        """
+        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        return "active (running)" in service_status['stdout']
+
     def critical_services_status(self):
         # Initialize service status
         services = {}

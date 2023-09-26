@@ -70,6 +70,7 @@ import ptf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 import scapy.all as scapyall
+from scapy.arch.linux import attach_filter as attach_filter
 
 import sad_path as sp
 
@@ -1645,7 +1646,7 @@ class ReloadTest(BaseTest):
     def apply_filter_all_ports(self, filter_expression):
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
-            scapyall.attach_filter(port.socket, filter_expression)
+            attach_filter(port.socket, filter_expression, port.interface_name)
 
     def send_in_background(self, packets_list=None):
         """
@@ -1893,7 +1894,7 @@ class ReloadTest(BaseTest):
                             ]
 
         if self.vnet:
-            decap_packets = [scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
+            decap_packets = [scapyall.Ether(bytes(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
                              scapyall.UDP in pkt and
                              pkt[scapyall.UDP].sport == 1234
                              ]
