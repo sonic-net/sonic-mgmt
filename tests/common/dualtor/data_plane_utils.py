@@ -2,7 +2,10 @@ import pytest
 import json
 import time
 import math
+import random
 
+from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_io import DualTorIO
@@ -160,11 +163,9 @@ def run_test(
         activehost, peerhost, ptfhost, ptfadapter, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
+    tor_IO.generate_traffic(traffic_direction)
 
-    send_and_sniff = InterruptableThread(
-        target=tor_IO.start_io_test,
-        kwargs={'traffic_direction': traffic_direction}
-    )
+    send_and_sniff = InterruptableThread(target=tor_IO.start_io_test)
     send_and_sniff.set_error_handler(lambda *args, **kargs: io_ready.set())
 
     send_and_sniff.start()
@@ -381,5 +382,37 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
         return verify_and_report(tor_IO, verify, delay, allowed_disruption)
 
     yield t1_to_soc_io_test
+
+    cleanup(ptfadapter, duthosts)
+
+
+@pytest.fixture
+def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type,        # noqa F811
+                                      active_active_ports, active_standby_ports):               # noqa F811
+
+    arp_setup(ptfhost)
+
+    if cable_type == CableType.active_active:
+        tor_vlan_port = random.sample(active_active_ports, 2)
+    elif cable_type == CableType.active_standby:
+        tor_vlan_port = random.sample(active_standby_ports, 2)
+    else:
+        raise ValueError("Unsupported cable type %s" % cable_type)
+
+    def server_to_server_io_test(activehost, delay=0, allowed_disruption=0, action=None,
+                                 verify=False, send_interval=0.01, stop_after=None):
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+                          action, tbinfo, tor_vlan_port, send_interval,
+                          traffic_direction="server_to_server", stop_after=stop_after,
+                          cable_type=cable_type)
+
+        # If a delay is allowed but no numebr of allowed disruptions
+        # is specified, default to 1 allowed disruption
+        if delay and not allowed_disruption:
+            allowed_disruption = 1
+
+        return verify_and_report(tor_IO, verify, delay, allowed_disruption)
+
+    yield server_to_server_io_test
 
     cleanup(ptfadapter, duthosts)
