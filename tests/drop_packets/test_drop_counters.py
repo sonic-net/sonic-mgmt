@@ -15,6 +15,7 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters, ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import *  # FIXME
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
