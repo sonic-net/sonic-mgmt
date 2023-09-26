@@ -392,7 +392,9 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
             ptfadapter, exp_pkt, dst_ports)
         actual_port = dst_ports[result[0]]
         # Get the port name from mgfacts
-        for port_name, idx in list(mg_facts['minigraph_ptf_indices'].items()):
+        minigraph_ptf_indices = list(mg_facts['minigraph_ptf_indices'].items())
+        minigraph_ptf_indices.sort()
+        for port_name, idx in minigraph_ptf_indices:
             if idx == actual_port:
                 actual_port_name = port_name
                 break
