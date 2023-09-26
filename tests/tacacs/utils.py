@@ -2,7 +2,6 @@ import crypt
 import logging
 import re
 import binascii
-import time
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
