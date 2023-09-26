@@ -9,11 +9,7 @@ from utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut
 
 NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
-NON_ASIC_CONFIG_TABLES = ["TACPLUS_SERVER", "FLEX_COUNTER_TABLE", "DEVICE_METADATA",
-                          "MGMT_VRF_CONFIG", "SYSLOG_SERVER", "DHCP_SERVER",
-                          "NTP_SERVER", "KUBERNETES_MASTER", "CONSOLE_PORT",
-                          "MUX_CABLE", "FG_NHG_MEMBER", "FG_NHG", "NEIGH",
-                          "SYSTEM_DEFAULTS"]
+
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
@@ -117,7 +113,7 @@ def load_minigraph_with_golden_empty_input(duthost):
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
-        if table in NON_ASIC_CONFIG_TABLES:
+        if table in NON_USER_CONFIG_TABLES:
             continue
         pytest_assert(
             initial_asic0_config[table] == asic0_current_config[table],
