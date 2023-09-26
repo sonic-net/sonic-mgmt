@@ -7,7 +7,7 @@ import time
 from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
 from tests.tacacs.utils import per_command_authorization_skip_versions, \
         remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update, \
-        ensure_tacacs_server_running_after_ut
+        ensure_tacacs_server_running_after_ut                             # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
@@ -268,7 +268,7 @@ def test_authorization_tacacs_only_some_server_down(
 
 def test_authorization_tacacs_only_then_server_down_after_login(
         setup_authorization_tacacs, ptfhost, check_tacacs,
-        remote_user_client, ensure_tacacs_server_running_after_ut):
+        remote_user_client, ensure_tacacs_server_running_after_ut): # noqa: F811
 
     # Verify when server are accessible, TACACS+ user can run command in server side whitelist.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "show aaa")
@@ -322,7 +322,7 @@ def test_authorization_tacacs_and_local(
 def test_authorization_tacacs_and_local_then_server_down_after_login(
         duthosts, enum_rand_one_per_hwsku_hostname,
         setup_authorization_tacacs_local, tacacs_creds, ptfhost,
-        check_tacacs, remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):
+        check_tacacs, remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut): # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Shutdown tacacs server
@@ -367,7 +367,7 @@ def test_authorization_tacacs_and_local_then_server_down_after_login(
 def test_authorization_local(
         duthosts, enum_rand_one_per_hwsku_hostname,
         tacacs_creds, ptfhost, check_tacacs,
-        remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):
+        remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut): # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     """
@@ -465,7 +465,7 @@ def test_bypass_authorization(
 def test_backward_compatibility_disable_authorization(
         duthosts, enum_rand_one_per_hwsku_hostname,
         tacacs_creds, ptfhost, check_tacacs,
-        remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut):
+        remote_user_client, local_user_client, ensure_tacacs_server_running_after_ut): # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Verify domain account can run command if have permission in local.

@@ -10,7 +10,7 @@ from .test_authorization import ssh_connect_remote, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut
+        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -172,7 +172,7 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     tacacs_creds,
                                                     check_tacacs,
                                                     rw_user_client,
-                                                    ensure_tacacs_server_running_after_ut):
+                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -284,7 +284,7 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         tacacs_creds,
                                                         check_tacacs,
                                                         rw_user_client,
-                                                        ensure_tacacs_server_running_after_ut):
+                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
