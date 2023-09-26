@@ -46,7 +46,7 @@ The sonic-mgmt generic hash tests validate whether the hash configurations can b
 
 ## 3. Scope
 
-The test is to verify the hash configuration can be added/updated by the generic hash, and the ECMP and lag hash behavior will change according to the generic hash configurations.   
+The test is to verify the hash configuration can be added/updated by the generic hash, and the ECMP and lag hash behavior will change according to the generic hash configurations.
 
 ### 3.1 Scale / Performance
 
@@ -113,7 +113,7 @@ show
      |--- global
      |--- capabilities
 ```
-     
+
 Example:
 **The following command shows switch hash global configuration:**
 ```bash
@@ -226,7 +226,7 @@ The test should support t0 and t1 topologies.
 | 8 | test_reboot | Verify there is no hash configuration inconsistence before and after reload/reboot|
 | 9 | test_backend_error_messages | Verify there are backend errors in syslog when the hash config is removed or updated with invalid values via redis cli|
 
-### Notes: 
+### Notes:
   1. The tested hash field in each test case is randomly selected from a pre-defined field list per asic type. Currently these fields are tested as default: 'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP'.
   2. DST_MAC, ETHERTYPE, VLAN_ID fields are only tested in lag hash test cases, because L2 traffic is needed to test these fields, and there is no ecmp hash when the traffic is fowarded in L2.
   3. IPv4 and IPv6 are covered in the test, but the versions(including the inner version when testing the inner fields) are randomly selected in the test cases.
