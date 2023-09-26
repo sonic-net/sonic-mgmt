@@ -422,11 +422,20 @@ class SetupPfcwdFunc(object):
                          }
             self.peer_dev_list[self.peer_device] = peer_info['hwsku']
 
+            if self.dut.topo_type == 't2' and self.fanout[self.peer_device].os == 'sonic':
+                gen_file = 'pfc_gen_t2.py'
+                pfc_send_time = 60
+            else:
+                gen_file = 'pfc_gen.py'
+                pfc_send_time = None
+
             # get pfc storm handle
             if init and detect:
                 self.storm_hndle = PFCStorm(self.dut, self.fanout_info, self.fanout,
                                             pfc_queue_idx=self.pfc_wd['queue_index'],
                                             pfc_frames_number=self.pfc_wd['frames_number'],
+                                            pfc_send_period=pfc_send_time,
+                                            pfc_gen_file=gen_file,
                                             peer_info=peer_info)
             self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)

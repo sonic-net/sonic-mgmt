@@ -45,6 +45,18 @@ arp/test_unknown_mac.py:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+arp/test_wr_arp.py:
+  skip:
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-buildimage/issues/16502
+  xfail:
+    reason: "Warm reboot has a known issue on 7050cx3"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/10077
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -93,6 +105,12 @@ bgp/test_bgp_multipath_relax.py:
     reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
+
+bgp/test_bgp_queue.py:
+  skip:
+    reason: "Unsupported topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -526,6 +544,12 @@ generic_config_updater/test_pfcwd_status.py:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
+generic_config_updater/test_pg_headroom_update.py:
+  skip:
+    reason: "Unsupported topology."
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 #######################################
 #####           http              #####
 #######################################
@@ -620,9 +644,22 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+  skip:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: 'Skip for t0-sonic to prevent deadlock with code PR merge'
+    conditions:
+      - "'t0' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -692,9 +729,9 @@ override_config_table/test_override_config_table.py:
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag, t1-56-lag and t2 topology"
+    reason: "Only support t1-lag, t1-56-lag, t1-64-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag', 't1-56-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-56-lag', 't1-64-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
@@ -773,7 +810,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
    xfail:
      reason: "Warm Reboot is not supported in dualtor."
      conditions:
-        - "'dualtor' in topo_name"
+        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master'])"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
@@ -814,6 +851,11 @@ platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
+
+platform_tests/test_cont_warm_reboot.py:
+  xfail:
+    reason: "warm reboot has a known issue on 7050cx3"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####           qos               #####
@@ -1000,26 +1042,27 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
-    reason: "Generic internal image issue"
+    reason: "Test issue"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "release in ['202305']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
 #######################################
 snmp/test_snmp_link_local.py:
   skip:
-    reason: "SNMP over IPv6 support not present in 202211 branch."
+    reason: "SNMP over IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_loopback.py:
   skip:
-    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
+    reason: "SNMP over Loopback IPv6 support not present in 202211 release."
     conditions:
-      - "branch in ['202211']"
+      - "release in ['202211']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:

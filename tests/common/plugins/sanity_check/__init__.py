@@ -257,7 +257,7 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                     for action in infra_recovery_actions:
                         action()
 
-                except Exception as e:
+                except BaseException as e:
                     request.config.cache.set("pre_sanity_check_failed", True)
                     logger.error("Recovery of sanity check failed with exception: ")
                     pt_assert(
