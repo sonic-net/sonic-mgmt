@@ -6,7 +6,8 @@ import time
 
 from tests.tacacs.utils import stop_tacacs_server, start_tacacs_server
 from tests.tacacs.utils import per_command_authorization_skip_versions, \
-        remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update
+        remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update, \
+        ensure_tacacs_server_running_after_ut
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received

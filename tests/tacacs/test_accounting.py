@@ -10,7 +10,7 @@ from .test_authorization import ssh_connect_remote, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update
+        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
