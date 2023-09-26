@@ -1,6 +1,6 @@
 import pytest
 import time
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
 from tests.common.reboot import reboot
 
