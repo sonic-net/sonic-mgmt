@@ -4,6 +4,11 @@ def get_counter_name(mode, tg_type, comp_type, direction):
     return tgen_utils.get_counter_name(mode, tg_type, comp_type, direction)
 
 
+def get_latest_log_msg():
+    from spytest.tgen import tgen_utils
+    return tgen_utils.get_latest_log_msg()
+
+
 def validate_tgen_traffic(**kwargs):
     from spytest.tgen import tgen_utils
     return tgen_utils.validate_tgen_traffic(**kwargs)
@@ -78,8 +83,10 @@ def get_chassis_byname(name):
 
 def is_soft_tgen(vars=None):
     tg = get_chassis(vars)
-    if not tg: return False
-    if tg.tg_type == "scapy": return True
+    if not tg:
+        return False
+    if tg.tg_type == "scapy":
+        return True
     return tg.tg_virtual
 
 
@@ -175,6 +182,14 @@ def send_verify_traffic(tg, stream, ph_rx, ph_tx, tolerance, stop_time=5, run_ti
     return None
 
 
+def report_traffic_verification_fail(msgid=None, line=None):
+    from spytest import st
+    from utilities.common import get_line_number
+    msgid = msgid or "failed_traffic_verification"
+    line = line or get_line_number(1)
+    st.report_fail(msgid, "{} @{}".format(get_latest_log_msg(), line))
+
+
 def get_min(v1, v2):
     return v1 if v1 < v2 else v2
 
@@ -185,18 +200,21 @@ def get_max(v1, v2):
 
 def normalize_pps(value):
     from utilities.common import get_env_int
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     max_value = get_env_int("SPYTEST_SCAPY_MAX_RATE_PPS", 100)
     return get_min(int(value), max_value)
 
 
 def normalize_mtu(value):
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     return get_min(int(value), 9000)
 
 
 def normalize_hosts(value):
-    if not is_soft_tgen(): return value
+    if not is_soft_tgen():
+        return value
     return get_min(int(value), 256)
 
 
