@@ -131,6 +131,7 @@ class QosBase:
             is_python3=True,
             relax=False,
             timeout=1200,
+            socket_recv_size=16384,
             custom_options=custom_options
         )
 
