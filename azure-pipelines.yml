@@ -142,7 +142,6 @@ stages:
           VM_TYPE: vsonic
           KVM_IMAGE_BRANCH: "master"
           MGMT_BRANCH: "master"
-          SCRIPTS_EXCLUDE: "bgp/test_bgp_fact.py"
 
   - job: dpu_elastictest
     displayName: "kvmtest-dpu by Elastictest"
