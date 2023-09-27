@@ -179,6 +179,70 @@ class QosSaiBase(QosBase):
                 bufferProfile["size"]) + int(bufferScale * bufferSize)}
         )
 
+    def __compute_buffer_threshold_for_nvidia_device(self, dut_asic, table, port, pg_q_buffer_profile):
+        """
+        Computes buffer threshold for dynamic threshold profiles for nvidia device
+
+        Args:
+            dut_asic (SonicAsic): Device ASIC Under Test (DUT)
+            table (str): Redis table name
+            port (str): DUT port alias
+            pg_q_buffer_profile (dict, inout): Map of pg or q buffer profile attributes
+
+        Returns:
+            Updates bufferProfile with computed buffer threshold
+        """
+
+        port_table_name = "BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE" if \
+            table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
+        db = "0"
+        port_profile_res = dut_asic.run_redis_cmd(
+            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]
+        )[0]
+        port_profile_list = port_profile_res.split(",")
+
+        port_dynamic_th = ''
+        for port_profile in port_profile_list:
+            buffer_pool_name = dut_asic.run_redis_cmd(
+                argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "pool"]
+            )[0]
+            if buffer_pool_name == pg_q_buffer_profile["pool"]:
+                port_dynamic_th = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
+                )[0]
+                break
+        if port_dynamic_th:
+
+            def calculate_alpha(dynamic_th):
+                if dynamic_th == "7":
+                    alpha = 64
+                else:
+                    alpha = 2 ** float(dynamic_th)
+                return alpha
+
+            pg_q_alpha = calculate_alpha(pg_q_buffer_profile['dynamic_th'])
+            port_alpha = calculate_alpha(port_dynamic_th)
+            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'
+            buffer_size = int(
+                dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", pool, "size"]
+                )[0]
+            )
+
+            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+
+            pg_q_max_occupancy = int(buffer_size * buffer_scale)
+
+            pg_q_buffer_profile.update(
+                {"static_th": int(
+                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+            )
+            pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
+            pg_q_buffer_profile["port_alpha"] = port_alpha
+            pg_q_buffer_profile["pool_size"] = buffer_size
+        else:
+            raise Exception("Not found port dynamic th")
+
     def __updateVoidRoidParams(self, dut_asic, bufferProfile):
         """
             Updates buffer profile with VOID/ROID params
@@ -272,7 +336,10 @@ class QosSaiBase(QosBase):
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
-            self.__computeBufferThreshold(dut_asic, bufferProfile)
+            if dut_asic.sonichost.facts['platform'] == "x86_64-nvidia_sn5600-r0":
+                self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
+            else:
+                self.__computeBufferThreshold(dut_asic, bufferProfile)
 
         if "pg_lossless" in bufferProfileName:
             pytest_assert(
