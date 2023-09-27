@@ -4,14 +4,6 @@ trigger: none
 pr: none
 
 
-schedules:
-  - cron: "0 4 * * 0,2,4"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
-
 resources:
   repositories:
     - repository: sonic-mgmt
