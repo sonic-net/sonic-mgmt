@@ -1,7 +1,7 @@
 <LabConnectionGraph>
   <PhysicalNetworkGraphDeclaration>
     <Devices>
-      <Device Hostname="churchill-01" HwSku="32x400Gb" Type="DevSonic"/>
+      <Device Hostname="churchill-01" HwSku="Cisco-8101-O32" Type="DevSonic"/>
       <Device Hostname="nexus-5" HwSku="C9336C-FX2" Type="FanoutLeaf"/>
       <Device Hostname="sonic-ucs-m3-2" HwSku="TestServ" Type="Server"/>
     </Devices>
