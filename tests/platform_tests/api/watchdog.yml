@@ -55,7 +55,7 @@ x86_64-mlnx_msn2700-r0:
 x86_64-dell.*:
   default:
     greater_timeout: 180
-    too_big_timeout: 660
+    too_big_timeout: 1200
 
 # Arista watchdog
 x86_64-arista.*:
