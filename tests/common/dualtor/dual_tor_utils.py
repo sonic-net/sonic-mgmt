@@ -1294,6 +1294,15 @@ def show_muxcable_status(duthost):
     return ret
 
 
+def check_muxcable_status(duthost, port, expected_status):
+    """
+    Check the muxcable status of a specific interface is as expected.
+    """
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+    return output['MUX_CABLE'][port]['STATUS'] == expected_status
+
+
 def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     """Build ipv4 packet and expected mask packet destinated to server."""
     pkt_dscp = random.choice(list(range(0, 33)))
