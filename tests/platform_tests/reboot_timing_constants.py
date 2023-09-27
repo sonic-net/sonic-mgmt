@@ -65,8 +65,7 @@ OTHER_PATTERNS = {
         "SYNCD_CREATE_SWITCH|Start": re.compile(
             r'.*syncd#syncd.*performWarmRestart: switches defined in warm restart.*'),
         "SYNCD_CREATE_SWITCH|End": re.compile(
-            r'.*syncd#syncd.*(performWarmRestartSingleSwitch: Warm boot: create switch VID.*|' +
-            r'brcm_sai_create_switch:\d+ SAI Timing: SDK init time \d+ seconds)'),
+            r'.*syncd#syncd.*performWarmRestartSingleSwitch: Warm boot: create switch VID.*'),
         "FDB_EVENT_OTHER_MAC_EXPIRY|Start": re.compile(
             r".* INFO syncd#syncd.*SAI_API_FDB.*fdbEvent: 0 for mac (?!00-06-07-08-09-0A).*"),
         "FDB_EVENT_SCAPY_MAC_EXPIRY|Start": re.compile(
