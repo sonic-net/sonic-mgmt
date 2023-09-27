@@ -119,6 +119,8 @@ class QosBase:
                   "--test-dir",
                   "saitests/py3",
                   testCase,
+                  "--socket-recv-size",
+                  "16384",
                   "--platform-dir",
                   "ptftests",
                   "--platform",
