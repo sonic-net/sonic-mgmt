@@ -71,7 +71,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: "pfc_asym, span, sub_port_interfaces "
+    default: " "
     displayName: "Features to be executed"
 
   # Custom skip scripts
