@@ -157,6 +157,9 @@ wan-pub:
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
 
+dpu:
+  - dash/test_dash_vnet.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
@@ -164,3 +167,6 @@ specific_param:
 #  all the test modules under macsec directory
   - name: macsec
     param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+  dpu:
+  - name: dash/test_dash_vnet.py
+    param: " --skip_dataplane_checking "
