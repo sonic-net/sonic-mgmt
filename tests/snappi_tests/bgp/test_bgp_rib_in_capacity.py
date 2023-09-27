@@ -1,7 +1,7 @@
 from tests.common.snappi_tests.snappi_fixtures import cvg_api
 from tests.common.snappi_tests.snappi_fixtures import (
     snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
-from files.bgp_convergence_helper import run_RIB_IN_capacity_test
+from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_RIB_IN_capacity_test
 from tests.common.fixtures.conn_graph_facts import (
     conn_graph_facts, fanout_graph_facts)
 import pytest

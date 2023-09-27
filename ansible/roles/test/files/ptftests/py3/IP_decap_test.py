@@ -128,9 +128,9 @@ class DecapPacketTest(BaseTest):
 
         # Index of current DSCP and TTL value in allowed DSCP_RANGE and TTL_RANGE
         self.dscp_in_idx = 0  # DSCP of inner layer.
-        self.dscp_out_idx = len(self.DSCP_RANGE) / 2  # DSCP of outer layer. Set different initial dscp_in and dscp_out
+        self.dscp_out_idx = len(self.DSCP_RANGE) // 2  # DSCP of outer layer. Set different initial dscp_in and dscp_out
         self.ttl_in_idx = 0  # TTL of inner layer.
-        self.ttl_out_idx = len(self.TTL_RANGE) / 2  # TTL of outer layer. Set different initial ttl_in and ttl_out
+        self.ttl_out_idx = len(self.TTL_RANGE) // 2  # TTL of outer layer. Set different initial ttl_in and ttl_out
 
         self.summary = {}
 
@@ -271,7 +271,7 @@ class DecapPacketTest(BaseTest):
             print("ERROR: unexpected ttl_mode is configured")
             exit()
 
-        if ipaddress.ip_address(unicode(dst_ip)).version == 6:
+        if ipaddress.ip_address(dst_ip).version == 6:
             inner_src_ip = self.DEFAULT_INNER_V6_PKT_SRC_IP
             # build inner packet, if triple_encap is True inner_pkt would be double encapsulated
             inner_pkt = self.create_ipv6_inner_pkt_only(inner_src_ip, dst_ip, tos_in, triple_encap, hlim=inner_ttl)
@@ -339,13 +339,13 @@ class DecapPacketTest(BaseTest):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
         if self.ignore_ttl:
-            if ipaddress.ip_address(unicode(dst_ip)).version == 4:
+            if ipaddress.ip_address(dst_ip).version == 4:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
             else:
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
-        inner_pkt_type = 'ipv4' if ipaddress.ip_address(unicode(dst_ip)).version == 4 else 'ipv6'
+        inner_pkt_type = 'ipv4' if ipaddress.ip_address(dst_ip).version == 4 else 'ipv6'
 
         if outer_pkt_type == 'ipv4':
             outer_src_ip = pkt['IP'].src
@@ -577,7 +577,7 @@ class DecapPacketTest(BaseTest):
         self.print_summary()
 
         total = len(outer_pkt_types)*len(inner_pkt_types)
-        passed = len(filter(lambda status: status == 'Passed', self.summary.values()))
+        passed = len(list(filter(lambda status: status == 'Passed', self.summary.values())))
 
         # assert all passed
         assert total == passed, "total tests {}, passed: {}".format(total, passed)

@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import ptf
+import six
 
 # Packet Test Framework imports
 import ptf
@@ -86,7 +87,10 @@ class PopulateFdb(BaseTest):
             Returns:
                 mac (int): integer representation of MAC address
         """
-        return int(mac.translate(None, ":.- "), 16)
+        translation_table = str.maketrans('', '', ":.- ")
+        mac_without_delimiters = mac.translate(translation_table)
+        mac_as_int = int(mac_without_delimiters, 16)
+        return mac_as_int
 
     def __convertMacToStr(self, mac):
         """
@@ -112,7 +116,7 @@ class PopulateFdb(BaseTest):
                 vmIp (dict): Map containing vlan to VM IP address
         """
         vmIp = {}
-        for vlan, config in self.configData["vlan_interfaces"].items():
+        for vlan, config in list(self.configData["vlan_interfaces"].items()):
             prefixLen = self.configData["vlan_interfaces"][vlan]["prefixlen"]
             ipCount = 2**(32 - prefixLen) - 3
             numDistinctIp = self.packetCount * self.macToIpRatio[1] / self.macToIpRatio[0]
@@ -123,7 +127,7 @@ class PopulateFdb(BaseTest):
                     numDistinctIp
                 )
             )
-            vmIp[vlan] = ipaddress.ip_address(unicode(config["addr"])) + 1
+            vmIp[vlan] = ipaddress.ip_address(six.text_type(config["addr"])) + 1
 
         return vmIp
 
@@ -160,7 +164,7 @@ class PopulateFdb(BaseTest):
                 mac = self.__convertMacToStr(macInt + i)
                 numMac += 1
             if i % self.macToIpRatio[0] == 0:
-                vmIp[vlan] = ipaddress.ip_address(unicode(vmIp[vlan])) + 1
+                vmIp[vlan] = ipaddress.ip_address(six.text_type(vmIp[vlan])) + 1
                 numIp += 1
 
             packet[scapy.Ether].src = mac
