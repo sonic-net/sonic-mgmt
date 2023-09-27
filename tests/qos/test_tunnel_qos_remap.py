@@ -659,7 +659,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
 
 
 @pytest.mark.disable_loganalyzer
-def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps):     # noqa F811
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, tunnel_qos_maps, creds):     # noqa F811
     """
     Test steps:
     1. Toggle all ports to active on randomly selected ToR
@@ -698,7 +698,9 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
             "sonic_asic_type": dut_config["asic_type"],
             "platform_asic": dut_config["platform_asic"],
             "packet_size": packet_size,
-            "cell_size": cell_size
+            "cell_size": cell_size,
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         })
 
     run_ptf_test(
@@ -710,7 +712,7 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("xoff_profile", ["pcbb_xoff_1", "pcbb_xoff_2", "pcbb_xoff_3", "pcbb_xoff_4"])
-def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module):
+def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module, creds):
     """
     The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
     Test steps
@@ -736,6 +738,8 @@ def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_
             "port_map_file_ini": dut_config["port_map_file_ini"],
             "platform_asic": dut_config["platform_asic"],
             "sonic_asic_type": dut_config["asic_type"],
+            "dut_username": creds['sonicadmin_user'],
+            "dut_password": creds['sonicadmin_password']
         })
     if dut_config["asic_type"] == 'mellanox':
         test_params.update({'cell_size': 144, 'packet_size': 300})
