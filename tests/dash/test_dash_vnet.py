@@ -13,7 +13,8 @@ from constants import VM_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_M
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('dpu')
+    pytest.mark.topology('dpu'),
+    pytest.mark.disable_loganalyzer
 ]
 
 
