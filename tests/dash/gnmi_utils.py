@@ -25,6 +25,7 @@ class GNMIEnvironment(object):
             self.gnmi_program = "telemetry"
         self.gnmi_port = int(duthost.shell(
             "sonic-db-cli CONFIG_DB hget '%s' 'port'" % (self.gnmi_config_table + '|gnmi'))['stdout'])
+        self.gnmi_cert_path = "/etc/sonic/telemetry/"
         self.gnmi_ca_cert = "gnmiCA.pem"
         self.gnmi_ca_key = "gnmiCA.key"
         self.gnmi_server_cert = "gnmiserver.crt"
@@ -36,6 +37,15 @@ class GNMIEnvironment(object):
 
 
 def create_ext_conf(ip, filename):
+    """
+    Generate configuration for openssl
+
+    Args:
+        ip: server ip address
+        filename: configuration file name
+
+    Returns:
+    """
     text = '''
 [ req_ext ]
 subjectAltName = @alt_names
@@ -49,6 +59,15 @@ IP      = %s
 
 
 def generate_gnmi_cert(localhost, duthost):
+    """
+    Generate CA certificate, server certificate and client certificate
+
+    Args:
+        localhost: fixture for localhost
+        duthost: fixture for duthost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     localhost.shell("mkdir "+env.work_dir, module_ignore_errors=True)
     # Create Root key
@@ -132,11 +151,20 @@ def generate_gnmi_cert(localhost, duthost):
 
 
 def apply_gnmi_cert(duthost, ptfhost):
+    """
+    Upload new certificate to DUT, and restart gnmi server with new certificate
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture to ptfhost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     # Copy CA certificate and server certificate over to the DUT
-    duthost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.work_dir+env.gnmi_server_key, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.work_dir+env.gnmi_ca_cert, dest=env.gnmi_cert_path)
+    duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest=env.gnmi_cert_path)
+    duthost.copy(src=env.work_dir+env.gnmi_server_key, dest=env.gnmi_cert_path)
     # Copy CA certificate and client certificate over to the PTF
     ptfhost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/root/')
     ptfhost.copy(src=env.work_dir+env.gnmi_client_cert, dest='/root/')
@@ -149,9 +177,9 @@ def apply_gnmi_cert(duthost, ptfhost):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/telemetry -logtostderr --port %s " % port
-    dut_command += "--server_crt /etc/sonic/telemetry/%s " % (env.gnmi_server_cert)
-    dut_command += "--server_key /etc/sonic/telemetry/%s " % (env.gnmi_server_key)
-    dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (env.gnmi_ca_cert)
+    dut_command += "--server_crt %s%s " % (env.gnmi_cert_path, env.gnmi_server_cert)
+    dut_command += "--server_key %s%s " % (env.gnmi_cert_path, env.gnmi_server_key)
+    dut_command += "--ca_crt %s%s " % (env.gnmi_cert_path, env.gnmi_ca_cert)
     if env.enable_zmq:
         dut_command += " -zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
@@ -160,6 +188,15 @@ def apply_gnmi_cert(duthost, ptfhost):
 
 
 def recover_gnmi_cert(localhost, duthost):
+    """
+    Restart gnmi server to use default certificate
+
+    Args:
+        localhost: fixture for localhost
+        duthost: fixture for duthost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
@@ -174,6 +211,18 @@ def recover_gnmi_cert(localhost, duthost):
 
 
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
+    """
+    Send GNMI set request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        delete_list: list for delete operations
+        update_list: list for update operations
+        replace_list: list for replace operations
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -211,14 +260,25 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     error = "GRPC error\n"
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
-        return -1, result[1]
+        raise Exception("GRPC error:" + result[1])
     if output['stderr']:
-        return -1, output['stderr']
+        raise Exception("error:" + output['stderr'])
     else:
-        return 0, output['stdout']
+        return
 
 
 def gnmi_get(duthost, ptfhost, path_list):
+    """
+    Send GNMI get request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+
+    Returns:
+        msg_list: list for get result
+    """
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -237,23 +297,33 @@ def gnmi_get(duthost, ptfhost, path_list):
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
-        return -1, [output['stderr']]
+        raise Exception("error:" + output['stderr'])
     else:
         msg = output['stdout'].replace('\\', '')
         error = "GRPC error\n"
         if error in msg:
             result = msg.split(error, 1)
-            return -1, [result[1]]
+            raise Exception("GRPC error:" + result[1])
         mark = 'The GetResponse is below\n' + '-'*25 + '\n'
         if mark in msg:
             result = msg.split(mark, 1)
             msg_list = result[1].split('-'*25)[0:-1]
-            return 0, [msg.strip("\n") for msg in msg_list]
+            return [msg.strip("\n") for msg in msg_list]
         else:
-            return -1, [msg]
+            raise Exception("error:" + msg)
 
 
 def apply_gnmi_file(duthost, ptfhost, dest_path):
+    """
+    Apply dash configuration with gnmi client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        dest_path: configuration file path
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     logger.info("Applying config files on DUT")
     dut_command = "cat %s" % dest_path
@@ -298,6 +368,5 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
-    ret, msg = gnmi_set(duthost, ptfhost, delete_list, update_list, [])
-    assert ret == 0, msg
+    gnmi_set(duthost, ptfhost, delete_list, update_list, [])
     time.sleep(5)
