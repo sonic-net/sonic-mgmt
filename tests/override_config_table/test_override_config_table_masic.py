@@ -47,17 +47,12 @@ def setup_env(duthost, tbinfo):
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
-    for asic_id in duthost.get_frontend_asic_ids():
+    for asic_id in duthost.get_asic_ids():
         config = "/etc/sonic/config_db{}.json".format(asic_id)
         config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
         backup_config(duthost, config, config_backup)
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
-    # Backup Golden Config if exists.
-    for asic_id in duthost.get_frontend_asic_ids():
-        golden_config = "/etc/sonic/golden_config_db{}.json".format(asic_id)
-        golden_config_backup = "/etc/sonic/golden_config_db{}.json_before_override".format(asic_id)
-        if file_exists_on_dut(duthost, golden_config):
-            backup_config(duthost, golden_config, golden_config_backup)
+    # Backup Golden Config if exists. golden config only exists on host
     if file_exists_on_dut(duthost, GOLDEN_CONFIG):
         backup_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
 
@@ -70,19 +65,12 @@ def setup_env(duthost, tbinfo):
     if topo_type in ["m0", "mx"]:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
-    for asic_id in duthost.get_frontend_asic_ids():
+    for asic_id in duthost.get_asic_ids():
         config = "/etc/sonic/config_db{}.json".format(asic_id)
         config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
         restore_config(duthost, config, config_backup)
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Restore Golden Config after test, else cleanup test file.
-    for asic_id in duthost.get_frontend_asic_ids():
-        golden_file = "/etc/sonic/golden_config_db{}.json".format(asic_id)
-        golde_file_backup = "/etc/sonic/golden_config_db{}.json_before_override".format(asic_id)
-        if file_exists_on_dut(duthost, golde_file_backup):
-            restore_config(duthost, golden_file, golde_file_backup)
-        else:
-            duthost.file(path=golde_file_backup, state='absent')
     if file_exists_on_dut(duthost, GOLDEN_CONFIG_BACKUP):
         restore_config(duthost, GOLDEN_CONFIG, GOLDEN_CONFIG_BACKUP)
     else:
