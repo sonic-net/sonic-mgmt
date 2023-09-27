@@ -218,13 +218,13 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+                                           enum_rand_one_per_hwsku_hostname):
     """
     Test Golden Config override during load minigraph
     Note: Skip full config override for multi-asic duts for now, because we
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
