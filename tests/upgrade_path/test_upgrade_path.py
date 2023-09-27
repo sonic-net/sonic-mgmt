@@ -95,6 +95,10 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
             # Install base image
             logger.info("Installing {}".format(from_image))
             target_version = install_sonic(duthost, from_image, tbinfo)
+            #remove old config_db before rebooting the DUT
+            logger.info("Remove old config_db file, if exists, to load minigraph from scratch")
+            if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True):
+                duthost.shell("rm -f /host/old_config/config_db.json")
             # Perform a cold reboot
             logger.info("Cold reboot the DUT to make the base image as current")
             reboot(duthost, localhost)
