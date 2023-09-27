@@ -3,6 +3,7 @@ import yaml
 import argparse
 
 TOPOLOGY_FILES = {
+     "T0_churchill": "pyvxr_yaml_files/churchill_sonic_t0_topo.yaml",
      "T0": "pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml",
      "T1": "pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
 }
