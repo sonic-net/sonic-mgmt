@@ -32,7 +32,8 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
+                          "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
@@ -416,7 +417,7 @@ class QosSaiBase(QosBase):
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
-    def __assignTestPortIps(self, mgFacts):
+    def __assignTestPortIps(self, mgFacts, topo):
         """
             Assign IPs to test ports of DUT host
 
@@ -428,9 +429,19 @@ class QosSaiBase(QosBase):
         """
         dutPortIps = {}
         if len(mgFacts["minigraph_vlans"]) > 0:
-            #TODO: handle the case when there are multiple vlans
-            testVlan = next(iter(mgFacts["minigraph_vlans"]))
+            # TODO: handle the case when there are multiple vlans
+            vlans = iter(mgFacts["minigraph_vlans"])
+            testVlan = next(vlans)
             testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+            # To support t0-56-po2vlan topo, choose the Vlan with physical ports and remove the lag in Vlan members
+            if topo == 't0-56-po2vlan':
+                if len(testVlanMembers) == 1:
+                    testVlan = next(vlans)
+                    testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+                for member in testVlanMembers:
+                    if 'PortChannel' in member:
+                        testVlanMembers.remove(member)
+                        break
 
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
@@ -713,7 +724,7 @@ class QosSaiBase(QosBase):
 
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(src_dut):
+        if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
             # as dst_dut and dst_asic
             pytest_assert(
@@ -771,7 +782,7 @@ class QosSaiBase(QosBase):
                             uplinkPortNames.append(intf)
 
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
@@ -818,6 +829,10 @@ class QosSaiBase(QosBase):
                             uplinkPortNames.append(portName)
 
                 testPortIds[src_dut_index][dut_asic.asic_index] = sorted(dutPortIps[src_dut_index][dut_asic.asic_index].keys())
+
+                if isMellanoxDevice(src_dut):
+                    testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
+                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index])
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -2019,3 +2034,36 @@ class QosSaiBase(QosBase):
                 "This test needs to be revisited for HBM enabled systems.")
         yield
         return
+
+    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
+        """
+        For Nvidia devices, the tested ports must have the same cable length and speed.
+        Firstly, categorize the ports by the same cable length and speed.
+        Secondly, select the port group with the largest number of ports as test ports from the above results.
+        """
+        ptf_port_dut_port_dict = dict(zip(mgFacts["minigraph_ptf_indices"].values(),
+                                          mgFacts["minigraph_ptf_indices"].keys()))
+        get_interface_cable_length_info = 'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"'
+        interface_cable_length_list = duthost.shell(get_interface_cable_length_info)['stdout_lines']
+        interface_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
+
+        cable_length_speed_interface_dict = {}
+        for ptf_port in testPortIds:
+            dut_port = ptf_port_dut_port_dict[ptf_port]
+            if dut_port in interface_cable_length_list:
+                cable_length = interface_cable_length_list[interface_cable_length_list.index(dut_port) + 1]
+                speed = interface_status[dut_port]['speed']
+                cable_length_speed = "{}_{}".format(cable_length, speed)
+                if cable_length_speed in cable_length_speed_interface_dict:
+                    cable_length_speed_interface_dict[cable_length_speed].append(ptf_port)
+                else:
+                    cable_length_speed_interface_dict[cable_length_speed] = [ptf_port]
+        max_port_num = 0
+        test_port_ids = []
+        # Find the port group with the largest number of ports as test ports
+        for _, port_list in cable_length_speed_interface_dict.items():
+            if max_port_num < len(port_list):
+                test_port_ids = port_list
+                max_port_num = len(port_list)
+        logger.info("Test ports ids is{}".format(test_port_ids))
+        return test_port_ids

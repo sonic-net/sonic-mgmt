@@ -10,6 +10,7 @@ import os
 import optparse
 import logging
 import logging.handlers
+import time
 from socket import socket, AF_PACKET, SOCK_RAW
 from struct import *
 
@@ -35,12 +36,21 @@ def checksum(msg):
 def main():
     usage = "usage: %prog [options] arg1 arg2"
     parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-i", "--interface", type="string", dest="interface", help="Interface list to send packets, seperated by ','",metavar="Interface")
-    parser.add_option('-p', "--priority", type="int", dest="priority", help="PFC class enable bitmap.", metavar="Priority", default=-1)
-    parser.add_option("-t", "--time", type="int", dest="time", help="Pause time in quanta for global pause or enabled class",metavar="time")
-    parser.add_option("-n", "--num", type="int", dest="num", help="Number of packets to be sent",metavar="number",default=1)
-    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server", default="127.0.0.1", help="Rsyslog server IPv4 address",metavar="IPAddress")
-    parser.add_option('-g', "--global", action="store_true", dest="global_pf", help="Send global pause frames (not PFC)", default=False)
+    parser.add_option("-i", "--interface", type="string", dest="interface",
+                      help="Interface list to send packets, seperated by ','", metavar="Interface")
+    parser.add_option('-p', "--priority", type="int", dest="priority",
+                      help="PFC class enable bitmap.", metavar="Priority", default=-1)
+    parser.add_option("-t", "--time", type="int", dest="time",
+                      help="Pause time in quanta for global pause or enabled class", metavar="time")
+    parser.add_option("-n", "--num", type="int", dest="num",
+                      help="Number of packets to be sent", metavar="number", default=1)
+    parser.add_option("-r", "--rsyslog-server", type="string", dest="rsyslog_server",
+                      default="127.0.0.1", help="Rsyslog server IPv4 address", metavar="IPAddress")
+    parser.add_option('-g', "--global", action="store_true", dest="global_pf",
+                      help="Send global pause frames (not PFC)", default=False)
+    parser.add_option("-s", "--send_pfc_frame_interval", type="float", dest="send_pfc_frame_interval",
+                      help="Interval sending pfc frame", metavar="send_pfc_frame_interval", default=0)
+
     (options, args) = parser.parse_args()
 
     if options.interface is None:
@@ -151,8 +161,10 @@ def main():
     while iteration > 0:
         for s in sockets:
             s.send(packet)
+            time.sleep(options.send_pfc_frame_interval)
         iteration -= 1
     my_logger.debug(pre_str + '_STORM_END')
+
 
 if __name__ == "__main__":
     main()
