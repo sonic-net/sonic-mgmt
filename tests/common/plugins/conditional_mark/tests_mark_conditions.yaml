@@ -493,11 +493,12 @@ generic_config_updater:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type or topology currently"
+    reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -527,22 +528,25 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test is not run on this hwsku/asic type currently"
+    reason: "This test is not run on this hwsku/asic type or version currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
-    reason: "This test is not run on this asic type currently"
+    reason: "This test is not run on this asic type or version currently"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
-    reason: "PFC watchdog is not supported on M0/Mx topology"
+    reason: "This test is not run on this topo type or version currently"
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
