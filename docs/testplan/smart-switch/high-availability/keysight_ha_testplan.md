@@ -25,9 +25,6 @@
         - [Test case # 5 – Tor Loss Local SmartSwitch](#test-case5-tor-loss-local-smartswitch)
             - [Test objective 5](#test-objective-5)
             - [Test steps 5](#steps-for-test-case-5)
-        - [Test case # 6 – Tor Loss Separate SmartSwitch](#test-case6-tor-loss-separate-smartswitch)
-            - [Test objective 6](#test-objective-6)
-            - [Test steps 6](#steps-for-test-case-6)
 
 ## Overview
 The purpose of these tests is to evaluate various High Availability (HA) scenarios associated with testing planned and unplanned events in the SmartSwitch system.
@@ -46,6 +43,8 @@ Model expanded to show Keysight chassis, UHD, and SmartSwitch.  The UHD and Smar
 
 ## Topology
 ### Configuration for HA testing
+The topic presented is an interim test plan for SmartSwitch HA testing.  The primary goal is to illustrate a vision for simulating multiple HA scenarios using a SmartSwitch mock-up to test DPU SmartSwitch behavior.   This document is based based on testing now before full Sonic integration.
+
 ![HA_topology](images/ha_test_topology.svg)
 
 ## Setup Configuration
@@ -196,26 +195,4 @@ In this scenario we will test the switchover between an Active DPU to it's paire
 * DPU1 shall become the new Active DPU in the HA set.
 * Mark time when the Standby DPU becomes Active and fully running traffic.
 * Measure convergence time from start of the link removal on DPU0 and DPU1 switchover.
-* Using traffic generator tools to verify metrics associated with number of Concurrent Connections, Connection rate, and TCP/UDP failures collect data before, during and after switchover.
-
-
-### Test case6 ToR Loss Separate SmartSwitch
-#### Test Objective 6
-
-![HA_TorLoss_NotLocal](images/ha_torloss_not_local.svg)
-#### Steps for Test Case 6
-* The SmartSwitch configuration will consist of 2 DPUs sharing the same network configurations such as: IPs, MACs, VLan/VxLan, ENIs.  Both DPUs will be placed into their own SmartSwitch.
-* The UHD will be configured to split ToR traffic into two separate entities.
-* There will be a physical link between front panel ports of Tor1 and DPU0, additional connection with Tor2 and DPU3.
-* The HA set shall be in separate SmartSwitches.
-* Verify links are up and start all protocols and verify traffic is established.
-* Enable csv logging and check the state of the DPUs through the API.
-* Apply and start traffic stateful and stateless.
-* Verify traffic is flowing without any loss.
-* Through mgmt port poweroff or reboot Tor1.
-* Mark start time at beginning of test as Tor1 is removed from topology.
-* There should be 100% failure with the Active DPU during switchover.
-* DPU3 shall become the new Active DPU in the HA set.
-* Mark time when the Standby DPU becomes Active and fully running traffic.
-* Measure convergence time from start of the link removal on DPU0 and DPU3 switchover.
 * Using traffic generator tools to verify metrics associated with number of Concurrent Connections, Connection rate, and TCP/UDP failures collect data before, during and after switchover.
