@@ -15,11 +15,6 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test host events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_kernel_event,
              "event_kernel.json", "sonic-events-host:event-kernel", tag, False)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
-             "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
-             "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
-
     backup_monit_config(duthost)
     customize_monit_config(
         duthost,
@@ -37,6 +32,10 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
                  "cpu_usage.json", "sonic-events-host:cpu-usage", tag, False)
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_mem_threshold_exceeded_alert,
                  "mem_threshold_exceeded.json", "sonic-events-host:mem-threshold-exceeded", tag)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, restart_container,
+                 "event_stopped_ctr.json", "sonic-events-host:event-stopped-ctr", tag, False)
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, mask_container,
+                 "event_down_ctr.json", "sonic-events-host:event-down-ctr", tag, False)
     finally:
         restore_monit_config(duthost)
 
