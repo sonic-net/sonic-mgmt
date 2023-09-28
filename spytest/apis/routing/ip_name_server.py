@@ -43,7 +43,7 @@ def verify_name_server(dut, **kwargs):
 
         result = sys_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
         if not result.ok():
-            st.log('test_step_failed: Configure DNS {}'.format(result.data))
+            st.log('test_step_failed: Verify DNS {}'.format(result.data))
             return False
         return True
     elif cli_type == 'klish':
