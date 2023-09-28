@@ -54,18 +54,26 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
         values: expected value(s) of configdb_field
     """
     def _confirm_value_in_asic_db():
-        table_names = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
-        table_names = table_names.split("\n")
-        for table_name in table_names:
-            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(table_name))["stdout"]
-            if('NULL' in wred_data):
-                continue
+        wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+        wred_objects = wred_objects.split("\n")
+        if(len(wred_objects) > 1):
+            for wred_object in wred_objects:
+                wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
+                if('NULL' in wred_data):
+                    continue
+                wred_data = ast.literal_eval(wred_data)
+                for field, value in zip(configdb_field.split(','), values.split(',')):
+                    if value != wred_data[WRED_MAPPING[field]]:
+                        return False
+                return True
+            return False
+        else:
+            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_objects[0]))["stdout"]
             wred_data = ast.literal_eval(wred_data)
             for field, value in zip(configdb_field.split(','), values.split(',')):
                 if value != wred_data[WRED_MAPPING[field]]:
                     return False
             return True
-        return False
 
     logger.info("Validating fields in ASIC DB...")
     pytest_assert(
