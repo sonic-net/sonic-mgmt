@@ -1009,7 +1009,7 @@ class ReloadTest(BaseTest):
         # TODO: add timestamp
         self.log("Service has restarted")
 
-    def handle_fast_reboot_health_check(self):
+    def handle_fast_reboot_health_check(self, finalizer_timeout):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add("Data plane has a forwarding problem after CPU went down")
         self.check_alive()
@@ -1017,7 +1017,16 @@ class ReloadTest(BaseTest):
 
         self.sniff_thr.join()
         self.sender_thr.join()
-
+	total_timeout = finalizer_timeout + \
+                        self.test_params['warm_up_timeout_secs']
+        start_time = datetime.datetime.now()
+        # Wait until timeout happens OR the IO test completes
+        while ((datetime.datetime.now() - start_time).seconds < total_timeout) and \
+                self.warmboot_finalizer_thread.is_alive():
+            time.sleep(0.5)
+        if self.warmboot_finalizer_thread.is_alive():
+            self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
+                                  .format(total_timeout, self.get_warmboot_finalizer_state()))
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
@@ -1037,7 +1046,7 @@ class ReloadTest(BaseTest):
             self.no_routing_start = self.reboot_start
             self.no_routing_stop  = self.reboot_start
 
-    def handle_warm_reboot_health_check(self):
+    def handle_warm_reboot_health_check(self, finalizer_timeout):
         # wait until sniffer and sender threads have started
         while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
             time.sleep(1)
@@ -1045,7 +1054,17 @@ class ReloadTest(BaseTest):
         self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
-
+        #  Waiting for warmboot finilizer to finish before stopping reachability watcher
+        total_timeout = finalizer_timeout + \
+                        self.test_params['warm_up_timeout_secs']
+        start_time = datetime.datetime.now()
+        # Wait until timeout happens OR the IO test completes
+        while ((datetime.datetime.now() - start_time).seconds < total_timeout) and \
+                self.warmboot_finalizer_thread.is_alive():
+            time.sleep(0.5)
+        if self.warmboot_finalizer_thread.is_alive():
+            self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
+                                  .format(total_timeout, self.get_warmboot_finalizer_state()))
         # Stop watching DUT
         self.watching = False
         self.log("Stopping reachability state watch thread.")
@@ -1094,7 +1113,7 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s" \
                 % (str(self.limit), str(self.total_disrupt_time)))
 
-        if 'warm-reboot' in self.reboot_type:
+        if 'warm-reboot' or 'fast-reboot' in self.reboot_type:
             # after the data plane is up, check for routing changes
             if self.test_params['inboot_oper'] and self.sad_handle:
                 self.check_inboot_sad_status()
@@ -1304,9 +1323,9 @@ class ReloadTest(BaseTest):
                 self.handle_post_reboot_health_check_kvm()
             else:
                 if self.reboot_type == 'fast-reboot':
-                    self.handle_fast_reboot_health_check()
+                    self.handle_fast_reboot_health_check(finalizer_timeout)
                 if 'warm-reboot' in self.reboot_type or 'service-warm-restart' == self.reboot_type:
-                    self.handle_warm_reboot_health_check()
+                    self.handle_warm_reboot_health_check(finalizer_timeout)
                 self.handle_post_reboot_health_check()
 
             if 'warm-reboot' in self.reboot_type:
