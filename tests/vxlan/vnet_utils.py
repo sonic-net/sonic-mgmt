@@ -4,9 +4,12 @@ import logging
 from jinja2 import Template
 from os import path
 from time import sleep
-from .vnet_constants import *
+from .vnet_constants import TEMPLATE_DIR, VXLAN_UDP_SPORT_KEY, VXLAN_UDP_SPORT_MASK_KEY,\
+    DUT_VXLAN_RANGE_JSON, DUT_VNET_SWITCH_JSON, DUT_VNET_CONF_JSON, DUT_VNET_INTF_JSON,\
+    DUT_VNET_NBR_JSON, DUT_VNET_ROUTE_JSON, APPLY_NEW_CONFIG_KEY, VXLAN_RANGE_ENABLE_KEY, IPV6_VXLAN_TEST_KEY
 from .vnet_constants import VXLAN_PORT, VXLAN_MAC
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +67,8 @@ def render_template_to_host(template_name, host, dest_file, *template_args, **te
 
     combined_args = combine_dicts(*template_args)
 
-    rendered = safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(combined_args, **template_kwargs)
+    rendered = safe_open_template(path.join(TEMPLATE_DIR, template_name)).render(
+        combined_args, **template_kwargs)
 
     host.copy(content=rendered, dest=dest_file)
 
@@ -87,7 +91,8 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
 
     sport = vnet_test_params[VXLAN_UDP_SPORT_KEY]
     mask = vnet_test_params[VXLAN_UDP_SPORT_MASK_KEY]
-    pytest_assert(sport & ( 0xff >> (8-mask)) == 0, "Mask is not valid for current src port base")
+    pytest_assert(sport & (0xff >> (8-mask)) == 0,
+                  "Mask is not valid for current src port base")
 
     vnet_switch_config = [{
         "SWITCH_TABLE:switch": {
@@ -104,13 +109,19 @@ def generate_dut_config_files(duthost, mg_facts, vnet_test_params, vnet_config):
         },
         "OP": "SET"
     }]
-    duthost.copy(content=json.dumps(vxlan_range_config, indent=4), dest=DUT_VXLAN_RANGE_JSON)
-    duthost.copy(content=json.dumps(vnet_switch_config, indent=4), dest=DUT_VNET_SWITCH_JSON)
+    duthost.copy(content=json.dumps(vxlan_range_config,
+                 indent=4), dest=DUT_VXLAN_RANGE_JSON)
+    duthost.copy(content=json.dumps(vnet_switch_config,
+                 indent=4), dest=DUT_VNET_SWITCH_JSON)
 
-    render_template_to_host("vnet_vxlan.j2", duthost, DUT_VNET_CONF_JSON, vnet_config, mg_facts, vnet_test_params)
-    render_template_to_host("vnet_interface.j2", duthost, DUT_VNET_INTF_JSON, vnet_config)
-    render_template_to_host("vnet_nbr.j2", duthost, DUT_VNET_NBR_JSON, vnet_config)
-    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
+    render_template_to_host("vnet_vxlan.j2", duthost,
+                            DUT_VNET_CONF_JSON, vnet_config, mg_facts, vnet_test_params)
+    render_template_to_host("vnet_interface.j2", duthost,
+                            DUT_VNET_INTF_JSON, vnet_config)
+    render_template_to_host("vnet_nbr.j2", duthost,
+                            DUT_VNET_NBR_JSON, vnet_config)
+    render_template_to_host("vnet_routes.j2", duthost,
+                            DUT_VNET_ROUTE_JSON, vnet_config, op="SET")
 
 
 def apply_dut_config_files(duthost, vnet_test_params, num_routes):
@@ -122,8 +133,11 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
     """
     if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         logger.info("Applying config files on DUT")
-
-        config_files = [DUT_VNET_INTF_JSON, DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
+        timeout = num_routes/50  # Sufficent time to configure routes
+        num_routes_before_add = count_routes_from_asic_db(duthost)
+        logger.info("Routes number before adding: {}".format(num_routes_before_add))
+        config_files = [DUT_VNET_INTF_JSON,
+                        DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
         for config in config_files:
             duthost.shell("sonic-cfggen -j {} --write-to-db".format(config))
             if num_routes > 3000:
@@ -131,17 +145,25 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
             else:
                 sleep(3)
 
-        duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
-        duthost.shell("docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_JSON))
-        duthost.shell("docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
+        duthost.shell(
+            "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
+        duthost.shell(
+            "docker cp {} swss:/vnet.switch.json".format(DUT_VNET_SWITCH_JSON))
+        duthost.shell(
+            "docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        if num_routes > 3000:
-            sleep(300)
+        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
+                      num_routes_before_add, 'add'), "Routes weren't configured successfully, test Failed.")
+        routes_after = count_routes_from_asic_db(duthost)
+        logger.info("Routes number after adding: {}".format(routes_after))
 
         if vnet_test_params[VXLAN_RANGE_ENABLE_KEY]:
-            logger.info("VXLAN src port range enable. Set params 'sport' and 'mask'")
-            duthost.shell("docker cp {} swss:/vxlan_range.json".format(DUT_VXLAN_RANGE_JSON))
-            duthost.shell("docker exec swss sh -c \"swssconfig /vxlan_range.json\"")
+            logger.info(
+                "VXLAN src port range enable. Set params 'sport' and 'mask'")
+            duthost.shell(
+                "docker cp {} swss:/vxlan_range.json".format(DUT_VXLAN_RANGE_JSON))
+            duthost.shell(
+                "docker exec swss sh -c \"swssconfig /vxlan_range.json\"")
         sleep(3)
     else:
         logger.info("Skip applying config files on DUT")
@@ -160,13 +182,16 @@ def cleanup_dut_vnets(duthost, vnet_config):
     duthost.shell("sonic-clear fdb all")
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+        duthost.shell(
+            "redis-cli -n 4 del \"VLAN_INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
+        duthost.shell(
+            "redis-cli -n 4 del \"VLAN_INTERFACE|{}\"".format(intf['ifname']))
 
     for intf in vnet_config['vlan_intf_list']:
-        duthost.shell("redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(intf['ifname'], intf['port']))
+        duthost.shell(
+            "redis-cli -n 4 del \"VLAN_MEMBER|{}|{}\"".format(intf['ifname'], intf['port']))
 
     for intf in vnet_config['vlan_intf_list']:
         duthost.shell("redis-cli -n 4 del \"VLAN|{}\"".format(intf['ifname']))
@@ -175,8 +200,10 @@ def cleanup_dut_vnets(duthost, vnet_config):
         duthost.shell("redis-cli -n 4 del \"VNET|{}\"".format(vnet))
 
     for intf in vnet_config['intf_list']:
-        duthost.shell("redis-cli -n 4 del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
-        duthost.shell("redis-cli -n 4 del \"INTERFACE|{}\"".format(intf['ifname']))
+        duthost.shell(
+            "redis-cli -n 4 del \"INTERFACE|{}|{}\"".format(intf['ifname'], intf['ip']))
+        duthost.shell(
+            "redis-cli -n 4 del \"INTERFACE|{}\"".format(intf['ifname']))
 
 
 def cleanup_vxlan_tunnels(duthost, vnet_test_params):
@@ -205,10 +232,27 @@ def cleanup_vnet_routes(duthost, vnet_config, num_routes):
         vnet_config: VNET configuration generated from templates/vnet_config.j2
     """
 
-    render_template_to_host("vnet_routes.j2", duthost, DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
-    duthost.shell("docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
+    render_template_to_host("vnet_routes.j2", duthost,
+                            DUT_VNET_ROUTE_JSON, vnet_config, op="DEL")
+    duthost.shell(
+        "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    if num_routes > 3000:
-        sleep(300)
-    else:
-        sleep(3)
+    current_route_num = count_routes_from_asic_db(duthost)
+    timeout = num_routes/50
+    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
+                  current_route_num, 'clean'), "Routes weren't configured successfully, test Failed.")
+
+
+def count_routes_from_asic_db(duthost):
+    num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
+    return num_routes
+
+
+def verify_routes_configured(duthost, expected_routes, routes_num_before_change, action):
+    configured_routes_num = count_routes_from_asic_db(duthost)
+    actual_routes_changed = abs(configured_routes_num - routes_num_before_change)
+    if not (actual_routes_changed >= expected_routes):
+        logger.warning("Expected {} routes to be {}ed, but actually {}ed only {}"
+                       .format(expected_routes, action, action, actual_routes_changed))
+        return False
+    return True

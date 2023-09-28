@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
+GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
+GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 
 
 def generate_tmpfile(duthost):
@@ -286,3 +288,51 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     output = duthost.shell("show {} route vrf {} | grep -w {}".format(address_family, vrf_name, intf_name))
 
     pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
+
+
+def get_gcu_field_operations_conf(duthost):
+    get_gcu_dir_path_cmd = 'python3 -c \"import generic_config_updater ; print(generic_config_updater.__path__)\"'
+    gcu_dir_path = duthost.shell("{}".format(get_gcu_dir_path_cmd))['stdout'].replace("[", "").replace("]", "")
+    gcu_conf = duthost.shell('cat {}/{}'.format(gcu_dir_path, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
+    gcu_conf_json = json.loads(gcu_conf)
+    return gcu_conf_json
+
+
+def get_asic_name(duthost):
+    asic_type = duthost.facts["asic_type"]
+    asic = "unknown"
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+    asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+    if asic_type == 'cisco-8000':
+        asic = "cisco-8000"
+    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
+        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        if asic_type == 'mellanox' or asic_type == 'vs':
+            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
+            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
+                asic = "spc1"
+                return asic
+        if asic_type == 'broadcom' or asic_type == 'vs':
+            broadcom_asics = asic_mapping["broadcom_asics"]
+            for asic_shorthand, hwskus in broadcom_asics.items():
+                for hwsku_cur in hwskus:
+                    if hwsku_cur.lower() in hwsku.lower():
+                        asic = asic_shorthand
+                        break
+                else:
+                    continue
+                break
+
+    return asic
+
+
+def is_valid_platform_and_version(duthost, table, scenario):
+    asic = get_asic_name(duthost)
+    os_version = duthost.os_version
+    if asic == "unknown":
+        return False
+    if "master" or "internal" in os_version:
+        return True
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
+    return os_version >= version_required

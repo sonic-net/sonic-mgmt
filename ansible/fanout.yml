@@ -4,6 +4,3 @@
   gather_facts: no
   roles:
     - fanout
-
-
-
