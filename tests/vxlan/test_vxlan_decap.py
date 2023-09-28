@@ -172,5 +172,4 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfho
                         "sonic_admin_alt_password": sonic_admin_alt_password,
                         "dut_hostname": duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                 qlen=10000,
-                log_file=log_file,
-                is_python3=True)
+                log_file=log_file)
