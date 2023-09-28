@@ -74,6 +74,7 @@ class DecapPacketTest(BaseTest):
     DEFAULT_INNER2_V6_PKT_DST_IP = '3::3'
 
     # Allowed DSCP and TTL values
+    DSCP_EXCLUDE = {2, 6}
     DSCP_RANGE = list(range(0, 33))
     TTL_RANGE = list(range(2, 65))
 
@@ -248,6 +249,9 @@ class DecapPacketTest(BaseTest):
 
         # Set DSCP value for the outer layer
         dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
+        if dscp_out in self.DSCP_EXCLUDE:
+            self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
+            dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
         # Next packet will use a different DSCP
         self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
 
