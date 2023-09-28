@@ -1021,14 +1021,14 @@ def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
 
 def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
     """
-    Given the number of packets egressing out of each queue and an expected number of packets to 
+    Given the number of packets egressing out of each queue and an expected number of packets to
     egress out of ONE of the queues, this function returns which queue it is. If no such queue exists, it returns -1.
 
     Args:
         all_queue_pkts ([int]): egress queue counts for all queues where packets are expected to egress from
                                 in array form ex. [0, 0, 100, 0, 0, 0, 0]
         exp_queue_pkts (int): expected number of packets to egress from port
-        tolerance (float): packet tolerance to expected queue packets - only followed if atleast 100 packets are 
+        tolerance (float): packet tolerance to expected queue packets - only followed if atleast 100 packets are
                            expected this accounts for background traffic
     Returns:
         queue_val (int): egress queue if found, else -1
