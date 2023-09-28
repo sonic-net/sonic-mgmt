@@ -1046,7 +1046,7 @@ snmp/test_snmp_link_local.py:
     conditions:
       - https://github.com/sonic-net/sonic-buildimage/issues/6108
       - "is_multi_asic==False"
-      - "release in ['202205', '202211', '202305'])"
+      - "release in ['202205', '202211', '202305']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
