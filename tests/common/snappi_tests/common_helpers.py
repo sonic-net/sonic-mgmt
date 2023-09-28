@@ -11,6 +11,8 @@ in .csv format etc.
 """
 
 from enum import Enum
+import re
+import json
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
@@ -833,8 +835,8 @@ def get_egress_queue_count(duthost, port, priority):
         tuple (int, int): total count of packets and bytes in the queue
     """
     raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = raw_out.split()[2]
-    total_bytes = raw_out.split()[3]
+    total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
+    total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 

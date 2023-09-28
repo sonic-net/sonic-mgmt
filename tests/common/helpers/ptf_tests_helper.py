@@ -5,9 +5,12 @@ A helper module for PTF tests.
 import pytest
 import random
 import os
+import logging
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -86,8 +89,11 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
     """
 
     default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
+    logger.info("Current DSCP decap mode: {}".format(default_decap_mode))
 
     if default_decap_mode == dscp_mode:
+        logger.info("Current DSCP decap mode: {} matches required decap mode - no reload required"
+                    .format(default_decap_mode))
         return
 
     for asic_id in duthost.get_frontend_asic_ids():
@@ -98,8 +104,11 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
             "docker exec {} sed -i 's/{}/{}/g' /usr/share/sonic/templates/ipinip.json.j2 "
             .format(swss, default_decap_mode, dscp_mode)
         ]
+        logger.info("DSCP decap mode required to be changed to {} on asic {}".format(dscp_mode, asic_id))
         duthost.shell_cmds(cmds=cmds)
+        logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
+    logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
     config_reload(duthost, config_source='minigraph', safe_reload=True)
 
 
@@ -123,9 +132,11 @@ def apply_dscp_cfg_teardown(duthost):
                 '/usr/share/sonic/templates/ipinip.json.j2'
                 ]
             reload_required = True
+            logger.info("DSCP decap mode required to be changed to default on asic {}".format(asic_id))
             duthost.shell_cmds(cmds=cmds)
 
     if reload_required:
+        logger.info("TEARDOWN: Reload required for dscp decap mode changes to take effect.")
         config_reload(duthost, config_source='minigraph', safe_reload=True)
 
 
