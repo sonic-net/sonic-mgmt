@@ -11,8 +11,6 @@ in .csv format etc.
 """
 
 from enum import Enum
-import re
-import json
 import ipaddr
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice

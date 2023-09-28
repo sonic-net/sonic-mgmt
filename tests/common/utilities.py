@@ -1039,7 +1039,8 @@ def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
             continue
         elif all_queue_pkts[queue_pkt_index] == exp_queue_pkts and exp_queue_pkts < 100:
             return queue_pkt_index
-        elif (abs(all_queue_pkts[queue_pkt_index] - exp_queue_pkts)/exp_queue_pkts < tolerance) and (exp_queue_pkts >= 100):
+        elif (abs(all_queue_pkts[queue_pkt_index] - exp_queue_pkts)/exp_queue_pkts < tolerance) and \
+             (exp_queue_pkts >= 100):
             # tolerance only followed if atleast 100 packets are expected
             return queue_pkt_index
 

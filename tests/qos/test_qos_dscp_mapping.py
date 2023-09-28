@@ -24,7 +24,7 @@ pytestmark = [
     pytest.mark.topology('t0', 't1')
 ]
 
-DEFAULT_DSCP = 3
+DEFAULT_DSCP = 4
 DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 10000
@@ -291,11 +291,13 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                     else:
                         if egress_queue_val == -1:
                             logger.info("FAILURE: Packets not received on any queue. DUT poll failure.")
+                            output_table.append([rotating_dscp, queue_val, egress_queue_count,
+                                                 "FAILURE - DUT POLL FAILURE", egress_queue_val])
                         else:
                             logger.info("FAILURE: Received {} packets on queue {} instead of queue {}."
                                         .format(DEFAULT_PKT_COUNT, egress_queue_val, queue_val))
-                        output_table.append([rotating_dscp, queue_val, egress_queue_count, "FAILURE - INCORRECT QUEUE",
-                                             egress_queue_val])
+                            output_table.append([rotating_dscp, queue_val, egress_queue_count,
+                                                 "FAILURE - INCORRECT QUEUE", egress_queue_val])
                     failed_once = True
             else:
                 output_table.append([rotating_dscp, queue_val, 0, "FAILURE - NO PACKETS EGRESSED", "N/A"])

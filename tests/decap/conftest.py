@@ -1,11 +1,12 @@
 def build_ttl_dscp_params(uniform_support_info):
     ttl_uni_vxlan = {'ttl': 'uniform', 'dscp': 'pipe', 'vxlan': 'set_unset'}
-    dscp_uni_vxlan = {'ttl': 'pipe', 'dscp': 'uniform', 'vxlan': 'set_unset'}
+    dscp_uni_vxlan = {'ttl': 'pipe', 'dscp': 'pipe', 'vxlan': 'set_unset'}
     both_pipe_vxlan = {'ttl': 'pipe', 'dscp': 'pipe', 'vxlan': 'set_unset'}
     ttl_uni = {'ttl': 'uniform', 'dscp': 'pipe', 'vxlan': 'disable'}
-    dscp_uni = {'ttl': 'pipe', 'dscp': 'uniform', 'vxlan': 'disable'}
+    dscp_uni = {'ttl': 'pipe', 'dscp': 'pipe', 'vxlan': 'disable'}
     both_pipe = {'ttl': 'pipe', 'dscp': 'pipe', 'vxlan': 'disable'}
     params = []
+    import pdb; pdb.set_trace()
     if uniform_support_info['ttl']:
         params.append(ttl_uni)
         params.append(ttl_uni_vxlan)
