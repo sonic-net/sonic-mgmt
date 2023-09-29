@@ -88,9 +88,6 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
         'neigh_asic_index': neigh_asic_index
     }
 
-    logger.debug("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
-    logger.debug("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].shell("show run bgp",
-                                                                               module_ignore_errors=True)['stdout']))
     logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
@@ -107,11 +104,6 @@ def test_bgp_passive_peering_ipv4(setup):
                                                                                        setup['dut_asn'],
                                                                                        setup['peer_group_v4'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after passive IPv4: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                       module_ignore_errors=True)
-                                                                ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -124,11 +116,6 @@ def test_bgp_passive_peering_ipv4(setup):
                                                                                            setup['peer_group_v4'],
                                                                                            peer_password)
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after password IPv4: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                        module_ignore_errors=True)
-                                                                 ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -141,9 +128,6 @@ def test_bgp_passive_peering_ipv4(setup):
                                                                                            setup['dut_ip_v4'],
                                                                                            peer_password)
     setup['neighhost'].shell(cmd, module_ignore_errors=True)
-    logger.debug("Neighbor BGP Config after password v4: {}".format(setup['neighhost'].shell("show run bgp",
-                                                                                             module_ignore_errors=True)
-                                                                    ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -157,11 +141,6 @@ def test_bgp_passive_peering_ipv4(setup):
                                                                                            setup['peer_group_v4'],
                                                                                            wrong_password)
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after mismatch IPv4: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                        module_ignore_errors=True)
-                                                                 ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -175,11 +154,6 @@ def test_bgp_passive_peering_ipv6(setup):
                                                                                        setup['dut_asn'],
                                                                                        setup['peer_group_v6'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after passive IPv6: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                       module_ignore_errors=True)
-                                                                ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -192,11 +166,6 @@ def test_bgp_passive_peering_ipv6(setup):
                                                                                            setup['peer_group_v6'],
                                                                                            peer_password)
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after password IPv6: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                        module_ignore_errors=True)
-                                                                 ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -209,9 +178,6 @@ def test_bgp_passive_peering_ipv6(setup):
                                                                                            setup['dut_ip_v6'],
                                                                                            peer_password)
     setup['neighhost'].shell(cmd, module_ignore_errors=True)
-    logger.debug("Neighbor BGP Config after pass IPv6: {}".format(setup['neighhost'].shell("show run bgp",
-                                                                                           module_ignore_errors=True)
-                                                                  ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -225,11 +191,6 @@ def test_bgp_passive_peering_ipv6(setup):
                                                                                            setup['peer_group_v6'],
                                                                                            wrong_password)
     setup['duthost'].shell(cmd, module_ignore_errors=True)
-    time.sleep(1)
-
-    logger.debug("DUT BGP Config after mismatch IPv6: {}".format(setup['duthost'].shell("show run bgp",
-                                                                                        module_ignore_errors=True)
-                                                                 ['stdout']))
 
     time.sleep(bgp_config_sleeptime)
 
