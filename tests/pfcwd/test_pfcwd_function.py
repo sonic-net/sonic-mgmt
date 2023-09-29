@@ -454,7 +454,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -463,6 +463,7 @@ class SendVerifyTraffic():
         """
         self.ptf = ptf
         self.router_mac = router_mac
+        self.tx_mac = tx_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -475,12 +476,19 @@ class SendVerifyTraffic():
         self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
+        self.update_macs(pfc_params['rx_port_id'][0], router_mac)
+        self.update_macs(pfc_params['test_port_id'], tx_mac)
         if is_dualtor:
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
             self.vlan_mac = router_mac
-        # Verify traffic before pfc storm
-        self.verify_rx_ingress("forward")
+
+    def update_macs(self, port, mac_address):
+        try:
+            self.mac_map
+        except AttributeError:
+            self.mac_map = {}
+        self.mac_map[port] = mac_address
 
     def verify_tx_egress(self, action):
         """
@@ -494,7 +502,7 @@ class SendVerifyTraffic():
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
         if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.router_mac,
+        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
                       'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -525,8 +533,8 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_test_port_id],
+                      'vlan_mac': self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -558,7 +566,7 @@ class SendVerifyTraffic():
         else:
             other_queue = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.router_mac,
+        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
                       'vlan_mac': self.vlan_mac,
                       'queue_index': other_queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -591,8 +599,8 @@ class SendVerifyTraffic():
         else:
             other_pg = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_test_port_id],
+                      'vlan_mac': self.mac_map[self.pfc_wd_test_port_id],
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -602,6 +610,7 @@ class SendVerifyTraffic():
                       'wd_action': 'forward'}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
+            ptf_params['vlan_mac'] = self.vlan_mac
         if self.pfc_wd_test_port_vlan_id is not None:
             ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
@@ -614,7 +623,7 @@ class SendVerifyTraffic():
         Send traffic to fill up the buffer. No verification
         """
         logger.info("Send packets to {} to fill up the buffer".format(self.pfc_wd_test_port))
-        ptf_params = {'router_mac': self.router_mac,
+        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
                       'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -799,6 +808,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
 
@@ -888,6 +898,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
                                                           duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                                                          duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                                                           self.pfc_wd,
                                                           self.is_dualtor)
                     self.run_test(self.dut, port, "drop", restore=False)
@@ -964,6 +975,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
@@ -975,6 +987,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
@@ -1045,6 +1058,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
