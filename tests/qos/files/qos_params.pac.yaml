@@ -157,15 +157,6 @@ qos_params:
                     cell_size: 384
                     packet_size: 1350
         topo-t2:
-            wm_pg_shared_lossless:
-                dscp: 3
-                ecn: 1
-                pg: 3
-                pkts_num_trig_pfc: 11392
-                pkts_num_fill_min: 0
-                pkts_num_margin: 4
-                packet_size: 1350
-                cell_size: 384
             wm_pg_shared_lossy:
                 dscp: 8
                 ecn: 1
@@ -306,3 +297,12 @@ qos_params:
                     pkts_num_trig_pfc: 2562
                     cell_size: 384
                     packet_size: 1350
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_trig_pfc: 11392
+                    pkts_num_fill_min: 0
+                    pkts_num_margin: 4
+                    packet_size: 1350
+                    cell_size: 384
