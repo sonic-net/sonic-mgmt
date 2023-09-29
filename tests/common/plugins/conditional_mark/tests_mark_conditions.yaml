@@ -451,7 +451,7 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-defaul
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
     conditions:
-      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -511,11 +511,12 @@ generic_config_updater:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type or topology currently"
+    reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -545,22 +546,25 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test is not run on this hwsku/asic type currently"
+    reason: "This test is not run on this hwsku/asic type or version currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
-    reason: "This test is not run on this asic type currently"
+    reason: "This test is not run on this asic type or version currently"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
-    reason: "PFC watchdog is not supported on M0/Mx topology"
+    reason: "This test is not run on this topo type or version currently"
     conditions:
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
@@ -727,14 +731,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     strict: True
     reason: "Known NTP bug"
 
-#######################################
-#####     override_config_table   #####
-#######################################
-override_config_table/test_override_config_table.py:
-  skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
-    conditions:
-      - is_multi_asic == True
 
 #######################################
 #####           pc               #####
@@ -1078,15 +1074,11 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 snmp/test_snmp_link_local.py:
   skip:
-    reason: "SNMP over IPv6 support not present in 202211 release."
+    reason: "SNMP over IPv6 support not present in release branches."
     conditions:
-      - "release in ['202211']"
-
-snmp/test_snmp_loopback.py:
-  skip:
-    reason: "SNMP over Loopback IPv6 support not present in 202211 release."
-    conditions:
-      - "release in ['202211']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/6108
+      - "is_multi_asic==False"
+      - "release in ['202205', '202211', '202305']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
