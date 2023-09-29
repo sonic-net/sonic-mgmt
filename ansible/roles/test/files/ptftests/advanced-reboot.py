@@ -169,6 +169,8 @@ class ReloadTest(BaseTest):
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
             self.test_params['inboot_oper'] = None
 
+        self.dataplane_loss_checked_successfully = False
+
         # initialize sad oper
         if self.test_params['preboot_oper']:
             self.sad_oper = self.test_params['preboot_oper']
@@ -249,9 +251,6 @@ class ReloadTest(BaseTest):
             password=self.test_params['dut_password'],
             alt_password=self.test_params.get('alt_password')
         )
-
-        self.sender_thr = threading.Thread(target=self.send_in_background)
-        self.sniff_thr = threading.Thread(target=self.sniff_in_background)
 
         # Check if platform type is kvm
         stdout, stderr, return_code = self.dut_connection.execCommand("show platform summary | grep Platform | awk '{print $2}'")
@@ -1038,11 +1037,6 @@ class ReloadTest(BaseTest):
             self.no_routing_stop  = self.reboot_start
 
     def handle_warm_reboot_health_check(self):
-        # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
-            time.sleep(1)
-
-        self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
 
@@ -1371,10 +1365,10 @@ class ReloadTest(BaseTest):
         time.sleep(self.reboot_delay)
 
         if not self.kvm_test and\
-                (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
-                 self.reboot_type or 'service-warm-restart' in self.reboot_type):
-            # Event for the sniff_in_background status.
-            self.sniffer_started = threading.Event()
+            (self.reboot_type == 'fast-reboot' or 'warm-reboot' in self.reboot_type or 'service-warm-restart' in self.reboot_type):
+            self.sender_thr = threading.Thread(target = self.send_in_background)
+            self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+            self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
             self.sniff_thr.start()
             self.sender_thr.start()
 
@@ -1551,47 +1545,134 @@ class ReloadTest(BaseTest):
             # 1. sniffer max timeout is increased (to prevent sniffer finish before sender)
             # 2. and sender can signal sniffer to end after all packets are sent.
             time.sleep(1)
-            kill_sniffer_cmd = "pkill -SIGINT -f {}".format(self.ptf_sniffer)
-            subprocess.Popen(kill_sniffer_cmd.split())
+            self.kill_sniffer = True
+            time.sleep(1)  # required for prevent error in line below: raise Scapy_Exception(\"Filter parse error\")
             self.apply_filter_all_ports('')
 
     def sniff_in_background(self, wait = None):
         """
         This function listens on all ports, in both directions, for the TCP src=1234 dst=5000 packets, until timeout.
         Once found, all packets are dumped to local pcap file,
-        and all packets are saved to self.packets as scapy type.
-        The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
+        and all packets are saved to self.packets as scapy type(pcap format).
         """
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff,
-            kwargs={'wait': wait, 'sniff_filter': sniff_filter})
-        scapy_sniffer.start()
+        sniffer = threading.Thread(target=self.tcpdump_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
+        sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
-        scapy_sniffer.join()
+        sniffer.join()
         self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
         self.sniffer_started.clear()
 
-    def scapy_sniff(self, wait=300, sniff_filter=''):
+    def tcpdump_sniff(self, wait=300, sniff_filter=''):
         """
         @summary: PTF runner -  runs a sniffer in PTF container.
         Args:
             wait (int): Duration in seconds to sniff the traffic
-            sniff_filter (str): Filter that Scapy will use to collect only relevant packets
+            sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
         capture_pcap = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
-        capture_log = "/tmp/capture.log"
-        self.ptf_sniffer = "/root/ptftests/advanced_reboot_sniffer.py"
-        sniffer_command = ["python", self.ptf_sniffer, "-f", "'{}'".format(sniff_filter), "-p",\
-        capture_pcap, "-l", capture_log, "-t" , str(wait)]
         subprocess.call(["rm", "-rf", capture_pcap]) # remove old capture
-        subprocess.call(sniffer_command)
+        self.kill_sniffer = False
+        self.start_sniffer(capture_pcap, sniff_filter, wait)
+        self.create_single_pcap(capture_pcap)
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
+
+    def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
+        """
+        Star tcpdump sniffer on all data interfaces
+        """
+        self.tcpdump_data_ifaces = [iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
+        processes_list = []
+        for iface in self.tcpdump_data_ifaces:
+            process = multiprocessing.Process(target=self.start_dump_process, kwargs={'iface': iface,
+                                                                                      'pcap_path': pcap_path,
+                                                                                      'tcpdump_filter': tcpdump_filter})
+            process.start()
+            processes_list.append(process)
+
+        time_start = time.time()
+        while not self.kill_sniffer:
+            time.sleep(1)
+            curr_time = time.time()
+            if curr_time - time_start > timeout:
+                break
+            time_start = curr_time
+
+        self.log("Going to kill all tcpdump processes by SIGINT")
+        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
+
+        for process in processes_list:
+            process.join()
+
+    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
+        """
+        Start tcpdump on specific interface and save data to pcap file
+        """
+        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
+        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
+        subprocess.call(cmd)
+
+    def create_single_pcap(self, pcap_path):
+        """
+        Merge all pcaps from each interface into single pcap file
+        """
+        tmp_file_name = self.merge_pcaps(pcap_path, self.tcpdump_data_ifaces)
+        self.convert_pcapng_to_pcap(pcap_path, tmp_file_name)
+        self.log('Pcap files merged into single pcap file: {}'.format(pcap_path))
+
+    def merge_pcaps(self, pcap_path, data_ifaces):
+        """
+        Merge all pcaps into one, format: pcapng
+        """
+        tmp_file_name = '{}_tmp'.format(pcap_path)
+        cmd = ['mergecap', '-w', tmp_file_name]
+        ifaces_pcap_files_list = []
+        for iface in data_ifaces:
+            pcap_file_path = '{}_{}'.format(pcap_path, iface)
+            if os.path.exists(pcap_file_path):
+                cmd.append(pcap_file_path)
+                ifaces_pcap_files_list.append(pcap_file_path)
+
+        self.log('Starting merge pcap files')
+        subprocess.call(cmd)
+        self.log('Pcap files merged into tmp pcapng file')
+
+        # Remove pcap files created per interface
+        for pcap_file in ifaces_pcap_files_list:
+            subprocess.call(['rm', '-f', pcap_file])
+
+        return tmp_file_name
+
+    def convert_pcapng_to_pcap(self, pcap_path, tmp_file_name):
+        """
+        Convert pcapng file into pcap. We can't just merge all in pcap,
+        mergecap can merge multiple files only into pcapng format
+        """
+        cmd = ['mergecap', '-F', 'pcap', '-w', pcap_path, tmp_file_name]
+        self.log('Converting pcapng file into pcap file')
+        subprocess.call(cmd)
+        self.log('Pcapng file converted into pcap file')
+        subprocess.call(['rm', '-f', tmp_file_name])  # Remove tmp pcapng file
+
+    def send_and_sniff(self):
+        """
+        This method starts two background threads in parallel:
+        one for sending, another for collecting the sent packets.
+        """
+        self.sender_thr = threading.Thread(target = self.send_in_background)
+        self.sniff_thr = threading.Thread(target = self.sniff_in_background)
+        self.sniffer_started = threading.Event()    # Event for the sniff_in_background status.
+        self.sniff_thr.start()
+        self.sender_thr.start()
+        self.sniff_thr.join()
+        self.sender_thr.join()
 
     def check_tcp_payload(self, packet):
         """
@@ -1671,6 +1752,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
+        prev_payload = None
         if packets:
             prev_payload, prev_time = 0, 0
             sent_payload = 0
@@ -1751,6 +1833,36 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        self.dataplane_loss_checked_successfully = True
+
+        if self.reboot_type == "fast-reboot" and not self.lost_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Data traffic loss not found but reboot test type is '%s' which "
+                                  "must have data traffic loss" % self.reboot_type)
+
+        if len(self.packets_list) > sent_counter:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Not all sent packets counted by receiver process. "
+                                  "Could be issue with sniffer performance")
+
+        total_validation_packets = received_t1_to_vlan + received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
+        # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
+        allowed_number_of_flooded_original_packets = 150
+        if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
+                                  "Could be issue with DUT flooding for original packets which was sent to DUT")
+
+        if prev_payload != (self.packets_to_send - 1):
+            # Specific case when packet loss started but final lost packet not detected
+            self.dataplane_loss_checked_successfully = False
+            message = "Unable to calculate the dataplane traffic loss time. The traffic did not restore after " \
+                      "performing reboot for the pre-defined test checker period. Note: the traffic could possibly " \
+                      "restore after too long time, this could be checked manually."
+            self.log(message)
+            self.fails["dut"].add(message)
+
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
             filename = '/tmp/capture_filtered.pcap' if self.logfile_suffix is None else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix
@@ -2031,11 +2143,6 @@ class ReloadTest(BaseTest):
                 testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
-
-        if self.is_dualtor:
-            # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
-            # icmp_responder will also generate a response for this ICMP req, ignore that reply
-            total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts
 
         self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 

@@ -13,6 +13,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.system_utils import docker
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module    # lgtm[py/unused-import]
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,37 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
     return pkt, exp_tunnel_pkt
 
 
+def get_queue_watermark(duthost, port, queue, clear_after_read=False):
+    """
+    Return the queue watermark for the given port and queue
+    """
+    # Wait a default interval (60 seconds)
+    time.sleep(60)
+    cmd = "show queue watermark unicast"
+    output = duthost.shell(cmd)['stdout_lines']
+    """
+        Egress shared pool occupancy per unicast queue:
+               Port    UC0    UC1    UC2    UC3    UC4    UC5    UC6    UC7
+        -----------  -----  -----  -----  -----  -----  -----  -----  -----
+          Ethernet0      0      0      0      0      0      0      0      0
+    """
+    port_line = None
+    for line in output:
+        if line.split()[0] == port:
+            port_line = line
+            break
+    assert port_line is not None, "Failed to find queue watermark line in output for port '{}'".format(port)
+    items = port_line.split()
+    index = queue + 1
+    assert index < len(items), "Index {} out of range for line:\n{}".format(index, port_line)
+    wmk_str = items[index]
+    assert wmk_str.isdigit(), "Invalid watermark string '{}' in line:\n{}".format(wmk_str, port_line)
+    wmk = int(items[index])
+    if clear_after_read:
+        duthost.shell("sonic-clear queue watermark unicast")
+    return wmk
+
+
 def get_queue_counter(duthost, port, queue, clear_before_read=False):
     """
     Return the counter for given queue in given port
@@ -68,7 +100,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     for line in output:    
         fields = line.split()
         if fields[1] == txq:
-            return int(fields[2])
+            return int(fields[2].replace(',', ''))
 
     return 0
 
@@ -95,11 +127,14 @@ def counter_poll_config(duthost, type, interval_ms):
         time.sleep(10)
 
 
-def load_tunnel_qos_map(asic_name=None):
+@pytest.fixture(scope='class')
+def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module):
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
-    return a dict 
+    or config DB depending on the ASIC type.
+    return a dict
     """
+    asic_name = rand_selected_dut.get_asic_name()
     is_nvidia_platform = asic_name is not None and 'spc' in asic_name
     if not is_nvidia_platform:
         TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
@@ -108,9 +143,20 @@ def load_tunnel_qos_map(asic_name=None):
     TUNNEL_MAP_NAME = "AZURE_TUNNEL"
     UPLINK_MAP_NAME = "AZURE_UPLINK"
     MAP_NAME = "AZURE"
+    asic_type = rand_selected_dut.facts["asic_type"]
+    if 'cisco-8000' in asic_type:
+        # Cisco-8000 does not use the tunneled tc to pg map
+        tc_to_pg_map_name = MAP_NAME
+        # Use config DB for maps
+        maps = {}
+        for map_name in dut_qos_maps_module:
+            maps[map_name.upper()] = dut_qos_maps_module[map_name]
+    else:
+        tc_to_pg_map_name = TUNNEL_MAP_NAME
+        # Load maps from file
+        with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
+            maps = json.load(f)
     ret = {}
-    with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
-        maps = json.load(f)
     # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
     ret['inner_dscp_to_pg_map'] = {}
     if is_nvidia_platform:
@@ -120,11 +166,15 @@ def load_tunnel_qos_map(asic_name=None):
     else:
         for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
             ret['inner_dscp_to_pg_map'][int(k)] = int(
-                maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
+                maps['TC_TO_PRIORITY_GROUP_MAP'][tc_to_pg_map_name][v])
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
-    for k, v in maps['DSCP_TO_TC_MAP'][MAP_NAME].items():
-        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
+    if 'cisco-8000' in asic_type:
+        for k, v in maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(v)
+    else:
+        for k, v in maps['DSCP_TO_TC_MAP'][MAP_NAME].items():
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
     if is_nvidia_platform:
