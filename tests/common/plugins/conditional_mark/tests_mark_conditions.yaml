@@ -756,6 +756,12 @@ platform_tests/daemon/test_chassisd.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
+platform_tests/sfp/test_sfputil.py:
+  skip:
+    reason: "Skip based at community issue https://github.com/sonic-net/sonic-buildimage/issues/16685"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16685 and asic_type in ['mellanox']"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in x86_64-cel_e1031-r0 platform"
