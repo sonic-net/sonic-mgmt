@@ -17,7 +17,7 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     logger.info("Beginning to test dhcp-relay events")
     try:
         backup_ip_address(duthost)
-    except:
+    except Exception:
         logger.info("Skipping test, no Vlan interface")
         return
 
