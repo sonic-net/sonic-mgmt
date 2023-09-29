@@ -257,10 +257,9 @@ class DecapPacketTest(BaseTest):
         # Set DSCP value for the outer layer
         dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
         if dscp_out in self.DSCP_EXCLUDE and \
-            self.topo in ["t1"] and \
-            self.qos_remap_enabled:
-             self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
-             dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
+           self.topo in ["t1"] and self.qos_remap_enabled:
+            self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
+            dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
         # Next packet will use a different DSCP
         self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
 
