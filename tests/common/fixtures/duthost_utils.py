@@ -415,13 +415,13 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         delete_untagged_vlan: check to delete unttaged vlan
     '''
     cmds = []
+    port_mode_added = {}    # Keep track of whether switchport mode has been added for each port
     logger.info("Add vlans, assign IPs")
     for k, v in list(vlan_intfs_dict.items()):
         if v['orig']:
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
-
     # Delete untagged vlans from interfaces to avoid error message
     # when adding untagged vlan to interface that already have one
     if delete_untagged_vlan and '201911' not in duthost.os_version:
@@ -439,8 +439,10 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-            switchport_mode_set(duthost, vlan_port['dev'])
-            logger.info("trunk mode added")
+            if vlan_port['dev'] not in port_mode_added:
+                if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
+                    cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
+                port_mode_added[vlan_port['dev']] = True
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -450,36 +452,18 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-def switchport_mode_set(duthost, port):
+def check_switchport_cmd(duthost, tport):
+    cmds = 'config switchport mode trunk {port}'.format(port=tport)
+    logger.info("Commands: {}".format(cmds))
+    out = duthost.shell(cmds, module_ignore_errors=True)
 
-    mode_json = "/tmp/mode_set.json"
-
-    mode_set = '''
-cat << EOF >  %s
-{
-   "PORT": {
-        "{port}": {
-            "mode": "trunk"
-        }
-  }
-}
-EOF
-''' % (mode_json)
-    duthost.shell(mode_set)
-    jq_command = (
-     'sudo jq --argfile modeJson {} '
-     '\'.PORT |= with_entries(if $modeJson.PORT[.key] '
-     'and (.mode == null or .mode == "trunk" or .mode == "routed") '
-     'then .value.mode = "trunk" else . end)\' '
-     '/etc/sonic/config_db.json > /tmp/dump.json'
-    ).format(mode_json)
-    duthost.shell(jq_command)
-    duthost.command("sudo config load -y {}".format(mode_json))
-    duthost.command("sudo mv /tmp/dump.json /etc/sonic/config_db.json")
-
-    yield
-    duthost.command("rm {}".format(mode_json))
-    logger.info("Json dump-file added in to the DUT")
+    if out['rc'] == 0:
+        cmds = 'config switchport mode routed {port}'.format(port=tport)
+        logger.info("Commands: {}".format(cmds))
+        out = duthost.shell(cmds, module_ignore_errors=True)
+        if out['rc'] == 0:
+            return True
+    return False
 
 
 def _dut_qos_map(dut):
