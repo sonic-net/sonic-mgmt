@@ -229,6 +229,29 @@ def parse_int_to_tcp_flags(hex_value):
     return tcp_flags_str
 
 
+def get_token_ranges(separator_line):
+    token_ranges = []
+    start = 0
+    while start != -1:
+        end = separator_line.find(' ', start)
+        if end == -1:
+            token_ranges.append((start, len(separator_line)))
+            break
+        token_ranges.append((start, end))
+        start = separator_line.find('-', end)
+    return token_ranges
+
+
+def get_token_values(line, token_ranges):
+
+    token_values = []
+    for tk_rng in token_ranges:
+        fld_value = line[tk_rng[0]:tk_rng[1]]
+        token_values.append(fld_value)
+
+    return token_values
+
+
 def get_cacl_tables_and_rules(duthost):
     """
     Gathers control plane ACL tables and rules configured on the device via
@@ -278,15 +301,17 @@ def get_cacl_tables_and_rules(duthost):
     # Process the rules for each table
     for table in cacl_tables:
         stdout_lines = duthost.shell("show acl rule {}".format(table["name"]))["stdout_lines"]
+        fld_rngs = get_token_ranges(stdout_lines[1])
         # First two lines make up the table header. Get rid of them.
         stdout_lines = stdout_lines[2:]
         for line in stdout_lines:
-            tokens = line.strip().split()
-            if len(tokens) == 7 and tokens[0] == table["name"]:
-                table["rules"].append({"name": tokens[1], "priority": tokens[2], "action": tokens[3]})
+            tokens = get_token_values(line, fld_rngs)
+            if len(tokens) == len(fld_rngs) and tokens[0] == table["name"]:
+                table["rules"].append({"name": tokens[1], "priority": tokens[2].strip(), "action": tokens[3].strip()})
+                key, val = tokens[4].split()
                 # Strip the trailing colon from the key name
-                key = tokens[4][:-1]
-                table["rules"][-1][key] = tokens[5]
+                key = key[:-1]
+                table["rules"][-1][key] = val
             elif len(tokens) == 2:
                 # If the line only contains two tokens, they must be additional rule data.
                 # So we add them to the last rule we appended, stripping the trailing colon from the key name
