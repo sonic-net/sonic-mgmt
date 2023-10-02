@@ -4,7 +4,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
+from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup, REBOOT_TYPE_COLD
+from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -17,18 +18,19 @@ SSH_STARTUP_TIMEOUT = 420
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
 
-
 class TestKernelPanic:
     """
     This test case is used to verify that DUT will load kdump crashkernel on kernel panic.
     """
-    def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost):
+    def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
             for lc in duthosts.frontend_nodes:
                 wait_for_startup(lc, localhost, delay=10, timeout=300)
                 wait_critical_processes(lc)
+                check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname],
+                                              xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
@@ -51,7 +53,8 @@ class TestKernelPanic:
             wait_critical_processes(duthost)
             self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
 
-    def test_kernel_panic(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+    def test_kernel_panic(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                          conn_graph_facts, xcvr_skip_list):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
@@ -74,7 +77,7 @@ class TestKernelPanic:
                       'DUT {} did not startup'.format(hostname))
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
-        self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
+        self.wait_lc_healthy_if_sup(duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list)
         # Verify DUT uptime is later than the time when the test case started running.
         dut_uptime = duthost.get_up_time()
         pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
