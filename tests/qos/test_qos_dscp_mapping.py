@@ -136,6 +136,14 @@ def send_and_verify_traffic(ptfadapter,
             logger.error("Expected packet(s) was not received on any of the ports -> {}".format(ptf_dst_port_ids))
 
 
+def find_queue_count_and_value(duthost, queue_val, dut_egress_port):
+    egress_queue_counts_all_queues = get_egress_queue_pkt_count_all_prio(duthost, dut_egress_port)
+    egress_queue_count = egress_queue_counts_all_queues[queue_val]
+    egress_queue_val = find_egress_queue(egress_queue_counts_all_queues, DEFAULT_PKT_COUNT)
+
+    return egress_queue_count, egress_queue_val
+
+
 class TestQoSSaiDSCPQueueMapping_IPIP_Base():
     """
     Test class for DSCP to Queue Mapping for IP-IP packets.
@@ -272,9 +280,12 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             if packet_egressed_success:
                 dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
                 pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(dst_ptf_port_id))
-                egress_queue_counts_all_queues = get_egress_queue_pkt_count_all_prio(duthost, dut_egress_port)
-                egress_queue_count = egress_queue_counts_all_queues[queue_val]
-                egress_queue_val = find_egress_queue(egress_queue_counts_all_queues, DEFAULT_PKT_COUNT)
+                egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val, dut_egress_port)
+                # Re-poll DUT if queue value could not be accurately found
+                if egress_queue_val == -1:
+                    time.sleep(2)
+                    egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
+                                                                                      dut_egress_port)
                 verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
 
                 if verification_success:

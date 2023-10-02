@@ -1062,9 +1062,9 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     intf_queue_stats = raw_json.get(port)
     queue_stats = []
 
-    for prio in range(7):
+    for prio in range(8):
         total_pkts_str = intf_queue_stats.get("UC{}".format(prio)).get("totalpacket")
-        if total_pkts_str == "N/A":
+        if total_pkts_str == "N/A" or total_pkts_str is None:
             total_pkts_str = "0"
         queue_stats.append(int(total_pkts_str.replace(',', '')))
 
