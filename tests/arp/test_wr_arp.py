@@ -190,6 +190,21 @@ class TestWrArp:
         yield
         self.teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
 
+    @pytest.fixture(scope='class', autouse=True)
+    def warmRebootSystemFlag(self, duthost):
+        """
+            Sets warm-reboot system flag to false after test. This class-scope fixture runs once before test start
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        yield
+        logger.info('Setting warm-reboot system flag to false')
+        duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+
     def Setup(self, duthost, ptfhost, tbinfo):
         """
         A setup function that do the exactly same thing as the autoused fixtures do
