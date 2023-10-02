@@ -254,7 +254,6 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
             # Clear queue counters
             duthost.command("sonic-clear queuecounters")
-            duthost.command("queuestat -c")
             time.sleep(2)
 
             try:

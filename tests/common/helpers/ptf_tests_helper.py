@@ -99,13 +99,12 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
     for asic_id in duthost.get_frontend_asic_ids():
         swss = "swss{}".format(asic_id if asic_id is not None else '')
         logger.info("DSCP decap mode required to be changed to {} on asic {}".format(dscp_mode, asic_id))
-        cmd1 = "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 ".format(swss) + \
-            "/usr/share/sonic/templates/ipinip.json.j2.tmp"
+        cmds = ["docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 ".format(swss) +
+                "/usr/share/sonic/templates/ipinip.json.j2.tmp",
+                "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".
+                format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"]
         # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2 - this is the command to change
-        cmd2 = "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".\
-            format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"
-        duthost.shell(cmd1)
-        duthost.shell(cmd2)
+        duthost.shell_cmds(cmds)
         logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
     logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
