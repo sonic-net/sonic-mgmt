@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
-PFC_FRAME_COUNT_TOL = 0  # Tolerance for PFC frame count when DUT is not expected to receive PFC pause frames
 
 
 def setup_base_traffic_config(testbed_config,
@@ -537,27 +536,27 @@ def verify_pause_frame_count_dut(duthost,
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
     for peer_port, prios in dut_port_config[0].items():  # TX PFC pause frames
-        for prio in range(len(prios)):
-            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=True)
+        for prio in prios:
+            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=True)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_tx_frames > 0,
                               "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
-                              .format(prios[prio]))
+                              .format(prio))
             else:
                 # PFC pause frames should not be transmitted when test traffic is not paused
-                pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
+                pytest_assert(pfc_pause_tx_frames == 0,
                               "PFC pause frames should not be transmitted and counted in TX PFC counters")
 
     for peer_port, prios in dut_port_config[1].items():  # RX PFC pause frames
-        for prio in range(len(prios)):
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+        for prio in prios:
+            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
             if test_traffic_pause:
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                              .format(prios[prio]))
+                              .format(prio))
             else:
                 # PFC pause frames should not be received when test traffic is not paused
-                pytest_assert(pfc_pause_rx_frames <= PFC_FRAME_COUNT_TOL,
+                pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames should not be received and counted in RX PFC counters")
 
 
@@ -633,8 +632,8 @@ def verify_unset_cev_pause_frame_count(duthost,
 
     if not set_class_enable_vec:
         for peer_port, prios in dut_port_config[1].items():
-            for prio in range(len(prios)):
-                pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
+            for prio in prios:
+                pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio)
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "PFC pause frames with no bit set in the class enable vector should be dropped")
 
@@ -657,7 +656,7 @@ def verify_egress_queue_frame_count(duthost,
 
     if not set_class_enable_vec:
         for peer_port, prios in dut_port_config[1].items():
-            for prio in range(len(prios)):
-                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
+            for prio in prios:
+                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prio)
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
