@@ -31,7 +31,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
-    tor1 = lldp_table[1]
+    neigh_name = lldp_table[1]
     dut_int = lldp_table[0]
     neigh_int = lldp_table[2]
     if duthost.is_multi_asic:
@@ -39,8 +39,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     else:
         asic_index = DEFAULT_NAMESPACE
 
-    if nbrhosts[tor1]["host"].is_multi_asic:
-        neigh_asic_index = nbrhosts[tor1]["host"].get_port_asic_instance(neigh_int).asic_index
+    if nbrhosts[neigh_name]["host"].is_multi_asic:
+        neigh_asic_index = nbrhosts[neigh_name]["host"].get_port_asic_instance(neigh_int).asic_index
     else:
         neigh_asic_index = DEFAULT_NAMESPACE
 
@@ -52,7 +52,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     neigh_asn = dict()
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'] not in skip_hosts:
-            if v['description'] == tor1:
+            if v['description'] == neigh_name:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
                     peer_group_v4 = v['peer group']
@@ -63,8 +63,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
                     assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh_name]['bgp']['peers'][dut_asn][1]
 
     # verify sessions are established
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])
@@ -72,10 +72,10 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
 
     setup_info = {
         'duthost': duthost,
-        'neighhost': nbrhosts[tor1]["host"],
-        'tor1': tor1,
+        'neighhost': nbrhosts[neigh_name]["host"],
+        'neigh_name': neigh_name,
         'dut_asn': dut_asn,
-        'neigh_asn': neigh_asn[tor1],
+        'neigh_asn': neigh_asn[neigh_name],
         'asn_dict':  neigh_asn,
         'namespace': namespace,
         'dut_ip_v4': dut_ip_v4,
@@ -95,7 +95,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     # restore config to original state
     config_reload(duthost, safe_reload=True)
     time.sleep(10)
-    config_reload(nbrhosts[tor1]["host"], is_dut=False)
+    config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
 
 
 def test_bgp_passive_peering_ipv4(setup):
