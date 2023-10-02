@@ -711,6 +711,8 @@ def determine_base_topo(topo_type, device_type):
     elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
+        elif device_type == 'churchill':
+            base_topo_file = 'testbed-churchill-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
