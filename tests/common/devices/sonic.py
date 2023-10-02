@@ -451,6 +451,15 @@ class SonicHost(AnsibleHostBase):
 
         return len(status["stdout_lines"]) > 1
 
+    def is_host_service_running(self, service):
+        """
+        Check if the specified service is running or not
+        @param service: Service name
+        @return: True if specified service is running, else False
+        """
+        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        return "active (running)" in service_status['stdout']
+
     def critical_services_status(self):
         # Initialize service status
         services = {}
@@ -2190,6 +2199,13 @@ Totals               6450                 6449
                             raise ValueError('Got invalid packets count "{}" for {}|{}'
                                              .format(acl_table_name, acl_rule_name, rule['packets count']))
         raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
+
+    def get_port_counters(self, in_json=True):
+        cli = "portstat"
+        if in_json:
+            cli += " -j"
+        res = self.shell(cli)['stdout']
+        return re.sub(r"Last cached time was.*\d+\n", "", res)
 
     def remove_acl_table(self, acl_table):
         """
