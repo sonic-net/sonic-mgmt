@@ -18,6 +18,7 @@ SSH_STARTUP_TIMEOUT = 420
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
 
+
 class TestKernelPanic:
     """
     This test case is used to verify that DUT will load kdump crashkernel on kernel panic.
