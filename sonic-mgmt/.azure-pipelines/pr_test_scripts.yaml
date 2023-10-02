@@ -76,12 +76,12 @@ t0-2vlans:
   - dhcp_relay/test_dhcpv6_relay.py
 
 t0-sonic:
-  # - bgp/test_bgp_fact.py
-  # - macsec/test_controlplane.py
-  # - macsec/test_dataplane.py
-  # - macsec/test_deployment.py
-  # - macsec/test_fault_handling.py
-  # - macsec/test_interop_protocol.py
+  - bgp/test_bgp_fact.py
+  - macsec/test_controlplane.py
+  - macsec/test_dataplane.py
+  - macsec/test_deployment.py
+  - macsec/test_fault_handling.py
+  - macsec/test_interop_protocol.py
   - pc/test_retry_count.py
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
 
@@ -157,6 +157,9 @@ wan-pub:
   - tacacs/test_authorization.py
   - tacacs/test_accounting.py
 
+dpu:
+  - dash/test_dash_vnet.py
+
 specific_param:
   t0-sonic:
   - name: bgp/test_bgp_fact.py
@@ -164,3 +167,6 @@ specific_param:
 #  all the test modules under macsec directory
   - name: macsec
     param: "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"
+  dpu:
+  - name: dash/test_dash_vnet.py
+    param: " --skip_dataplane_checking "
