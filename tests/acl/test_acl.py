@@ -659,6 +659,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             if duthost.is_supervisor_node():
                 continue
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
+            additional_files={'/var/log/syslog.1': ''}
+            loganalyzer.additional_files = list(additional_files.keys())
+            loganalyzer.additional_start_str = list(additional_files.values())
             loganalyzer.load_common_config()
             dut_to_analyzer_map[duthost] = loganalyzer
 
