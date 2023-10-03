@@ -24,16 +24,15 @@ create_sonic_topo:
 	 cd infra; \
 	 source pyats/bin/activate; \
 	 python3.8 -u ./create_sonic_topo.py \
-		-u cisco \
-		-p cisco123 \
-		-t ${TOPO_NAME} \
-		-c \
-		-s $(TESTFILE) \
-		-b $(GOLDENCODE) \
+		--dut_uname cisco \
+		--dut_passwd cisco123 \
+		--topo_type ${TOPO_NAME} \
+		--device_type ${DEVICE_TYPE}
+		--script_file $(TESTFILE) \
+		--tar_ball $(GOLDENCODE) \
+		--clean_sim \
+		--cicd_clean \
 		--cicd \
-		--clean \
-		--create_allure_report \
-		--additional_tests '$(ADDITIONAL_TESTS)'\
 	"
 
 run_sanity_using_cfg_file:
