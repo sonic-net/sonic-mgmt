@@ -92,7 +92,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
 
     yield setup_info
 
-    # restore config to original state
+    # restore config to original state on both DUT and neighbor
     config_reload(duthost, safe_reload=True)
     time.sleep(10)
     config_reload(nbrhosts[neigh_name]["host"], is_dut=False)
