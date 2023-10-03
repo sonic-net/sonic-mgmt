@@ -241,7 +241,8 @@ def get_db_dump(duthosts, duthost):
     """
     Args:
         duthost: The dut being tested
-    Returns:chassis_app_db_sysparams: Dictionary with CHASSIS_APP_DB DB dump of impacted Tables and Sets from the supervisor node
+    Returns:chassis_app_db_sysparams: Dictionary with CHASSIS_APP_DB DB
+    dump of impacted Tables and Sets from the supervisor node
     SYSTEM_INTERFACE
     SYSTEM_LAG_ID_SET
     SYSTEM_LAG_ID_TABLE
