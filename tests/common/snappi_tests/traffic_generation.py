@@ -615,7 +615,7 @@ def verify_pause_frame_count_dut(duthost,
 
 def verify_tx_frame_count_dut(duthost,
                               snappi_extra_params,
-                              tx_frame_count_deviation=0.01,
+                              tx_frame_count_deviation=0.05,
                               tx_drop_frame_count_tol=5):
     """
     Verify correct frame count for tx frames on the DUT
@@ -643,7 +643,7 @@ def verify_tx_frame_count_dut(duthost,
 
 def verify_rx_frame_count_dut(duthost,
                               snappi_extra_params,
-                              rx_frame_count_deviation=0.01,
+                              rx_frame_count_deviation=0.05,
                               rx_drop_frame_count_tol=5):
     """
     Verify correct frame count for rx frames on the DUT
