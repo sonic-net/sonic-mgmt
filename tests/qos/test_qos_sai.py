@@ -1911,7 +1911,6 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
-
     def testQosSaiTrafficSanity(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts
     ):
@@ -1931,22 +1930,20 @@ class TestQosSai(QosSaiBase):
         if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
             pytest.skip("Traffic sanity size test is not supported")
 
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        qosConfig = dutQosConfig["param"][portSpeedCableLength]
         dst_dut_idx = get_src_dst_asic_and_duts['dst_dut_index']
         dst_asic_idx = get_src_dst_asic_and_duts['dst_asic_index']
         testPortIps = dutConfig["testPortIps"][dst_dut_idx][dst_asic_idx]
 
         # Fetch all port IDs and IPs
-        all_port_id_to_ip = {port_id : testPortIps[port_id]['peer_addr'] for port_id in testPortIps.keys()}
-        all_port_id_to_name = {port_id : dutConfig["dutInterfaces"][port_id] for port_id in testPortIps.keys()}
+        all_port_id_to_ip = {port_id: testPortIps[port_id]['peer_addr'] for port_id in testPortIps.keys()}
+        all_port_id_to_name = {port_id: dutConfig["dutInterfaces"][port_id] for port_id in testPortIps.keys()}
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
             "testbed_type": dutTestParams["topo"],
             "all_port_id_to_ip": all_port_id_to_ip,
             "all_port_id_to_name": all_port_id_to_name,
-            "hwsku":dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku']
         })
 
         self.runPtfTest(

@@ -4886,13 +4886,14 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, dst_port_ids)
 
+
 class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
         time.sleep(5)
         switch_init(self.clients)
 
-         # Parse input parameters
+        # Parse input parameters
         self.testbed_type = self.test_params['testbed_type']
         self.router_mac = self.test_params['router_mac']
         self.sonic_version = self.test_params['sonic_version']
@@ -4918,7 +4919,8 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             self.packet_size = 64
         tprint("Using packet size", self.packet_size)
 
-        self.all_port_id_to_mac = {port_id : self.dataplane.get_mac(0, port_id) for port_id in self.all_port_id_to_ip.keys()}
+        self.all_port_id_to_mac = {port_id: self.dataplane.get_mac(0, port_id)
+                                   for port_id in self.all_port_id_to_ip.keys()}
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -4949,7 +4951,8 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         # get a snapshot of counter values on all ports
-        port_cntrs_bases_map = {sid : sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid]) for sid in self.all_port_ids}
+        port_cntrs_bases_map = {sid: sai_thrift_read_port_counters(self.src_client, self.asic_type,
+                                                                   port_list['src'][sid]) for sid in self.all_port_ids}
         try:
             leakout_successes = []
             leakout_fails = []
@@ -4969,7 +4972,7 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             for src_port_id, dst_port_id in src_dst_pairs:
                 for i, dscp in enumerate(self.dscps):
                     pg = self.pgs[i]
-                    queue = self.queues[i] # Need queue for occupancy verification
+                    queue = self.queues[i]  # Need queue for occupancy verification
                     ecn_bit = 1 if dscp in [3, 4] else 0
                     self.config_traffic(src_port_id, dst_port_id, dscp, pg, ecn_bit)
                     # Check for LAG interference
@@ -4982,7 +4985,7 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
                                 dst_port_id, new_dst_port_id))
                             lag_redirections.append((src_port_id, dst_port_id, new_dst_port_id))
                             real_dst_port_id = new_dst_port_id
-                    except:
+                    except Exception:
                         msg = "Failed to check for get_rx_port"
                         tprint(msg)
                         failures.append(msg)
@@ -5046,8 +5049,8 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             # Only failing for cases where all packets get dropped, to sanitize other tests.
             tprint("Traffic drops (only fails when drops >= {})".format(pkt_count), header_level=1)
             traffic_dropped = False
-            port_cntrs_map = {port_id : sai_thrift_read_port_counters(self.dst_client, self.asic_type,
-                                                                      port_list['dst'][port_id])
+            port_cntrs_map = {port_id: sai_thrift_read_port_counters(self.dst_client, self.asic_type,
+                                                                     port_list['dst'][port_id])
                               for port_id in self.all_port_ids}
             for port_id in self.all_port_ids:
                 port_cntrs_bases, _ = port_cntrs_bases_map[port_id]
