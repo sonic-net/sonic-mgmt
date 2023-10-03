@@ -19,7 +19,7 @@ SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
 
 
-def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds):
+def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds, recover_acl_rule):
     """Test control plane ACL functionality on a SONiC device"""
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -37,8 +37,8 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                    version="v2c",
                    community=creds['snmp_rocommunity'],
                    wait=True,
-                   timeout=20,
-                   interval=20)
+                   timeout=30,
+                   interval=5)
 
     # Ensure we can send an NTP request
     if NTPLIB_INSTALLED:
@@ -64,7 +64,7 @@ def test_cacl_function(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cr
                              state='stopped',
                              search_regex=SONIC_SSH_REGEX,
                              delay=30,
-                             timeout=60,
+                             timeout=40,
                              module_ignore_errors=True)
 
     pytest_assert(not res.is_failed, "SSH port did not stop. {}".format(res.get('msg', '')))
