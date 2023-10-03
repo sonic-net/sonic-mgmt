@@ -84,6 +84,8 @@ def init(dut, type):
         return
 
     method = get_method()
+    print("printing method")
+    print(method)
     st.log("init base config using {} method".format(method), dut=dut)
     from apis.system import basic
     basic.clear_core_files(dut)
@@ -117,16 +119,16 @@ def post_config_reload(dut):
 
 
 def init_default_config(dut):
-    from apis.qos import qos as qos_api
-    from apis.routing import bgp as bgp_api
-    from apis.system import lldp as lldp_api
-    from apis.system import sflow as sflow_api
-    from apis.routing import nat as nat_api
-    qos_api.init_default_config(dut)
-    bgp_api.init_default_config(dut)
-    lldp_api.init_default_config(dut)
-    sflow_api.init_default_config(dut)
-    nat_api.init_default_config(dut)
+    #from apis.qos import qos as qos_api
+    #from apis.routing import bgp as bgp_api
+    #from apis.system import lldp as lldp_api
+    #from apis.system import sflow as sflow_api
+    #from apis.routing import nat as nat_api
+    #qos_api.init_default_config(dut)
+    #bgp_api.init_default_config(dut)
+    #lldp_api.init_default_config(dut)
+    #sflow_api.init_default_config(dut)
+    #nat_api.init_default_config(dut)
 
     remove_vlan_1(dut, "base config")
 

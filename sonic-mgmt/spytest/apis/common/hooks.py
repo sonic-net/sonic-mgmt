@@ -1,5 +1,5 @@
 from spytest import st, env
-
+from apis.system import logging
 
 class Hooks(object):
 
@@ -101,8 +101,11 @@ class Hooks(object):
     def set_port_defaults(self, dut, breakout, speed):
         return self._impl(dut).set_port_defaults(dut, breakout, speed)
 
+    def sonic_clear_logging(self, dut):
+        logging.sonic_clear(dut)
+
     def clear_logging(self, dut, **kwargs):
-        return self._impl(dut).clear_logging(dut, **kwargs)
+        logging.sonic_clear(dut)
 
     def fetch_syslogs(self, dut, severity=None, since=None):
         return self._impl(dut).fetch_syslogs(dut, severity, since)

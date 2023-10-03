@@ -56,7 +56,7 @@ tacacs:
           {ip: 10.2.3.6, username: root, password: lvl7india,
            timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 7},
           {ip: 10.2.3.7, username: root, password: lvl7india,
-           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 8}
+           timeout: 5, passkey: testsonic, tcp_port: 49, auth_type: pap, priority: 8},
           {ip: 10.193.81.61, username: brcm, password: company,
            timeout: 5, passkey: lvl7india, tcp_port: 49, auth_type: pap, priority: 3,
           encryptkey: U2FsdGVkX18FU9Gekcx4vVFV6Tiju3yFcOPZj9XfOd8=},
@@ -322,4 +322,3 @@ voice_vlan:
 
 mgmt_intf_gw_ip_addr:
   ip1: 10.193.80.5
->>>>>>> 520d32aa3b69338688aeec800f2972ca2d14725f
