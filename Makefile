@@ -26,7 +26,7 @@ create_sonic_topo:
 	 python3.8 -u ./create_sonic_topo.py \
 		--dut_uname cisco \
 		--dut_passwd cisco123 \
-		--topo_type ${TOPO_NAME} \
+		--topo_type ${TOPO_TYPE} \
 		--device_type ${DEVICE_TYPE}
 		--script_file $(TESTFILE) \
 		--tar_ball $(GOLDENCODE) \
