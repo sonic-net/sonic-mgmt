@@ -726,7 +726,7 @@ def verify_egress_queue_frame_count(duthost,
 
     if not set_class_enable_vec and not test_traffic_pause:
         for peer_port, prios in dut_port_config[1].items():
-            for prio in prios:
-                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prio)
+            for prio in range(len(prios)):
+                total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
                               "Queue counters should increment for invalid PFC pause frames")
