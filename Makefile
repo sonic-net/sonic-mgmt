@@ -31,7 +31,6 @@ create_sonic_topo:
 		--script_file $(TESTFILE) \
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
-		--cicd_clean \
 		--cicd \
 	"
 
