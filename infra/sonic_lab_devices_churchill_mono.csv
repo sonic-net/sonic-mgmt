@@ -1,6 +1,6 @@
 Hostname,ManagementIp,HwSku,Type
 lab-s6000-01,10.251.0.189,,blank
-churchill-01,192.168.122.177,32x400Gb,DevSonic
+churchill-mono-01,192.168.122.177,Cisco-8101-O32,DevSonic
 nexus-5,10.251.0.13/23,Arista-7260QX-64,FanoutLeaf
 str-acs-serv-01,172.17.0.1/23,TestServ,server
 str-7260-11,10.251.0.234/23,Arista-7260QX-64,FanoutRoot
