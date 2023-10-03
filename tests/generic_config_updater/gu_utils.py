@@ -307,23 +307,14 @@ def get_asic_name(duthost):
         asic = "cisco-8000"
     elif asic_type == 'vs':
         asic = "vs"
-    elif asic_type == 'mellanox' or asic_type == 'broadcom':
+    elif asic_type in ('mellanox', 'broadcom'):
         cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
-        if asic_type == 'mellanox':
-            asic_hwskus = asic_mapping["mellanox_asics"]
-            for asic_name, hwskus in asic_hwskus.items():
-                if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
-                    asic = asic_name
-                    break
-        elif asic_type == 'broadcom':
-            broadcom_asics = asic_mapping["broadcom_asics"]
-            for asic_shorthand, hwskus in broadcom_asics.items():
-                for hwsku in hwskus:
-                    if hwsku.lower() in cur_hwsku.lower():
-                        asic = asic_shorthand
-                        break
-                else:
-                    continue
+        # The key name is like "mellanox_asics" or "broadcom_asics"
+        asic_key_name = asic_type + "_asics"
+        asic_hwskus = asic_mapping[asic_key_name]
+        for asic_name, hwskus in asic_hwskus.items():
+            if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
+                asic = asic_name
                 break
 
     return asic
