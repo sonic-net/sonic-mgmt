@@ -303,18 +303,30 @@ def get_asic_name(duthost):
     asic = "unknown"
     gcu_conf = get_gcu_field_operations_conf(duthost)
     asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
-    if asic_type == 'cisco-8000':
-        asic = "cisco-8000"
-    elif asic_type == 'vs':
-        asic = "vs"
-    elif asic_type in ('mellanox', 'broadcom'):
+
+    def _get_asic_name(asic_type):
         cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
         # The key name is like "mellanox_asics" or "broadcom_asics"
         asic_key_name = asic_type + "_asics"
+        if asic_key_name not in asic_mapping:
+            return "unknown"
         asic_hwskus = asic_mapping[asic_key_name]
         for asic_name, hwskus in asic_hwskus.items():
             if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
-                asic = asic_name
+                return asic_name
+        return "unknown"
+
+    if asic_type == 'cisco-8000':
+        asic = "cisco-8000"
+    elif asic_type in ('mellanox', 'broadcom'):
+        asic = _get_asic_name(asic_type)
+    elif asic_type == 'vs':
+        # We need to check both mellanox and broadcom asics for vs platform
+        dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
+        for dummy_asic in dummy_asic_list:
+            tmp_asic = _get_asic_name(dummy_asic)
+            if tmp_asic != "unknown":
+                asic = tmp_asic
                 break
 
     return asic
