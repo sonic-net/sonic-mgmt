@@ -263,57 +263,66 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
                 attr_stats_row.append(row)
             attr_summary = ["RESULT"]
             attr_stats[msg]['get_coverage'] = round(attr_stats[msg]['used_get'] / attr_stats[msg]['total_get'] * 100)
-            attr_summary.append(f"{attr_stats[msg]['used_get']}/{attr_stats[msg]['total_get']}({round(attr_stats[msg]['used_get']/attr_stats[msg]['total_get']*100)}%)")
+            #attr_summary.append(f"{attr_stats[msg]['used_get']}/{attr_stats[msg]['total_get']}({round(attr_stats[msg]['used_get']/attr_stats[msg]['total_get']*100)}%)")
+            attr_summary.append("{}%".format((attr_stats[msg]['used_get']/attr_stats[msg]['total_get'])*(round(attr_stats[msg]['used_get']/attr_stats[msg]['total_get']))*100))
             if attr_stats[msg]['total_create'] > 0:
                 attr_stats[msg]['create_coverage'] = round(attr_stats[msg]['used_create'] / attr_stats[msg]['total_create'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_create']}/{attr_stats[msg]['total_create']}({attr_stats[msg]['create_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_create']/attr_stats[msg]['total_create'])*attr_stats[msg]['create_coverage']))
+                #attr_summary.append(f"{attr_stats[msg]['used_create']}/{attr_stats[msg]['total_create']}({attr_stats[msg]['create_coverage']}%)")
             else:
                 attr_summary.append('N/A')
             if attr_stats[msg]['total_replace'] > 0:
                 attr_stats[msg]['replace_coverage'] = round(attr_stats[msg]['used_replace'] / attr_stats[msg]['total_replace'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_replace']}/{attr_stats[msg]['total_replace']}({attr_stats[msg]['replace_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_replace']/attr_stats[msg]['total_replace'])*ttr_stats[msg]['replace_coverage']))
+                #attr_summary.append(f"({attr_stats[msg]['used_replace']}/{attr_stats[msg]['total_replace']})*({attr_stats[msg]['replace_coverage']}%)")
             else:
                 attr_summary.append('N/A')
             if attr_stats[msg]['total_update'] > 0:
                 attr_stats[msg]['update_coverage'] = round(attr_stats[msg]['used_update'] / attr_stats[msg]['total_update'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_update']}/{attr_stats[msg]['total_update']}({attr_stats[msg]['update_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_update']/attr_stats[msg]['total_update'])*attr_stats[msg]['update_coverage']))
+                #attr_summary.append(f"{attr_stats[msg]['used_update']}/{attr_stats[msg]['total_update']}({attr_stats[msg]['update_coverage']}%)")
             else:
                 attr_summary.append('N/A')
             if attr_stats[msg]['total_delete'] > 0:
                 attr_stats[msg]['delete_coverage'] = round(attr_stats[msg]['used_delete'] / attr_stats[msg]['total_delete'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_delete']}/{attr_stats[msg]['total_delete']}({attr_stats[msg]['delete_coverage']}%)")
+                #attr_summary.append(f"{attr_stats[msg]['used_delete']}/{attr_stats[msg]['total_delete']}({attr_stats[msg]['delete_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_delete']/attr_stats[msg]['total_delete'])*attr_stats[msg]['delete_coverage']))
             else:
                 attr_summary.append('N/A')
             if attr_stats[msg]['total_subscribe'] > 0:
                 attr_stats[msg]['subscribe_coverage'] = round(attr_stats[msg]['used_subscribe'] / attr_stats[msg]['total_subscribe'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_subscribe']}/{attr_stats[msg]['total_subscribe']}({attr_stats[msg]['subscribe_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_subscribe']/attr_stats[msg]['total_subscribe'])*attr_stats[msg]['subscribe_coverage']))
+                #attr_summary.append(f"{attr_stats[msg]['used_subscribe']}/{attr_stats[msg]['total_subscribe']}({attr_stats[msg]['subscribe_coverage']}%)")
             else:
                 attr_summary.append('N/A')
             if attr_stats[msg]['total_create_payload'] > 0:
                 attr_stats[msg]['payload_create_coverage'] = round(attr_stats[msg]['used_create_payload'] / attr_stats[msg]['total_create_payload'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_create_payload']}/{attr_stats[msg]['total_create_payload']}({attr_stats[msg]['payload_create_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_create_payload']/attr_stats[msg]['total_create_payload'])*attr_stats[msg]['payload_create_coverage']))
+                #attr_summary.append(f"{attr_stats[msg]['used_create_payload']}/{attr_stats[msg]['total_create_payload']}({attr_stats[msg]['payload_create_coverage']}%)")
             else:
                 attr_summary.append('N/A')
 
             if attr_stats[msg]['total_replace_payload'] > 0:
                 attr_stats[msg]['payload_replace_coverage'] = round(attr_stats[msg]['used_replace_payload'] / attr_stats[msg]['total_replace_payload'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_replace_payload']}/{attr_stats[msg]['total_replace_payload']}({attr_stats[msg]['payload_replace_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_replace_payload']/attr_stats[msg]['total_replace_payload'])*attr_stats[msg]['payload_replace_coverage']))
+                #attr_summary.append(f"{attr_stats[msg]['used_replace_payload']}/{attr_stats[msg]['total_replace_payload']}({attr_stats[msg]['payload_replace_coverage']}%)")
             else:
                 attr_summary.append('N/A')
 
             if attr_stats[msg]['total_update_payload'] > 0:
                 attr_stats[msg]['payload_update_coverage'] = round(attr_stats[msg]['used_update_payload'] / attr_stats[msg]['total_update_payload'] * 100)
-                attr_summary.append(f"{attr_stats[msg]['used_update_payload']}/{attr_stats[msg]['total_update_payload']}({attr_stats[msg]['payload_update_coverage']}%)")
+                #attr_summary.append(f"{attr_stats[msg]['used_update_payload']}/{attr_stats[msg]['total_update_payload']}({attr_stats[msg]['payload_update_coverage']}%)")
+                attr_summary.append("{}%".format((attr_stats[msg]['used_update_payload']/attr_stats[msg]['total_update_payload'])*attr_stats[msg]['payload_update_coverage']))
             else:
                 attr_summary.append('N/A')
             used_coverage = attr_stats[msg]['used_get'] + attr_stats[msg]['used_create'] + attr_stats[msg]['used_replace'] + attr_stats[msg]['used_update'] + attr_stats[msg]['used_delete'] + attr_stats[msg]['used_subscribe'] + attr_stats[msg]['used_update_payload'] + attr_stats[msg]['used_create_payload'] + attr_stats[msg]['used_replace_payload']
             total_coverage = attr_stats[msg]['total_get'] + attr_stats[msg]['total_create'] + attr_stats[msg]['total_replace'] + attr_stats[msg]['total_update'] + attr_stats[msg]['total_delete'] + attr_stats[msg]['total_subscribe'] + attr_stats[msg]['total_update_payload'] + attr_stats[msg]['total_create_payload'] + attr_stats[msg]['total_replace_payload']
             attr_stats[msg]["total_coverage"] = round((used_coverage / total_coverage) * 100)
-            attr_summary.append(f"{used_coverage}/{total_coverage}({attr_stats[msg]['total_coverage']}%)")
+            attr_summary.append("{}%".format(used_coverage/total_coverage*(attr_stats[msg]['total_coverage'])))
             attr_stats_row.append(attr_summary)
-            filepath = os.path.join(get_logs_path(), "message_coverage", f"{mod}_{msg_dict[msg]['name']}.html")
+            filepath = os.path.join(get_logs_path(), "message_coverage", "{}_{}.html".format(mod, msg_dict[msg]['name']))
             utils.write_html_table2(attr_stats_header, attr_stats_row, filepath)
-            msg_stats_row = [f"<a href='{mod}_{msg_dict[msg]['name']}.html'>{msg_dict[msg]['name']}</a>", f"{len(attr_stats[msg]['used_attrs'])}/{len(attr_stats[msg]['all_attrs'])}({round(len(attr_stats[msg]['used_attrs'])/len(attr_stats[msg]['all_attrs'])*100)}%)"]
+            msg_stats_row = ["<a href=' {}_{}.html'>{}</a>".format(mod, msg_dict[msg]['name'], msg_dict[msg]['name']), "{}".format(len(attr_stats[msg]['used_attrs'])/len(attr_stats[msg]['all_attrs'])(round(len(attr_stats[msg]['used_attrs'])/en(attr_stats[msg]['all_attrs'])*100)))
             msg_stats_row.extend(get_attr_stats_row(class_stats[mod]["msg_ops"][msg]))
             msg_line = []
             add_top_level_data(attr_stats[msg], class_stats[mod]["msg_ops"][msg])

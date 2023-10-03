@@ -284,6 +284,9 @@ def get_show_boot(dut, value=None):
         return output[0]
     return output
 
+def clear_core_files(dut):
+    return False
+
 def get_show_mgmt_vrf(dut, value=None):
     """
     Author: Deekshitha Kankanala (dkankana@cisco.com)

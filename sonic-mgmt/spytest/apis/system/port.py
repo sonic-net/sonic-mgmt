@@ -30,6 +30,19 @@ def force_cli_type_to_klish(cli_type, *more):
     return cli_type
 
 
+
+def get_asic_from_port(port):
+    port = int(re.search("\d+", str(port)).group(0))
+    port = port/8
+    if port in range(0,12):
+        asic = 0
+    elif port in range(12,24):
+        asic = 1
+    else:
+        asic = 2  
+    return asic
+
+
 def _has_intf_range(dut):
     if not st.is_feature_supported("intf-range", dut):
         return False
@@ -89,6 +102,14 @@ def set_status(dut, portlist, status, **kwargs):
                 st.log('test_step_failed: Setting of interface state {}'.format(result.data))
                 return False
         return True
+    elif cli_type == "vtysh-multi-asic":
+        for port in portlist:
+            try:
+                asic = get_asic_from_port(port)
+                st.config(dut, "config interface -n asic{} {} {}".format(str(asic), status, port))
+            except ValueError:
+                st.warn("Failed to execute {} command - try alternative".format(status))
+                st.config(dut, "config interface {} {}".format(port, status))
     elif cli_type == "click":
         port_hash_list = segregate_intf_list_type(intf=portlist, range_format=False)
         portlist = port_hash_list['intf_list_all']
@@ -146,14 +167,31 @@ def set_status(dut, portlist, status, **kwargs):
         return False
     return ""
 
+def shutdown(dut, portlist, cli_type='', **kwargs):
+    """
+    :param dut:
+    :type dut:
+    :param portlist:
+    :type portlist:
+    :return:
+    :rtype:
+    """
+    asic = kwargs.get("asic", 0)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    set_status(dut, portlist, "shutdown", cli_type=cli_type, asic = asic)
 
-def shutdown(dut, portlist, **kwargs):
-    set_status(dut, portlist, "shutdown", **kwargs)
-
-
-def noshutdown(dut, portlist, **kwargs):
-    set_status(dut, portlist, "startup", **kwargs)
-
+def noshutdown(dut, portlist, cli_type='', **kwargs):
+    """
+    :param dut:
+    :type dut:
+    :param portlist:
+    :type portlist:
+    :return:
+    :rtype:
+    """
+    asic = kwargs.get("asic", 0)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    set_status(dut, portlist, "startup", cli_type=cli_type, asic = asic)
 
 def get_status(dut, port=None, cli_type=''):
     """
