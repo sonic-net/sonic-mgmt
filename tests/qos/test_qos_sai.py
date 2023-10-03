@@ -992,7 +992,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile
+        ingressLossyProfile, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1059,11 +1059,11 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
-    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
+    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_check_for_hbm_either_asic
+            skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1082,9 +1082,17 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        if not get_src_dst_asic_and_duts['single_asic_test']:
-             pytest.skip("LossyQueueVoq: This test is skipped for now, will"
-                 " be re-enabled for RH cards.")
+        if "lossy_queue_voq_1" in LossyVoq:
+            if 'modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and \
+                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True":
+                pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
+                            "doesn't support split-voq.")
+        elif "lossy_queue_voq_2" in LossyVoq:
+            if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and \
+                get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                pytest.skip(
+                    "LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
+                    "for split-voq.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]

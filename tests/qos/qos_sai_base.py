@@ -2035,6 +2035,16 @@ class QosSaiBase(QosBase):
         yield
         return
 
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_src_dst_different_asic(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        if src_asic.sonichost.facts['platform'] != dst_asic.sonichost.facts['platform']:
+            pytest.skip(
+                "This test is skipped since asic types of ingress and egress are different.")
+        yield
+        return
+
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
