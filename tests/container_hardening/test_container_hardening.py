@@ -15,12 +15,12 @@ NO_PRIVILEGED_CONTAINERS = [
 ]
 
 
-def test_container_privileged(duthost, enum_asic_index):
+def test_container_privileged(duthost, enum_rand_one_asic_index):
     """
     Test container without --privileged flag has no access to /dev/vda* or /dev/sda*
     """
     for container in NO_PRIVILEGED_CONTAINERS:
-        asic = duthost.asic_instance(enum_asic_index)
+        asic = duthost.asic_instance(enum_rand_one_asic_index)
         container_name = asic.get_docker_name(container)
         docker_exec_cmd = 'docker exec {} bash -c '.format(container_name)
         cmd = duthost.shell(docker_exec_cmd + "'mount | grep /etc/hosts' | awk '{print $1}'")
