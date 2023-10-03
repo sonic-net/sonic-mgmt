@@ -305,18 +305,21 @@ def get_asic_name(duthost):
     asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
     if asic_type == 'cisco-8000':
         asic = "cisco-8000"
-    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
-        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
-        if asic_type == 'mellanox' or asic_type == 'vs':
-            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
-            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
-                asic = "spc1"
-                return asic
-        if asic_type == 'broadcom' or asic_type == 'vs':
+    elif asic_type == 'vs':
+        asic = "vs"
+    elif asic_type == 'mellanox' or asic_type == 'broadcom':
+        cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        if asic_type == 'mellanox':
+            asic_hwskus = asic_mapping["mellanox_asics"]
+            for asic_name, hwskus in asic_hwskus.items():
+                if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
+                    asic = asic_name
+                    break
+        elif asic_type == 'broadcom':
             broadcom_asics = asic_mapping["broadcom_asics"]
             for asic_shorthand, hwskus in broadcom_asics.items():
-                for hwsku_cur in hwskus:
-                    if hwsku_cur.lower() in hwsku.lower():
+                for hwsku in hwskus:
+                    if hwsku.lower() in cur_hwsku.lower():
                         asic = asic_shorthand
                         break
                 else:
