@@ -32,9 +32,13 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
-TOPO_TYPE_TO_TOPO_FILE_MAP = {
-    "t0-64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml",
-    "t1-64-lag": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP = {
+    "t0-64": {
+        "mth64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
+    },
+    "t1-64-lag": {
+        "mth64": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+    }
 }
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
@@ -889,8 +893,9 @@ def main():
     create_allure_report = args['create_allure_report']
 
     #get topo_yaml from topo_type
-    if not topo_yaml and topo_type in TOPO_TYPE_TO_TOPO_FILE_MAP:
-        topo_yaml = TOPO_TYPE_TO_TOPO_FILE_MAP[topo_type]
+    if not topo_yaml and topo_type in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP:
+        if device_type in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topo_type]:
+            topo_yaml = TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topo_type][device_type]
 
     ptf_intfcount = 32
 
