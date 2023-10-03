@@ -334,8 +334,14 @@ def is_valid_platform_and_version(duthost, table, scenario):
     os_version = duthost.os_version
     if asic == "unknown":
         return False
-    if "master" or "internal" in os_version:
+    if "master" in os_version or "internal" in os_version:
         return True
     gcu_conf = get_gcu_field_operations_conf(duthost)
-    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
-    return os_version >= version_required
+    try:
+        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        # os_version is in format "20220531.04", version_required is in format "20220500"
+        return os_version[0:8] >= version_required[0:8]
+    except KeyError:
+        return False
+    except IndexError:
+        return False
