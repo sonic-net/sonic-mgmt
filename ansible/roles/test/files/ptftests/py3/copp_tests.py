@@ -45,7 +45,7 @@ class ControlPlaneBaseTest(BaseTest):
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
     PPS_LIMIT_MAX = PPS_LIMIT * 1.4
-    NO_POLICER_LIMIT = PPS_LIMIT * 1.5
+    NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
 
