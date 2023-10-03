@@ -104,7 +104,7 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
                 "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".
                 format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"]
         # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2 - this is the command to change
-        duthost.shell_cmds(cmds)
+        duthost.shell_cmds(cmds=cmds)
         logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
     logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
