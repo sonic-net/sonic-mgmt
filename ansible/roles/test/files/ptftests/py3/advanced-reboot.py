@@ -70,6 +70,7 @@ import ptf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 import scapy.all as scapyall
+from scapy.arch.linux import attach_filter as attach_filter
 
 import sad_path as sp
 
@@ -1384,14 +1385,18 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                         if x['mgmt_addr'] == neigh]
-            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                 None, self.test_params)
-            self.neigh_handle.connect()
-            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
-            self.neigh_handle.disconnect()
-            self.fails[neigh] |= fails
+            flap_cnt = None
+            if self.test_params['neighbor_type'] == "sonic":
+                flap_cnt = self.cli_info[neigh][1]
+            else:
+                self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                             if x['mgmt_addr'] == neigh]
+                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                     None, self.test_params)
+                self.neigh_handle.connect()
+                fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+                self.neigh_handle.disconnect()
+                self.fails[neigh] |= fails
             if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:
@@ -1592,7 +1597,24 @@ class ReloadTest(BaseTest):
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        try:
+            self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.log("Error in HostDevice: {}".format(traceback_msg))
+            self.fails[ip] = set()
+            self.fails[ip].add("HostDevice hit an exception")
+            self.info[ip] = set()
+            self.cli_info[ip] = {
+                    "lacp": [0, 0],
+                    "po": [0, 0],
+                    "bgp_v4": [0, 0],
+                    "bgp_v6": [0, 0],
+                    }
+            self.logs_info[ip] = {}
+            self.lacp_pdu_times[ip] = {
+                    "lacp_all": []
+                    }
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
@@ -1645,7 +1667,7 @@ class ReloadTest(BaseTest):
     def apply_filter_all_ports(self, filter_expression):
         for p in self.dataplane.ports.values():
             port = p.get_packet_source()
-            scapyall.attach_filter(port.socket, filter_expression)
+            attach_filter(port.socket, filter_expression, port.interface_name)
 
     def send_in_background(self, packets_list=None):
         """
@@ -1893,7 +1915,7 @@ class ReloadTest(BaseTest):
                             ]
 
         if self.vnet:
-            decap_packets = [scapyall.Ether(str(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
+            decap_packets = [scapyall.Ether(bytes(pkt.payload.payload.payload)[8:]) for pkt in all_packets if
                              scapyall.UDP in pkt and
                              pkt[scapyall.UDP].sport == 1234
                              ]
