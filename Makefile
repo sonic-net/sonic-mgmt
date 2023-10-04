@@ -19,7 +19,7 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py T0"
+	bash -c "python3.8 update_topo.py -t ${TOPO_TYPE} -p ${PLATFORM_TYPE}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \

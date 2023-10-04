@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 import yaml
 import argparse
-
-TOPOLOGY_FILES = {
-     "T0": "pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml",
-     "T1": "pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
-}
+from infra.create_sonic_topo import TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP
 SIM_CFG_FILE = "../sim-cfg.yml"
 
+platform_set = set()
+
+for topology in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP:
+    platform_set.update(TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topology].keys())
+
 parser = argparse.ArgumentParser()
-parser.add_argument("topology", choices=TOPOLOGY_FILES.keys())
+parser.add_argument("-t", "--topology", help = "name of the topology ", nargs='?', const='', default = '', required=True, choices=TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP.keys())
+parser.add_argument("-p", "--platform", help = "type of the dut platform ", nargs='?', const='', default = '', required=True, choices=platform_set)
 args = parser.parse_args()
-topology_file = TOPOLOGY_FILES[args.topology]
+
+topology_file = TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[args.topology][args.platform]
 
 with open(SIM_CFG_FILE, "r") as fd:
     sim_cfg = yaml.safe_load(fd)
