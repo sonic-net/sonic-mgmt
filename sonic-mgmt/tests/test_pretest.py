@@ -147,7 +147,7 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     except IOError as e:
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
-    #prepare_autonegtest_params(duthosts, fanouthosts)
+    prepare_autonegtest_params(duthosts, fanouthosts)
 
 
 def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
