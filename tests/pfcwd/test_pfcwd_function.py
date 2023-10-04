@@ -932,8 +932,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             ptfhost(AnsibleHost) : ptf host instance
             duthost(AnsibleHost) : DUT instance
             enum_rand_one_per_hwsku_frontend_hostname(string) : randomly pick a dut in multi DUT setup
-            enum_frontend_asic_index: This fixture is not used in current test, but is used in fixture dualtor_ports,
-                                      need to call fixture enum_frontend_asic_index to make sure
+            enum_frontend_asic_index: This fixture is not used in current test, but is used in fixture dualtor_ports,\
+                                      need to call fixture enum_frontend_asic_index to make sure\
                                       we choose same dut in fixture dualtor_ports
             fanouthosts(AnsibleHost): fanout instance
         """
