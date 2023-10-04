@@ -18,7 +18,7 @@ parser.add_argument("-t", "--topology", help = "name of the topology ", nargs='?
 parser.add_argument("-p", "--platform", help = "type of the dut platform ", nargs='?', const='', default = '', required=True, choices=platform_set)
 args = parser.parse_args()
 
-topology_file = TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[args.topology][args.platform]
+topology_file = TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[args.topology][args.platform][1:]
 
 with open(SIM_CFG_FILE, "r") as fd:
     sim_cfg = yaml.safe_load(fd)
