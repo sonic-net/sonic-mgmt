@@ -9,6 +9,10 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 allure.logger = logger
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 test_update_route_pattern_para = [
     {
         'is_ipv6': False,
@@ -41,7 +45,7 @@ def skip_if_not_supported(is_route_flow_counter_supported):     # noqa F811
 
 
 @pytest.fixture(scope='function', autouse=True)
-def clear_route_flow_counter(rand_selected_dut):
+def clear_route_flow_counter(rand_selected_dut, skip_if_not_supported):
     """Clear route flow counter configuration
 
     Args:

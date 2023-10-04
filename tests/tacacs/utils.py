@@ -2,16 +2,22 @@ import crypt
 import logging
 import re
 import binascii
+import time
+import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, check_skip_release
+from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
 
-# per-command authorization and accounting feature not available in following versions
-per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
+# per-command authorization feature not available in following versions
+per_command_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
+
+
+# per-command accounting feature not available in following versions
+per_command_accounting_skip_versions = ["201811", "201911", "202106"]
 
 
 def check_output(output, exp_val1, exp_val2):
@@ -44,6 +50,16 @@ def stop_tacacs_server(ptfhost):
     return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
 
 
+@pytest.fixture
+def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
+    """make sure tacacs server running after UT finish"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    yield
+
+    start_tacacs_server(duthost)
+
+
 def setup_local_user(duthost, tacacs_creds):
     try:
         duthost.shell("sudo deluser {}".format(tacacs_creds['local_user']))
@@ -72,9 +88,12 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     # enable tacacs+
     duthost.shell("sudo config aaa authentication login tacacs+")
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     # setup local user
@@ -124,8 +143,8 @@ def restore_tacacs_servers(duthost):
             cmds.append("config tacacs timeout %s" % cfg)
 
     # Cleanup AAA and TACPLUS config
-    duthost.copy(src="./tacacs/templates/del_tacacs_config.json", dest='/tmp/del_tacacs_config.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_config.json"))
+    delete_tacacs_json = [{"AAA": {}}, {"TACPLUS": {}}]
+    delete_running_config(delete_tacacs_json, duthost)
 
     # Restore AAA and TACPLUS config
     duthost.shell_cmds(cmds=cmds)
@@ -221,9 +240,12 @@ def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
     ]
     duthost.shell_cmds(cmds=cmds)
 
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
+    (skip, _) = check_skip_release(duthost, per_command_authorization_skip_versions)
     if not skip:
         duthost.shell("sudo config aaa authorization local")
+
+    (skip, _) = check_skip_release(duthost, per_command_accounting_skip_versions)
+    if not skip:
         duthost.shell("sudo config aaa accounting disable")
 
     duthost.user(
@@ -279,3 +301,31 @@ def check_server_received(ptfhost, data):
     logger.info(sed_command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
+
+
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
+    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, timeout=10):
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    wait_time = 0
+    while wait_time <= timeout:
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        if latest_timestamp != last_timestamp:
+            return
+
+        time.sleep(1)
+        wait_time += 1
+
+    pytest_assert(False, "Not found aaa config update log: {}".format(command))

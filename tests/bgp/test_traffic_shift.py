@@ -63,15 +63,15 @@ def verify_traffic_shift(host, outputs, match_result):
     return match_result
 
 
-def get_traffic_shift_state(host):
-    outputs = host.shell('TSC')['stdout_lines']
+def get_traffic_shift_state(host, cmd="TSC"):
+    outputs = host.shell(cmd)['stdout_lines']
     if verify_traffic_shift(host, outputs, TS_NORMAL) != "ERROR":
         return TS_NORMAL
     if verify_traffic_shift(host, outputs, TS_MAINTENANCE) != "ERROR":
         return TS_MAINTENANCE
     if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
-    pytest.fail("TSC return unexpected state {}".format("ERROR"))
+    pytest.fail("{} return unexpected state {}".format(cmd, "ERROR"))
 
 
 def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
@@ -191,12 +191,12 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver):
         results[hostname] = routes
     try:
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=180, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
     except BaseException as err:
         logger.error(
             'Failed to get routes info from VMs. Got error: {}\n\nTrying one more time.'.format(err))
         all_routes = parallel_run(parse_routes_process, (), {}, list(
-            neigh_hosts.values()), timeout=180, concurrent_tasks=8)
+            neigh_hosts.values()), timeout=240, concurrent_tasks=8)
     return all_routes
 
 
@@ -422,12 +422,13 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
 
 
 def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                   bgpmon_setup_teardown, nbrhosts):
+                                   bgpmon_setup_teardown, nbrhosts, core_dump_and_config_check):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_neighbors = {}
+    duts_data = core_dump_and_config_check
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost),
@@ -457,6 +458,15 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # Wait until bgp sessions are established on DUT
         pytest_assert(wait_until(100, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
+
+        # If expected core dump files exist, add it into duts_data
+        if "20191130" in duthost.os_version:
+            existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+        else:
+            existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
+        for core_dump in existing_core_dumps:
+            if re.match("dplane_fpm_nl", core_dump):
+                duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
 
         # Wait until all routes are announced to neighbors
         cur_v4_routes = {}
