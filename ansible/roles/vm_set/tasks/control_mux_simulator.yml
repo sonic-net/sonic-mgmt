@@ -14,16 +14,28 @@
   - name: Set default Flask version
     set_fact:
       flask_version: "1.1.2"
+      werkzeug_version: "1.0.1"
       python_command: "python"
 
   - name: Use newer Flask version for pip3
     set_fact:
-      flask_version: "2.0.3"
+      flask_version: "2.3.3"
+      python_command: "python3"
+    when: pip_executable == "pip3"
+
+  - name: Use newer Werkzeug version for pip3
+    set_fact:
+      werkzeug_version: "2.3.7"
       python_command: "python3"
     when: pip_executable == "pip3"
 
   - name: Install flask
     pip: name=flask version={{ flask_version }} state=forcereinstall executable={{ pip_executable }}
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+
+  - name: Install werkzeug
+    pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
 
@@ -45,6 +57,18 @@
       state: started
       daemon_reload: yes
     become: yes
+
+  - name: wait for mux-simulator service to fully start for {{ testbed_name }}
+    pause: seconds=1
+
+  - name: Get the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+    register: mux_simulator_status
+
+  - name: Fail if the mux-simulator service has exited for testbed {{ testbed_name }}
+    fail: msg="Mux simulator service is not running for {{ testbed_name }}"
+    when: mux_simulator_status.status.ActiveState != "active"
 
   when: mux_simulator_action == "start"
 
