@@ -32,14 +32,6 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
-TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP = {
-    "t0-64": {
-        "mth64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
-    },
-    "t1-64-lag": {
-        "mth64": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
-    }
-}
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -891,6 +883,9 @@ def main():
     cicd_clean = args['cicd_clean']
     additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
+
+    with open('topo_and_platform_to_filename_map.json') as cfg_file:
+        TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP = json.load(cfg_file)
 
     #get topo_yaml from topo_type
     if not topo_yaml and topo_type in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP:

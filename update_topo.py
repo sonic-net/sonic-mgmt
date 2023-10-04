@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import yaml
 import argparse
-from infra.create_sonic_topo import TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP
+import json
+
 SIM_CFG_FILE = "../sim-cfg.yml"
 
 platform_set = set()
+
+with open('infra/topo_and_platform_to_filename_map.json') as cfg_file:
+    TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP = json.load(cfg_file)
 
 for topology in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP:
     platform_set.update(TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topology].keys())
