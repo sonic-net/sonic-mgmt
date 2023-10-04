@@ -86,10 +86,10 @@ host_vars:
     mgmt_prefixlen: 24
 testbed:
   docker-ptf:
-    comment: Test ptf churchill
+    comment: Test ptf churchill mono
     dut: churchill-mono-01
     group-name: sonic_cisco
-    ptf_image_name: docker-ptf-churchill
+    ptf_image_name: docker-ptf-churchill-mono
     ptf_ip: 192.168.122.75/24
     ptf_ipv6: fc0b::1/64
     ptf: docker-ptf
@@ -106,8 +106,8 @@ testbed:
       username: root
 
 testbed_config:
-  alias: churchilltopologyTestbed
-  name: testbed-churchill-t0
+  alias: churchillMonotopologyTestbed
+  name: testbed-churchill-mono-t0
   type: Physical
 topology:
   churchill-mono-01:

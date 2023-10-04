@@ -17,12 +17,12 @@ device_groups:
     - sonic_cisco
   sonic_cisco:
     host:
-    - churchill-01
+    - churchill-mono-01
     vars:
       hwsku: Cisco-8102-C32
       iface_speed: '400000'
 devices:
-  churchill-01:
+  churchill-mono-01:
     alias: null
     ansible:
       ansible_host: 192.168.122.47
@@ -87,10 +87,10 @@ host_vars:
     mgmt_prefixlen: 24
 testbed:
   docker-ptf:
-    comment: Test ptf Churchill
-    dut: churchill-01
+    comment: Test ptf Churchill Mono
+    dut: churchill-mono-01
     group-name: sonic_cisco
-    ptf_image_name: docker-ptf-churchill
+    ptf_image_name: docker-ptf-churchill-mono
     ptf_ip: 192.168.122.66/24
     ptf_ipv6: fc0b::1/64
     ptf: docker-ptf 
@@ -107,11 +107,11 @@ testbed:
       username: root
 
 testbed_config:
-  alias: churchilltopologyTestbed
-  name: testbed-churchill-t1
+  alias: churchillMonotopologyTestbed
+  name: testbed-churchill-mono-t1
   type: Physical
 topology:
-  churchill-01:
+  churchill-mono-01:
     interfaces:
       Ethernet0:
         Bandwidth: 40000
