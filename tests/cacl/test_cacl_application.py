@@ -364,7 +364,8 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
 
 def append_midplane_traffic_rules(duthost, iptables_rules):
     # Get the kernel intf name in the event that eth1-midplane is an altname
-    result = duthost.shell('ip link show eth1-midplane | awk \'NR==1{print$2}\' | cut -f1 -d"@" | cut -f1 -d":"', module_ignore_errors=True)['stdout']
+    result = duthost.shell('ip link show eth1-midplane | awk \'NR==1{print$2}\' | cut -f1 -d"@" | cut -f1 -d":"',
+                           module_ignore_errors=True)['stdout']
     if result:
         midplane_ip = duthost.shell('ip -4 -o addr show eth1-midplane | awk \'{print $4}\' | cut -d / -f1 | head -1',
                                     module_ignore_errors=True)['stdout']
