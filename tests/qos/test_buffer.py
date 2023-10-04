@@ -2687,7 +2687,8 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):  
         _recovery_to_dynamic_buffer_model(duthost)
 
 
-def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tbinfo, dualtor_ports):   # noqa F811
+def test_buffer_deployment(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                           conn_graph_facts, tbinfo, dualtor_ports):   # noqa F811
     """The testcase to verify whether buffer template has been correctly rendered and applied
 
     1. For all ports in the config_db,
