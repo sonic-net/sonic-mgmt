@@ -3444,15 +3444,19 @@ def load_tgen_int(tgen_dict):
                 if not tg_ixia_load(tg_version, logger, tgen_get_logs_path()):
                     return False
                 code = \
-                    "from ixiatcl import IxiaTcl \n" + \
-                    "from ixiahlt import IxiaHlt \n" + \
-                    "from ixiangpf import IxiaNgpf \n" + \
-                    "from ixiaerror import IxiaError \n" + \
-                    "ixiatcl = IxiaTcl() \n" + \
-                    "ixiahlt = IxiaHlt(ixiatcl) \n" + \
-                    "ixiangpf = IxiaNgpf(ixiahlt) \n"
+                        "from ixiatcl import IxiaTcl \n" + \
+                        "from ixiahlt import IxiaHlt \n" + \
+                        "from ixiangpf import IxiaNgpf \n" + \
+                        "from ixiaerror import IxiaError \n" + \
+                        "ixiatcl = IxiaTcl() \n" + \
+                        "ixiahlt = IxiaHlt(ixiatcl) \n" + \
+                        "ixiangpf = IxiaNgpf(ixiahlt) \n"
 
                 # nosemgrep-next-line
+                import sys
+                sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
+                sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")
+                os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
                 exec(code, globals(), globals())
                 if tgen_log_lvl_is_debug():
                     logger.info("Setting Ixia Debugs...")

@@ -69,10 +69,9 @@ def todo(scope, *args, **kwargs):
     trace("{}({}) {}".format(scope, logargs(*args, **kwargs), " ".join(data)))
 
 
-def change_cache(val, *args, dut=None):
-    for arg in args:
-        st.set_cache(arg, val, dut=dut)
-
+# def change_cache(val, *args, dut=None):
+#     for arg in args:
+#         st.set_cache(arg, val, dut=dut)
 
 def commit(phase, dut=None, clear=None):
     if not st.is_feature_supported("config-session"):

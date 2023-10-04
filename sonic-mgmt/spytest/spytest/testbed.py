@@ -556,7 +556,7 @@ class Testbed(object):
                     continue
 
                 # support range format for links
-                incr = linfo.get("incr", "1")
+                incr = linfo.get("incr", 1)
                 end_ports = self.expand_range(EndPort, incr)
                 if len(end_ports) > 1:
                     from_ports = self.expand_range(link, incr)
@@ -683,6 +683,7 @@ class Testbed(object):
         return True
 
     def expand_range(self, value, incr=1):
+        value = str(value)
         retval, prefix = [], "Ethernet"
         if "-" not in value or not value.startswith(prefix):
             return value.split(",")

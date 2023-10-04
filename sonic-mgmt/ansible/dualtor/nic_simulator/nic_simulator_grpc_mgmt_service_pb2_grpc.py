@@ -36,8 +36,18 @@ class DualTorMgmtServiceStub(object):
         )
         self.SetNicServerAdminState = channel.unary_unary(
             '/DualTorMgmtService/SetNicServerAdminState',
-            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,     # noqa E501
+            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                                         # noqa E501
             response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,
+        )
+        self.QueryFlapCounter = channel.unary_unary(
+            '/DualTorMgmtService/QueryFlapCounter',
+            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
+        )
+        self.ResetFlapCounter = channel.unary_unary(
+            '/DualTorMgmtService/ResetFlapCounter',
+            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,
+            response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
         )
 
 
@@ -74,6 +84,18 @@ class DualTorMgmtServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def QueryFlapCounter(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResetFlapCounter(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DualTorMgmtServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -100,7 +122,17 @@ def add_DualTorMgmtServiceServicer_to_server(servicer, server):
         'SetNicServerAdminState': grpc.unary_unary_rpc_method_handler(
             servicer.SetNicServerAdminState,
             request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.FromString,
-            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.SerializeToString,      # noqa E501
+            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.SerializeToString,                                          # noqa E501
+        ),
+        'QueryFlapCounter': grpc.unary_unary_rpc_method_handler(
+            servicer.QueryFlapCounter,
+            request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.FromString,
+            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.SerializeToString,
+        ),
+        'ResetFlapCounter': grpc.unary_unary_rpc_method_handler(
+            servicer.ResetFlapCounter,
+            request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.FromString,
+            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -124,12 +156,11 @@ class DualTorMgmtService(object):
                                       wait_for_ready=None,
                                       timeout=None,
                                       metadata=None):
-        return grpc.experimental.unary_unary(
-            request, target, '/DualTorMgmtService/QueryAdminForwardingPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryAdminForwardingPortState',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetAdminForwardingPortState(request,
@@ -142,12 +173,11 @@ class DualTorMgmtService(object):
                                     wait_for_ready=None,
                                     timeout=None,
                                     metadata=None):
-        return grpc.experimental.unary_unary(
-            request, target, '/DualTorMgmtService/SetAdminForwardingPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetAdminForwardingPortState',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def QueryOperationPortState(request,
@@ -160,12 +190,11 @@ class DualTorMgmtService(object):
                                 wait_for_ready=None,
                                 timeout=None,
                                 metadata=None):
-        return grpc.experimental.unary_unary(
-            request, target, '/DualTorMgmtService/QueryOperationPortState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryOperationPortState',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,                                     # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetDrop(request,
@@ -178,12 +207,11 @@ class DualTorMgmtService(object):
                 wait_for_ready=None,
                 timeout=None,
                 metadata=None):
-        return grpc.experimental.unary_unary(
-            request, target, '/DualTorMgmtService/SetDrop',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetDrop',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,                                          # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetNicServerAdminState(request,
@@ -196,9 +224,42 @@ class DualTorMgmtService(object):
                                wait_for_ready=None,
                                timeout=None,
                                metadata=None):
-        return grpc.experimental.unary_unary(
-            request, target, '/DualTorMgmtService/SetNicServerAdminState',
-            nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,
-            nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetNicServerAdminState',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                           # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,                                    # noqa E501
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def QueryFlapCounter(request,
+                         target,
+                         options=(),
+                         channel_credentials=None,
+                         call_credentials=None,
+                         insecure=False,
+                         compression=None,
+                         wait_for_ready=None,
+                         timeout=None,
+                         metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryFlapCounter',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ResetFlapCounter(request,
+                         target,
+                         options=(),
+                         channel_credentials=None,
+                         call_credentials=None,
+                         insecure=False,
+                         compression=None,
+                         wait_for_ready=None,
+                         timeout=None,
+                         metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/ResetFlapCounter',
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
+                                             options, channel_credentials,
+                                             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
