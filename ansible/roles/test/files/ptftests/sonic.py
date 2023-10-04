@@ -61,7 +61,19 @@ class Sonic(host_device.HostDevice):
             attempts += 1
             try:
                 stdin, stdout, stderr = self.conn.exec_command(cmd, timeout=Sonic.SSH_CMD_TIMEOUT)
-                return stdout.read()
+                # Warning: This is a bit fragile. Both stdout and stderr use
+                # the same SSH channel, and if the buffer for that channel is
+                # full, then either stdout or stderr will block until there's
+                # space in the channel.
+                #
+                # Therefore, fully read stdout first before trying to read
+                # stderr. This assumes there's plenty of data on stdout to read,
+                # but not much on stderr.
+                stdoutOutput = six.ensure_str(stdout.read())
+                stderrOutput = six.ensure_str(stderr.read()).strip()
+                if len(stderrOutput) > 0:
+                    self.log("Output on stderr from command '{}': '{}'".format(cmd, stderrOutput))
+                return stdoutOutput
             except socket.timeout:
                 self.log("Timeout when running command: {}".format(cmd))
                 return ""
@@ -175,12 +187,12 @@ class Sonic(host_device.HostDevice):
         self.disconnect()
 
         # save data for troubleshooting
-        with open("/tmp/%s.data.pickle" % self.ip, "w") as fp:
+        with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
             pickle.dump(data, fp)
 
         # save debug data for troubleshooting
         if self.DEBUG:
-            with open("/tmp/%s.raw.pickle" % self.ip, "w") as fp:
+            with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
                 pickle.dump(debug_data, fp)
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
@@ -309,7 +321,7 @@ class Sonic(host_device.HostDevice):
         return 0, num_lag_flaps
 
     def parse_lacp(self, output):
-        return six.ensure_str(output).find('Bundled') != -1
+        return output.find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
@@ -377,7 +389,7 @@ class Sonic(host_device.HostDevice):
         return set(expects).issubset(prefixes)
 
     def parse_supported_show_lacp_command(self):
-        show_lacp_command = "show lacp neighbor"
+        show_lacp_command = "show interface portchannel"
         self.log("show lacp command is '{}'".format(show_lacp_command))
         return show_lacp_command
 
@@ -481,6 +493,8 @@ class Sonic(host_device.HostDevice):
         # Note: this function may have false-positives (with regards to link flaps). The start time used here is
         # the system's boot time, not the test start time, which means any LAG flaps before the start of the test
         # would get included here.
+        #
+        # You probably really don't want to call this function.
         log_lines = self.do_cmd("sudo cat /var/log/teamd.log{,.1}").split('\n')
         boot_time = datetime.datetime.strptime(self.do_cmd("uptime -s").strip(), "%Y-%m-%d %H:%M:%S")
         _, flap_cnt = self.check_lag_flaps("PortChannel1", log_lines, time.mktime(boot_time.timetuple()))
