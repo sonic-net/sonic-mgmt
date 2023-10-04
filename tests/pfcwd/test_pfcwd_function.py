@@ -905,7 +905,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.dut.command("pfcwd stop")
 
     def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa F811
-                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, dualtor_ports, # noqa F811
+                              ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, fanouthosts, dualtor_ports, # noqa F811
                               pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Tests if mmu changes impact Pfcwd functionality
@@ -932,6 +932,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             ptfhost(AnsibleHost) : ptf host instance
             duthost(AnsibleHost) : DUT instance
             enum_rand_one_per_hwsku_frontend_hostname(string) : randomly pick a dut in multi DUT setup
+            enum_frontend_asic_index: This fixture is not used in current test, but is used in fixture dualtor_ports,
+                                      we need to call this fixture to make sure we choose same dut in fixture dualtor_ports
             fanouthosts(AnsibleHost): fanout instance
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
