@@ -5,9 +5,12 @@ A helper module for PTF tests.
 import pytest
 import random
 import os
+import logging
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -86,21 +89,26 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
     """
 
     default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
+    logger.info("Current DSCP decap mode: {}".format(default_decap_mode))
 
     if default_decap_mode == dscp_mode:
+        logger.info("Current DSCP decap mode: {} matches required decap mode - no reload required"
+                    .format(default_decap_mode))
         return
 
     for asic_id in duthost.get_frontend_asic_ids():
         swss = "swss{}".format(asic_id if asic_id is not None else '')
-        cmds = [
-            "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 /usr/share/sonic/templates/ipinip.json.j2.tmp"
-            .format(swss),
-            "docker exec {} sed -i 's/{}/{}/g' /usr/share/sonic/templates/ipinip.json.j2 "
-            .format(swss, default_decap_mode, dscp_mode)
-        ]
+        logger.info("DSCP decap mode required to be changed to {} on asic {}".format(dscp_mode, asic_id))
+        cmds = ["docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 ".format(swss) +
+                "/usr/share/sonic/templates/ipinip.json.j2.tmp",
+                "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".
+                format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"]
+        # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2 - this is the command to change
         duthost.shell_cmds(cmds=cmds)
+        logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
-    config_reload(duthost, config_source='minigraph', safe_reload=True)
+    logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def apply_dscp_cfg_teardown(duthost):
@@ -118,15 +126,15 @@ def apply_dscp_cfg_teardown(duthost):
         except Exception:
             continue
         if file_out["rc"] == 0:
-            cmds = [
-                'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp '.format(swss) +
-                '/usr/share/sonic/templates/ipinip.json.j2'
-                ]
+            cmd1 = "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp ".format(swss) + \
+                "/usr/share/sonic/templates/ipinip.json.j2"
             reload_required = True
-            duthost.shell_cmds(cmds=cmds)
+            logger.info("DSCP decap mode required to be changed to default on asic {}".format(asic_id))
+            duthost.shell(cmd1)
 
     if reload_required:
-        config_reload(duthost, config_source='minigraph', safe_reload=True)
+        logger.info("TEARDOWN: Reload required for dscp decap mode changes to take effect.")
+        config_reload(duthost, safe_reload=True)
 
 
 def find_links(duthost, tbinfo, filter):
