@@ -1,15 +1,25 @@
 # This file contains the list of API's which performs RADIUS operations.
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
 
+import re
 from spytest import st
-import utilities.utils as utils
-import utilities.common as common_utils
+import apis.system.basic as basic_obj
 from apis.system.rest import config_rest, get_rest, delete_rest
+from utilities import utils
+import utilities.common as common_utils
+import apis.system.system_server as sys_server_api
+from utilities.utils import get_supported_ui_type_list
 
 debug = False
 
-##timeout set to 125 sec due defect sonic-24329.once fixed will change to lower limit.
-time_out=125
+# timeout set to 125 sec due defect sonic-24329.once fixed will change to lower limit.
+time_out = 125
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in utils.get_supported_ui_type_list() else cli_type
+    return cli_type
+
 
 def config_server(dut, no_form=False, skip_error_check=False, **kwargs):
     """
@@ -28,7 +38,19 @@ def config_server(dut, no_form=False, skip_error_check=False, **kwargs):
         return False
     ipaddress_li = common_utils.make_list(kwargs["ip_address"])
     for each_ip in ipaddress_li:
-        if cli_type == "klish":
+        if cli_type in utils.get_supported_ui_type_list():
+            kwargs['config'] = 'no' if no_form else 'yes'
+            if 'use_mgmt_vrf' in kwargs:
+                kwargs['vrf'] = kwargs.pop('use_mgmt_vrf')
+            if 'source_intf' in kwargs:
+                kwargs['src_intf'] = kwargs.pop('source_intf')
+            if 'key' in kwargs and 'encrypted' in kwargs["key"]:
+                kwargs['key'] = kwargs['key'].replace(' encrypted', '')
+                kwargs['encrypted'] = True
+            result = sys_server_api.config_aaa_server(dut, server_name='RADIUS', server_address=each_ip, **kwargs)
+            if not result:
+                return result
+        elif cli_type == "klish":
             cmd = "radius-server host {}".format(each_ip)
             if "auth_type" in kwargs:
                 cmd += " auth-type {}".format(kwargs["auth_type"])
@@ -108,7 +130,11 @@ def config_server(dut, no_form=False, skip_error_check=False, **kwargs):
                         st.error("Failed to remove key config for {} server".format(each_ip))
                         return False
                 else:
-                    radius_params.update({"secret-key": kwargs["key"]})
+                    if "encrypted" in kwargs["key"]:
+                        kwargs["key"] = kwargs["key"].replace(" encrypted", "")
+                        radius_params.update({"secret-key": kwargs["key"], "encrypted": True})
+                    else:
+                        radius_params.update({"secret-key": kwargs["key"]})
             if "auth_port" in kwargs:
                 if no_form:
                     del_url = rest_urls['radius_authport_config'].format('RADIUS', each_ip)
@@ -156,6 +182,8 @@ def config_server(dut, no_form=False, skip_error_check=False, **kwargs):
         else:
             st.error("UNSUPPORTED CLI TYPE: {}".format(cli_type))
             return False
+        return True
+
 
 def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_type=""):
     """
@@ -172,10 +200,22 @@ def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_
         st.log("Invalid parameters provided ..")
         return False
     count = 0
-    if cli_type == "klish":
+    # #Added fallback to restpatch due to timeout value was not woring in rest and Defect id is SONIC-75718
+    # chap_type = params['auth_type']['value'] if 'auth_type' in params else ''
+    # if cli_type in utils.get_supported_ui_type_list():
+    #     cli_type = 'rest-patch' if chap_type == 'chap' else cli_type
+    if cli_type in utils.get_supported_ui_type_list():
+        fields = {"source_ip": "source-ip", "key": "key", "auth_type": "auth-type", "timeout": "timeout",
+                  "retransmit": "retransmit", "nasip": "nas-ip", "statistics": "statistics"}
+        kwargs = dict()
+        for key, value in params.items():
+            kwargs['config'] = 'no' if value.get('no_form') else 'yes'
+            kwargs[fields[key].replace('-', '_')] = value['value']
+        return sys_server_api.config_aaa_server_properties(dut, server_name='RADIUS', **kwargs)
+    elif cli_type == "klish":
         cmd = "radius-server"
         fields = {"source_ip": "source-ip", "key": "key", "auth_type": "auth-type", "timeout": "timeout",
-                  "retransmit": "retransmit", "nasip": "nas-ip", "statistics":"statistics"}
+                  "retransmit": "retransmit", "nasip": "nas-ip", "statistics": "statistics"}
         for key, value in params.items():
             if value.get("no_form"):
                 command = "no {} {}".format(cmd, fields[key])
@@ -188,7 +228,7 @@ def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_
             count += 1
     elif cli_type == "click":
         cmd = "config radius"
-        fields = {"source_ip":"sourceip","key":"passkey","auth_type":"authtype","timeout":"timeout","retransmit":"retransmit","nasip":"nasip","statistics":"statistics"}
+        fields = {"source_ip": "sourceip", "key": "passkey", "auth_type": "authtype", "timeout": "timeout", "retransmit": "retransmit", "nasip": "nasip", "statistics": "statistics"}
         for key, value in params.items():
             if value.get("no_form"):
                 if key == "source_ip":
@@ -204,12 +244,12 @@ def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_
             count += 1
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
-        url_mapping = {"source_ip":"radius_sourceip", "key":"radius_key", "auth_type": "radius_authtype", "timeout": "radius_timeout",
-                  "retransmit": "radius_retransmit", "nasip": "radius_nasip", "statistics":"radius_statistics"}
+        url_mapping = {"source_ip": "radius_sourceip", "key": "radius_key", "auth_type": "radius_authtype", "timeout": "radius_timeout",
+                       "retransmit": "radius_retransmit", "nasip": "radius_nasip", "statistics": "radius_statistics"}
         for key, value in params.items():
             if value.get("no_form"):
                 url = rest_urls[url_mapping[key]].format("RADIUS")
-                if not delete_rest(dut,  rest_url=url, timeout=time_out):
+                if not delete_rest(dut, rest_url=url, timeout=time_out):
                     return False
             else:
                 url = rest_urls['aaa_server_config']
@@ -218,7 +258,7 @@ def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_
                 elif key == 'nasip':
                     data = {"openconfig-system:server-group": [{"name": "RADIUS", "config": {"name": "RADIUS"}, "openconfig-aaa-radius-ext:radius": {"config": {"nas-ip-address": value["value"]}}}]}
                 elif key == 'retransmit':
-                    data = {"openconfig-system:server-group": [{"name": "RADIUS","openconfig-aaa-radius-ext:radius": {"config": {"retransmit-attempts": int(value["value"])}}}]}
+                    data = {"openconfig-system:server-group": [{"name": "RADIUS", "openconfig-aaa-radius-ext:radius": {"config": {"retransmit-attempts": int(value["value"])}}}]}
                 elif key == 'timeout':
                     data = {"openconfig-system:server-group": [{"name": "RADIUS", "config": {"name": "RADIUS", "openconfig-system-ext:timeout": int(value["value"])}}]}
                 elif key == 'auth_type':
@@ -241,7 +281,7 @@ def config_global_server_params(dut, skip_error_check=False, params=dict(), cli_
     return False
 
 
-def show_config(dut, search_string="", cli_type=""):
+def show_config(dut, search_string="", cli_type="", verify=True):
     '''
     API to show the configured radius parameters
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -253,41 +293,14 @@ def show_config(dut, search_string="", cli_type=""):
       {'auth_type': '', 'passkey': '', 'auth_port': '1812', 'priority': '1', 'timeout': '', 'address': '1.1.1.1'}]}
     '''
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     st.log("Showing radius configuration ...")
-    result = {"globals": [], "servers": []}
     if cli_type == "klish":
         command = "show radius-server"
-        output = st.show(dut, command, type=cli_type)
-        global_out = dict()
-        if not output:
-            return result
-        for k, v in output[0].items():
-            if "global" in k:
-                global_out[k] = v
-        if global_out:
-            result["globals"].append(global_out)
-        for d in output[0:]:
-            server_out = dict()
-            for k, v in d.items():
-                if not "global" in k:
-                    server_out[k] = v
-            if server_out:
-                result["servers"].append(server_out)
+        return format_show_output(dut, command, cli_type)
     elif cli_type == "click":
         command = "show radius | grep -w {}".format(search_string) if search_string else "show radius"
-        output = st.show(dut, command, type=cli_type)
-        for d in output:
-            global_out = dict()
-            server_out = dict()
-            for k, v in d.items():
-                if "global" in k:
-                    global_out[k] = v
-                else:
-                    server_out[k] = v
-            if global_out and not utils.check_empty_values_in_dict(global_out):
-                result["globals"].append(global_out)
-            if server_out and not utils.check_empty_values_in_dict(server_out):
-                result["servers"].append(server_out)
+        return format_show_output(dut, command, cli_type)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['radius_server_show'].format("RADIUS")
@@ -296,10 +309,45 @@ def show_config(dut, search_string="", cli_type=""):
         server_output = get_rest(dut, rest_url=url)
         global_config = get_rest(dut, rest_url=url1)
         global_ext_data = get_rest(dut, rest_url=url2)
-        result =  process_radius_output(server_output['output'], global_config['output'], global_ext_data['output'])
+        result = process_radius_output(server_output['output'], global_config['output'], global_ext_data['output'],
+                                       verify=verify)
     else:
         st.log("UNSUPPORTED CLI TYPE")
         return False
+    return result
+
+
+def format_show_output(dut, command, cli_type):
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    output = st.show(dut, command, type=cli_type)
+    result = {"globals": [], "servers": []}
+    server_out = dict()
+    for d in output:
+        global_out = dict()
+        for k, v in d.items():
+            if "global" in k:
+                global_out[k] = v
+        if d["address"] or d["stats_server_ip"]:
+            addr_val = d["address"] if d["address"] else d["stats_server_ip"]
+            if not server_out.get(addr_val):
+                server_out[addr_val] = dict()
+                server_out[addr_val] = d
+            else:
+                stats_keys = ["stats_server_ip", "access_requests", "access_accepts", "access_rejects",
+                              "timeout_access_reqs", "access_challenges", "bad_authenticators", "invalid_packets"]
+                if d["stats_server_ip"] == addr_val:
+                    for stat_key in stats_keys:
+                        server_out[addr_val][stat_key] = d[stat_key]
+        if global_out and not utils.check_empty_values_in_dict(global_out):
+            result["globals"].append(global_out)
+    for _, value in server_out.items():
+        if server_out and not utils.check_empty_values_in_dict(value):
+            for detail in list(value):
+                if "global" in detail:
+                    value.pop(detail)
+            value.pop("stats_server_ip")
+            result["servers"].append(value)
+    st.debug(result)
     return result
 
 
@@ -314,36 +362,61 @@ def verify_config(dut, params, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if not isinstance(params, dict):
         st.log("Unsupported data format provided...")
         return False
 
-    output = show_config(dut, cli_type=cli_type)
-    if not output:
-        st.log("Identified empty radius output ..")
-        return False
-    if "globals" in params and params["globals"]:
-        for key, value in params["globals"].items():
-            if str(value) != str(output["globals"][0][key]):
-                st.log("Verification of radius global parameters {} with {} values is failed".format(key, value))
+    if cli_type in get_supported_ui_type_list():
+        if "globals" in params and params["globals"]:
+            params["globals"]['config'] = 'verify'
+            if 'global_retransmit' in params["globals"]:
+                params["globals"]['retransmit'] = params["globals"].pop('global_retransmit')
+            if 'global_timeout' in params["globals"]:
+                params["globals"]['timeout'] = params["globals"].pop('global_timeout')
+            if 'global_passkey' in params["globals"]:
+                params["globals"]['key'] = params["globals"].pop('global_passkey')
+            res1 = sys_server_api.config_aaa_server_properties(dut, server_name='RADIUS', **params["globals"])
+            if res1 is False:
+                st.log("Verification of radius global parameters values failed")
                 return False
-    if "servers" in params and params["servers"]:
-        for details in params["servers"]:
-            is_found = 0
-            for data in output["servers"]:
-                for key, value in details.items():
-                    if str(value) != str(data[key]):
-                        st.log("Verifications of {} with {} values is failed".format(key, value))
-                        is_found = 0
-                    else:
-                        st.log("Radius server Key Value verification success")
-                        is_found += 1
-                if is_found == len(details):
-                    st.log("Already found, hence breaking the iteration ..")
-                    break
-            if is_found != len(details):
-                st.log("Verification of radius server parameter verification failed..")
-                return False
+        if "servers" in params and params["servers"]:
+            for each_server in params["servers"]:
+                each_server['config'] = 'verify'
+                ip_address = each_server.pop('address')
+                if 'passkey' in each_server:
+                    each_server['key'] = each_server.pop('passkey')
+                res1 = sys_server_api.config_aaa_server(dut, server_name='RADIUS', server_address=ip_address, **each_server)
+                if res1 is False:
+                    st.log("Verification of radius server {} parameters values failed".format(ip_address))
+                    return False
+    else:
+        output = show_config(dut, cli_type=cli_type)
+        if not output:
+            st.log("Identified empty radius output ..")
+            return False
+        if "globals" in params and params["globals"]:
+            for key, value in params["globals"].items():
+                if str(value) != str(output["globals"][0][key]):
+                    st.log("Verification of radius global parameters {} with {} values is failed".format(key, value))
+                    return False
+        if "servers" in params and params["servers"]:
+            for details in params["servers"]:
+                is_found = 0
+                for data in output["servers"]:
+                    for key, value in details.items():
+                        if str(value) != str(data[key]):
+                            st.log("Verifications of {} with {} values is failed".format(key, value))
+                            is_found = 0
+                        else:
+                            st.log("Radius server key: {}, value: {} verification success".format(key, value))
+                            is_found += 1
+                    if is_found == len(details):
+                        st.log("Already found, hence breaking the iteration ..")
+                        break
+                if is_found != len(details):
+                    st.log("Verification of radius server parameter verification failed..")
+                    return False
     if "globals" in params and params["globals"] or "servers" in params and params["servers"]:
         st.log("Verification of radius server parameters SUCCESS ..")
         return True
@@ -361,20 +434,20 @@ def aaa_authentication_debug_trace(dut, skip_error_check=False, **kwargs):
 
 def clear_radius_statistics(dut, skip_error_check=False, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    if cli_type in ['click','klish']:
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type == 'click':
         command = "sonic-clear radius"
-        st.config(dut, command, skip_error_check=skip_error_check)
-    elif cli_type in ["rest-patch", "rest-put"]:
-        rest_urls = st.get_datastore(dut, "rest_urls")
-        url = rest_urls['radius_statistics'].format("RADIUS")
-        delete_rest(dut, rest_url=url, get_response=True)
+        st.config(dut, command, skip_error_check=skip_error_check, type=cli_type)
+    elif cli_type in ["klish", "rest-patch", "rest-put"]:
+        command = "clear radius-server statistics"
+        st.config(dut, command, skip_error_check=skip_error_check, type=cli_type)
     else:
         st.log("UNSUPPORTED CLI TYPE")
         return False
     return True
 
-def process_radius_output(server_output, global_config, global_ext_data):
 
+def process_radius_output(server_output, global_config, global_ext_data, verify=True):
     radius_output = dict()
     radius_output["servers"] = list()
     radius_output["globals"] = list()
@@ -385,40 +458,54 @@ def process_radius_output(server_output, global_config, global_ext_data):
                 servers["address"] = server_data.get("address", "")
                 if server_data.get("config"):
                     serve_config = server_data.get("config")
-                    servers["auth_type"] = serve_config.get("openconfig-system-ext:auth-type", "")
-                    servers["priority"] = serve_config.get("openconfig-system-ext:priority", "")
-                    servers["vrf_mgmt"] = serve_config.get("openconfig-system-ext:vrf", "")
+                    servers["auth_type"] = serve_config.get("auth-type", "")
+                    servers["priority"] = serve_config.get("priority", "")
+                    servers["vrf_mgmt"] = serve_config.get("vrf", "")
                     servers["timeout"] = serve_config.get("timeout", "")
                 else:
                     servers["auth_type"] = servers["priority"] = servers["vrf_mgmt"] = servers["timeout"] = ""
 
                 if server_data.get("radius") and "config" in server_data.get("radius"):
                     radius_data = server_data.get("radius")["config"]
-                    servers["auth_port"] = radius_data.get("auth-port","")
-                    servers["retransmit"] = radius_data.get("retransmit-attempts","")
-                    servers["passkey"] = radius_data.get("secret-key","")
+                    servers["auth_port"] = radius_data.get("auth-port", "")
+                    servers["retransmit"] = radius_data.get("retransmit-attempts", "")
+                    servers["passkey"] = radius_data.get("secret-key", "")
+                    if verify:
+                        servers["passkey"] = "Yes" if servers["passkey"] else "No"
+                    servers["si"] = radius_data.get("openconfig-aaa-radius-ext:source-interface", "")
 
                 else:
-                    servers["auth_port"] = servers["retransmit"] = servers["passkey"] = ""
+                    servers["auth_port"] = servers["retransmit"] = servers["passkey"] = servers["si"] = ""
 
-                if server_data.get("state") and "counters" in server_data.get("state"):
-                    counters_data = server_data.get("state")["counters"]
-                    servers["access_accepts"] = counters_data.get("access-accepts", "0")
-                    servers["access_rejects"] = counters_data.get("access-rejects", "0")
-                    servers["access_requests"] = counters_data.get("openconfig-aaa-radius-ext:access-requests", "0")
+                if server_data.get("radius") and "state" in server_data.get("radius"):
+                    counters_data = server_data.get("radius").get("state").get("counters")
+                    if counters_data:
+                        servers["access_accepts"] = counters_data.get("access-accepts", "")
+                        servers["access_rejects"] = counters_data.get("access-rejects", "")
+                        servers["access_requests"] = counters_data.get("openconfig-aaa-radius-ext:access-requests", "")
+                        servers["invalid_packets"] = counters_data.get("openconfig-aaa-radius-ext:invalid-packets", "")
+                        servers["access_challenges"] = counters_data.get("openconfig-aaa-radius-ext:access-challenges", "")
+                        servers["timeout_access_reqs"] = counters_data.get("retried-access-requests", "")
+                        servers["bad_authenticators"] = counters_data.get("openconfig-aaa-radius-ext:bad-authenticators", "")
+                    else:
+                        servers["bad_authenticators"] = servers["timeout_access_reqs"] = servers["access_accepts"] = servers["access_rejects"] = servers["access_challenges"] = servers["access_requests"] = servers["invalid_packets"] = "0"
                 else:
-                    servers["access_accepts"] = servers["access_rejects"] = servers["access_requests"] = "0"
+                    servers["bad_authenticators"] = servers["timeout_access_reqs"] = servers["access_accepts"] = \
+                        servers["access_rejects"] = servers["access_challenges"] = servers["access_requests"] = servers[
+                        "invalid_packets"] = "0"
                 radius_output["servers"].append(servers)
     global_data = dict()
     if global_config and global_config.get("openconfig-system:config"):
         global_config_data = global_config.get("openconfig-system:config")
-        global_data["global_auth_type"] = global_config_data.get("openconfig-system-ext:auth-type", "")
-        global_data["global_passkey"] = global_config_data.get("openconfig-system-ext:secret-key", "")
+        global_data["global_auth_type"] = global_config_data.get("auth-type", "")
+        global_data["global_passkey"] = global_config_data.get("secret-key", "")
+        if verify:
+            global_data["global_passkey"] = "Yes" if global_data["global_passkey"] else "No"
         global_data["global_source_ip"] = global_config_data.get("openconfig-system-ext:source-address", "")
-        global_data["global_timeout"] = global_config_data.get("openconfig-system-ext:timeout", "")
+        global_data["global_timeout"] = global_config_data.get("timeout", "")
     else:
         global_data["global_auth_type"] = ""
-        global_data["global_passkey"] = ""
+        global_data["global_passkey"] = "No"
         global_data["global_source_ip"] = ""
         global_data["global_timeout"] = ""
 
@@ -434,3 +521,39 @@ def process_radius_output(server_output, global_config, global_ext_data):
     if global_data:
         radius_output["globals"].append(global_data)
     return radius_output
+
+
+def get_enyc_key(dut, ip_address="", cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type in "click":
+        command = "show runningconfiguration all"
+        data = basic_obj.get_show_command_data(dut, command, type="json")
+        if not data:
+            st.error("Content not found ..")
+            return ""
+        if "RADIUS_SERVER" in data:
+            result = data["RADIUS_SERVER"][ip_address]["passkey"]
+    elif cli_type in "klish":
+        command = 'show running-configuration | grep "radius.*{}"'.format(ip_address)
+        output = st.show(dut, command, type=cli_type, skip_tmpl=True)
+        result = re.findall(r'key(.*?)encrypted', output)[0].replace(" ", "")
+    elif cli_type in ["rest-patch", "rest-put"]:
+        output = show_config(dut, cli_type=cli_type, verify=False)
+        result = common_utils.filter_and_select(output["servers"], match={"address": ip_address})[0]["passkey"]
+    return result
+
+
+def verify_key_config(dut, ip_address="", cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    result = get_enyc_key(dut, ip_address=ip_address, cli_type=cli_type)
+    if result:
+        if "U2F" in result and "=" in result:
+            st.log("Key encrypted")
+            return True
+        else:
+            st.error("key not encrypted")
+            return False
+    else:
+        st.error("key not found")
+        return False

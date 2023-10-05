@@ -26,18 +26,18 @@
       nic_simulator_action: stop
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
-  - name: Stop exabgp processes
-    include_tasks: announce_routes.yml
-    vars:
-      exabgp_action: stop
-    when:
-      - topo != 'fullmesh'
-      - not 'ptf' in topo
-
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: stop
+
+  - name: Kill exabgp and ptf_nn_agent processes in PTF container
+    ptf_control:
+      ctn_name: "ptf_{{ vm_set_name }}"
+      command: kill
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
 
   - name: Get duts ports
     include_tasks: get_dut_port.yml
