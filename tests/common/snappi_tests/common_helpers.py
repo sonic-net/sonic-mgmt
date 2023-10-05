@@ -823,6 +823,24 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
+def get_port_stats(duthost, port, stat):
+    """
+    Get the port stats for a given port from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        stat (str): stat name
+    Returns:
+        int: port stats
+    """
+    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    port_stats = raw_json[port].get(stat)
+
+    return int(port_stats.replace(',', '')) if port_stats else -1
+
+
 def get_tx_frame_count(duthost, port):
     """
     Get the Tx_OK and Tx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
@@ -831,14 +849,12 @@ def get_tx_frame_count(duthost, port):
         port (str): port name ex. Ethernet4
     Returns:
         tx_frame_count (int): Tx frame count
+        tx_drop_frame_count (int): Tx drop frame count
     """
-    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
-    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
-    raw_json = json.loads(raw_out_stripped)
-    tx_ok_frame_count = raw_json[port]["TX_OK"]
-    tx_drp_frame_count = raw_json[port]["TX_DRP"]
+    tx_ok_frame_count = get_port_stats(duthost, port, "TX_OK")
+    tx_drp_frame_count = get_port_stats(duthost, port, "TX_DRP")
 
-    return int(tx_ok_frame_count.replace(',', '')), int(tx_drp_frame_count.replace(',', ''))
+    return tx_ok_frame_count, tx_drp_frame_count
 
 
 def get_rx_frame_count(duthost, port):
@@ -849,14 +865,12 @@ def get_rx_frame_count(duthost, port):
         port (str): port name ex. Ethernet4
     Returns:
         rx_frame_count (int): Rx frame count
+        rx_frame_drop_count (int): Rx drop frame count
     """
-    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
-    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
-    raw_json = json.loads(raw_out_stripped)
-    rx_ok_frame_count = raw_json[port]["RX_OK"]
-    rx_drp_frame_count = raw_json[port]["RX_DRP"]
+    rx_ok_frame_count = get_port_stats(duthost, port, "RX_OK")
+    rx_drp_frame_count = get_port_stats(duthost, port, "RX_DRP")
 
-    return int(rx_ok_frame_count.replace(',', '')), int(rx_drp_frame_count.replace(',', ''))
+    return rx_ok_frame_count, rx_drp_frame_count
 
 
 def get_egress_queue_count(duthost, port, priority):
