@@ -92,6 +92,7 @@ M0_SUBNET_PREFIX_LEN_V6 = 64
 # Describe default start asn of M1s
 M1_ASN_START = 65200
 
+
 def wait_for_http(host_ip, http_port, timeout=10):
     """
     Waits for HTTP server to open.
@@ -124,7 +125,6 @@ def get_topo_type(topo_name):
     if topo_type in ['mc0']:
         topo_type = 'm0'
     return topo_type
-
 
 
 def read_topo(topo_name, path):
@@ -161,6 +161,7 @@ def change_routes(action, ptf_ip, port, routes):
                 r.text
             )
         )
+
 
 def send_routes_for_each_set(args):
     routes, port, action, ptf_ip = args
@@ -854,6 +855,8 @@ We would have the following distribution:
    - 193.177.xx.xx - 194.55.xx.xx (4K routes) from all 24 T3 VM's on linecard1 (VM1-VM24)
    - default route from all 24 T3 VM's on linecard1 (VM1-VM24)
 """
+
+
 def fib_t2_lag(topo, ptf_ip, action="announce"):
     route_set = []
     vms = topo['topology']['VMs']
@@ -948,7 +951,6 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce"):
                             (prefix, nhipv4, vms_config[a_vm]["vips"]["ipv4"]["asn"]))
                     change_routes(action, ptf_ip, port, routes_vips)
     return r_set
-
 
 
 def fib_t0_mclag(topo, ptf_ip, action="announce"):
