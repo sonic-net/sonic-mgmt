@@ -1017,3 +1017,55 @@ def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
         return None
 
     return int(tc_to_queue_map[tc_value])
+
+
+def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
+    """
+    Given the number of packets egressing out of each queue and an expected number of packets to
+    egress out of ONE of the queues, this function returns which queue it is. If no such queue exists, it returns -1.
+
+    Args:
+        all_queue_pkts ([int]): egress queue counts for all queues where packets are expected to egress from
+                                in array form ex. [0, 0, 100, 0, 0, 0, 0]
+        exp_queue_pkts (int): expected number of packets to egress from port
+        tolerance (float): packet tolerance to expected queue packets - only followed if atleast 100 packets are
+                           expected this accounts for background traffic
+    Returns:
+        queue_val (int): egress queue if found, else -1
+    """
+    pytest_assert(exp_queue_pkts >= 1, "At least one packet is expected to egress from the queue")
+    for queue_pkt_index in range(len(all_queue_pkts)):
+        if all_queue_pkts[queue_pkt_index] == 0:
+            continue
+        elif all_queue_pkts[queue_pkt_index] == exp_queue_pkts and exp_queue_pkts < 100:
+            return queue_pkt_index
+        elif (abs(all_queue_pkts[queue_pkt_index] - exp_queue_pkts)/exp_queue_pkts < tolerance) and \
+             (exp_queue_pkts >= 100):
+            # tolerance only followed if atleast 100 packets are expected
+            return queue_pkt_index
+
+    return -1
+
+
+def get_egress_queue_pkt_count_all_prio(duthost, port):
+    """
+    Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        array [int]: total count of packets in the queue for all priorities
+    """
+    raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
+    raw_json = json.loads(raw_out)
+    intf_queue_stats = raw_json.get(port)
+    queue_stats = []
+
+    for prio in range(8):
+        total_pkts_str = intf_queue_stats.get("UC{}".format(prio)).get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
