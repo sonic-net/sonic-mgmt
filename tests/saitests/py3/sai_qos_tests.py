@@ -343,9 +343,11 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
 
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
             if self.test_port_ips:
-                for ip in get_peer_addresses(self.test_port_ips):
+                ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
+                if ips:
+                    cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
                     self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
-                                         self.test_params['dut_password'], 'ping -q -c 3 {}'.format(ip))
+                                         self.test_params['dut_password'], cmd)
 
         time.sleep(8)
 
