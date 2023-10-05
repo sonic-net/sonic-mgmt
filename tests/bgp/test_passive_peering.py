@@ -24,8 +24,9 @@ wrong_password = "wrong-password"
 @pytest.fixture(scope='module')
 def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     # verify neighbors are type sonic
-    if request.config.getoption("neighbor_type") != "sonic":
-        pytest.skip("Neighbor type must be sonic")
+    isSonic = False
+    if request.config.getoption("neighbor_type") == "sonic":
+        isSonic = True
 
     duthost = duthosts[rand_one_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
@@ -85,7 +86,8 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
         'peer_group_v4': peer_group_v4,
         'peer_group_v6': peer_group_v6,
         'asic_index': asic_index,
-        'neigh_asic_index': neigh_asic_index
+        'neigh_asic_index': neigh_asic_index,
+        'isSonic': isSonic
     }
 
     logger.debug('Setup_info: {}'.format(setup_info))
@@ -122,12 +124,20 @@ def test_bgp_passive_peering_ipv4(setup):
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] != 'established'
 
+    logger.info("isSonic: {}".format(setup['isSonic']))
+
     # configure password on Neighbor and ensure the adjacency is established (IPv4)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['neigh_asic_index'],
-                                                                                           setup['neigh_asn'],
-                                                                                           setup['dut_ip_v4'],
-                                                                                           peer_password)
-    setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    if setup['isSonic']:
+        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(
+                                                                                        setup['neigh_asic_index'],
+                                                                                        setup['neigh_asn'],
+                                                                                        setup['dut_ip_v4'],
+                                                                                        peer_password)
+        setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    else:
+        cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v4'], peer_password)]
+        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     time.sleep(bgp_config_sleeptime)
 
@@ -173,11 +183,18 @@ def test_bgp_passive_peering_ipv6(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # configure password on Neighbor and ensure the adjacency is established (IPv6)
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.format(setup['neigh_asic_index'],
-                                                                                           setup['neigh_asn'],
-                                                                                           setup['dut_ip_v6'],
-                                                                                           peer_password)
-    setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    if setup['isSonic']:
+        cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}"'.\
+                                                                                    format(
+                                                                                        setup['neigh_asic_index'],
+                                                                                        setup['neigh_asn'],
+                                                                                        setup['dut_ip_v6'],
+                                                                                        peer_password)
+        setup['neighhost'].shell(cmd, module_ignore_errors=True)
+    else:
+        cmd = ["neighbor {} password 0 {}".format(setup['dut_ip_v6'], peer_password)]
+        logger.debug(setup['neighhost'].eos_config(lines=cmd, parents="router bgp {}".format(setup['neigh_asn'])))
+        logger.debug(setup['neighhost'].eos_command(commands=["show run | section bgp"]))
 
     time.sleep(bgp_config_sleeptime)
 
