@@ -747,7 +747,7 @@ qos_params:
                     packet_size: 6144
             400000_120000m:
                 pkts_num_leak_out: 0
-                pkts_num_egr_mem: 1101
+                pkts_num_egr_mem: 957
                 pg_drop:
                     dscp: 3
                     ecn: 1
