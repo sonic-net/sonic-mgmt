@@ -27,9 +27,8 @@ def test_neighbor_reboot(duthost, nbrhosts, request, enum_rand_one_frontend_asic
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
     dut_lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
-    dut_to_tor1_int = dut_lldp_table[0]
-    tor1 = dut_lldp_table[1]
-    neighhost = nbrhosts[tor1]["host"]
+    dut_to_neigh_int = dut_lldp_table[0]
+    neighhost = nbrhosts[dut_lldp_table[1]]["host"]
     neighhost.shell("config save -y")
     neighhost.shell("sudo reboot")
     sleep(240)
@@ -37,6 +36,6 @@ def test_neighbor_reboot(duthost, nbrhosts, request, enum_rand_one_frontend_asic
     space_var = ""
     if namespace is not None:
         space_var = "-n {} ".format(namespace)
-    macsec_status = duthost.shell("show macsec {}{}".format(space_var, dut_to_tor1_int))['stdout'].splitlines()
-    assert dut_to_tor1_int in macsec_status[0]
+    macsec_status = duthost.shell("show macsec {}{}".format(space_var, dut_to_neigh_int))['stdout'].splitlines()
+    assert dut_to_neigh_int in macsec_status[0]
     assert "enable" in macsec_status[3]
