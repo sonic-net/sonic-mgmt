@@ -1493,7 +1493,7 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
-                                                     fetch_dual_tor_ports_script, "0"])
+                                                    fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
     else:
