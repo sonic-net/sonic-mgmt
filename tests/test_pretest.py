@@ -233,7 +233,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[1023] = True
     elif 'arista' and '7050cx3' in platform.lower():
         pfc_pause_delay_test_params[0] = True
-        pfc_pause_delay_test_params[200] = False
+        pfc_pause_delay_test_params[1023] = True
     else:
         pfc_pause_delay_test_params = None
 
