@@ -16,4 +16,4 @@ tests/metadata
 .vscode/
 .idea/
 
-tests/priority/*
+.python-version
