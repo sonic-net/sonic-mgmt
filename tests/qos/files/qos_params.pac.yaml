@@ -55,11 +55,13 @@ qos_params:
                 packet_size: 1350
                 cell_size: 384
                 pkts_num_margin: 1
-            shared_res_size_2:
-                ecn: 1
-                packet_size: 1350
-                cell_size: 384
-                pkts_num_margin: 1
+                dscps: [8, 3, 4, 3, 4, 3, 4]
+                pgs: [0, 3, 4, 3, 4, 3, 4]
+                queues: [0, 3, 4, 3, 4, 3, 4]
+                src_port_i: [0, 0, 0, 1, 1, 2, 2]
+                dst_port_i: [3, 3, 3, 4, 4, 5, 5]
+                pkt_counts: [12, 2560, 2218, 1536, 1536, 1359, 1]
+                shared_limit_bytes: 14164224
             lossy_queue_voq_3:
                 dscp: 8
                 ecn: 1
@@ -197,16 +199,6 @@ qos_params:
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
-            shared_res_size_1:
-                ecn: 1
-                packet_size: 1350
-                cell_size: 384
-                pkts_num_margin: 1
-            shared_res_size_2:
-                ecn: 1
-                packet_size: 1350
-                cell_size: 384
-                pkts_num_margin: 1
             100000_300m:
                 pkts_num_leak_out: 0
                 pkts_num_egr_mem: 5915
