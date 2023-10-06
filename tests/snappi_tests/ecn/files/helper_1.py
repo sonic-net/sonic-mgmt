@@ -59,10 +59,13 @@ def run_ecn_test(api,
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 
+    logger.info("Stopping PFC watchdog")
     stop_pfcwd(duthost)
+    logger.info("Disabling packet aging")
     disable_packet_aging(duthost)
 
     # Configure WRED/ECN thresholds
+    logger.info("Configuring WRED and ECN thresholds")
     config_result = config_wred(host_ans=duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
@@ -70,6 +73,7 @@ def run_ecn_test(api,
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     # Enable ECN marking
+    logger.info("Enabling ECN markings")
     enable_ecn(host_ans=duthost, prio=lossless_prio)
 
     # Configure PFC threshold to 2 ^ 3
@@ -91,16 +95,19 @@ def run_ecn_test(api,
     speed_gbps = int(speed_str.split('_')[1])
 
     # Generate base traffic config
+    logger.info("Generating base flow config")
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
 
+    logger.info("Setting test flow config params")
     snappi_extra_params.traffic_flow_config.data_flow_config.update({
             "data_flow_rate_percent": 100,
             "data_flow_delay_sec": DATA_START_DELAY_SEC,
             "data_flow_traffic_type": data_traffic_flow.FIXED_PACKETS
         })
-  
+
+    logger.info("Setting pause flow config params")
     snappi_extra_params.traffic_flow_config.pause_flow_config = {
         "pause_flow_dur_sec": 3 + EXP_DURATION_SEC,
         "pause_flow_rate_percent": None,
@@ -113,12 +120,14 @@ def run_ecn_test(api,
         }
 
     # Generate traffic config of one test flow and one pause storm
+    logger.info("Generating test flows")
     generate_test_flows(testbed_config=testbed_config,
                         test_flow_name=DATA_FLOW_NAME,
                         test_flow_prio_list=[lossless_prio],
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
+    logger.info("Generating pause flows")
     generate_pause_flows(testbed_config=testbed_config,
                          pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=[lossless_prio],
@@ -130,18 +139,24 @@ def run_ecn_test(api,
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
+    logger.info("Setting packet capture port to {}".format(testbed_config.ports[port_id].name))
     snappi_extra_params.packet_capture_ports = [testbed_config.ports[port_id].name]
 
     result = []
+    logger.info("Running {} iteration(s)".format(iters))
     for i in range(iters):
+        logger.info("Running iteration {}".format(i))
         snappi_extra_params.packet_capture_file = "ECN_cap-{}".format(i)
+        logger.info("Packet capture file: {}.pcapng".format(snappi_extra_params.packet_capture_file))
 
         config_capture_pkt(testbed_config=testbed_config,
                            port_names=snappi_extra_params.packet_capture_ports,
                            capture_type=snappi_extra_params.packet_capture_type,
                            capture_name=snappi_extra_params.packet_capture_file)
 
-        run_traffic(api=api,
+        logger.info("Running traffic")
+        run_traffic(duthost=duthost,
+                    api=api,
                     config=testbed_config,
                     data_flow_names=data_flow_names,
                     all_flow_names=all_flow_names,
@@ -151,17 +166,3 @@ def run_ecn_test(api,
         result.append(get_ip_pkts(snappi_extra_params.packet_capture_file + ".pcapng"))
 
     return result
-
-
-def is_ecn_marked(ip_pkt):
-    """
-    Determine if an IP packet is ECN marked
-
-    Args:
-        ip_pkt (obj): IP packet
-
-    Returns:
-        Return if the packet is ECN marked (bool)
-    """
-
-    return (ip_pkt.tos & 3) == 3

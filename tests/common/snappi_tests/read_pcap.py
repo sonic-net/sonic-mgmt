@@ -54,6 +54,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
 
     return True
 
+
 def get_ip_pkts(pcap_file_name):
     """
     Get IP packets from the pcap/pcapng file
@@ -67,6 +68,9 @@ def get_ip_pkts(pcap_file_name):
     f = open(pcap_file_name, "rb")
     pcap = dpkt.pcapng.Reader(f)
 
+    logger.info("Reading packets from pcap file -> {}".format(pcap_file_name))
+    logger.info("Extracting ethernet frames from pcap file")
+
     ip_pkts = []
     for _, pkt in pcap:
         eth = dpkt.ethernet.Ethernet(pkt)
@@ -74,3 +78,17 @@ def get_ip_pkts(pcap_file_name):
             ip_pkts.append(eth.data)
 
     return ip_pkts
+
+
+def is_ecn_marked(ip_pkt):
+    """
+    Determine if an IP packet is ECN congestion marked
+
+    Args:
+        ip_pkt (obj): IP packet
+
+    Returns:
+        Return if the packet is ECN congestion marked (bool)
+    """
+    logger.info("Checking if the packet is ECN congestion marked")
+    return (ip_pkt.tos & 3) == 3

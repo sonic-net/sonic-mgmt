@@ -6,10 +6,8 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
     snappi_api, snappi_testbed_config           # noqa F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
-from tests.snappi_tests.ecn.files.helper import run_ecn_test, is_ecn_marked
-    snappi_api, snappi_testbed_config
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list
-from tests.snappi_tests.ecn.files.helper_1 import run_ecn_test, is_ecn_marked
+from tests.snappi_tests.ecn.files.helper_1 import run_ecn_test
+from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.common_helpers import packet_capture
 
@@ -77,13 +75,13 @@ def test_dequeue_ecn(request,
                            iters=1,
                            snappi_extra_params=snappi_extra_params)[0]
 
-    """ Check if we capture all the packets """
+    # Check if all the packets are captured
     pytest_assert(len(ip_pkts) == data_flow_pkt_count,
                   'Only capture {}/{} IP packets'.format(len(ip_pkts), data_flow_pkt_count))
 
-    """ Check if the first packet is marked """
+    # Check if the first packet is ECN marked
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
 
-    """ Check if the last packet is not marked """
+    # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")

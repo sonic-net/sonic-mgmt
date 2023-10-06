@@ -158,10 +158,12 @@ def generate_test_flows(testbed_config,
         test_flow.rate.percentage = data_flow_config["data_flow_rate_percent"]
         if data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["data_flow_dur_sec"]
+            test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                                     (data_flow_config["data_flow_delay_sec"]))
         elif data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_PACKETS:
             test_flow.duration.fixed_packets.packets = data_flow_config["data_flow_pkt_count"]
-        test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                                 (data_flow_config["data_flow_delay_sec"]))
+            test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
+                                                                     (data_flow_config["data_flow_delay_sec"]))
 
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
@@ -237,9 +239,9 @@ def generate_pause_flows(testbed_config,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
-    pause_flow_params = snappi_extra_params.pause_flow_params
+    # pause_flow_params = snappi_extra_params.pause_flow_params
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
-    pytest_assert(pause_flow_params is not None, "Cannot find pause flow parameters")
+    # pytest_assert(pause_flow_params is not None, "Cannot find pause flow parameters")
 
     pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
@@ -324,6 +326,7 @@ def run_traffic(duthost,
     switch_device_results = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
+        logger.info("Starting packet capture ...")
         cs = api.capture_state()
         cs.port_names = snappi_extra_params.packet_capture_ports
         cs.state = cs.START
@@ -336,6 +339,7 @@ def run_traffic(duthost,
 
     # Test needs to run for at least 10 seconds to allow successive device polling
     if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
+        logger.info("Polling DUT for traffic statistics for {} seconds ...".format(exp_dur_sec))
         switch_device_results = {}
         switch_device_results["tx_frames"] = {}
         switch_device_results["rx_frames"] = {}
@@ -352,6 +356,8 @@ def run_traffic(duthost,
                 switch_device_results["rx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_rx_port,
                                                                                                 lossless_prio)[0])
             time.sleep(poll_freq_sec)
+
+        logger.info("DUT polling complete")
     else:
         time.sleep(exp_dur_sec)  # no polling required
 
@@ -367,6 +373,7 @@ def run_traffic(duthost,
         transmit_states = [metric.transmit for metric in flow_metrics]
         if len(flow_metrics) == len(data_flow_names) and\
            list(set(transmit_states)) == ['stopped']:
+            logger.info("All test and background traffic flows stopped")
             time.sleep(SNAPPI_POLL_DELAY_SEC)
             break
         else:
@@ -377,20 +384,23 @@ def run_traffic(duthost,
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     if pcap_type != packet_capture.NO_CAPTURE:
+        logger.info("Stopping packet capture ...")
         request = api.capture_request()
         request.port_name = snappi_extra_params.packet_capture_ports[0]
         cs = api.capture_state()
         cs.state = cs.STOP
         api.set_capture_state(cs)
+        logger.info("Retrieving and saving packet capture to {}.pcapng".format(snappi_extra_params.packet_capture_file))
         pcap_bytes = api.get_capture(request)
         with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
             fid.write(pcap_bytes.getvalue())
 
     # Dump per-flow statistics
+    logger.info("Dumping per-flow statistics")
     request = api.metrics_request()
     request.flow.flow_names = all_flow_names
     flow_metrics = api.get_metrics(request).flow_metrics
-    logger.info("Stop transmit on all flows ...")
+    logger.info("Stopping transmit on all remaining flows")
     ts = api.transmit_state()
     ts.state = ts.STOP
     api.set_transmit_state(ts)

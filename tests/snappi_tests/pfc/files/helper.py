@@ -138,7 +138,7 @@ def run_pfc_test(api,
                            port_names=snappi_extra_params.packet_capture_ports,
                            capture_type=snappi_extra_params.packet_capture_type,
                            capture_name=snappi_extra_params.packet_capture_file)
-    
+
     # Set default traffic flow configs if not set
     if snappi_extra_params.traffic_flow_config.data_flow_config is None:
         snappi_extra_params.traffic_flow_config.data_flow_config = {
@@ -153,7 +153,7 @@ def run_pfc_test(api,
         }
 
     if snappi_extra_params.traffic_flow_config.background_flow_config is None and \
-    snappi_extra_params.gen_background_traffic:
+       snappi_extra_params.gen_background_traffic:
         snappi_extra_params.traffic_flow_config.background_flow_config = {
             "background_flow_dur_sec": DATA_FLOW_DURATION_SEC,
             "background_flow_rate_percent": bg_flow_rate_percent,
@@ -187,7 +187,8 @@ def run_pfc_test(api,
     if valid_pfc_frame_test:
         snappi_extra_params.traffic_flow_config.pause_flow_config["pause_flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
             data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
-        snappi_extra_params.traffic_flow_config.pause_flow_config["pause_flow_traffic_type"] = pfc_traffic_flow.FIXED_DURATION
+        snappi_extra_params.traffic_flow_config.pause_flow_config["pause_flow_traffic_type"] = \
+            pfc_traffic_flow.FIXED_DURATION
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,
@@ -201,10 +202,6 @@ def run_pfc_test(api,
         generate_background_flows(testbed_config=testbed_config,
                                   bg_flow_name=BG_FLOW_NAME,
                                   bg_flow_prio_list=bg_prio_list,
-                                  bg_flow_rate_percent=bg_flow_rate_percent,
-                                  bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                                  bg_flow_delay_sec=data_flow_delay_sec,
-                                  bg_flow_pkt_size=data_flow_pkt_size,
                                   prio_dscp_map=prio_dscp_map,
                                   snappi_extra_params=snappi_extra_params)
 
@@ -237,7 +234,6 @@ def run_pfc_test(api,
                                                      exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
                                                      snappi_extra_params=snappi_extra_params)
 
-    #import pdb; pdb.set_trace()
     # Reset pfc delay parameter
     pfc = testbed_config.layer1[0].flow_control.ieee_802_1qbb
     pfc.pfc_delay = 0
@@ -256,9 +252,6 @@ def run_pfc_test(api,
         # Verify background flows
         verify_background_flow(flow_metrics=tgen_flow_stats,
                                bg_flow_name=BG_FLOW_NAME,
-                               bg_flow_rate_percent=bg_flow_rate_percent,
-                               bg_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                               bg_flow_pkt_size=data_flow_pkt_size,
                                speed_gbps=speed_gbps,
                                tolerance=TOLERANCE_THRESHOLD,
                                snappi_extra_params=snappi_extra_params)
