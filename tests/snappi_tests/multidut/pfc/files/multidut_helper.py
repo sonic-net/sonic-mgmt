@@ -27,7 +27,6 @@ DATA_FLOW_DELAY_SEC = 1
 data_flow_delay_sec = 1
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
-PORT_SPEED = 'speed_400_gbps'
 
 
 def run_pfc_test(api,

@@ -24,7 +24,7 @@ class SnappiTestParams():
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
                                     for priorities 3 and 4
-            multi_dut_params (obj): contains details of duthost objects, multidut_ports and other parameters
+            multi_dut_params (MultiDUTParams obj): contains details of duthost objects, multidut_ports and other parameters
             test_iterations (int) : No of iterations in the test
         """
         self.headroom_test_params = None
