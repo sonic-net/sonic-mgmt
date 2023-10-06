@@ -314,7 +314,7 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
             else:
                 # The IPv6 Loopback announced to neighbors is /64
                 if 6 == ip_ver:
-                    device_lo_addr_prefix_set.add(ipaddress.IPv6Address(addr).exploded[:19])
+                    device_lo_addr_prefix_set.add(ipaddress.IPv6Address(addr).exploded[:20])
     routes_on_all_nbrs = parse_routes_on_neighbors(duthost, neigh_hosts, ip_ver)
     for hostname, routes in list(routes_on_all_nbrs.items()):
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
@@ -325,7 +325,7 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
             if 4 == ip_ver:
                nbr_prefix_set.add(prefix)
             else:
-                nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:19])
+                nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
                 nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
             nbr_prefix_community_set.add(received_community)
         if nbr_prefix_set != device_lo_addr_prefix_set:
