@@ -142,7 +142,7 @@ class PfcCmd(object):
         if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]
             asic.run_redis_cmd(
                 argv=[
-                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th 
+                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
                 ]
             )
         else:
@@ -395,7 +395,7 @@ class SetupPfcwdFunc(object):
         new_static_th = self.static_th
         if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]
             if int(self.static_th) > 0:
-                new_static_th = int(int(self.static_th) / 2) 
+                new_static_th = int(int(self.static_th) / 2)
         else:
             if int(self.alpha) <= -6:
                 new_alpha = -5
