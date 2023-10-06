@@ -1,6 +1,9 @@
+import os
+import time
 import pytest
 import logging
 
+from ansible.errors import AnsibleConnectionFailure
 from tests.common.devices.base import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.utilities import skip_release
@@ -65,9 +68,14 @@ def do_reboot(duthost, localhost, duthosts):
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5, timeout=60)
             rebooted = True
             break
+        except AnsibleConnectionFailure as e:
+            logger.error("DUT not reachable, exception: {} attempt:{}/{}".
+                         format(repr(e), i, retries))
         except RunAnsibleModuleFail as e:
             logger.error("DUT did not go down, exception: {} attempt:{}/{}".
                     format(repr(e), i, retries))
+
+        wait(wait_time, msg="Wait {} seconds before retry.".format(wait_time))
 
     assert rebooted, "Failed to reboot"
     localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
@@ -157,7 +165,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         # Redirect logs to tmpfs
         #
         duthost.shell("sudo mkdir {}".format(LOG_DIR))
-        
+
         conf_path = os.path.join(os.path.dirname(
             os.path.abspath(__file__)), "000-ro_disk.conf")
         duthost.copy(src=conf_path, dest="/etc/rsyslog.d/000-ro_disk.conf")
@@ -172,10 +180,10 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         time.sleep(2)
 
         # Remove file, so the reboot at the end of test will revert this logs redirect.
-        duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf") 
+        duthost.shell("rm /etc/rsyslog.d/000-ro_disk.conf")
 
         # Enable AAA failthrough authentication so that reboot function can be used
-        # to reboot DUT 
+        # to reboot DUT
         duthost.shell("config aaa authentication failthrough enable")
 
         # Set disk in RO state
@@ -188,7 +196,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         #   Monit does not start upon boot for 5 minutes.
         #   Note: Monit invokes disk check every 5 cycles/minutes
         #   We need to wait solid +10mins before concluding.
-        #         
+        #
         res = wait_until(900, 20, 0, chk_ssh_remote_run, localhost, dutip,
                 ro_user, ro_pass, "cat /etc/passwd")
         logger.info("res={}".format(res))
