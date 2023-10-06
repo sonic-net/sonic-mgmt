@@ -316,12 +316,12 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
                 if 6 == ip_ver:
                     device_lo_addr_prefix_set.add(ipaddress.IPv6Address(addr).exploded[:19])
     routes_on_all_nbrs = parse_routes_on_neighbors(duthost, neigh_hosts, ip_ver)
-    for hostname, routes in routes_on_all_nbrs.items():
+    for hostname, routes in list(routes_on_all_nbrs.items()):
         logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
         nbr_prefix_set = set()
         nbr_prefix_community_set = set()
         nbr_prefix_ipv6_subnet_len_set = set()
-        for prefix, received_community in routes.iteritems():
+        for prefix, received_community in list(routes.items()):
             if 4 == ip_ver:
                nbr_prefix_set.add(prefix)
             else:
