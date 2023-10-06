@@ -343,6 +343,25 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
 
 
 @pytest.fixture(scope="session")
+def duthost(duthosts, request):
+    '''
+    @summary: Shortcut fixture for getting DUT host. For a lengthy test case, test case module can
+              pass a request to disable sh time out mechanis on dut in order to avoid ssh timeout.
+              After test case completes, the fixture will restore ssh timeout.
+    @param duthosts: fixture to get DUT hosts
+    @param request: request parameters for duthost test fixture
+    '''
+    dut_index = getattr(request.session, "dut_index", 0)
+    assert dut_index < len(duthosts), \
+        "DUT index '{0}' is out of bound '{1}'".format(dut_index,
+                                                       len(duthosts))
+
+    duthost = duthosts[dut_index]
+
+    return duthost
+
+
+@pytest.fixture(scope="session")
 def mg_facts(duthost):
     return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
