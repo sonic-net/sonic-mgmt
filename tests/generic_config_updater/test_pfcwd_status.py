@@ -228,7 +228,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", "add"):
             expect_op_success(duthost, output)
             pfcwd_updated_config = duthost.shell("show pfcwd config")
             pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
