@@ -378,16 +378,6 @@ qos_params:
                 pkts_num_fill_egr_min: 0
                 cell_size: 384
                 packet_size: 1350
-            shared_res_size_1:
-                ecn: 1
-                packet_size: 1350
-                cell_size: 384
-                pkts_num_margin: 1
-            shared_res_size_2:
-                ecn: 1
-                packet_size: 1350
-                cell_size: 384
-                pkts_num_margin: 1
             wrr:
                 ecn: 1
                 q0_num_of_pkts: 70
@@ -757,7 +747,7 @@ qos_params:
                     packet_size: 6144
             400000_120000m:
                 pkts_num_leak_out: 0
-                pkts_num_egr_mem: 1256
+                pkts_num_egr_mem: 957
                 pg_drop:
                     dscp: 3
                     ecn: 1
