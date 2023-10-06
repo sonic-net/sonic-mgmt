@@ -75,6 +75,11 @@ class DecapPacketTest(BaseTest):
 
     # Allowed DSCP and TTL values
     DSCP_RANGE = list(range(0, 33))
+
+    # On T1 testbeds with tunnel_qos_remap enabled,
+    # outer DSCP values 2, 6 mapping to PG 2, 6 respectively
+    # are not supported
+    DSCP_EXCLUDE = {2, 6}
     TTL_RANGE = list(range(2, 65))
 
     def __init__(self):
@@ -118,6 +123,9 @@ class DecapPacketTest(BaseTest):
         ptf_test_port_map = self.test_params.get('ptf_test_port_map')
         with open(ptf_test_port_map) as f:
             self.ptf_test_port_map = json.load(f)
+
+        self.topo = self.test_params.get('topo')
+        self.qos_remap_enabled = self.test_params.get('qos_remap_enabled')
 
         # preprocess ptf_test_port_map to support multiple DUTs as target DUT
         for port_map in self.ptf_test_port_map.values():
@@ -248,6 +256,10 @@ class DecapPacketTest(BaseTest):
 
         # Set DSCP value for the outer layer
         dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
+        if dscp_out in self.DSCP_EXCLUDE and \
+           self.topo in ["t1"] and self.qos_remap_enabled:
+            self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
+            dscp_out = self.DSCP_RANGE[self.dscp_out_idx]
         # Next packet will use a different DSCP
         self.dscp_out_idx = (self.dscp_out_idx + 1) % len(self.DSCP_RANGE)
 
