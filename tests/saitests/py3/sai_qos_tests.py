@@ -4206,6 +4206,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_ingr_drp, actual_num_trig_ingr_drp, ingr_drop_diff), file=sys.stderr)
 
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+                time.sleep(4)
 
             print("pass iterations: {}, total iterations: {}, margin: {}".format(
                 pass_iterations, iterations, margin), file=sys.stderr)
