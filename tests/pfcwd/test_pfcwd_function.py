@@ -139,7 +139,7 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
             asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
@@ -192,7 +192,7 @@ class PfcCmd(object):
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
         static_th = 0
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
@@ -393,7 +393,7 @@ class SetupPfcwdFunc(object):
         """
         new_alpha = self.alpha
         new_static_th = self.static_th
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
             if int(self.static_th) > 0:
                 new_static_th = int(int(self.static_th) / 2)
         else:
