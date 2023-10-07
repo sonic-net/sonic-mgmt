@@ -45,6 +45,18 @@ arp/test_unknown_mac.py:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+arp/test_wr_arp.py:
+  skip:
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name"
+      - https://github.com/sonic-net/sonic-buildimage/issues/16502
+  xfail:
+    reason: "Warm reboot has a known issue on 7050cx3"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/10077
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -93,6 +105,12 @@ bgp/test_bgp_multipath_relax.py:
     reason: "Not supported topology backend."
     conditions:
       - "'backend' in topo_name"
+
+bgp/test_bgp_queue.py:
+  skip:
+    reason: "Unsupported topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -162,6 +180,12 @@ configlet/test_add_rack.py:
     conditions:
       - "is_multi_asic==True"
 
+container_hardening/test_container_hardening.py::test_container_privileged:
+  skip:
+    reason: "Not supported on 202305 and older releases"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
+
 #######################################
 #####            copp             #####
 #######################################
@@ -189,7 +213,8 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
     reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
-      - "int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[0]) == 20220531 and int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -408,7 +433,7 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-defaul
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
     conditions:
-      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -468,11 +493,12 @@ generic_config_updater:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type or topology currently"
+    reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -502,20 +528,29 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
-    reason: "This test is not run on this hwsku/asic type currently"
+    reason: "This test is not run on this hwsku/asic type or version currently"
     conditions:
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
-    reason: "This test is not run on this asic type currently"
+    reason: "This test is not run on this asic type or version currently"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+      - "release in ['202211']"
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
-    reason: "PFC watchdog is not supported on M0/Mx topology"
+    reason: "This test is not run on this topo type or version currently"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+      - "release in ['202211']"
+
+generic_config_updater/test_pg_headroom_update.py:
+  skip:
+    reason: "Unsupported topology."
     conditions:
       - "topo_type in ['m0', 'mx']"
 
@@ -605,13 +640,20 @@ ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name"
+      - "topo_type not in ['t0', 'm0', 'mx'] or 'dualtor' in topo_name or 't0-backend' in topo_name"
 
 ipfwd/test_mtu.py:
   skip:
     reason: "Unsupported topology."
     conditions:
       - "topo_type not in ['t1', 't2']"
+
+ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+  skip:
+    reason: "Not supported before release 202305."
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####           macsec            #####
@@ -671,23 +713,15 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     strict: True
     reason: "Known NTP bug"
 
-#######################################
-#####     override_config_table   #####
-#######################################
-override_config_table/test_override_config_table.py:
-  skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
-    conditions:
-      - is_multi_asic == True
 
 #######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
   skip:
-    reason: "Only support t1-lag, t1-56-lag and t2 topology"
+    reason: "Only support t1-lag, t1-56-lag, t1-64-lag and t2 topology"
     conditions:
-        - "topo_name not in ['t1-lag', 't1-56-lag'] and 't2' not in topo_name"
+        - "topo_name not in ['t1-lag', 't1-56-lag', 't1-64-lag'] and 't2' not in topo_name"
 
 pc/test_lag_member.py:
   skip:
@@ -766,7 +800,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
    xfail:
      reason: "Warm Reboot is not supported in dualtor."
      conditions:
-        - "'dualtor' in topo_name"
+        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master'])"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
@@ -790,6 +824,11 @@ platform_tests/daemon/test_chassisd.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
+platform_tests/mellanox/test_check_sfp_using_ethtool.py:
+  skip:
+    reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
+    conditions: "release in ['202305', 'master']"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
@@ -803,10 +842,16 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
       - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
+
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
+
+platform_tests/test_cont_warm_reboot.py:
+  xfail:
+    reason: "warm reboot has a known issue on 7050cx3"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
 
 #######################################
 #####           qos               #####
@@ -993,26 +1038,23 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
 
 show_techsupport/test_techsupport.py::test_techsupport:
   xfail:
-    reason: "Generic internal image issue"
+    reason: "Test issue"
     strict: True
     conditions:
-      - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "release in ['202305']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7520
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####            snmp             #####
 #######################################
 snmp/test_snmp_link_local.py:
   skip:
-    reason: "SNMP over IPv6 support not present in 202211 branch."
+    reason: "SNMP over IPv6 support not present in release branches."
     conditions:
-      - "branch in ['202211']"
-
-snmp/test_snmp_loopback.py:
-  skip:
-    reason: "SNMP over Loopback IPv6 support not present in 202211 branch."
-    conditions:
-      - "branch in ['202211']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/6108
+      - "is_multi_asic==False"
+      - "release in ['202205', '202211', '202305']"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
