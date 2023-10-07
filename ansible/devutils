@@ -63,40 +63,22 @@ def get_pdu_info_from_conn_graph(hostname):
     """
     Read pdu info from conn graph.
     Returns a tuple of success, err msg or result
-    Result is a tuple of pdu_hostname and pdu_vars like this:
+    Result is a tuple of pdu_hostname and pdu_vars like
     {
-        "PSU1": {
-            "A": {
-                "peerdevice": "pdu-2",
-                "peerport": "5",
-                "feed": "A",
-                "Protocol": "snmp",
-                "ManagementIp": "10.3.155.107",
-                "HwSku": "Sentry",
-                "Type": "Pdu",
-            },
-            "B": {
-                "peerdevice": "pdu-2",
-                "peerport": "6",
-                "feed": "B",
-                "Protocol": "snmp",
-                "ManagementIp": "10.3.155.108",
-                "HwSku": "Sentry",
-                "Type": "Pdu",
-            }
+        "pdu-2": {
+            "Hostname": "pdu-2",
+            "Protocol": "snmp",
+            "ManagementIp": "10.3.155.107",
+            "HwSku": "Sentry",
+            "Type": "Pdu",
         },
     }
     pdu_hostname is not actually used for building pduman from conn graph
     """
     global g_inv_mgr, g_conn_graph_facts
-    device_pdu_info = g_conn_graph_facts['device_pdu_links']
+    device_pdu_info = g_conn_graph_facts['device_pdu_info']
     pdu_vars = device_pdu_info.get(hostname, {})
     for pdu_name, pdu_info in pdu_vars.items():
-        """
-        #pdu_links_of_feed['ansible_host'] = pdu_links_of_feed['ManagementIp']
-        #pdu_links_of_feed['protocol'] = pdu_links_of_feed['Protocol']
-        #pdu_links_of_feed['pdu_port'] = pdu_links_of_feed['peerport']
-        """
         pdu_info.update(g_inv_mgr.get_host_vars(pdu_name))
     return (True, (pdu_vars, pdu_vars))
 
