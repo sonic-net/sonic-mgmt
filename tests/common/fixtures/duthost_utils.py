@@ -322,6 +322,7 @@ def utils_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tb
                 vlan_port['permit_vlanid'].append(vlan['vlanid'])
         if 'pvid' in vlan_port:
             vlan_ports_list.append(vlan_port)
+
     return vlan_ports_list
 
 
@@ -421,6 +422,7 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             continue
         cmds.append('config vlan add {}'.format(k))
         cmds.append("config interface ip add Vlan{} {}".format(k, v['ip'].upper()))
+
     # Delete untagged vlans from interfaces to avoid error message
     # when adding untagged vlan to interface that already have one
     if delete_untagged_vlan and '201911' not in duthost.os_version:
@@ -433,13 +435,12 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
                     cmds.append("config vlan member del {} {}".format(vid, vlan_port['dev']))
             except KeyError:
                 continue
+
     logger.info("Add members to Vlans")
     for vlan_port in vlan_ports_list:
         for permit_vlanid in vlan_port['permit_vlanid']:
             if vlan_intfs_dict[int(permit_vlanid)]['orig']:
                 continue
-            if (check_switchport_cmd(duthost, vlan_port['dev']) is True):
-                cmds.append('config switchport mode trunk {port}'.format(port=vlan_port['dev']))
             cmds.append('config vlan member add {tagged} {id} {port}'.format(
                 tagged=('--untagged' if vlan_port['pvid'] == permit_vlanid else ''),
                 id=permit_vlanid,
@@ -447,20 +448,6 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
             ))
     logger.info("Commands: {}".format(cmds))
     duthost.shell_cmds(cmds=cmds)
-
-
-def check_switchport_cmd(duthost, tport):
-    cmds = 'config switchport mode trunk {port}'.format(port=tport)
-    logger.info("Commands: {}".format(cmds))
-    out = duthost.shell(cmds, module_ignore_errors=True)
-
-    if out['rc'] == 0:
-        cmds = 'config switchport mode routed {port}'.format(port=tport)
-        logger.info("Commands: {}".format(cmds))
-        out = duthost.shell(cmds, module_ignore_errors=True)
-        return True
-
-    return False
 
 
 def _dut_qos_map(dut):
