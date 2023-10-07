@@ -33,7 +33,7 @@ class PSU():
         self.feeds = {}
         for feed_name, psu_peer_of_feed in psu_peer.items():
             feed = Feed(self, feed_name)
-            if feed.build_feed(psu_peer_of_feed, pdu_vars[feed_name]):
+            if feed.build_feed(psu_peer_of_feed, pdu_vars):
                 self.feeds[feed_name] = feed
         return len(self.feeds) > 0
 
@@ -47,19 +47,23 @@ class Feed():
         self.feed_name = feed_name
 
     def build_feed(self, psu_peer_of_feed, pdu_vars):
-        if 'ManagementIp' not in psu_peer_of_feed or 'Protocol' not in psu_peer_of_feed:
+        if "peerdevice" not in psu_peer_of_feed:
+            logger.warning('PSU {} feed {} is missing peer device'.format(self.psu.psu_name, self.feed_name))
+        pdu_device = psu_peer_of_feed["peerdevice"]
+        pdu_vars_of_peer = pdu_vars[pdu_device]
+        if 'ManagementIp' not in pdu_vars_of_peer or 'Protocol' not in pdu_vars_of_peer:
             logger.warning('PSU {} feed {} is missing critical information'.format(self.psu.psu_name, self.feed_name))
             return False
-        if psu_peer_of_feed['Protocol'] != 'snmp':
-            logger.warning('Protocol {} is currently not supported'.format(psu_peer_of_feed['Protocol']))
+        if pdu_vars_of_peer['Protocol'] != 'snmp':
+            logger.warning('Protocol {} is currently not supported'.format(pdu_vars_of_peer['Protocol']))
             return False
-        self.hostname = psu_peer_of_feed['Hostname']
-        self.ip = psu_peer_of_feed['ManagementIp']
-        self.protocol = psu_peer_of_feed['Protocol']
-        self.hwsku = psu_peer_of_feed['HwSku']
-        self.type = psu_peer_of_feed['Type']
-        self.psu_peer = psu_peer_of_feed
-        if not self._build_controller(pdu_vars):
+        self.hostname = pdu_vars_of_peer['Hostname']
+        self.ip = pdu_vars_of_peer['ManagementIp']
+        self.protocol = pdu_vars_of_peer['Protocol']
+        self.hwsku = pdu_vars_of_peer['HwSku']
+        self.type = pdu_vars_of_peer['Type']
+        self.psu_peer = pdu_vars_of_peer
+        if not self._build_controller(pdu_vars_of_peer):
             return False
         outlet = None
         # if peerport is probing/not given, return status of all ports on the pdu
@@ -143,7 +147,7 @@ class PduManager():
                     for outlet in feed.outlets:
                         rc = self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
                         ret = ret and rc
-        return ret
+            return ret
 
     def turn_off_outlet(self, outlet=None):
         """
@@ -161,7 +165,7 @@ class PduManager():
                     for outlet in feed.outlets:
                         rc = self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
                         ret = ret and rc
-        return ret
+            return ret
 
     def get_outlet_status(self, outlet=None):
         """
@@ -201,14 +205,16 @@ class PduManager():
 
 def _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_vars):
     logger.info('Creating pdu manager from graph information')
+    pdu_info = conn_graph_facts['device_pdu_info']
     pdu_links = conn_graph_facts['device_pdu_links']
-    if dut_hostname not in pdu_links or not pdu_links[dut_hostname]:
+    if dut_hostname not in pdu_info or dut_hostname not in pdu_links:
         # No PDU information in graph
         logger.info('PDU informatin for {} is not found in graph'.format(dut_hostname))
         return False
 
+    pdu_vars_of_dut = pdu_info[dut_hostname]
     for psu_name, psu_peer in list(pdu_links[dut_hostname].items()):
-        pduman.add_controller(psu_name, psu_peer, pdu_vars[psu_name])
+        pduman.add_controller(psu_name, psu_peer, pdu_vars_of_dut)
 
     return len(pduman.PSUs) > 0
 
@@ -254,7 +260,7 @@ def pdu_manager_factory(dut_hostname, pdu_hosts, conn_graph_facts, pdu_vars):
     @param dut_hostname: DUT host name.
     @param pdu_hosts: comma separated PDU host names.
     @param conn_graph_facts: connection graph facts.
-    @param pdu_vars: pdu community strings
+    @param pdu_vars: a dictionary of pdu hostname and its variables
     """
     logger.info('Creating pdu manager object')
     pduman = PduManager(dut_hostname)

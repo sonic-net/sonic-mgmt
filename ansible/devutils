@@ -62,7 +62,8 @@ def retrieve_hosts(group, limit):
 def get_pdu_info_from_conn_graph(hostname):
     """
     Read pdu info from conn graph.
-    Returns a list like this:
+    Returns a tuple of success, err msg or result
+    Result is a tuple of pdu_hostname and pdu_vars like this:
     {
         "PSU1": {
             "A": {
@@ -85,25 +86,26 @@ def get_pdu_info_from_conn_graph(hostname):
             }
         },
     }
+    pdu_hostname is not actually used for building pduman from conn graph
     """
     global g_inv_mgr, g_conn_graph_facts
-    device_pdu_links = g_conn_graph_facts['device_pdu_links']
-    results = device_pdu_links.get(hostname, {})
-    for psu, pdu_links_of_psu in results.items():
-        for feed, pdu_links_of_feed in pdu_links_of_psu.items():
-            pdu_name = pdu_links_of_feed['peerdevice']
-            """
-            #pdu_links_of_feed['ansible_host'] = pdu_links_of_feed['ManagementIp']
-            #pdu_links_of_feed['protocol'] = pdu_links_of_feed['Protocol']
-            #pdu_links_of_feed['pdu_port'] = pdu_links_of_feed['peerport']
-            """
-            pdu_links_of_feed.update(g_inv_mgr.get_host_vars(pdu_name))
-    return results
+    device_pdu_info = g_conn_graph_facts['device_pdu_links']
+    pdu_vars = device_pdu_info.get(hostname, {})
+    for pdu_name, pdu_info in pdu_vars.items():
+        """
+        #pdu_links_of_feed['ansible_host'] = pdu_links_of_feed['ManagementIp']
+        #pdu_links_of_feed['protocol'] = pdu_links_of_feed['Protocol']
+        #pdu_links_of_feed['pdu_port'] = pdu_links_of_feed['peerport']
+        """
+        pdu_info.update(g_inv_mgr.get_host_vars(pdu_name))
+    return (True, (pdu_vars, pdu_vars))
 
 
 def get_pdu_info_from_inventory(attrs):
     """
     Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph
+    Returns a tuple of success, err msg or result
+    Result is a tuple of pdu_hostname and pdu_vars.
     """
     global g_inv_mgr, g_pdu_dict
     pdus = {}
@@ -118,18 +120,19 @@ def get_pdu_info_from_inventory(attrs):
     if not hosts:
         return (False, 'PDU not found in inventory')
 
-    g_pdu_dict[pdu_host] = hosts
     for ph in pdu_host.split(','):
         if ph in hosts:
             pdu = hosts[ph]
             pdus[ph] = pdu
-    return (True, pdus)
+    g_pdu_dict[pdu_host] = (pdus, pdus)
+
+    return (True, (pdus, pdus))
 
 
 def get_pdu_info(dut_hostname, attrs):
-    results = get_pdu_info_from_conn_graph(dut_hostname)
-    if results:
-        return (True, results)
+    success, results = get_pdu_info_from_conn_graph(dut_hostname)
+    if success:
+        return (success, results)
     return get_pdu_info_from_inventory(attrs)
 
 
@@ -263,15 +266,17 @@ def action_console(parameters):
 
 def pdu_action_on_dut(host, attrs, action):
     ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
-    succeed, pdu_info = get_pdu_info(host, attrs)
+    succeed, result = get_pdu_info(host, attrs)
     if not succeed:
-        ret['Summary'] = pdu_info
+        ret['Summary'] = result
         return ret
-    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info)
+
+    pdu_hostname, pdu_vars = result
+    pduman = pdu_manager_factory(host, pdu_hostname, g_conn_graph_facts, pdu_vars)
 
     if not pduman:
         ret['Summary'].append(
-            'Failed to communicate with PDU controller {}'.format(pdu_info.keys()))
+            'Failed to communicate with PDU controller {}'.format(pdu_hostname.keys()))
         return ret
 
     if action == 'off':
