@@ -44,7 +44,6 @@ def initialize_variables():
     data.bgp_route_prefix_T1D1P1 = "10.0.0.1"
     data.bgp_route_prefix_T1D1P2 = "20.0.0.1"
     data.frame_size = ['1000', '1500', '9000']
-    # data.frame_size = ['1000']
     data.media_end_to_end_latency = media_end_end_latency()
 
 
@@ -79,7 +78,7 @@ def rfc2544_latency_module_hooks(request) :
     initialize_variables()
 
     # loading contents 'expected_latency_avg.yaml' file.
-    latency_yaml_file_path = '/home/rraghav/smekalak/sonic-test/sonic-mgmt/spytest/tests/system/expected_latency_avg.yaml'
+    latency_yaml_file_path = 'system/latency_yaml_files/expected_latency_avg.yaml'
     with open(latency_yaml_file_path, "r") as latency_values_file:
         avg_latency_data_yaml = yaml.safe_load(latency_values_file)
 
@@ -135,13 +134,11 @@ def rfc2544_latency_module_hooks(request) :
 # extract media end to end latency from 'media_end_end_latency.yaml' file based on the dut hwsku.
 def media_end_end_latency():
 
-    media_latency_file_path = '/home/rraghav/smekalak/sonic-test/sonic-mgmt/spytest/tests/system/media_end_end_latency.yaml'
+    media_latency_file_path = 'system/latency_yaml_files/media_end_end_latency.yaml'
     with open(media_latency_file_path, "r") as file:
         media_latency_yaml = yaml.safe_load(file)
 
     dut_hwsku = basic_obj.get_hwsku(dut)
-    # below is the workaround for func. 'do_eval' being deleted from apis/system/basic.py master branch
-    # dut_hwsku = get_hwsku(dut)
 
     media_end_end_latency = None
 
