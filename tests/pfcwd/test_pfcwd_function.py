@@ -128,7 +128,6 @@ class PfcCmd(object):
             profile(string) : profile name
             value(int) : dynamic threshold value to update
             static_th(int) : or static threshold value to update
-
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
         asic = dut.get_port_asic_instance(port)
