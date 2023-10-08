@@ -147,6 +147,7 @@ class KustoConnector(object):
             FlatTestReportViewV5
             | distinct BuildId
             | join kind=leftanti TestReportUnionData on BuildId
+            | take 20
             '''
         logger.info("Query missing testplan IDs:{}".format(query_str))
         result = self.query(query_str)
