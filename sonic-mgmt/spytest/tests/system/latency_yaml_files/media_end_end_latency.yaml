@@ -1,0 +1,6 @@
+# can we use HWSKU as switch and write use cases for media end_end latency depending on HWSKU????
+hwsku:
+  - Cisco-8111-O64:
+          media_end_end_latency: '0.38'
+  - Cisco-8111-O32:
+          media_end_end_latency: '0.35'
