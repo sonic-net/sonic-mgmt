@@ -28,7 +28,7 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/6736/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/6754/sonic-cisco-8000.bin
     linecard_types: [matilda32]
 
   sonic_mgmt :
