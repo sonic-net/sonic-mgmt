@@ -28,7 +28,7 @@ class TrafficFlowConfig():
                     background_flow_pkt_size: data flow packet size in bytes if applicable
                     background_flow_pkt_count: data flow packet count if applicable
                     background_flow_delay_sec: data flow delay in seconds if applicable
-                    background_flow_traffic_type: background flow traffic type if applicable ex. 
+                    background_flow_traffic_type: background flow traffic type if applicable ex.
                                                   background_traffic_flow.CONTINUOUS
             pause_flow_config (dict): pause traffic flow configuration
                 Dict values:
