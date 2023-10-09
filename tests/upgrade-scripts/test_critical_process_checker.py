@@ -24,7 +24,7 @@ def test_critical_process(duthosts, enum_rand_one_per_hwsku_hostname):
 
     # Transfer tar file to device /tmp/sonic-upgrade-scripts folder
     transfer_tar = duthost.copy(src=os.path.join(FILES_DIR, UPGRADE_TAR),
-                     dest=UPGRADE_FOLDER)
+                                dest=UPGRADE_FOLDER)
 
     assert not transfer_tar['failed'], "Failed to copy {} to device - {}".format(UPGRADE_TAR, transfer_tar)
 
@@ -42,10 +42,9 @@ def test_critical_process(duthosts, enum_rand_one_per_hwsku_hostname):
 
     assert validate_exit_code == 0, "Failed to run installer.py --validate"
     assert validate_result['stdout'] == \
-       "Package sonic_critical_process_checker is not installed", \
-       ("Failed to validate if sonic-critical-process-checker is installed: {}"
+        "Package sonic_critical_process_checker is not installed", \
+        ("Failed to validate if sonic-critical-process-checker is installed: {}"
         .format(validate_result['stdout']))
-
 
     # Install package
     install_cmd = 'python {} --install'.format(os.path.join(UPGRADE_FOLDER, INSTALLER))
