@@ -65,7 +65,7 @@ class Feed():
             return False
         self.pdu_info = pdu_info_of_peer
         self.pdu_vars = pdu_vars_of_peer
-        if not self._build_controller(pdu_vars_of_peer):
+        if not self._build_controller():
             return False
         outlet = None
         # if peerport is probing/not given, return status of all ports on the pdu
@@ -202,57 +202,6 @@ class PduManager():
             controller.close()
 
 
-def _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_vars):
-    logger.info('Creating pdu manager from graph information')
-    pdu_info = conn_graph_facts['device_pdu_info']
-    pdu_links = conn_graph_facts['device_pdu_links']
-    if dut_hostname not in pdu_info or dut_hostname not in pdu_links:
-        # No PDU information in graph
-        logger.info('PDU informatin for {} is not found in graph'.format(dut_hostname))
-        return False
-
-    pdu_vars_of_dut = pdu_info[dut_hostname]
-    for psu_name, psu_peer in list(pdu_links[dut_hostname].items()):
-        pduman.add_controller(psu_name, psu_peer, pdu_vars_of_dut)
-
-    return len(pduman.PSUs) > 0
-
-
-def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars):
-    logger.info('Creating pdu manager from inventory information')
-    if not pdu_hosts:
-        logger.info('Do not have sufficient PDU information to create PDU manager for host {}'.format(dut_hostname))
-        return False
-
-    for ph, var_list in list(pdu_hosts.items()):
-        controller_ip = var_list.get("ansible_host")
-        if not controller_ip:
-            logger.info('No "ansible_host" is defined in inventory file for "{}"'.format(pdu_hosts))
-            logger.info('Unable to create pdu_controller for {}'.format(dut_hostname))
-            continue
-
-        controller_protocol = var_list.get("protocol")
-        if not controller_protocol:
-            logger.info(
-                'No protocol is defined in inventory file for "{}". Try to use default "snmp"'.format(pdu_hosts))
-            controller_protocol = 'snmp'
-
-        # inventory does not support psu feed, so we assume a default N/A as feed
-        psu_peer = {
-            'N/A': {
-                'peerdevice': ph,
-                'HwSku': 'unknown',
-                'Protocol': controller_protocol,
-                'ManagementIp': controller_ip,
-                'Type': 'Pdu',
-                'peerport': 'probing',
-            },
-        }
-        pduman.add_controller(ph, psu_peer, pdu_vars[psu_peer['Hostname']])
-
-    return len(pduman.PSUs) > 0
-
-
 def _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
     logger.info('Creating pdu manager')
 
@@ -281,7 +230,7 @@ def pdu_manager_factory(dut_hostname, pdu_links, pdu_info, pdu_vars):
     """
     logger.info('Creating pdu manager object')
     pduman = PduManager(dut_hostname)
-    if _build_pdu_manager(pduman, dut_hostname, pdu_links, pdu_info, pdu_vars):
+    if _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
         return pduman
 
     return None
