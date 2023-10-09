@@ -48,6 +48,12 @@ def pdu_controller(duthosts, conn_graph_facts):
         pdu_hostnames = [pdu["Hostname"] for pdu in duthost_pdu_info.values()]
 
     pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_hostnames)
+    logger.info("xxxxxxxxxxxxxxxxx")
+    logger.info("pdu_hosts {}".format(pdu_hosts))
+    logger.info("xxxxxxxxxxxxxxxxx")
+    logger.info("conn_graph_facts {}".format(conn_graph_facts))
+    logger.info("xxxxxxxxxxxxxxxxx")
+    logger.info("pdu_vars {}".format(pdu_vars))
     controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu_vars)
 
     yield controller

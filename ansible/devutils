@@ -63,7 +63,16 @@ def get_pdu_info_from_conn_graph(hostname):
     """
     Read pdu info from conn graph.
     Returns a tuple of success, err msg or result
-    Result is a tuple of pdu_hostname and pdu_vars like
+    Result is a tuple of pdu_links, pdu_info and pdu_vars
+    {
+        "PSU1": {
+            "A": {
+                "peerdevice": "pdu-2",
+                "peerport": "12",
+                "feed": "A",
+            },
+        },
+    }
     {
         "pdu-2": {
             "Hostname": "pdu-2",
@@ -73,24 +82,33 @@ def get_pdu_info_from_conn_graph(hostname):
             "Type": "Pdu",
         },
     }
-    pdu_hostname is not actually used for building pduman from conn graph
+    {
+        "pdu-2": {
+        ...
+        }
+    }
+    The 3 variables can be directly used in pdu_manager_factory
     """
     global g_inv_mgr, g_conn_graph_facts
+    device_pdu_links = g_conn_graph_facts['device_pdu_links']
     device_pdu_info = g_conn_graph_facts['device_pdu_info']
-    pdu_vars = device_pdu_info.get(hostname, {})
-    for pdu_name, pdu_info in pdu_vars.items():
-        pdu_info.update(g_inv_mgr.get_host_vars(pdu_name))
-    return (True, (pdu_vars, pdu_vars))
+    if hostname not in device_pdu_links or hostname not in device_pdu_info:
+        return (False, '{} does not exist in connection graph'.format(hostname))
+    pdu_links = device_pdu_links[hostname]
+    pdu_info = device_pdu_info[hostname]
+    pdu_vars = {}
+    for pdu_name in pdu_info.keys():
+        pdu_vars[pdu_name] = g_inv_mgr.get_host_vars(pdu_name)
+    return (True, (pdu_links, pdu_info, pdu_vars))
 
 
-def get_pdu_info_from_inventory(attrs):
+def get_pdu_info_from_inventory(hostname, attrs):
     """
-    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph
+    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph.
     Returns a tuple of success, err msg or result
-    Result is a tuple of pdu_hostname and pdu_vars.
+    Result is a tuple of pdu_links, pdu_info and pdu_vars.
     """
     global g_inv_mgr, g_pdu_dict
-    pdus = {}
     pdu_host = attrs['pdu_host'] if 'pdu_host' in attrs else None
     if not pdu_host:
         return (False, 'DUT has no PDU configuration')
@@ -102,20 +120,38 @@ def get_pdu_info_from_inventory(attrs):
     if not hosts:
         return (False, 'PDU not found in inventory')
 
+    pdu_links = {}
+    pdu_info = {}
+    pdu_vars = {}
+    index = 1
     for ph in pdu_host.split(','):
         if ph in hosts:
-            pdu = hosts[ph]
-            pdus[ph] = pdu
-    g_pdu_dict[pdu_host] = (pdus, pdus)
+            host_vars = hosts[ph]
+            pdu_links['PSU{}'.format(index)] = {
+                'N/A': {
+                    'peerdevice': ph,
+                    'peerport': 'probing',
+                    'feed': 'N/A',
+                }
+            }
+            pdu_info[ph] = {
+                'Hostname': ph,
+                'Protocol': host_vars['protocol'],
+                'ManagementIp': host_vars['ansible_host'],
+                'Type': 'Pdu',
+            }
+            pdu_vars[ph] = host_vars
+            index = index + 1
+    g_pdu_dict[pdu_host] = (pdu_links, pdu_info, pdu_vars)
 
-    return (True, (pdus, pdus))
+    return (True, g_pdu_dict[pdu_host])
 
 
 def get_pdu_info(dut_hostname, attrs):
     success, results = get_pdu_info_from_conn_graph(dut_hostname)
     if success:
         return (success, results)
-    return get_pdu_info_from_inventory(attrs)
+    return get_pdu_info_from_inventory(dut_hostname, attrs)
 
 
 def get_console_info_from_conn_graph(hostname):
@@ -253,12 +289,12 @@ def pdu_action_on_dut(host, attrs, action):
         ret['Summary'] = result
         return ret
 
-    pdu_hostname, pdu_vars = result
-    pduman = pdu_manager_factory(host, pdu_hostname, g_conn_graph_facts, pdu_vars)
+    pdu_links, pdu_info, pdu_vars = result
+    pduman = pdu_manager_factory(host, pdu_links, pdu_info, pdu_vars)
 
     if not pduman:
         ret['Summary'].append(
-            'Failed to communicate with PDU controller {}'.format(pdu_hostname.keys()))
+            'Failed to communicate with PDU controller {}'.format(pdu_links.keys()))
         return ret
 
     if action == 'off':
