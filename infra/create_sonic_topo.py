@@ -65,7 +65,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=True,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -513,6 +513,10 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-spine.j2')
         ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-tor.j2')
         ftp_client.put('topo_t1-28-lag.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-28-lag.yml')    
+    elif topo_type == 't1-lag-dash-4':
+        ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-spine.j2')
+        ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-tor.j2')
+        ftp_client.put('topo_t1-28-lag.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-lag-dash-4.yml')    
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -730,6 +734,11 @@ def determine_base_topo(topo_type, device_type):
         ptf_intfcount = 64
     elif topo_type == 't1-28-lag':
         base_topo_file = 'testbed-mth32-t1-28-lag.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 21
+        ptf_intfcount = 32
+    elif topo_type == 't1-lag-dash-4':
+        base_topo_file = 'testbed-mth32-t1-lag-dash-4.yaml'
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 21
         ptf_intfcount = 32
