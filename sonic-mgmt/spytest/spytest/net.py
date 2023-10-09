@@ -2910,7 +2910,7 @@ class Net(object):
         save_cmd = 'sudo config save -y'
         reload_cmd = 'sudo config reload -y'
 
-        if env.get("SPYTEST_HELPER_CONFIG_DB_RELOAD", "yes") != "no":
+        if env.get("SPYTEST_HELPER_CONFIG_DB_RELOAD") != "no":
             largs = ["yes" if save else "no", max_time]
             output = self.apply_remote(devname, "config-reload", largs)
             return output
@@ -5825,6 +5825,7 @@ class Net(object):
         opts.skip_error_report = kwargs.get("skip_error_report", False)
         opts.expect_reboot = kwargs.get("expect_reboot", False)
         opts.expect_ipchange = kwargs.get("expect_ipchange", False)
+        opts.asic = kwargs.get("asic", None)
         opts.max_time = kwargs.get("max_time", 0)
         opts.min_time = kwargs.get("min_time", 0)
         opts.reboot_wait = kwargs.get("reboot_wait", 300)
@@ -5950,11 +5951,40 @@ class Net(object):
                             return "", op, "vtysh-user"
                         if opts.conf:
                             return "", op, "vtysh-any-config"
-
+        elif current_mode.startswith("vtysh-multi-asic"):
+            if opts.ctype == "vtysh-multi-asic":
+                if is_show:
+                    if current_mode == "vtysh-multi-asic-user":
+                        return ("", op, current_mode)
+                    if cmd.startswith("do "):
+                        return ("", op, "vtysh-any-config")
+                    return ("do ", op, "vtyshany-config")
+                else:
+                    if current_mode == "vtysh-multi-asic-user":
+                        if cmd in ["exit"]:
+                            return ("", op, "normal-user")
+                        if not opts.conf:
+                            return ("", op, "vtysh-multi-asic-user")
+                    elif current_mode == "vtysh-multi-asic-config":
+                        if cmd in ["end", "exit"]:
+                            return ("", op, "vtysh-multi-asic-user")
+                        if opts.conf:
+                            return ("", op, "vtysh-any-config")
+                    else:
+                        if cmd in ["end"]:
+                            return ("", op, "vtysh-multi-asic-user")
+                        if opts.conf:
+                            return ("", op, "vtysh-any-config")
         # change the mode
         if opts.ctype == "click":
             op = self._change_prompt(devname, normal_user_mode, startmode=current_mode)
             return "", op, normal_user_mode
+        elif opts.ctype == "vtysh-multi-asic" and (is_show or not opts.conf):
+            op = self._change_prompt(devname, "vtysh-multi-asic-user", startmode=current_mode, asic = opts.asic)
+            return ("", op, "vtysh-multi-asic-user")
+        elif opts.ctype == "vtysh-multi-asic":
+            op = self._change_prompt(devname, "vtysh-multi-asic-config", startmode=current_mode, asic = opts.asic)
+            return ("", op, "vtysh-any-config")
         elif opts.ctype == "vtysh" and (is_show or not opts.conf):
             op = self._change_prompt(devname, "vtysh-user", startmode=current_mode)
             return "", op, "vtysh-user"

@@ -5248,25 +5248,15 @@ sensors_checks:
       - - tps53679-i2c-25-64/MB_3_3V_L_L1_VIN/in1_input
         - tps53679-i2c-25-64/MB_3_3V_L_L1_VIN/in1_crit
 
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail Curr (out)/curr1_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail Curr (out)/curr1_max_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.05V Rail Curr (out)/curr2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.05V Rail Curr (out)/curr2_max_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in1)/in1_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - tps53679-i2c-15-58/PMIC-8 PSU 12V Rail (in2)/in2_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail (out)/in3_crit_alarm
-      - tps53679-i2c-15-58/PMIC-8 COMEX 1.8V Rail (out)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC VCORE_T0_1 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-66/PMIC-3 ASIC 1.8V_T0_1 Temp 2/temp2_crit_alarm
 
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail Curr (out)/curr1_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail Curr (out)/curr1_max_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in1)/in1_lcrit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in1)/in1_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in2)/in2_lcrit_alarm
-      - tps53679-i2c-15-61/PMIC-9 PSU 12V Rail (in2)/in2_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in3_crit_alarm
-      - tps53679-i2c-15-61/PMIC-9 COMEX 1.2V Rail (out)/in3_lcrit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T0_3 Temp 1/temp1_crit_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_max_alarm
+      - xdpe12284-i2c-5-6e/PMIC-7 ASIC 1.2V_T4_7 Temp 2/temp2_crit_alarm
 
       - - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_input
         - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_max
@@ -5364,11 +5354,11 @@ sensors_checks:
         - pmbus-i2c-25-62/pin/power1_max
 
     non_zero:
-      fan: []
-      power: []
-      temp: []
-    psu_skips: {}
-    sensor_skip_per_version: {}
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }
 
   x86_64-mlnx_msn4600c-r0-a1:
     alarms:

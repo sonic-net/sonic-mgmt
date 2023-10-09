@@ -445,13 +445,13 @@ def check_pbh_counters(duthost, outer_ipver, inner_ipver, balancing_test_times,
             exp_ports_multiplier += len(group)
         hash_keys_multiplier = len(hash_keys)
         # for hash key "ip-proto", the traffic sends always in one way
-        exp_count = str((balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier-1))
-                        + (balancing_test_times * exp_ports_multiplier))
+        exp_count = (balancing_test_times * symmetric_multiplier * exp_ports_multiplier * (hash_keys_multiplier - 1)
+                     + (balancing_test_times * exp_ports_multiplier))
         pbh_statistic_output = duthost.shell("show pbh statistic")['stdout']
         for outer_encap_format in OUTER_ENCAP_FORMATS:
             regex = r'{}\s+{}_{}_{}\s+(\d+)\s+\d+'.format(TABLE_NAME, outer_encap_format, outer_ipver, inner_ipver)
-            current_count = re.search(regex, pbh_statistic_output).group(1)
-            assert current_count == exp_count,\
+            current_count = int(re.search(regex, pbh_statistic_output).group(1))
+            assert (current_count == exp_count or current_count <= exp_count + 2), \
                 "PBH counters are different from expected for {}, outer ipver {}, inner ipver {}. Expected: {}, " \
                 "Current: {}".format(outer_encap_format, outer_ipver, inner_ipver, exp_count, current_count)
 

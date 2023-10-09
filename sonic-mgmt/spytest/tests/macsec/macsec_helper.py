@@ -5,9 +5,15 @@ import re, time
 import apis.system.logging as logapi
 import apis.routing.ip as ipapi
 import apis.system.logging as logapi
-import tests.system.test_optics_reload as reload
 #import tests.system.test_optics_v4.config_traffic_bgp as config_traffic_bgp
 
+class variables:
+    def __init__(self):
+        self.MACSEC_PROFILE= {"aes_128": "GCM-AES-128", "aes_256": "GCM-AES-256", "aes_xpn_128":"GCM-AES-XPN-128", "aes_xpn_256":"GCM-AES-XPN-256"}
+        self.MACSEC_REGEX = "install_tx_sa:.*TxSA added and activated for port {}\|phy_install_tx_sa_on_hw:.*TX SA install on port: {}\|macsec_install_tx_sa: PhyID .*:Install Tx SA: idx: {}\|\
+        install_rx_sa:.*RxSA added and activated for port {}\|phy_install_rx_sa_on_hw:.*RX SA install on port: {}\|macsec_install_rx_sa: PhyID .*:Install Rx SA: idx: {}"
+
+var = variables()
 
 def var_def():
     global vars, duts, local_links_D1, local_links_D2, tg1, tg2, tg_handle_1, tg_handle_2, SESSION_KEYS, INTERFACE_KEYS
@@ -50,24 +56,26 @@ def enable_macsec_feature(dut):
 
 
 def apply_profile(duts, ports, profile, policy, replay_window="0", send_sci="1", is_lag= False, mismatch = False):
-    for dut in duts:
-    #st.config(dut, 'sudo config macsec -n asic{} CONFIG_DB HMSET "MACSEC_PROFILE|{}" "priority" "64" "cipher_suite" "{}" "primary_cak" "{}" \
-    #"primary_ckn" "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" "fallback_cak" "" "fallback_ckn" "" "policy" "{}" "enable_replay_protect" "0" "replay_window" "{}" "send_sci" "{}" "rekey_period" "30"\
-    #'.format(asic, profile, MACSEC_PROFILE[profile], primary_cak, policy, replay_window, send_sci), skip_tmpl=True, skip_error_check=False)
-        count = 0
-        for port in ports[dut]:
-            asic = get_asic_from_port(port) if is_lag is False else 0
-            if count == 0:
-                if re.search("\d+", str(profile)).group(0) == '256':
-                    primary_cak = "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
-                else:
-                    primary_cak = "0123456789ABCDEF0123456789ABCDEF"
-                st.config(dut, 'sudo config macsec -n asic{} profile add {} --priority 64 --cipher_suite "{}" --primary_cak {} --primary_ckn "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" --replay_window {} --rekey_period 30 --send_sci\
-            '.format(asic, profile, MACSEC_PROFILE[profile], primary_cak, replay_window), skip_tmpl=True, skip_error_check=False)
-            count+=1
-            st.banner("--------Applying macsec profile on {} {}------".format(dut, port))
-            st.config(dut, "sonic-db-cli -n asic{} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(asic, port, profile), skip_tmpl=True, skip_error_check=False)
-
+    try:
+        for dut in duts:
+        #st.config(dut, 'sudo config macsec -n asic{} CONFIG_DB HMSET "var.MACSEC_PROFILE|{}" "priority" "64" "cipher_suite" "{}" "primary_cak" "{}" \
+        #"primary_ckn" "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" "fallback_cak" "" "fallback_ckn" "" "policy" "{}" "enable_replay_protect" "0" "replay_window" "{}" "send_sci" "{}" "rekey_period" "30"\
+        #'.format(asic, profile, var.MACSEC_PROFILE[profile], primary_cak, policy, replay_window, send_sci), skip_tmpl=True, skip_error_check=False)
+            count = 0
+            for port in ports[dut]:
+                asic = get_asic_from_port(port) if is_lag is False else 0
+                if count == 0:
+                    if re.search("\d+", str(profile)).group(0) == '256':
+                        primary_cak = "08711D1C5A4D5041455355250808000D156573415442565701010172762D273D30090905000600025C035F267A74203620540A59555B741A1951402435312F2922"
+                    else:
+                        primary_cak = "01435756085F5359761417283B2633372D5C557878707D65627A4A26342025737F"
+                    st.config(dut, 'sudo config macsec -n asic{} profile add {} --priority 64 --cipher_suite "{}" --primary_cak {} --primary_ckn "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" --replay_window {} --rekey_period 5 --send_sci\
+                '.format(asic, profile, var.MACSEC_PROFILE[profile], primary_cak, replay_window), skip_tmpl=True, skip_error_check=False)
+                count+=1
+                st.banner("--------Applying macsec profile on {} {}------".format(dut, port))
+                st.config(dut, "sonic-db-cli -n asic{} CONFIG_DB HSET 'PORT|{}' 'macsec' '{}'".format(asic, port, profile), skip_tmpl=True, skip_error_check=False)
+    except Exception as e:
+        st.error("Error occured while applying the profile: {}".format(e))
 
 def check_syslog(dut, port, syslog_regex):
     '''Get the port number from given interface name.
@@ -146,8 +154,8 @@ def run_traffic(request, wait_time=15):
     st.wait(2)
     tg_tx = tgapi.get_traffic_stats(tg1, port_handle=tg_handle_1)
     tg_rx = tgapi.get_traffic_stats(tg2, port_handle=tg_handle_2)
-    print("Received traffic: ",tg_rx['rx']['total_packets'])
-    print("Sent traffic: ",tg_tx['tx']['total_packets'])
+    st.log("Received traffic: {}".format(tg_rx['rx']['total_packets']))
+    st.log("Sent traffic: {}".format(tg_tx['tx']['total_packets']))
     if tg_rx['rx']['total_packets'] > 0.80*tg_tx['tx']['total_packets']:
         return True
     else:

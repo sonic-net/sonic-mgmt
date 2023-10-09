@@ -32,7 +32,7 @@ from tests.common.dualtor.dual_tor_common import active_standby_ports           
 from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_random_side    # noqa F401
 from tests.common.dualtor.nic_simulator_control import mux_status_from_nic_simulator                # noqa F401
-
+from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +222,9 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
                            "ptf_test_port_map": ptf_test_port_map_active_active(
                                ptfhost, tbinfo, duthosts, mux_server_url,
                                duts_running_config_facts, duts_minigraph_facts,
-                               mux_status_from_nic_simulator())
+                               mux_status_from_nic_simulator()),
+                           "topo": tbinfo['topo']['type'],
+                           "qos_remap_enabled": is_tunnel_qos_remap_enabled(duthosts[0])
                            },
                    qlen=PTFRUNNER_QLEN,
                    log_file=log_file,

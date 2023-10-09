@@ -23,11 +23,9 @@ g_breakout_file = None
 g_debug = False
 syslog_levels = ['emerg', 'alert', 'crit', 'err', 'warning', 'notice', 'info', 'debug', 'none']
 config_db_operation_retry = 20
-
 var_log_dir = "/var/log"
 spytest_dir = "/etc/spytest"
 frr_dir = "/etc/sonic/frr"
-
 port_config_file = "/usr/share/sonic/device"
 minigraph_file = "/etc/sonic/minigraph.xml"
 config_file = "/etc/sonic/config_db.json"
@@ -44,6 +42,7 @@ tech_support_timestamp = spytest_dir + "/tech_support_timestamp.txt"
 cores_tar_file_name = "/tmp/allcorefiles.tar.gz"
 kdump_tar_file_name = "/tmp/allkdumpfiles.tar.gz"
 warmboot_tar_file_name = "/tmp/warmboot.tar.gz"
+
 
 frr_config_file = os.path.join(frr_dir, "frr.conf")
 bgp_config_file = os.path.join(frr_dir, "bgpd.conf")
@@ -97,6 +96,8 @@ def read_port_inifile():
     :return:
     """
     Platform, HwSKU = get_hw_values()
+    if HwSKU.split("-")[0] == "Cisco":
+        return ""
     int_file = "{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU)
     cmd = "cat {} | tail -1".format(int_file)
     output = execute_check_cmd(cmd)
@@ -270,6 +271,28 @@ def get_hw_values():
             if match:
                 hwsku = match.group(1)
     return platform, hwsku
+
+def is_multi_asic():
+    '''Check if the dut is a multi-asic systme or not 
+    ''' 
+    out=parse_show_platform_summary() 
+    if "ASIC Count" not in out or int(out["ASIC Count"])==1: 
+        return False 
+    else:
+        return True 
+
+def parse_show_platform_summary():   
+    platform_summ = execute_check_cmd("show platform summary").split("\n")
+    if not platform_summ:
+        raise AssertionError('No information provided for parsing') 
+    result={} 
+    for line in platform_summ: 
+        if not line: 
+            continue 
+        fields=line.split(":") 
+        result[fields[0]]=fields[1] 
+    return result 
+
 
 
 def read_file(filepath):
@@ -488,8 +511,11 @@ def init_clean(flags):
 
 
 def init_ta_config(flags, profile):
+    (Platform, HwSKU) = get_hw_values()
     init_clean(flags)
-
+    output_ps = execute_check_cmd("show platform summary")
+    print("output_ps")
+    print(output_ps)
     if profile == "na":
         create_default_base_config()
     elif profile == "l2" or profile == "l3":
@@ -525,7 +551,17 @@ def create_default_base_config():
         execute_check_cmd("rm -f {}".format(filename))
 
     # save the config to init file.
-    execute_check_cmd("config save -y {}".format(init_config_file))
+    
+    if is_multi_asic():
+        file = init_config_file
+        file0 = file
+        asic_count = parse_show_platform_summary()['ASIC Count']
+        # init_config_file = '/etc/spytest/init_config_db.json'
+        file_prefix = file.split(".")[0]
+        file1,file2,file3 = [file_prefix+str(i)+".json" for i in range(int(asic_count))]
+        execute_check_cmd("config save -y {},{},{},{}".format(file0,file1,file2,file3))
+    else:
+        execute_check_cmd("config save -y {}".format(init_config_file))
 
     # parse the init config file
     file_dict = read_json(init_config_file)
@@ -755,9 +791,10 @@ def is_integrated_vtysh_config():
 
 
 def vtysh_save():
-    execute_cmd_retry("vtysh -c write file", config_db_operation_retry)
-    execute_check_cmd("ls -ltir {}".format(frr_dir), skip_error=True)
-    print("integrated-vtysh-config = {}".format(is_integrated_vtysh_config()))
+    if not is_multi_asic():
+        execute_cmd_retry("vtysh -c write file", config_db_operation_retry)
+        execute_check_cmd("ls -ltir {}".format(frr_dir), skip_error=True)
+        print("integrated-vtysh-config = {}".format(is_integrated_vtysh_config()))
 
 
 def save_module_config():
@@ -817,8 +854,19 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, config_type):
 
     # Save current config in DB to temp file to and compare it with base/module config_db.json file
     # If there is a change, add config to list.
-    execute_check_cmd("config save -y {}".format(tmp_config_file), skip_error=True)
+    if is_multi_asic():
+        file = init_config_file
+        file0 = file
+        asic_count = parse_show_platform_summary()['ASIC Count']
+        # init_config_file = '/etc/spytest/init_config_db.json'
+        file_prefix = file.split(".")[0]
+        file1,file2,file3 = [file_prefix+str(i)+".json" for i in range(int(asic_count))]
+        execute_check_cmd("config save -y {},{},{},{}".format(file0,file1,file2,file3), skip_error=True)
+    else:
+        execute_check_cmd("config save -y {}".format(init_config_file), skip_error=True)
     if not get_file_diff(tmp_config_file, ta_config_file, g_debug):
+        # tmp_config_file = '/tmp/config_db.json'
+        # ta_config_file = '/etc/spytest/init_config_db.json'
         trace("TA Config File Differs")
         changed_files.append("config")
 
@@ -945,6 +993,7 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, config_type):
     if "config" in changed_files or method in ["force-reload"]:
         ensure_mac_address(ta_config_file)
         # execute_check_cmd("echo before reload;date")
+        print("##### Doing config reload right now########")
         do_config_reload(method, ta_config_file)
         # execute_check_cmd("echo after reload;date")
     if "frr" in changed_files or "bgp" in changed_files or method in ["force-reload"]:
@@ -1392,6 +1441,8 @@ if __name__ == "__main__":
         script_arguments = args.run_test[1:]
         run_test(script_fullname, script_arguments)
     elif args.init_ta_config:
+        print("printing init ta arg")
+        print(args.init_ta_config)
         init_ta_config(args.init_ta_config, args.config_profile)
     elif args.save_base_config:
         save_base_config()

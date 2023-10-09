@@ -13,6 +13,18 @@ from apis.common import sonic_config as config
 from apis.switching import mac
 
 
+def get_asic_from_port(port):
+    port = int(re.search("\d+", str(port)).group(0))
+    port = port/8
+    if port in range(0,12):
+        asic = 0
+    elif port in range(12,24):
+        asic = 1
+    else:
+        asic = 2  
+    return asic
+
+
 class SonicHooks(object):
 
     def get_vars(self, dut, phase=None):
@@ -182,15 +194,42 @@ class SonicHooks(object):
             portlist = st.get_other_names(dut, portlist)
         return portlist
 
-    def shutdown(self, dut, portlist):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
-        # portlist = self._change_portlist(dut, portlist, cli_type)
-        port.shutdown(dut, portlist, cli_type=cli_type, ifname_type_oper=True)
+    def is_multi_asic(self, dut):
+        '''Check if the dut is a multi-asic systme or not 
+        ''' 
+        out=self.parse_show_platform_summary(dut) 
+        if "ASIC Count" not in out or int(out["ASIC Count"])==1: 
+            return False 
+        else:
+            return True 
 
-    def noshutdown(self, dut, portlist):
-        cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
+    def parse_show_platform_summary(self, dut):   
+        platform_summ = st.config(dut, "show platform summary").split("\n")
+        if not platform_summ:
+            raise AssertionError('No information provided for parsing') 
+        result={} 
+        for line in platform_summ: 
+            if not line: 
+                continue 
+            fields=line.split(":") 
+            result[fields[0]]=fields[1] 
+        return result 
+
+    def shutdown(self, dut, portlist, **kwargs):
+        if self.is_multi_asic:
+            cli_type = "vtysh-multi-asic" 
+        else:
+            cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
         # portlist = self._change_portlist(dut, portlist, cli_type)
-        port.noshutdown(dut, portlist, cli_type=cli_type, ifname_type_oper=True)
+        port.shutdown(dut, portlist, cli_type=cli_type)
+
+    def noshutdown(self, dut, portlist, **kwargs):
+        if self.is_multi_asic:
+            cli_type = "vtysh-multi-asic"
+        else:
+            cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
+        # portlist = self._change_portlist(dut, portlist, cli_type)
+        port.noshutdown(dut, portlist, cli_type=cli_type)
 
     def get_status(self, dut, port_csv):
         cli_type = st.getenv("SPYTEST_HOOKS_PORT_STATUS_UITYPE", "click")
@@ -200,10 +239,9 @@ class SonicHooks(object):
         cli_type = st.getenv("SPYTEST_HOOKS_PORT_STATUS_UITYPE", "click")
         return port.get_interface_status(dut, port_csv, cli_type=cli_type)
 
-    def show_version(self, dut, **kwargs):
+    def show_version(self, dut):
         cli_type = st.getenv("SPYTEST_HOOKS_VERSION_UITYPE", "click")
-        kwargs.setdefault("on_cr_recover", "retry5")
-        return basic.show_version(dut, cli_type=cli_type, report=False, **kwargs)
+        return basic.show_version(dut, cli_type=cli_type)
 
     def get_system_status(self, dut, service=None, **kwargs):
         pending_image_load = kwargs.pop("pending_image_load", False)
