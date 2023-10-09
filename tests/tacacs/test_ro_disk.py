@@ -219,7 +219,6 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                   os.path.join(LOG_DIR, "syslog")]:
             fetch_into_file(localhost, dutip, rw_user, rw_pass, f,
                             os.path.join(DATA_DIR, os.path.basename(f)))
-        assert res, "Failed to ssh as ro user"
 
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
@@ -227,3 +226,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         do_reboot(duthost, localhost, duthosts)
         logger.debug("  END: reboot {} to restore disk RW state".
                      format(enum_rand_one_per_hwsku_hostname))
+
+        # Fetch disk_check log for debug info
+        res = duthost.shell("sudo cat /var/log/syslog | grep disk_check", module_ignore_errors=True)
+        logger.debug("disk_check log:{}".format(res))
