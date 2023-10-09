@@ -219,6 +219,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
                   os.path.join(LOG_DIR, "syslog")]:
             fetch_into_file(localhost, dutip, rw_user, rw_pass, f,
                             os.path.join(DATA_DIR, os.path.basename(f)))
+        assert res, "Failed to ssh as ro user"
 
     finally:
         logger.debug("START: reboot {} to restore disk RW state".
