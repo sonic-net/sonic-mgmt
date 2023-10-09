@@ -320,6 +320,11 @@ function run_individual_tests()
                 echo "=== Sanity check failed for $test_script. Skip rest of the scripts if there is any. ==="
                 return ${ret_code}
             fi
+            # rc 15 means duthosts fixture failed
+            if [ ${ret_code} -eq 15 ]; then
+                echo "=== duthosts fixture failed for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
 
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
