@@ -34,7 +34,7 @@ devices:
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    image : /globalnobackup3/sonic/ubuntu1804_wr.qcow2
     linux_username: 'vxr'
     linux_password : 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'

@@ -13,4 +13,3 @@ test_pretest.py::test_disable_rsyslog_rate_limit
 test_pretest.py::test_features_state
 test_pretest.py::test_generate_running_golden_config
 test_pretest.py::test_stop_pfcwd
-test_pretest.py::test_update_saithrift_ptf
