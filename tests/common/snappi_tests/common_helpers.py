@@ -963,15 +963,6 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     for p_name in port_names:
         cap.port_names.append(p_name)
     cap.format = format
-    # cap.overwrite = False
-
-    # if capture_type == packet_capture.IP_CAPTURE:
-    #     # Capture IP packets
-    #     ip_filter = cap.filters.custom()[-1]
-    #     # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
-    #     ip_filter.value = '40'
-    #     ip_filter.offset = 14  # Offset is the length of the Ethernet header
-    #     ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
 
 
 def calc_pfc_pause_flow_rate(port_speed, block_factor=2):
