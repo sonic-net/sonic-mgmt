@@ -9,7 +9,9 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
-pytest.mark.topology('any')
+pytestmark = [
+    pytest.mark.topology('any'),
+]
 
 logger = logging.getLogger(__name__)
 

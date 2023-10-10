@@ -12,6 +12,7 @@ import re
 import string
 import sys
 import six
+import tabulate
 
 from collections import defaultdict
 from datetime import datetime
@@ -27,6 +28,10 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
+from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter                       # noqa F401
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                           # noqa F401
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
@@ -979,6 +984,9 @@ def count_matched_packets_all_ports(ptfadapter, exp_packet, exp_tunnel_pkt,
     return port_packet_count
 
 
+# behavior has changed with such that ecmp groups that span across multiple
+# mux interfaces are not balanced. Instead we expect packets to be sent to
+# a single mux interface.
 def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                            tbinfo, downlink_ints, nexthops_count):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
@@ -1045,6 +1053,57 @@ def check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr,
                 balance = False
                 pt_assert(balance, "Hierarchical ECMP failed: packets not evenly distributed on portchannel {}".format(
                     pc))
+
+
+def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num):
+    for pc, intfs in portchannel_ports.items():
+        count = 0
+        # Collect the packets count within a single portchannel
+        for member in intfs:
+            uplink_int = int(member.strip("eth"))
+            count = count + port_packet_count.get(uplink_int, 0)
+        logging.info("Packets received on portchannel {}: {}".format(pc, count))
+
+        if count > 0 and count != expect_packet_num:
+            pytest.fail("Packets not sent up single standby port {}".format(pc))
+
+
+# verify nexthops are only sent to single active or standby mux
+def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                   tbinfo, downlink_ints):
+    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    expect_packet_num = 10000
+
+    # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
+    expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
+    portchannel_ports = get_t1_ptf_pc_ports(rand_selected_dut, tbinfo)
+    logging.info("Expecting packets in downlink ports {}".format(expected_downlink_ports))
+
+    ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
+    port_packet_count = dict()
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
+        testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
+        # expect multi-mux nexthops to focus packets to one downlink
+        all_allowed_ports = expected_downlink_ports
+        ptf_port_count = count_matched_packets_all_ports(ptfadapter, exp_packet=exp_pkt, exp_tunnel_pkt=exp_tunnel_pkt,
+                                                         ports=all_allowed_ports, timeout=0.1, count=1)
+
+        for ptf_idx, pkt_count in ptf_port_count.items():
+            port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
+
+    logging.info("Received packets in ports: {}".format(str(port_packet_count)))
+    for downlink_int in expected_downlink_ports:
+        # packets should be either 0 or expect_packet_num:
+        count = port_packet_count.get(downlink_int, 0)
+        logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
+        if count > 0 and count != expect_packet_num:
+            pytest.fail("Packets not sent down single active port {}".format(downlink_int))
+
+    if len(downlink_ints) == 0:
+        # All nexthops are now connected to standby mux, and the packets will be sent towards a single portchanel int
+        # Check if uplink distribution is towards a single portchannel
+        check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_packet_num)
 
 
 def verify_upstream_traffic(host, ptfadapter, tbinfo, itfs, server_ip, pkt_num=100, drop=False):
@@ -1235,6 +1294,15 @@ def show_muxcable_status(duthost):
     return ret
 
 
+def check_muxcable_status(duthost, port, expected_status):
+    """
+    Check the muxcable status of a specific interface is as expected.
+    """
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+    return output['MUX_CABLE'][port]['STATUS'] == expected_status
+
+
 def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     """Build ipv4 packet and expected mask packet destinated to server."""
     pkt_dscp = random.choice(list(range(0, 33)))
@@ -1382,7 +1450,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
 
 
 @pytest.fixture(scope='module')
-def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Fetch dual ToR ports
     logger.info("Starting fetching dual ToR info")
 
@@ -1424,9 +1492,8 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     "
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-    dualtor_ports_str = dut_asic.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
-                                                     fetch_dual_tor_ports_script, "0"])
+    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+                                                    fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
     else:
@@ -1480,7 +1547,8 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
 
 @pytest.fixture
-def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost, tbinfo):                 # noqa F811
+def validate_active_active_dualtor_setup(
+    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
     """Validate that both ToRs are active for active-active mux ports."""
 
     def check_active_active_port_status(duthost, ports, status):
@@ -1497,11 +1565,11 @@ def validate_active_active_dualtor_setup(duthosts, active_active_ports, ptfhost,
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
-    # verify icmp_responder is running
-    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
-    if "RUNNING" not in icmp_responder_status:
-        ptfhost.shell("supervisorctl start icmp_responder")
+    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        restart_nic_simulator()
+        ptfhost.shell("supervisorctl restart icmp_responder")
 
+    # verify icmp_responder is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
 
@@ -1566,3 +1634,96 @@ def config_active_active_dualtor_active_standby(
 
         for duthost in duthosts:
             duthost.shell_cmds(cmds=restore_cmds)
+
+
+@pytest.fixture(autouse=True)
+def check_simulator_flap_counter(
+    nic_simulator_flap_counter, simulator_flap_counter, active_active_ports, active_standby_ports, cable_type   # noqa F811
+):
+    """Check the flap count for mux ports."""
+
+    def set_expected_counter_diff(diff):
+        """Set expected counter difference."""
+        if isinstance(diff, list) or isinstance(diff, tuple):
+            expected_diff.extend(diff)
+        else:
+            expected_diff.append(diff)
+
+    def check_nic_simulator_flaps_helper(mux_ports):
+        logging.info("Check active-active mux port flap counters: %s", mux_ports)
+        result = nic_simulator_flap_counter(mux_ports)
+        mux_port_flaps = {}
+        for mux_port, flaps in zip(mux_ports, result):
+            mux_port_flaps[mux_port] = {
+                UPPER_TOR: flaps[ActiveActivePortID.UPPER_TOR],
+                LOWER_TOR: flaps[ActiveActivePortID.LOWER_TOR]
+            }
+        return mux_port_flaps
+
+    def check_mux_simulator_flaps_helper(mux_ports):
+        logging.info("Check active-standby mux port flap counters: %s", mux_ports)
+        mux_port_flaps = {}
+        for mux_port in mux_ports:
+            flaps = simulator_flap_counter(mux_port)
+            mux_port_flaps[mux_port] = {
+                UPPER_TOR: flaps,
+                LOWER_TOR: flaps
+            }
+        return mux_port_flaps
+
+    def check_flaps_diff_active_active(expected_diff, counter_diffs):
+        unexpected_flap_mux_ports = []
+        for mux_port, counter_diff in counter_diffs.items():
+            if (counter_diff[UPPER_TOR] != expected_diff[ActiveActivePortID.UPPER_TOR] or
+                    counter_diff[LOWER_TOR] != expected_diff[ActiveActivePortID.LOWER_TOR]):
+                unexpected_flap_mux_ports.append(mux_port)
+        return unexpected_flap_mux_ports
+
+    def check_flaps_diff_active_standby(expected_diff, counter_diffs):
+        unexpected_flap_mux_ports = []
+        for mux_port, counter_diff in counter_diffs.items():
+            if counter_diff[UPPER_TOR] != expected_diff[-1] or counter_diff[LOWER_TOR] != expected_diff[-1]:
+                unexpected_flap_mux_ports.append(mux_port)
+        return unexpected_flap_mux_ports
+
+    def log_flap_counter(flap_counters):
+        for mux_port, flaps in flap_counters.items():
+            logging.debug("Mux port %s flap counter: %s", mux_port, flaps)
+
+    expected_diff = []
+    if cable_type == CableType.active_active:
+        mux_ports = [str(_) for _ in active_active_ports]
+        check_flap_func = check_nic_simulator_flaps_helper
+        check_flap_diff_func = check_flaps_diff_active_active
+    elif cable_type == CableType.active_standby:
+        mux_ports = [str(_) for _ in active_standby_ports]
+        check_flap_func = check_mux_simulator_flaps_helper
+        check_flap_diff_func = check_flaps_diff_active_standby
+    else:
+        raise ValueError
+
+    counters_before = check_flap_func(mux_ports)
+    log_flap_counter(counters_before)
+    yield set_expected_counter_diff
+    counters_after = check_flap_func(mux_ports)
+    log_flap_counter(counters_after)
+
+    counter_diffs = {}
+    for mux_port in mux_ports:
+        counter_diffs[mux_port] = {
+            UPPER_TOR: counters_after[mux_port][UPPER_TOR] - counters_before[mux_port][UPPER_TOR],
+            LOWER_TOR: counters_after[mux_port][LOWER_TOR] - counters_before[mux_port][LOWER_TOR]
+        }
+    logging.info(
+        "\n%s\n",
+        tabulate.tabulate(
+            [[mux_port, flaps[UPPER_TOR], flaps[LOWER_TOR]] for mux_port, flaps in counter_diffs.items()],
+            headers=["port", "upper ToR flaps", "lower ToR flaps"]
+        )
+    )
+    if expected_diff:
+        unexpected_flap_mux_ports = check_flap_diff_func(expected_diff, counter_diffs)
+        error_str = json.dumps(unexpected_flap_mux_ports, indent=4)
+        if unexpected_flap_mux_ports:
+            logging.error(error_str)
+            raise ValueError(error_str)
