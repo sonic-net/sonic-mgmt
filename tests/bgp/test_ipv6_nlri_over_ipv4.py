@@ -7,10 +7,10 @@ Network Layer Reachability Information (NLRI) over a single IPv4 BGP session.
 import logging
 
 import pytest
-import time
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,6 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
             neigh_namespace = neigh['namespace']
             break
 
-
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])
     logger.debug(duthost.shell('show ipv6 bgp summary')['stdout'])
 
@@ -81,7 +80,7 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
     logger.debug("DUT routes: {}".format(dut_nlri_routes[9]))
     dut_nlri_route = dut_nlri_routes[9].split()[1]
 
-    logger.debug(nbrhosts[neigh_name]["host"].shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))        
+    logger.debug(nbrhosts[neigh_name]["host"].shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))
 
     cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
     neigh_nlri_routes = nbrhosts[neigh_name]["host"].shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
@@ -129,6 +128,19 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, request):
             assert v['state'] == 'established'
 
 
+def check_bgp_summary(host, neighbor, present):
+    ipv4_sum = host.shell(cmd="show ip bgp summary")[u'stdout']
+    isPresent = neighbor in ipv4_sum
+    if isPresent != present:
+        return False
+
+    ipv6_sum = host.shell(cmd="show ipv6 bgp summary")[u'stdout']
+    isPresent = neighbor in ipv6_sum
+    if isPresent != present:
+        return False
+    return True
+
+
 def test_nlri(setup):
     # show current adjacancies
     cmd = "show ipv6 route {}".format(setup['dut_nlri_route'])
@@ -149,21 +161,9 @@ def test_nlri(setup):
                                                   setup['peer_group_v4'], setup['dut_ip_v6'], setup['peer_group_v6'])
     setup['neighhost'].shell(cmd, module_ignore_errors=True)
     logger.debug("Neighbor BGP Config After Neighbor Removal: {}".format(setup['neighhost']
-                                                                        .shell(cmd="show run bgp")['stdout']))
-    logger.debug("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell(cmd="show ip bgp summary")[u'stdout']))
-    logger.debug("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost']
-                                                       .shell(cmd="show ipv6 bgp summary")[u'stdout']))
-    time.sleep(30)
+                                                                         .shell(cmd="show run bgp")['stdout']))
 
-    logger.debug("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell(cmd="show ip bgp summary")[u'stdout']))
-    logger.debug("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost']
-                                                       .shell(cmd="show ipv6 bgp summary")[u'stdout']))
-    time.sleep(30)
-
-    logger.debug("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell(cmd="show ip bgp summary")[u'stdout']))
-    logger.debug("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost']
-                                                       .shell(cmd="show ipv6 bgp summary")[u'stdout']))
-    time.sleep(30)
+    wait_until(90, 10, 0, check_bgp_summary, setup['neighhost'], setup['dut_ip_v4'], False)
 
     # clear BGP table
     cmd = 'vtysh -n {} -c "clear ip bgp * soft"'.format(setup['asic_index'])
@@ -210,21 +210,18 @@ def test_nlri(setup):
     setup['neighhost'].shell(cmd, module_ignore_errors=True)
     logger.debug("Neighbor BGP Config After Peer Config: {}".format(setup['neighhost'].shell('show run bgp')['stdout']))
 
-    time.sleep(30)
-
-    logger.debug("Neighbor BGP IPv4 Summary: {}".format(setup['neighhost'].shell("show ip bgp summary")['stdout']))
-    logger.debug("Neighbor BGP IPv6 Summary: {}".format(setup['neighhost'].shell("show ipv6 bgp summary")['stdout']))
+    wait_until(90, 10, 0, check_bgp_summary, setup['neighhost'], setup['dut_ip_v4'], True)
 
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
-    pytest_assert(bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established', 
+    pytest_assert(bgp_facts['bgp_neighbors'][setup['neigh_ip_v4']]['state'] == 'established',
                   "Neighbor IPv4 state is no established.")
 
     # verify route is shared
     cmd = "show ipv6 route {}".format(setup['dut_nlri_route'])
     dut_route_out = setup['duthost'].shell(cmd)['stdout']
-    pytest_assert("Routing entry for {}".format(setup['dut_nlri_route']) in dut_route_out, 
+    pytest_assert("Routing entry for {}".format(setup['dut_nlri_route']) in dut_route_out,
                   "Routing entry for DUT not established.")
     cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
-    pytest_assert("Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out, 
+    pytest_assert("Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out,
                   "Routing entry for neighbor not established.")
