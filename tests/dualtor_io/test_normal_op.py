@@ -7,9 +7,12 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
                                                   send_server_to_server_with_action                 # noqa F401
 from tests.common.dualtor.dual_tor_common import cable_type     # noqa F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, force_active_tor, force_standby_tor
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, \
+                                                force_active_tor, force_standby_tor                 # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
+                                                copy_ptftests_directory, change_mac_addresses       # noqa F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC, CONFIG_RELOAD_ALLOWED_DISRUPTION_SEC
 
 
