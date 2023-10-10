@@ -43,6 +43,7 @@
 
 import os.path
 import json
+import base64
 from datetime import datetime
 import logging
 import random
@@ -210,7 +211,7 @@ class VXLAN(BaseTest):
             vni = self.config_data['vnet_vni_map'][vnet]
             for addr in neighbors:
                 for destination, nexthops in \
-                        self.config_data['dest_to_nh_map'][vnet].items():
+                        list(self.config_data['dest_to_nh_map'][vnet].items()):
                     self.test_encap(
                         ptf_port,
                         vni,
@@ -251,7 +252,7 @@ class VXLAN(BaseTest):
         if set(nhs) - set(returned_ip_addresses.keys()) == set([]):
             Logger.info("    Each valid endpoint address has been used")
             Logger.info("Packets sent:%s distribution:", packet_count)
-            for nh_address in returned_ip_addresses.keys():
+            for nh_address in list(returned_ip_addresses.keys()):
                 Logger.info("      %s : %s",
                             nh_address,
                             returned_ip_addresses[nh_address])
@@ -262,7 +263,7 @@ class VXLAN(BaseTest):
             # packets(300). Any lower number will need higher
             # tolerance(more than 2%).
             if packet_count > MINIMUM_PACKETS_FOR_ECMP_VALIDATION:
-                for nh_address in returned_ip_addresses.keys():
+                for nh_address in list(returned_ip_addresses.keys()):
                     if (1.0-self.tolerance) * packet_count <= \
                         returned_ip_addresses[nh_address] <= \
                             (1.0+self.tolerance) * packet_count:
@@ -416,7 +417,7 @@ class VXLAN(BaseTest):
                             vxlan_vni=vni,
                             inner_frame=exp_pkt,
                             **options_v6)
-                    send_packet(self, ptf_port, str(pkt))
+                    send_packet(self, ptf_port, pkt)
 
                 # After we sent all packets, wait for the responses.
                 if expect_success:
@@ -482,8 +483,6 @@ class VXLAN(BaseTest):
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
                                                              "hlim")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
-                                                             "chksum")
-                        masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6,
                                                              "dst")
                         masked_exp_pkt.set_do_not_care_scapy(scapy.UDP,
                                                              "sport")
@@ -513,7 +512,9 @@ class VXLAN(BaseTest):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((ptf_port, str(pkt).encode("base64")))
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
+            self.packets.append((ptf_port, base64_str))
 
         finally:
             Logger.info("")
@@ -671,7 +672,7 @@ class VxLAN_in_VxLAN(VXLAN):
                             vxlan_vni=vni,
                             inner_frame=exp_pkt,
                             **options_v6)
-                    send_packet(self, ptf_port, str(pkt))
+                    send_packet(self, ptf_port, pkt)
 
                 # After we sent all packets, wait for the responses.
                 if expect_success:
@@ -768,7 +769,9 @@ class VxLAN_in_VxLAN(VXLAN):
                     self.downed_endpoints)
 
             pkt.load = '0' * 60 + str(len(self.packets))
-            self.packets.append((ptf_port, str(pkt).encode("base64")))
+            b = base64.b64encode(bytes(str(pkt), 'utf-8'))  # bytes
+            base64_str = b.decode('utf-8')  # convert bytes to string
+            self.packets.append((ptf_port, base64_str))
 
         finally:
             Logger.info("")

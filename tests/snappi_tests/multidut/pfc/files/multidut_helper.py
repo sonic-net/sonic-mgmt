@@ -9,7 +9,7 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
-    verify_background_flow, verify_pause_frame_count, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
+    verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
     verify_unset_cev_pause_frame_count # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams # noqa F401
 
@@ -182,5 +182,5 @@ def run_pfc_test(api,
                                      test_flow_pkt_size=data_flow_pkt_size,
                                      snappi_extra_params=snappi_extra_params)
         # Verify PFC pause frame count
-        verify_pause_frame_count(duthost=duthost2,
-                                 snappi_extra_params=snappi_extra_params)
+        verify_pause_frame_count_dut(duthost=duthost2,
+                                     snappi_extra_params=snappi_extra_params)
