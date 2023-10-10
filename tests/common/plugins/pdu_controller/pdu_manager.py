@@ -198,7 +198,7 @@ class PduManager():
         return status
 
     def close(self):
-        for controller in Feed.controllers:
+        for controller in Feed.controllers.values():
             controller.close()
 
 
