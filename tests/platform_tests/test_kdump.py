@@ -4,7 +4,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup, REBOOT_TYPE_COLD
+from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
+    check_reboot_cause, REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
@@ -83,8 +84,7 @@ class TestKernelPanic:
         dut_uptime = duthost.get_up_time()
         pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
 
-        out = duthost.command('show reboot-cause')
-        if "Kernel Panic" not in out["stdout"]:
+        if not check_reboot_cause(duthost, REBOOT_TYPE_KERNEL_PANIC):
             pytest.fail('DUT {}: Incorrect reboot-cause, not due to kernel panic'.format(hostname))
 
     def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
