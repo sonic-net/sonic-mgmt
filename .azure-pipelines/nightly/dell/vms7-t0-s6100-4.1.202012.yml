@@ -43,16 +43,8 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "platform_tests pfcwd"'
+    default: '-I "pfc_asym span platform_tests bgp generic_config_updater acl show_techsupport pc metadata-scripts"'
     displayName: Testbed specific
-
-  # Custom skip scripts
-  - name: SKIP_SCRIPTS
-    type: string
-    default: "platform_tests/test_advanced_reboot.py::test_warm_reboot \
-              platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump \
-              platform_tests/test_advanced_reboot.py::test_warm_reboot_sad"
-    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -61,4 +53,3 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
