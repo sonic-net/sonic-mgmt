@@ -303,24 +303,30 @@ def get_asic_name(duthost):
     asic = "unknown"
     gcu_conf = get_gcu_field_operations_conf(duthost)
     asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+
+    def _get_asic_name(asic_type):
+        cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        # The key name is like "mellanox_asics" or "broadcom_asics"
+        asic_key_name = asic_type + "_asics"
+        if asic_key_name not in asic_mapping:
+            return "unknown"
+        asic_hwskus = asic_mapping[asic_key_name]
+        for asic_name, hwskus in asic_hwskus.items():
+            if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
+                return asic_name
+        return "unknown"
+
     if asic_type == 'cisco-8000':
         asic = "cisco-8000"
-    elif asic_type == 'mellanox' or asic_type == 'vs' or asic_type == 'broadcom':
-        hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
-        if asic_type == 'mellanox' or asic_type == 'vs':
-            spc1_hwskus = asic_mapping["mellanox_asics"]["spc1"]
-            if hwsku.lower() in [spc1_hwsku.lower() for spc1_hwsku in spc1_hwskus]:
-                asic = "spc1"
-                return asic
-        if asic_type == 'broadcom' or asic_type == 'vs':
-            broadcom_asics = asic_mapping["broadcom_asics"]
-            for asic_shorthand, hwskus in broadcom_asics.items():
-                for hwsku_cur in hwskus:
-                    if hwsku_cur.lower() in hwsku.lower():
-                        asic = asic_shorthand
-                        break
-                else:
-                    continue
+    elif asic_type in ('mellanox', 'broadcom'):
+        asic = _get_asic_name(asic_type)
+    elif asic_type == 'vs':
+        # We need to check both mellanox and broadcom asics for vs platform
+        dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
+        for dummy_asic in dummy_asic_list:
+            tmp_asic = _get_asic_name(dummy_asic)
+            if tmp_asic != "unknown":
+                asic = tmp_asic
                 break
 
     return asic
@@ -331,8 +337,14 @@ def is_valid_platform_and_version(duthost, table, scenario):
     os_version = duthost.os_version
     if asic == "unknown":
         return False
-    if "master" or "internal" in os_version:
+    if "master" in os_version or "internal" in os_version:
         return True
     gcu_conf = get_gcu_field_operations_conf(duthost)
-    version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario][asic][0:6]
-    return os_version >= version_required
+    try:
+        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        # os_version is in format "20220531.04", version_required is in format "20220500"
+        return os_version[0:8] >= version_required[0:8]
+    except KeyError:
+        return False
+    except IndexError:
+        return False
