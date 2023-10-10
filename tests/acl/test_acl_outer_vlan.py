@@ -695,15 +695,6 @@ def skip_sonic_leaf_fanout(fanouthosts):
                 pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
 
-@pytest.fixture(scope='module', autouse=True)
-def skip_sonic_dualtor(tbinfo):
-    """
-    dualtor does not need portchannel in vlan
-    """
-    if 'dualtor' in tbinfo['topo']['name']:
-        pytest.skip("Not supported on dualtor platform")
-
-
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
     """
     Verify ACL rule matching outer vlan id in ingress
