@@ -8,6 +8,7 @@ To save test time, the script randomly chooses 3 ports to do following test:
 """
 import logging
 import pytest
+import contextlib
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -125,6 +126,16 @@ def recover_ports(duthosts, fanouthosts):
         config_reload(duthost)
 
 
+@contextlib.contextmanager
+def shutdown_port_on_duthost(duthost, iface):
+    """Shutdown interface  on a device. and start up the port when  the context finish """
+    if is_mellanox_device(duthost):
+        duthost.shell("config interface shutdown {}".format(iface))
+    yield
+    if is_mellanox_device(duthost):
+        duthost.shell("config interface startup {}".format(iface))
+
+
 def check_ports_up(duthost, dut_ports, expect_speed=None):
     """Check if given ports are operational up or not
 
@@ -172,24 +183,25 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     skip_if_no_multi_speed_adv_support(fanout, fanout_port)
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
-    success = fanout.set_auto_negotiation_mode(fanout_port, True)
-    pytest_require(success, 'Failed to set autoneg mode on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port))
+    with shutdown_port_on_duthost(duthost, dut_port):
+        success = fanout.set_auto_negotiation_mode(fanout_port, True)
+        pytest_require(success, 'Failed to set autoneg mode on fanout. Fanout: {}, port: {}'.format(fanout,
+                                                                                                    fanout_port))
 
-    # Advertise all supported speeds in fanout port
-    success = fanout.set_speed(fanout_port, None)
-    pytest_require(
-        success,
-        'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port)
-    )
+        # Advertise all supported speeds in fanout port
+        success = fanout.set_speed(fanout_port, None)
+        pytest_require(
+            success,
+            'Failed to advertise all speeds on fanout. Fanout: {}, port: {}'.format(fanout, fanout_port)
+        )
 
-    if dut_all_speeds_option == SPEEDS_BY_LITERAL:
-        all_speeds = 'all'
-    else:
-        all_speeds = ','.join(duthost.get_supported_speeds(portname))
+        if dut_all_speeds_option == SPEEDS_BY_LITERAL:
+            all_speeds = 'all'
+        else:
+            all_speeds = ','.join(duthost.get_supported_speeds(portname))
 
-    duthost.shell('config interface autoneg {} enabled'.format(dut_port))
-    duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, all_speeds))
-
+        duthost.shell('config interface autoneg {} enabled'.format(dut_port))
+        duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, all_speeds))
     logger.info('Wait until all ports are up')
     wait_result = wait_until(
         ALL_PORT_WAIT_TIME,
@@ -224,15 +236,16 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
     )
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
-    success = fanout.set_auto_negotiation_mode(fanout_port, True)
-    pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
+    with shutdown_port_on_duthost(duthost, dut_port):
+        success = fanout.set_auto_negotiation_mode(fanout_port, True)
+        pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
 
-    # Advertise all supported speeds in fanout port
-    success = fanout.set_speed(fanout_port, None)
-    pytest_require(success, 'Failed to advertise all speeds on fanout port {}'.format(fanout_port))
+        # Advertise all supported speeds in fanout port
+        success = fanout.set_speed(fanout_port, None)
+        pytest_require(success, 'Failed to advertise all speeds on fanout port {}'.format(fanout_port))
 
-    duthost.shell('config interface autoneg {} enabled'.format(dut_port))
-    duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, speed))
+        duthost.shell('config interface autoneg {} enabled'.format(dut_port))
+        duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, speed))
     logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
     wait_result = wait_until(
         SINGLE_PORT_WAIT_TIME,
@@ -261,25 +274,25 @@ def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fi
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
+    with shutdown_port_on_duthost(duthost, dut_port):
+        if dut_all_speeds_option == SPEEDS_BY_LITERAL:
+            dut_advertised_speeds = 'all'
+        else:
+            dut_advertised_speeds = ','.join(duthost.get_supported_speeds(portname))
 
-    if dut_all_speeds_option == SPEEDS_BY_LITERAL:
-        dut_advertised_speeds = 'all'
-    else:
-        dut_advertised_speeds = ','.join(duthost.get_supported_speeds(portname))
+        speed = enum_speed_per_dutport_fixture['speed']
+        pytest_require(
+            is_sfp_speed_supported(duthost, portname, speed),
+            'Speed {} is not supported for given port/SFP'.format(speed)
+        )
 
-    speed = enum_speed_per_dutport_fixture['speed']
-    pytest_require(
-        is_sfp_speed_supported(duthost, portname, speed),
-        'Speed {} is not supported for given port/SFP'.format(speed)
-    )
+        duthost.shell('config interface autoneg {} enabled'.format(dut_port))
+        duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, dut_advertised_speeds))
 
-    duthost.shell('config interface autoneg {} enabled'.format(dut_port))
-    duthost.shell('config interface advertised-speeds {} {}'.format(dut_port, dut_advertised_speeds))
-
-    success = fanout.set_auto_negotiation_mode(fanout_port, True)
-    pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
-    success = fanout.set_speed(fanout_port, speed)
-    pytest_require(success, 'Failed to advertised speeds on fanout port {}, speed {}'.format(fanout_port, speed))
+        success = fanout.set_auto_negotiation_mode(fanout_port, True)
+        pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
+        success = fanout.set_speed(fanout_port, speed)
+        pytest_require(success, 'Failed to advertised speeds on fanout port {}, speed {}'.format(fanout_port, speed))
 
     logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
     wait_result = wait_until(
@@ -327,19 +340,19 @@ def test_force_speed(enum_speed_per_dutport_fixture):
 
     logger.info('Start test for DUT port {} and fanout port {}'.format(dut_port, fanout_port))
     # Disable auto negotiation on fanout port
-    success = fanout.set_auto_negotiation_mode(fanout_port, False)
-    pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
+    with shutdown_port_on_duthost(duthost, dut_port):
+        success = fanout.set_auto_negotiation_mode(fanout_port, False)
+        pytest_require(success, 'Failed to set port autoneg on fanout port {}'.format(fanout_port))
 
-    success = fanout.set_speed(fanout_port, speed)
-    pytest_require(success, 'Failed to speed on fanout port {}, speed {}'.format(fanout_port, speed))
+        success = fanout.set_speed(fanout_port, speed)
+        pytest_require(success, 'Failed to speed on fanout port {}, speed {}'.format(fanout_port, speed))
 
-    duthost.shell('config interface autoneg {} disabled'.format(dut_port))
-    duthost.shell('config interface speed {} {}'.format(dut_port, speed))
+        duthost.shell('config interface autoneg {} disabled'.format(dut_port))
+        duthost.shell('config interface speed {} {}'.format(dut_port, speed))
+        duthost.set_port_fec(dut_port, fec_mode)
+        fanout.set_port_fec(fanout_port, fec_mode)
+
     logger.info('Wait until the port status is up, expected speed: {}'.format(speed))
-
-    duthost.set_port_fec(dut_port, fec_mode)
-    fanout.set_port_fec(fanout_port, fec_mode)
-
     wait_result = wait_until(
         SINGLE_PORT_WAIT_TIME,
         PORT_STATUS_CHECK_INTERVAL,
