@@ -63,13 +63,14 @@ def config_force_option_supported(duthost):
 
 @ignore_loganalyzer
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
-                  safe_reload=False, wait_before_force_reload=0,
+                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False, is_dut=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for sonic_host to initialize after configuration reload
+    :param wait_for_bgp: True to wait for all BGP connections to come up after configuration reload
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :param is_dut: True if the host is DUT, False if the host may be neighbor device.
                     To the non-DUT host, it may lack of some runtime variables like `topo_type`
@@ -151,3 +152,8 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                           "Not all ports that are admin up on are operationally up")
     else:
         time.sleep(wait)
+
+    if wait_for_bgp:
+        bgp_neighbors = sonic_host.get_bgp_neighbors().keys()
+        pytest_assert(wait_until(120, 10, 0, sonic_host.check_bgp_session_state, bgp_neighbors),
+                      "Not all bgp sessions are established after config reload")

@@ -1,0 +1,31 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    croc2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 1.74.25.71, port: 22}
+        rps: {model: Raritan, ip: 172.27.147.219, outlet: 17, username: admin, password: roZes@123}
+        credentials: {username: cisco, password: cisco123, altpassword: sonic123}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: stc, version: 5.20, ip: 172.27.147.23, params: def_tg}
+
+topology:
+    croc2:
+        interfaces:
+            Ethernet40: {EndDevice: T1, EndPort: 10/1, params: def_tg_link}
+            Ethernet48: {EndDevice: T1, EndPort: 10/9, params: def_tg_link}
+

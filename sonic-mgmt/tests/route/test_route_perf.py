@@ -410,7 +410,7 @@ def test_perf_add_remove_routes(
 
         # Traffic verification with 10 random routes
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        port_indices = mg_facts["minigraph_port_indices"]
+        port_indices = mg_facts["minigraph_ptf_indices"]
         nexthop_intf = str_intf_nexthop["ifname"].split(",")
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (

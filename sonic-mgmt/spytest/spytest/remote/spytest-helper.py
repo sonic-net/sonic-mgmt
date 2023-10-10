@@ -96,6 +96,8 @@ def read_port_inifile():
     :return:
     """
     Platform, HwSKU = get_hw_values()
+    if HwSKU.split("-")[0] == "Cisco":
+        return ""
     int_file = "{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU)
     cmd = "cat {} | tail -1".format(int_file)
     output = execute_check_cmd(cmd)
@@ -550,7 +552,7 @@ def create_default_base_config():
 
     # save the config to init file.
     
-    if is_multi_asic:
+    if is_multi_asic():
         file = init_config_file
         file0 = file
         asic_count = parse_show_platform_summary()['ASIC Count']
@@ -789,7 +791,7 @@ def is_integrated_vtysh_config():
 
 
 def vtysh_save():
-    if not is_multi_asic:
+    if not is_multi_asic():
         execute_cmd_retry("vtysh -c write file", config_db_operation_retry)
         execute_check_cmd("ls -ltir {}".format(frr_dir), skip_error=True)
         print("integrated-vtysh-config = {}".format(is_integrated_vtysh_config()))
@@ -852,7 +854,7 @@ def apply_ta_config(method, port_init_wait, poll_for_ports, config_type):
 
     # Save current config in DB to temp file to and compare it with base/module config_db.json file
     # If there is a change, add config to list.
-    if is_multi_asic:
+    if is_multi_asic():
         file = init_config_file
         file0 = file
         asic_count = parse_show_platform_summary()['ASIC Count']

@@ -1450,7 +1450,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
 
 
 @pytest.fixture(scope='module')
-def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Fetch dual ToR ports
     logger.info("Starting fetching dual ToR info")
 
@@ -1492,9 +1492,8 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     "
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-    dualtor_ports_str = dut_asic.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
-                                                     fetch_dual_tor_ports_script, "0"])
+    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+                                                    fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
     else:
