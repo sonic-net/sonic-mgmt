@@ -39,22 +39,42 @@ def pdu_controller(duthosts, conn_graph_facts):
               controller_base.py.
     """
     duthost = get_sup_node_or_random_node(duthosts)
-    pdu_hosts = get_pdu_hosts(duthost)
-    pdu_hostnames = []
-    if pdu_hosts:
-        pdu_hostnames = pdu_hosts.keys()
+    hostname = duthost.hostname
+    device_pdu_links = conn_graph_facts['device_pdu_links']
+    device_pdu_info = conn_graph_facts['device_pdu_info']
+    if hostname not in device_pdu_links or hostname not in device_pdu_info:
+        # fall back to using inventory
+        inv_mgr = duthost.host.options["inventory_manager"]
+        pdu_host = inv_mgr.get_host(duthost.hostname).get_vars().get("pdu_host")
+        hosts = inv_mgr.get_host_list('all', pdu_host)
+        pdu_links = {}
+        pdu_info = {}
+        pdu_vars = {}
+        index = 1
+        for ph in pdu_host.split(','):
+            if ph in hosts:
+                host_vars = hosts[ph]
+                pdu_links['PSU{}'.format(index)] = {
+                    'N/A': {
+                        'peerdevice': ph,
+                        'peerport': 'probing',
+                        'feed': 'N/A',
+                    }
+                }
+                pdu_info[ph] = {
+                    'Hostname': ph,
+                    'Protocol': host_vars['protocol'],
+                    'ManagementIp': host_vars['ansible_host'],
+                    'Type': 'Pdu',
+                }
+                pdu_vars[ph] = host_vars
+                index = index + 1
     else:
-        duthost_pdu_info = conn_graph_facts.get("device_pdu_info", {}).get(duthost.hostname, {})
-        pdu_hostnames = [pdu["Hostname"] for pdu in duthost_pdu_info.values()]
+        pdu_links = device_pdu_links[hostname]
+        pdu_info = device_pdu_info[hostname]
+        pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_info.keys())
 
-    pdu_vars = get_pdu_visible_vars(duthost.host.options["inventory_manager"]._sources, pdu_hostnames)
-    logger.info("xxxxxxxxxxxxxxxxx")
-    logger.info("pdu_hosts {}".format(pdu_hosts))
-    logger.info("xxxxxxxxxxxxxxxxx")
-    logger.info("conn_graph_facts {}".format(conn_graph_facts))
-    logger.info("xxxxxxxxxxxxxxxxx")
-    logger.info("pdu_vars {}".format(pdu_vars))
-    controller = pdu_manager_factory(duthost.hostname, pdu_hosts, conn_graph_facts, pdu_vars)
+    controller = pdu_manager_factory(duthost.hostname, pdu_links, pdu_info, pdu_vars)
 
     yield controller
 
