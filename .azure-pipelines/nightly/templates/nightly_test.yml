@@ -1,4 +1,7 @@
 parameters:
+  - name: TEST_BRIEF
+    type: string
+
   - name: TESTBED_NAME
     type: string
 
@@ -12,6 +15,10 @@ parameters:
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
     default: 1800    # minutes, totally 30 hours
+
+  - name: LOCK_POLLING_TIMEOUT
+    type: number
+    default: 7200    # seconds, totally 2 hours
 
   - name: AGENT_POOL
     type: string
@@ -189,7 +196,7 @@ stages:
                 print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
           - script: |
-              TIMEOUT=7200
+              TIMEOUT=${{ parameters.LOCK_POLLING_TIMEOUT }}
               INTERVAL=60
 
               wait_time=0

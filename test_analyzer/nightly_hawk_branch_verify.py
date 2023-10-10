@@ -46,28 +46,98 @@ NIGHTLY_PIPELINE_YML_DIR = os.path.join(SONIC_MGMT_DIR, '.azure-pipelines/nightl
 
 from nightly_hawk_common import logger
 
+import yaml
+from yaml.loader import SafeLoader
+
 
 class Nightly_hawk_branch_verify(object):
-    def __init__(self, verbose = False, branch = None, image = None, script=None, specific=None, skip=False):
+    def __init__(self, verbose = False, test_brief='Test-Brief', branch = None, type = None, image = None, imagetag = None, script=None, specific=None, skip=False, lock_timeout=7200, pipeline_timeout=1800):
         self.verbose = verbose
+        self.test_brief = test_brief
         self.branch = branch
         self.script_branch = script
         self.testbed_specific = specific
         self.skip_upload_result = skip
-        self.image = image
+        self.image_folder = image
+        self.imagetag = imagetag
         self.testbeds = {}
+        self.testbeds_inventory = {}  # record hwsku for each testbed and dut
         self.curr_building_testbed_list = []
         self.pipeline_parser_analyzer_dict = {}
+        self.case_verify_pipeline_id = 953
+        self.lock_timeout = lock_timeout
+        self.pipeline_timeout = pipeline_timeout
+
+        self.parse_testbeds_inventory()
+
         self.nightly_pipeline_check = NightlyPipelineCheck()
 
-        self.pipeline_parser_analyzer_dict = self.nightly_pipeline_check.collect_nightly_build_pipelines()
-
+        # self.pipeline_parser_analyzer_dict = self.nightly_pipeline_check.collect_nightly_build_pipelines()
         # with open('pipeline_parser_dict_debug_branch_verify.json') as f:
         # # with open('pipeline_parser_dict_debug.json') as f:
         #     logger.info("parser_pipeline_info using cache file")
         #     self.pipeline_parser_analyzer_dict = json.load(f)
 
         logger.debug("Get all nightly test pipeline information: {}".format(self.pipeline_parser_analyzer_dict))
+
+
+    def parse_testbeds_inventory(self):
+        self.testbeds_inventory = {}
+        dut_to_tb = {}
+        with open(os.path.join(SONIC_MGMT_DIR, 'ansible/testbed.yaml')) as fp:
+            yml = yaml.load(fp, Loader=SafeLoader)
+            for testbed in yml:
+                tb = testbed['conf-name']
+                self.testbeds_inventory[tb] = {}
+                for dut in testbed['dut']:
+                    self.testbeds_inventory[tb][dut] = {}
+                    dut_to_tb[dut] = tb
+        self._parse_dut_inventory(dut_to_tb)
+
+
+    def _parse_dut_inventory(self, dut_to_tb):
+        for inv_filename in ('str', 'str2', 'str3', 'strsvc', 'strsvc2', 'bjw'):
+            with open(os.path.join(SONIC_MGMT_DIR, 'ansible/{}'.format(inv_filename)), "r") as inv:
+                yml = yaml.load(inv, Loader=SafeLoader)
+                for section in yml.values():
+                    if 'vars' in section and 'hosts' in section:
+                        for hostname, hostinfo in section['hosts'].items():
+                            tb = dut_to_tb.get(hostname, None)
+                            if tb and hostname in self.testbeds_inventory[tb]:
+                                self.testbeds_inventory[tb][hostname]['hwsku'] = \
+                                    hostinfo['hwsku'] if 'hwsku' in hostinfo else section['vars'].get('hwsku', None)
+                    elif 'hosts' in section:
+                        for hostname, hostinfo in section['hosts'].items():
+                            tb = dut_to_tb.get(hostname, None)
+                            if tb and hostname in self.testbeds_inventory[tb] and 'hwsku' in hostinfo and 'ansible_host' in hostinfo:
+                                self.testbeds_inventory[tb][hostname]['hwsku'] = hostinfo['hwsku']
+
+
+    def lookup_dut_hwsku(self, testbed):
+        if testbed not in self.testbeds_inventory:
+            return None
+        hwsku = set()
+        for dutinfo in self.testbeds_inventory[testbed].values():
+            if 'hwsku' in dutinfo and dutinfo['hwsku'] != None:
+                hwsku.add(dutinfo['hwsku'])
+        if len(hwsku) != 1:
+            return None
+        else:
+            return list(hwsku)[0]
+
+
+    def check_tb_in_require_bjw_lab(self, testbed):
+        if testbed not in self.testbeds_inventory:
+            return False
+        inv = set()
+        for dutname in self.testbeds_inventory[testbed]:
+            pre = dutname.split('-', 1)[0]
+            if pre != None:
+                inv.add(pre)
+        if len(inv) != 1:
+            return False
+        else:
+            return list(inv)[0] == 'bjw'
 
 
     def check_testbed_is_available(self, testbed):
@@ -269,12 +339,285 @@ class Nightly_hawk_branch_verify(object):
         return
 
 
+    def parser_input_testbed_name(self, testbedNames):
+        logger.debug("parser_input_testbed_name")    
+
+        if testbedNames and (testbedNames.isspace() == False):
+            testbedName_list = testbedNames.split(",")
+            logger.info("Input testbed names {}".format(testbedName_list))
+            for testbedTmp in testbedName_list:
+                testbed = testbedTmp.strip()
+                self.testbeds[testbed] = {}
+            logger.info("Input testbeds {}".format(self.testbeds))
+        else:
+            logger.warning("Input testbeds {} incorrect".format(self.testbeds))
+
+        return
+
+    def build_URLs(self, testbed):
+        # format input parameter
+        testbed_name = str(testbed).strip()
+        image_base_branch = str(self.branch).strip()
+        private_image_folder = None if self.image_folder is None else str(self.image_folder).strip()
+        image_tag = None if self.imagetag is None else str(self.imagetag).strip()
+        hwsku = self.lookup_dut_hwsku(testbed_name)
+        logger.debug("Building {} device {}'s image URL for branch {}, private folder {}, tag {}".
+            format(hwsku, testbed_name, image_base_branch, private_image_folder, image_tag))
+
+        hwsku_package_info = {# {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'suffix': 'dnx', 'lightweight': 'slim', 'extension': 'swi'},
+            #
+            'ACS-MSN3800':              None,
+            #
+            # testbed-bjw-can-4600c-1, vms7-t0-4600c-2
+            'ACS-MSN4600C':             {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'extension': 'bin'},
+            #
+            # testbed-bjw-can-7050qx-2, vms18-t0-7050qx-acs-02, vms18-t1-7050qx-acs-03
+            'Arista-7050-QX-32S':       {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'lightweight': 'slim', 'extension': 'swi'},
+            #
+            'Arista-7050-QX32':         None,
+            #
+            # testbed-bjw-can-7050qx-1, vms24-t1-7050qx-acs-01
+            'Arista-7050QX32S-Q32':     {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'lightweight': 'slim', 'extension': 'swi'},
+            #
+            # vms20-t0-7050cx3-1, vms20-t0-7050cx3-2, vms28-t0-7050-14, vmsvc1-dual-t0-7050-2, vms24-dual-t0-7050-1, vms20-t1-7050cx3-3
+            'Arista-7050CX3-32S-C32':   {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'extension': 'swi'},
+            #
+            # vms21-dual-t0-7050-3
+            'Arista-7050CX3-32S-D48C8': {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'extension': 'swi'},
+            #
+            # vms6-t1-7060, vms63-t1-7060-3
+            'Arista-7060CX-32S-C32':    {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'lightweight': 'slim', 'extension': 'swi'},
+            #
+            # vms63-t0-7060-2, vms63-t0-7060-1, vms6-t0-7060
+            'Arista-7060CX-32S-D48C8':  {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'lightweight': 'slim', 'extension': 'swi'},
+            #
+            'Arista-7060CX-32S-Q32':    None,
+            # unknown
+            'Arista-7060DX5-32':        None,
+            # unknown
+            'Arista-7170-64C':          None,
+            #
+            'Arista-720DT-G48S4':       None,
+            #
+            # vms2-t1-7260-7
+            'Arista-7260CX3-C64':       {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'extension': 'swi'},
+            #
+            # vms24-t0-7260-2, vms7-t0-7260-2, vms7-t0-7260-1, vms21-dual-t0-7260
+            'Arista-7260CX3-D108C8':    {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'extension': 'swi'},
+            #
+            # vms3-t1-7280
+            'Arista-7280CR3-C40':       {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'image_type': 'aboot', 'suffix': 'dnx', 'extension': 'swi'},
+            # unknown'
+            'Arista-7800R3-48CQ2-C4':   None,
+            #
+            'Arista-7800R3-48CQ2-C48':  None,
+            #
+            'Arista-7800R3-48CQM2-C48': None,
+            #
+            'Arista-7800R3A-36DM2-C36': None,
+            #
+            'Arista-7800R3A-36DM2-D36': None,
+            # unknown
+            'Arista-7808R3A-FM':        None,
+            #
+            # vms20-t1-dx010-6, vms3-t1-dx010-1, vms21-t0-dx010-7
+            'Celestica-DX010-C32':      {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'extension': 'bin'},
+            #
+            # vms7-t0-dx010-5
+            'Celestica-DX010-D48C8':    {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'extension': 'bin'},
+            #
+            'Celestica-E1031-T48S4':    None,
+            #
+            # testbed-bjw-can-8102-1, vms21-t1-8102-01, vms21-t1-8111-06, vms61-t1-8101-01,  vms61-t1-8101-03
+            'Cisco-8101-O32':           {'sai_vendor': 'BRCM', 'image_vendor': 'cisco-8000', 'suffix': 'nosec', 'extension': 'bin'},
+            'Cisco-8101-O8C48':         {'sai_vendor': 'BRCM', 'image_vendor': 'cisco-8000', 'suffix': 'nosec', 'extension': 'bin'},
+            'Cisco-8102-C64':           {'sai_vendor': 'BRCM', 'image_vendor': 'cisco-8000', 'suffix': 'nosec', 'extension': 'bin'},
+            'Cisco-8111-O32':           {'sai_vendor': 'BRCM', 'image_vendor': 'cisco-8000', 'suffix': 'nosec', 'extension': 'bin'},
+            'Cisco-8111-O64':           {'sai_vendor': 'BRCM', 'image_vendor': 'cisco-8000', 'suffix': 'nosec', 'extension': 'bin'},
+            # unknown
+            'Cisco-88-LC0-36FH-M-O36':  None,
+            #
+            'Cisco-88-LC0-36FH-O36':    None,
+            # unknown'
+            'Cisco-8800-LC-48H-C48':    None,
+            #
+            'Cisco-8800-RP':            None,
+            # unknown
+            'DellEMC-S5232f-C32':       None,
+            # unknown
+            'Delta-AGC7648':            None,
+            #
+            # vms13-5-t1-lag, vms11-t0-on-4
+            'Force10-S6000':            {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'extension': 'bin'},
+            #
+            # vms64-t1-s6100-1, vms7-t1-s6100, vms64-t0-s6100-1, vms7-t0-s6100-4, vms7-t0-s6100
+            'Force10-S6100':            {'sai_vendor': 'BRCM', 'image_vendor': 'broadcom', 'extension': 'bin'},
+            # unknown
+            'Force10-Z9100-C32':        None,
+            #
+            # vms21-t1-2700-2, vms21-t0-2700, vms12-t0-8-lag-2700, vms1-8, testbed-bjw-can-2700-1, testbed-bjw-can-2700-2, vms2-4-t0-2700
+            'Mellanox-SN2700':          {'sai_vendor': 'MLNX', 'image_vendor': 'mellanox', 'extension': 'bin'},
+            #
+            'Mellanox-SN2700-D40C8S8':  None,
+            #
+            # vms20-t0-sn3800-2
+            'Mellanox-SN3800-D112C8':   {'sai_vendor': 'MLNX', 'image_vendor': 'mellanox', 'extension': 'bin'},
+            #
+            # vms63-t0-dual-4600-1, vms18-t1-msn4600c-acs-1, vms63-t1-4600-5, vms28-t0-4600c-04
+            'Mellanox-SN4600C-C64':     {'sai_vendor': 'MLNX', 'image_vendor': 'mellanox', 'extension': 'bin'},
+            #
+            # vms64-t1-4700-1
+            'Mellanox-SN4700-O8C48':    {'sai_vendor': 'MLNX', 'image_vendor': 'mellanox', 'extension': 'bin'},
+            #
+            'newport':                  None,
+            # unknown
+            'Nexus-3132-GE-Q32':        None,
+            #
+            'Nexus-3132-GX-Q32':        None,
+            # unknown
+            'Nexus-3164':               None,
+            #
+            'Nokia-7215':               None,
+            # unknown
+            'Nokia-IXR7250E-36x100G':   None,
+            #
+            'Nokia-IXR7250E-36x400G':   None,
+            #
+            'Nokia-IXR7250E-SUP-10':    None,
+            #
+            'Nokia-M0-7215':            None,
+            # unknown
+            'Nvidia-9009d3b600CVAA':    None }
+
+        # check condition for building image URL
+        require_bjw_lab = self.check_tb_in_require_bjw_lab(testbed_name)
+        require_formal_image = True if private_image_folder is None or private_image_folder.lower() in ('', 'none', 'null') else False
+        require_image_tag = False if image_tag is None or image_tag.lower() in ('', 'none', 'null') else True
+        # Cisco 8102's 202012 image name has no suffix "nosec" or "sec"
+        require_ignore_suffix = True if hwsku.startswith('Cisco-8102') and image_base_branch == 'internal-202012' else False
+        require_public_image = True if image_base_branch == 'master' else False
+        logger.debug("Image URL building condition: require_bjw_lab {}, require_formal_image {}, require_image_tag {}, require_ignore_suffix {}, require_public_image{}".
+            format(require_bjw_lab, require_formal_image, require_image_tag, require_ignore_suffix, require_public_image))
+
+        try:
+            package_pattern = hwsku_package_info[hwsku]
+        except KeyError:
+            logger.error('Unsupported HWSKU: {}'.format(hwsku))
+            return (None, None, None)
+        if package_pattern is None:
+            logger.error('Unimplemented HWSKU: {}'.format(hwsku))
+            return (None, None, None)
+
+        image_filename = ['sonic']
+        if package_pattern.get('image_type', None):image_filename.append(package_pattern['image_type'])
+        image_filename.append(package_pattern['image_vendor'])
+        if package_pattern.get('suffix', None) and not require_ignore_suffix: image_filename.append(package_pattern['suffix'])
+        if package_pattern.get('lightweight', None): image_filename.append(package_pattern['lightweight'])
+        prev_image_filename = '-'.join(image_filename)
+        if require_image_tag: image_filename.append(image_tag)
+        image_filename = '-'.join(image_filename)
+
+        base_url = ['http:/']
+        base_url.append('10.150.22.222') if require_bjw_lab else base_url.append('10.201.148.43')
+        if require_public_image:
+            base_url.append('mssonic-public-pipelines/Azure.sonic-buildimage.official.{}'.format(package_pattern['image_vendor'])) 
+        else:
+            base_url.append('pipelines/Networking-acs-buildimage-Official/{}'.format(package_pattern['image_vendor']))
+        base_url.append(image_base_branch) if require_formal_image else base_url.append(private_image_folder)
+        if require_public_image: base_url.append(package_pattern['image_vendor'])
+        # Networking-acs-buildimage-Official/broadcom/internal-202205/tagged/sonic-aboot-broadcom-20220531.05.swi
+        # Networking-acs-buildimage-Official/broadcom/internal/sonic-aboot-broadcom-internal.76630385-c5de9bbe18.swi
+        if image_base_branch != 'internal': base_url.append('tagged')
+        base_url = '/'.join(base_url)
+
+        image_url = base_url + '/' + image_filename + '.' + package_pattern['extension']
+        prev_image_url = base_url + '/' + prev_image_filename + '.' + package_pattern['extension'] + '.PREV.1'
+        if 'lightweight' in package_pattern and package_pattern['lightweight'] == 'slim':
+            prev_image_url = 'http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/internal-201811/tagged/sonic-aboot-broadcom.swi'
+            if require_bjw_lab: prev_image_url = prev_image_url.replace('10.201.148.43', '10.150.22.222')
+        else:
+            prev_image_url = None
+
+        saithrift_macro = ['SAITHRIFT']
+        saithrift_macro.append(package_pattern['sai_vendor'])
+        if image_base_branch == 'master':
+            saithrift_macro.append('PUBLIC')
+        elif image_base_branch == 'internal':
+            saithrift_macro.append('INTERNAL')
+        else:
+            saithrift_macro.append(image_base_branch.split('-')[-1])
+        saithrift_macro = '$(' + '_'.join(saithrift_macro) + ')'
+
+        logger.info("Image URL is build out for {}:\n\t{}\n\t{}\n\t{}".format(testbed_name, image_url, prev_image_url, saithrift_macro))
+
+        self.testbeds[testbed_name]['image_url'] = image_url
+
+        return (image_url, prev_image_url, saithrift_macro)
+
+
+    def build_case_verify_pipeline_payload(self, testbed):
+        logger.debug("build_case_verify_pipeline_payload {}".format(testbed))
+        image_url, prev_image_url, saithrift_macro = self.build_URLs(testbed)
+
+        if image_url and prev_image_url and saithrift_macro:
+            return None
+
+        payload = {
+            "resources": {
+                "repositories": {
+                    "self": {
+                        "refName": "refs/heads/{}".format(self.script_branch),
+                    }
+                }
+            },
+            "templateParameters" : {
+                "TESTBED_NAME" : testbed ,
+                "IMAGE_URL" : image_url,
+                "PY_SAITHRIFT_URL" : saithrift_macro,
+                "TESTBED_SPECIFIC" : self.testbed_specific ,
+                "TEST_BRIEF": self.test_brief,
+                "NIGHTLY_TEST_TIMEOUT" : self.pipeline_timeout ,
+                "LOCK_POLLING_TIMEOUT" : self.lock_timeout ,
+                "DOCKER_FOLDER_SIZE" : '3500M',
+                "SKIP_TEST_RESULTS_UPLOADING" : self.skip_upload_result ,
+            }
+        }
+        if prev_image_url:
+            payload['templateParameters']['PREV_IMAGE_URL'] = prev_image_url
+        logger.debug("build_case_verify_pipeline_payload payload {}".format(payload))
+        return payload
+
+    def trigger_case_verify_pipeline_build(self):
+        logger.debug("trigger_case_verify_pipeline_build")    
+
+        self.curr_building_testbed_list = list(self.testbeds.keys())
+        if (len(self.curr_building_testbed_list) == 0) :
+            logger.info("curr_building_testbed_list is empty ") 
+            return
+
+        logger.debug("curr_building_testbed_list {}".format(self.curr_building_testbed_list))
+        # for testbed in self.testbeds.keys():
+        for testbed in self.curr_building_testbed_list[:]:
+            payload = self.build_case_verify_pipeline_payload(testbed)
+            logger.debug("testbed {} payload {}".format(testbed, payload))
+            build_id = self.nightly_pipeline_check.trigger_pipeline_build(self.case_verify_pipeline_id, payload)
+            if build_id:
+                self.testbeds[testbed]['build_id'] = build_id
+                self.testbeds[testbed]['build_status'] = 'inprocess'
+            else:
+                self.testbeds[testbed]['build_id'] = None
+                self.testbeds[testbed]['build_status'] = 'NotStart'
+                self.curr_building_testbed_list.remove(testbed)
+        return
+
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Completeness level')
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="nightly hawk pipeline analyzer")
+        description="nightly hawk verify")
 
     parser.add_argument(
         '-v', '--verbose', help='Set logging level', type=str,
@@ -282,12 +625,22 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-b', '--branch', help='input branch name', type=str,
+        '-b', '--imagebranch', help='input image branch name', type=str,
         required=True
     )
 
     parser.add_argument(
-        '-s', '--script', help='input mgmt script branch name', type=str,
+        '-t', '--verifytype', help='feature branch verify or cases verify', type=str,
+        required=True
+    )
+
+    parser.add_argument(
+        '-s', '--scriptbranch', help='input mgmt script branch name', type=str,
+        required=True
+    )
+
+    parser.add_argument(
+        '-f', '--imagefolder', help='input image path', type=str,
         required=True
     )
 
@@ -302,13 +655,8 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-i', '--image', help='input image name', type=str,
+        '-i', '--imagetag', help='input image tag', type=str,
         required=False, default=None
-    )
-
-    parser.add_argument(
-        '-t', '--topo', help='input topo name', type=str,
-        required=False, default='all'
     )
 
     parser.add_argument(
@@ -317,24 +665,35 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-f', '--force', help='force run the test', action='store_true',
+        '-l', '--library', help='using library to collect testbed names', type=str,
         required=False
     )
 
     parser.add_argument(
-        '-l', '--library', help='using library to collect testbed names', type=str,
+        '--lockpollingtimeout', help='lock testbed polling timeout value', type=str,
         required=False
-    )    
+    )
 
+    parser.add_argument(
+        '--pipelinetimeout', help='pipeline running timeout value', type=str,
+        required=False
+    )
+
+    parser.add_argument(
+        '--testbrief', help='test breif', type=str,
+        required=False
+    )
+
+    logger.info("----- Nightly Hawk verify ----- ")
     args = parser.parse_args()
-    logger.info("Verify {} branch with logging lever {}".format(args.branch, args.verbose))
-    logger.info("testbedNames {} library {} image {} topo {} force {}".format(args.testbedNames, args.library, args.image, args.topo, args.force))
+    for arg in vars(args):
+        logger.info("input parameter {}: {}".format(arg, getattr(args, arg)))
 
-    if args.image and (args.image.isspace() == False):
-        # fixme, how to check wehther image tag is valid
-        image = args.image
-    else:
-        image = None
+    # if args.image and (args.image.isspace() == False):
+    #     # fixme, how to check wehther image tag is valid
+    #     image = args.image
+    # else:
+    #     image = None
 
     if args.verbose and (args.verbose.isspace() == False):
         logging_lever = args.verbose.lower()
@@ -346,55 +705,77 @@ if __name__ == '__main__':
         elif logging_lever == 'error':
             logger.setLevel(logging.ERROR)
 
-    branch_verify = Nightly_hawk_branch_verify(verbose=args.verbose, branch=args.branch, image=args.image, script=args.script, specific=args.parameterspecific, skip=args.resultignore)
+    if args.lockpollingtimeout and (args.lockpollingtimeout.isspace() == False):
+        lockpollingtimeout = args.lockpollingtimeout
+    else:
+        lockpollingtimeout = 7200
+
+    if args.pipelinetimeout and (args.pipelinetimeout.isspace() == False):
+        pipelinetimeout = args.pipelinetimeout
+    else:
+        pipelinetimeout = 1800        
+
+    testbrief = args.testbrief if args.testbrief else 'Test-Brief'
+
+    branch_verify = Nightly_hawk_branch_verify(verbose=args.verbose, test_brief=testbrief, branch=args.imagebranch, type=args.verifytype, script=args.scriptbranch, image=args.imagefolder, imagetag=args.imagetag, specific=args.parameterspecific, skip=args.resultignore, lock_timeout=lockpollingtimeout, pipeline_timeout=pipelinetimeout)
+
+    if args.verifytype == 'branch_verify':
+        logger.error(" !!! ERROR: branch_verify not support anymore after pipeline migrated to Elastic! ")
+        
+        '''
+        branch_verify.pipeline_parser_analyzer_dict = branch_verify.nightly_pipeline_check.collect_nightly_build_pipelines()
+
+        if args.testbedNames and (args.testbedNames.isspace() == False):
+            logger.info("testbedNames {}".format(args.testbedNames))
+            logger.info("Input testbed names {}, will run test on these testbeds".format(args.testbedNames))
+            branch_verify.testbedNames = args.testbedNames
+            testbedName_list = branch_verify.testbedNames.split(",")
+            logger.info("Input testbed names {}, will run test on these testbeds".format(testbedName_list))
+            for testbedTmp in testbedName_list:
+                logger.info("testbedTmp {}".format(testbedTmp))
+                testbed = testbedTmp.strip()
+                logger.info("testbed {}".format(testbed))
+                branch_verify.testbeds[testbed] = {}
+
+        elif args.library and (args.library.isspace() == False):
+            library_string = args.library
+            logger.info("Input library {}".format(library_string))
+
+            #  -l '{"testbed-bjw-can-7050qx-1":{"TESTBED_SPECIFIC": "-I debug", "NIGHTLY_TEST_TIMEOUT": "3600"}, "vms24-t1-7050qx-acs-01":{"TESTBED_SPECIFIC": "-S platform", "NIGHTLY_TEST_TIMEOUT": "3200"}}'
+            library_json = json.loads(library_string)
+            # logger.info("Input library_json {}".format(library_json))
+            for testbed_name, build_info in library_json.items():
+                logger.info("testbed_name {}: {}".format(testbed_name, build_info))
+                testbed = testbed_name.strip()
+                branch_verify.testbeds[testbed] = {}
+                for key, value in build_info.items():
+                    branch_verify.testbeds[testbed][key] = value
+
+        else:
+            logger.info("Input testbed names and library None")
+            logger.info("Collect nightly tests pipeline information")
+            # branch_verify.get_testbeds(args.topo)
 
 
-    
+        logger.info("Collected testbeds {}".format(branch_verify.testbeds))
+        
+        # collect testbeds pipeline information
+        branch_verify.collect_testbeds_information()
 
-    if args.testbedNames and (args.testbedNames.isspace() == False):
-        logger.info("testbedNames {}".format(args.testbedNames))
-        logger.info("Input testbed names {}, will run test on these testbeds".format(args.testbedNames))
-        branch_verify.testbedNames = args.testbedNames
-        testbedName_list = branch_verify.testbedNames.split(",")
-        logger.info("Input testbed names {}, will run test on these testbeds".format(testbedName_list))
-        for testbedTmp in testbedName_list:
-            logger.info("testbedTmp {}".format(testbedTmp))
-            testbed = testbedTmp.strip()
-            logger.info("testbed {}".format(testbed))
-            branch_verify.testbeds[testbed] = {}
+        # trigger pipeline
+        branch_verify.trigger_testbeds_pipeline_build()
+        logger.info("testbeds {}".format(branch_verify.testbeds))
 
-    elif args.library and (args.library.isspace() == False):
-        library_string = args.library
-        logger.info("Input library {}".format(library_string))
+        # waiting pipeline done
+        branch_verify.wait_testbeds_pipeline_build_done(10*60, 32*60*60)
+        logger.info("testbeds {}".format(branch_verify.testbeds))
+        '''
 
-        #  -l '{"testbed-bjw-can-7050qx-1":{"TESTBED_SPECIFIC": "-I debug", "NIGHTLY_TEST_TIMEOUT": "3600"}, "vms24-t1-7050qx-acs-01":{"TESTBED_SPECIFIC": "-S platform", "NIGHTLY_TEST_TIMEOUT": "3200"}}'
-        library_json = json.loads(library_string)
-        # logger.info("Input library_json {}".format(library_json))
-        for testbed_name, build_info in library_json.items():
-            logger.info("testbed_name {}: {}".format(testbed_name, build_info))
-            testbed = testbed_name.strip()
-            branch_verify.testbeds[testbed] = {}
-            for key, value in build_info.items():
-                branch_verify.testbeds[testbed][key] = value
+    elif args.verifytype == 'case_verify':
+        branch_verify.parser_input_testbed_name(args.testbedNames)
+        branch_verify.trigger_case_verify_pipeline_build()
 
     else:
-        logger.info("Input testbed names and library None")
-        logger.info("Collect nightly tests pipeline information")
-        branch_verify.get_testbeds(args.topo)
-
-    logger.info("Collected testbeds {}".format(branch_verify.testbeds))
-    
-    # collect testbeds pipeline information
-    branch_verify.collect_testbeds_information()
-
-    # trigger pipeline
-    branch_verify.trigger_testbeds_pipeline_build()
-    logger.info("testbeds {}".format(branch_verify.testbeds))
-
-    # waiting pipeline done
-    branch_verify.wait_testbeds_pipeline_build_done(10*60, 32*60*60)
-    logger.info("testbeds {}".format(branch_verify.testbeds))
-
-
+        logger.warning("Input verifytype {} invalid".format(args.verifytype))
 
     logger.info("Nightly_hawk_branch_verify complete ")

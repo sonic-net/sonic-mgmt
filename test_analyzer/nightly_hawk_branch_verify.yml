@@ -7,55 +7,88 @@ pr: none
 
 
 parameters:
-  - name: BRANCH
+  - name: VERIFY_TYPE
     type: string
-    default: internal
+    default: case_verify
     values:
-      - internal
-      - internal-202012
-      - internal-202205
-      - master
+      - case_verify
+
+  - name: TEST_BRIEF
+    type: string
+    default: "Test-Brief"
+    displayName: "test brief"
 
   - name: SCRIPT_BRANCH
     type: string
     default: internal
     displayName: "branch name for running mgmt script"
 
-  - name: TESTBEDS_NAME
+  - name: IMAGE_BRANCH
     type: string
-    default: 'vms20-t0-7050cx3-2,vms21-dual-t0-7260,vms7-t0-4600c-2,vms21-t1-2700-2,vms63-t1-7060-3,vms28-t1-8102-02,vms61-t1-8101-03,vms61-t1-8101-02'
-    displayName: "testbeds names for verify"
+    default: internal
+    displayName: "base branch name of target sonic image"
+    values:
+      - internal
+      - internal-202012
+      - internal-202205
+      - internal-202305
+      - master
 
-  - name: LIBRARY
+  - name: IMAGE_FOLDER
     type: string
     default: null
-    displayName: "get testbed names from Library"
+    displayName: "private image folder (for formal image, leave empty)"
 
   - name: IMAGE_TAG
     type: string
     default: null
-    displayName: "image tag"
+    displayName: "image tag (for latest image, leave empty)"
 
-  - name: FORCE
-    type: boolean
-    default: true
-    displayName: "force run the test"
+  - name: TESTBEDS_NAME
+    type: string
+    default: null
+    displayName: "testbeds names for verify"
 
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "qos" -s "qos/test_buffer_traditional.py qos/test_buffer.py qos/test_pfc_counters.py qos/test_pfc_pause.py qos/test_qos_masic.py"'
+    default: null
     displayName: Testbed specific
+
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800
+
+  # Lock testbed polling timeout
+  - name: LOCK_POLLING_TIMEOUT
+    type: number
+    default: 7200
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
     default: True
     displayName: "Skip uploading test results to Kusto"
 
+  - name: LIBRARY
+    type: string
+    default: null
+    displayName: "get testbed names from Library"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+
 stages:
-  - stage: AutoRecovery
+  - stage: Nightly_HAWK_Verify
     jobs:
-      - job: AutoRecovery_Starlab
-        pool: nightly
+      - job: verify
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 3600
         variables:
           - group: KUSTO_SECRETS
@@ -71,7 +104,7 @@ stages:
           # - template: ../.azure-pipelines/nightly/templates/get_secrets.yml
 
           - task: Bash@3
-            displayName: Run auto recovery script
+            displayName: Run Nightly Hawk Verify Script
             inputs:
               targetType: 'inline'
               script: |
@@ -81,10 +114,28 @@ stages:
                 cd test_analyzer
                 pip3 install -r requirements.txt
 
+                echo "VERIFY_TYPE '${{ parameters.VERIFY_TYPE }}'"
+                echo "SCRIPT_BRANCH '${{ parameters.SCRIPT_BRANCH }}'"
+                echo "IMAGE_FOLDER '${{ parameters.IMAGE_FOLDER }}'"
                 echo "TESTBEDS_NAME '${{ parameters.TESTBEDS_NAME }}'"
-                echo "LIBRARY '${{ parameters.LIBRARY }}'"
-                echo "IMAGE_TAG '${{ parameters.IMAGE_TAG }}'"
-                python3 nightly_hawk_branch_verify.py -v DEBUG -b '${{ parameters.BRANCH }}' -n '${{ parameters.TESTBEDS_NAME }}' -i '${{ parameters.IMAGE_TAG }}' -s '${{ parameters.SCRIPT_BRANCH }}' -p '${{ parameters.TESTBED_SPECIFIC }}' -r '${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}'
+                echo "TESTBED_SPECIFIC '${{ parameters.TESTBED_SPECIFIC }}'"
+                echo "NIGHTLY_TEST_TIMEOUT '${{ parameters.NIGHTLY_TEST_TIMEOUT }}'"
+                echo "LOCK_POLLING_TIMEOUT '${{ parameters.LOCK_POLLING_TIMEOUT }}'"
+                echo "SKIP_TEST_RESULTS_UPLOADING '${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}'"
+
+                python3 nightly_hawk_branch_verify.py \
+                            --verbose='DEBUG' \
+                            --testbrief='${{ parameters.TEST_BRIEF }}' \
+                            --imagebranch='${{ parameters.IMAGE_BRANCH }}' \
+                            --verifytype='${{ parameters.VERIFY_TYPE }}' \
+                            --scriptbranch='${{ parameters.SCRIPT_BRANCH }}' \
+                            --imagefolder='${{ parameters.IMAGE_FOLDER }}' \
+                            --imagetag='${{ parameters.IMAGE_TAG }}' \
+                            --testbedNames='${{ parameters.TESTBEDS_NAME }}' \
+                            --parameterspecific='${{ parameters.TESTBED_SPECIFIC }}' \
+                            --lockpollingtimeout='${{ parameters.LOCK_POLLING_TIMEOUT }}' \
+                            --pipelinetimeout='${{ parameters.NIGHTLY_TEST_TIMEOUT }}' \
+                            --resultignore='${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}'
 
             env:
               TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
@@ -97,3 +148,5 @@ stages:
               AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN_NIGHTLY_HAWK)
               TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
               SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+              AGENT_POOL: ${{ parameters.AGENT_POOL }}
+
