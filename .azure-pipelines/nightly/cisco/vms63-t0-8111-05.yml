@@ -22,7 +22,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_8111_ABOOT_202205)
+    default: $(IMAGE_CISCO_8111_ABOOT_202305)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
@@ -33,8 +33,31 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "dualtor_io dualtor platform_tests/test_advanced_reboot.py bgp/test_bgp_slb.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py qos/test_qos_sai.py"'
+    default: '-S "dualtor_io dualtor"'
     displayName: Testbed specific
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "bgp/test_bgp_slb.py \
+              qos/test_qos_sai.py \
+              platform_tests/test_memory_exhaustion.py \
+              dhcp_relay/test_dhcp_relay.py \
+              vxlan/test_vxlan_decap.py \
+              ipfwd/test_dir_bcast.py \
+              arp/test_wr_arp.py \
+              pfcwd/test_pfcwd_warm_reboot.py \
+              platform_tests/test_service_warm_restart.py \
+              platform_tests/test_advanced_reboot.py \
+              platform_tests/test_cont_warm_reboot.py \
+              platform_tests/test_reboot.py::test_warm_reboot \
+              platform_tests/test_reboot.py::test_fast_reboot"
+    displayName: "Skip Scripts"
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880    # minutes, totally 48hours
+    displayName: "Nightly Test Timeout"
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
@@ -48,4 +71,6 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
