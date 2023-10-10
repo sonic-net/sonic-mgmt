@@ -349,7 +349,7 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self,masked_exp_pkt, dst_ports)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
@@ -438,7 +438,7 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+            rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
