@@ -1024,6 +1024,16 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
     conditions: https://github.com/sonic-net/sonic-buildimage/issues/4930
 
 #######################################
+#####           sflow             #####
+#######################################
+sflow/test_sflow.py::TestAgentId::testDelAgent:
+  # This test case may fail due to a test issue https://github.com/sonic-net/sonic-mgmt/issues/10291.
+  # Temporarily disabling the test case due to the this issue.
+  skip:
+    reason: "Test case may fail due to issue"
+    conditions: https://github.com/sonic-net/sonic-mgmt/issues/10291
+
+#######################################
 #####      show_techsupport       #####
 #######################################
 show_techsupport/test_auto_techsupport.py:
