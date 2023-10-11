@@ -75,7 +75,7 @@ def _create_parser():
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono',
-                      required=False,default="churchill-mono", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
