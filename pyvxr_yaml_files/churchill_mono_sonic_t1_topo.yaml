@@ -1,7 +1,8 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 120
+    pending_timeout: 60
+    hours: 15
     partition: sonic_regression
           
 devices:
