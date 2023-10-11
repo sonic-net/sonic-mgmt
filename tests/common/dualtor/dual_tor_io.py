@@ -429,8 +429,8 @@ class DualTorIO:
                     break
             else:
                 raise ValueError(
-                    "Failed to find the port connected to DUT %s in bridge %s" % \
-                        (self.duthost.hostname, active_active_vmhost_bridge)
+                    "Failed to find the port connected to DUT %s in bridge %s" %
+                    (self.duthost.hostname, active_active_vmhost_bridge)
                 )
 
             get_ovs_port_no_res = self.vmhost.shell("ovs-vsctl get Interface %s ofport" % vmhost_target_dut_port)
@@ -445,8 +445,7 @@ class DualTorIO:
                                  eth_dst=packet[scapyall.Ether].dst,
                                  ip_src=packet[scapyall.IP].src,
                                  ip_dst=packet[scapyall.IP].dst,
-                                 tp_dst=packet[scapyall.TCP].dport
-                             )
+                                 tp_dst=packet[scapyall.TCP].dport)
             for tcp_sport in range(tcp_packet[scapyall.TCP].sport, 65535):
                 trace_res = self.vmhost.shell(trace_command.format(tp_src=tcp_sport))
                 if "output:%s" % vmhost_target_dut_port_no in trace_res["stdout"]:

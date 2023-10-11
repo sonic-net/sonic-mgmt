@@ -387,10 +387,10 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
 
 
 @pytest.fixture
-def select_test_mux_ports(active_active_ports, active_standby_ports):
+def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa F811
     """Return helper function to select test mux ports based on cable_type"""
 
-    def _select_test_mux_ports(cable_type, count):
+    def _select_test_mux_ports(cable_type, count):                                                  # noqa F811
         if cable_type == CableType.active_active:
             test_mux_ports = random.sample(active_active_ports, count)
         elif cable_type == CableType.active_standby:

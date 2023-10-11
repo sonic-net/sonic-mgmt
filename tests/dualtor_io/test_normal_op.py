@@ -320,12 +320,12 @@ def test_mux_port_switch_active_server_to_active_server(upper_tor_host, lower_to
         tx_mux_port = test_mux_ports[1]
 
         send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
-                                        action=lambda: force_standby_tor(upper_tor_host, [tx_mux_port]),
-                                        send_interval=0.0035,
-                                        stop_after=60)
+                                          action=lambda: force_standby_tor(upper_tor_host, [tx_mux_port]),
+                                          send_interval=0.0035,
+                                          stop_after=60)
 
         pytest_assert(_is_mux_port_standby(upper_tor_host, tx_mux_port),
-                    "mux port %s on DUT %s failed to toggle to standby" % (upper_tor_host.hostname, tx_mux_port))
+                      "mux port %s on DUT %s failed to toggle to standby" % (upper_tor_host.hostname, tx_mux_port))
 
         # TODO: Add per-port db check
 
@@ -353,15 +353,15 @@ def test_mux_port_switch_active_server_to_standby_server(upper_tor_host, lower_t
         tx_mux_port = test_mux_ports[1]
         force_standby_tor(upper_tor_host, [tx_mux_port])
         pytest_assert(wait_until(10, 2, 0, _is_mux_port_standby, upper_tor_host, tx_mux_port),
-                    "failed to toggle mux port %s to standby on DUT %s" % (tx_mux_port, upper_tor_host.hostname))
+                      "failed to toggle mux port %s to standby on DUT %s" % (tx_mux_port, upper_tor_host.hostname))
 
         send_server_to_server_with_action(upper_tor_host, test_mux_ports, verify=True,
-                                        action=lambda: force_active_tor(upper_tor_host, [tx_mux_port]),
-                                        send_interval=0.0035,
-                                        stop_after=60)
+                                          action=lambda: force_active_tor(upper_tor_host, [tx_mux_port]),
+                                          send_interval=0.0035,
+                                          stop_after=60)
 
         pytest_assert(_is_mux_port_active(upper_tor_host, tx_mux_port),
-                    "mux port %s on DUT %s failed to toggle back to active" % (upper_tor_host.hostname, tx_mux_port))
+                      "mux port %s on DUT %s failed to toggle back to active" % (upper_tor_host.hostname, tx_mux_port))
 
         # TODO: Add per-port db check
 
