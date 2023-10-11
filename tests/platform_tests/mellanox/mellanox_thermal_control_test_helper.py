@@ -1355,6 +1355,12 @@ class PsuPowerThresholdMocker(object):
     def mock_port_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, int(temperature))
 
+    def mock_ambient_temp_critical_threshold(self, temperature):
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD, int(temperature))
+
+    def mock_ambient_temp_warning_threshold(self, temperature):
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_WARNING_THRESHOLD, int(temperature))
+
     def read_psu_power_threshold(self, psu):
         return int(self.mock_helper.read_value(self.PSU_POWER_CAPACITY.format(psu)))
 

@@ -450,9 +450,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "upgrade_path" in test_name:
+        reboot_type_source = request.config.getoption("--upgrade_type")
+    else:
+        reboot_type_source = test_name
+    if "warm" in reboot_type_source:
         reboot_type = "warm"
-    elif "fast" in test_name:
+    elif "fast" in reboot_type_source:
         reboot_type = "fast"
     else:
         reboot_type = "unknown"
