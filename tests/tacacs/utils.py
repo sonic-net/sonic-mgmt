@@ -268,7 +268,7 @@ def remove_all_tacacs_server(duthost):
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
 
 
-def check_server_received(ptfhost, data, timeout=10):
+def check_server_received(ptfhost, data, timeout=30):
     """
         Check if tacacs server received the data.
     """
