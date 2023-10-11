@@ -48,6 +48,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
     from tests.macsec import MacsecPlugin
@@ -62,6 +63,8 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
+DUTHOSTS_FIXTURE_FAILED_RC = 15
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -314,6 +317,12 @@ def get_specified_duts(request):
     return duts
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("duthosts_fixture_failed", None):
+        session.config.cache.set("duthosts_fixture_failed", None)
+        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+
+
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
@@ -323,7 +332,14 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize duthosts.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! duthosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 @pytest.fixture(scope="session")
@@ -2038,7 +2054,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-    yield
+    yield duts_data
 
     if check_flag:
         for duthost in duthosts:
@@ -2199,7 +2215,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
         items = request.session.items
         for item in items:
             if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
+                    'core_dump_check_pass': core_dump_check_pass,
+                    'config_db_check_pass': config_db_check_pass
+                }})))
 
 
 @pytest.fixture(scope="function")

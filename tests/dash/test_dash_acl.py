@@ -15,7 +15,16 @@ pytestmark = [
 ]
 
 
-def test_acl_fields(ptfadapter, apply_vnet_configs, acl_test_pkts):  # noqa: F811
+# flake8: noqa: F811
+def test_acl_fields(
+        ptfadapter,
+        apply_vnet_configs,
+        acl_test_pkts,
+        skip_dataplane_checking,
+        asic_db_checker
+        ):
+    if skip_dataplane_checking:
+        return
     for pkt in acl_test_pkts:
         logger.info("Testing packet: {}".format(pkt.get_description()))
         _, vxlan_packet, expected_packet = packets.outbound_vnet_packets(pkt.dash_config_info,

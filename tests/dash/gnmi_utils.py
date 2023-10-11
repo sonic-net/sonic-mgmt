@@ -1,31 +1,12 @@
 import logging
 import json
 import time
-import re
-import ipaddress
-import pytest
-import socket
 import uuid
 from functools import lru_cache
 
-from dash_api.appliance_pb2 import Appliance
-from dash_api.vnet_pb2 import Vnet
-from dash_api.eni_pb2 import Eni, State
-from dash_api.qos_pb2 import Qos
-from dash_api.route_pb2 import Route
-from dash_api.route_rule_pb2 import RouteRule
-from dash_api.vnet_mapping_pb2 import VnetMapping
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem
-from dash_api.types_pb2 import IpVersion, IpPrefix, ValueOrRange
-from dash_api.acl_group_pb2 import AclGroup
-from dash_api.acl_out_pb2 import AclOut
-from dash_api.acl_in_pb2 import AclIn
-from dash_api.acl_rule_pb2 import AclRule, Action
+import proto_utils
 
 logger = logging.getLogger(__name__)
-
-
-ENABLE_PROTO = True
 
 
 @lru_cache(maxsize=None)
@@ -44,6 +25,7 @@ class GNMIEnvironment(object):
             self.gnmi_program = "telemetry"
         self.gnmi_port = int(duthost.shell(
             "sonic-db-cli CONFIG_DB hget '%s' 'port'" % (self.gnmi_config_table + '|gnmi'))['stdout'])
+        self.gnmi_cert_path = "/etc/sonic/telemetry/"
         self.gnmi_ca_cert = "gnmiCA.pem"
         self.gnmi_ca_key = "gnmiCA.key"
         self.gnmi_server_cert = "gnmiserver.crt"
@@ -55,6 +37,15 @@ class GNMIEnvironment(object):
 
 
 def create_ext_conf(ip, filename):
+    """
+    Generate configuration for openssl
+
+    Args:
+        ip: server ip address
+        filename: configuration file name
+
+    Returns:
+    """
     text = '''
 [ req_ext ]
 subjectAltName = @alt_names
@@ -68,9 +59,15 @@ IP      = %s
 
 
 def generate_gnmi_cert(localhost, duthost):
+    """
+    Args:
+        localhost: fixture for localhost
+        duthost: fixture for duthost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     localhost.shell("mkdir "+env.work_dir, module_ignore_errors=True)
-    # Create Root key
     local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_ca_key)
     localhost.shell(local_command)
 
@@ -151,11 +148,20 @@ def generate_gnmi_cert(localhost, duthost):
 
 
 def apply_gnmi_cert(duthost, ptfhost):
+    """
+    Upload new certificate to DUT, and restart gnmi server with new certificate
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture to ptfhost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     # Copy CA certificate and server certificate over to the DUT
-    duthost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest='/etc/sonic/telemetry/')
-    duthost.copy(src=env.work_dir+env.gnmi_server_key, dest='/etc/sonic/telemetry/')
+    duthost.copy(src=env.work_dir+env.gnmi_ca_cert, dest=env.gnmi_cert_path)
+    duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest=env.gnmi_cert_path)
+    duthost.copy(src=env.work_dir+env.gnmi_server_key, dest=env.gnmi_cert_path)
     # Copy CA certificate and client certificate over to the PTF
     ptfhost.copy(src=env.work_dir+env.gnmi_ca_cert, dest='/root/')
     ptfhost.copy(src=env.work_dir+env.gnmi_client_cert, dest='/root/')
@@ -168,9 +174,9 @@ def apply_gnmi_cert(duthost, ptfhost):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
     dut_command += "\"/usr/bin/nohup /usr/sbin/telemetry -logtostderr --port %s " % port
-    dut_command += "--server_crt /etc/sonic/telemetry/%s " % (env.gnmi_server_cert)
-    dut_command += "--server_key /etc/sonic/telemetry/%s " % (env.gnmi_server_key)
-    dut_command += "--ca_crt /etc/sonic/telemetry/%s " % (env.gnmi_ca_cert)
+    dut_command += "--server_crt %s%s " % (env.gnmi_cert_path, env.gnmi_server_cert)
+    dut_command += "--server_key %s%s " % (env.gnmi_cert_path, env.gnmi_server_key)
+    dut_command += "--ca_crt %s%s " % (env.gnmi_cert_path, env.gnmi_ca_cert)
     if env.enable_zmq:
         dut_command += " -zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
@@ -179,6 +185,15 @@ def apply_gnmi_cert(duthost, ptfhost):
 
 
 def recover_gnmi_cert(localhost, duthost):
+    """
+    Restart gnmi server to use default certificate
+
+    Args:
+        localhost: fixture for localhost
+        duthost: fixture for duthost
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
@@ -193,6 +208,18 @@ def recover_gnmi_cert(localhost, duthost):
 
 
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
+    """
+    Send GNMI set request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        delete_list: list for delete operations
+        update_list: list for update operations
+        replace_list: list for replace operations
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -230,14 +257,25 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     error = "GRPC error\n"
     if error in output['stdout']:
         result = output['stdout'].split(error, 1)
-        return -1, result[1]
+        raise Exception("GRPC error:" + result[1])
     if output['stderr']:
-        return -1, output['stderr']
+        raise Exception("error:" + output['stderr'])
     else:
-        return 0, output['stdout']
+        return
 
 
 def gnmi_get(duthost, ptfhost, path_list):
+    """
+    Send GNMI get request with GNMI client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        path_list: list for get path
+
+    Returns:
+        msg_list: list for get result
+    """
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -256,135 +294,33 @@ def gnmi_get(duthost, ptfhost, path_list):
         cmd += " " + path
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
-        return -1, [output['stderr']]
+        raise Exception("error:" + output['stderr'])
     else:
         msg = output['stdout'].replace('\\', '')
         error = "GRPC error\n"
         if error in msg:
             result = msg.split(error, 1)
-            return -1, [result[1]]
+            raise Exception("GRPC error:" + result[1])
         mark = 'The GetResponse is below\n' + '-'*25 + '\n'
         if mark in msg:
             result = msg.split(mark, 1)
             msg_list = result[1].split('-'*25)[0:-1]
-            return 0, [msg.strip("\n") for msg in msg_list]
+            return [msg.strip("\n") for msg in msg_list]
         else:
-            return -1, [msg]
-
-
-def json_to_proto(key, json_obj):
-    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
-    if table_name == "APPLIANCE":
-        pb = Appliance()
-        pb.sip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["sip"])))
-        pb.vm_vni = int(json_obj["vm_vni"])
-    elif table_name == "VNET":
-        pb = Vnet()
-        pb.vni = int(json_obj["vni"])
-        pb.guid.value = bytes.fromhex(uuid.UUID(json_obj["guid"]).hex)
-    elif table_name == "VNET_MAPPING":
-        pb = VnetMapping()
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-        pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-        pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-        pb.use_dst_vni = json_obj["use_dst_vni"] == "true"
-    elif table_name == "QOS":
-        pb = Qos()
-        pb.qos_id = json_obj["qos_id"]
-        pb.bw = int(json_obj["bw"])
-        pb.cps = int(json_obj["cps"])
-        pb.flows = int(json_obj["flows"])
-    elif table_name == "ENI":
-        pb = Eni()
-        pb.eni_id = json_obj["eni_id"]
-        pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
-        pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
-        pb.admin_state = State.STATE_ENABLED if json_obj["admin_state"] == "enabled" else State.STATE_DISABLED
-        pb.vnet = json_obj["vnet"]
-        pb.qos = json_obj["qos"]
-    elif table_name == "ROUTE":
-        pb = Route()
-        if json_obj["action_type"] == "vnet":
-            pb.action_type = RoutingType.ROUTING_TYPE_VNET
-            pb.vnet = json_obj["vnet"]
-        elif json_obj["action_type"] == "vnet_direct":
-            pb.action_type = RoutingType.ROUTING_TYPE_VNET_DIRECT
-            pb.vnet_direct.vnet = json_obj["vnet"]
-            pb.vnet_direct.overlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["overlay_ip"])))
-        elif json_obj["action_type"] == "direct":
-            pb.action_type = RoutingType.ROUTING_TYPE_DIRECT
-        else:
-            pytest.fail("Unknown action type %s" % json_obj["action_type"])
-    elif table_name == "ROUTE_RULE":
-        pb = RouteRule()
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
-        pb.priority = int(json_obj["priority"])
-        pb.pa_validation = json_obj["pa_validation"] == "true"
-        pb.vnet = json_obj["vnet"]
-    elif table_name == "ROUTING_TYPE":
-        pb = RouteType()
-        pbi = RouteTypeItem()
-        pbi.action_name = json_obj["name"]
-        pbi.action_type = ActionType.ACTION_TYPE_MAPROUTING
-        pb.items.append(pbi)
-    elif table_name == "ACL_GROUP":
-        pb = AclGroup()
-        pb.guid.value = bytes.fromhex(uuid.UUID(json_obj["guid"]).hex)
-        pb.ip_version = IpVersion.IP_VERSION_IPV4
-    elif table_name == "ACL_OUT":
-        pb = AclOut()
-        pb.v4_acl_group_id = json_obj["acl_group_id"]
-    elif table_name == "ACL_IN":
-        pb = AclIn()
-        pb.v4_acl_group_id = json_obj["acl_group_id"]
-    elif table_name == "ACL_RULE":
-        pb = AclRule()
-        pb.priority = int(json_obj["priority"])
-        pb.action = Action.ACTION_DENY if json_obj["action"] == "deny" else Action.ACTION_PERMIT
-        pb.terminating = json_obj["terminating"] == "true"
-        if "src_addr" in json_obj:
-            for addr in json_obj["src_addr"].split(','):
-                net = ipaddress.IPv4Network(addr, False)
-                ip = IpPrefix()
-                ip.ip.ipv4 = socket.htonl(int(net.network_address))
-                ip.mask.ipv4 = socket.htonl(int(net.netmask))
-                pb.src_addr.append(ip)
-        if "dst_addr" in json_obj:
-            for addr in json_obj["dst_addr"].split(','):
-                net = ipaddress.IPv4Network(addr, False)
-                ip = IpPrefix()
-                ip.ip.ipv4 = socket.htonl(int(net.network_address))
-                ip.mask.ipv4 = socket.htonl(int(net.netmask))
-                pb.dst_addr.append(ip)
-        elif "src_port" in json_obj:
-            for port in json_obj["src_port"].split(','):
-                vr = ValueOrRange()
-                if "-" not in port:
-                    vr.value = int(port)
-                else:
-                    vr.range.min = int(port.split('-')[0])
-                    vr.range.max = int(port.split('-')[1])
-                pb.src_port.append(vr)
-        elif "dst_port" in json_obj:
-            for port in json_obj["dst_port"].split(','):
-                vr = ValueOrRange()
-                if "-" not in port:
-                    vr.value = int(port)
-                else:
-                    vr.range.min = int(port.split('-')[0])
-                    vr.range.max = int(port.split('-')[1])
-                pb.dst_port.append(vr)
-        elif "protocol" in json_obj:
-            for proto in json_obj["protocol"].split(','):
-                pb.protocol.append(int(proto))
-        else:
-            pytest.fail("Unknown attribute %s" % json_obj)
-    else:
-        pytest.fail("Unknown table %s" % table_name)
-    return pb.SerializeToString()
+            raise Exception("error:" + msg)
 
 
 def apply_gnmi_file(duthost, ptfhost, dest_path):
+    """
+    Apply dash configuration with gnmi client
+
+    Args:
+        duthost: fixture for duthost
+        ptfhost: fixture for ptfhost
+        dest_path: configuration file path
+
+    Returns:
+    """
     env = GNMIEnvironment(duthost)
     logger.info("Applying config files on DUT")
     dut_command = "cat %s" % dest_path
@@ -403,8 +339,8 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 logger.info("Config Json %s" % k)
                 update_cnt += 1
                 filename = "update%u" % update_cnt
-                if ENABLE_PROTO:
-                    message = json_to_proto(k, v)
+                if proto_utils.ENABLE_PROTO:
+                    message = proto_utils.json_to_proto(k, v)
                     with open(env.work_dir+filename, "wb") as file:
                         file.write(message)
                 else:
@@ -414,7 +350,7 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 ptfhost.copy(src=env.work_dir+filename, dest='/root/')
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                if ENABLE_PROTO:
+                if proto_utils.ENABLE_PROTO:
                     path = "/APPL_DB/%s:$/root/%s" % (k, filename)
                 else:
                     path = "/APPL_DB/%s:@/root/%s" % (k, filename)
@@ -429,6 +365,5 @@ def apply_gnmi_file(duthost, ptfhost, dest_path):
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])
-    ret, msg = gnmi_set(duthost, ptfhost, delete_list, update_list, [])
-    assert ret == 0, msg
+    gnmi_set(duthost, ptfhost, delete_list, update_list, [])
     time.sleep(5)
