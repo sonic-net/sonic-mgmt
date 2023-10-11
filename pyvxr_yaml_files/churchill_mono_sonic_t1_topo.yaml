@@ -218,4 +218,4 @@ connections:
       backplane:
         ports:
         - veos[1..32].Ethernet9
-        - docker_ptf.backplane  
+        - docker_ptf.backplane
