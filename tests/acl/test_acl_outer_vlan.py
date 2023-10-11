@@ -25,7 +25,7 @@ from tests.common.utilities import check_skip_release
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
