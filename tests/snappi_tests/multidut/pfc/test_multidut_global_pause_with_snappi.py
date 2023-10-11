@@ -14,7 +14,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
