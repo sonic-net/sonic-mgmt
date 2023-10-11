@@ -29,6 +29,7 @@ NIGHTLY_HAWK_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(NIGHTLY_HAWK_DIR)
 ANSIBLE_DIR = os.path.join(SONIC_MGMT_DIR, 'ansible') 
 NIGHTLY_PIPELINE_YML_DIR = os.path.join(SONIC_MGMT_DIR, '.azure-pipelines/nightly') 
+ELASTIC_PIPELINE_YML_DIR = os.path.join(SONIC_MGMT_DIR, '.azure-pipelines/elastictest') 
 TESTBED_FILE = os.path.join(SONIC_MGMT_DIR, 'ansible/testbed.yaml') 
 
 DATABASE = 'SonicTestData'
@@ -36,6 +37,7 @@ DATABASE = 'SonicTestData'
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
+    # level=logging.DEBUG,
     format='%(asctime)s %(filename)s:%(name)s:%(lineno)d %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,16 @@ class KustoChecker(object):
             '''.format(build_id=build_id)
         return self.query(query_str)
 
+    def query_elastic_build_test_result(self, build_id):
+        query_str = '''
+            FlatTestReportViewV5
+            | where StartTimeUTC > ago(30d)
+            | where BuildId contains "{build_id}"
+            | extend Comments = " "
+            | distinct RunDate, TestbedName, OSVersion, Pipeline, Result, FullTestPath, Comments, Summary, StartTime, Runtime, ModulePath, TestCase
+            | sort by StartTime asc 
+            '''.format(build_id=build_id)
+        return self.query(query_str)
 
 class KustoUploader(object):
     def __init__(self, cluster, tenant_id, client_id, client_key, database):
@@ -348,6 +360,8 @@ class NightlyPipelineCheck(object):
 
     def parser_nightly_pipeline_yml_File(self, fileName):
         logger.info("fileName{} ".format(fileName))
+
+        yml_dict = {}
         with open(fileName) as f:
             pipeline_file_dict = yaml.safe_load(f)
 
@@ -356,36 +370,38 @@ class NightlyPipelineCheck(object):
             # for key,value in pipeline_file_dict.items():
             #     logger.info("{} : {} {}".format(key, value, type(value)))
             
-            testbed_name = None
-            image_url = None
-            branch_name = None
-            schedules = None
-            testbed_specific = None
-            nightly_test_timeout = None
-            skip_test_results_uploading = None
+            # testbed_name = None
+            # image_url = None
+            # branch_name = None
+            # schedules = None
+            # testbed_specific = None
+            # nightly_test_timeout = None
+            # skip_test_results_uploading = None
 
             schedules = pipeline_file_dict.get('schedules', None)
             parameters = pipeline_file_dict.get('parameters', None)
             if not schedules or not parameters:
                 logger.info("file {} seems not a nightly pipeline yml file ".format(fileName))
-                return None, None, None, None, None, None, None
+                return yml_dict
 
             for para in pipeline_file_dict['parameters']:
-                if para['name'] == 'TESTBED_NAME':
-                    # logger.info("{}".format(para['default']))
-                    testbed_name = para['default']
-                if para['name'] == 'IMAGE_URL':
-                    # logger.info("{}".format(para['default']))
-                    image_url = para['default']   
-                if para['name'] == 'TESTBED_SPECIFIC':
-                    # logger.info("{}".format(para['default']))
-                    testbed_specific = para['default']   
-                if para['name'] == 'NIGHTLY_TEST_TIMEOUT':
-                    # logger.info("{}".format(para['default']))
-                    nightly_test_timeout = para['default']   
-                if para['name'] == 'SKIP_TEST_RESULTS_UPLOADING':
-                    # logger.info("{}".format(para['default']))
-                    skip_test_results_uploading = para['default']
+                yml_dict[para['name']] = para['default']
+
+                # if para['name'] == 'TESTBED_NAME':
+                #     # logger.info("{}".format(para['default']))
+                #     testbed_name = para['default']
+                # if para['name'] == 'IMAGE_URL':
+                #     # logger.info("{}".format(para['default']))
+                #     image_url = para['default']   
+                # if para['name'] == 'TESTBED_SPECIFIC':
+                #     # logger.info("{}".format(para['default']))
+                #     testbed_specific = para['default']   
+                # if para['name'] == 'NIGHTLY_TEST_TIMEOUT':
+                #     # logger.info("{}".format(para['default']))
+                #     nightly_test_timeout = para['default']   
+                # if para['name'] == 'SKIP_TEST_RESULTS_UPLOADING':
+                #     # logger.info("{}".format(para['default']))
+                #     skip_test_results_uploading = para['default']
 
             if len(pipeline_file_dict['schedules']) > 1 or len(pipeline_file_dict['schedules'][0]['branches']['include']) > 1:
                 logger.info("schedules ERROR {}".format(pipeline_file_dict['schedules']))
@@ -393,7 +409,12 @@ class NightlyPipelineCheck(object):
             branch_name = pipeline_file_dict['schedules'][0]['branches']['include'][0]
             schedules = self.decode_cron(pipeline_file_dict['schedules'][0]['cron'])
 
-            return testbed_name, branch_name, image_url, schedules, testbed_specific, nightly_test_timeout, skip_test_results_uploading
+            yml_dict["schedules"] = schedules
+            yml_dict["branch_name"] = branch_name
+
+            logger.info("file {}, parser dict {}".format(fileName, yml_dict))
+            # return testbed_name, branch_name, image_url, schedules, testbed_specific, nightly_test_timeout, skip_test_results_uploading
+            return yml_dict
 
 
     def get_pipeline_ids_from_azure(self):
@@ -417,7 +438,7 @@ class NightlyPipelineCheck(object):
         return pipeline_ids_records
 
 
-    def get_pipeline_yml_from_code(self):
+    def get_pipeline_yml_from_code(self, yml_folder=NIGHTLY_PIPELINE_YML_DIR):
         """
         parser all yml files in nightly folder, and save every nightly yml file into self.nightly_pipelines_yml_dict
         key : yml name
@@ -432,11 +453,22 @@ class NightlyPipelineCheck(object):
         ......
         """
         nightly_pipelines_yml_dict = {}
-        for home, dirs, files in os.walk(NIGHTLY_PIPELINE_YML_DIR):
+        for home, dirs, files in os.walk(yml_folder):
             for file in files:
-                # logger.info("home {} dirs {} file {} ".format(home, dirs, files))
+                # logger.debug("home {} dirs {} file {} ".format(home, dirs, files))
                 if file.endswith('.yml'):
-                    testbed_name, branch_name, image_url, schedules, _, _, _ = self.parser_nightly_pipeline_yml_File(os.path.join(home, file))
+                    # testbed_name, branch_name, image_url, schedules, _, _, _ = self.parser_nightly_pipeline_yml_File(os.path.join(home, file))
+
+                    yml_dict = self.parser_nightly_pipeline_yml_File(os.path.join(home, file))
+
+                    testbed_name = yml_dict.get('TESTBED_NAME', None)
+                    image_url = yml_dict.get('IMAGE_URL', None)
+                    schedules = yml_dict.get('schedules', None)
+
+                    branch_name = yml_dict.get('MGMT_BRANCH', None)
+                    if branch_name == None:
+                        branch_name = yml_dict.get('branch_name', None)
+
                     logger.debug("file {} testbed_name {} branch_name {} image_url {} schedules {}".format(file, testbed_name, branch_name, image_url, schedules))
                     if not nightly_pipelines_yml_dict.get(file, None):
                         if testbed_name and branch_name and schedules:
@@ -458,7 +490,10 @@ class NightlyPipelineCheck(object):
         return nightly_pipelines_yml_dict
 
     
-    def collect_nightly_build_pipelines(self):
+    def collect_nightly_build_pipelines(self, pipeline_type):
+
+        logger.info("collect_nightly_build_pipelines ")
+
         # get pipeline ids from azure pipeline
         pipeline_ids_records = self.get_pipeline_ids_from_azure()
         if pipeline_ids_records == None:
@@ -466,7 +501,15 @@ class NightlyPipelineCheck(object):
             raise RuntimeError('Azure devops no token')
         
         # get pipeline yml files from code
-        nightly_pipelines_yml_dict = self.get_pipeline_yml_from_code()
+        if pipeline_type == "nightly":
+            yml_file_folder=NIGHTLY_PIPELINE_YML_DIR
+            pipeline_folder='\\Nightly'
+            pipeline_parser_dict_file = 'pipeline_parser_dict_nightly.json'
+        elif pipeline_type == "elastic":
+            yml_file_folder=ELASTIC_PIPELINE_YML_DIR
+            pipeline_folder='\\Elastictest'
+            pipeline_parser_dict_file = 'pipeline_parser_dict_elastic.json'
+        nightly_pipelines_yml_dict = self.get_pipeline_yml_from_code(yml_folder=yml_file_folder)
     
         pipeline_parser_analyzer_dict = {}
         # collect current nightly pipeline build 
@@ -474,7 +517,7 @@ class NightlyPipelineCheck(object):
         # for i in range(pipeline_ids_records['count']):
         for pipeline_info in pipeline_ids_records['value']:
             logger.warning("pipeline_info {} ".format(pipeline_info))
-            if 'path' in pipeline_info and pipeline_info['path'].startswith('\\Nightly') and not pipeline_info['path'].startswith('\\Nightly-Hawk'):
+            if 'path' in pipeline_info and pipeline_info['path'].startswith(pipeline_folder) :
                 file_name, pipeline_name, path = self.get_pipelines_info(pipeline_info['id'])
                 if file_name == None and pipeline_name == None and path == None :
                     logger.warning("get_pipelines_id {} failed ".format(pipeline_info['id']))
@@ -540,7 +583,7 @@ class NightlyPipelineCheck(object):
                                                                                      }
         logger.info("pipeline_parser_analyzer_dict {}".format(pipeline_parser_analyzer_dict))
         json_object = json.dumps(pipeline_parser_analyzer_dict, indent = 4)
-        with open("pipeline_parser_dict_debug.json", "w") as out_file:
+        with open(pipeline_parser_dict_file, "w") as out_file:
             out_file.write(json_object)
 
         logger.info("nightly build testbeds {}".format(pipeline_parser_analyzer_dict.keys()))
@@ -638,3 +681,4 @@ class NightlyPipelineCheck(object):
 
         return build_complete
 
+ 

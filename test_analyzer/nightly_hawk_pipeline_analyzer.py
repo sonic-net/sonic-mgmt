@@ -28,10 +28,8 @@ from openpyxl.styles import Font, colors, Alignment, PatternFill, Border, Side
 # from dateutil.tz import tzutc
 
 from nightly_hawk_autoRecovery_cfg import curr_convert_to_trusty_images_dict
-from nightly_hawk_autoRecovery_cfg import nightly_pipeline_internal
-from nightly_hawk_autoRecovery_cfg import nightly_pipeline_master
-from nightly_hawk_autoRecovery_cfg import nightly_pipeline_202012
-from nightly_hawk_autoRecovery_cfg import nightly_pipeline_202205
+from nightly_hawk_autoRecovery_cfg import nightly_pipeline_internal, nightly_pipeline_master, nightly_pipeline_202012, nightly_pipeline_202205, nightly_pipeline_202305
+
 
 from nightly_hawk_common import NightlyPipelineCheck, TbShare, KustoChecker, KustoUploader
 
@@ -122,6 +120,8 @@ class Nightly_hawk_pipeline_analyzer(object):
             nightly_pipeline_branch_dict = nightly_pipeline_202012.copy()
         elif 'internal-202205' == branch :
             nightly_pipeline_branch_dict = nightly_pipeline_202205.copy()
+        elif 'internal-202305' == branch :
+            nightly_pipeline_branch_dict = nightly_pipeline_202305.copy()
         else:
             logger.error("ERROR: branch {} mismatch ".format(branch))
             raise RuntimeError('collect_pipeline_build_images, branch {} mismatch'.format(branch))
@@ -153,7 +153,7 @@ class Nightly_hawk_pipeline_analyzer(object):
 
                         break
         
-        logger.info(" nightly_pipelines_dict {}  ".format(self.nightly_pipelines_dict))
+        logger.info(" nightly_pipelines_dict branch {} dict {}  ".format(branch, self.nightly_pipelines_dict[branch]))
 
 
 
@@ -191,6 +191,9 @@ class Nightly_hawk_pipeline_analyzer(object):
 
         self.collect_nightly_pipeline_build_by_branch('internal-202205')
         # logger.info("nightly 202205 {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict['internal-202205'])))
+
+        self.collect_nightly_pipeline_build_by_branch('internal-202305')
+        logger.info("nightly 202305 {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict['internal-202305'])))
 
         # logger.info("nightly {}  ".format(self.sorted_key_dict(self.nightly_pipelines_dict)))
         # logger.info("nightly_pipeline_testbeds {}  ".format(self.nightly_pipeline_testbeds))
@@ -359,7 +362,14 @@ class Nightly_hawk_pipeline_analyzer(object):
         Collects test results from Kusto based on build ID.
         :param build_id: str - the ID of the build to retrieve test results for.
         """
-        build_test_result = self.kusto_checker.query_build_test_result(build_id)
+
+        logger.info("collect_pipeline_build_case_result_by_build_id {} ".format(build_id)) 
+
+        if self.isElastic:
+            build_test_result = self.kusto_checker.query_elastic_build_test_result(build_id)
+        else:
+            build_test_result = self.kusto_checker.query_build_test_result(build_id)
+
         logger.debug("build_test_result {} ".format(build_test_result)) 
 
         # result_header_list = ['StartTimeUTC', 'TestbedName', 'OSVersion', 'StartTime', 'Runtime', 'Result', 'BuildId', 'ModulePath', 'TestCase', 'FullTestPath', 'Summary']
@@ -409,10 +419,16 @@ class Nightly_hawk_pipeline_analyzer(object):
 
         logger.debug("get_pipeline_build_result_by_build_id {}  ".format((get_build_records)))
 
-        parser_items = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests']
+        parser_items = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests', 'Prepare testbed', 'Run test']
+
         for i in range(int(len(get_build_records['records']))):
             for j in range(len(parser_items)) :
-                if parser_items[j] in get_build_records['records'][i].values() :
+
+                logger.debug("pipeline_id {} build_id {} record {}, item {}, values {}".format(pipeline_id, build_id, i, parser_items[j], get_build_records['records'][i]['name'])) 
+
+                if parser_items[j].lower() == get_build_records['records'][i]['name'].lower():
+                    logger.debug("pipeline_id {} build_id {} record {}, item {}, state {}".format(pipeline_id, build_id, i, parser_items[j], get_build_records['records'][i]['state'])) 
+
                     if get_build_records['records'][i]['state'] == 'completed':
                         logger.debug("pipeline_id {} build_id {} record {}, item {}, result {}".format(pipeline_id, build_id, i, parser_items[j], get_build_records['records'][i]['result'])) 
 
@@ -423,7 +439,7 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
                                 testbed_user = self.pipelines_build_log_match(build_log_buffer, pattern)
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = 'failed\n' + testbed_user
-                            elif parser_items[j] == 'Upgrade Image':
+                            elif parser_items[j] == 'Upgrade Image' or parser_items[j] == 'Prepare testbed':
                                 pattern = 'fatal'
                                 build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
                                 result_output = self.pipelines_build_log_serach(build_log_buffer, pattern)
@@ -433,7 +449,7 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
                                 result_output = self.pipelines_build_log_serach(build_log_buffer, pattern)
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = 'failed\n' + result_output
-                            elif parser_items[j] == 'Run Tests':
+                            elif parser_items[j] == 'Run Tests' or parser_items[j] == 'Run test':
                                 start_time = datetime.datetime.strptime(get_build_records['records'][i]['startTime'][0:19], '%Y-%m-%dT%H:%M:%S')
                                 finish_time = datetime.datetime.strptime(get_build_records['records'][i]['finishTime'][0:19], '%Y-%m-%dT%H:%M:%S')
                                 run_time = finish_time - start_time
@@ -444,6 +460,7 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 result_output = self.pipelines_build_log_match(build_log_buffer, pattern_list)
                                 # result_output = '{}\n{}'.format(result_output, self.parser_run_tests_logs(build_log_buffer))                                
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = '{}{}\n{}'.format('failed run time: ', run_time, result_output)
+                                
                         elif get_build_records['records'][i]['result'] == 'succeeded' :
                             if parser_items[j] == 'Upgrade Image':
                                 pattern = 'current image:'
@@ -457,8 +474,30 @@ class Nightly_hawk_pipeline_analyzer(object):
                                     current_image = "No image found"
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = current_image
 
-                            elif parser_items[j] == 'Run Tests':
-                                build_result_dict = self.collect_pipeline_build_case_result_by_build_id(build_id)
+                            elif parser_items[j] == 'Run Tests' or parser_items[j] == 'Run test':
+
+                                start_time = datetime.datetime.strptime(get_build_records['records'][i]['startTime'][0:19], '%Y-%m-%dT%H:%M:%S')
+                                finish_time = datetime.datetime.strptime(get_build_records['records'][i]['finishTime'][0:19], '%Y-%m-%dT%H:%M:%S')
+                                run_time = finish_time - start_time
+                                logger.debug("record {} item {} run time {} start time {} finish time {} ".format(i, parser_items[j], run_time, get_build_records['records'][i]['startTime'][0:19], get_build_records['records'][i]['finishTime'][0:19])) 
+
+                                if self.isElastic:
+                                    pattern = 'Please visit Elastictest page'
+                                    build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
+                                    result_output = self.pipelines_build_log_serach(build_log_buffer, pattern)
+                                    logger.info("result_output {}".format(result_output))
+
+                                    testplan_pattern = r'https://elastictest.org/scheduler/testplan/([0-9a-fA-F]+)'
+
+                                    # Use re.search to find the matching part of the string
+                                    match = re.search(testplan_pattern, result_output)
+                                    # Check if a match was found
+                                    if re.search(testplan_pattern, result_output):
+                                        test_plan_id = match.group(1)
+                                        logger.info("test_plan_id {}".format(test_plan_id))
+                                        self.pipeline_build_result_dict[pipeline_id][build_id]['id'] = test_plan_id
+
+                                build_result_dict = self.collect_pipeline_build_case_result_by_build_id(self.pipeline_build_result_dict[pipeline_id][build_id]['id'])
         
                                 for value in self.result_value_list:
                                     logger.info("{} cases count: {} ".format(value, len(build_result_dict[value].keys())))
@@ -499,6 +538,8 @@ class Nightly_hawk_pipeline_analyzer(object):
 
 
     def parser_pipeline_build_result(self):
+        logger.info("parser_pipeline_build_result ")
+
         for pipeline_id in self.pipeline_build_result_dict.keys():
             logger.info("pipeline_id {}  ".format(pipeline_id)) 
             for build_id in self.pipeline_build_result_dict[pipeline_id].keys():
@@ -524,6 +565,9 @@ class Nightly_hawk_pipeline_analyzer(object):
 
 
     def parser_pipeline_status_result_by_pipeline_id(self, pipeline_id):
+
+        logger.info("parser_pipeline_status_result_by_pipeline_id pipeline_id {}  ".format(pipeline_id))
+
         TOKEN = os.environ.get('AZURE_DEVOPS_MSSONIC_TOKEN')
         if not TOKEN:
             logger.error("Get token failed, Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN")
@@ -625,6 +669,11 @@ class Nightly_hawk_pipeline_analyzer(object):
                 for index, index_info in self.nightly_pipelines_dict['internal-202205'].items():
                     self.parser_pipeline_status_result_by_pipeline_id(index_info['pipeline_id'])
                 # logger.info("internal-202205 pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
+        elif 'internal-202305' == branch :
+            if self.nightly_pipelines_dict.get('internal-202305', None):
+                for index, index_info in self.nightly_pipelines_dict['internal-202305'].items():
+                    self.parser_pipeline_status_result_by_pipeline_id(index_info['pipeline_id'])
+                # logger.info("internal-202205 pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
         else:
             logger.error("ERROR: branch {} mismatch ".format(branch))
 
@@ -645,6 +694,7 @@ class Nightly_hawk_pipeline_analyzer(object):
         self.parser_pipeline_status_result_by_branch('internal')
         self.parser_pipeline_status_result_by_branch('internal-202012')
         self.parser_pipeline_status_result_by_branch('internal-202205')
+        self.parser_pipeline_status_result_by_branch('internal-202305')
 
         logger.info("pipeline_build_result_dict {}".format(self.pipeline_build_result_dict))
 
@@ -708,7 +758,9 @@ class Nightly_hawk_pipeline_analyzer(object):
         self.curr_row = 1
         self.curr_col = 1
         self.excel_sheet_create(wb, 'internal-202012', nightly_pipeline_202012)
-
+        self.curr_row = 1
+        self.curr_col = 1
+        self.excel_sheet_create(wb, 'internal-202305', nightly_pipeline_202305)
         wb.save(self.save_file_name)
 
         return
@@ -1073,24 +1125,42 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        '-p', '--pipelineCustomer', help='use customer pipeline config to parser', action='store_false',
-        required=False, default=True
+        '-p', '--pipelineCustomer', help='use customer pipeline config to parser', action='store_true',
+        required=False, default=False
+    )
+
+    parser.add_argument(
+        '-e', '--elastic', help='for elastic build', action='store_true',
+        required=False, default=False
     )
 
     args = parser.parse_args()
-    logger.info("Parser {} days pipeline result, using logging lever {}, using cache {}, pipeline customer {}".format(args.days2parser, args.verbose, args.useCache, args.pipelineCustomer))
-
+    for arg in vars(args):
+        logger.info("input parameter {}: {}".format(arg, getattr(args, arg)))
 
     pipeline_analyzer = Nightly_hawk_pipeline_analyzer(verbose = args.verbose, days2parser = args.days2parser)
 
+    if args.elastic:
+        pipeline_type = 'elastic'
+        pipeline_parser_dict_file = 'pipeline_parser_dict_elastic.json'
+        pipeline_analyzer.isElastic = True
+    else:
+        pipeline_type = 'nightly'
+        pipeline_parser_dict_file = 'pipeline_parser_dict_nightly.json'
+        pipeline_analyzer.isElastic = False
+
+    
+        # pipeline_analyzer.pipeline_parser_analyzer_dict = pipeline_analyzer.nightly_pipeline_check.collect_nightly_build_pipelines('elastic')
+        # logger.info("elastic_pipeline_build_result_dict {}".format(pipeline_analyzer.pipeline_parser_analyzer_dict))
+
     skip_parser_pipeline_info = args.useCache
-    if skip_parser_pipeline_info and os.path.exists('pipeline_parser_dict_debug.json'):
-        with open('pipeline_parser_dict_debug.json') as f:
+    if skip_parser_pipeline_info and os.path.exists(pipeline_parser_dict_file):
+        with open(pipeline_parser_dict_file) as f:
             logger.info("parser_pipeline_info using cache file")
             pipeline_analyzer.pipeline_parser_analyzer_dict = json.load(f)
     else:
         logger.info("parser_pipeline_info online ")
-        pipeline_analyzer.pipeline_parser_analyzer_dict = pipeline_analyzer.nightly_pipeline_check.collect_nightly_build_pipelines()
+        pipeline_analyzer.pipeline_parser_analyzer_dict = pipeline_analyzer.nightly_pipeline_check.collect_nightly_build_pipelines(pipeline_type)
 
     # logger.info("pipeline_parser_analyzer_dict {} ".format(pipeline_analyzer.pipeline_parser_analyzer_dict))
 
@@ -1099,18 +1169,29 @@ if __name__ == '__main__':
         nightly_pipeline_master.clear()
         nightly_pipeline_202012.clear()
         nightly_pipeline_202205.clear()
+        nightly_pipeline_202305.clear()
         nightly_pipeline_internal = pipeline_analyzer.create_branch_pipeline_list('internal')
         nightly_pipeline_master = pipeline_analyzer.create_branch_pipeline_list('master')
         nightly_pipeline_202205 = pipeline_analyzer.create_branch_pipeline_list('internal-202205')
         nightly_pipeline_202012 = pipeline_analyzer.create_branch_pipeline_list('internal-202012')
-        logger.info("nightly_pipeline_internal {} ".format(nightly_pipeline_internal))
-        logger.info("nightly_pipeline_master {} ".format(nightly_pipeline_master))
-        logger.info("nightly_pipeline_202205 {} ".format(nightly_pipeline_202205))
-        logger.info("nightly_pipeline_202012 {} ".format(nightly_pipeline_202012))
+        nightly_pipeline_202305 = pipeline_analyzer.create_branch_pipeline_list('internal-202305')
+
+    # # for debug
+    # nightly_pipeline_internal.clear()
+    # nightly_pipeline_master.clear()
+    # nightly_pipeline_202012.clear()
+    # nightly_pipeline_202205.clear()
+    # # nightly_pipeline_202305.clear()
+
+    logger.info("nightly_pipeline_internal {} ".format(nightly_pipeline_internal))
+    logger.info("nightly_pipeline_master {} ".format(nightly_pipeline_master))
+    logger.info("nightly_pipeline_202205 {} ".format(nightly_pipeline_202205))
+    logger.info("nightly_pipeline_202012 {} ".format(nightly_pipeline_202012))
+    logger.info("nightly_pipeline_202305 {} ".format(nightly_pipeline_202305))
 
     logger.info("parser_pipeline_status_result ")
     pipeline_analyzer.parser_pipeline_status_result()
-
+    
     logger.info("parser_pipeline_build_result ")
     pipeline_analyzer.parser_pipeline_build_result()
     

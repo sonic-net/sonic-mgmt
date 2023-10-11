@@ -72,7 +72,7 @@ class Nightly_hawk_branch_verify(object):
 
         self.nightly_pipeline_check = NightlyPipelineCheck()
 
-        # self.pipeline_parser_analyzer_dict = self.nightly_pipeline_check.collect_nightly_build_pipelines()
+        # self.pipeline_parser_analyzer_dict = self.nightly_pipeline_check.collect_nightly_build_pipelines('nightly')
         # with open('pipeline_parser_dict_debug_branch_verify.json') as f:
         # # with open('pipeline_parser_dict_debug.json') as f:
         #     logger.info("parser_pipeline_info using cache file")
@@ -201,7 +201,11 @@ class Nightly_hawk_branch_verify(object):
                 self.testbeds[testbed]['yml'] = os.path.basename(pipeline['path']) 
 
                 yml = os.path.join(SONIC_MGMT_DIR, pipeline['path'])
-                _, _, _, _, testbed_specific, nightly_test_timeout, skip_test_results_uploading = self.nightly_pipeline_check.parser_nightly_pipeline_yml_File(yml)
+                yml_dict = self.nightly_pipeline_check.parser_nightly_pipeline_yml_File(yml)
+                testbed_specific = yml_dict.get('TESTBED_SPECIFIC', None)
+                nightly_test_timeout = yml_dict.get('NIGHTLY_TEST_TIMEOUT', None)
+                skip_test_results_uploading = yml_dict.get('SKIP_TEST_RESULTS_UPLOADING', None)
+   
                 if testbed_specific == None and 'TESTBED_SPECIFIC' in self.testbeds[testbed]:
                     logger.info("pipeline has no TESTBED_SPECIFIC item, remove {}".format(self.testbeds[testbed]['TESTBED_SPECIFIC']))
                     del self.testbeds[testbed]['TESTBED_SPECIFIC']
@@ -723,7 +727,7 @@ if __name__ == '__main__':
         logger.error(" !!! ERROR: branch_verify not support anymore after pipeline migrated to Elastic! ")
         
         '''
-        branch_verify.pipeline_parser_analyzer_dict = branch_verify.nightly_pipeline_check.collect_nightly_build_pipelines()
+        branch_verify.pipeline_parser_analyzer_dict = branch_verify.nightly_pipeline_check.collect_nightly_build_pipelines('nightly')
 
         if args.testbedNames and (args.testbedNames.isspace() == False):
             logger.info("testbedNames {}".format(args.testbedNames))
