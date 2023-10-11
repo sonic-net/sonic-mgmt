@@ -268,13 +268,13 @@
       <InterfaceVlan mode="Access" portname="Ethernet59/1" vlanids="291"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="svcstr2-8800-sup-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.119"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.119/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="svcstr2-8800-lc4-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.123"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.123/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="svcstr2-8800-lc2-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.121"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.121/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="svcstr2-z9332f-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.252/24"/>
@@ -315,17 +315,26 @@
       <InterfaceVlan mode="Access" portname="Ethernet248" vlanids="232"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="svcstr2-8800-lc3-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.122"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.122/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="svcstr2-server-5">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.247/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="svcstr2-8800-lc1-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.120"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.206.144.120/24"/>
     </DevicesL3Info>
   </DataPlaneGraph>
   <ConsoleGraphDeclaration>
-    <DevicesConsoleInfo/>
+    <DevicesConsoleInfo>
+      <DeviceConsoleInfo Hostname="console-6" HwSku="Sonic" ManagementIp="10.206.144.246" Type="ConsoleServer"/>
+    </DevicesConsoleInfo>
+    <ConsoleLinksInfo>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr2-7260cx3-acs-1" Proxy="admin" StartDevice="console-6" StartPort="21"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr2-7260cx3-acs-2" Proxy="admin" StartDevice="console-6" StartPort="19"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr2-7260cx3-acs-3" Proxy="admin" StartDevice="console-6" StartPort="20"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr2-z9332f-01" Proxy="admin" StartDevice="console-6" StartPort="18"/>
+      <ConsoleLinkInfo Console_type="ssh" EndDevice="svcstr2-8800-sup-1" Proxy="admin" StartDevice="console-6" StartPort="17"/>
+    </ConsoleLinksInfo>
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
