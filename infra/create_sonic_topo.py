@@ -780,7 +780,7 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
         return vxr_path, input_file
     
     if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py" 
 
     if clean_sim:
         os.system("{} clean".format(vxr_path))
