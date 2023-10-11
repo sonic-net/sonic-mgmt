@@ -774,13 +774,17 @@ def determine_base_topo(topo_type, device_type):
     
     return base_topo_file, vEOS_count, ptf_intfcount
 
-def start_vxr(input_file, cicd, clean_sim, topo_yaml):
-    vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py"
+def start_vxr(input_file, cicd, clean_sim, topo_yaml, device_type):
+    vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+
     if input_file:
         return vxr_path, input_file
     
     if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py" 
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
+
+    if device_type == 'churchill-mono':
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py"
 
     if clean_sim:
         os.system("{} clean".format(vxr_path))
@@ -888,7 +892,7 @@ def main():
     
     vxr_start_begin = datetime.datetime.now()
     
-    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
+    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml, device_type)
 
     vxr_start_end = datetime.datetime.now()
 
