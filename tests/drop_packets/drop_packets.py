@@ -231,8 +231,18 @@ def expected_packet_mask(pkt):
     exp_pkt = mask.Mask(exp_pkt)
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-    exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
-    exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+
+    if packet.IP not in exp_pkt.exp_pkt and packet.IPv6 not in exp_pkt.exp_pkt:
+        # When exp_pkt doesn't include IPv4 or IPv6 header, return the exp_pkt directly
+        return exp_pkt
+    elif packet.IPv6 in exp_pkt.exp_pkt:
+        # For Ipv6 header, hlim is same to ttl of Ipv4, and ipv6 has no chksum
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
+    else:
+        # For Ipv4 header, need to ignore ttl and chksum
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+
     return exp_pkt
 
 
