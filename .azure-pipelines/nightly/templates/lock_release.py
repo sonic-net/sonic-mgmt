@@ -81,7 +81,7 @@ def lock_release(testbed, action, hours, user, reason, force, absolute):
             'lock_reason': reason,
             'absolute_lock': absolute,
             'force_lock': force,
-
+            'ignore_status': True,
         }
         if action == 'release':
             data = {
