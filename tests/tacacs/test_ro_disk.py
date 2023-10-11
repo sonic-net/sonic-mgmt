@@ -10,7 +10,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
-from .utils import setup_tacacs_client
+from .utils import setup_tacacs_client, change_and_wait_aaa_config_update, wait_for_log
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -35,10 +35,24 @@ def check_disk_ro(duthost):
         return True
 
 
+def check_remount_complete(duthost):
+    try:
+        result = duthost.shell('sudo cat /var/log/syslog | grep "Emergency Remount complete"', module_ignore_errors=True)
+        return result["rc"] != 0
+    finally:
+        logger.info("touch file failed as expected")
+        return True
+
+
 def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
     assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
+
+    # Change disk RO state will remount disk, wait for remount finish
+    log_pattern = "/Emergency Remount complete/P"
+    logs = wait_for_log(duthost, "/var/log/tac_plus.acct", log_pattern)
+    assert len(logs) > 0, "disk not in ro state"
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
@@ -188,7 +202,7 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         # Enable AAA failthrough authentication so that reboot function can be used
         # to reboot DUT
-        duthost.shell("config aaa authentication failthrough enable")
+        change_and_wait_aaa_config_update(duthost, "config aaa authentication failthrough enable")
 
         # Set disk in RO state
         simulate_ro(duthost)

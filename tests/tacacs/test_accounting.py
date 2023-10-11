@@ -1,6 +1,4 @@
 import logging
-import time
-from tests.common.devices.ptf import PTFHost
 
 
 import pytest
@@ -8,7 +6,7 @@ import pytest
 
 from .test_authorization import ssh_connect_remote, ssh_run_command, \
         remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server, \
+from .utils import stop_tacacs_server, start_tacacs_server, wait_for_log, \
         check_server_received, per_command_accounting_skip_versions, \
         change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
@@ -36,26 +34,6 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
     logger.info(res["stdout_lines"])
 
     ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
-
-
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
-    wait_time = 0
-    while wait_time <= timeout:
-        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
-        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-        if isinstance(host, PTFHost):
-            res = host.command(sed_command)
-        else:
-            res = host.shell(sed_command)
-
-        logger.info(res["stdout_lines"])
-        if len(res["stdout_lines"]) > 0:
-            return res["stdout_lines"]
-
-        time.sleep(check_interval)
-        wait_time += check_interval
-
-    return []
 
 
 def check_tacacs_server_log_exist(ptfhost, tacacs_creds, command):

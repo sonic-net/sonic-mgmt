@@ -4,6 +4,7 @@ import re
 import binascii
 import time
 import pytest
+from tests.common.devices.ptf import PTFHost
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -329,3 +330,23 @@ def change_and_wait_aaa_config_update(duthost, command, timeout=10):
         wait_time += 1
 
     pytest_assert(False, "Not found aaa config update log: {}".format(command))
+
+
+def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
+    wait_time = 0
+    while wait_time <= timeout:
+        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
+        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
+        if isinstance(host, PTFHost):
+            res = host.command(sed_command)
+        else:
+            res = host.shell(sed_command)
+
+        logger.info(res["stdout_lines"])
+        if len(res["stdout_lines"]) > 0:
+            return res["stdout_lines"]
+
+        time.sleep(check_interval)
+        wait_time += check_interval
+
+    return []
