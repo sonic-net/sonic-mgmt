@@ -563,7 +563,7 @@ class Nightly_hawk_branch_verify(object):
         logger.debug("build_case_verify_pipeline_payload {}".format(testbed))
         image_url, prev_image_url, saithrift_macro = self.build_URLs(testbed)
 
-        if image_url and prev_image_url and saithrift_macro:
+        if image_url is None:
             return None
 
         payload = {
