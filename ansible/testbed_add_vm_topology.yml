@@ -104,6 +104,7 @@
     when: duts_name.split(',')|length > 1
 
   roles:
+    - { role: vm_set, action: 'configure_server' }
     - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
     - { role: vm_set, action: 'start_sonic_vm' }
     - { role: vm_set, action: 'start_sid' }
