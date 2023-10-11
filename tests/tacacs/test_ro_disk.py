@@ -35,15 +35,6 @@ def check_disk_ro(duthost):
         return True
 
 
-def check_remount_complete(duthost):
-    try:
-        result = duthost.shell('sudo cat /var/log/syslog | grep "Emergency Remount complete"', module_ignore_errors=True)
-        return result["rc"] != 0
-    finally:
-        logger.info("touch file failed as expected")
-        return True
-
-
 def simulate_ro(duthost):
     duthost.shell("echo u > /proc/sysrq-trigger")
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
