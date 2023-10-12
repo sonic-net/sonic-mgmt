@@ -10,7 +10,7 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
-from .utils import setup_tacacs_client, change_and_wait_aaa_config_update, wait_for_log
+from .utils import setup_tacacs_client, change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -40,10 +40,11 @@ def simulate_ro(duthost):
     logger.info("Disk turned to RO state; pause for 30s before attempting to ssh")
     assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
 
-    # Change disk RO state will remount disk, wait for remount finish
-    log_pattern = "/Emergency Remount complete/P"
-    logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
-    assert len(logs) > 0, "disk not in ro state"
+    # Wait for disk remount finish
+    # Can't check remount finish by command here:
+    #  duthost.shell will failed with "no usable temporary directory found" error
+    #  also according to syslog, use ssh_remote_run before remount finish will cause UT failed
+    time.sleep(30)
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):

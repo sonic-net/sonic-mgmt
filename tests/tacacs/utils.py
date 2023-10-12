@@ -3,8 +3,6 @@ import logging
 import re
 import binascii
 import pytest
-import time
-from tests.common.devices.ptf import PTFHost
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -332,27 +330,3 @@ def change_and_wait_aaa_config_update(duthost, command, timeout=10):
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
-
-
-def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
-    wait_time = 0
-    while wait_time <= timeout:
-        sed_command = "sed -nE '{0}' {1}".format(pattern, log_file)
-        logger.info(sed_command)  # lgtm [py/clear-text-logging-sensitive-data]
-        try:
-            if isinstance(host, PTFHost):
-                res = host.command(sed_command)
-            else:
-                res = host.shell(sed_command)
-
-            logger.info(res["stdout_lines"])
-            if len(res["stdout_lines"]) > 0:
-                return res["stdout_lines"]
-        except RunAnsibleModuleFail as e:
-            # when disk remount, run command may failed because no usable temporary directory found
-            logger.debug("wait_for_log failed with RunAnsibleModuleFail: {}".format(e))
-
-        time.sleep(check_interval)
-        wait_time += check_interval
-
-    return []
