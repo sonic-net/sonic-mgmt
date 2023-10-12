@@ -1254,7 +1254,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            if (platform_asic and platform_asic == "broadcom-dnx"):
+            if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info(
                     "On J2C+ don't support port level drop counters - so ignoring this step for now")
             else:
