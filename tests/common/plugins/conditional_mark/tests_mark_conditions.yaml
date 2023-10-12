@@ -217,8 +217,8 @@ copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
     reason: "Copp test_trap_config_save_after_reboot is not yet supported on multi-asic platform or not supported after docker_inram enabled"
     conditions:
       - "is_multi_asic==True"
-      - "int(build_version.split('.')[0]) == 20220531 and int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
-      - "int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) == 20220531 and int(build_version.split('.')[1]) > 27 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
+      - "build_version.split('.')[0].isdigit() and int(build_version.split('.')[0]) > 20220531 and hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-C32-T1']"
 
 #######################################
 #####            crm              #####
@@ -743,7 +743,7 @@ pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
     conditions:
-      - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0"
+      - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
@@ -755,7 +755,7 @@ pc/test_po_voq.py:
   skip:
     reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "num_asic == 0 or len(minigraph_portchannels[minigraph_portchannels.keys()[0]]['members']) == 0 or asic_type in ['cisco-8000']"
+      - "num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
@@ -1135,7 +1135,7 @@ syslog/test_syslog.py:
     reason: "Generic internal image issue"
     conditions:
       - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 33"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 33"
 
 syslog/test_syslog_source_ip.py:
   skip:
@@ -1151,7 +1151,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
     strict: True
     conditions:
       - "branch in ['internal-202012']"
-      - "int(build_version.split('.')[1]) <= 44"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
 
 #######################################
 #####           telemetry         #####
