@@ -887,6 +887,12 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
+qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_pipe_mode:
+  xfail:
+    reason: "Pipe decap mode not supported due to either SAI or platform limitation"
+    conditions:
+      - "asic_type in ['mellanox', 'cisco-8000']"
+
 qos/test_qos_masic.py:
   skip:
     reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend."
