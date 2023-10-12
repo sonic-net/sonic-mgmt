@@ -2,6 +2,7 @@ import crypt
 import logging
 import re
 import binascii
+import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -46,6 +47,16 @@ def stop_tacacs_server(ptfhost):
         return "tacacs+ apparently not running" in out
     ptfhost.shell("service tacacs_plus stop")
     return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
+
+
+@pytest.fixture
+def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
+    """make sure tacacs server running after UT finish"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    yield
+
+    start_tacacs_server(duthost)
 
 
 def setup_local_user(duthost, tacacs_creds):
@@ -257,7 +268,7 @@ def remove_all_tacacs_server(duthost):
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
 
 
-def check_server_received(ptfhost, data):
+def check_server_received(ptfhost, data, timeout=30):
     """
         Check if tacacs server received the data.
     """
@@ -285,7 +296,37 @@ def check_server_received(ptfhost, data):
             E501 : Line too long. Following sed command difficult to split to multiple line.
     """
     sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
-    res = ptfhost.shell(sed_command)
-    logger.info(sed_command)
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
+
+    # After tacplus service receive data, it need take some time to update to log file.
+    def log_exist(ptfhost, sed_command):
+        res = ptfhost.shell(sed_command)
+        logger.info(sed_command)
+        logger.info(res["stdout_lines"])
+        return len(res["stdout_lines"]) > 0
+
+    exist = wait_until(timeout, 1, 0, log_exist, ptfhost, sed_command)
+    pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
+
+
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
+    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, timeout=10):
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    def log_exist(duthost):
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        return latest_timestamp != last_timestamp
+
+    exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    pytest_assert(exist, "Not found aaa config update log: {}".format(command))
