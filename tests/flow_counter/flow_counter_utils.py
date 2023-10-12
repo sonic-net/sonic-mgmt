@@ -115,6 +115,8 @@ def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
         bool: True if supported
     """
     rand_selected_dut = duthosts[enum_rand_one_per_hwsku_hostname]
+    if "t2" in tbinfo["topo"]["type"] or rand_selected_dut.is_multi_asic:
+        pytest.skip("Skip test for T2 and multi-asic")
     if rand_selected_dut.facts['asic_type'] == 'vs':
         # vs platform always set SAI capability to enabled, however, it does not really support all SAI atrributes.
         # Currently, vs platform does not support route flow counter.
