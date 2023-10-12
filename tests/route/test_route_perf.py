@@ -495,7 +495,7 @@ def send_and_verify_traffic(
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
     logger.info(
-        "Sending packet from src port - {} , expecting to recieve on any port".format(
+        "Sending packet from src port - {} , expecting to receive on any port".format(
             ptf_src_port
         )
     )
