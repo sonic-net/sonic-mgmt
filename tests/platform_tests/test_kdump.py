@@ -58,9 +58,7 @@ class TestKernelPanic:
     def test_kernel_panic(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                           conn_graph_facts, xcvr_skip_list):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
-        dut_datetime = duthost.get_now_time()
 
         out = duthost.command('show kdump config')
         if "Enabled" not in out["stdout"]:
