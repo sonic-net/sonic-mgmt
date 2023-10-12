@@ -10,8 +10,8 @@ import apis.system.logging as logapi
 class variables:
     def __init__(self):
         self.MACSEC_PROFILE= {"aes_128": "GCM-AES-128", "aes_256": "GCM-AES-256", "aes_xpn_128":"GCM-AES-XPN-128", "aes_xpn_256":"GCM-AES-XPN-256"}
-        self.MACSEC_REGEX = "install_tx_sa:.*TxSA added and activated for port {}\|phy_install_tx_sa_on_hw:.*TX SA install on port: {}\|macsec_install_tx_sa: PhyID .*:Install Tx SA: idx: {}\|\
-        install_rx_sa:.*RxSA added and activated for port {}\|phy_install_rx_sa_on_hw:.*RX SA install on port: {}\|macsec_install_rx_sa: PhyID .*:Install Rx SA: idx: {}"
+        self.MACSEC_REGEX = "ACL direction: .* Init macsec called for Ethernet{}\|MACSEC init config successful for .* port {}\|Config enable: idx: {} lane: .* mode:.*\|Configured default Policy on SecY for softPort: {}\|0x888E Egress rule add success for port {}\|\
+0x888E Ingress rule add success for port {}\|0x876F Egress rule add success for port {}\|0x876F Ingress rule add success for port {}\|Macsec config enable is success and added rule to classify the packets to control for port: {}\|\TX SA.*install on port_oid.*, pd_port: {}\|RX SA.*install on port_oid.*, pd_port: {}"
 
 var = variables()
 
@@ -58,9 +58,6 @@ def enable_macsec_feature(dut):
 def apply_profile(duts, ports, profile, policy, replay_window="0", send_sci="1", is_lag= False, mismatch = False):
     try:
         for dut in duts:
-        #st.config(dut, 'sudo config macsec -n asic{} CONFIG_DB HMSET "var.MACSEC_PROFILE|{}" "priority" "64" "cipher_suite" "{}" "primary_cak" "{}" \
-        #"primary_ckn" "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" "fallback_cak" "" "fallback_ckn" "" "policy" "{}" "enable_replay_protect" "0" "replay_window" "{}" "send_sci" "{}" "rekey_period" "30"\
-        #'.format(asic, profile, var.MACSEC_PROFILE[profile], primary_cak, policy, replay_window, send_sci), skip_tmpl=True, skip_error_check=False)
             count = 0
             for port in ports[dut]:
                 asic = get_asic_from_port(port) if is_lag is False else 0
@@ -69,7 +66,7 @@ def apply_profile(duts, ports, profile, policy, replay_window="0", send_sci="1",
                         primary_cak = "08711D1C5A4D5041455355250808000D156573415442565701010172762D273D30090905000600025C035F267A74203620540A59555B741A1951402435312F2922"
                     else:
                         primary_cak = "01435756085F5359761417283B2633372D5C557878707D65627A4A26342025737F"
-                    st.config(dut, 'sudo config macsec -n asic{} profile add {} --priority 64 --cipher_suite "{}" --primary_cak {} --primary_ckn "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" --replay_window {} --rekey_period 5 --send_sci\
+                    st.config(dut, 'sudo config macsec -n asic{} profile add {} --priority 64 --cipher_suite "{}" --primary_cak {} --primary_ckn "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435" --replay_window {} --rekey_period 30 --send_sci\
                 '.format(asic, profile, var.MACSEC_PROFILE[profile], primary_cak, replay_window), skip_tmpl=True, skip_error_check=False)
                 count+=1
                 st.banner("--------Applying macsec profile on {} {}------".format(dut, port))
@@ -82,8 +79,8 @@ def check_syslog(dut, port, syslog_regex):
     For eg: Ethernet2 = 2*8 = 16 ; Ethernet16 = 16*8 = 128'''
     port_num = int(re.search("\d+", str(port)).group(0))
     port_8 = port_num/8 
-    line = syslog_regex.format(port_num, port_8, port_num, port_num, port_8, port_num)
-    if len(logapi.show_logging(dut, filter_list= [line]))<6:
+    line = syslog_regex.format(port_8, port_8, port_num, port_num, port_num, port_num, port_num, port_num, port_num, port_8, port_8)
+    if len(logapi.show_logging(dut, filter_list= [line]))<11:
         st.error("Failed to find syslogs on {} for {}".format(dut, port))
         return False
     return True
@@ -156,6 +153,7 @@ def run_traffic(request, wait_time=15):
     tg_rx = tgapi.get_traffic_stats(tg2, port_handle=tg_handle_2)
     st.log("Received traffic: {}".format(tg_rx['rx']['total_packets']))
     st.log("Sent traffic: {}".format(tg_tx['tx']['total_packets']))
+    st.log(tg_rx['rx']['total_packets']/tg_tx['tx']['total_packets'])
     if tg_rx['rx']['total_packets'] > 0.80*tg_tx['tx']['total_packets']:
         return True
     else:
@@ -169,12 +167,14 @@ def restart_container(dut, container_name, asic):
 
 
 def config_portchannel():
+    var_def()
     for dut in duts: 
         st.config(dut, "sudo config portchannel -n asic0 add --min-links 2 PortChannel24")
         st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P1))
         st.config(dut, "sudo config portchannel -n asic0 member add PortChannel24 {}".format(vars.D1D2P2))
 
 def deconfig_portchannel():
+    var_def()
     for dut in duts:
         st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P1))
         st.config(dut, "sudo config portchannel -n asic0 member del PortChannel24 {}".format(vars.D1D2P2))

@@ -9,7 +9,6 @@ from tests.macsec.macsec_helper import get_asic_from_port, enable_macsec_feature
                                           is_container_running, restart_container, variables
 
 
-
 @pytest.fixture(scope="module", autouse=True)
 def macsec_module_hooks(request):
     global vars, ports, duts, local_links_D1, local_links_D2, tg1, tg2, tg_handle_1, tg_handle_2
@@ -35,11 +34,32 @@ def macsec_class_hook(request):
     request.config.subnet = subnet
     config_routes(vars.D1, vars.D2, vars.D1D2P1, vars.D2D1P1, request.config.subnet)
     yield
-    # st.config(vars.D1, "sudo sonic-db-cli -n asic0 CONFIG_DB HSET 'PORT|Ethernet16' 'macsec' ' '")
-    # st.config(vars.D2, "sudo sonic-db-cli -n asic0 CONFIG_DB HSET 'PORT|Ethernet16' 'macsec' ' '")
-    # delete_macsec_config(ports)
-    # delete_macsec_profile(request.config.encrypt)
     deconfig_routes(vars.D1, vars.D2, vars.D1D2P1, vars.D2D1P1, request.config.subnet)
+
+
+@pytest.fixture(scope='class')
+def pc_class_hook(request):
+    ports = {vars.D1:[vars.D1D2P1, vars.D1D2P2], vars.D2: [vars.D1D2P1, vars.D1D2P2]}
+    request.config.subnet = 2
+    config_portchannel()
+    config_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", request.config.subnet, is_lag = True)
+    yield
+    delete_macsec_config(ports, is_lag = True)
+    delete_macsec_profile("aes_128")
+    deconfig_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", request.config.subnet, is_lag = True)
+    deconfig_portchannel()
+   
+@pytest.fixture(scope='class')
+def scale_class_hook(request):
+    ports = {vars.D1:local_links_D1, vars.D2: local_links_D2}
+    yield
+    delete_macsec_config(ports)
+    delete_macsec_profile("aes_128")
+    for port1, port2 in zip(ports[vars.D1], ports[vars.D2]):
+        subnet = re.search("\d+", str(ports[vars.D1])).group(0)
+        request.config.subnet = subnet
+        deconfig_routes(vars.D1, vars.D2, port1, port2, subnet)
+   
 
 def cleanup(request):
     delete_macsec_config(ports)
@@ -48,24 +68,25 @@ def cleanup(request):
 var = variables()
 MACSEC_PROFILE = var.MACSEC_PROFILE
 MACSEC_REGEX = var.MACSEC_REGEX
-# MACSEC_PROFILE= {"aes_128": "GCM-AES-128", "aes_256": "GCM-AES-256", "aes_xpn_128":"GCM-AES-XPN-128", "aes_xpn_256":"GCM-AES-XPN-256"}
-# MACSEC_REGEX = "install_tx_sa:.*TxSA added and activated for port {}\|phy_install_tx_sa_on_hw:.*TX SA install on port: {}\|macsec_install_tx_sa: PhyID .*:Install Tx SA: idx: {}\|\
-# install_rx_sa:.*RxSA added and activated for port {}\|phy_install_rx_sa_on_hw:.*RX SA install on port: {}\|macsec_install_rx_sa: PhyID .*:Install Rx SA: idx: {}"
+
 
 def delete_macsec_profile(profile):
     for dut in duts:
         st.config(dut, "sudo config macsec -n asic0 profile del {}".format(profile))
+
 
 def get_handles():
     tg1, tg_ph_1 = tgapi.get_handle_byname("T1D1P1")
     tg2, tg_ph_2 = tgapi.get_handle_byname("T1D2P1")
     return (tg1, tg2, tg_ph_1, tg_ph_2)
 
+
 def delete_macsec_config(ports, is_lag = False):
     for dut in duts:
         for port in ports[dut]:
             asic = get_asic_from_port(port) if is_lag is False else 0
             st.config(dut, "sudo sonic-db-cli -n asic{} CONFIG_DB HSET 'PORT|{}' 'macsec' ''".format(asic, port), skip_tmpl=True, skip_error_check=False)  
+
 
 def macsec_session_test(encryption, request, toggle = False, check_syslogs = True, mismatch= False):
     '''Enable macsec feature, create macsec profile, apply macsec profile on interface, 
@@ -96,19 +117,18 @@ def macsec_session_test(encryption, request, toggle = False, check_syslogs = Tru
             st.config(vars.D1, command.format(asic, "startup", port))
             st.wait(5)
 
-    
     #Wait for logs to be generated
     st.wait(10)
 
-    # #Check for syslogs
-    # if check_syslogs:
-    #     for dut in duts:
-    #         for port in ports[dut]:
-    #             result = check_syslog(dut, port, MACSEC_REGEX)
-    #             if mismatch is False:
-    #                 if result is False: 
-    #                     cleanup(request)
-    #                     st.report_fail("test_case_failed")
+    #Check for syslogs
+    if check_syslogs:
+         for dut in duts:
+             for port in ports[dut]:
+                result = check_syslog(dut, port, MACSEC_REGEX)
+                if mismatch is False:
+                    if result is False: 
+                        cleanup(request)
+                        st.report_fail("test_case_failed")
     for dut in duts:
         for port in ports[dut]:
             #Validate macsec session
@@ -138,6 +158,7 @@ def macsec_session_test(encryption, request, toggle = False, check_syslogs = Tru
     else:
         cleanup(request)
         st.report_pass("test_case_passed")
+
 
 def session_validation(dut, port, cipher, request, is_lag = False):
     asic = get_asic_from_port(port) if is_lag is False else 0
@@ -188,96 +209,24 @@ def session_validation(dut, port, cipher, request, is_lag = False):
     INTERFACE_KEYS["{}".format(port)] = {"e_auth_key": egress_auth, "e_sak": egress_sak, "e_salt": egress_salt, "i_auth_key": ingress_auth, "i_sak": ingress_sak, "i_salt": ingress_salt}
     st.log("Interface keys updated to {}".format(INTERFACE_KEYS))
 
+
 def config_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
     ''' Applies IP on the b2b links and checks bidirectional ping'''
     d1_asic = get_asic_from_port(d1_link) if is_lag is False else 0
     d2_asic = get_asic_from_port(d2_link) if is_lag is False else 0
-    
     st.config(dut1, "sudo config interface -n asic{} ip add {} 10.10.{}.1/24".format(d1_asic, d1_link, subnet))
-    
     st.config(dut2, "sudo config interface -n asic{} ip add {} 10.10.{}.2/24".format(d2_asic, d2_link, subnet))                                                      
-    
     st.config(vars.D1, "sudo ip netns exec asic0 config route add prefix 200.200.200.0/24 nexthop 10.10.{}.2".format(subnet))
 
 
 def deconfig_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
     d1_asic = get_asic_from_port(d1_link) if is_lag is False else 0
     d2_asic = get_asic_from_port(d2_link) if is_lag is False else 0
-    if is_lag is False:
-        # This is a temporary workaround to address MIGSOFTWAR-9488
-        st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24")
-        #st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24 nexthop 10.10.{}.2".format(subnet))
-    else:
-        st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24")
+    st.config(vars.D1, "sudo ip netns exec asic0 config route del prefix 200.200.200.0/24")
     st.wait(5)
     st.config(dut1, "sudo config interface -n asic{} ip remove {} 10.10.{}.1/24".format(d1_asic, d1_link, subnet))
     st.config(dut2, "sudo config interface -n asic{} ip remove {} 10.10.{}.2/24".format(d2_asic, d2_link, subnet)) 
 
-def process_status(dut, container_name, asic,prs_name):
-    cmd = "docker exec {}{} supervisorctl status {}".format(container_name, asic,prs_name)
-    output = st.config(dut, cmd)
-    if re.search("\S+\s+RUNNING", output):
-        st.log("the process {} is running in the container {}".format(prs_name, container_name))
-        return True
-    else:
-        st.log("the process {} is not running in the container {}".format(prs_name, container_name))
-        return False
-
-def restart_process(dut, container_name, asic, prs_name):
-    cmd = "docker exec {}{} supervisorctl restart {}".format(container_name, asic, prs_name)
-    result = st.config(dut, cmd)
-    st.log("result for process restart {} is {}".format(cmd, result))
-    st.wait(100)
-
-def generic_process_restart(container_name, prs_name, request, encryption="aes_128"):
-    # Enable macsec on the duts
-    for dut in duts:
-        logapi.clear_logging(dut)
-        result = enable_macsec_feature(dut)
-        if result is False:
-            cleanup(request)
-            st.report_fail("test_case_failed")
-
-    dut1_port = vars.D1D2P1
-    dut2_port = vars.D2D1P1
-    asic1 = get_asic_from_port(dut1_port)
-    ports = {vars.D1: [dut1_port], vars.D2: [dut2_port]}
-
-    # Apply macsec profile on the interface
-    apply_profile(duts, ports, encryption, "security")
-    #st.config(dut, "config save -y")
-
-    # Wait for session to start
-    st.wait(20)
-    # Validate macsec session
-    for dut in duts:
-        for port in ports[dut]:
-            session_validation(dut, port, MACSEC_PROFILE[encryption], request)
-
-    if process_status(vars.D1, container_name, 0, prs_name):
-        restart_process(vars.D1, container_name, 0, prs_name)
-        if process_status(vars.D1, container_name, 0, prs_name):
-            # Validate macsec session
-            for dut in duts:
-                for port in ports[dut]:
-                    session_validation(dut, port, MACSEC_PROFILE[encryption],  request)
-            subnet = re.search("\d+", str(ports[vars.D1])).group(0)
-            config_routes(vars.D1, vars.D2, ports[vars.D1][0], ports[vars.D2][0], subnet)
-            if run_traffic(request):
-                delete_macsec_config(ports)
-                delete_macsec_profile(encryption)
-                deconfig_routes(vars.D1, vars.D2, ports[vars.D1][0], ports[vars.D2][0], subnet)
-                st.report_pass("test_case_passed")
-            else:
-                delete_macsec_config(ports)
-                delete_macsec_profile(encryption)
-                deconfig_routes(vars.D1, vars.D2, ports[vars.D1][0], ports[vars.D2][0], subnet)
-                st.error("Failed to send traffic across the LCs")
-                st.report_fail("test_case_failed")
-        else:
-            st.error("Test case failed because container {} is not running".format(container_name))
-            
-            st.report_fail("test_case_failed")
 
 def generic_container_restart(container_name, request, encryption = "aes_128"):
     #Enable macsec on the duts
@@ -324,6 +273,7 @@ def generic_container_restart(container_name, request, encryption = "aes_128"):
         else:
             st.error("Test case failed because container {} is not running".format(container_name))
             st.report_fail("test_case_failed")
+
 
 @pytest.mark.usefixtures('macsec_class_hook')
 class TestMacSec():
@@ -376,86 +326,66 @@ class TestMacSec():
         encryption = "aes_128"
         request.config.encrypt = encryption
         generic_container_restart("macsec", request, encryption)
-                                                            
-# def test_portchannel_macsec(request):
-#     for dut in duts:  
-#         result = enable_macsec_feature(dut)
-#         if result is False:
-            
-#             st.report_fail("test_case_failed")
-#     #Apply macsec profile on the interface
-#     ports = {vars.D1: [vars.D1D2P1, vars.D1D2P2], vars.D2: [vars.D2D1P1, vars.D2D1P2]}
-#     apply_profile(duts, ports, "aes_128", "security", is_lag = True)  
+
+
+@pytest.mark.usefixtures('pc_class_hook')
+class TestPcMacsec():                                                        
+    def test_portchannel_macsec(self, request):
+        encryption = "aes_128"
+        for dut in duts:  
+            result = enable_macsec_feature(dut)
+            if result is False:
+                st.report_fail("test_case_failed")
+        #Apply macsec profile on the interface
+        ports = {vars.D1: [vars.D1D2P1, vars.D1D2P2], vars.D2: [vars.D2D1P1, vars.D2D1P2]}
+        apply_profile(duts, ports, encryption, "security", is_lag = True)  
     
-#     st.wait(7)
-#     for dut in duts: 
-#         for port in ports[dut]:
-#             session_validation(dut, port, MACSEC_PROFILE["aes_128"], request, is_lag = True)   
+        st.wait(7)
+        for dut in duts: 
+            for port in ports[dut]:
+                session_validation(dut, port, MACSEC_PROFILE[encryption], request, is_lag = True)   
 
-#     config_portchannel()
-#     config_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", 2, is_lag = True)
-#     if not run_traffic(request):
-#         delete_macsec_config(ports, is_lag = True)
-#         deconfig_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", 2, is_lag = True)
-#         deconfig_portchannel()
-#         delete_macsec_config(ports)
-#         delete_macsec_profile("aes_128")
-#         st.error("Failed to send traffic across the LCs")
-        
-#         st.report_fail("test_case_failed")
-#     else:
-#         delete_macsec_config(ports, is_lag = True)
-#         deconfig_routes(vars.D1, vars.D2, "PortChannel24", "PortChannel24", 2, is_lag = True)
-#         deconfig_portchannel()
-#         delete_macsec_config(ports)
-#         delete_macsec_profile("aes_128")
-#         st.report_pass("test_case_passed")
+        if not run_traffic(request):
+            st.error("Failed to send traffic across the LCs")
+            st.report_fail("test_case_failed")
+        else:
+            st.report_pass("test_case_passed")
 
-
-# def test_scale_macsec(request):
-#     for dut in duts:  
-#         logapi.clear_logging(dut) 
-#         result = enable_macsec_feature(dut)
-#         if result is False:
-            
-#             st.report_fail("test_case_failed")
-#     ports = {vars.D1: local_links_D1, vars.D2: local_links_D2}
-#     apply_profile(duts, ports, "aes_128", "security")  
-#     st.log("Wait for the macsec sessions to come up")
-#     st.wait(7)
-#     for dut in duts:
-#         for port in ports[dut]:
-#             result = check_syslog(dut, port, MACSEC_REGEX)
-#             if result is False: 
-                
-#                 st.report_fail("test_case_failed")
-#             session_validation(dut, port, MACSEC_PROFILE["aes_128"], request)  
-#             SESSION_KEYS["{}".format(dut)] = INTERFACE_KEYS
-#     for port1, port2 in zip(ports[vars.D1], ports[vars.D2]):
-#         #Compare ingress and egress keys on back to back interfaces     
-#         if SESSION_KEYS['D1'][port1]["i_auth_key"] != SESSION_KEYS['D2'][port2]["i_auth_key"] or SESSION_KEYS['D1'][port1]["e_auth_key"] != SESSION_KEYS['D2'][port2]["e_auth_key"]:
-#             st.error("Auth key on both devices does not match")
-            
-#             st.report_fail("test_case_failed")
-#         if SESSION_KEYS['D1'][port1]["e_sak"] != SESSION_KEYS['D2'][port2]["e_sak"] or SESSION_KEYS['D1'][port1]["i_sak"] != SESSION_KEYS['D2'][port2]["i_sak"]:
-#             st.error("SAK on both devices does not match")
-            
-#             st.report_fail("test_case_failed")
-#         if SESSION_KEYS['D1'][port1]["e_salt"] != SESSION_KEYS['D2'][port2]["e_salt"] or SESSION_KEYS['D1'][port1]["i_salt"] != SESSION_KEYS['D2'][port2]["i_salt"]:
-#             st.error("SALT on both devices does not match")
-            
-#             st.report_fail("test_case_failed")
-#         subnet = re.search("\d+", str(port1)).group(0)
-#         config_routes(vars.D1, vars.D2, port1, port2, subnet)
-#         if not run_traffic(request):  
-#             delete_macsec_config(ports)
-#             delete_macsec_profile("aes_128")
-#             deconfig_routes(vars.D1, vars.D2, port1, port2, subnet)
-#             st.error("Failed to send traffic across the LCs")
-#             st.report_fail("test_case_failed")
-#         else:
-#             #Delete_config_on_duts
-#             delete_macsec_config(ports)
-#             delete_macsec_profile("aes_128")
-#             deconfig_routes(vars.D1, vars.D2, port1, port2, subnet)
-#             st.report_pass("test_case_passed")
+@pytest.mark.usefixtxures('scale_class_hook')
+class TestScaleMacsec():  
+    def est_scale_macsec(self, request):
+        encryption = "aes_128"
+        for dut in duts:  
+            logapi.clear_logging(dut) 
+            result = enable_macsec_feature(dut)
+            if result is False:           
+                st.report_fail("test_case_failed")
+        ports = {vars.D1: local_links_D1, vars.D2: local_links_D2}
+        apply_profile(duts, ports, encryption, "security")  
+        st.log("Wait for the macsec sessions to come up")
+        st.wait(7)
+        for dut in duts:
+            for port in ports[dut]:
+                result = check_syslog(dut, port, MACSEC_REGEX)
+                if result is False:                
+                   st.report_fail("test_case_failed")
+                session_validation(dut, port, MACSEC_PROFILE["aes_128"], request)  
+                SESSION_KEYS["{}".format(dut)] = INTERFACE_KEYS
+        for port1, port2 in zip(ports[vars.D1], ports[vars.D2]):
+            #Compare ingress and egress keys on back to back interfaces     
+            if SESSION_KEYS['D1'][port1]["i_auth_key"] != SESSION_KEYS['D2'][port2]["i_auth_key"] or SESSION_KEYS['D1'][port1]["e_auth_key"] != SESSION_KEYS['D2'][port2]["e_auth_key"]:
+                st.error("Auth key on both devices does not match")
+                st.report_fail("test_case_failed")
+            if SESSION_KEYS['D1'][port1]["e_sak"] != SESSION_KEYS['D2'][port2]["e_sak"] or SESSION_KEYS['D1'][port1]["i_sak"] != SESSION_KEYS['D2'][port2]["i_sak"]:
+                st.error("SAK on both devices does not match")
+                st.report_fail("test_case_failed")
+            if SESSION_KEYS['D1'][port1]["e_salt"] != SESSION_KEYS['D2'][port2]["e_salt"] or SESSION_KEYS['D1'][port1]["i_salt"] != SESSION_KEYS['D2'][port2]["i_salt"]:
+                st.error("SALT on both devices does not match")
+                st.report_fail("test_case_failed")
+            subnet = re.search("\d+", str(port1)).group(0)
+            config_routes(vars.D1, vars.D2, port1, port2, subnet)
+            if not run_traffic(request):  
+                st.error("Failed to send traffic across the LCs")
+                st.report_fail("test_case_failed")
+            else:
+                st.report_pass("test_case_passed")
