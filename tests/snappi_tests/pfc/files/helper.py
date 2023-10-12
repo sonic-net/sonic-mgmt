@@ -9,14 +9,14 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    pfc_traffic_flow, data_traffic_flow, background_traffic_flow, calc_pfc_pause_flow_rate      # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
-from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
-    generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
-    verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count,\
-    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut,\
-    verify_rx_frame_count_dut, setup_pause_flow_config
+from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
+    generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow, \
+    verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
+    verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut, \
+    verify_rx_frame_count_dut
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
@@ -103,8 +103,6 @@ def run_pfc_test(api,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
 
-    if snappi_extra_params.pause_flow_params is None:
-        snappi_extra_params.pause_flow_params = setup_pause_flow_config(testbed_config=testbed_config)
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
@@ -149,7 +147,7 @@ def run_pfc_test(api,
             "data_flow_pkt_size": data_flow_pkt_size,
             "data_flow_pkt_count": None,
             "data_flow_delay_sec": data_flow_delay_sec,
-            "data_flow_traffic_type": data_traffic_flow.FIXED_DURATION
+            "data_flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
 
     if snappi_extra_params.traffic_flow_config.background_flow_config is None and \
@@ -162,7 +160,7 @@ def run_pfc_test(api,
             "background_flow_pkt_size": data_flow_pkt_size,
             "background_flow_pkt_count": None,
             "background_flow_delay_sec": data_flow_delay_sec,
-            "background_flow_traffic_type": background_traffic_flow.FIXED_DURATION
+            "background_flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
 
     if snappi_extra_params.traffic_flow_config.pause_flow_config is None:
@@ -174,7 +172,7 @@ def run_pfc_test(api,
             "pause_flow_pkt_size": 64,
             "pause_flow_pkt_count": None,
             "pause_flow_delay_sec": 0,
-            "pause_flow_traffic_type": pfc_traffic_flow.CONTINUOUS
+            "pause_flow_traffic_type": traffic_flow_mode.CONTINUOUS
         }
 
     if snappi_extra_params.packet_capture_type == packet_capture.PFC_CAPTURE:
@@ -188,7 +186,7 @@ def run_pfc_test(api,
         snappi_extra_params.traffic_flow_config.pause_flow_config["pause_flow_dur_sec"] = DATA_FLOW_DURATION_SEC + \
             data_flow_delay_sec + SNAPPI_POLL_DELAY_SEC + PAUSE_FLOW_DUR_BASE_SEC
         snappi_extra_params.traffic_flow_config.pause_flow_config["pause_flow_traffic_type"] = \
-            pfc_traffic_flow.FIXED_DURATION
+            traffic_flow_mode.FIXED_DURATION
 
     # Generate test flow config
     generate_test_flows(testbed_config=testbed_config,

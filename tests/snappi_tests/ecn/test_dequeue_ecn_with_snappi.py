@@ -12,6 +12,7 @@ from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.snappi_tests.files.helper import skip_ecn_tests
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -92,3 +93,7 @@ def test_dequeue_ecn(request,
     # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
+
+    # Teardown ECN config through a reload
+    logger.info("Reloading config to teardown ECN config")
+    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

@@ -902,41 +902,17 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-class pfc_traffic_flow(Enum):
+class traffic_flow_mode(Enum):
     """
-    ENUM of pfc traffic settings
+    ENUM of traffic flow mode settings
     CONTINUOUS - -100
+        - continuous flow of traffic with no pauses at some specific rate
     BURST - -99
+        - burst of traffic with breaks in flow for a certain duration at some specific rate
     FIXED_PACKETS - -98
+        - sending a specific number of packets at some specific rate
     FIXED_DURATION - -97
-    """
-    CONTINUOUS = -100
-    BURST = -99
-    FIXED_PACKETS = -98
-    FIXED_DURATION = -97
-
-
-class data_traffic_flow(Enum):
-    """
-    ENUM of data/test traffic settings
-    CONTINUOUS - -100
-    BURST - -99
-    FIXED_PACKETS - -98
-    FIXED_DURATION - -97
-    """
-    CONTINUOUS = -100
-    BURST = -99
-    FIXED_PACKETS = -98
-    FIXED_DURATION = -97
-
-
-class background_traffic_flow(Enum):
-    """
-    ENUM of background traffic settings
-    CONTINUOUS - -100
-    BURST - -99
-    FIXED_PACKETS - -98
-    FIXED_DURATION - -97
+        - sending traffic for a specific duration at some specific rate
     """
     CONTINUOUS = -100
     BURST = -99
@@ -965,17 +941,17 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.format = format
 
 
-def calc_pfc_pause_flow_rate(port_speed, block_factor=2):
+def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
     """
     Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
     factor.
     Args:
         port_speed (int): port speed in gbps ex. 100
-        block_factor (int): factor by which to block the port (default: 2)
+        oversubscription_ratio (int): factor by which to block the port (default: 2)
     Returns:
         pps: pause frames to be sent per second to block port by block_factor
     """
     pause_dur = 65535 * 64 * 8.0 / (port_speed * 1e9)
-    pps = int(block_factor / pause_dur)
+    pps = int(oversubscription_ratio / pause_dur)
 
     return pps

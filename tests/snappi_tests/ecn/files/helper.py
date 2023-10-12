@@ -8,8 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging, \
-    config_capture_pkt, data_traffic_flow, pfc_traffic_flow, \
-    calc_pfc_pause_flow_rate
+    config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate
 from tests.common.snappi_tests.read_pcap import get_ip_pkts
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_pause_flows, run_traffic
@@ -100,7 +99,7 @@ def run_ecn_test(api,
     snappi_extra_params.traffic_flow_config.data_flow_config.update({
             "data_flow_rate_percent": 100,
             "data_flow_delay_sec": DATA_START_DELAY_SEC,
-            "data_flow_traffic_type": data_traffic_flow.FIXED_PACKETS
+            "data_flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
         })
 
     logger.info("Setting pause flow config params")
@@ -112,7 +111,7 @@ def run_ecn_test(api,
         "pause_flow_pkt_size": 64,
         "pause_flow_pkt_count": None,
         "pause_flow_delay_sec": 0,
-        "pause_flow_traffic_type": pfc_traffic_flow.FIXED_DURATION
+        "pause_flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
 
     # Generate traffic config of one test flow and one pause storm

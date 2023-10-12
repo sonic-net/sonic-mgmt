@@ -5,10 +5,10 @@ This module allows various snappi based tests to generate various traffic config
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
-    sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count,\
-    pfc_traffic_flow, data_traffic_flow
+from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
+    sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
+    traffic_flow_mode
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
@@ -86,38 +86,6 @@ def setup_base_traffic_config(testbed_config,
     return base_flow_config
 
 
-def setup_pause_flow_config(testbed_config,
-                            link_blockage_threshold=2):
-    """
-    Generate default configurations of pause flows.
-
-    Args:
-        testbed_config (obj): testbed L1/L2/L3 configuration
-        link_blockage_threshold (int): link blockage threshold in number of overlaps per pause dur (default: 2)
-    Returns:
-        pause_flow_params (dict): pause flow parameters
-            Params:
-                pause_frame_size (int): pause frame size in bytes (default: 64)
-                pause_frame_rate (int): pause frame rate in frames per second (default: pause dur to block link fully)
-                pause_flow_dur (int): pause flow duration in seconds (default: -5 to signal continuous mode)
-                pause_flow_delay (int): pause flow delay in seconds (default: 0)
-    """
-    pause_flow_params = {}
-    pause_flow_params["pause_frame_size"] = 64
-    pause_flow_params["link_blockage_threshold"] = link_blockage_threshold
-
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pps = int(link_blockage_threshold / pause_dur)  # 2 pause frames per pause_dur to fully block link
-    pause_flow_params["pause_frame_rate"] = pps
-
-    pause_flow_params["pause_flow_dur"] = CONTINUOUS_MODE
-    pause_flow_params["pause_flow_delay"] = 0
-
-    return pause_flow_params
-
-
 def generate_test_flows(testbed_config,
                         test_flow_name,
                         test_flow_prio_list,
@@ -156,11 +124,11 @@ def generate_test_flows(testbed_config,
         data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
         test_flow.size.fixed = data_flow_config["data_flow_pkt_size"]
         test_flow.rate.percentage = data_flow_config["data_flow_rate_percent"]
-        if data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_DURATION:
+        if data_flow_config["data_flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
             test_flow.duration.fixed_seconds.seconds = data_flow_config["data_flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
                                                                      (data_flow_config["data_flow_delay_sec"]))
-        elif data_flow_config["data_flow_traffic_type"] == data_traffic_flow.FIXED_PACKETS:
+        elif data_flow_config["data_flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
             test_flow.duration.fixed_packets.packets = data_flow_config["data_flow_pkt_count"]
             test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
                                                                      (data_flow_config["data_flow_delay_sec"]))
@@ -239,9 +207,7 @@ def generate_pause_flows(testbed_config,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
-    # pause_flow_params = snappi_extra_params.pause_flow_params
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
-    # pytest_assert(pause_flow_params is not None, "Cannot find pause flow parameters")
 
     pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
@@ -282,9 +248,9 @@ def generate_pause_flows(testbed_config,
     pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
         pause_flow_config["pause_flow_delay_sec"]))
 
-    if pause_flow_config["pause_flow_traffic_type"] == pfc_traffic_flow.FIXED_DURATION:
+    if pause_flow_config["pause_flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
         pause_flow.duration.fixed_seconds.seconds = pause_flow_config["pause_flow_dur_sec"]
-    elif pause_flow_config["pause_flow_traffic_type"] == pfc_traffic_flow.CONTINUOUS:
+    elif pause_flow_config["pause_flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
         pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
 
     pause_flow.metrics.enable = True
