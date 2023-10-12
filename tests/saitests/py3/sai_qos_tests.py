@@ -1254,16 +1254,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            if (platform_asic and platform_asic == "broadcom-dnx") or \
-                    self.hwsku in ['Cisco-8800-LC-48H-C48']:
+            if (platform_asic and platform_asic == "broadcom-dnx"):
                 logging.info(
                     "On J2C+ and cisco-8000-Q100 don't support port level drop"
                     " counters - so ignoring this step for now")
             else:
                 # recv port ingress drop
-                for cntr in ingress_counters:
-                    assert (recv_counters[cntr] > recv_counters_base[cntr]
-                            ), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
+                    for cntr in ingress_counters:
+                        assert (recv_counters[cntr] > recv_counters_base[cntr]
+                                ), 'unexpectedly RX drop counter not increase, {}'.format(test_stage)
                 # xmit port no egress drop
                 for cntr in egress_counters:
                     assert (xmit_counters[cntr] == xmit_counters_base[cntr]
