@@ -37,3 +37,5 @@ After collecting PDU info, devutils proceed with pdu_manager_factory from tests/
 The pdu_manager is used to manage a device and its power. It provides a factory method to ceate the manager instance, which takes 4 parameters. The first one is the device name. The second one is the mapping between PSU name on the device and pdu name and port of the pdu device. The third is the detailed information of the related pdu devices. The forth is the inventory variables of the related pdu devices.
 
 The source of the parameters can come from different sources, but they will be put into the same format and given to the factory method. Currently, we support manage by conn_graph_facts/sonic_**_devices/links... and by inventory (fallback method). For conn_graph_facts, input for the factory method is simply retrieved and requires little processing, but for the inventory case, data will be constructed to be like conn_graph_facts and given to the factory method.
+
+Since inventory cannot provide port info, manipulating with inventory provided data will impact all devices plugged on to the same pdu device.
