@@ -20,7 +20,7 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is not supported on dualtor topology on 202012 branch. Device fails to recover by sanity check. Skipping for now."
+    reason: "Warm reboot is not supported on dualtor topology on 202012 branch. Skip the test."
     conditions:
       - "'dualtor' in topo_name"
 
