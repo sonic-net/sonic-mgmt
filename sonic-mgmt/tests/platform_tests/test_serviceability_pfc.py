@@ -78,13 +78,13 @@ def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname):
             result = duthost.command("sudo show platform npu tx {} -i {} {}".format(option, selected_up_port, asic_namespace_string))
             traceback_found = "Traceback" in result["stdout"]
             assert not traceback_found, "Traceback found in show platform npu tx for UP Port"                
-            assert result["stdout"], "No ouput for this CLI"
+            assert result["stdout"], "No output for this CLI"
 
             logging.info("\nChecking Down Port : ")
             result = duthost.command("sudo show platform npu tx {} -i {} {}".format(option, selected_down_port, asic_namespace_string))
             traceback_found = "Traceback" in result["stdout"]
             assert not traceback_found, "Traceback found in show platform npu tx for DOWN Port"
-            assert result["stdout"], "No ouput for this CLI"
+            assert result["stdout"], "No output for this CLI"
 
 def test_show_platform_npu_rx(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -121,13 +121,13 @@ def test_show_platform_npu_rx(duthosts, enum_rand_one_per_hwsku_hostname):
                 result = duthost.command("sudo show platform npu rx {} -i {} -t {}{}".format(option, selected_up_port, t, asic_namespace_string))
                 traceback_found = "Traceback" in result["stdout"]
                 assert not traceback_found, "Traceback found in show platform npu rx for UP Port"
-                assert result["stdout"], "No ouput for this CLI"
+                assert result["stdout"], "No output for this CLI"
 
                 logging.info("\nChecking Down Port : ")
                 result = duthost.command("sudo show platform npu rx {} -i {} -t {}{}".format(option, selected_down_port, t, asic_namespace_string))
                 traceback_found = "Traceback" in result["stdout"]
                 assert not traceback_found, "Traceback found in show platform npu rx for DOWN Port"
-                assert result["stdout"], "No ouput for this CLI"
+                assert result["stdout"], "No output for this CLI"
 
 def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -168,13 +168,13 @@ def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname):
                 result = duthost.command("sudo show platform npu voq {} -i {} -t {}{}{}".format(option, selected_up_port, t, src, asic_namespace_string))
                 traceback_found = "Traceback" in result["stdout"]
                 assert not traceback_found, "Traceback found in show platform npu voq for UP Port"
-                assert result["stdout"], "No ouput for this CLI"
+                assert result["stdout"], "No output for this CLI"
 
                 logging.info("\nChecking Down Port : ")
                 result = duthost.command("sudo show platform npu voq {} -i {} -t {}{}{}".format(option, selected_down_port, t, src, asic_namespace_string))
                 traceback_found = "Traceback" in result["stdout"]
                 assert not traceback_found, "Traceback found in show platform npu voq for DOWN Port"
-                assert result["stdout"], "No ouput for this CLI"
+                assert result["stdout"], "No output for this CLI"
 
 def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname):
     """
@@ -185,4 +185,4 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname):
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu global"
-    assert result["stdout"], "No ouput for this CLI"
+    assert result["stdout"], "No output for this CLI"
