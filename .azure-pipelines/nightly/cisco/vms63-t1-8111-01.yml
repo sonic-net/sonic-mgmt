@@ -30,7 +30,7 @@ parameters:
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
