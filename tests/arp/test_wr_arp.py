@@ -214,7 +214,7 @@ class TestWrArp:
         warmbootFlag = duthost.shell(
             cmd='sonic-db-cli STATE_DB hget "WARM_RESTART_ENABLE_TABLE|system" enable')['stdout']
         logger.info("warmbootFlag: " + warmbootFlag)
-        return warmbootFlag == 'false'
+        return warmbootFlag != 'true'
 
     def Setup(self, duthost, ptfhost, tbinfo):
         """
