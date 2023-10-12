@@ -60,7 +60,7 @@ class Nightly_hawk_pipeline_analyzer(object):
         self.build_test_case_result_dict = {}
         
         self.pipeline_cols = 2
-        self.pipeline_rows = 14
+        self.pipeline_rows = 16
         self.pipeline_cols_name_width = 18
         self.pipeline_cols_data_width = 70
         self.pipeline_date_list = []
@@ -419,7 +419,7 @@ class Nightly_hawk_pipeline_analyzer(object):
 
         logger.debug("get_pipeline_build_result_by_build_id {}  ".format((get_build_records)))
 
-        parser_items = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests', 'Prepare testbed', 'Run test']
+        parser_items = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests', 'Prepare testbed', 'Run test', 'Trigger test']
 
         for i in range(int(len(get_build_records['records']))):
             for j in range(len(parser_items)) :
@@ -458,7 +458,7 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 pattern_list = ['pretest failed. Please check the detailed log', 'Sanity check failed. Please check the detailed log', 'The task has timed out']
                                 build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
                                 result_output = self.pipelines_build_log_match(build_log_buffer, pattern_list)
-                                # result_output = '{}\n{}'.format(result_output, self.parser_run_tests_logs(build_log_buffer))                                
+                                # result_output = '{}\n{}'.format(result_output, self.parser_run_tests_logs(build_log_buffer))                         
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = '{}{}\n{}'.format('failed run time: ', run_time, result_output)
                                 
                         elif get_build_records['records'][i]['result'] == 'succeeded' :
@@ -473,6 +473,27 @@ class Nightly_hawk_pipeline_analyzer(object):
                                 else:
                                     current_image = "No image found"
                                 self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = current_image
+
+                            elif parser_items[j] == 'Trigger test':
+                                pattern = 'Test plan utils parameters'
+                                build_log_buffer = self.get_pipelines_build_log_buffer(get_build_records['records'][i]['log']['url'])
+                                result_output = self.pipelines_build_log_serach(build_log_buffer, pattern)
+                                logger.info("Trigger test: {}".format(result_output))
+
+                                image_url = ''
+                                testbed_name = ''
+                                image_url_match = re.search(r"image_url='(.*?)'", result_output)
+                                if image_url_match:
+                                    image_url = image_url_match.group(1)
+                                    logger.debug("Trigger test: image_url {}".format(image_url))
+
+                                testbed_name_match = re.search(r"testbed_name='(.*?)'", result_output)
+                                if testbed_name_match:
+                                    testbed_name = testbed_name_match.group(1)
+                                    logger.debug("Trigger test: testbed_name {}".format(testbed_name))
+
+                                result_output = 'image_url: {}\ntestbed_name: {}\n '.format(image_url, testbed_name)
+                                self.pipeline_build_result_dict[pipeline_id][build_id]['build_details'][parser_items[j]] = result_output
 
                             elif parser_items[j] == 'Run Tests' or parser_items[j] == 'Run test':
 
@@ -617,7 +638,9 @@ class Nightly_hawk_pipeline_analyzer(object):
                                                                                                     'Upgrade Image' : 'NA', 
                                                                                                     'Deploy Minigraph' : 'NA', 
                                                                                                     'Run Tests' : 'NA', 
-                                                                                                    'Other failure' : 'NA'}}
+                                                                                                    'Trigger test' : 'NA', 
+                                                                                                    'Prepare testbed' : 'NA',
+                                                                                                    'Run test' : 'NA'}}
                 elif pipeline_dict['value'][i].get('result'):
                     # logger.info("i {} date : {} {}".format(i, pipeline_dict['value'][i]['createdDate'], type(pipeline_dict['value'][i]['createdDate'])))
                     # logger.info("i {} value {}".format(i, pipeline_dict['value'][i]))
@@ -637,7 +660,9 @@ class Nightly_hawk_pipeline_analyzer(object):
                                                                                                     'Upgrade Image' : 'NA', 
                                                                                                     'Deploy Minigraph' : 'NA', 
                                                                                                     'Run Tests' : 'NA', 
-                                                                                                    'Other failure' : 'NA'}}
+                                                                                                    'Trigger test' : 'NA', 
+                                                                                                    'Prepare testbed' : 'NA',
+                                                                                                    'Run test' : 'NA'}}
 
             logger.info("pipeline id {} pipeline_build_result_dict {}".format(pipeline_id, self.pipeline_build_result_dict[pipeline_id]))
         else:
@@ -1034,10 +1059,10 @@ class Nightly_hawk_pipeline_analyzer(object):
 
                     self.curr_row += 1
                     # self.curr_col = col_save
-
-                build_result_details_list = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests', 'Other failure']
+                build_result_details_list = ['Lock Testbed', 'Upgrade Image', 'Deploy Minigraph', 'Run Tests', 'Trigger test', 'Prepare testbed', 'Run test']
                 for i in range(len(build_result_details_list)):
-                    # logger.info("add [{}][{}] : {} - {}".format(self.curr_row, self.curr_col, build_result_details_list[i], result['build_details'][build_result_details_list[i]]))
+                    logger.debug("add [{}][{}] : {} - {}".format(self.curr_row, self.curr_col, build_result_details_list[i], build_info['build_details'][build_result_details_list[i]]))
+
                     ws_sheet.cell(row = self.curr_row, column = self.curr_col,     value = build_result_details_list[i])
                     ws_sheet.cell(row = self.curr_row, column = self.curr_col + 1, value = build_info['build_details'][build_result_details_list[i]])
 
@@ -1137,6 +1162,16 @@ if __name__ == '__main__':
     args = parser.parse_args()
     for arg in vars(args):
         logger.info("input parameter {}: {}".format(arg, getattr(args, arg)))
+
+    if args.verbose and (args.verbose.isspace() == False):
+        logging_lever = args.verbose.lower()
+        logger.info("Input logging_lever {}".format(logging_lever))
+        if logging_lever == 'debug':
+            logger.setLevel(logging.DEBUG)
+        elif logging_lever == 'info':
+            logger.setLevel(logging.INFO)
+        elif logging_lever == 'error':
+            logger.setLevel(logging.ERROR)
 
     pipeline_analyzer = Nightly_hawk_pipeline_analyzer(verbose = args.verbose, days2parser = args.days2parser)
 
