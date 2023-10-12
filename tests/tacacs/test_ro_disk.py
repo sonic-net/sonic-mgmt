@@ -42,7 +42,7 @@ def simulate_ro(duthost):
 
     # Change disk RO state will remount disk, wait for remount finish
     log_pattern = "/Emergency Remount complete/P"
-    logs = wait_for_log(duthost, "/var/log/tac_plus.acct", log_pattern)
+    logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
     assert len(logs) > 0, "disk not in ro state"
 
 
