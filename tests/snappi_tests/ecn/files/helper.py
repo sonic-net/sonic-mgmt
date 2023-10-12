@@ -104,7 +104,7 @@ def run_ecn_test(api,
 
     logger.info("Setting pause flow config params")
     snappi_extra_params.traffic_flow_config.pause_flow_config = {
-        "pause_flow_dur_sec": 3 + EXP_DURATION_SEC,
+        "pause_flow_dur_sec": EXP_DURATION_SEC,
         "pause_flow_rate_percent": None,
         "pause_flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
         "pause_flow_rate_bps": None,
