@@ -1063,7 +1063,9 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     queue_stats = []
 
     for prio in range(8):
-        total_pkts_str = intf_queue_stats.get("UC{}".format(prio)).get("totalpacket")
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
         if total_pkts_str == "N/A" or total_pkts_str is None:
             total_pkts_str = "0"
         queue_stats.append(int(total_pkts_str.replace(',', '')))
