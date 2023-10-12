@@ -783,9 +783,6 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml, device_type):
     if cicd:
         vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
 
-    if device_type == 'churchill-mono':
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-1.4.4/vxr.py"
-
     if clean_sim:
         os.system("{} clean".format(vxr_path))
 
