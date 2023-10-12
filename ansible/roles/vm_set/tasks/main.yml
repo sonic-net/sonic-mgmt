@@ -35,6 +35,72 @@
   register: host_kernel
   changed_when: False
 
+- name: Check if kernel upgrade needed
+  set_fact:
+    kernel_upgrade_needed: true
+  when:
+    - host_distribution.stdout == "Ubuntu"
+    - host_distribution_version.stdout == "17.04"
+    - host_kernel.stdout.find('4.10.0') != -1
+    - "{{ host_kernel.stdout | regex_replace('4.10.0-([0-9]+)-.*', '\\1') | int < 25 }}"
+
+- block:
+    - debug: msg="{{ host_kernel.stdout }}"
+
+    - name: Upgrade kernel package
+      apt: pkg={{ item }} state=latest
+      become: yes
+      with_items:
+        - linux-image-generic
+        - linux-image-extra-virtual
+
+    - name: Prompt for rebooting
+      fail:
+        msg: "Kernel upgraded, need to reboot!"
+  when:
+    - kernel_upgrade_needed is defined
+    - package_installation|bool
+
+- block:
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
+        - ifupdown
+        - qemu
+        - openvswitch-switch
+        - net-tools
+        - bridge-utils
+        - util-linux
+        - iproute2
+        - vlan
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - libvirt-clients
+
+    - name: Install necessary packages
+      apt:
+        pkg:
+        - python
+        - libvirt-bin
+        - python-libvirt
+        - python-pip
+      become: yes
+      when: host_distribution_version.stdout == "18.04"
+
+    - name: Install necessary packages
+      apt:
+        pkg:
+        - python3-libvirt
+        - python3-pip
+        - libvirt-daemon-system
+        - qemu-system-x86
+      become: yes
+      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+  when: package_installation|bool
+
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
@@ -45,9 +111,65 @@
     pip_executable: pip3
   when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
 
-- name: Configure server
-  include_tasks: configure_server.yml
-  when: action == 'configure_server'
+- name: remove old python packages
+  pip: name=docker-py state=absent executable={{ pip_executable }}
+  environment: "{{ proxy_env | default({}) }}"
+  ignore_errors: yes
+
+- include_tasks: docker.yml
+  when: package_installation|bool
+
+- name: Ensure {{ ansible_user }} in docker,sudo group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: docker,sudo
+  become: yes
+
+- name: Ensure {{ ansible_user }} in libvirt group
+  user:
+    name: "{{ ansible_user }}"
+    append: yes
+    groups: libvirt
+  become: yes
+  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+
+- name: Install br_netfilter kernel module
+  become: yes
+  modprobe: name=br_netfilter state=present
+
+- name: Set sysctl bridge parameters for testbed
+  sysctl:
+    name: "{{ item }}"
+    value: "0"
+    sysctl_set: yes
+  become: yes
+  with_items:
+   - net.bridge.bridge-nf-call-arptables
+   - net.bridge.bridge-nf-call-ip6tables
+   - net.bridge.bridge-nf-call-iptables
+
+- name: Set sysctl RCVBUF max parameter for testbed
+  sysctl:
+    name: "net.core.rmem_max"
+    value: "509430500"
+    sysctl_set: yes
+  become: yes
+
+- name: Set sysctl RCVBUF default parameter for testbed
+  sysctl:
+    name: "net.core.rmem_default"
+    value: "31457280"
+    sysctl_set: yes
+  become: yes
+
+- name: Setup external front port
+  include_tasks: external_port.yml
+  when: external_port is defined
+
+- name: Setup internal management network
+  include_tasks: internal_mgmt_network.yml
+  when: internal_mgmt_network is defined and internal_mgmt_network == True
 
 - block:
     - getent:
