@@ -348,9 +348,9 @@ def wait_for_log(host, log_file, pattern, timeout=20, check_interval=1):
             logger.info(res["stdout_lines"])
             if len(res["stdout_lines"]) > 0:
                 return res["stdout_lines"]
-        except FileNotFoundError as e:
-            # when disk remount, run command may failed with no usable temporary directory found
-            logger.debug("wait_for_log failed with FileNotFoundError: {}".format(e))
+        except RunAnsibleModuleFail as e:
+            # when disk remount, run command may failed because no usable temporary directory found
+            logger.debug("wait_for_log failed with RunAnsibleModuleFail: {}".format(e))
 
         time.sleep(check_interval)
         wait_time += check_interval
