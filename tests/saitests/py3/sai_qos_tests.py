@@ -1447,8 +1447,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 for cntr in ingress_counters:
                     if platform_asic and platform_asic == "broadcom-dnx":
                         if cntr == 1:
-                            assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter ' \
-                                                                                    'not increase, {}'.format(test_stage)
+                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
                     else:
                         assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
                                                                             ' not increase, {}'.format(test_stage)
