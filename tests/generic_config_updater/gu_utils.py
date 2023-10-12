@@ -340,7 +340,7 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     gcu_conf = get_gcu_field_operations_conf(duthost)
 
     if operation == "add":
-        if field_value is not None:
+        if field_value:
             operation = "replace"
 
     # Ensure that the operation is supported by comparing with conf
