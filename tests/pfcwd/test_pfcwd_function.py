@@ -118,15 +118,16 @@ class PfcCmd(object):
         )
 
     @staticmethod
-    def update_alpha(dut, port, profile, value):
+    def update_alpha(dut, port, profile, value, static_th):
         """
-        Update dynamic threshold value in buffer profile
+        Update dynamic threshold value or static_th value in buffer profile
 
         Args:
             dut(AnsibleHost) : dut instance
             port(string) : port name
             profile(string) : profile name
             value(int) : dynamic threshold value to update
+            static_th(int) : or static threshold value to update
         """
         logger.info("Updating dynamic threshold for {} to {}".format(profile, value))
         asic = dut.get_port_asic_instance(port)
@@ -137,11 +138,18 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        asic.run_redis_cmd(
-            argv=[
-                "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
-            ]
-        )
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+            asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
+                ]
+            )
+        else:
+            asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HSET", table_template.format(profile), "dynamic_th", value
+                ]
+            )
 
     @staticmethod
     def get_mmu_params(dut, port, dual_tor_ports):
@@ -182,13 +190,21 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        alpha = six.text_type(asic.run_redis_cmd(
-            argv=[
-                "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
-            ]
-        )[0])
+        static_th = 0
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+            static_th = six.text_type(asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
+                ]
+            )[0])
+        else:
+            alpha = six.text_type(asic.run_redis_cmd(
+                argv=[
+                    "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "dynamic_th"
+                ]
+            )[0])
 
-        return pg_profile, alpha
+        return pg_profile, alpha, static_th
 
 
 class PfcPktCntrs(object):
@@ -363,9 +379,9 @@ class SetupPfcwdFunc(object):
         Args:
             port(string) : DUT port
         """
-        self.pg_profile, self.alpha = PfcCmd.get_mmu_params(self.dut, port, dual_tor_ports)
+        self.pg_profile, self.alpha, self.static_th = PfcCmd.get_mmu_params(self.dut, port, dual_tor_ports)
 
-    def update_mmu_params(self, mmu_action, port):
+    def update_mmu_params(self, dut, mmu_action, port):
         """
         Update dynamic threshold value
 
@@ -374,17 +390,23 @@ class SetupPfcwdFunc(object):
                                 for value "restore", set back to original threshold
             port(string) : port name
         """
-        if int(self.alpha) <= -6:
-            new_alpha = -5
-        elif int(self.alpha) >= 3:
-            new_alpha = 2
+        new_alpha = self.alpha
+        new_static_th = self.static_th
+        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+            if int(self.static_th) > 0:
+                new_static_th = int(int(self.static_th) / 2)
         else:
-            new_alpha = int(self.alpha) + 1
+            if int(self.alpha) <= -6:
+                new_alpha = -5
+            elif int(self.alpha) >= 3:
+                new_alpha = 2
+            else:
+                new_alpha = int(self.alpha) + 1
 
         if mmu_action == "change":
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, new_alpha, new_static_th)
         elif mmu_action == "restore":
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha, self.static_th)
         time.sleep(2)
 
     def resolve_arp(self, vlan, is_dualtor=False):
@@ -742,7 +764,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.log_handle[port] = loganalyzer
 
         if mmu_action is not None:
-            self.update_mmu_params(mmu_action, port)
+            self.update_mmu_params(dut, mmu_action, port)
 
         if restore:
             loganalyzer = self.log_handle[port]
@@ -988,7 +1010,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 logger.info("--- Stop pfc storm on port {}".format(port))
                 self.storm_hndle.stop_storm()
             # restore alpha
-            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha)
+            PfcCmd.update_alpha(self.dut, port, self.pg_profile, self.alpha, self.static_th)
             logger.info("--- Stop PFC WD ---")
             self.dut.command("pfcwd stop")
 
