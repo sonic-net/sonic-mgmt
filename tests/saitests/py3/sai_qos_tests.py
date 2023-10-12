@@ -1256,8 +1256,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # recv port ingress drop
             if (platform_asic and platform_asic == "broadcom-dnx"):
                 logging.info(
-                    "On J2C+ and cisco-8000-Q100 don't support port level drop"
-                    " counters - so ignoring this step for now")
+                    "On J2C+ don't support port level drop counters - so ignoring this step for now")
             else:
                 # recv port ingress drop
                 if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
