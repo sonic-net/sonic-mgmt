@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 allure.logger = logger
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx'),
+    pytest.mark.topology("any"),
 ]
 
 test_update_route_pattern_para = [
