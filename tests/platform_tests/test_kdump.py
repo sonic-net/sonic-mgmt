@@ -4,8 +4,8 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
-    check_reboot_cause, REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC
+from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
+    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC
 from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
@@ -66,26 +66,13 @@ class TestKernelPanic:
         if "Enabled" not in out["stdout"]:
             pytest.skip('DUT {}: Skip test since kdump is not enabled'.format(hostname))
 
-        cmd = 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &'
-        res = duthost.shell(cmd)
-        if not res.is_successful:
-            pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
 
-        # Waiting for SSH connection shutdown
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_ABSENT, SSH_SHUTDOWN_TIMEOUT),
-                      'DUT {} did not shutdown'.format(hostname))
-        # Waiting for SSH connection startup
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
-                      'DUT {} did not startup'.format(hostname))
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
+        check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname],
+                                      xcvr_skip_list, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
         self.wait_lc_healthy_if_sup(duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list)
-        # Verify DUT uptime is later than the time when the test case started running.
-        dut_uptime = duthost.get_up_time()
-        pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
-
-        if not check_reboot_cause(duthost, REBOOT_TYPE_KERNEL_PANIC):
-            pytest.fail('DUT {}: Incorrect reboot-cause, not due to kernel panic'.format(hostname))
 
     def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
         """

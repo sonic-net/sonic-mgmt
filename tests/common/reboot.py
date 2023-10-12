@@ -109,6 +109,7 @@ reboot_ctrl_dict = {
         "test_reboot_cause_only": True
     },
     REBOOT_TYPE_KERNEL_PANIC: {
+        "command": 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &',
         "timeout": 300,
         "wait": 120,
         "cause": "Kernel Panic",
