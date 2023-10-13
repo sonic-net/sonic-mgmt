@@ -353,7 +353,7 @@ class TestPcMacsec():
 
 @pytest.mark.usefixtxures('scale_class_hook')
 class TestScaleMacsec():  
-    def est_scale_macsec(self, request):
+    def test_scale_macsec(self, request):
         encryption = "aes_128"
         for dut in duts:  
             logapi.clear_logging(dut) 
@@ -382,8 +382,8 @@ class TestScaleMacsec():
             if SESSION_KEYS['D1'][port1]["e_salt"] != SESSION_KEYS['D2'][port2]["e_salt"] or SESSION_KEYS['D1'][port1]["i_salt"] != SESSION_KEYS['D2'][port2]["i_salt"]:
                 st.error("SALT on both devices does not match")
                 st.report_fail("test_case_failed")
-            subnet = re.search("\d+", str(port1)).group(0)
-            config_routes(vars.D1, vars.D2, port1, port2, subnet)
+            request.config.subnet = re.search("\d+", str(port1)).group(0)
+            config_routes(vars.D1, vars.D2, port1, port2, request.config.subnet)
             if not run_traffic(request):  
                 st.error("Failed to send traffic across the LCs")
                 st.report_fail("test_case_failed")
