@@ -5,8 +5,8 @@ This module allows various snappi based tests to generate various traffic config
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector,\
-    get_lossless_buffer_size, get_pg_dropped_packets,\
+from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
+    get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
