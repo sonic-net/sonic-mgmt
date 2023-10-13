@@ -152,7 +152,7 @@ def verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruptio
 
 
 def run_test(
-    duthosts, activehost, ptfhost, ptfadapter, action,
+    duthosts, activehost, ptfhost, ptfadapter, vmhost, action,
     tbinfo, tor_vlan_port, send_interval, traffic_direction,
     stop_after, cable_type=CableType.active_standby     # noqa F811
 ):
@@ -160,7 +160,7 @@ def run_test(
 
     peerhost = get_peerhost(duthosts, activehost)
     tor_IO = DualTorIO(
-        activehost, peerhost, ptfhost, ptfadapter, tbinfo,
+        activehost, peerhost, ptfhost, ptfadapter, vmhost, tbinfo,
         io_ready, tor_vlan_port=tor_vlan_port, send_interval=send_interval, cable_type=cable_type
     )
     tor_IO.generate_traffic(traffic_direction)
@@ -207,7 +207,7 @@ def cleanup(ptfadapter, duthosts_list):
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):       # noqa F811
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):       # noqa F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -254,7 +254,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
 
-        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="t1_to_server", stop_after=stop_after,
                           cable_type=cable_type)
@@ -272,7 +272,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
 
 @pytest.fixture
-def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):   # noqa F811
+def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):   # noqa F811
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -319,7 +319,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
             data_plane_test_report (dict): traffic test statistics (sent/rcvd/dropped)
         """
 
-        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="server_to_t1", stop_after=stop_after,
                           cable_type=cable_type)
@@ -337,7 +337,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
 
 @pytest.fixture
-def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
+def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):      # noqa F811
 
     arp_setup(ptfhost)
 
@@ -345,7 +345,7 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                           stop_after=None):
 
-        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="soc_to_t1", stop_after=stop_after,
                           cable_type=cable_type)
@@ -361,7 +361,7 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
 
 
 @pytest.fixture
-def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type):      # noqa F811
+def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):      # noqa F811
 
     arp_setup(ptfhost)
 
@@ -369,7 +369,7 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
                           stop_after=None):
 
-        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
                           traffic_direction="t1_to_soc", stop_after=stop_after,
                           cable_type=cable_type)
@@ -387,22 +387,31 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
 
 
 @pytest.fixture
-def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type,        # noqa F811
-                                      active_active_ports, active_standby_ports):               # noqa F811
+def select_test_mux_ports(active_active_ports, active_standby_ports):                               # noqa F811
+    """Return helper function to select test mux ports based on cable_type"""
+
+    def _select_test_mux_ports(cable_type, count):                                                  # noqa F811
+        if cable_type == CableType.active_active:
+            test_mux_ports = random.sample(active_active_ports, count)
+        elif cable_type == CableType.active_standby:
+            test_mux_ports = random.sample(active_standby_ports, count)
+        else:
+            raise ValueError("Unsupported cable type %s" % cable_type)
+        return test_mux_ports
+
+    return _select_test_mux_ports
+
+
+@pytest.fixture
+def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):   # noqa F811
 
     arp_setup(ptfhost)
 
-    if cable_type == CableType.active_active:
-        tor_vlan_port = random.sample(active_active_ports, 2)
-    elif cable_type == CableType.active_standby:
-        tor_vlan_port = random.sample(active_standby_ports, 2)
-    else:
-        raise ValueError("Unsupported cable type %s" % cable_type)
-
-    def server_to_server_io_test(activehost, delay=0, allowed_disruption=0, action=None,
+    def server_to_server_io_test(activehost, test_mux_ports, delay=0,
+                                 allowed_disruption=0, action=None,
                                  verify=False, send_interval=0.01, stop_after=None):
-        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter,
-                          action, tbinfo, tor_vlan_port, send_interval,
+        tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
+                          action, tbinfo, test_mux_ports, send_interval,
                           traffic_direction="server_to_server", stop_after=stop_after,
                           cable_type=cable_type)
 
