@@ -656,7 +656,7 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
   skip:
     reason: "Not supported before release 202305."
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - "release in ['201811', '201911', '202012', '202211']"
       - "asic_type in ['cisco-8000']"
 
 #######################################
