@@ -66,8 +66,8 @@ def test_dequeue_ecn(request,
     logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
     snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "data_flow_pkt_size": data_flow_pkt_size,
-            "data_flow_pkt_count": data_flow_pkt_count
+            "flow_pkt_size": data_flow_pkt_size,
+            "flow_pkt_count": data_flow_pkt_count
         }
 
     ip_pkts = run_ecn_test(api=snappi_api,

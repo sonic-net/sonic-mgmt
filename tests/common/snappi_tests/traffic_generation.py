@@ -87,7 +87,6 @@ def setup_base_traffic_config(testbed_config,
 
 
 def generate_test_flows(testbed_config,
-                        test_flow_name,
                         test_flow_prio_list,
                         prio_dscp_map,
                         snappi_extra_params):
@@ -96,16 +95,17 @@ def generate_test_flows(testbed_config,
 
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
-        test_flow_name (str): name of test flow
         test_flow_prio_list (list): list of test flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
+    pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
 
     for prio in test_flow_prio_list:
-        test_flow = testbed_config.flows.flow(name='{} Prio {}'.format(test_flow_name, prio))[-1]
+        test_flow = testbed_config.flows.flow(name='{} Prio {}'.format(data_flow_config["flow_name"], prio))[-1]
         test_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         test_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
@@ -121,17 +121,16 @@ def generate_test_flows(testbed_config,
         ipv4.priority.dscp.ecn.value = (
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-        data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
-        test_flow.size.fixed = data_flow_config["data_flow_pkt_size"]
-        test_flow.rate.percentage = data_flow_config["data_flow_rate_percent"]
-        if data_flow_config["data_flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
-            test_flow.duration.fixed_seconds.seconds = data_flow_config["data_flow_dur_sec"]
+        test_flow.size.fixed = data_flow_config["flow_pkt_size"]
+        test_flow.rate.percentage = data_flow_config["flow_rate_percent"]
+        if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+            test_flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
             test_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["data_flow_delay_sec"]))
-        elif data_flow_config["data_flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
-            test_flow.duration.fixed_packets.packets = data_flow_config["data_flow_pkt_count"]
+                                                                     (data_flow_config["flow_delay_sec"]))
+        elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+            test_flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
             test_flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
-                                                                     (data_flow_config["data_flow_delay_sec"]))
+                                                                     (data_flow_config["flow_delay_sec"]))
 
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
@@ -146,7 +145,6 @@ def generate_test_flows(testbed_config,
 
 
 def generate_background_flows(testbed_config,
-                              bg_flow_name,
                               bg_flow_prio_list,
                               prio_dscp_map,
                               snappi_extra_params):
@@ -155,16 +153,17 @@ def generate_background_flows(testbed_config,
 
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
-        bg_flow_name (str): name of background flow
         bg_flow_prio_list (list): list of background flow priorities
         prio_dscp_map (dict): priority to DSCP mapping
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
+    pytest_assert(bg_flow_config is not None, "Cannot find background flow configuration")
 
     for prio in bg_flow_prio_list:
-        bg_flow = testbed_config.flows.flow(name='{} Prio {}'.format(bg_flow_name, prio))[-1]
+        bg_flow = testbed_config.flows.flow(name='{} Prio {}'.format(bg_flow_config["flow_name"], prio))[-1]
         bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
@@ -180,19 +179,17 @@ def generate_background_flows(testbed_config,
         ipv4.priority.dscp.ecn.value = (
             ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
-        bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
-        bg_flow.size.fixed = bg_flow_config["background_flow_pkt_size"]
-        bg_flow.rate.percentage = bg_flow_config["background_flow_rate_percent"]
-        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["background_flow_dur_sec"]
+        bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
+        bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
+        bg_flow.duration.fixed_seconds.seconds = bg_flow_config["flow_dur_sec"]
         bg_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                               (bg_flow_config["background_flow_delay_sec"]))
+                                                               (bg_flow_config["flow_delay_sec"]))
 
         bg_flow.metrics.enable = True
         bg_flow.metrics.loss = True
 
 
 def generate_pause_flows(testbed_config,
-                         pause_flow_name,
                          pause_prio_list,
                          global_pause,
                          snappi_extra_params):
@@ -201,15 +198,16 @@ def generate_pause_flows(testbed_config,
 
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
-        pause_flow_name (str): name of pause flow
         pause_prio_list (list): list of pause priorities
         global_pause (bool): global pause or per priority pause
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     base_flow_config = snappi_extra_params.base_flow_config
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
+    pytest_assert(pause_flow_config is not None, "Cannot find pause flow configuration")
 
-    pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
+    pause_flow = testbed_config.flows.flow(name=pause_flow_config["flow_name"])[-1]
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
     pause_flow.tx_rx.port.rx_name = testbed_config.ports[base_flow_config["tx_port_id"]].name
 
@@ -242,15 +240,14 @@ def generate_pause_flows(testbed_config,
         pause_pkt.pause_class_7.value = pause_time[7]
 
     # Pause frames are sent from the RX port of ixia
-    pause_flow_config = snappi_extra_params.traffic_flow_config.pause_flow_config
-    pause_flow.rate.pps = pause_flow_config["pause_flow_rate_pps"]
-    pause_flow.size.fixed = pause_flow_config["pause_flow_pkt_size"]
+    pause_flow.rate.pps = pause_flow_config["flow_rate_pps"]
+    pause_flow.size.fixed = pause_flow_config["flow_pkt_size"]
     pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(
-        pause_flow_config["pause_flow_delay_sec"]))
+        pause_flow_config["flow_delay_sec"]))
 
-    if pause_flow_config["pause_flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
-        pause_flow.duration.fixed_seconds.seconds = pause_flow_config["pause_flow_dur_sec"]
-    elif pause_flow_config["pause_flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
+    if pause_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+        pause_flow.duration.fixed_seconds.seconds = pause_flow_config["flow_dur_sec"]
+    elif pause_flow_config["flow_traffic_type"] == traffic_flow_mode.CONTINUOUS:
         pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
 
     pause_flow.metrics.enable = True
@@ -393,7 +390,6 @@ def verify_pause_flow(flow_metrics,
 
 
 def verify_background_flow(flow_metrics,
-                           bg_flow_name,
                            speed_gbps,
                            tolerance,
                            snappi_extra_params):
@@ -403,7 +399,6 @@ def verify_background_flow(flow_metrics,
 
     Args:
         flow_metrics (list): per-flow statistics
-        bg_flow_name (str): name of the background flow
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for background flow deviation
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
@@ -413,14 +408,14 @@ def verify_background_flow(flow_metrics,
     bg_flow_config = snappi_extra_params.traffic_flow_config.background_flow_config
 
     for metric in flow_metrics:
-        if bg_flow_name not in metric.name:
+        if bg_flow_config["flow_name"] not in metric.name:
             continue
 
         tx_frames = metric.frames_tx
         rx_frames = metric.frames_rx
 
-        exp_bg_flow_rx_pkts = bg_flow_config["background_flow_rate_percent"] / 100.0 * speed_gbps \
-            * 1e9 * bg_flow_config["background_flow_dur_sec"] / 8.0 / bg_flow_config["background_flow_pkt_size"]
+        exp_bg_flow_rx_pkts = bg_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
+            * 1e9 * bg_flow_config["flow_dur_sec"] / 8.0 / bg_flow_config["flow_pkt_size"]
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
 
         pytest_assert(tx_frames == rx_frames,
@@ -431,7 +426,6 @@ def verify_background_flow(flow_metrics,
 
 
 def verify_basic_test_flow(flow_metrics,
-                           test_flow_name,
                            speed_gbps,
                            tolerance,
                            test_flow_pause,
@@ -442,7 +436,6 @@ def verify_basic_test_flow(flow_metrics,
 
     Args:
         flow_metrics (list): per-flow statistics
-        test_flow_name (str): name of the test flow
         speed_gbps (int): speed of the port in Gbps
         tolerance (float): tolerance for test flow deviation
         test_flow_pause (bool): whether test flow is expected to be paused
@@ -454,7 +447,7 @@ def verify_basic_test_flow(flow_metrics,
     data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
 
     for metric in flow_metrics:
-        if test_flow_name not in metric.name:
+        if data_flow_config["flow_name"] not in metric.name:
             continue
 
         tx_frames = metric.frames_tx
@@ -468,20 +461,18 @@ def verify_basic_test_flow(flow_metrics,
             pytest_assert(tx_frames == rx_frames,
                           "{} should not have any dropped packet".format(metric.name))
 
-            exp_test_flow_rx_pkts = data_flow_config["data_flow_rate_percent"] / 100.0 * speed_gbps \
-                * 1e9 * data_flow_config["data_flow_dur_sec"] / 8.0 / data_flow_config["data_flow_pkt_size"]
+            exp_test_flow_rx_pkts = data_flow_config["flow_rate_percent"] / 100.0 * speed_gbps \
+                * 1e9 * data_flow_config["flow_dur_sec"] / 8.0 / data_flow_config["flow_pkt_size"]
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
                           "{} should receive {} packets (actual {})".
-                          format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
+                          format(data_flow_config["flow_name"], exp_test_flow_rx_pkts, rx_frames))
 
     snappi_extra_params.test_tx_frames = test_tx_frames
 
 
 def verify_in_flight_buffer_pkts(duthost,
                                  flow_metrics,
-                                 test_flow_name,
-                                 test_flow_pkt_size,
                                  snappi_extra_params):
     """
     Verify in-flight TX bytes of test flows should be held by switch buffer unless PFC delay is applied
@@ -489,12 +480,14 @@ def verify_in_flight_buffer_pkts(duthost,
 
     Args:
         duthost (obj): DUT host object
+        flow_metrics (list): per-flow statistics
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
     """
-    tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if test_flow_name in metric.name)
-    tx_bytes_total = tx_frames_total * test_flow_pkt_size
+    data_flow_config = snappi_extra_params.traffic_flow_config.data_flow_config
+    tx_frames_total = sum(metric.frames_tx for metric in flow_metrics if data_flow_config["flow_name"] in metric.name)
+    tx_bytes_total = tx_frames_total * data_flow_config["flow_pkt_size"]
     dut_buffer_size = get_lossless_buffer_size(host_ans=duthost)
     headroom_test_params = snappi_extra_params.headroom_test_params
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]

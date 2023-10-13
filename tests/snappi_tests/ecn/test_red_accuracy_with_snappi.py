@@ -72,8 +72,8 @@ def test_red_accuracy(request,
     logger.info("Running ECN red accuracy test for {} iterations".format(num_iterations))
 
     snappi_extra_params.traffic_flow_config.data_flow_config = {
-            "data_flow_pkt_size": data_flow_pkt_size,
-            "data_flow_pkt_count": data_flow_pkt_count
+            "flow_pkt_size": data_flow_pkt_size,
+            "flow_pkt_count": data_flow_pkt_count
         }
 
     ip_pkts_list = run_ecn_test(api=snappi_api,

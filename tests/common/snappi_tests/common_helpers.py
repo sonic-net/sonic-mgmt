@@ -938,7 +938,10 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.port_names = []
     for p_name in port_names:
         cap.port_names.append(p_name)
-    cap.format = format
+    if format == "pcapng" or format == "pcap":
+        cap.format = format
+    else:
+        raise Exception("Unsupported capture format")
 
 
 def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):

@@ -97,34 +97,34 @@ def run_ecn_test(api,
 
     logger.info("Setting test flow config params")
     snappi_extra_params.traffic_flow_config.data_flow_config.update({
-            "data_flow_rate_percent": 100,
-            "data_flow_delay_sec": DATA_START_DELAY_SEC,
-            "data_flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
+            "flow_name": DATA_FLOW_NAME,
+            "flow_rate_percent": 100,
+            "flow_delay_sec": DATA_START_DELAY_SEC,
+            "flow_traffic_type": traffic_flow_mode.FIXED_PACKETS
         })
 
     logger.info("Setting pause flow config params")
     snappi_extra_params.traffic_flow_config.pause_flow_config = {
-        "pause_flow_dur_sec": EXP_DURATION_SEC,
-        "pause_flow_rate_percent": None,
-        "pause_flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
-        "pause_flow_rate_bps": None,
-        "pause_flow_pkt_size": 64,
-        "pause_flow_pkt_count": None,
-        "pause_flow_delay_sec": 0,
-        "pause_flow_traffic_type": traffic_flow_mode.FIXED_DURATION
+        "flow_name": PAUSE_FLOW_NAME,
+        "flow_dur_sec": EXP_DURATION_SEC,
+        "flow_rate_percent": None,
+        "flow_rate_pps": calc_pfc_pause_flow_rate(speed_gbps),
+        "flow_rate_bps": None,
+        "flow_pkt_size": 64,
+        "flow_pkt_count": None,
+        "flow_delay_sec": 0,
+        "flow_traffic_type": traffic_flow_mode.FIXED_DURATION
         }
 
     # Generate traffic config of one test flow and one pause storm
     logger.info("Generating test flows")
     generate_test_flows(testbed_config=testbed_config,
-                        test_flow_name=DATA_FLOW_NAME,
                         test_flow_prio_list=[lossless_prio],
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
     logger.info("Generating pause flows")
     generate_pause_flows(testbed_config=testbed_config,
-                         pause_flow_name=PAUSE_FLOW_NAME,
                          pause_prio_list=[lossless_prio],
                          global_pause=False,
                          snappi_extra_params=snappi_extra_params)

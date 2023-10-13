@@ -34,8 +34,6 @@ class SnappiTestParams():
                     kmin: minimum ECN marking threshold
                     kmax: maximum ECN marking threshold
                     pmax: maximum ECN marking probability
-            pkt_size (int): packet size for background and test traffic
-            pkt_count (int): packet count for background and test traffic
             traffic_flow_config (TrafficFlowConfig obj): traffic flow configuration object
         """
         self.headroom_test_params = None
