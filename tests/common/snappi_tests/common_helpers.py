@@ -902,7 +902,25 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
+class traffic_flow_mode(Enum):
+    """
+    ENUM of traffic flow mode settings
+    CONTINUOUS - -100
+        - continuous flow of traffic with no pauses at some specific rate
+    BURST - -99
+        - burst of traffic with breaks in flow for a certain duration at some specific rate
+    FIXED_PACKETS - -98
+        - sending a specific number of packets at some specific rate
+    FIXED_DURATION - -97
+        - sending traffic for a specific duration at some specific rate
+    """
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
+
+
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -911,7 +929,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
-
+        format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
     """
@@ -920,12 +938,23 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.port_names = []
     for p_name in port_names:
         cap.port_names.append(p_name)
-    cap.format = cap.PCAP
+    if format == "pcapng" or format == "pcap":
+        cap.format = format
+    else:
+        raise Exception("Unsupported capture format")
 
-    if capture_type == packet_capture.IP_CAPTURE:
-        # Capture IP packets
-        ip_filter = cap.filters.custom()[-1]
-        # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
-        ip_filter.value = '40'
-        ip_filter.offset = 14  # Offset is the length of the Ethernet header
-        ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+
+def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
+    """
+    Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
+    factor.
+    Args:
+        port_speed (int): port speed in gbps ex. 100
+        oversubscription_ratio (int): factor by which to block the port (default: 2)
+    Returns:
+        pps: pause frames to be sent per second to block port by block_factor
+    """
+    pause_dur = 65535 * 64 * 8.0 / (port_speed * 1e9)
+    pps = int(oversubscription_ratio / pause_dur)
+
+    return pps

@@ -23,3 +23,16 @@ def skip_warm_reboot(duthost, reboot_type):
         reboot_case_supported = False
     pytest_require(reboot_case_supported, "Reboot type {} is not supported on {} switches".
                    format(reboot_type, duthost.facts['asic_type']))
+
+
+def skip_ecn_tests(duthost):
+    """
+    Skip ECN tests for Cisco devices
+
+    Args:
+        duthost (pytest fixture): device under test
+
+    Returns:
+        None
+    """
+    pytest_require(not is_cisco_device(duthost), "ECN tests are not supported on Cisco switches yet.")
