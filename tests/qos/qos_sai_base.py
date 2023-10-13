@@ -2067,3 +2067,19 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info("Test ports ids is{}".format(test_port_ids))
         return test_port_ids
+
+    def is_pacific(self, dut_asic):
+        pacific_platforms = ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']
+        if 'platform' in dut_asic.sonichost.facts and \
+                dut_asic.sonichost.facts['platform'] in pacific_platforms:
+            return True
+        return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, get_src_dst_asic_and_duts):
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        if self.is_pacific(dst_asic):
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
+        yield
+        return
