@@ -4,14 +4,16 @@ import logging
 import time
 
 from run_events_test import run_test
+from telemetry.utils import isMasterImage
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-bgp"
 
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
-             "bgp_notification.json", "sonic-events-bgp:notification", tag)
+    if not isMasterImage(duthost):
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
+                 "bgp_notification.json", "sonic-events-bgp:notification", tag)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
 

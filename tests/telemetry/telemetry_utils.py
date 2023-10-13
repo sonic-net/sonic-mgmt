@@ -52,6 +52,11 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
+def isMasterImage(duthost):
+    os_version = duthost.os_version
+    return "master" in os_version or "internal" in os_version
+
+
 def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
         Restart telemetry process
