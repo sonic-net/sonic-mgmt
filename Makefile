@@ -19,15 +19,15 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPO_TYPE} -p ${PLATFORM_TYPE}"
+	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
 	 python3.8 -u ./create_sonic_topo.py \
 		--dut_uname cisco \
 		--dut_passwd cisco123 \
-		--topo_type ${TOPO_TYPE} \
-		--device_type ${PLATFORM_TYPE} \
+		--topo_type ${TOPOLOGY} \
+		--device_type ${PLATFORM} \
 		--script_file $(TESTFILE) \
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
