@@ -360,7 +360,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
             dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     elif 'dualtor' in topo:
-        # set TTL = 1 for T0, don't shutdown bgp, or else the mux becomes standby
+        # set TTL = 1 for dualtor-T0, don't shutdown bgp, or else the mux status on selected DUT becomes standby
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))			
     else:
         duthost.command("sudo config bgp shutdown all")
