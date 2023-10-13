@@ -127,6 +127,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
+            ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",  # Valid test_dhcp_relay for Bookworm
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
             # Valid test_dhcp_relay test_syslog
             ".*ERR GenericConfigUpdater: Service Validator: Service has been reset.*",
