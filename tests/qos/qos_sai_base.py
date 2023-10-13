@@ -836,7 +836,7 @@ class QosSaiBase(QosBase):
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:

@@ -1,11 +1,13 @@
 import pytest
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, send_server_to_t1_with_action                                  # lgtm[py/unused-import]
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                                                                  # lgtm[py/unused-import]
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor                                                  # lgtm[py/unused-import]
-from tests.common.dualtor.tor_failure_utils import kill_bgpd                                                                                    # lgtm[py/unused-import]
-from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions                                                                        # lgtm[py/unused-import]
+from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, \
+                                                  send_server_to_t1_with_action                     # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
+from tests.common.dualtor.tor_failure_utils import kill_bgpd                                        # noqa F401
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions                            # noqa F401
 from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions_on_duthost
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, copy_ptftests_directory, change_mac_addresses             # lgtm[py/unused-import]
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor
@@ -182,12 +184,21 @@ def test_active_tor_shutdown_bgp_sessions_upstream(
             action=lambda: shutdown_bgp_sessions(upper_tor_host)
         )
 
-    verify_tor_states(
-        expected_active_host=lower_tor_host,
-        expected_standby_host=upper_tor_host,
-        expected_standby_health="unhealthy",
-        cable_type=cable_type
-    )
+    if cable_type == CableType.active_active:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
+            cable_type=cable_type
+        )
+
+    if cable_type == CableType.active_standby:
+        verify_tor_states(
+            expected_active_host=lower_tor_host,
+            expected_standby_host=upper_tor_host,
+            expected_standby_health="unhealthy",
+            cable_type=cable_type
+        )
 
 
 @pytest.mark.enable_active_active

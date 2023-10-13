@@ -14,6 +14,10 @@ acl/test_acl_outer_vlan.py:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests"
     conditions:
       - "asic_type in ['cisco-8000']"
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+      - "'dualtor' in topo_name"
 
 #######################################
 #####          cutsom_acl         #####
@@ -593,13 +597,6 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
-ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
-  skip:
-    reason: "Not supported before release 202305."
-    conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211']"
-      - "asic_type in ['cisco-8000']"
-
 #######################################
 #####           macsec            #####
 #######################################
@@ -993,6 +990,14 @@ show_techsupport/test_techsupport.py::test_techsupport:
 #######################################
 #####            snmp             #####
 #######################################
+snmp/test_snmp_link_local.py:
+  skip:
+    reason: "SNMP over IPv6 support not present in release branches."
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/6108
+      - "is_multi_asic==False"
+      - "release in ['202205', '202211', '202305']"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
