@@ -683,15 +683,15 @@ def overwrite_lab_file(vxr_ports):
 
 def get_dut_platform(device_type):
     if device_type == 'sherman':
-         return "sherman"
+        return "sherman"
     elif device_type == 'sfd':
-         return 'sfd'
+        return 'sfd'
     elif device_type == 'crocodile':
         return 'crocodile'
     elif device_type == 'churchill-mono':
-         return 'churchill-mono'
+        return 'churchill-mono'
     else:
-         return "mathilda"
+        return "mathilda"
 
 def determine_base_topo(topo_type, device_type):
     ptf_intfcount = 32
@@ -775,7 +775,7 @@ def determine_base_topo(topo_type, device_type):
     return base_topo_file, vEOS_count, ptf_intfcount
 
 def start_vxr(input_file, cicd, clean_sim, topo_yaml):
-    vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
 
     if input_file:
         return vxr_path, input_file
