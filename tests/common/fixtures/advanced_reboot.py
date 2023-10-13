@@ -642,6 +642,9 @@ class AdvancedReboot:
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
 
+        if "warm-reboot" in self.rebootType:
+            event_counters["PORT_READY"] = 0
+
         if self.dual_tor_mode:
             dualtor_testData = {
                 'peer_ports': copy.deepcopy(self.peer_mgFacts['minigraph_ptf_indices']),
