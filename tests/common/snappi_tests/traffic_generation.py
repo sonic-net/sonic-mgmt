@@ -45,6 +45,8 @@ def setup_base_traffic_config(testbed_config,
                 dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
                                         and the associated test priorities
                                         ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                tx_speed_normalization_factor (float): speed normalization factor for TX port to account for different
+                                                       speeds of TX and RX ports
     """
     base_flow_config = {}
     rx_port_id = port_id
@@ -61,6 +63,7 @@ def setup_base_traffic_config(testbed_config,
 
     tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
+    base_flow_config["tx_speed_normalization_factor"] = rx_port_config.speed_gbps / tx_port_config.speed_gbps
     base_flow_config["tx_port_config"] = tx_port_config
     base_flow_config["rx_port_config"] = rx_port_config
 

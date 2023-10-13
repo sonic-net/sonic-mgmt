@@ -26,9 +26,9 @@ logger = logging.getLogger(__name__)
 dut_port_config = []
 PAUSE_FLOW_NAME = 'Pause Storm'
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 10
+TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 10
+BG_FLOW_AGGR_RATE_PERCENT = 45
 data_flow_pkt_size = 1024
 DATA_FLOW_DURATION_SEC = 15
 data_flow_delay_sec = 1
@@ -94,10 +94,6 @@ def run_pfc_test(api,
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
 
-    # Rate percent must be an integer
-    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
-    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
-
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
                                                                      port_config_list=port_config_list,
@@ -105,6 +101,12 @@ def run_pfc_test(api,
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
+
+    # Rate percent must be an integer
+    tx_speed_normalization_factor = snappi_extra_params.base_flow_config["tx_speed_normalization_factor"]
+    bg_flow_rate_percent = int(min(BG_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor, 100) / len(bg_prio_list))
+    test_flow_rate_percent = int(min(TEST_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor, 100) /
+                                 len(test_prio_list))
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10
