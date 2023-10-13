@@ -708,7 +708,7 @@ class QosSaiBase(QosBase):
                 )
                 dstPorts = dst_port_ids
             elif len(dst_test_port_ids) >= 4:
-                dstPorts = [0, 2, 3]
+                dstPorts = [2, 3, 4]
             elif len(dst_test_port_ids) == 3:
                 dstPorts = [0, 2, 2]
             else:
