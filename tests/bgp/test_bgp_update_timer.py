@@ -237,7 +237,7 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
 
     log_file = pytestconfig.getoption("log_file", None)
     if log_file:
-        _constants.log_dir = os.path.abspath(log_file)
+        _constants.log_dir = os.path.dirname(os.path.abspath(log_file))
     else:
         _constants.log_dir = None
 
@@ -349,7 +349,8 @@ def test_bgp_update_timer_single_route(
                 time.sleep(constants.sleep_interval)
 
             if constants.log_dir:
-                local_pcap_filename = local_pcap_file_template % request.node.name
+                local_pcap_filename = os.path.join(constants.log_dir,
+                                                   local_pcap_file_template % request.node.name)
             else:
                 local_pcap_file = tempfile.NamedTemporaryFile()
                 local_pcap_filename = local_pcap_file.name
@@ -458,7 +459,8 @@ def test_bgp_update_timer_session_down(
             time.sleep(constants.sleep_interval)
 
         if constants.log_dir:
-            local_pcap_filename = local_pcap_file_template % request.node.name
+            local_pcap_filename = os.path.join(constants.log_dir,
+                                               local_pcap_file_template % request.node.name)
         else:
             local_pcap_file = tempfile.NamedTemporaryFile()
             local_pcap_filename = local_pcap_file.name
