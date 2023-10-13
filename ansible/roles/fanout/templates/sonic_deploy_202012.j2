@@ -68,6 +68,19 @@
         }
     },
 
+{% if fanout_hwsku in ("Celestica-E1031-T48S4") %}
+    "FLEX_COUNTER_TABLE": {
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "disable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "disable"
+        }
+    },
+{% else %}
     "FLEX_COUNTER_TABLE": {
         "PFCWD": {
             "FLEX_COUNTER_STATUS": "enable"
@@ -79,6 +92,9 @@
             "FLEX_COUNTER_STATUS": "enable"
         }
     },
+{% endif %}
+
+{% if fanout_hwsku not in ("Celestica-E1031-T48S4") %}
 
     "QUEUE": {
     {% for port_name in fanout_port_config %}
@@ -115,6 +131,8 @@
     {% endfor %}
         }
     },
+
+{% endif %}
 
 {% if 'mellanox' in fanout_sonic_version["asic_type"] %}
     "BUFFER_PG": {
@@ -223,6 +241,8 @@
         }
     },
 
+{% if fanout_hwsku not in ("Celestica-E1031-T48S4") %}
+
     "PFC_WD": {
         "GLOBAL": {
             "POLL_INTERVAL": "200"
@@ -268,6 +288,8 @@
             "weight": "15"
         }
     },
+
+{% endif %}
 
     "FEATURE": {
         "acms": {
