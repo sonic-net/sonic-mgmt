@@ -815,6 +815,16 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
+  skip:
+    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    conditions: "'nvda_bf' in platform"
+
+platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
+  skip:
+    reason: "Test should be skipped on DPU for it doesn't have PSUs."
+    conditions: "'nvda_bf' in platform"
+
 platform_tests/daemon/test_chassisd.py:
   skip:
     reason: "chassisd platform daemon introduced in 202106"
