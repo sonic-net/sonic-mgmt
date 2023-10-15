@@ -99,14 +99,14 @@ def run_pfc_test(api,
                                                                      port_config_list=port_config_list,
                                                                      port_id=port_id)
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-
     # Rate percent must be an integer
     tx_speed_normalization_factor = snappi_extra_params.base_flow_config["tx_speed_normalization_factor"]
-    bg_flow_rate_percent = int(min(BG_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor, 100) / len(bg_prio_list))
-    test_flow_rate_percent = int(min(TEST_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor, 100) /
+    bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor / len(bg_prio_list))
+    test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor /
                                  len(test_prio_list))
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(int(speed_str.split('_')[1]) * tx_speed_normalization_factor)
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10

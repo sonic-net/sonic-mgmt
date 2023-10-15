@@ -46,7 +46,7 @@ def setup_base_traffic_config(testbed_config,
                                         and the associated test priorities
                                         ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
                 tx_speed_normalization_factor (float): speed normalization factor for TX port to account for different
-                                                       speeds of TX and RX ports
+                                                       speeds of TX and RX ports. Has a value less than or equal to 1.0
     """
     base_flow_config = {}
     rx_port_id = port_id
@@ -63,7 +63,9 @@ def setup_base_traffic_config(testbed_config,
 
     tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
     rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
-    base_flow_config["tx_speed_normalization_factor"] = rx_port_config.speed_gbps / tx_port_config.speed_gbps
+    tx_norm_factor = rx_port_config.speed_gbps / tx_port_config.speed_gbps if rx_port_config.speed_gbps \
+        <= tx_port_config.speed_gbps else 1.0
+    base_flow_config["tx_speed_normalization_factor"] = tx_norm_factor
     base_flow_config["tx_port_config"] = tx_port_config
     base_flow_config["rx_port_config"] = rx_port_config
 
