@@ -12,8 +12,9 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import get_interface_server_map
-from tests.common.dualtor.dual_tor_utils import check_nexthops_balance
+from tests.common.dualtor.dual_tor_utils import check_nexthops_single_downlink
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
+from tests.common.dualtor.dual_tor_mock import set_mux_state
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
@@ -81,7 +82,7 @@ def test_active_tor_remove_neighbor_downstream_active(
         # restore ipv4 neighbor since it is statically configured
         flush_neighbor_ct = flush_neighbor(duthost, server_ip, restore=ip_version == "ipv4" or "ipv6")
         try:
-            ptfhost.shell("supervisorctl stop arp_responder")
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
             # stop garp_service since there is no equivalent in production
             ptfhost.shell("supervisorctl stop garp_service")
             with flush_neighbor_ct as flushed_neighbor:
@@ -89,7 +90,7 @@ def test_active_tor_remove_neighbor_downstream_active(
                 yield
         finally:
             ptfhost.shell("supervisorctl start arp_responder")
-            duthost.shell("docker exec -it swss supervisorctl restart arp_update")
+            duthost.shell("docker exec -t swss supervisorctl restart arp_update")
 
     try:
         removed_neighbor = {}
@@ -153,11 +154,11 @@ def test_downstream_ecmp_nexthops(
     if ip_version == "ipv4":
         dst_server_addr = "1.1.1.2"
         interface_to_server = {intf: servers["server_ipv4"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     elif ip_version == "ipv6":
         dst_server_addr = "fc10:2020::f"
         interface_to_server = {intf: servers["server_ipv6"].split("/")[0]
-                               for intf, servers in iface_server_map.items()}
+                               for intf, servers in list(iface_server_map.items())}
     else:
         raise ValueError("Unknown IP version '%s'" % ip_version)
 
@@ -168,29 +169,29 @@ def test_downstream_ecmp_nexthops(
     add_nexthop_routes(rand_selected_dut, dst_server_addr, nexthops=nexthop_servers)
 
     try:
-        logging.info("Verify traffic to this route destination is distributed to four server ports")
-        check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr, tbinfo,
-                               nexthop_interfaces, nexthops_count)
+        logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
+        check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                       tbinfo, nexthop_interfaces)
+
+        nexthop_interfaces_copy = nexthop_interfaces.copy()
 
         # Sequentially set four mux states to standby
         for index, interface in enumerate(nexthop_interfaces):
-            uplink_ports_active = index + 1
             logging.info("Simulate {} mux state change to Standby".format(nexthop_servers[index]))
-            set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)    # noqa F405
-            logging.info("Verify traffic to this route destination is distributed to"
-                         " {} server ports and {} tunnel nexthop"
-                         .format(nexthops_count-uplink_ports_active, uplink_ports_active))
-            check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr, tbinfo,
-                                   nexthop_interfaces[uplink_ports_active:nexthops_count], nexthops_count)
+            set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
+            nexthop_interfaces_copy.remove(interface)
+            logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
+            check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                           tbinfo, nexthop_interfaces_copy)
 
         # Revert two mux states to active
         for index, interface in reversed(list(enumerate(nexthop_interfaces))):
             logging.info("Simulate {} mux state change back to Active".format(nexthop_servers[index]))
-            set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)     # noqa F405
-            logging.info("Verify traffic to this route destination is distributed to"
-                         " {} server ports and {} tunnel nexthop".format(nexthops_count-index, index))
-            check_nexthops_balance(rand_selected_dut, ptfadapter, dst_server_addr, tbinfo,
-                                   nexthop_interfaces[index:nexthops_count], nexthops_count)
+            set_mux_state(rand_selected_dut, tbinfo, 'active', [interface], toggle_all_simulator_ports)
+            nexthop_interfaces_copy.append(interface)
+            logging.info("Verify traffic to this route destination is sent to single downlink or uplink")
+            check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
+                                           tbinfo, nexthop_interfaces_copy)
     finally:
         # Remove the nexthop route
         remove_static_routes(rand_selected_dut, dst_server_addr)

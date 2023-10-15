@@ -1,4 +1,4 @@
-from __future__ import division
+
 import logging
 import json
 import pytest
@@ -10,6 +10,7 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
                                                   expect_res_success, expect_op_failure         # noqa F401
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -72,7 +73,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     if "t1" in topo:
         spine_router_count = 0
         tor_router_count = 0
-        for neighbor in device_neighbor_metadata.keys():
+        for neighbor in list(device_neighbor_metadata.keys()):
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "SpineRouter":
                 spine_router_count += 1
@@ -83,7 +84,7 @@ def get_uplink_downlink_count(duthost, tbinfo):
     elif "t0" in topo:
         leaf_router_count = 0
         server_count = 0
-        for neighbor in device_neighbor_metadata.keys():
+        for neighbor in list(device_neighbor_metadata.keys()):
             neighbor_data = device_neighbor_metadata[neighbor]
             if neighbor_data['type'] == "LeafRouter":
                 leaf_router_count += 1
@@ -110,12 +111,12 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
     neighbor_to_type_map = {}
     neighbor_type_to_pg_headroom_map = {}
 
-    for neighbor in device_neighbor_metadata.keys():
+    for neighbor in list(device_neighbor_metadata.keys()):
         neighbor_set.add(neighbor)
         neighbor_data = device_neighbor_metadata[neighbor]
         neighbor_to_type_map[neighbor] = neighbor_data['type']
 
-    for interface in interfaces_data.keys():
+    for interface in list(interfaces_data.keys()):
         for neighbor in neighbor_set:
             if neighbor in json.dumps(interfaces_data[interface]):
                 neighbor_to_interface_map[neighbor] = interface
@@ -232,7 +233,10 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, configdb_field, value)
+        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes"):
+            expect_op_success(duthost, output)
+            ensure_application_of_updated_config(duthost, configdb_field, value)
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)

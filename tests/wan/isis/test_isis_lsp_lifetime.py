@@ -62,10 +62,10 @@ def isis_setup_teardown_lsp_short_lifetime(isis_common_setup_teardown, request):
 def check_isis_lsp_lifetime(duthost, long):
     isis_facts = duthost.isis_facts()["ansible_facts"]['isis_facts']
 
-    for lsp, _ in isis_facts['database'][isis_instance].items():
+    for lsp, _ in list(isis_facts['database'][isis_instance].items()):
         if duthost.hostname in lsp:
             lifetime = isis_facts['database'][isis_instance][lsp]['holdtime']
-            if long:
+            if int:
                 lifetime_offset = MAX_LSP_LIFETIME - int(lifetime)
             else:
                 lifetime_offset = MIN_LSP_LIFETIME - int(lifetime)

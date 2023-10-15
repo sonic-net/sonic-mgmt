@@ -31,8 +31,8 @@ pytestmark = [
 TEST_DEVICE_INTERFACE = "Loopback3"
 EXABGP_PORT_UPPER_TOR = 11000
 EXABGP_PORT_LOWER_TOR = 11001
-ANNOUNCED_SUBNET_IPV4 = u"10.10.100.0/27"
-ANNOUNCED_SUBNET_IPV6 = u"fc00:10::/64"
+ANNOUNCED_SUBNET_IPV4 = "10.10.100.0/27"
+ANNOUNCED_SUBNET_IPV6 = "fc00:10::/64"
 
 
 @pytest.fixture(scope="module")
@@ -66,7 +66,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
 
     # find the server ip used in the bgp session
     mux_configs = mux_cable_server_ip(upper_tor_host)
-    test_iface = random.choice(mux_configs.keys())
+    test_iface = random.choice(list(mux_configs.keys()))
     test_server = mux_configs[test_iface]
     test_server_ip = test_server["server_ipv4"]
     test_server_ipv6 = test_server["server_ipv6"]
@@ -140,11 +140,11 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo):      # no
 
     try:
         ptfhost.shell("ifconfig %s %s" % (upper_tor_server_ptf_intf, upper_tor_server_ip))
-        for conn in connections.values():
+        for conn in list(connections.values()):
             ptfhost.shell("ip route add %s via %s" % (conn["local_addr"], vlan_intf_addr))
         yield connections
     finally:
-        for conn in connections.values():
+        for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
 
@@ -155,7 +155,7 @@ def bgp_neighbors(ptfhost, setup_interfaces):
     # allow ebgp neighbors that are multiple hops away
     connections = setup_interfaces
     neighbors = {}
-    for dut, conn in connections.items():
+    for dut, conn in list(connections.items()):
         neighbors[dut] = bgp.BGPNeighbor(
             conn["localhost"],
             ptfhost,

@@ -100,7 +100,7 @@ class K8sMasterCluster(object):
 
         """
         self.backend_masters = []
-        for hostname, k8smaster in k8smasters.items():
+        for hostname, k8smaster in list(k8smasters.items()):
             if k8smaster['host'].is_haproxy:
                 self.haproxy = k8smaster['host']
             else:

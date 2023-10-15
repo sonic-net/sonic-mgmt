@@ -4,6 +4,7 @@ import time
 import logging
 import ipaddress
 import json
+import six
 from collections import defaultdict
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
@@ -50,7 +51,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
 
     vlan_members = cfg_facts.get('VLAN_MEMBER', {})
     index = 0
-    for vlan in cfg_facts['VLAN_MEMBER'].keys():
+    for vlan in list(cfg_facts['VLAN_MEMBER'].keys()):
         vlan_id = vlan[4:]
         DEFAULT_VLAN_ID = int(vlan_id)
         if len(port_list) == NUM_NHs:
@@ -80,7 +81,7 @@ def configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip):
 
 
 def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
-    if '.' in ip_to_port.keys()[0]:
+    if '.' in list(ip_to_port.keys())[0]:
         fgnhg_name = 'fgnhg_v4'
     else:
         fgnhg_name = 'fgnhg_v6'
@@ -94,7 +95,7 @@ def generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port):
     }
 
     fgnhg_data['FG_NHG_MEMBER'] = {}
-    for ip, port in ip_to_port.items():
+    for ip, port in list(ip_to_port.items()):
         bank = "0"
         if port in bank_1_port:
             bank = "1"
@@ -114,9 +115,9 @@ def setup_neighbors(duthost, ptfhost, ip_to_port):
     neigh_entries = {}
     neigh_entries['NEIGH'] = {}
 
-    for ip, port in ip_to_port.items():
+    for ip, port in list(ip_to_port.items()):
 
-        if isinstance(ipaddress.ip_address(ip.decode('utf8')), ipaddress.IPv4Address):
+        if isinstance(ipaddress.ip_address(six.text_type(ip)), ipaddress.IPv4Address):
             neigh_entries['NEIGH'][vlan_name + "|" + ip] = {
                 "neigh": ptfhost.shell("cat /sys/class/net/eth" + str(port) + "/address")["stdout_lines"][0],
                 "family": "IPv4"
@@ -139,7 +140,7 @@ def setup_arpresponder(ptfhost, ip_to_port):
 
     d = defaultdict(list)
 
-    for ip, port in ip_to_port.items():
+    for ip, port in list(ip_to_port.items()):
         iface = "eth{}".format(port)
         d[iface].append(ip)
 
@@ -347,7 +348,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
 
     withdraw_nh_port = bank_0_port[1]
     cmd = vtysh_base_cmd
-    for nexthop, port in ip_to_port.items():
+    for nexthop, port in list(ip_to_port.items()):
         if port == withdraw_nh_port:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
@@ -409,7 +410,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 " and check flow hash redistribution")
 
     cmd = vtysh_base_cmd
-    for nexthop, port in ip_to_port.items():
+    for nexthop, port in list(ip_to_port.items()):
         if port == withdraw_nh_port:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
@@ -426,7 +427,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     # and ensure that there is no orch crash and data plane impact
     logger.info("Simulate route and link flap conditions by toggling the route "
                 "and ensure that there is no orch crash and data plane impact")
-    nexthop_to_toggle = ip_to_port.keys()[0]
+    nexthop_to_toggle = list(ip_to_port.keys())[0]
 
     cmd = "for i in {1..50}; do "
     cmd = cmd + vtysh_base_cmd
@@ -452,7 +453,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     withdraw_nh_bank = bank_0_port
 
     cmd = vtysh_base_cmd
-    for nexthop, port in ip_to_port.items():
+    for nexthop, port in list(ip_to_port.items()):
         if port in withdraw_nh_bank:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
@@ -473,7 +474,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     first_nh = bank_0_port[3]
 
     cmd = vtysh_base_cmd
-    for nexthop, port in ip_to_port.items():
+    for nexthop, port in list(ip_to_port.items()):
         if port == first_nh:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
@@ -532,7 +533,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     cmd = vtysh_base_cmd
     for ip in pc_ips:
         cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, ip)
-    for nexthop in ip_to_port.keys():
+    for nexthop in list(ip_to_port.keys()):
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
     time.sleep(3)
@@ -558,7 +559,7 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     logger.info("Transition prefix back to fine grained ecmp and validate packets")
 
     cmd = vtysh_base_cmd
-    for nexthop in ip_to_port.keys():
+    for nexthop in list(ip_to_port.keys()):
         cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     for ip in pc_ips:
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, ip)
@@ -589,7 +590,7 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         router_mac = duthost.facts['router_mac']
         net_ports = []
-        for name, val in mg_facts['minigraph_portchannels'].items():
+        for name, val in list(mg_facts['minigraph_portchannels'].items()):
             members = [mg_facts['minigraph_ptf_indices'][member] for member in val['members']]
             net_ports.extend(members)
         if USE_INNER_HASHING is True:

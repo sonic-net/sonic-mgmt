@@ -7,6 +7,7 @@ import netaddr
 import pytest
 import random
 import re
+import six
 import socket
 
 from jinja2 import Template
@@ -14,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.parallel import reset_ansible_local_tmp
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.utilities import wait_tcp_connection
 from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
@@ -35,7 +36,7 @@ def check_results(results):
         results (Proxy to shared dict): Results of parallel run, indexed by node name.
     """
     failed_results = {}
-    for node_name, node_results in results.items():
+    for node_name, node_results in list(results.items()):
         failed_node_results = [res for res in node_results if res['failed']]
         if len(failed_node_results) > 0:
             failed_results[node_name] = failed_node_results
@@ -45,7 +46,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=24):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -113,14 +114,14 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             )
         results[node['host'].hostname] = node_results
 
-    results = parallel_run(configure_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
-    logger.info("bgp neighbors: {}".format(bgp_neighbors.keys()))
+    logger.info("bgp neighbors: {}".format(list(bgp_neighbors.keys())))
     res = True
     err_msg = ""
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         res = False
         err_msg = "not all bgp sessions are up after enable graceful restart"
 
@@ -131,16 +132,16 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
 
     if not res:
         # Disable graceful restart in case of failure
-        parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+        parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
         pytest.fail(err_msg)
 
     yield
 
-    results = parallel_run(restore_nbr_gr, (), {}, nbrhosts.values(), timeout=120)
+    results = parallel_run(restore_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
 
-    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()):
+    if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
         pytest.fail("not all bgp sessions are up after disable graceful restart")
 
 
@@ -231,26 +232,46 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             loopback_intf_prefixlen = loopback_intf["prefixlen"]
 
             mux_configs = mux_cable_server_ip(duthost)
-            local_interfaces = random.sample(mux_configs.keys(), peer_count)
+            local_interfaces = random.sample(list(mux_configs.keys()), peer_count)
             for local_interface in local_interfaces:
                 connections.append(
                     {
                         "local_intf": loopback_intf["name"],
                         "local_addr": "%s/%s" % (loopback_intf_addr, loopback_intf_prefixlen),
-                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interface],
+                        # Note: Config same subnets on PTF will generate two connect routes on PTF.
+                        # This may lead different IPs has same FDB entry on DUT even they are on different
+                        # interface and cause layer3 packet drop on PTF, so here same interface for different
+                        # neighbor.
+                        "neighbor_intf": "eth%s" % mg_facts["minigraph_port_indices"][local_interfaces[0]],
                         "neighbor_addr": "%s/%s" % (mux_configs[local_interface]["server_ipv4"].split("/")[0],
                                                     vlan_intf_prefixlen)
                     }
                 )
 
             ptfhost.remove_ip_addresses()
+            # let's stop arp_responder and garp_service as they could pollute
+            # devices' arp tables.
+            ptfhost.shell("supervisorctl stop garp_service", module_ignore_errors=True)
+            ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
+            first_neighbor_port = None
             for conn in connections:
-                ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
-                                                  conn["neighbor_addr"]))
+                ptfhost.shell("ip address add %s dev %s" % (conn["neighbor_addr"], conn["neighbor_intf"]))
+                if not first_neighbor_port:
+                    first_neighbor_port = conn["neighbor_intf"]
                 # NOTE: this enables the standby ToR to passively learn
-                # all the neighbors configured on the ptf interfaces
-                ptfhost.shell("arping %s -S %s -C 5" % (vlan_intf_addr, conn["neighbor_addr"].split("/")[0]), module_ignore_errors=True)
+                # all the neighbors configured on the ptf interfaces.
+                # As the ptf is a multihomed environment, the packets to the
+                # vlan gateway will always egress the first ptf port that has
+                # vlan subnet address assigned, so let's use the first
+                # ptf port to announce the neigbors.
+                ptfhost.shell(
+                    "arping %s -S %s -i %s -C 5" % (
+                        vlan_intf_addr, conn["neighbor_addr"].split("/")[0], first_neighbor_port
+                    ),
+                    module_ignore_errors=True
+                )
+
             ptfhost.shell("ip route add %s via %s" % (loopback_intf_addr, vlan_intf_addr))
             yield connections
 
@@ -285,12 +306,13 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             if not loopback_ip:
                 pytest.fail("ipv4 lo interface not found")
 
-            for local_intf, neighbor_addr in zip(local_interfaces, neighbor_addresses):
+            neighbor_intf = random.choice(local_interfaces)
+            for neighbor_addr in neighbor_addresses:
                 conn = {}
                 conn["local_intf"] = vlan_intf_name
                 conn["local_addr"] = vlan_intf_addr
                 conn["neighbor_addr"] = neighbor_addr
-                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][local_intf]
+                conn["neighbor_intf"] = "eth%s" % mg_facts["minigraph_port_indices"][neighbor_intf]
                 if is_backend_topo and is_vlan_tagged:
                     conn["neighbor_intf"] += (constants.VLAN_SUB_INTERFACE_SEPARATOR + vlan_id)
                 conn["loopback_ip"] = loopback_ip
@@ -299,14 +321,15 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             ptfhost.remove_ip_addresses()  # In case other case did not cleanup IP address configured on PTF interface
 
             for conn in connections:
-                ptfhost.shell("ifconfig %s %s" % (conn["neighbor_intf"],
-                                                  conn["neighbor_addr"]))
+                ptfhost.shell("ip address add %s/%d dev %s" % (
+                    conn["neighbor_addr"], vlan_intf["prefixlen"], conn["neighbor_intf"]
+                ))
 
             yield connections
 
         finally:
             for conn in connections:
-                ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"])
+                ptfhost.shell("ip address flush %s" % conn["neighbor_intf"])
 
     @contextlib.contextmanager
     def _setup_interfaces_t1_or_t2(mg_facts, peer_count):
@@ -361,7 +384,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
 
             subnet_prefixlen = list(used_subnets)[0].prefixlen
             # Use a subnet which doesnt conflict with other subnets used in minigraph
-            subnets = ipaddress.ip_network(u"20.0.0.0/24").subnets(new_prefix=subnet_prefixlen)
+            subnets = ipaddress.ip_network(six.text_type("20.0.0.0/24")).subnets(new_prefix=subnet_prefixlen)
 
             loopback_ip = None
             for intf in mg_facts["minigraph_lo_interfaces"]:
@@ -592,3 +615,86 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
     # Remove the route to DUT loopback IP  and the interface router mac
     ptfhost.shell("ip route del %s" % dut_lo_addr + "/32")
     ptfhost.shell("ip neigh flush to %s nud permanent" % dut_lo_addr)
+
+
+def pytest_addoption(parser):
+    """
+    Adds options to pytest that are used by bgp suppress fib pending test
+    """
+
+    parser.addoption(
+        "--bgp_suppress_fib_pending",
+        action="store_true",
+        dest="bgp_suppress_fib_pending",
+        default=False,
+        help="enable bgp suppress fib pending function, by default it will not enable bgp suppress fib pending function"
+    )
+    parser.addoption(
+        "--bgp_suppress_fib_reboot_type",
+        action="store",
+        dest="bgp_suppress_fib_reboot_type",
+        type=str,
+        choices=["reload", "fast", "warm", "cold", "random"],
+        default="reload",
+        help="reboot type such as reload, fast, warm, cold, random"
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def config_bgp_suppress_fib(duthosts, rand_one_dut_hostname, request):
+    """
+    Enable or disable bgp suppress-fib-pending function
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    config = request.config.getoption("--bgp_suppress_fib_pending")
+    logger.info("--bgp_suppress_fib_pending:{}".format(config))
+
+    if config:
+        logger.info("Check if bgp suppress fib pending is supported")
+        res = duthost.command("show suppress-fib-pending", module_ignore_errors=True)
+        if res['rc'] != 0:
+            pytest.skip('BGP suppress fib pending function is not supported')
+        logger.info('Enable BGP suppress fib pending function')
+        duthost.shell('sudo config suppress-fib-pending enabled')
+        duthost.shell('sudo config save -y')
+
+    yield
+
+    if config:
+        logger.info('Disable BGP suppress fib pending function')
+        duthost.shell('sudo config suppress-fib-pending disabled')
+        duthost.shell('sudo config save -y')
+
+
+@pytest.fixture(scope="module")
+def dut_with_default_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo['topo']['type'] == 't2':
+        # For T2 setup, default route via eBGP is only advertised from T3 VM's which are connected to one of the
+        # linecards and not the other. So, can't use enum_rand_one_per_hwsku_frontend_hostname for T2.
+        dut_to_T3 = None
+        for a_dut in duthosts.frontend_nodes:
+            minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
+            minigraph_neighbors = minigraph_facts['minigraph_neighbors']
+            for key, value in list(minigraph_neighbors.items()):
+                if 'T3' in value['name']:
+                    dut_to_T3 = a_dut
+                    break
+            if dut_to_T3:
+                break
+        if dut_to_T3 is None:
+            pytest.fail("Did not find any DUT in the DUTs (linecards) that are connected to T3 VM's")
+        return dut_to_T3
+    else:
+        return duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+
+@pytest.fixture(scope="module")
+def set_timeout_for_bgpmon(duthost):
+    """
+    For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
+    to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
+    """
+    global MAX_TIME_FOR_BGPMON
+    plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_bgpmon.py', 'cold')
+    if plt_reboot_ctrl:
+        MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)

@@ -3,7 +3,6 @@ import re
 REQUIRED_PATTERNS = {
     "time_span": [
         "SAI_CREATE_SWITCH",
-        "INIT_VIEW",
         "APPLY_VIEW"
     ],
     "offset_from_kexec": [
@@ -31,7 +30,9 @@ OTHER_PATTERNS = {
     "COMMON": {
         "PORT_INIT|Start": re.compile(r'.*NOTICE swss#orchagent.*initPort: Initialized port.*'),
         "PORT_READY|Start": re.compile
-        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set down to up.*'),
+        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set( from)? (down|up) to up.*'),
+        "PORT_READY|Start-changes-only": re.compile
+        (r'.*swss#orchagent.*updatePortOperStatus.*Port Eth.*oper state set( from)? down to up.*'),
         "FINALIZER|Start": re.compile(r'.*WARMBOOT_FINALIZER.*Wait for database to become ready.*'),
         "FINALIZER|End": re.compile(
             r"(.*WARMBOOT_FINALIZER.*Finalizing warmboot.*)|(.*WARMBOOT_FINALIZER.*warmboot is not enabled.*)"),

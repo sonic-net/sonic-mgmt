@@ -13,7 +13,8 @@ import json
 import logging
 import re
 import pytest
-import util
+import six
+from . import util
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
@@ -198,7 +199,7 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
 
         for line in utility_cmd_output["stdout_lines"]:
             if not line.startswith('-'):  # do not validate line '-------------------- ---- --- -----'
-                line_regexp = re.sub(r'\s+', '\\s+', line)
+                line_regexp = re.sub(r'\s+', r'\\s+', line)
                 pytest_assert(re.search(line_regexp, syseeprom_output), "Line '{}' was not found in output on '{}'".
                               format(line, duthost.hostname))
 
@@ -281,8 +282,12 @@ def verify_show_platform_fan_output(duthost, raw_output_lines):
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".
                   format(duthost.hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected",
-                      "Unexpected fan status output on '{}'".format(duthost.hostname))
+        if six.PY2:
+            pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Fan Not detected",
+                          "Unexpected fan status output on '{}'".format(duthost.hostname))
+        else:
+            pytest_assert(raw_output_lines[0].strip() == "Fan Not detected",
+                          "Unexpected fan status output on '{}'".format(duthost.hostname))
     else:
         pytest_assert(len(raw_output_lines) > 2,
                       "There must be at least two lines of output if any fan is detected on '{}'".
@@ -315,7 +320,7 @@ def check_fan_status(duthost, cmd):
 
     # Check that all fans are showing valid status and also at-least one PSU is OK.
     num_fan_ok = 0
-    for a_fan in fans.values():
+    for a_fan in list(fans.values()):
         if a_fan['Status'] == "OK":
             num_fan_ok += 1
     return num_fan_ok > 0
@@ -340,8 +345,12 @@ def verify_show_platform_temperature_output(raw_output_lines, hostname):
 
     pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".format(hostname))
     if len(raw_output_lines) == 1:
-        pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected",
-                      "Unexpected thermal status output on '{}'".format(hostname))
+        if six.PY2:
+            pytest_assert(raw_output_lines[0].encode('utf-8').strip() == "Thermal Not detected",
+                          "Unexpected thermal status output on '{}'".format(hostname))
+        else:
+            pytest_assert(raw_output_lines[0].strip() == "Thermal Not detected",
+                          "Unexpected thermal status output on '{}'".format(hostname))
     else:
         pytest_assert(len(raw_output_lines) > 2,
                       "There must be at least two lines of output if any thermal is detected on '{}'".format(hostname))
@@ -421,3 +430,19 @@ def test_show_platform_firmware_status(duthosts, enum_rand_one_per_hwsku_hostnam
     verify_show_platform_firmware_status_output(firmware_output_lines, duthost.hostname)
 
     # TODO: Test values against platform-specific expected data
+
+
+def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform pcieinfo`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "show platform pcieinfo -c"
+
+    logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
+    pcieinfo_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    passed_check_regexp = r'\[Passed\]|PASSED'
+    for line in pcieinfo_output_lines[1:]:
+        error_message = "Failed to validate output of command '{}' line: '{}'".format(cmd, line)
+        pytest_assert(re.search(passed_check_regexp, line), error_message)

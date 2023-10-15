@@ -1,6 +1,13 @@
 #!/usr/bin/python
 #
 
+from ansible.module_utils.aos.aos import aos_argument_spec
+from ansible.module_utils.aos.aos import run_commands
+from ansible.module_utils.network.common.utils import transform_commands, to_lines
+from ansible.module_utils.network.common.parsing import Conditional
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils._text import to_text
+import time
 ANSIBLE_METADATA = {'metadata_version': '1.0',
                     'status': ['preview'],
                     'supported_by': 'network'}
@@ -96,14 +103,7 @@ failed_conditions:
   type: list
   sample: ['...', '...']
 """
-import time
 
-from ansible.module_utils._text import to_text
-from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.network.common.parsing import Conditional
-from ansible.module_utils.network.common.utils import transform_commands, to_lines
-from ansible.module_utils.aos.aos import run_commands
-from ansible.module_utils.aos.aos import aos_argument_spec
 
 def parse_commands(module, warnings):
     commands = transform_commands(module)
@@ -118,6 +118,7 @@ def parse_commands(module, warnings):
                 commands.remove(item)
 
     return commands
+
 
 def main():
     """entry point for module execution

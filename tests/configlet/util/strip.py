@@ -18,7 +18,7 @@ ns_a = "{" + ns_a_val + "}"
 
 
 def usage(name):
-    print("Usage: {} <i/p xml> [<T0 to strip>]".format(name))
+    print(("Usage: {} <i/p xml> [<T0 to strip>]".format(name)))
     sys.exit(-1)
 
 

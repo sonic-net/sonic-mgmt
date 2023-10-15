@@ -12,29 +12,23 @@ drop_packets/test_configurable_drop_counters.py::test_sip_link_local:
 #######################################
 #####     test_drop_counters.py   #####
 #######################################
-drop_packets/test_drop_counters.py::test_acl_egress_drop:
-  skip:
-    reason: "Not supported on Broadcom platforms"
-    conditions:
-      - "asic_type in ['broadcom']"
-
 drop_packets/test_drop_counters.py::test_absent_ip_header:
   skip:
     reason: "Test case not supported on Broadcom DNX platform"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
 
-drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
   skip:
-    reason: "Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    reason: "Not supported on Broadcom platforms"
     conditions:
-      - "asic_subtype in ['broadcom-dnx']"
+      - "asic_type in ['broadcom']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent:
   skip:
-    reason: "Test case not supported on Broadcom DNX platform"
+    reason: "Test case not supported on Broadcom DNX platform and Cisco 8000 platform"
     conditions:
-      "asic_subtype in ['broadcom-dnx']"
+      - "asic_subtype in ['broadcom-dnx'] or asic_type in ['cisco-8000']"
 
 drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
   skip:
@@ -46,9 +40,9 @@ drop_packets/test_drop_counters.py::test_dst_ip_absent[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr:
   skip:
-    reason: "Cisco 8000 platform does not drop DIP loopback packets in 202012 version. Test also not supported on Broadcom DNX"
+    reason: "Cisco 8000 platform does not drop DIP loopback packets. Test also not supported on Broadcom DNX"
     conditions:
-      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
 
 drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
   skip:
@@ -60,9 +54,15 @@ drop_packets/test_drop_counters.py::test_dst_ip_is_loopback_addr[vlan_members]:
 
 drop_packets/test_drop_counters.py::test_dst_ip_link_local:
   skip:
-    reason: "Cisco 8000 with 202012 version and broadcom DNX platforms do not drop DIP linklocal packets"
+    reason: "Cisco 8000 and broadcom DNX platforms do not drop DIP linklocal packets"
     conditions:
-      - "(asic_type=='cisco-8000' and release in ['202012']) or (asic_subtype in ['broadcom-dnx'])"
+      - "(asic_type=='cisco-8000') or (asic_subtype in ['broadcom-dnx'])"
+
+drop_packets/test_drop_counters.py::test_equal_smac_dmac_drop:
+  skip:
+    reason: "Drop not enabled on chassis since internal traffic uses same smac & dmac"
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
   skip:
@@ -110,13 +110,6 @@ drop_packets/test_drop_counters.py::test_loopback_filter:
   # To do this can be used SAI attribute SAI_ROUTER_INTERFACE_ATTR_LOOPBACK_PACKET_ACTION, which is not exposed to SONiC
   skip:
     reason: "SONiC can't enable loop-back filter feature"
-
-drop_packets/test_drop_counters.py::test_non_routable_igmp_pkts[vlan_members:
-  # This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/5207.
-  # Temporarily disabling the test case due to the this issue.
-  skip:
-    reason: "This test failed intermittent due to known issue in sonic-mgmt, skip for now."
-    conditions: https://github.com/sonic-net/sonic-mgmt/issues/5207
 
 drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop[vlan_members]:
   skip:

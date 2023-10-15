@@ -5,18 +5,18 @@ Tests for the `counterpoll queue/watermark/pg-drop ...` commands in SONiC
 import allure
 import logging
 import random
-
+import time
 import pytest
 
 from tests.common.config_reload import config_reload
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import redis_get_keys
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.reboot import reboot
-from counterpoll_constants import CounterpollConstants
-from counterpoll_helper import ConterpollHelper
+from .counterpoll_constants import CounterpollConstants
+from .counterpoll_helper import ConterpollHelper
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -30,6 +30,7 @@ DISABLE = CounterpollConstants.COUNTERPOLL_DISABLE.split(' ')[-1]
 MAPS_LONG_PREFIX = 'COUNTERS_{}_*_MAP'
 
 MAPS = 'maps'
+DELAY = 'delay'
 QUEUE_MAPS = {'prefix': 'QUEUE', MAPS: ['COUNTERS_QUEUE_NAME_MAP', 'COUNTERS_QUEUE_INDEX_MAP',
                                         'COUNTERS_QUEUE_TYPE_MAP', 'COUNTERS_QUEUE_PORT_MAP']}
 
@@ -40,13 +41,14 @@ MAPS_PREFIX_FOR_ALL_COUNTERPOLLS = [QUEUE_MAPS['prefix'], PG_MAPS['prefix']]
 FLEX_COUNTER_PREFIX = 'FLEX_COUNTER_TABLE:'
 RELEVANT_COUNTERPOLLS = [CounterpollConstants.QUEUE, CounterpollConstants.WATERMARK, CounterpollConstants.PG_DROP]
 RELEVANT_MAPS = {CounterpollConstants.QUEUE: {MAPS: [QUEUE_MAPS], CounterpollConstants.TYPE:
-                                                    [CounterpollConstants.QUEUE_STAT_TYPE]},
+                                                    [CounterpollConstants.QUEUE_STAT_TYPE], DELAY: 15},
                  CounterpollConstants.WATERMARK: {MAPS: [QUEUE_MAPS, PG_MAPS],
                                                   CounterpollConstants.TYPE:
                                                       [CounterpollConstants.QUEUE_WATERMARK_STAT_TYPE,
-                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE]},
+                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE], DELAY: 65},
                  CounterpollConstants.PG_DROP: {MAPS: [PG_MAPS],
-                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE]}
+                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE],
+                                                DELAY: 15}
                  }
 
 WATERMARK_COUNTERS_DB_STATS_TYPE = ['USER_WATERMARKS', 'PERSISTENT_WATERMARKS', 'PERIODIC_WATERMARKS']
@@ -60,7 +62,7 @@ def dut_vars(duthosts, enum_rand_one_per_hwsku_hostname, request):
 
 
 def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_per_hwsku_hostname, dut_vars,
-                                             backup_and_restore_config_db):
+                                             backup_and_restore_config_db):     # noqa F811
     """
     @summary: Verify FLEXCOUNTERS_DB and COUNTERS_DB content after `counterpoll queue/watermark/queue enable`
 
@@ -86,7 +88,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("choosing random config apply method"):
         config_apply_method = random.choice(["config reload", "switch reboot"])
     with allure.step("disabling all counterpolls"):
-        ConterpollHelper.disable_counterpoll(duthost, CounterpollConstants.COUNTERPOLL_MAPPING.values())
+        ConterpollHelper.disable_counterpoll(duthost, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
 
     # verify relevant counterpolls (queue/watermark/pg-drop) are disabled
     with allure.step("Verifying initial output of {} on {} ..."
@@ -113,7 +115,9 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
                      .format(duthost.hostname, [tested_counterpoll])):
         ConterpollHelper.enable_counterpoll(duthost, [tested_counterpoll])
         verify_counterpoll_status(duthost, [tested_counterpoll], ENABLE)
-
+    # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
+    with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
+        time.sleep(RELEVANT_MAPS[tested_counterpoll][DELAY])
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
@@ -144,7 +148,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         # build expected counterpoll stats vs unexpected
         expected_types = []
         unexpected_types = []
-        for counterpoll, v in RELEVANT_MAPS.items():
+        for counterpoll, v in list(RELEVANT_MAPS.items()):
             types_to_check = v[CounterpollConstants.TYPE]
             if counterpoll in tested_counterpoll:
                 for type in types_to_check:
@@ -186,7 +190,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         for map_prefix in MAPS_PREFIX_FOR_ALL_COUNTERPOLLS:
             stats_output = redis_get_keys(duthost, 'FLEX_COUNTER_DB', '*{}*'.format(map_prefix))
             for line in stats_output:
-                for counterpoll, v in RELEVANT_MAPS.items():
+                for counterpoll, v in list(RELEVANT_MAPS.items()):
                     types_to_check = v[CounterpollConstants.TYPE]
                     for type in types_to_check:
                         if type in line:
@@ -213,7 +217,7 @@ def verify_counterpoll_status(duthost, counterpoll_list, expected):
 
         verified_output_dict = {}
         for counterpoll_parsed_dict in counterpoll_output:
-            for k, v in CounterpollConstants.COUNTERPOLL_MAPPING.items():
+            for k, v in list(CounterpollConstants.COUNTERPOLL_MAPPING.items()):
                 if k in counterpoll_parsed_dict[CounterpollConstants.TYPE]:
                     verified_output_dict[v] = counterpoll_parsed_dict[CounterpollConstants.STATUS]
 
@@ -233,5 +237,5 @@ def count_watermark_stats_in_counters_db(duthost):
             if watermark_type in line:
                 watermark_stats[watermark_type] += 1
     logging.info("watermark_stats {}".format(watermark_stats))
-    for k, v in watermark_stats.items():
+    for k, v in list(watermark_stats.items()):
         pytest_assert(v > 0, "watermark_stats {} in COUNTERS_DB: {}, expected > 0".format(k, v))

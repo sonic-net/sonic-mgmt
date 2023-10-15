@@ -2,12 +2,11 @@
 import time
 import pytest
 import ptf.testutils as testutils
-
-import everflow_test_utilities as everflow_utils
-from everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
+from . import everflow_test_utilities as everflow_utils
+from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
 
 # Module-level fixtures
-from everflow_test_utilities import setup_info      # noqa: F401
+from .everflow_test_utilities import setup_info      # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")

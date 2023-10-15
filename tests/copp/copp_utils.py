@@ -196,12 +196,9 @@ def configure_syncd(dut, nn_target_port, nn_target_interface, nn_target_namespac
 
 def restore_syncd(dut, nn_target_namespace):
     asichost = dut.asic_instance_from_namespace(nn_target_namespace)
-
     syncd_docker_name = asichost.get_docker_name("syncd")
-
-    dut.command("docker exec {} rm -rf /etc/supervisor/conf.d/{}".format(syncd_docker_name, _SYNCD_NN_FILE))
-    dut.command("docker exec {} supervisorctl reread".format(syncd_docker_name))
-    dut.command("docker exec {} supervisorctl update".format(syncd_docker_name))
+    asichost.stop_service("syncd")
+    asichost.delete_container(syncd_docker_name)
 
 
 def _install_nano(dut, creds,  syncd_docker_name):
@@ -224,10 +221,11 @@ def _install_nano(dut, creds,  syncd_docker_name):
         http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
         check_cmd = "docker exec -i {} bash -c 'cat /etc/os-release'".format(syncd_docker_name)
-
+        # Change the permission of /tmp to 777 to workaround issue #16034
         if "bullseye" in dut.shell(check_cmd)['stdout'].lower():
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                    rm -rf /var/lib/apt/lists/* \
+                    chmod 777 /tmp \
+                    && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
                     && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                     python3-dev python-setuptools wget cmake python-is-python3 \
@@ -242,7 +240,8 @@ def _install_nano(dut, creds,  syncd_docker_name):
                     " '''.format(http_proxy, https_proxy, syncd_docker_name)
         else:
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                    rm -rf /var/lib/apt/lists/* \
+                    chmod 777 /tmp \
+                    && rm -rf /var/lib/apt/lists/* \
                     && apt-get update \
                     && apt-get install -y python-pip build-essential libssl-dev libffi-dev \
                     python-dev python-setuptools wget cmake \

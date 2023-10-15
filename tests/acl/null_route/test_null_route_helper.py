@@ -11,6 +11,7 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
 import ptf.testutils as testutils
+from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
@@ -29,11 +30,6 @@ ACL_TABLE_NAME_V4 = "NULL_ROUTE_ACL_TABLE_V4"
 ACL_TABLE_NAME_V6 = "NULL_ROUTE_ACL_TABLE_V6"
 
 NULL_ROUTE_HELPER = "null_route_helper"
-
-DST_IP = {
-    4: "192.168.0.2",
-    6: "fc02:1000::2"
-}
 
 FORWARD = "FORWARD"
 DROP = "DROP"
@@ -117,7 +113,7 @@ def remove_acl_table(duthost):
 
 def get_neighbor_ports(mg_facts, neighbor_name):
     neighbor_ports = []
-    for key, value in mg_facts["minigraph_neighbors"].items():
+    for key, value in list(mg_facts["minigraph_neighbors"].items()):
         if neighbor_name in value["name"]:
             neighbor_ports.append(key)
     return neighbor_ports
@@ -134,7 +130,7 @@ def create_acl_table(rand_selected_dut, tbinfo):
         ports = ",".join(neighbor_ports)
     else:
         # Get the list of LAGs
-        ports = ",".join(mg_facts["minigraph_portchannels"].keys())
+        ports = ",".join(list(mg_facts["minigraph_portchannels"].keys()))
     cmds = [
         "config acl add table {} L3 -p {}".format(ACL_TABLE_NAME_V4, ports),
         "config acl add table {} L3V6 -p {}".format(ACL_TABLE_NAME_V6, ports)
@@ -183,11 +179,21 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     dst_ports = {}
     vlan_name = ""
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    vlans = {}
     for vlan_info in mg_facts["minigraph_vlan_interfaces"]:
         ip_ver = ipaddress.ip_network(vlan_info['addr'], False).version
-        dst_ports[ip_ver] = str(ipaddress.ip_address(vlan_info['addr']) + 1) + '/' + str(vlan_info['prefixlen'])
-        vlan_name = vlan_info['attachto']
+        if vlan_info["attachto"] not in vlans:
+            vlans[vlan_info["attachto"]] = {}
+        vlans[vlan_info["attachto"]][ip_ver] = vlan_info
 
+    for key, value in vlans.items():
+        if len(value.keys()) == 2:
+            vlan_name = key
+            for ip_ver, value in value.items():
+                dst_ports[ip_ver] = str(ipaddress.ip_address(value['addr']) + 1) + '/' + str(value['prefixlen'])
+            break
+
+    pytest_require(vlan_name != "", "Cannot get correct vlan")
     vlan_port = mg_facts['minigraph_vlans'][vlan_name]['members'][0]
     dst_ports['port'] = mg_facts['minigraph_ptf_indices'][vlan_port]
 
@@ -248,7 +254,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         ptf_interfaces = [mg_facts['minigraph_ptf_indices'][port] for port in neighbor_ports]
     else:
         portchannel_members = []
-        for _, v in mg_facts["minigraph_portchannels"].items():
+        for _, v in list(mg_facts["minigraph_portchannels"].items()):
             portchannel_members += v['members']
 
         ptf_interfaces = []
@@ -263,7 +269,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter, apply_pre_defi
         ip_ver = ipaddress.ip_network(src_ip.encode().decode(), False).version
         logger.info("Testing with src_ip = {} action = {} expected_result = {}"
                     .format(src_ip, action, expected_result))
-        pkt, exp_pkt = generate_packet(src_ip, DST_IP[ip_ver], router_mac)
+        pkt, exp_pkt = generate_packet(src_ip, ptf_port_info[ip_ver].split("/")[0], router_mac)
         if action != "":
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
             time.sleep(1)

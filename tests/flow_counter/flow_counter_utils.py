@@ -96,7 +96,7 @@ class RouteFlowCounterTestContext:
             else:
                 logger.info('Checking route flow counter stats after clearing all routes')
                 clear_route_flow_counter(self.dut)
-            for prefix, value in self.expected_stats.items():
+            for prefix, value in list(self.expected_stats.items()):
                 for key in value:
                     self.expected_stats[prefix][key] = '0'
 
@@ -105,7 +105,7 @@ class RouteFlowCounterTestContext:
 
 
 @pytest.fixture(scope="module")
-def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
+def is_route_flow_counter_supported(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname):
     """Check if route flow counter is supported on this platform
 
     Args:
@@ -115,6 +115,8 @@ def is_route_flow_counter_supported(duthosts, enum_rand_one_per_hwsku_hostname):
         bool: True if supported
     """
     rand_selected_dut = duthosts[enum_rand_one_per_hwsku_hostname]
+    if "t2" in tbinfo["topo"]["type"] or rand_selected_dut.is_multi_asic:
+        pytest.skip("Skip test for T2 and multi-asic")
     if rand_selected_dut.facts['asic_type'] == 'vs':
         # vs platform always set SAI capability to enabled, however, it does not really support all SAI atrributes.
         # Currently, vs platform does not support route flow counter.
@@ -301,11 +303,11 @@ def verify_route_flow_counter_stats(expect_stats, actual_stats):
     """
     logger.info('Expected stats: {}'.format(expect_stats))
     logger.info('Actual stats: {}'.format(actual_stats))
-    for key, value in expect_stats.items():
+    for key, value in list(expect_stats.items()):
         if key not in actual_stats:
             return False, 'Failed to find {} in result'.format(key)
 
-        for stats_type, expect_value in value.items():
+        for stats_type, expect_value in list(value.items()):
             if int(expect_value) != int(actual_stats[key][stats_type].replace(',', '')):
                 return False, 'Expected {} value of {} is {}, but got {}'\
                     .format(stats_type, key, expect_value, actual_stats[key][stats_type])

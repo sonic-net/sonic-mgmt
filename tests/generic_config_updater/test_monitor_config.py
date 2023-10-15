@@ -6,6 +6,10 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback, rollback_or_reload
 
+pytestmark = [
+    pytest.mark.topology('any'),
+]
+
 logger = logging.getLogger(__name__)
 
 MONITOR_CONFIG_TEST_CP = "monitor_config_test"
@@ -25,7 +29,7 @@ def get_valid_acl_ports(cfg_facts):
     portchannel_members = set()
 
     portchannel_member_dict = cfg_facts.get('PORTCHANNEL_MEMBER', {})
-    for po, po_members in portchannel_member_dict.items():
+    for po, po_members in list(portchannel_member_dict.items()):
         ports.add(po)
         for po_member in po_members:
             portchannel_members.add(po_member)

@@ -2,17 +2,17 @@ import time
 import pytest
 import logging
 
-from cases_community import PROBE_TEST_CASE, TEST_CASE
-from conftest import get_sai_test_container_name
-from sai_infra import LIVENESS_CHECK_INTERVAL_IN_SEC
-from conftest import stop_and_rm_sai_test_container
-from sai_infra import SAI_TEST_ENV_RESET_TIMES
-from sai_infra import reset_sai_test_dut
-from sai_infra import run_case_from_ptf
-from sai_infra import sai_test_container_liveness_check
-from sai_infra import store_test_result
-from sai_infra import *  # noqa: F403 F401
-from conftest import *  # noqa: F403 F401
+from .cases_community import PROBE_TEST_CASE, TEST_CASE
+from .conftest import get_sai_test_container_name
+from .sai_infra import LIVENESS_CHECK_INTERVAL_IN_SEC
+from .conftest import stop_and_rm_sai_test_container
+from .sai_infra import SAI_TEST_ENV_RESET_TIMES
+from .sai_infra import reset_sai_test_dut
+from .sai_infra import run_case_from_ptf
+from .sai_infra import sai_test_container_liveness_check
+from .sai_infra import store_test_result
+from .sai_infra import *  # noqa: F403 F401
+from .conftest import *  # noqa: F403 F401
 
 logger = logging.getLogger(__name__)
 

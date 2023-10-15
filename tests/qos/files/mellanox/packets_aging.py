@@ -43,7 +43,7 @@ uint32_t_p_assign(lag_id_cnt_p, 0)
 lag_id = 0
 rc = sx_api_lag_port_group_iter_get(handle, SX_ACCESS_CMD_GET, 0, lag_id, None, None, lag_id_cnt_p)
 if rc != SX_STATUS_SUCCESS:
-    print("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc))
+    print(("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc)))
     sys.exit(rc)
 lag_id_cnt = uint32_t_p_value(lag_id_cnt_p)
 
@@ -51,7 +51,7 @@ lag_id_list_p = new_sx_port_log_id_t_arr(lag_id_cnt)
 rc = sx_api_lag_port_group_iter_get(handle, SX_ACCESS_CMD_GET_FIRST, 0, lag_id, None, lag_id_list_p,
                                     lag_id_cnt_p)
 if rc != SX_STATUS_SUCCESS:
-    print("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc))
+    print(("sx_api_lag_port_group_iter_get failed, rc = %d" % (rc)))
     sys.exit(rc)
 lag_id_cnt = uint32_t_p_value(lag_id_cnt_p)
 
@@ -78,7 +78,7 @@ for i in range(0, lag_id_cnt):
     log_port_list_p = new_sx_port_log_id_t_arr(port_cnt)
     rc = sx_api_lag_port_group_get(handle, 0, lag_id, log_port_list_p, log_port_cnt_p)
     if rc != SX_STATUS_SUCCESS:
-        print("sx_api_lag_port_group_get failed, rc = %d" % (rc))
+        print(("sx_api_lag_port_group_get failed, rc = %d" % (rc)))
         sys.exit(rc)
     log_port_cnt = uint32_t_p_value(log_port_cnt_p)
     for j in range(0, log_port_cnt):

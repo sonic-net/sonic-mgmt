@@ -122,7 +122,7 @@ def check_all_critical_processes_status(duthost):
       Otherwise it will return False.
     """
     processes_status = duthost.all_critical_process_status()
-    for container_name, processes in processes_status.items():
+    for container_name, processes in list(processes_status.items()):
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
             return False
 

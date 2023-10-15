@@ -7,8 +7,10 @@ import pytest
 
 
 from .test_authorization import ssh_connect_remote, ssh_run_command, \
-        per_command_check_skip_versions, remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server
+        remove_all_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server, \
+        check_server_received, per_command_accounting_skip_versions, \
+        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -94,7 +96,7 @@ def check_local_log_exist(duthost, tacacs_creds, command):
     pytest_assert(len(logs) > 0)
 
     # exclude logs of the sed command produced by Ansible
-    logs = list(filter(lambda line: 'sudo sed' not in line, logs))
+    logs = list([line for line in logs if 'sudo sed' not in line])
     logger.info("Found logs: %s", logs)
 
     pytest_assert(logs, 'Failed to find an expected log message by pattern: ' + log_pattern)
@@ -141,7 +143,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, per_command_check_skip_versions)
+    skip_release(duthost, per_command_accounting_skip_versions)
 
 
 def test_accounting_tacacs_only(
@@ -152,7 +154,7 @@ def test_accounting_tacacs_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -169,9 +171,10 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
                                                     check_tacacs,
-                                                    rw_user_client):
+                                                    rw_user_client,
+                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     """
@@ -218,7 +221,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -241,7 +244,7 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting local")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -261,7 +264,7 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -280,9 +283,10 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
                                                         check_tacacs,
-                                                        rw_user_client):
+                                                        rw_user_client,
+                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
@@ -301,3 +305,22 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
+
+def test_send_remote_address(
+                            ptfhost,
+                            duthosts,
+                            enum_rand_one_per_hwsku_hostname,
+                            tacacs_creds,
+                            check_tacacs,
+                            rw_user_client):
+    """
+        Verify TACACS+ send remote address to server.
+    """
+    exit_code, stdout_stream, stderr_stream = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    pytest_assert(exit_code == 0)
+
+    # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    stdout = stdout_stream.readlines()
+    remote_address = stdout[0].split(" ")[0]
+    check_server_received(ptfhost, remote_address)

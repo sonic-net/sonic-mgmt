@@ -103,9 +103,27 @@ class EosHost(AnsibleHostBase):
         return self.no_shutdown(intf_str)
 
     def check_intf_link_state(self, interface_name):
+        """
+        This function returns link oper status
+            e.g. cable not connected:
+                     Ethernet1/1 is down, line protocol is notpresent (notconnect)
+                 link is admin down(cable not present):
+                     Ethernet1/1 is administratively down, line protocol is notpresent (disabled)
+                 link is admin down(cable present):
+                     Ethernet2/1 is administratively down, line protocol is down (disabled)
+                 link is admin up&oper up:
+                     Ethernet2/1 is up, line protocol is up (connected)
+                 link is admin up&oper down:
+                     Ethernet2/1 is down, line protocol is down (notconnect)
+        In conclusion:
+            connected = admin up & oper up
+            disabled  = admin down
+            notconnect= admin up & oper down
+        """
         show_int_result = self.eos_command(
-            commands=['show interface %s' % interface_name])
-        return 'Up' in show_int_result['stdout_lines'][0]
+            commands=['show interface %s | json' % interface_name])
+        int_status = show_int_result['stdout'][0]['interfaces'][interface_name]['interfaceStatus']
+        return int_status == 'connected'
 
     def links_status_down(self, ports):
         show_int_result = self.eos_command(commands=['show interface status'])
@@ -113,7 +131,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -138,7 +156,7 @@ class EosHost(AnsibleHostBase):
             """
             Note:
             (Pdb) output_line
-            u'Et33/1     str2-7804-lc6-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
+            u'Et33/1     lc-1-Ethernet0            notconnect   1134     full   100G   100GBASE-CR4
             e.g.
             (Pdb) output_line.split(' ')[0]
             u'Et1/1'
@@ -232,7 +250,7 @@ class EosHost(AnsibleHostBase):
             return False
 
         try:
-            for k, v in out_v4['stdout'][0]['vrfs']['default']['peers'].items():
+            for k, v in list(out_v4['stdout'][0]['vrfs']['default']['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k in neigh_ips:
                         neigh_ips_ok.append(k)
@@ -241,7 +259,7 @@ class EosHost(AnsibleHostBase):
                         if v['description'] in neigh_desc:
                             neigh_desc_ok.append(v['description'])
 
-            for k, v in out_v6['stdout'][0]['vrfs']['default']['peers'].items():
+            for k, v in list(out_v6['stdout'][0]['vrfs']['default']['peers'].items()):
                 if v['peerState'].lower() == state.lower():
                     if k.lower() in neigh_ips:
                         neigh_ips_ok.append(k)
@@ -466,7 +484,7 @@ class EosHost(AnsibleHostBase):
         try:
             command = 'show lacp interface {} | json'.format(member_intf)
             output = self.eos_command(commands=[command])['stdout'][0]
-            for port in output['portChannels'].keys():
+            for port in list(output['portChannels'].keys()):
                 return port
         except Exception as e:
             logger.error('Failed to get PortChannel for member interface "{}", exception: {}'.format(
@@ -495,5 +513,17 @@ class EosHost(AnsibleHostBase):
     def no_isis_interface(self, isis_instance, interface):
         out = self.eos_config(
             lines=['no isis enable'],
+            parents=['interface {}'.format(interface)])
+        return not self._has_cli_cmd_failed(out)
+
+    def set_isis_metric(self, interface, metric):
+        out = self.eos_config(
+            lines=['isis metric {}'.format(metric)],
+            parents=['interface {}'.format(interface)])
+        return not self._has_cli_cmd_failed(out)
+
+    def no_isis_metric(self, interface):
+        out = self.eos_config(
+            lines=['no isis metric'],
             parents=['interface {}'.format(interface)])
         return not self._has_cli_cmd_failed(out)

@@ -15,7 +15,7 @@ def check_pmon_daemon_status(dut):
     """
     daemons = dut.get_pmon_daemon_states()
     ret = True
-    for daemon, state in daemons.items():
+    for daemon, state in list(daemons.items()):
         logging.debug("Daemon %s status is %s" % (daemon, state))
         if state != 'RUNNING':
             ret = False
@@ -32,7 +32,7 @@ def check_pmon_daemon_enable_status(dut, daemon_name):
     """
     daemons = dut.get_pmon_daemon_states()
     ret = False
-    for daemon, state in daemons.items():
+    for daemon, state in list(daemons.items()):
         logging.debug("Daemon %s status is %s" % (daemon, state))
         if daemon == daemon_name:
             ret = True

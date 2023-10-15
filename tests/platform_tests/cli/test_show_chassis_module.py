@@ -1,7 +1,7 @@
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
-from util import get_field_range, get_fields, get_skip_mod_list
+from .util import get_field_range, get_fields, get_skip_mod_list, get_skip_logical_module_list
 
 logger = logging.getLogger('__name__')
 
@@ -39,16 +39,25 @@ def test_show_chassis_module_status(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     exp_headers = ["Name", "Description", "Physical-Slot", "Oper-Status", "Admin-Status"]
     skip_mod_list = get_skip_mod_list(duthost)
+    skip_logical_lc_list = get_skip_logical_module_list(duthost)
 
     output = duthost.command(cmd)
     res = parse_chassis_module(output['stdout_lines'], exp_headers)
 
     # by default will assume all modules should be shown online except in skip_module_list
-    for mod_idx in res.keys():
+    for mod_idx in list(res.keys()):
         if mod_idx in skip_mod_list:
-            pytest_assert(res[mod_idx]['Oper-Status'] == 'Empty',
-                          "Oper-status for slot {} should be Empty but it is {}".format(
-                              mod_idx, res[mod_idx]['Oper-Status']))
+            """
+               In case the module is part of the skip logical LC which means LC may be physically
+               connected while logically is not part of this logical chassis at which case we should
+               not check any further and move on
+            """
+            if mod_idx in skip_logical_lc_list:
+                continue
+            else:
+                pytest_assert(res[mod_idx]['Oper-Status'] == 'Empty',
+                              "Oper-status for slot {} should be Empty but it is {}".format(
+                                  mod_idx, res[mod_idx]['Oper-Status']))
         else:
             pytest_assert(res[mod_idx]['Oper-Status'] == 'Online',
                           "Oper-status for slot {} should be Online but it is {}".format(
@@ -66,7 +75,7 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     output = duthost.command(cmd)
     res_mid_status = parse_chassis_module(output['stdout_lines'], expected_headers)
-    mod_key= ['line-cards', 'supervisor']
+    mod_key = ['line-cards', 'supervisor']
     skip_mod_list = get_skip_mod_list(duthost, mod_key)
 
     for mod_idx in res_mid_status:
@@ -76,13 +85,11 @@ def test_show_chassis_module_midplane_status(duthosts, enum_rand_one_per_hwsku_h
                           "midplane reachability of line card {} expected true but is {}".format(mod_idx,
                                                                                                  mod_mid_status))
         else:
-            # There are cases where the chassis is logically divided where some LCs belongs to another chassis and needs to be skipped
-            # and for those cases we should not assume if skipped means it must be offline.
+            # There are cases where the chassis is logically divided where some LCs belongs to another chassis
+            # and needs to be skipped and for those cases we should not assume if skipped means it must be
+            # offline.
             if "LINE-CARD" in mod_idx:
                 logger.info("skip checking midplane status for {} since it is on skip_mod_list".format(mod_idx))
             else:
                 pytest_assert(mod_mid_status == "False",
-                          "reachability of {} expected false but is {}".format(mod_idx, mod_mid_status))
-
-
-
+                              "reachability of {} expected false but is {}".format(mod_idx, mod_mid_status))

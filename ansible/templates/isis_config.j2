@@ -20,6 +20,7 @@
             "ipv4-routing-instance": "1",
             "ipv6-routing-instance": "1"
         },
+        {% if topo == "wan-ecmp" %}
         "1|Ethernet12": {
             "instance":"1",
             "ifname": "Ethernet12",
@@ -27,6 +28,14 @@
             "ipv4-routing-instance": "1",
             "ipv6-routing-instance": "1"
         },
+        "1|PortChannel103": {
+            "instance":"1",
+            "ifname": "PortChannel103",
+            "network-type": "POINT_TO_POINT_NETWORK",
+            "ipv4-routing-instance": "1",
+            "ipv6-routing-instance": "1"
+        },
+        {% endif %}
         "1|PortChannel101": {
             "instance":"1",
             "ifname": "PortChannel101",
@@ -37,13 +46,6 @@
         "1|PortChannel102": {
             "instance":"1",
             "ifname": "PortChannel102",
-            "network-type": "POINT_TO_POINT_NETWORK",
-            "ipv4-routing-instance": "1",
-            "ipv6-routing-instance": "1"
-        },
-        "1|PortChannel103": {
-            "instance":"1",
-            "ifname": "PortChannel103",
             "network-type": "POINT_TO_POINT_NETWORK",
             "ipv4-routing-instance": "1",
             "ipv6-routing-instance": "1"

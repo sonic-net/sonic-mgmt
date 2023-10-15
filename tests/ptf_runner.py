@@ -36,7 +36,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if is_python3:
         path_exists = host.stat(path="/root/env-python3/bin/ptf")
         if path_exists["stat"]["exists"]:
-            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir+'/py3', testname)
+            cmd = "/root/env-python3/bin/ptf --test-dir {} {}".format(testdir + '/py3', testname)
         else:
             error_msg = "Virtual environment for Python3 /root/env-python3/bin/ptf doesn't exist.\n" \
                         "Please check and update docker-ptf image, make sure to use the correct one."
@@ -55,7 +55,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         cmd += " --platform {}".format(platform)
 
     if params:
-        ptf_test_params = ";".join(["{}={}".format(k, repr(v)) for k, v in params.items()])
+        ptf_test_params = ";".join(["{}={}".format(k, repr(v)) for k, v in list(params.items())])
         cmd += " -t {}".format(pipes.quote(ptf_test_params))
 
     if relax:
@@ -82,7 +82,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     if hasattr(host, "macsec_enabled") and host.macsec_enabled:
         if not is_python3:
             logger.error("MACsec is only available in Python3")
-            raise Exception
+            raise Exception("MACsec is only available in Python3")
         host.create_macsec_info()
 
     try:
@@ -100,5 +100,5 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
-        raise Exception
+        raise
     return True

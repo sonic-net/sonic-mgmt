@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
+from dateutil.parser import ParserError
 
 try:
     import allure
@@ -29,9 +30,11 @@ DEFAULT_STATE = 'enabled'
 DEFAULT_RATE_LIMIT_GLOBAL = 180
 DEFAULT_RATE_LIMIT_FEATURE = 600
 DEFAULT_MAX_TECHSUPPORT_LIMIT = 10
+DEFAULT_AVAILABLE_MEM_THRESHOLD = 10.0
 DEFAULT_MAX_CORE_LIMIT = 5
 DEFAULT_SINCE = '2 days ago'
 
+KB_SIZE = 1000  # We use 1000 to have the same value as in shutil.disk_usage() method which used in SONiC code
 CMD_GET_AUTO_TECH_SUPPORT_HISTORY_REDIS_KEYS = 'sudo redis-cli --raw -n 6  KEYS AUTO_TECHSUPPORT*'
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
 SAI_CALL_TEMPLATE_FILE_PATH = os.path.join(TEMPLATES_DIR, 'sai_call_fail_config.j2')
@@ -62,15 +65,19 @@ class TestAutoTechSupport:
     duthost = None
     dut_cli = None
     dockers_list = []
+    # The restapi docker doesn't mount the /etc/sonic directory, which result in the core_file_generator script
+    # is not available in reatapi container. So it's skipped from the test
+    unsupported_dockers_list = ['restapi']
     number_of_test_dockers = 0
     test_docker = None
 
     def set_test_dockers_list(self):
         self.dockers_list = []
-        auto_tech_support_features_list = self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys()
+        auto_tech_support_features_list = list(
+            self.dut_cli.auto_techsupport.parse_show_auto_techsupport_feature().keys())
         system_features_status = self.duthost.get_feature_status()
         for feature in auto_tech_support_features_list:
-            if is_docker_enabled(system_features_status, feature):
+            if is_docker_enabled(system_features_status, feature) and feature not in self.unsupported_dockers_list:
                 if feature not in self.dockers_list:
                     self.dockers_list.append(feature)
 
@@ -122,7 +129,9 @@ class TestAutoTechSupport:
 
         yield
 
-        update_auto_techsupport_feature(self.duthost, self.test_docker, rate_limit=DEFAULT_RATE_LIMIT_FEATURE)
+        update_auto_techsupport_feature(self.duthost, self.test_docker,
+                                        rate_limit=DEFAULT_RATE_LIMIT_FEATURE,
+                                        mem_threshold=DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     def test_sanity(self, cleanup_list):
         """
@@ -424,9 +433,11 @@ class TestAutoTechSupport:
         with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all stub files exist'):
                 validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
@@ -439,9 +450,11 @@ class TestAutoTechSupport:
                 set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
 
             with allure.step('Create .core file in test docker and check techsupport generated'):
+                available_tech_support_files = get_available_tech_support_files(self.duthost)
                 expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
                 validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file)
+                                                expected_core_file=expected_core_file,
+                                                available_tech_support_files=available_tech_support_files)
 
             with allure.step('Check that all expected stub files exist and unexpected does not exist'):
                 expected_max_usage = one_percent_in_mb * max_limit
@@ -467,7 +480,7 @@ class TestAutoTechSupport:
         :param cleanup_list: cleanup list
         :return: exception in case of fail
         """
-
+        # TODO: Check if TEMP_VIEW is enabled. If not, skip the test
         minigraph_facts = self.duthost.get_extended_minigraph_facts(tbinfo)
         po_name = 'PortChannel1234'
 
@@ -549,7 +562,7 @@ def set_auto_techsupport_global(duthost, state=None, rate_limit=None, techsuppor
             duthost.shell(cmd)
 
 
-def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None):
+def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=None, mem_threshold=None):
     """
     Do configuration using cmd: sudo config auto-techsupport-feature update .....
     :param duthost: duthost object
@@ -565,9 +578,12 @@ def update_auto_techsupport_feature(duthost, feature, state=None, rate_limit=Non
     if rate_limit or rate_limit == 0:
         command = '{} --rate-limit-interval {}'.format(base_cmd, rate_limit)
         commands_list.append(command)
+    if mem_threshold:
+        command = '{} --available-mem-threshold {}'.format(base_cmd, mem_threshold)
+        commands_list.append(command)
 
     if not commands_list:
-        pytest.fail('Provide at least one argument from list: state, rate_limit')
+        pytest.fail('Provide at least one argument from list: state, rate_limit, mem_threshold')
 
     for cmd in commands_list:
         with allure.step('Setting feature {} config: {}'.format(feature, cmd)):
@@ -591,7 +607,8 @@ def add_delete_auto_techsupport_feature(duthost, feature, action=None, state=DEF
 
     command = base_cmd
     if action == 'add':
-        command = '{}--state {} --rate-limit-interval {}'.format(base_cmd, state, rate_limit)
+        command = '{}--state {} --rate-limit-interval {} ' \
+                  '--available-mem-threshold {}'.format(base_cmd, state, rate_limit, DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     with allure.step('Doing {} feature {} config: {}'.format(action, feature, command)):
         duthost.shell(command)
@@ -635,7 +652,7 @@ def is_techsupport_generation_in_expected_state(duthost, expected_in_progress=Tr
         num_of_process = len(duthost.shell(get_running_tech_procs_cmd)['stdout_lines']) - processes_to_be_ignored
         logger.info('Number of running autotechsupport processes: {}'.format(num_of_process))
 
-        if num_of_process == 1:
+        if num_of_process >= 1:
             techsupport_in_progress = True
 
         is_in_expected_state = False
@@ -704,6 +721,16 @@ def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_
             'Number of syslog files in techsupport bigger than expected'
 
 
+def get_timestamp_from_log_line(syslog_line):
+    try:
+        timestamp_str = ' '.join(syslog_line.split()[:3])
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    except ParserError:
+        timestamp_str = syslog_line.split()[0]
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    return timestamp_datetime
+
+
 def get_oldest_syslog_timestamp(duthost, techsupport_folder):
     """
     Get oldest syslog timestamp
@@ -717,8 +744,7 @@ def get_oldest_syslog_timestamp(duthost, techsupport_folder):
         oldest_syslog_file = get_oldest_syslog_file_name(syslog_files)
         oldest_syslog_line = \
             duthost.shell('zcat {}/log/{} | head -1'.format(techsupport_folder, oldest_syslog_file))['stdout_lines'][0]
-        oldest_timestamp_str = ' '.join(oldest_syslog_line.split()[:3])
-        oldest_timestamp_datetime = dateutil.parser.parse(oldest_timestamp_str)
+        oldest_timestamp_datetime = get_timestamp_from_log_line(oldest_syslog_line)
 
     return oldest_timestamp_datetime
 
@@ -826,7 +852,7 @@ def validate_auto_techsupport_feature_config(dut_cli, expected_status_dict=None)
     """
     auto_techsupport_feature_dict = dut_cli.auto_techsupport.parse_show_auto_techsupport_feature()
 
-    for feature, configuration in auto_techsupport_feature_dict.items():
+    for feature, configuration in list(auto_techsupport_feature_dict.items()):
         if expected_status_dict:
             if feature not in expected_status_dict:
                 continue
@@ -949,6 +975,7 @@ def get_new_techsupport_files_list(duthost, available_tech_support_files):
     :return: list of new techsupport files
     """
     try:
+        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
         new_available_tech_support_files = duthost.shell('ls /var/dump/*.tar.gz')['stdout_lines']
     except RunAnsibleModuleFail:
         new_available_tech_support_files = []
@@ -981,7 +1008,7 @@ def get_expected_oldest_timestamp_datetime(duthost, since_value_in_seconds):
             syslogs_creation_date_dict[file_timestamp] = [syslog_file_name]
 
     # Sorted from new to old
-    syslogs_sorted = sorted(syslogs_creation_date_dict.keys(), reverse=True)
+    syslogs_sorted = sorted(list(syslogs_creation_date_dict.keys()), reverse=True)
     expected_files_in_techsupport_list = []
     for date in syslogs_sorted:
         expected_files_in_techsupport_list.extend(syslogs_creation_date_dict[date])
@@ -1017,9 +1044,7 @@ def get_first_line_timestamp(duthost, syslog_file_name):
         first_log_string = duthost.shell('sudo zcat {} | head -n 1'.format(syslog_file_name))['stdout']
     else:
         first_log_string = duthost.shell('sudo head -n 1 {}'.format(syslog_file_name))['stdout']
-    expected_oldest_timestamp_str = ' '.join(first_log_string.split()[:3])
-    expected_oldest_log_line_timestamp = dateutil.parser.parse(expected_oldest_timestamp_str)
-
+    expected_oldest_log_line_timestamp = get_timestamp_from_log_line(first_log_string)
     return expected_oldest_log_line_timestamp
 
 
@@ -1055,11 +1080,10 @@ def get_partition_usage_info(duthost, partition='/'):
     """
     with allure.step('Getting HDD partition {} usage'.format(partition)):
         output = duthost.shell('sudo df {}'.format(partition))['stdout_lines']
-        kb = 1024
         _, total, used, avail, used_percent, _ = output[-1].split()
-        total_mb = int(total) / kb
-        used_mb = int(used) / kb
-        avail_mb = int(avail) / kb
+        total_mb = int(total) / KB_SIZE
+        used_mb = int(used) / KB_SIZE
+        avail_mb = int(avail) / KB_SIZE
         used_percent = int(used_percent.strip('%'))
 
     return total_mb, used_mb, avail_mb, used_percent
@@ -1077,8 +1101,7 @@ def get_used_space(duthost, path_to_file_folder):
         directory_usage_line = -1
         memory_usage_line = 0
         used_by_folder = du_output[directory_usage_line].split()[memory_usage_line]
-        kb = 1024
-        used_by_folder_mb = int(used_by_folder) / kb
+        used_by_folder_mb = int(used_by_folder) / KB_SIZE
 
     return used_by_folder_mb
 
@@ -1110,7 +1133,7 @@ def create_core_stub_file(duthost, size_in_mb):
     """
     with allure.step('Create stub .core file'):
         current_time = int(time.time())
-        random_pid = random.choice(range(100, 20000))  # Get random PID
+        random_pid = random.choice(list(range(100, 20000)))  # Get random PID
         file_name = 'bash.{}.{}.core.gz'.format(current_time, random_pid)
         core_folder_path = '/var/core/'
         full_path_to_file = '{}{}'.format(core_folder_path, file_name)
@@ -1126,7 +1149,7 @@ def create_stub_file(duthost, path_to_file, size_in_mb):
     :param path_to_file: full path to file which should be created
     :param size_in_mb: size of file in mb
     """
-    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, size_in_mb)
+    cmd = 'sudo dd if=/dev/zero of={} bs=1M count={}'.format(path_to_file, int(size_in_mb))
     duthost.shell(cmd)
 
 
@@ -1232,6 +1255,10 @@ def clear_folders(duthost):
     Clear auto-techsupport related folders
     :param duthost: duthost object
     """
+    # print into logs folders content(for debug purpose) before remove
+    duthost.shell('sudo ls -lh /var/core/')
+    duthost.shell('sudo ls -lh /var/dump/')
+
     duthost.shell('sudo rm -rf /var/core/*')
     duthost.shell('sudo rm -rf /var/dump/*')
 
@@ -1265,11 +1292,13 @@ def get_random_physical_port_non_po_member(minigraph_facts):
     :return: string, port name
     """
     po_members = []
-    for po_iface, po_data in minigraph_facts['minigraph_portchannels'].items():
+    test_port = None
+    for po_iface, po_data in list(minigraph_facts['minigraph_portchannels'].items()):
         po_members += po_data['members']
-    all_ports = list(minigraph_facts[u'minigraph_ports'].keys())
+    all_ports = list(minigraph_facts['minigraph_ports'].keys())
     non_po_ports = [port for port in all_ports if port not in po_members]
-    test_port = random.choice(non_po_ports)
+    if non_po_ports:
+        test_port = random.choice(non_po_ports)
     return test_port
 
 
@@ -1281,7 +1310,7 @@ def get_port_vlan(minigraph_facts, port):
     :return: string with Vlan ID, or None
     """
     test_port_vlan = None
-    for vlan in minigraph_facts['minigraph_vlans']:
+    for vlan in minigraph_facts.get('minigraph_vlans', []):
         if port in minigraph_facts['minigraph_vlans'][vlan]['members']:
             test_port_vlan = vlan.split('Vlan')[1]  # Get string '1000' from 'Vlan1000
             break
@@ -1297,7 +1326,7 @@ def get_port_ips(minigraph_facts, port):
     :return: list, example: [(ip, mask), (ip, mask)]
     """
     iface_ips_data = []
-    for iface_data in minigraph_facts['minigraph_interfaces']:
+    for iface_data in minigraph_facts.get('minigraph_interfaces', []):
         if iface_data['attachto'] == port:
             ip_addr = iface_data['addr']
             ip_mask = iface_data['prefixlen']

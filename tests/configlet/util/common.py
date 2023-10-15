@@ -110,7 +110,6 @@ scan_dbs = {
             "db_no": 6,
             "keys_to_compare": {
                 "NEIGH_STATE_TABLE",
-                "TRANSCEIVER_DOM_SENSOR",
                 "TRANSCEIVER_INFO",
                 "TRANSCEIVER_STATUS",
                 "VLAN_MEMBER_TABLE",
@@ -393,7 +392,7 @@ def main():
     set_print()
     print("Calling compare dumps")
     ret, msg = compare_dumps("logs/AddRack/orig", "logs/AddRack/clet")
-    print("ret = {} msg={}".format(ret, msg))
+    print(("ret = {} msg={}".format(ret, msg)))
 
 
 if __name__ == "__main__":

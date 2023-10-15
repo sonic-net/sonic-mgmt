@@ -55,7 +55,7 @@ class DutHosts(object):
 
         """
         # TODO: Initialize the nodes in parallel using multi-threads?
-        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname)
+        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname, self, tbinfo['topo']['type'])
                                   for hostname in tbinfo["duts"] if hostname in duts])
         self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
         self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
@@ -73,7 +73,7 @@ class DutHosts(object):
         Returns:
             [MultiAsicSonicHost]: Returns the specified duthost in duthosts. It is an instance of MultiAsicSonicHost.
         """
-        unicode_type = str if sys.version_info.major == 3 else unicode      # noqa F821
+        unicode_type = str if sys.version_info.major >= 3 else unicode      # noqa F821
         if type(index) == int:
             return self.nodes[index]
         elif type(index) in [str, unicode_type]:

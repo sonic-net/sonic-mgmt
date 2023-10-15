@@ -66,7 +66,7 @@ def parse_portstat(content_lines):
 
     results = {}
     for line in content_lines[separation_line_number+1:reminder_line_number]:
-        if line == '\n': # skip empty line
+        if not line.strip():    # skip empty line or newline
             continue
         portstats = []
         for pos in positions:

@@ -11,6 +11,7 @@ import random
 import time
 import contextlib
 import scapy
+import six
 
 from ptf import mask
 from ptf import testutils
@@ -56,7 +57,7 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
     server_ipv4 = server_ips["server_ipv4"].split("/")[0]
     config_facts = tor.get_running_config_facts()
     try:
-        peer_ipv4_address = [_["address_ipv4"] for _ in config_facts["PEER_SWITCH"].values()][0]
+        peer_ipv4_address = [_["address_ipv4"] for _ in list(config_facts["PEER_SWITCH"].values())][0]
     except IndexError:
         raise ValueError("Failed to get peer ToR address from CONFIG_DB")
 
@@ -64,8 +65,8 @@ def build_encapsulated_packet(rand_selected_interface, ptfadapter,          # no
                         if is_ipv4_address(_.split("/")[0])][0]
     tor_ipv4_address = tor_ipv4_address.split("/")[0]
 
-    inner_dscp = random.choice(range(0, 33))
-    inner_ttl = random.choice(range(3, 65))
+    inner_dscp = random.choice(list(range(0, 33)))
+    inner_ttl = random.choice(list(range(3, 65)))
     inner_packet = testutils.simple_ip_packet(
         ip_src="1.1.1.1",
         ip_dst=server_ipv4,
@@ -125,6 +126,7 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
+    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -141,8 +143,12 @@ def test_decap_standby_tor(
         """Verify packet is passed downstream to server."""
         packets = ptfadapter.dataplane.packet_queues[(0, port)]
         for packet in packets:
-            if exp_pkt.pkt_match(packet):
-                return True
+            if six.PY2:
+                if exp_pkt.pkt_match(packet):
+                    return True
+            else:
+                if exp_pkt.pkt_match(packet[0]):
+                    return True
         return False
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
@@ -186,7 +192,7 @@ def setup_uplink(rand_selected_dut, tbinfo):
     """
     pytest_require("dualtor" in tbinfo['topo']['name'], "Only run on dualtor testbed")
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
-    portchannels = mg_facts['minigraph_portchannels'].keys()
+    portchannels = list(mg_facts['minigraph_portchannels'].keys())
     up_portchannel = random.choice(portchannels)
     logger.info("Select uplink {} for testing".format(up_portchannel))
     # Shutdown other uplinks except for the selected one
@@ -197,17 +203,18 @@ def setup_uplink(rand_selected_dut, tbinfo):
     # Update the LAG if it has more than one member
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
-        cmds = [
-            # Update min_links
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel),
-            # Remove 1 portchannel member
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),
-            # Unmask the service
-            "systemctl unmask teamd",
-            # Resart teamd
-            "systemctl restart teamd"
-        ]
+        # Update min_links
+        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        rand_selected_dut.shell(min_link_cmd)
+        # Delete to min_links
+        cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
+        # Ensure delete to complete before restarting service
+        time.sleep(5)
+        # Unmask the service
+        rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Restart teamd
+        rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
 
@@ -241,7 +248,9 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     The mirror session is to trigger the issue. No packet is mirrored actually.
     """
     session_name = "dummy_session"
-    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 1234 0".format(session_name)
+    # Nvidia platforms support only the gre_type 0x8949, which is 35145 in decimal.
+    gre_type = 35145 if "mellanox" == rand_selected_dut.facts['asic_type'] else 1234
+    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 {} 0".format(session_name, gre_type)
     rand_selected_dut.shell(cmd=cmd)
     uplink_port_id = setup_uplink
     yield uplink_port_id

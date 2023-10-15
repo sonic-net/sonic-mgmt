@@ -105,7 +105,7 @@ class PtfTestAdapter(BaseTest):
 
         # TODO: in case of multi PTF hosts topologies we'll have to provide custom platform that supports that
         # and initialize port_map specifying mapping between tcp://<host>:<port> and port tuple (device_id, port_id)
-        for id, ifname in ptf.config['port_map'].items():
+        for id, ifname in list(ptf.config['port_map'].items()):
             device_id, port_id = id
             ptf.dataplane_instance.port_add(ifname, device_id, port_id)
         self.connected = True
@@ -116,7 +116,7 @@ class PtfTestAdapter(BaseTest):
         if self.connected:
             self.dataplane.kill()
 
-            for injector in DataPlanePortNN.packet_injecters.values():
+            for injector in list(DataPlanePortNN.packet_injecters.values()):
                 injector.socket.close()
             DataPlanePortNN.packet_injecters.clear()
 

@@ -83,6 +83,10 @@ def expect_acl_table_match(duthost, table_name, expected_content_list):
     # Use empty list if no output
     lines = output['stdout'].splitlines()
     actual_list = [] if len(lines) < 3 else lines[2].split()
+    # Ignore the status column
+    expected_len = len(expected_content_list)
+    if len(actual_list) >= expected_len:
+        actual_list = actual_list[0:expected_len]
 
     pytest_assert(set(expected_content_list) == set(actual_list), "ACL table doesn't match")
 

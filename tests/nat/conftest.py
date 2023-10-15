@@ -4,17 +4,17 @@ import time
 
 import pytest
 
-from nat_helpers import SETUP_CONF
-from nat_helpers import GLOBAL_NAT_TIMEOUT
-from nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
-from nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
-from nat_helpers import FULL_CONE_TEST_SUBNET
-from nat_helpers import PORT_CHANNEL_TEMP
-from nat_helpers import conf_ptf_interfaces
-from nat_helpers import teardown_test_env
-from nat_helpers import exec_command
-from nat_helpers import conf_dut_routes
-from nat_helpers import dut_interface_control
+from .nat_helpers import SETUP_CONF
+from .nat_helpers import GLOBAL_NAT_TIMEOUT
+from .nat_helpers import GLOBAL_TCP_NAPT_TIMEOUT
+from .nat_helpers import GLOBAL_UDP_NAPT_TIMEOUT
+from .nat_helpers import FULL_CONE_TEST_SUBNET
+from .nat_helpers import PORT_CHANNEL_TEMP
+from .nat_helpers import conf_ptf_interfaces
+from .nat_helpers import teardown_test_env
+from .nat_helpers import exec_command
+from .nat_helpers import conf_dut_routes
+from .nat_helpers import dut_interface_control
 from tests.common.config_reload import config_reload
 
 
@@ -88,12 +88,12 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
     port_channel_1_name = PORT_CHANNEL_TEMP.format(1)
     # Get outer port indices
-    for port_id in config_portchannels.keys():
+    for port_id in list(config_portchannels.keys()):
         port = config_portchannels[port_id]['members'][0]
         portchannels_port_indices.append(config_port_indices[port])
     inner_port_id = SETUP_CONF[interface_type]["vrf"]["blue"]["port_id"]
     outer_port_id = tbinfo['topo']['properties']['topology']['VMs']['ARISTA01T1']['vlans']
-    dut_rifs_in_topo_t0 = [el[8:] for el in duthost.setup()['ansible_facts'].keys()
+    dut_rifs_in_topo_t0 = [el[8:] for el in list(duthost.setup()['ansible_facts'].keys())
                            if 'PortCh' in el or 'Loop' in el or 'Vlan' in el]
     dut_rifs_in_topo_t0 = sorted(dut_rifs_in_topo_t0, reverse=True)
     inner_zone_interfaces = dut_rifs_in_topo_t0[0]
@@ -107,7 +107,7 @@ def setup_test_env(request, ptfhost, duthost, tbinfo):
             interfaces_nat_zone[rif]['zone_id'] = 0
         elif rif in outer_zone_interfaces:
             interfaces_nat_zone[rif]['zone_id'] = 1
-    indices_to_ports_config = dict((v, k) for k, v in config_port_indices.iteritems())
+    indices_to_ports_config = dict((v, k) for k, v in list(config_port_indices.items()))
     if interface_type == "port_in_lag":
         outer_zone_interfaces = [outer_zone_interfaces[-2], outer_zone_interfaces[-3]]
         public_ip = SETUP_CONF["port_in_lag"]["vrf"]["red"]["gw"]

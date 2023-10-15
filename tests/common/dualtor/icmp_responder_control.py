@@ -12,7 +12,7 @@ def pause_icmp_responder(duthost, mux_config, ptfhost, tbinfo):     # noqa F811
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_port_index = mg_facts['minigraph_ptf_indices']
-    ptf_ports = {k: ("eth%s" % v) for k, v in ptf_port_index.items()}
+    ptf_ports = {k: ("eth%s" % v) for k, v in list(ptf_port_index.items())}
 
     def _pause_icmp_respond(mux_ports):
         if not mux_ports:
