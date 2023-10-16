@@ -4,7 +4,7 @@ simulation:
     pending_timeout: 60
     hours: 15
     partition: sonic_regression
-          
+
 devices:
   docker_ptf:
     platform: linux
@@ -28,13 +28,8 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: /ws/prbikkan-sjc/sonic/images/Apr26/sonic-cisco-8000.bin
-    linecard_types: ['8111-32EH']
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /ws/prbikkan-sjc/sdk/sdk-1.64.99.3/npl
-        ConfigS1NpsuiteVer: 1.131.0
-
+    onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
+    linecard_types: [8101-32FH]
 
   sonic_mgmt :
     platform: linux

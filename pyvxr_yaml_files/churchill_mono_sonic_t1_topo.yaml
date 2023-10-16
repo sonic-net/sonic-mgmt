@@ -1,7 +1,8 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 120
+    pending_timeout: 60
+    hours: 15
     partition: sonic_regression
           
 devices:
@@ -28,7 +29,7 @@ devices:
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
-    linecard_types: [matilda32]
+    linecard_types: [8101-32FH]
 
   sonic_mgmt :
     platform: linux
@@ -217,4 +218,4 @@ connections:
       backplane:
         ports:
         - veos[1..32].Ethernet9
-        - docker_ptf.backplane  
+        - docker_ptf.backplane
