@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 4"
+  - cron: "0 2 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
+    default: "vms21-dual-t0-7260,vms28-dual-t0-7260"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -50,7 +50,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
+    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -81,7 +81,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-56.str.internal.NightlyTest_by_Elastictest
+    displayName: 7060cx3.dualtor-120.str.master.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}

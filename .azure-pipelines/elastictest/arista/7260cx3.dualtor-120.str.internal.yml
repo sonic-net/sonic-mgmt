@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
+    default: "vms21-dual-t0-7260,vms28-dual-t0-7260"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-56.str.internal.NightlyTest_by_Elastictest
+    displayName: 7060cx3.dualtor-120.str.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}

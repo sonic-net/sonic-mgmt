@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 4"
+  - cron: "0 2 * * 1"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,25 +37,17 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
+    default: "vms24-dual-t0-7050-1"
     displayName: "Testbed Name"
-
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
+    default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal
+    default: internal-202205
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -65,7 +57,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "dualtor,dualtor_io,dualtor_mgmt,platform_tests,generic_config_updater,crm,autorestart,fdb,process_monitoring,show_techsupport,route,override_config_table,monit"
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -81,7 +73,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-56.str.internal.NightlyTest_by_Elastictest
+    displayName: 7050cx3.dualtor.str.202205.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -113,5 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}
