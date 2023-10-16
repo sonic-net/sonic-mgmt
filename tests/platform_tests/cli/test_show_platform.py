@@ -253,7 +253,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     psu_info_list = json.loads(psu_status_output)
 
     # TODO: Compare against expected platform-specific output
-    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0" or duthost.facts['asic_type'] == "cisco-8000":
+    if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
         led_status_list = ["N/A"]
     else:
         led_status_list = ["green", "amber", "red", "off"]
