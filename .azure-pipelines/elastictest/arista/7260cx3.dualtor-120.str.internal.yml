@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060cx3.dualtor-120.str.internal.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-120.str.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
