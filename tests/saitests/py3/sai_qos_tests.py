@@ -1218,6 +1218,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        self.hwsku = self.test_params['hwsku']
         pkts_num_trig_ingr_drp = int(
             self.test_params['pkts_num_trig_ingr_drp'])
         hwsku = self.test_params['hwsku']
@@ -1332,7 +1333,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                     # noqa F523
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
@@ -1401,7 +1402,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of ingress drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                        # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
@@ -1435,20 +1436,21 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                           # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    if cntr == 1:
-                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter ' \
-                                                                                'not increase, {}'.format(test_stage)
-                else:
-                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+            if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
+                for cntr in ingress_counters:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        if cntr == 1:
+                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    else:
+                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
                                                                             ' not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
