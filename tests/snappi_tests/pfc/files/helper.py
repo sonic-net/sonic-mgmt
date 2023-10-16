@@ -105,8 +105,7 @@ def run_pfc_test(api,
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT * tx_speed_normalization_factor /
                                  len(test_prio_list))
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(int(speed_str.split('_')[1]) * tx_speed_normalization_factor)
+    speed_gbps = int(snappi_extra_params.base_flow_config["tx_port_config"].speed_gbps)
 
     if snappi_extra_params.headroom_test_params is not None:
         DATA_FLOW_DURATION_SEC += 10
