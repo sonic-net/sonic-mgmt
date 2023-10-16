@@ -4,11 +4,9 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, wait_tcp_connection
-from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
+from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient, GNMIEnvironment
 
 logger = logging.getLogger(__name__)
-
-TELEMETRY_PORT = 50051
 
 
 @pytest.fixture(scope="module")
@@ -36,11 +34,11 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     docker_out_list = []
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    docker_out = duthost.shell('docker images docker-sonic-telemetry', module_ignore_errors=False)['stdout_lines']
+    docker_out = duthost.shell('docker images docker-sonic-gnmi', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
-    matching = [s for s in docker_out_list if b"docker-sonic-telemetry" in s]
+    matching = [s for s in docker_out_list if b"docker-sonic-gnmi" in s]
     if not (len(matching) > 0):
-        pytest.skip("docker-sonic-telemetry is not part of the image")
+        pytest.skip("docker-sonic-gnmi is not part of the image")
 
 
 @pytest.fixture(scope="module")
@@ -50,23 +48,24 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
     """
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        env = GNMIEnvironment(duthost)
         default_client_auth = setup_telemetry_forpyclient(duthost)
 
         if default_client_auth == "true":
-            duthost.shell('sonic-db-cli CONFIG_DB HSET "TELEMETRY|gnmi" "client_auth" "false"',
+            duthost.shell('sonic-db-cli CONFIG_DB HSET "%s|gnmi" "client_auth" "false"' % (env.gnmi_config_table),
                           module_ignore_errors=False)
-            duthost.shell("systemctl reset-failed telemetry")
-            duthost.service(name="telemetry", state="restarted")
+            duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
+            duthost.service(name=env.gnmi_container, state="restarted")
         else:
             logger.info('client auth is false. No need to restart telemetry')
 
         # Wait until telemetry was restarted
-        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started.")
+        py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container), "TELEMETRY not started.")
         logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
-        wait_tcp_connection(localhost, dut_ip, TELEMETRY_PORT, timeout_s=60)
+        wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
         file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
