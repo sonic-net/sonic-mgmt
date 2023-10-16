@@ -10,7 +10,6 @@ resources:
     name: sonic-metadata
     ref: master
 
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -18,7 +17,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t1-8101-02
+    default: vms61-t1-8101-01
     displayName: "Testbed Name"
 
   # Upgrade parameters

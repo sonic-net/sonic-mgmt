@@ -9,8 +9,6 @@ resources:
     type: git
     name: sonic-metadata
     ref: master
-
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
@@ -18,7 +16,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t1-8101-02
+    default: vms61-t1-8101-02
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -31,6 +29,11 @@ parameters:
     type: string
     default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
+
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880    # minutes, totally 48hours
+    displayName: "Nightly Test Timeout"
 
   - name: TESTBED_SPECIFIC
     type: string
@@ -48,5 +51,6 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
