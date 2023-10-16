@@ -23,7 +23,8 @@ ON_CHANGE_REGEX = "json_ietf_val:\"({.*?})\""
 class GNMIEnvironment(object):
     def __init__(self, duthost):
         self.duthost = duthost
-        self.use_telemetry_container = duthost.shell("docker ps | grep -w telemetry", module_ignore_errors=True)['rc'] == 0
+        self.use_telemetry_container = duthost.shell("docker ps | grep -w telemetry",
+                                                     module_ignore_errors=True)['rc'] == 0
         if self.use_telemetry_container:
             self.gnmi_config_table = "TELEMETRY"
             self.gnmi_container = "telemetry"

@@ -1,6 +1,5 @@
 import time
 import re
-from tests.common.utilities import get_image_type
 from functools import lru_cache
 
 GNMI_CONTAINER_NAME = ''
