@@ -684,7 +684,7 @@ class MultiAsicSonicHost(object):
                 config_facts.get("VOQ_INBAND_INTERFACE", {})
             )
         return voq_inband_interfaces.keys()
-    
+
     def get_portchannel_member(self):
         """
         This Function is applicable on packet Chassis, or
