@@ -196,17 +196,6 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def install_mergecap_on_ptf(ptfhost):
-    """
-    Temporary fixture which will install "wireshark-common" package on PTF host which has "mergecap" application inside
-    """
-    try:
-        ptfhost.shell("export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install wireshark-common -y")
-    except Exception as err:
-        logger.warning('Unable to install "wireshark-common" on PTF host. Got error: {}'.format(err))
-
-
-@pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
     This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
