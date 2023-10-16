@@ -169,16 +169,23 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
     :param duthost: DUT host object
     :param orig_ports_configuration: original ports configuration parameters
     """
+    remove_acl_tables(duthost)
     for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['vlan']:
             remove_dut_vlan_member(duthost, port, port_dict['vlan'])
         elif port_dict['portchannel']:
             remove_dut_portchannel_member(duthost, port, port_dict['portchannel'])
+            output = duthost.shell('show interface portchannel | grep -w "{} "'.format(port_dict['portchannel']))
+            # Empty portchannels need to be removed before warm/fast reboot
+            if "Ethernet" not in output['stdout']:
+                remove_dut_portchannel_ipv4_address(duthost, port_dict['portchannel'])
+                remove_dut_portchannel_ipv6_address(duthost, port_dict['portchannel'])
+                duthost.shell('sudo config portchannel del {}'.format(port_dict['portchannel']))
+
         elif port_dict['ip_addr']:
             for ip in port_dict['ip_addr']:
                 remove_dut_ip_from_port(duthost, port, ip)
-    remove_acl_tables(duthost)
 
 
 def get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts):
@@ -403,6 +410,28 @@ def remove_dut_portchannel_member(duthost, port, lag_port):
     :param lag_port: port channel
     """
     duthost.shell('config portchannel member del {} {}'.format(lag_port, port))
+
+    def _check_portchannel_member_removed(duthost, portchannel, member):
+        output = duthost.shell('show interface portchannel | grep -w "{} "'.format(portchannel))
+        if member + '(' not in output['stdout']:
+            return True
+        else:
+            return False
+    wait_until(10, 1, 0, _check_portchannel_member_removed, duthost, lag_port, port)
+
+
+def remove_dut_portchannel_ipv4_address(duthost, lag_port):
+    ipv4_address = re.split(r'\s+', duthost.shell('show ip interface | grep -w {}'.format(lag_port))['stdout'])[1]
+    if ipv4_address:
+        duthost.shell('sudo config interface ip remove {} {}'.format(lag_port, ipv4_address))
+
+
+def remove_dut_portchannel_ipv6_address(duthost, lag_port):
+    output = duthost.shell('show ipv6 interface | grep -w {}'.format(lag_port))['stdout_lines']
+    for line in output:
+        ipv6_address = re.split(r'\s+', line)[1]
+        if not ipv6_address.lower().startswith("fe80"):
+            duthost.shell('sudo config interface ip remove {} {}'.format(lag_port, ipv6_address))
 
 
 def add_dut_vlan_member(duthost, port, vlan_id):
