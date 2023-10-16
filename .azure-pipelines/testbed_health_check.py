@@ -105,11 +105,19 @@ def check(sonichosts, output=None):
         if output:
             with open(output, "w") as f:
                 f.write(json.dumps(testbedCheckResult.__dict__, separators=(",", ":")))
-                f.close()
 
     except Exception as e:
         logger.error("Failed to check. {}".format(e))
-        sys.exit(1)
+        # todo: currently, both host unreachable and bgp container down will come here, mark them as unhealthy now.
+        #  Should figure out and distinguish them in the future.
+        testbedCheckResult = TestbedCheckResult(code=1, data=None, errmsg="Unhealthy: host unreachable or bgp "
+                                                                          "container was down")
+
+        # If output file is specified, write result to it.
+        if output:
+            with open(output, "w") as f:
+                f.write(json.dumps(testbedCheckResult.__dict__, separators=(",", ":")))
+        # sys.exit(1)
 
 
 def validate_args(args):

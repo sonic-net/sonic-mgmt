@@ -65,7 +65,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: "dualtor_io,dualtor_mgmt,bgp,decap,fdb,fib,pc,vlan"
+    default: " "
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -76,12 +76,12 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx console,ixai,macsec,mclag,voq"
+    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
