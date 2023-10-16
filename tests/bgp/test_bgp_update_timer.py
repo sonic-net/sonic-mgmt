@@ -2,6 +2,7 @@
 import contextlib
 import ipaddress
 import logging
+import os
 import pytest
 import tempfile
 import time
@@ -29,6 +30,7 @@ pytestmark = [
 PEER_COUNT = 2
 BGP_LOG_TMPL = "/tmp/bgp%d.pcap"
 BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
+local_pcap_file_template = "%s_dump.pcap"
 ANNOUNCED_SUBNETS = [
     "10.10.100.0/27",
     "10.10.100.32/27",
@@ -209,7 +211,7 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces, has_suppress_feature):
+def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -232,6 +234,13 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature):
         _constants.routes.append(
             {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
         )
+
+    log_file = pytestconfig.getoption("log_file", None)
+    if log_file:
+        _constants.log_dir = os.path.dirname(os.path.abspath(log_file))
+    else:
+        _constants.log_dir = None
+
     return _constants
 
 
@@ -309,6 +318,7 @@ def test_bgp_update_timer_single_route(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
+    request,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
     validate_active_active_dualtor_setup                                        # noqa F811
 ):
@@ -338,10 +348,15 @@ def test_bgp_update_timer_single_route(
                 n0.withdraw_route(route)
                 time.sleep(constants.sleep_interval)
 
-            with tempfile.NamedTemporaryFile() as tmp_pcap:
-                duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
-                duthost.file(path=bgp_pcap, state="absent")
-                bgp_updates = bgp_update_packets(tmp_pcap.name)
+            if constants.log_dir:
+                local_pcap_filename = os.path.join(constants.log_dir,
+                                                   local_pcap_file_template % request.node.name)
+            else:
+                local_pcap_file = tempfile.NamedTemporaryFile()
+                local_pcap_filename = local_pcap_file.name
+            duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
+            duthost.file(path=bgp_pcap, state="absent")
+            bgp_updates = bgp_update_packets(local_pcap_filename)
 
             announce_from_n0_to_dut = []
             announce_from_dut_to_n1 = []
@@ -408,6 +423,7 @@ def test_bgp_update_timer_session_down(
     constants,
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
+    request,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
     validate_active_active_dualtor_setup                                        # noqa F811
 ):
@@ -442,12 +458,19 @@ def test_bgp_update_timer_session_down(
             current_time = time.time()
             time.sleep(constants.sleep_interval)
 
-        with tempfile.NamedTemporaryFile() as tmp_pcap:
-            duthost.fetch(src=bgp_pcap, dest=tmp_pcap.name, flat=True)
-            duthost.file(path=bgp_pcap, state="absent")
-            bgp_updates = bgp_update_packets(tmp_pcap.name)
+        if constants.log_dir:
+            local_pcap_filename = os.path.join(constants.log_dir,
+                                               local_pcap_file_template % request.node.name)
+        else:
+            local_pcap_file = tempfile.NamedTemporaryFile()
+            local_pcap_filename = local_pcap_file.name
+        duthost.fetch(src=bgp_pcap, dest=local_pcap_filename, flat=True)
+        duthost.file(path=bgp_pcap, state="absent")
+        bgp_updates = bgp_update_packets(local_pcap_filename)
 
         for bgp_update in bgp_updates:
+            logging.debug("bgp update packet, capture time %s, packet details:\n%s",
+                          bgp_update.time, bgp_update.show(dump=True))
             for i, route in enumerate(constants.routes):
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
                     withdraw_intervals[i] = bgp_update.time - current_time

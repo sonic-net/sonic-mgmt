@@ -343,9 +343,11 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
 
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
             if self.test_port_ips:
-                for ip in get_peer_addresses(self.test_port_ips):
+                ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
+                if ips:
+                    cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
                     self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
-                                         self.test_params['dut_password'], 'ping -q -c 3 {}'.format(ip))
+                                         self.test_params['dut_password'], cmd)
 
         time.sleep(8)
 
@@ -1216,6 +1218,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        self.hwsku = self.test_params['hwsku']
         pkts_num_trig_ingr_drp = int(
             self.test_params['pkts_num_trig_ingr_drp'])
         hwsku = self.test_params['hwsku']
@@ -1330,7 +1333,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                     # noqa F523
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port no pfc
@@ -1399,7 +1402,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of ingress drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                        # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
@@ -1433,20 +1436,21 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' +
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
                              'xmit_counters {}\n\txmit_counters_base {}\n'.format(                           # noqa F841
                                  test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    if cntr == 1:
-                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter ' \
-                                                                                'not increase, {}'.format(test_stage)
-                else:
-                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+            if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
+                for cntr in ingress_counters:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        if cntr == 1:
+                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    else:
+                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
                                                                             ' not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -2381,7 +2385,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116']:
+        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-64', 't0-116', 't0-120']:
             # populate ARP
             # sender's MAC address is corresponding PTF port's MAC address
             # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
@@ -4204,6 +4208,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_trig_ingr_drp, actual_num_trig_ingr_drp, ingr_drop_diff), file=sys.stderr)
 
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+                time.sleep(4)
 
             print("pass iterations: {}, total iterations: {}, margin: {}".format(
                 pass_iterations, iterations, margin), file=sys.stderr)

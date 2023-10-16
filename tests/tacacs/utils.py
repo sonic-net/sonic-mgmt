@@ -2,7 +2,6 @@ import crypt
 import logging
 import re
 import binascii
-import time
 import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -269,7 +268,7 @@ def remove_all_tacacs_server(duthost):
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
 
 
-def check_server_received(ptfhost, data):
+def check_server_received(ptfhost, data, timeout=30):
     """
         Check if tacacs server received the data.
     """
@@ -297,10 +296,16 @@ def check_server_received(ptfhost, data):
             E501 : Line too long. Following sed command difficult to split to multiple line.
     """
     sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
-    res = ptfhost.shell(sed_command)
-    logger.info(sed_command)
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
+
+    # After tacplus service receive data, it need take some time to update to log file.
+    def log_exist(ptfhost, sed_command):
+        res = ptfhost.shell(sed_command)
+        logger.info(sed_command)
+        logger.info(res["stdout_lines"])
+        return len(res["stdout_lines"]) > 0
+
+    exist = wait_until(timeout, 1, 0, log_exist, ptfhost, sed_command)
+    pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
 
 
 def get_auditd_config_reload_timestamp(duthost):
@@ -319,13 +324,9 @@ def change_and_wait_aaa_config_update(duthost, command, timeout=10):
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
-    wait_time = 0
-    while wait_time <= timeout:
+    def log_exist(duthost):
         latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        if latest_timestamp != last_timestamp:
-            return
+        return latest_timestamp != last_timestamp
 
-        time.sleep(1)
-        wait_time += 1
-
-    pytest_assert(False, "Not found aaa config update log: {}".format(command))
+    exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    pytest_assert(exist, "Not found aaa config update log: {}".format(command))
