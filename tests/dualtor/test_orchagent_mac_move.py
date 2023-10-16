@@ -93,7 +93,7 @@ def test_mac_move(
     # randomly select a portchannel from the list
     portchannel = portchannels[random.choice(portchannels.keys())]
     # randomly choose an active PTF port from the selected portchannel
-    ptf_t1_intf_index = random.choice(portchannel) # get the PTF port number
+    ptf_t1_intf_index = random.choice(portchannel)   # get the PTF port number
 
     # new neighbor learnt on an active port
     test_port = next(announce_new_neighbor)
