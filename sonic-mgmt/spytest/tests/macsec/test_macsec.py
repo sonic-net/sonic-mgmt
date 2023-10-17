@@ -271,7 +271,7 @@ def generic_process_crash(container_name, prs_name, request, encryption="aes_128
                 st.report_fail("test_case_failed")
         else:
             st.error("Test case failed because container {} is not running after process process crash".format(container_name))
-            st.report_fail("test_case_failed"
+            st.report_fail("test_case_failed")
 
 def generic_container_restart(container_name, request, encryption = "aes_128"):
     #Enable macsec on the duts
