@@ -15,7 +15,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202205
+        - internal-202305
     always: true
 
 variables:
@@ -31,12 +31,12 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_ABOOT_202205)
+    default: $(IMAGE_CISCO_202305)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
   - name: NIGHTLY_TEST_TIMEOUT
