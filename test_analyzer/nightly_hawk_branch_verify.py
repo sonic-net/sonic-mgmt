@@ -582,6 +582,7 @@ class Nightly_hawk_branch_verify(object):
                 "TEST_BRIEF": self.test_brief,
                 "NIGHTLY_TEST_TIMEOUT" : self.pipeline_timeout ,
                 "LOCK_POLLING_TIMEOUT" : self.lock_timeout ,
+                "FORCE_LOCK": False,
                 "DOCKER_FOLDER_SIZE" : '3500M',
                 "SKIP_TEST_RESULTS_UPLOADING" : self.skip_upload_result ,
             }
