@@ -18,10 +18,79 @@
 """
 
 import logging
-import copy
 from .snmp_pdu_controllers import get_pdu_controller
 
 logger = logging.getLogger(__name__)
+
+
+class PSU():
+
+    def __init__(self, psu_name, dut_name):
+        self.psu_name = psu_name
+        self.dut_name = dut_name
+
+    def build_psu(self, psu_peer, pdu_info, pdu_vars):
+        self.feeds = {}
+        for feed_name, psu_peer_of_feed in psu_peer.items():
+            feed = Feed(self, feed_name)
+            if feed.build_feed(psu_peer_of_feed, pdu_info, pdu_vars):
+                self.feeds[feed_name] = feed
+        return len(self.feeds) > 0
+
+
+class Feed():
+
+    controllers = {}
+
+    def __init__(self, psu, feed_name):
+        self.psu = psu
+        self.feed_name = feed_name
+
+    def build_feed(self, psu_peer_of_feed, pdu_info, pdu_vars):
+        if "peerdevice" not in psu_peer_of_feed:
+            logger.warning('PSU {} feed {} is missing peer device'.format(self.psu.psu_name, self.feed_name))
+            return False
+        pdu_device = psu_peer_of_feed["peerdevice"]
+        if pdu_device not in pdu_info or pdu_device not in pdu_vars:
+            logger.warning("pdu device {} is missing in pdu_info or pdu_vars".format(pdu_device))
+            return False
+        pdu_info_of_peer = pdu_info[pdu_device]
+        pdu_vars_of_peer = pdu_vars[pdu_device]
+        if 'ManagementIp' not in pdu_info_of_peer or 'Protocol' not in pdu_info_of_peer:
+            logger.warning('PSU {} feed {} is missing critical information ManagementIp or Protocol'.format(
+                self.psu.psu_name, self.feed_name))
+            return False
+        if pdu_info_of_peer['Protocol'] != 'snmp':
+            logger.warning('Protocol {} is currently not supported'.format(pdu_info_of_peer['Protocol']))
+            return False
+        self.pdu_info = pdu_info_of_peer
+        self.pdu_vars = pdu_vars_of_peer
+        if not self._build_controller():
+            return False
+        outlet = None
+        # if peerport is probing/not given, return status of all ports on the pdu
+        peerport = psu_peer_of_feed.get('peerport', 'probing')
+        if peerport != 'probing':
+            outlet = peerport if peerport.startswith('.') else '.' + peerport
+        outlets = self.controller.get_outlet_status(hostname=self.psu.dut_name, outlet=outlet)
+        for outlet in outlets:
+            outlet['pdu_name'] = pdu_device
+            outlet['psu_name'] = self.psu.psu_name
+            outlet['feed_name'] = self.feed_name
+        self.outlets = outlets
+        return len(self.outlets) > 0
+
+    def _build_controller(self):
+        ip = self.pdu_info["ManagementIp"]
+        if ip in Feed.controllers:
+            self.controller = Feed.controllers[ip]
+        else:
+            self.controller = get_pdu_controller(ip, self.pdu_vars, self.pdu_info["HwSku"], self.pdu_info["Type"])
+            if not self.controller:
+                logger.warning('Failed creating pdu controller: {}'.format(self.pdu_info))
+                return False
+            Feed.controllers[ip] = self.controller
+        return True
 
 
 class PduManager():
@@ -37,87 +106,29 @@ class PduManager():
         """
         self.dut_hostname = dut_hostname
         """
-            controlers is an array of controller dictionaries with
-            following information:
-            {
-                'psu_name'   : name of the PSU on DUT,
-                'host'       : controller_IP_address,
-                'controller' : controller instance,
-                'outlets'    : cached outlet status,
-                'psu_peer'   : psu peer information,
-            }
+        A PSU instance represents a PSU. A PSU can have multiple feeds,
+        where all of them contributes to the status of one PSU.
         """
-        self.controllers = []
+        self.PSUs = {}
 
-    def _update_outlets(self, outlets, pdu_index, controller_index=None):
-        for outlet in outlets:
-            outlet['pdu_index'] = pdu_index
-            if controller_index is None:
-                controller_index = pdu_index
-            outlet['pdu_name'] = self.controllers[controller_index]['psu_peer']['peerdevice']
-
-    def add_controller(self, psu_name, psu_peer, pdu_vars):
+    def add_controller(self, psu_name, psu_peer, pdu_info, pdu_vars):
         """
             Add a controller to be managed.
-            Sampel psu_peer:
+            Sample psu_peer:
             {
-                "peerdevice": "pdu-107",
-                "HwSku": "Sentry",
-                "Protocol": "snmp",
-                "ManagementIp": "10.0.0.107",
-                "Type": "Pdu",
-                "peerport": "39"
+                "A": {
+                    "peerdevice": "pdu-107",
+                    "peerport": "39",
+                }
             }
         """
-        if 'Protocol' not in psu_peer or 'ManagementIp' not in psu_peer:
-            logger.info('psu_peer {} missing critical inforamtion'.format(psu_peer))
+        psu = PSU(psu_name, self.dut_hostname)
+        if not psu.build_psu(psu_peer, pdu_info, pdu_vars):
             return
+        self.PSUs[psu_name] = psu
 
-        if psu_peer['Protocol'] != 'snmp':
-            logger.warning('Controller protocol {} is not supported'.format(psu_peer['Protocol']))
-            return
-
-        controller = None
-        pdu_ip = psu_peer['ManagementIp']
-        shared_pdu = False
-        for pdu in self.controllers:
-            if psu_name in pdu:
-                logger.warning('PSU {} already has a pdu definition'.format(psu_name))
-                return
-            if pdu_ip == pdu['host']:
-                shared_pdu = True  # Sharing controller with another outlet
-                controller = pdu['controller']
-
-        outlets = []
-        pdu = {
-            'psu_name': psu_name,
-            'host': pdu_ip,
-            'controller': controller,
-            'outlets': outlets,
-            'psu_peer': psu_peer,
-        }
-        next_index = len(self.controllers)
-        self.controllers.append(pdu)
-
-        outlet = None
-        if 'peerport' in psu_peer and psu_peer['peerport'] != 'probing':
-            outlet = psu_peer['peerport'] if psu_peer['peerport'].startswith('.') else '.' + psu_peer['peerport']
-
-        if not (shared_pdu and outlet is None):
-            if controller is None:
-                controller = get_pdu_controller(pdu_ip, pdu_vars, psu_peer['HwSku'], psu_peer['Type'])
-                if not controller:
-                    logger.warning('Failed creating pdu controller: {}'.format(psu_peer))
-                    return
-
-            outlets = controller.get_outlet_status(hostname=self.dut_hostname, outlet=outlet)
-            self._update_outlets(outlets, next_index)
-            pdu['outlets'] = outlets
-            pdu['controller'] = controller
-
-    def _get_pdu_controller(self, pdu_index):
-        pdu = self.controllers[pdu_index]
-        return pdu['controller']
+    def _get_controller(self, outlet):
+        return self.PSUs[outlet['psu_name']].feeds[outlet['feed_name']].controller
 
     def turn_on_outlet(self, outlet=None):
         """
@@ -126,17 +137,16 @@ class PduManager():
             when outlet is None, all outlets will be turned off.
         """
         if outlet is not None:
-            controller = self._get_pdu_controller(outlet['pdu_index'])
-            return controller.turn_on_outlet(outlet['outlet_id'])
+            return self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
         else:
             # turn on all outlets
             ret = True
-            for controller in self.controllers:
-                for outlet in controller['outlets']:
-                    rc = controller['controller'].turn_on_outlet(outlet['outlet_id'])
-                    ret = ret and rc
-
-        return ret
+            for psu_name, psu in self.PSUs.items():
+                for feed_name, feed in psu.feeds.items():
+                    for outlet in feed.outlets:
+                        rc = self._get_controller(outlet).turn_on_outlet(outlet['outlet_id'])
+                        ret = ret and rc
+            return ret
 
     def turn_off_outlet(self, outlet=None):
         """
@@ -145,17 +155,16 @@ class PduManager():
             when outlet is None, all outlets will be turned off.
         """
         if outlet is not None:
-            controller = self._get_pdu_controller(outlet['pdu_index'])
-            return controller.turn_off_outlet(outlet['outlet_id'])
+            return self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
         else:
             # turn on all outlets
             ret = True
-            for controller in self.controllers:
-                for outlet in controller['outlets']:
-                    rc = controller['controller'].turn_off_outlet(outlet['outlet_id'])
-                    ret = ret and rc
-
-        return ret
+            for psu_name, psu in self.PSUs.items():
+                for feed_name, feed in psu.feeds.items():
+                    for outlet in feed.outlets:
+                        rc = self._get_controller(outlet).turn_off_outlet(outlet['outlet_id'])
+                        ret = ret and rc
+            return ret
 
     def get_outlet_status(self, outlet=None):
         """
@@ -165,103 +174,63 @@ class PduManager():
         """
         status = []
         if outlet is not None:
-            pdu_index = outlet['pdu_index']
-            controller = self._get_pdu_controller(pdu_index)
-            outlets = controller.get_outlet_status(outlet=outlet['outlet_id'])
-            self._update_outlets(outlets, pdu_index)
+            outlets = self._get_controller(outlet).get_outlet_status(outlet=outlet['outlet_id'])
+            pdu_name = outlet['pdu_name']
+            psu_name = outlet['psu_name']
+            feed_name = outlet['feed_name']
+            for outlet in outlets:
+                outlet['pdu_name'] = pdu_name
+                outlet['psu_name'] = psu_name
+                outlet['feed_name'] = feed_name
             status = status + outlets
         else:
             # collect all status
-            for controller_index, controller in enumerate(self.controllers):
-                for outlet in controller['outlets']:
-                    outlets = controller['controller'].get_outlet_status(outlet=outlet['outlet_id'])
-                    self._update_outlets(outlets, outlet['pdu_index'], controller_index)
-                    status = status + outlets
-
+            for psu_name, psu in self.PSUs.items():
+                for feed_name, feed in psu.feeds.items():
+                    for outlet in feed.outlets:
+                        pdu_name = outlet['pdu_name']
+                        outlets = feed.controller.get_outlet_status(outlet=outlet['outlet_id'])
+                        for outlet in outlets:
+                            outlet['pdu_name'] = pdu_name
+                            outlet['psu_name'] = psu_name
+                            outlet['feed_name'] = feed_name
+                        status = status + outlets
         return status
 
     def close(self):
-        for controller in self.controllers:
-            if len(controller['outlets']) > 0:
-                controller['controller'].close()
+        for controller in Feed.controllers.values():
+            controller.close()
 
 
-def _merge_dev_link(devs, links):
-    ret = copy.deepcopy(devs)
-    for host, info in list(links.items()):
-        if host not in ret:
-            ret[host] = {}
+def _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
+    logger.info('Creating pdu manager')
 
-        for key, val in list(info.items()):
-            if key not in ret[host]:
-                ret[host][key] = {}
-            ret[host][key] = dict(ret[host][key], **val)
+    for psu_name, psu_peer in list(pdu_links.items()):
+        pduman.add_controller(psu_name, psu_peer, pdu_info, pdu_vars)
 
-    return ret
+    return len(pduman.PSUs) > 0
 
 
-def _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_vars):
-    logger.info('Creating pdu manager from graph information')
-    pdu_devs = conn_graph_facts['device_pdu_info']
-    pdu_links = conn_graph_facts['device_pdu_links']
-    pdu_info = _merge_dev_link(pdu_devs, pdu_links)
-    if dut_hostname not in pdu_info or not pdu_info[dut_hostname]:
-        # No PDU information in graph
-        logger.info('PDU informatin for {} is not found in graph'.format(dut_hostname))
-        return False
-
-    for psu_name, psu_peer in list(pdu_info[dut_hostname].items()):
-        pduman.add_controller(psu_name, psu_peer, pdu_vars[psu_peer['Hostname']])
-
-    return len(pduman.controllers) > 0
-
-
-def _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars):
-    logger.info('Creating pdu manager from inventory information')
-    if not pdu_hosts:
-        logger.info('Do not have sufficient PDU information to create PDU manager for host {}'.format(dut_hostname))
-        return False
-
-    for ph, var_list in list(pdu_hosts.items()):
-        controller_ip = var_list.get("ansible_host")
-        if not controller_ip:
-            logger.info('No "ansible_host" is defined in inventory file for "{}"'.format(pdu_hosts))
-            logger.info('Unable to create pdu_controller for {}'.format(dut_hostname))
-            continue
-
-        controller_protocol = var_list.get("protocol")
-        if not controller_protocol:
-            logger.info(
-                'No protocol is defined in inventory file for "{}". Try to use default "snmp"'.format(pdu_hosts))
-            controller_protocol = 'snmp'
-
-        psu_peer = {
-            'peerdevice': ph,
-            'HwSku': 'unknown',
-            'Protocol': controller_protocol,
-            'ManagementIp': controller_ip,
-            'Type': 'Pdu',
-            'peerport': 'probing',
-        }
-        pduman.add_controller(ph, psu_peer, pdu_vars[psu_peer['Hostname']])
-
-    return len(pduman.controllers) > 0
-
-
-def pdu_manager_factory(dut_hostname, pdu_hosts, conn_graph_facts, pdu_vars):
+def pdu_manager_factory(dut_hostname, pdu_links, pdu_info, pdu_vars):
     """
+    factory method had 3 major inputs, pdu_hosts and pdu_vars are used for
+    building from inventory, and conn_graph_facts and pdu_vars are used for building
+    from graph. Building from graph takes structured data of psu, feed, and its peer
+    info from conn_graph_facts, while the old building from inventory takes flat data
+    of pdu name and its info. To accomodate this, 3 input will be reformatted to 3,
+    the first one being pdu_links, structured as psu, feed, peer pdu info. Second
+    one being pdu_info, which contains management ip, type, etc.. Third pdu_vars, which
+    is a mapping of pdu_names and inventory variables. Data processing should be done
+    before factory method is called.
     @summary: Factory function for creating PDU manager instance.
     @param dut_hostname: DUT host name.
-    @param pdu_hosts: comma separated PDU host names.
-    @param conn_graph_facts: connection graph facts.
-    @param pdu_vars: pdu community strings
+    @param pdu_links: structured data of psu, feed, peer pdu info.
+    @param pdu_info: a ductionary of pdu hostname and its info
+    @param pdu_vars: a dictionary of pdu hostname and its inv variables
     """
     logger.info('Creating pdu manager object')
     pduman = PduManager(dut_hostname)
-    if _build_pdu_manager_from_graph(pduman, dut_hostname, conn_graph_facts, pdu_vars):
-        return pduman
-
-    if _build_pdu_manager_from_inventory(pduman, dut_hostname, pdu_hosts, pdu_vars):
+    if _build_pdu_manager(pduman, pdu_links, pdu_info, pdu_vars):
         return pduman
 
     return None

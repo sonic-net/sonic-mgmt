@@ -68,8 +68,8 @@ Ansible_facts:
     device_console_link:  The console server port connected to the device
     device_bmc_info: The device's bmc server type, mgmtip, hwsku and protocol
     device_bmc_link:  The bmc server port connected to the device
-    device_pdu_info: The device's pdu server type, mgmtip, hwsku and protocol
-    device_pdu_links: The pdu server ports connected to the device
+    device_pdu_info: A dict of pdu device's pdu type, mgmtip, hwsku and protocol
+    device_pdu_links: The pdu server ports connected to the device and pdu info
 
 '''
 
@@ -353,12 +353,18 @@ class LabGraph(object):
         pdu_links = {}
         for entry in self.csv_facts["pdu_links"]:
             start_device = entry["EndDevice"]
-            if start_device not in pdu_links:
-                pdu_links[start_device] = {}
-            pdu_links[start_device][entry["EndPort"]] = {
+            pdu_links_of_device = pdu_links.get(start_device, {})
+            start_port = entry["EndPort"]
+            pdu_links_of_psu = pdu_links_of_device.get(start_port, {})
+            feed = entry.get("EndFeed", "N/A")
+            pdu_links_of_feed = {
                 "peerdevice": entry["StartDevice"],
                 "peerport": entry["StartPort"],
+                "feed": feed,
             }
+            pdu_links_of_psu[feed] = pdu_links_of_feed
+            pdu_links_of_device[start_port] = pdu_links_of_psu
+            pdu_links[start_device] = pdu_links_of_device
         self.graph_facts["pdu_links"] = pdu_links
 
         bmc_links = {}
@@ -382,8 +388,8 @@ class LabGraph(object):
         device_vlan_map_list = {}
         device_console_link = {}
         device_console_info = {}
-        device_pdu_links = {}
         device_pdu_info = {}
+        device_pdu_links = {}
         device_bmc_link = {}
         device_bmc_info = {}
         msg = ""
@@ -435,11 +441,50 @@ class LabGraph(object):
                 device_console_link[hostname].get("ConsolePort", {}).get("peerdevice"),
                 {}
             )
+            """
+            pdu_links in the format of:
+            {
+                "str-7250-7": {
+                    "PSU1": {
+                        "A": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "5",
+                            "feed": "A",
+                        },
+                        "B": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "6",
+                            "feed": "B",
+                        }
+                    },
+                    "PSU2": {
+                        "N/A": {
+                            "peerdevice": "pdu-2",
+                            "peerport": "7",
+                            "feed": "A",
+                        },
+                    },
+                },
+            }
+            pdu_info in the format of:
+            {
+                "str-7250-7": {
+                    "pdu-2": {
+                        "Hostname": "pdu-2",
+                        "Protocol": "snmp",
+                        "ManagementIp": "10.3.155.107",
+                        "HwSku": "Sentry",
+                        "Type": "Pdu",
+                    },
+                },
+            }
+            """
             device_pdu_links[hostname] = self.graph_facts["pdu_links"].get(hostname, {})
             device_pdu_info[hostname] = {}
-            for psu, psu_info in device_pdu_links[hostname].items():
-                pdu_hostname = psu_info.get("peerdevice")
-                device_pdu_info[hostname][psu] = self.graph_facts["devices"].get(pdu_hostname, {})
+            for psu_name, psu_info in device_pdu_links[hostname].items():
+                for feed_name, feed_info in psu_info.items():
+                    pdu_hostname = feed_info.get("peerdevice")
+                    device_pdu_info[hostname][pdu_hostname] = self.graph_facts["devices"].get(pdu_hostname, {})
 
             device_bmc_link[hostname] = self.graph_facts["bmc_links"].get(hostname, {})
             device_bmc_info[hostname] = {}

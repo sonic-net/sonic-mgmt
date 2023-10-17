@@ -62,30 +62,53 @@ def retrieve_hosts(group, limit):
 def get_pdu_info_from_conn_graph(hostname):
     """
     Read pdu info from conn graph.
-    Returns a dict like this:
-    {'PSU1': {'Protocol': 'snmp', 'ManagementIp': '10.3.155.107', 'HwSku': 'Sentry',
-              'Type': 'Pdu', 'peerdevice': 'pdu-107', 'peerport': '39'},
-     'PSU2': xxx}
+    Returns a tuple of success, err msg or result
+    Result is a tuple of pdu_links, pdu_info and pdu_vars
+    {
+        "PSU1": {
+            "A": {
+                "peerdevice": "pdu-2",
+                "peerport": "12",
+                "feed": "A",
+            },
+        },
+    }
+    {
+        "pdu-2": {
+            "Hostname": "pdu-2",
+            "Protocol": "snmp",
+            "ManagementIp": "10.3.155.107",
+            "HwSku": "Sentry",
+            "Type": "Pdu",
+        },
+    }
+    {
+        "pdu-2": {
+        ...
+        }
+    }
+    The 3 variables can be directly used in pdu_manager_factory
     """
     global g_inv_mgr, g_conn_graph_facts
-    results = {}
-    if hostname in g_conn_graph_facts['device_pdu_info']:
-        for pdu_idx, pdu_info in g_conn_graph_facts['device_pdu_info'][hostname].items():
-            pdu_name = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerdevice']
-            results[pdu_name] = {}
-            results[pdu_name]['ansible_host'] = pdu_info['ManagementIp']
-            results[pdu_name]['protocol'] = pdu_info['Protocol']
-            results[pdu_name]['pdu_port'] = g_conn_graph_facts['device_pdu_links'][hostname][pdu_idx]['peerport']
-            results[pdu_name].update(g_inv_mgr.get_host_vars(pdu_name))
-    return results
+    device_pdu_links = g_conn_graph_facts['device_pdu_links']
+    device_pdu_info = g_conn_graph_facts['device_pdu_info']
+    if hostname not in device_pdu_links or hostname not in device_pdu_info:
+        return (False, '{} does not exist in connection graph'.format(hostname))
+    pdu_links = device_pdu_links[hostname]
+    pdu_info = device_pdu_info[hostname]
+    pdu_vars = {}
+    for pdu_name in pdu_info.keys():
+        pdu_vars[pdu_name] = g_inv_mgr.get_host_vars(pdu_name)
+    return (True, (pdu_links, pdu_info, pdu_vars))
 
 
-def get_pdu_info_from_inventory(attrs):
+def get_pdu_info_from_inventory(hostname, attrs):
     """
-    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph
+    Read pdu info from inventory. This should be a fallback of get_pdu_info_from_conn_graph.
+    Returns a tuple of success, err msg or result
+    Result is a tuple of pdu_links, pdu_info and pdu_vars.
     """
     global g_inv_mgr, g_pdu_dict
-    pdus = {}
     pdu_host = attrs['pdu_host'] if 'pdu_host' in attrs else None
     if not pdu_host:
         return (False, 'DUT has no PDU configuration')
@@ -97,19 +120,38 @@ def get_pdu_info_from_inventory(attrs):
     if not hosts:
         return (False, 'PDU not found in inventory')
 
-    g_pdu_dict[pdu_host] = hosts
+    pdu_links = {}
+    pdu_info = {}
+    pdu_vars = {}
+    index = 1
     for ph in pdu_host.split(','):
         if ph in hosts:
-            pdu = hosts[ph]
-            pdus[ph] = pdu
-    return (True, pdus)
+            host_vars = hosts[ph]
+            pdu_links['PSU{}'.format(index)] = {
+                'N/A': {
+                    'peerdevice': ph,
+                    'peerport': 'probing',
+                    'feed': 'N/A',
+                }
+            }
+            pdu_info[ph] = {
+                'Hostname': ph,
+                'Protocol': host_vars['protocol'],
+                'ManagementIp': host_vars['ansible_host'],
+                'Type': 'Pdu',
+            }
+            pdu_vars[ph] = host_vars
+            index = index + 1
+    g_pdu_dict[pdu_host] = (pdu_links, pdu_info, pdu_vars)
+
+    return (True, g_pdu_dict[pdu_host])
 
 
 def get_pdu_info(dut_hostname, attrs):
-    results = get_pdu_info_from_conn_graph(dut_hostname)
-    if results:
-        return (True, results)
-    return get_pdu_info_from_inventory(attrs)
+    success, results = get_pdu_info_from_conn_graph(dut_hostname)
+    if success:
+        return (success, results)
+    return get_pdu_info_from_inventory(dut_hostname, attrs)
 
 
 def get_console_info_from_conn_graph(hostname):
@@ -241,16 +283,18 @@ def action_console(parameters):
 
 
 def pdu_action_on_dut(host, attrs, action):
-    ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
-    succeed, pdu_info = get_pdu_info(host, attrs)
+    ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
+    succeed, result = get_pdu_info(host, attrs)
     if not succeed:
-        ret['Summary'] = pdu_info
+        ret['Summary'] = result
         return ret
-    pduman = pdu_manager_factory(host, pdu_info, g_conn_graph_facts, pdu_info)
+
+    pdu_links, pdu_info, pdu_vars = result
+    pduman = pdu_manager_factory(host, pdu_links, pdu_info, pdu_vars)
 
     if not pduman:
         ret['Summary'].append(
-            'Failed to communicate with PDU controller {}'.format(pdu_info.keys()))
+            'Failed to communicate with PDU controller {}'.format(pdu_links.keys()))
         return ret
 
     if action == 'off':
@@ -262,8 +306,18 @@ def pdu_action_on_dut(host, attrs, action):
         return ret
 
     status = pduman.get_outlet_status()
+    psu_status = {}
     for outlet in status:
         ret['PDU status'].append(outlet)
+        psu_name = outlet['psu_name']
+        status = psu_status.get(psu_name, {
+                'power_on': False,
+                'output_watts': 0,
+        })
+        status['power_on'] = status['power_on'] or outlet['outlet_on']
+        status['output_watts'] = status['output_watts'] + int(outlet['output_watts'])
+        psu_status[psu_name] = status
+    ret['PSU status'] = psu_status
 
     return ret
 
@@ -271,7 +325,7 @@ def pdu_action_on_dut(host, attrs, action):
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
     data = []
-    header = ['Host', 'Action', 'PDU status', 'Summary']
+    header = ['Host', 'Action', 'PSU status', 'PDU status', 'Summary']
     for host, attrs in hosts.items():
         g_task_runner.submit_task(
             host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
