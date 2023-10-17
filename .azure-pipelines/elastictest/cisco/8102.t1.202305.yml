@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 9 * * 0,2,4"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -41,12 +49,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_ABOOT_202205)
+    default: $(IMAGE_CISCO_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal-202305
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -72,7 +80,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -88,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8102.t1.202205.NightlyTest_by_Elastictest
+    displayName: 8102.t1.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
