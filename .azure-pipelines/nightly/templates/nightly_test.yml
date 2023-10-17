@@ -1,4 +1,7 @@
 parameters:
+  - name: TEST_BRIEF
+    type: string
+
   - name: TESTBED_NAME
     type: string
 
@@ -12,6 +15,14 @@ parameters:
   - name: NIGHTLY_TEST_TIMEOUT
     type: number
     default: 1800    # minutes, totally 30 hours
+
+  - name: LOCK_POLLING_TIMEOUT
+    type: number
+    default: 7200    # seconds, totally 2 hours
+
+  - name: FORCE_LOCK
+    type: boolean
+    default: true
 
   - name: AGENT_POOL
     type: string
@@ -189,12 +200,12 @@ stages:
                 print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
           - script: |
-              TIMEOUT=7200
+              TIMEOUT=${{ parameters.LOCK_POLLING_TIMEOUT }}
               INTERVAL=60
 
               wait_time=0
               lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o $lock_time; do
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o $lock_time -f ${{ parameters.FORCE_LOCK }}; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1

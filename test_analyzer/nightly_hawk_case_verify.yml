@@ -1,0 +1,92 @@
+name: NightlyTest_${{parameters.TESTBED_NAME}}_${{parameters.TEST_BRIEF}}_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TEST_BRIEF
+    type: string
+    default: "Test-Brief"
+    displayName: "Test Brief"
+
+  - name: FORCE_LOCK
+    type: boolean
+    default: true
+
+  - name: TESTBED_NAME
+    type: string
+    default: None
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: None
+    displayName: "Image URL"
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: None
+    displayName: "py_saithrift URL"
+
+  # Testbed specific, to skip and/or include directories
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: None
+    displayName: Testbed specific
+
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 1800
+
+  # Lock testbed polling timeout
+  - name: LOCK_POLLING_TIMEOUT
+    type: number
+    default: 7200
+
+  - name: PREV_IMAGE_URL
+    type: string
+    default: None
+    displayName: "Previous Image URL"
+
+  - name: DOCKER_FOLDER_SIZE
+    type: string
+    default: 3000M
+    displayName: "docker folder size when docker_inram enabled"
+
+  - name: SKIP_TEST_RESULTS_UPLOADING
+    type: boolean
+    default: false
+    displayName: "Skip uploading test results to Kusto"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly2
+      - nightly-svc
+      - nightly-bjw
+
+
+stages:
+  - template: ../.azure-pipelines/nightly/templates/nightly_test.yml
+    parameters:
+      TEST_BRIEF: ${{ parameters.TEST_BRIEF }}
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
+      LOCK_POLLING_TIMEOUT: ${{ parameters.LOCK_POLLING_TIMEOUT }}
+      FORCE_LOCK: ${{ parameters.FORCE_LOCK }}
+      PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
+      DOCKER_FOLDER_SIZE: ${{ parameters.DOCKER_FOLDER_SIZE }}
+      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
