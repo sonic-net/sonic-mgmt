@@ -1,6 +1,7 @@
 parameters:
   - name: TEST_BRIEF
     type: string
+    default: ""
 
   - name: TESTBED_NAME
     type: string
