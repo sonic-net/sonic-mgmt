@@ -27,6 +27,14 @@ parameters:
   - warm,fast
   - warm,fast,cold
 
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: ceos
+  values:
+    - vsonic
+    - ceos
+
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -134,6 +142,11 @@ parameters:
   - $(IMAGE_MARVELL_PUBLIC)
   - custom
 
+- name: SONIC_IMAGE_URL
+  displayName: "SONiC image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
+
 - name: ITERATIONS
   type: string
   default: "1"
@@ -173,10 +186,12 @@ stages:
   parameters:
     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
     UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+    VM_TYPE: ${{ parameters.VM_TYPE }}
     FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
     FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
     TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
     TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+    SONIC_IMAGE_URL: ${{ parameters.SONIC_IMAGE_URL }}
     SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
     SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
     ITERATIONS : ${{ parameters.ITERATIONS }}

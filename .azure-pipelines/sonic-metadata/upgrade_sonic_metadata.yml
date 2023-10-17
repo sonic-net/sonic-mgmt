@@ -4,6 +4,10 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   default: warm
+- name: VM_TYPE
+  type: string
+  displayName: "VM yype of neighbor devices"
+  default: ceos
 - name: FROM_IMAGE_LIST
   type: string
 - name: FROM_IMAGE_URL
@@ -122,6 +126,10 @@ steps:
             echo To URL is $to_url
 
             EXTRA_PARAMS="--showlocals --assert plain -rav --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $metadata_process_option $tcam_hole_option"
+
+            if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
+                EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
+            fi
 
             ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
               -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \

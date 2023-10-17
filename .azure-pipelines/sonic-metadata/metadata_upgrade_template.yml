@@ -6,6 +6,13 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   displayName: "Type of upgrade"
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: ceos
+  values:
+    - vsonic
+    - ceos
 - name: METADATA_UPGRADE_PATH
   default: true
   type: boolean
@@ -30,6 +37,10 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
+- name: VSONIC_NEIGHBOR_IMAGE_URL
+  displayName: "SONiC neighbor image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
 - name: ITERATIONS
   type: string
   default: "1"
@@ -103,10 +114,26 @@ stages:
 
     - script: |
         python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48
+        echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       env:
           TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
           TBSHARE_AAD_CLIENT_SECRET: $(TBSHARE_AAD_CLIENT_SECRET)
       displayName: Lock Testbed
+
+    - task: Bash@3
+      displayName: remove-topo for ceos, and add-topo for vsonic
+      timeoutInMinutes: 30
+      inputs:
+        targetType: 'inline'
+        script: |
+          set -ex
+          cd ./sonic-mgmt-int/
+          cd ansible
+
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k ceos remove-topo ${{ parameters.TESTBED_NAME }} password.txt
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -e sonic_image_filename=sonic-vs-${{ parameters.TESTBED_NAME }}.img -e 'sonic_image_url=${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}'
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic add-topo ${{ parameters.TESTBED_NAME }} password.txt
+      condition: and(succeeded(), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
     - task: Bash@3
       displayName: Deploy Minigraph
@@ -133,6 +160,7 @@ stages:
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+        VM_TYPE: ${{ parameters.VM_TYPE }}
         FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
         FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
         TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
@@ -185,6 +213,21 @@ stages:
         testResultsFiles: '**/tests/logs/**/*.xml'
         testRunTitle: ${{ parameters.TESTBED_NAME}}.upgrade_path
       condition: always()
+
+    - task: Bash@3
+      displayName: remove-topo for vsonic, and add-topo for ceos
+      timeoutInMinutes: 30
+      inputs:
+        targetType: 'inline'
+        script: |
+          set -ex
+          cd ./sonic-mgmt-int/
+          cd ansible
+
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic remove-topo ${{ parameters.TESTBED_NAME }} password.txt
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic stop-topo-vms ${{ parameters.TESTBED_NAME }} password.txt
+          http_proxy='' https_proxy='' ./testbed-cli.sh -k ceos add-topo ${{ parameters.TESTBED_NAME }} password.txt
+      condition: and(eq(variables['TESTBED_LOCKED'], 'Yes'), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
     - script: |
         python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release
