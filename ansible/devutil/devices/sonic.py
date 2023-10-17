@@ -88,9 +88,9 @@ def patch_rsyslog(sonichosts):
     ]
 
     # Get sonic version, use version of the first host
-    sonic_build_version = sonichosts.shell(
+    sonic_build_version = list(sonichosts.shell(
         "sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version"
-    ).values()[0]["stdout"]
+    ).values())[0]["stdout"]
 
     # Patch rsyslog to stop sending syslog to production and use new template for remote syslog
     for conf_file in rsyslog_conf_files:
@@ -131,9 +131,9 @@ def patch_rsyslog(sonichosts):
     # Workaround for PR https://msazure.visualstudio.com/One/_git/Networking-acs-buildimage/pullrequest/6631568
     # This PR updated the rsyslog.conf to use a new method for sending out syslog. Need to configure the new method
     # to use RemoteSONiCFileFormat too.
-    remote_template = sonichosts.shell(
+    remote_template = list(sonichosts.shell(
         "echo `grep -c 'template=\".*SONiCFileFormat\"' /usr/share/sonic/templates/rsyslog.conf.j2`"
-    ).values()[0]["stdout"]
+    ).values())[0]["stdout"]
     if remote_template == "0":
         for conf_file in rsyslog_conf_files:
             sonichosts.lineinfile(

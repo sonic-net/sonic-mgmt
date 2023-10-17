@@ -199,16 +199,18 @@ class AnsibleHostsBase(object):
             hostvars (dict, optional): Additional ansible variables for ansible hosts. Similar as using `-e` argument
                 of ansible-playbook command line to specify additional host variables. Defaults to {}.
         """
-        # Check existence of inventories
-        if isinstance(inventories, list):
-            for inventory in inventories:
-                if not os.path.exists(inventory):
-                    raise FileNotFoundError("Inventory file {} not found.".format(inventory))
-        else:
-            if not os.path.exists(inventories):
-                raise FileNotFoundError("Inventory file {} not found.".format(inventories))
-
         self.inventories = inventories
+
+        # Check existence of inventories only when host_pattern is not "localhost"
+        if host_pattern != "localhost":
+            if isinstance(self.inventories, list):
+                for inventory in self.inventories:
+                    if not os.path.exists(inventory):
+                        raise FileNotFoundError("Inventory file {} not found.".format(inventory))
+            else:
+                if not os.path.exists(self.inventories):
+                    raise FileNotFoundError("Inventory file {} not found.".format(self.inventories))
+
         self.host_pattern = host_pattern
         if loader:
             self.loader = loader
@@ -216,10 +218,10 @@ class AnsibleHostsBase(object):
             self.loader = DataLoader()
 
         if inventory_manager:
-            if isinstance(inventories, list):
-                sources = inventories
+            if isinstance(self.inventories, list):
+                sources = self.inventories
             else:
-                sources = [inventories]
+                sources = [self.inventories]
             if set(sources) != set(inventory_manager._sources):
                 inventory_manager._sources = sources
                 inventory_manager.parse_sources()

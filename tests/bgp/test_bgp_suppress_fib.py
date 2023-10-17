@@ -57,8 +57,8 @@ IP_ROUTE_LIST = [
 
 # ipv6 route injection from T0
 IPV6_ROUTE_LIST = [
-    '1000:1001::1/128',
-    '1000:1001::2/128'
+    '1000:1001::/64',
+    '1000:1002::/64'
 ]
 
 TRAFFIC_DATA_FORWARD = [
@@ -66,7 +66,7 @@ TRAFFIC_DATA_FORWARD = [
     ("91.0.1.1", FORWARD),
     ("91.0.2.1", FORWARD),
     ("1000:1001::1", FORWARD),
-    ("1000:1001::2", FORWARD)
+    ("1000:1002::1", FORWARD)
 ]
 
 TRAFFIC_DATA_DROP = [
@@ -74,8 +74,28 @@ TRAFFIC_DATA_DROP = [
     ("91.0.1.1", DROP),
     ("91.0.2.1", DROP),
     ("1000:1001::1", DROP),
-    ("1000:1001::2", DROP),
+    ("1000:1002::1", DROP),
 ]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected error during TC execution
+
+       Args:
+            duthosts: list of DUTs.
+            rand_one_dut_hostname: Hostname of a random chosen dut
+            loganalyzer: Loganalyzer utility fixture
+    """
+    # When loganalyzer is disabled, the object could be None
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR swss#supervisor-proc-exit-listener:.*Process \'orchagent\' is stuck in namespace \'host\' "
+            "\\(.* minutes\\).*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
 
 @pytest.fixture(scope="function")
