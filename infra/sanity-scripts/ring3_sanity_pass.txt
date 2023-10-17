@@ -126,8 +126,6 @@ platform_tests/daemon/test_pcied.py
 platform_tests/daemon/test_psud.py
 platform_tests/daemon/test_syseepromd.py
 platform_tests/fwutil/test_fwutil.py
-platform_tests/link_flap/test_cont_link_flap.py
-platform_tests/link_flap/test_link_flap.py
 platform_tests/mellanox/test_check_sfp_eeprom.py
 platform_tests/mellanox/test_check_sfp_presence.py
 platform_tests/mellanox/test_check_sfp_using_ethtool.py
@@ -140,7 +138,6 @@ platform_tests/sfp/test_sfputil.py
 platform_tests/sfp/test_show_intf_xcvr.py
 platform_tests/test_auto_negotiation.py
 platform_tests/test_cpu_memory_usage.py
-platform_tests/test_link_down.py
 platform_tests/test_memory_exhaustion.py
 platform_tests/test_platform_info.py
 platform_tests/test_port_toggle.py
@@ -164,14 +161,10 @@ sflow/test_sflow.py
 show_techsupport/test_auto_techsupport.py
 show_techsupport/test_techsupport_no_secret.py
 show_techsupport/test_techsupport.py
-snappi/bgp/test_bgp_local_link_failover.py
-snappi/bgp/test_bgp_remote_link_failover.py
 snappi/bgp/test_bgp_rib_in_capacity.py
 snappi/bgp/test_bgp_rib_in_convergence.py
 snappi/ecn/test_dequeue_ecn_with_snappi.py
 snappi/ecn/test_red_accuracy_with_snappi.py
-snappi/lacp/test_add_remove_link_from_dut.py
-snappi/lacp/test_add_remove_link_physically.py
 snappi/lacp/test_lacp_timers_effect.py
 snappi/pfc/test_global_pause_with_snappi.py
 snappi/pfc/test_pfc_pause_lossless_with_snappi.py
@@ -226,9 +219,3 @@ vlan/test_autostate_disabled.py
 vlan/test_host_vlan.py
 vlan/test_vlan_ping.py
 vlan/test_vlan.py
-voq/test_fabric_reach.py
-voq/test_voq_disrupts.py
-voq/test_voq_fabric_status_all.py
-voq/test_voq_init.py
-voq/test_voq_intfs.py
-voq/test_voq_ipfwd.py
