@@ -13,6 +13,10 @@ parameters:
     default: "Test-Brief"
     displayName: "Test Brief"
 
+  - name: FORCE_LOCK
+    type: boolean
+    default: true
+
   - name: TESTBED_NAME
     type: string
     default: None
@@ -81,6 +85,7 @@ stages:
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
       LOCK_POLLING_TIMEOUT: ${{ parameters.LOCK_POLLING_TIMEOUT }}
+      FORCE_LOCK: ${{ parameters.FORCE_LOCK }}
       PREV_IMAGE_URL: ${{ parameters.PREV_IMAGE_URL }}
       DOCKER_FOLDER_SIZE: ${{ parameters.DOCKER_FOLDER_SIZE }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

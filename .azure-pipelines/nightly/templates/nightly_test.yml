@@ -20,6 +20,10 @@ parameters:
     type: number
     default: 7200    # seconds, totally 2 hours
 
+  - name: FORCE_LOCK
+    type: boolean
+    default: true
+
   - name: AGENT_POOL
     type: string
     default: nightly
@@ -201,7 +205,7 @@ stages:
 
               wait_time=0
               lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
-              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o $lock_time; do
+              until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -o $lock_time -f ${{ parameters.FORCE_LOCK }}; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
