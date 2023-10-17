@@ -6,7 +6,8 @@ import apis.system.logging as logapi
 import apis.routing.ip as ipapi
 from tests.macsec.macsec_helper import get_asic_from_port, enable_macsec_feature, apply_profile, check_syslog, \
                                           run_traffic, config_portchannel, deconfig_portchannel, \
-                                          is_container_running, restart_container, variables
+                                          is_container_running, restart_container, variables, \
+                                          process_status,crash_process
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -227,6 +228,50 @@ def deconfig_routes(dut1, dut2, d1_link, d2_link, subnet, is_lag = False):
     st.config(dut1, "sudo config interface -n asic{} ip remove {} 10.10.{}.1/24".format(d1_asic, d1_link, subnet))
     st.config(dut2, "sudo config interface -n asic{} ip remove {} 10.10.{}.2/24".format(d2_asic, d2_link, subnet)) 
 
+def generic_process_crash(container_name, prs_name, request, encryption="aes_128"):
+    #Enable macsec on the duts
+    for dut in duts:
+        logapi.clear_logging(dut)
+        result = enable_macsec_feature(dut)
+        if result is False:
+            cleanup(request)
+            st.report_fail("test_case_failed")
+
+    dut1_port = vars.D1D2P1
+    dut2_port = vars.D2D1P1
+    asic1 = get_asic_from_port(dut1_port)
+    ports = {vars.D1:[dut1_port], vars.D2:[dut2_port]}
+
+    #Apply macsec profile on the interface
+    apply_profile(duts, ports, encryption, "security")
+    #st.config(dut, "config save -y")
+
+    #Wait for session to start
+    st.wait(20)
+
+    #Validate macsec session
+    for dut in duts:
+        for port in ports[dut]:
+            session_validation(dut, port, MACSEC_PROFILE[encryption], request)
+    if process_status(vars.D1, container_name, asic1, prs_name):
+        crash_process(vars.D1, container_name, asic1, prs_name)
+        if process_status(vars.D1, container_name, asic1, prs_name):
+            #Validate macsec session
+            for dut in duts:
+                for port in ports[dut]:
+                    session_validation(dut, port, MACSEC_PROFILE[encryption], request)
+            subnet = re.search("\d+", str(ports[vars.D1])).group(0)
+            config_routes(vars.D1, vars.D2, ports[vars.D1][0], ports[vars.D2][0], subnet)
+            if run_traffic(request):
+                cleanup(request)
+                st.report_pass("test_case_passed")
+            else:
+                cleanup(request)
+                st.error("Failed to send traffic across the LCs")
+                st.report_fail("test_case_failed")
+        else:
+            st.error("Test case failed because container {} is not running after process process crash".format(container_name))
+            st.report_fail("test_case_failed"
 
 def generic_container_restart(container_name, request, encryption = "aes_128"):
     #Enable macsec on the duts
@@ -327,6 +372,25 @@ class TestMacSec():
         request.config.encrypt = encryption
         generic_container_restart("macsec", request, encryption)
 
+    def test_macsec_process_crash(self, request):
+        encryption = "aes_128"
+        request.config.encrypt = encryption
+        generic_process_crash("macsec", "macsecmgrd", request, encryption)
+
+    def test_syncd_process_crash(self, request):
+        encryption = "aes_128"
+        request.config.encrypt = encryption
+        generic_process_crash("syncd", "syncd", request, encryption)
+
+    def test_gbsyncd_process_crash(self, request):
+        encryption = "aes_128"
+        request.config.encrypt = encryption
+        generic_process_crash("gbsyncd", "syncd", request, encryption)
+
+    def test_swss_process_crash(self, request):
+        encryption = "aes_128"
+        request.config.encrypt = encryption
+        generic_process_crash("swss", "orchagent", request, encryption)
 
 @pytest.mark.usefixtures('pc_class_hook')
 class TestPcMacsec():                                                        
