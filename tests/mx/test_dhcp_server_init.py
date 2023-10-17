@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def do_check(duthost, intf_count, check_type, localhost, ptfhost, config, ptf_index_port):
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_dhcp_server_init")
+    start_marker = "INFO systemd[1]: Started dhcp_relay container."
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_dhcp_server_init", start_marker=start_marker)
     # If dhcp_server init is done, below log would show in syslog.
     loganalyzer.expect_regex = [r".*DnsmasqStaticHostMonitor init success.*"]
     duthost.shell("docker exec -i dhcp_relay cat /dev/null > /etc/dnsmasq.hosts", module_ignore_errors=True)
