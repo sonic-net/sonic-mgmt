@@ -13,7 +13,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0', 't1')
 ]
 
 
@@ -24,6 +24,9 @@ def test_sim_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logging.info("Run cold reboot on DUT")
+    #It takes ~80-90s for switch init to complete in SIM, if this time increases in
+    #future, we need to increase the timeout here as well.
+    #And giving another 30s for service startups and  ports to come up after init.
     reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, wait=90)
     pytest_assert(wait_until(30, 5, 0, check_interface_status_of_up_ports, duthost),
                           "Not all ports that are admin up on are operationally up")
