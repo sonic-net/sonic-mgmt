@@ -37,6 +37,7 @@ __all__ = [
     'toggle_all_simulator_ports',
     'check_mux_status',
     'validate_check_result',
+    'simulator_flap_counter',
     ]
 
 logger = logging.getLogger(__name__)

@@ -66,7 +66,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -75,8 +75,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'churchill-mono'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -485,7 +485,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=ssh.open_sftp()
-    ftp_client.put('run_scripts.py','sonic-test/sonic-mgmt/tests/run_scripts.py')
+    ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
     ftp_client.put(base_topo_file,'golden-code/sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
     ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
@@ -493,14 +493,18 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client.put('veos.yml','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/tasks/veos.yml')
     if device_type == 'mth32':
         ftp_client.put('lab_connection_graph_mth32.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('sonic_lab_links_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_links_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_mth32.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'crocodile':
         ftp_client.put('lab_connection_graph_crocodile.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('sonic_lab_links_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv ')
+        ftp_client.put('sonic_lab_links_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_crocodile.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+    elif device_type == 'churchill-mono':
+        ftp_client.put('lab_connection_graph_churchill_mono.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+        ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
+        ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
@@ -512,6 +516,14 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('t1-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-spine.j2')
         ftp_client.put('t1-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-tor.j2')
         ftp_client.put('topo_t1.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1.yml')
+    elif topo_type == 't1-28-lag':
+        ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-spine.j2')
+        ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-tor.j2')
+        ftp_client.put('topo_t1-28-lag.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-28-lag.yml')    
+    elif topo_type == 't1-lag-dash-4':
+        ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-spine.j2')
+        ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-tor.j2')
+        ftp_client.put('topo_t1-lag-dash-4.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-lag-dash-4.yml')    
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -674,13 +686,15 @@ def overwrite_lab_file(vxr_ports):
 
 def get_dut_platform(device_type):
     if device_type == 'sherman':
-         return "sherman"
+        return "sherman"
     elif device_type == 'sfd':
-         return 'sfd'
+        return 'sfd'
     elif device_type == 'crocodile':
-         return 'crocodile'
+        return 'crocodile'
+    elif device_type == 'churchill-mono':
+        return 'churchill-mono'
     else:
-         return "mathilda"
+        return "mathilda"
 
 def determine_base_topo(topo_type, device_type):
     ptf_intfcount = 32
@@ -701,11 +715,15 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-sherman-t0.yaml'
         elif device_type == 'crocodile':
             base_topo_file = 'testbed-crocodile-t0.yaml'
+        elif device_type == 'churchill-mono':
+            base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1.yaml'
+        elif device_type == 'churchill-mono':
+            base_topo_file = 'testbed-churchill-mono-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
@@ -727,6 +745,16 @@ def determine_base_topo(topo_type, device_type):
         os.system("cp sonic_t1_topo/* .")
         vEOS_count = 24
         ptf_intfcount = 64
+    elif topo_type == 't1-28-lag':
+        base_topo_file = 'testbed-mth32-t1-28-lag.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 21
+        ptf_intfcount = 32
+    elif topo_type == 't1-lag-dash-4':
+        base_topo_file = 'testbed-mth32-t1-lag-dash-4.yaml'
+        os.system("cp sonic_t1_topo/* .")
+        vEOS_count = 21
+        ptf_intfcount = 32
     elif topo_type == 't1-8-lag':
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t1-8-lag.yaml'
@@ -741,6 +769,9 @@ def determine_base_topo(topo_type, device_type):
         ptf_intfcount = 64
         if device_type == 'sherman':
             base_topo_file = 'testbed-sherman-t0.yaml'
+        elif device_type == 'churchill-mono':
+            ptf_intfcount = 32
+            base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
             base_topo_file = 'testbed-mth64-t0-64.yaml'
     
@@ -748,6 +779,7 @@ def determine_base_topo(topo_type, device_type):
 
 def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+
     if input_file:
         return vxr_path, input_file
     
@@ -787,8 +819,8 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Change DUT password and set mgmt ip address
     for dut_name in get_dut_names(data):
-            print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
-            change_dut_passwd(data[dut_name])
+        print("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+        change_dut_passwd(data[dut_name])
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
@@ -823,7 +855,10 @@ def print_env_info(data, device_type, vEOS_count):
         print("./run_tests.sh -n docker-ptf -d sherman-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     elif device_type == 'crocodile':
         print("Device name is crocodile. To execute a pytest script:\n")
-        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
+        print("./run_tests.sh -n docker-ptf -d crocodile-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'churchill-mono':
+        print("Device name is churchill-mono. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")

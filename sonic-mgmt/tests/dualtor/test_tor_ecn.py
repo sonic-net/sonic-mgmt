@@ -264,6 +264,11 @@ def verify_ecn_on_received_packet(
         logging.info("the expected ECN: {0:02b} matching with received ECN: {1:02b}".format(exp_ecn, rec_ecn))
 
 
+def skip_inner_dscp_2_6_on_nvidia(duthost, inner_dscp):
+    if inner_dscp in [2, 6] and 'mellanox' in duthost.facts['asic_type']:
+        pytest.skip("Skip the test for inner dscp 2 or 6 on Nvidia platforms.")
+
+
 @pytest.mark.parametrize("inner_dscp", [3, 4, 2, 6])        # lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_decap_on_active(
     inner_dscp, ptfhost, setup_dualtor_tor_active,
@@ -274,6 +279,8 @@ def test_dscp_to_queue_during_decap_on_active(
     """
     Test if DSCP to Q mapping for inner header is matching with outer header during decap on active
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, inner_dscp)
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface,
                                                        ptfadapter, rand_selected_dut)
@@ -342,6 +349,8 @@ def test_dscp_to_queue_during_encap_on_standby(
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, dscp)
     write_standby()
 
     tor = rand_selected_dut
@@ -369,6 +378,8 @@ def test_ecn_during_decap_on_active(
     """
     Test if the ECN stamping on inner header is matching with outer during decap on active
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, inner_dscp)
     tor = rand_selected_dut
     encapsulated_packet = build_encapsulated_ip_packet(inner_dscp, rand_selected_interface,
                                                        ptfadapter, rand_selected_dut)
@@ -402,6 +413,8 @@ def test_ecn_during_encap_on_standby(
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby
     """
+    if is_tunnel_qos_remap_enabled(rand_selected_dut):
+        skip_inner_dscp_2_6_on_nvidia(rand_selected_dut, dscp)
     write_standby()
 
     tor = rand_selected_dut

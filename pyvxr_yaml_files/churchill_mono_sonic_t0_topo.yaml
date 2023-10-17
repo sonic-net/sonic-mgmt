@@ -1,0 +1,85 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    pending_timeout: 60
+    hours: 15
+    partition: sonic_regression
+
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v2.qcow2
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:~#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '4G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..32]
+      - backplane
+
+  sonic_dut:
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
+    linecard_types: [8101-32FH]
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 32
+    memory: '64G'
+
+device_groups:
+  veos:
+    devices:
+    - "veos[1..4]"
+    platform: veos
+    xr_port_redir: [22]
+    image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
+    disks:
+    - hda:
+        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+        type: reference
+
+connections:
+  hubs:
+    hub0:
+      - docker_ptf.eth[0..27]
+      - sonic_dut.Ethernet[0..27]
+  custom:
+    ptf_injected29:
+      ports:
+      - docker_ptf.eth28
+      - sonic_dut.Ethernet28
+      - veos1.Ethernet1
+    ptf_injected30:
+      ports:
+      - docker_ptf.eth29
+      - sonic_dut.Ethernet29
+      - veos2.Ethernet1
+    ptf_injected31:
+      ports:
+      - docker_ptf.eth30
+      - sonic_dut.Ethernet30
+      - veos3.Ethernet1
+    ptf_injected32:
+      ports:
+      - docker_ptf.eth31
+      - sonic_dut.Ethernet31
+      - veos4.Ethernet1
+    backplane:
+      ports:
+      - veos[1..4].Ethernet9
+      - docker_ptf.backplane  

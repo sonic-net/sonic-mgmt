@@ -389,6 +389,8 @@ def to_unicode(arg):
 def is_basestring(arg):
     return bool(isinstance(arg, basestring))
 
+def do_eval(arg):
+    return eval(arg)
 
 def ipcheck(addr, max_attempts=1, logf=None, addr_type="", sleep=0):
     for attempt in range(1, max_attempts + 1):

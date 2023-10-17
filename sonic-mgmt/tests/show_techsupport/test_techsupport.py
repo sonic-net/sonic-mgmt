@@ -318,12 +318,14 @@ def validate_dump_file_content(duthost, dump_folder_path):
     :param dump_folder_path: path to folder which has extracted dump file content
     :return: AssertionError in case of failure, else None
     """
-    sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
     dump = duthost.command("ls {}/dump/".format(dump_folder_path))["stdout_lines"]
     etc = duthost.command("ls {}/etc/".format(dump_folder_path))["stdout_lines"]
     log = duthost.command("ls {}/log/".format(dump_folder_path))["stdout_lines"]
 
-    assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+    # Check sai_sdk_dump only for mellanox platform
+    if duthost.facts['asic_type'] in ["mellanox"]:
+        sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
+        assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \

@@ -82,7 +82,7 @@ class PFCPacket():
             if val not in valid_options:
                 return False
 
-        return False
+        return True
 
     def _check_class_pause_times(self):
         """

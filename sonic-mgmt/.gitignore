@@ -16,3 +16,4 @@ tests/metadata
 .vscode/
 .idea/
 
+.python-version

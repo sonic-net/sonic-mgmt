@@ -92,9 +92,14 @@ class DualTorIO:
 
         self.ptf_intf_to_soc_ip_map = self._generate_soc_ip_map()
 
+        self.ptf_intf_to_mac_map = {}
+        for ptf_intf in list(self.ptf_intf_to_server_ip_map.keys()):
+            self.ptf_intf_to_mac_map[ptf_intf] = self.ptfadapter.dataplane.get_mac(0, ptf_intf)
+
         logger.info("VLAN interfaces: {}".format(str(self.vlan_interfaces)))
         logger.info("PORTCHANNEL interfaces: {}".format(str(self.tor_pc_intfs)))
         logger.info("Selected testing interfaces: %s", self.test_interfaces)
+        logger.info("Selected ToR vlan interfaces: %s", self.tor_vlan_intf)
 
         self.time_to_listen = 300.0
         self.sniff_time_incr = 0
@@ -211,14 +216,7 @@ class DualTorIO:
         self.ptfhost.shell("supervisorctl restart arp_responder")
         logger.info("arp_responder restarted")
 
-    def start_io_test(self, traffic_direction=None):
-        """
-        @summary: The entry point to start the TOR dataplane I/O test.
-        Args:
-            traffic_direction (str): A string to decide the
-                traffic direction (T1 to server / server to T1 / T1 to soc / soc to T1)
-                Allowed values: server_to_t1, t1_to_server, soc_to_t1, t1_to_soc
-        """
+    def generate_traffic(self, traffic_direction=None):
         # Check in a conditional for better readability
         self.traffic_direction = traffic_direction
         if traffic_direction == "server_to_t1":
@@ -229,10 +227,16 @@ class DualTorIO:
             self.generate_upstream_traffic(src="soc")
         elif traffic_direction == "t1_to_soc":
             self.generate_downstream_traffic(dst="soc")
+        elif traffic_direction == "server_to_server":
+            self.generate_server_to_server_traffic()
         else:
             logger.error("Traffic direction not provided or invalid")
             return
 
+    def start_io_test(self):
+        """
+        @summary: The entry point to start the TOR dataplane I/O test.
+        """
         self.send_and_sniff()
 
     def generate_downstream_traffic(self, dst='server'):
@@ -332,10 +336,6 @@ class DualTorIO:
             vlan_src_intfs = self.test_interfaces
 
         ptf_intf_to_ip_map = self.ptf_intf_to_server_ip_map if src == 'server' else self.ptf_intf_to_soc_ip_map
-        ptf_intf_to_mac_map = {}
-
-        for ptf_intf in list(ptf_intf_to_ip_map.keys()):
-            ptf_intf_to_mac_map[ptf_intf] = self.ptfadapter.dataplane.get_mac(0, ptf_intf)
 
         logger.info("-"*20 + "{} to T1 packet".format(src) + "-"*20)
         if self.tor_vlan_intf is None:
@@ -343,7 +343,7 @@ class DualTorIO:
             src_ip = 'random'
         else:
             ptf_port = self.tor_to_ptf_intf_map[self.tor_vlan_intf]
-            src_mac = ptf_intf_to_mac_map[ptf_port]
+            src_mac = self.ptf_intf_to_mac_map[ptf_port]
             src_ip = ptf_intf_to_ip_map[ptf_port]
         logger.info(
             "Ethernet address: dst: {} src: {}".format(
@@ -381,7 +381,7 @@ class DualTorIO:
             for vlan_intf in vlan_src_intfs:
                 ptf_src_intf = self.tor_to_ptf_intf_map[vlan_intf]
                 server_ip = ptf_intf_to_ip_map[ptf_src_intf]
-                eth_src = ptf_intf_to_mac_map[ptf_src_intf]
+                eth_src = self.ptf_intf_to_mac_map[ptf_src_intf]
                 payload = str(i) + payload_suffix
                 packet = tcp_tx_packet_orig.copy()
                 packet[scapyall.Ether].src = eth_src
@@ -394,6 +394,51 @@ class DualTorIO:
                 self.packets_list.append((ptf_src_intf, convert_scapy_packet_to_bytes(packet)))
         self.sent_pkt_dst_mac = self.vlan_mac
         self.received_pkt_src_mac = [self.active_mac, self.standby_mac]
+
+    def generate_server_to_server_traffic(self):
+        """
+        @summary: Generate (not send) the packets to be sent from server to server
+        """
+        logger.info("Generate server to server packets")
+        if not self.tor_vlan_intf or len(self.tor_vlan_intf) != 2:
+            raise ValueError("No vlan interfaces specified.")
+
+        vlan_src_intf, vlan_dst_intf = self.tor_vlan_intf
+        ptf_intf_to_ip_map = self.ptf_intf_to_server_ip_map
+
+        logger.info("-"*20 + "server to server packet" + "-"*20)
+        src_ptf_port = self.tor_to_ptf_intf_map[vlan_src_intf]
+        src_mac = self.ptf_intf_to_mac_map[src_ptf_port]
+        src_ip = ptf_intf_to_ip_map[src_ptf_port]
+        dst_ptf_port = self.tor_to_ptf_intf_map[vlan_dst_intf]
+        dst_ip = ptf_intf_to_ip_map[dst_ptf_port]
+        logger.info("Ethernet address: dst: {} src: {}".format(self.vlan_mac, src_mac))
+        logger.info("IP address: dst: {} src: {}".format(dst_ip, src_ip))
+        logger.info("TCP port: dst: {} src: 1234".format(TCP_DST_PORT))
+        logger.info("DUT ToR MAC: {}, PEER ToR MAC: {}".format(self.active_mac, self.standby_mac))
+        logger.info("VLAN MAC: {}".format(self.vlan_mac))
+        logger.info("-"*50)
+
+        self.packets_list = []
+        tcp_tx_packet_orig = testutils.simple_tcp_packet(
+            eth_dst=self.vlan_mac,
+            tcp_dport=TCP_DST_PORT
+        )
+        tcp_tx_packet_orig = scapyall.Ether(convert_scapy_packet_to_bytes(tcp_tx_packet_orig))
+        payload_suffix = "X" * 60
+        for i in range(self.packets_per_server):
+            payload = str(i) + payload_suffix
+            packet = tcp_tx_packet_orig.copy()
+            packet[scapyall.Ether].src = src_mac
+            packet[scapyall.IP].src = src_ip
+            packet[scapyall.IP].dst = dst_ip
+            packet.load = payload
+            packet[scapyall.TCP].chksum = None
+            packet[scapyall.IP].chksum = None
+            self.packets_list.append((src_ptf_port, convert_scapy_packet_to_bytes(packet)))
+
+        self.sent_pkt_dst_mac = self.vlan_mac
+        self.received_pkt_src_mac = [self.vlan_mac]
 
     def random_host_ip(self):
         """
@@ -540,6 +585,8 @@ class DualTorIO:
         elif self.traffic_direction == "t1_to_soc":
             server_addr = packet[scapyall.IP].dst
         elif self.traffic_direction == "soc_to_t1":
+            server_addr = packet[scapyall.IP].src
+        elif self.traffic_direction == "server_to_server":
             server_addr = packet[scapyall.IP].src
         return server_addr
 

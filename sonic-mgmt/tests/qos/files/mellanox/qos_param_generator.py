@@ -1,4 +1,8 @@
 import math
+import yaml
+import os
+
+MELLANOX_QOS_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "special_qos_config.yml")
 
 
 class QosParamMellanox(object):
@@ -65,6 +69,7 @@ class QosParamMellanox(object):
         """
         self.collect_qos_configurations()
         self.calculate_parameters()
+        self.update_special_qos_config()
         return self.qos_params_mlnx
 
     def collect_qos_configurations(self):
@@ -81,6 +86,10 @@ class QosParamMellanox(object):
             headroom = xon + xoff
             ingress_lossless_size = int(
                 math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
+            if self.asic_type == "spc4":
+                pg_q_alpha = self.ingressLosslessProfile['pg_q_alpha']
+                port_alpha = self.ingressLosslessProfile['port_alpha']
+                pool_size = int(math.ceil(float(self.ingressLosslessProfile['pool_size']) / self.cell_size))
         else:
             headroom = size
             ingress_lossless_size = int(
@@ -88,6 +97,8 @@ class QosParamMellanox(object):
         hysteresis = headroom - (xon + xoff)
 
         egress_lossy_size = int(math.ceil(float(self.egressLossyProfile['static_th']) / self.cell_size))
+
+        ingess_lossy_size = int(math.ceil(float(self.ingressLossyProfile['static_th']) / self.cell_size))
 
         pkts_num_trig_pfc = ingress_lossless_size + xon + hysteresis
         pkts_num_trig_ingr_drp = ingress_lossless_size + headroom
@@ -98,7 +109,8 @@ class QosParamMellanox(object):
         else:
             pkts_num_trig_ingr_drp -= self.headroom_overhead
         pkts_num_dismiss_pfc = ingress_lossless_size + 1
-        pkts_num_trig_egr_drp = egress_lossy_size + 1
+        pkts_num_trig_egr_drp = egress_lossy_size + 1 if egress_lossy_size <= ingess_lossy_size \
+            else ingess_lossy_size + 1
 
         if self.sharedHeadroomPoolSize:
             src_testPortIds = self.dutConfig['testPortIds'][self.src_dut_index][self.src_asic_index]
@@ -109,11 +121,25 @@ class QosParamMellanox(object):
             occupancy_per_port = ingress_lossless_size
             self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
-            for i in range(1, ingress_ports_num_shp):
-                for j in range(pgs_per_port):
-                    pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
-                    occupancy_per_port /= 2
-                ingress_ports_list_shp.append(src_testPortIds[i])
+            occupied_buffer = 0
+            if self.asic_type == "spc4":
+                for i in range(1, ingress_ports_num_shp):
+                    for j in range(pgs_per_port):
+                        pg_occupancy = int(math.ceil(
+                            (pg_q_alpha*port_alpha*(pool_size - occupied_buffer) - pg_q_alpha*occupied_buffer)/(
+                                    1 + pg_q_alpha*port_alpha + pg_q_alpha)))
+                        pkts_num_trig_pfc_shp.append(pg_occupancy + xon + hysteresis)
+                        occupied_buffer += pg_occupancy
+                    # For a new port it should be treated as a smaller pool with the occupancy being 0
+                    pool_size -= occupied_buffer
+                    occupied_buffer = 0
+                    ingress_ports_list_shp.append(src_testPortIds[i])
+            else:
+                for i in range(1, ingress_ports_num_shp):
+                    for j in range(pgs_per_port):
+                        pkts_num_trig_pfc_shp.append(occupancy_per_port + xon + hysteresis)
+                        occupancy_per_port //= 2
+                    ingress_ports_list_shp.append(src_testPortIds[i])
             self.qos_parameters['pkts_num_trig_pfc_shp'] = pkts_num_trig_pfc_shp
             self.qos_parameters['src_port_ids'] = ingress_ports_list_shp
             self.qos_parameters['pkts_num_hdrm_full'] = xoff - 2
@@ -176,6 +202,7 @@ class QosParamMellanox(object):
         xon['pkts_num_hysteresis'] = pkts_num_hysteresis + 16
         xon['pkts_num_margin'] = 3
         xon['cell_size'] = self.cell_size
+
         self.qos_params_mlnx['xon_1'].update(xon)
         self.qos_params_mlnx['xon_2'].update(xon)
         self.qos_params_mlnx['xon_3'].update(xon)
@@ -201,15 +228,11 @@ class QosParamMellanox(object):
         lossy_queue = self.qos_params_mlnx['lossy_queue_1']
         lossy_queue['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp - 1
         lossy_queue['cell_size'] = self.cell_size
-        if self.asic_type == "spc4":
-            lossy_queue['packet_size'] = 600
 
         wm_shared_lossy = {}
         wm_shared_lossy['pkts_num_trig_egr_drp'] = pkts_num_trig_egr_drp
         wm_shared_lossy['cell_size'] = self.cell_size
-        wm_shared_lossy["pkts_num_margin"] = 3
-        if self.asic_type == "spc4":
-            wm_shared_lossy["packet_size"] = 600
+        wm_shared_lossy["pkts_num_margin"] = 4
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
@@ -228,3 +251,33 @@ class QosParamMellanox(object):
 
         self.qos_params_mlnx['shared-headroom-pool'] = self.sharedHeadroomPoolSize
         self.qos_params_mlnx['pkts_num_private_headrooom'] = self.asic_param_dic[self.asic_type]['private_headroom']
+
+    def update_special_qos_config(self):
+        """
+        Update qos parameters based on the file of special_qos_config.yml
+        The format of qos_special_config.yml is same to qos.yml,
+        and it just list the parameter with different value for the specified asic_type
+        """
+        with open(MELLANOX_QOS_CONFIG_FILE) as file:
+            special_qos_config_data = yaml.load(file, Loader=yaml.FullLoader)
+
+        def update_dict_value(speical_qos_config_dict, qos_params_dict):
+            if speical_qos_config_dict:
+                for key, value in speical_qos_config_dict.items():
+                    if isinstance(value, dict):
+                        update_dict_value(value, qos_params_dict[key])
+                    else:
+                        qos_params_dict[key] = value
+
+        special_qos_config = special_qos_config_data.get("qos_params").get(self.asic_type, {})
+        if special_qos_config:
+            for qos_config_key, qos_config_value in special_qos_config.items():
+                qos_params_dict = self.qos_params_mlnx[self.speed_cable_len] if qos_config_key == 'profile' \
+                    else self.qos_params_mlnx[qos_config_key]
+
+                for sub_qos_config_key, sub_qos_config_value in qos_config_value.items():
+                    if isinstance(sub_qos_config_value, dict):
+                        if sub_qos_config_key in qos_params_dict:
+                            update_dict_value(sub_qos_config_value, qos_params_dict[sub_qos_config_key])
+                    else:
+                        qos_params_dict[sub_qos_config_key] = sub_qos_config_value

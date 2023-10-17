@@ -1822,7 +1822,7 @@ class TGIxia(TGBase):
         if self.ix_port == "443":
             # ixnetwork linux VM
             params.user_name = "admin"
-            params.user_password = "admin"
+            params.user_password = "Ixia123!Ixia123!"
             if self.tg_virtual:
                 params.ixnetwork_license_servers = "10.59.135.10"
                 params.ixnetwork_license_type = "subscription_tier1"
@@ -1853,7 +1853,7 @@ class TGIxia(TGBase):
             for port in self.tg_port_list:
                 # ixia output is different for key 'port_handle': {'10': {'59': {'130': {'4': {'1/5': '1/1/5'}}}}}
                 key1, key2, key3, key4 = self.tg_ip.split('.')
-                self.tg_port_handle[port] = ret_ds['port_handle'][key1][key2][key3][key4][port]
+                self.tg_port_handle[port] = ret_ds['port_handle'][key1][key2][key3][key4][str(port)]
                 if self.tg_port_handle[port] is None:
                     logger.info('Port Handle Info: {}'.format(self.tg_port_handle))
                     logger.info("Port handle for port {} is None...retrying connect again".format(port))
@@ -2785,7 +2785,7 @@ class TGIxia(TGBase):
             file_location = ''
             if self.tg_version in ["7.4", "7.40"]:
                 return
-            if self.tg_version in ["8.4", "8.40", "8.42", "8.42"]:
+            if self.tg_version in ["8.4", "8.40", "8.42", "8.42", "9.20"]:
                 file_location = get_ixnet().getAttribute('::ixNet::OBJ-/globals', '-persistencePath') + '\\'
             file_path, _ = self._ixnet_config_file_location()
             datetime = utils.get_current_datetime(fmt='%Y_%m_%d_%H_%M_%S')
@@ -3438,21 +3438,25 @@ def load_tgen_int(tgen_dict):
             if not utils.ipcheck(ix_server):
                 logger.error("IxNetWork IP Address: {} is not reachable".format(ix_server))
                 return False
-            tg_ix_port = tgen_dict.get('ix_port', 8009)
+            tg_ix_port = tgen_dict.get('ix_port', 443)
             tg_ix_server = "{}:{}".format(ix_server, tg_ix_port)
             if not tg_ixia_pkg_loaded:
                 if not tg_ixia_load(tg_version, logger, tgen_get_logs_path()):
                     return False
                 code = \
-                    "from ixiatcl import IxiaTcl \n" + \
-                    "from ixiahlt import IxiaHlt \n" + \
-                    "from ixiangpf import IxiaNgpf \n" + \
-                    "from ixiaerror import IxiaError \n" + \
-                    "ixiatcl = IxiaTcl() \n" + \
-                    "ixiahlt = IxiaHlt(ixiatcl) \n" + \
-                    "ixiangpf = IxiaNgpf(ixiahlt) \n"
+                        "from ixiatcl import IxiaTcl \n" + \
+                        "from ixiahlt import IxiaHlt \n" + \
+                        "from ixiangpf import IxiaNgpf \n" + \
+                        "from ixiaerror import IxiaError \n" + \
+                        "ixiatcl = IxiaTcl() \n" + \
+                        "ixiahlt = IxiaHlt(ixiatcl) \n" + \
+                        "ixiangpf = IxiaNgpf(ixiahlt) \n"
 
                 # nosemgrep-next-line
+                import sys
+                sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
+                sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")
+                os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
                 exec(code, globals(), globals())
                 if tgen_log_lvl_is_debug():
                     logger.info("Setting Ixia Debugs...")

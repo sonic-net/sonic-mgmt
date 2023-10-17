@@ -5,7 +5,7 @@ Tests for the `counterpoll queue/watermark/pg-drop ...` commands in SONiC
 import allure
 import logging
 import random
-
+import time
 import pytest
 
 from tests.common.config_reload import config_reload
@@ -30,6 +30,7 @@ DISABLE = CounterpollConstants.COUNTERPOLL_DISABLE.split(' ')[-1]
 MAPS_LONG_PREFIX = 'COUNTERS_{}_*_MAP'
 
 MAPS = 'maps'
+DELAY = 'delay'
 QUEUE_MAPS = {'prefix': 'QUEUE', MAPS: ['COUNTERS_QUEUE_NAME_MAP', 'COUNTERS_QUEUE_INDEX_MAP',
                                         'COUNTERS_QUEUE_TYPE_MAP', 'COUNTERS_QUEUE_PORT_MAP']}
 
@@ -40,13 +41,14 @@ MAPS_PREFIX_FOR_ALL_COUNTERPOLLS = [QUEUE_MAPS['prefix'], PG_MAPS['prefix']]
 FLEX_COUNTER_PREFIX = 'FLEX_COUNTER_TABLE:'
 RELEVANT_COUNTERPOLLS = [CounterpollConstants.QUEUE, CounterpollConstants.WATERMARK, CounterpollConstants.PG_DROP]
 RELEVANT_MAPS = {CounterpollConstants.QUEUE: {MAPS: [QUEUE_MAPS], CounterpollConstants.TYPE:
-                                                    [CounterpollConstants.QUEUE_STAT_TYPE]},
+                                                    [CounterpollConstants.QUEUE_STAT_TYPE], DELAY: 15},
                  CounterpollConstants.WATERMARK: {MAPS: [QUEUE_MAPS, PG_MAPS],
                                                   CounterpollConstants.TYPE:
                                                       [CounterpollConstants.QUEUE_WATERMARK_STAT_TYPE,
-                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE]},
+                                                       CounterpollConstants.PG_WATERMARK_STAT_TYPE], DELAY: 65},
                  CounterpollConstants.PG_DROP: {MAPS: [PG_MAPS],
-                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE]}
+                                                CounterpollConstants.TYPE: [CounterpollConstants.PG_DROP_STAT_TYPE],
+                                                DELAY: 15}
                  }
 
 WATERMARK_COUNTERS_DB_STATS_TYPE = ['USER_WATERMARKS', 'PERSISTENT_WATERMARKS', 'PERIODIC_WATERMARKS']
@@ -113,7 +115,9 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
                      .format(duthost.hostname, [tested_counterpoll])):
         ConterpollHelper.enable_counterpoll(duthost, [tested_counterpoll])
         verify_counterpoll_status(duthost, [tested_counterpoll], ENABLE)
-
+    # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
+    with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
+        time.sleep(RELEVANT_MAPS[tested_counterpoll][DELAY])
     # verify QUEUE or PG maps are generated into COUNTERS_DB after enabling relevant counterpoll
     with allure.step("Verifying MAPS in COUNTERS_DB on {}...".format(duthost.hostname)):
         maps_dict = RELEVANT_MAPS[tested_counterpoll]
