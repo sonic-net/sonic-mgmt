@@ -1,7 +1,6 @@
 import pytest
 import json
 import time
-import math
 import random
 
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
@@ -132,14 +131,17 @@ def _validate_long_disruption(disruptions, allowed_disruption, delay):
     """
     Helper function to validate when two continuous disruption combine as one.
     """
+
+    total_disruption_length = 0
+
     for disruption in disruptions:
+        total_disruption_length += disruption['end_time'] - disruption['start_time']
 
-        disruption_length = disruption['end_time'] - disruption['start_time']
-        allowed_disruption -= math.ceil(disruption_length/delay)
+    logger.debug("total_disruption_length: {}, total_allowed_disruption_length=allowed_disruption*delay: {}".format(
+        total_disruption_length, allowed_disruption*delay))
 
-        logger.debug("disruption_length: {}, allowed_disruption: {}".format(disruption_length, allowed_disruption))
-        if allowed_disruption < 0:
-            return True
+    if total_disruption_length > allowed_disruption * delay:
+        return True
     return False
 
 
