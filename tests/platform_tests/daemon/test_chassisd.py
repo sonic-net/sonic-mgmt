@@ -13,7 +13,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
-from tests.common.platform.processes_utils import check_critical_processes
+from tests.common.platform.processes_utils import check_critical_processes, wait_critical_processes
 from tests.common.utilities import compose_dict_from_cli, wait_until
 from collections import OrderedDict
 
@@ -42,6 +42,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_hostname):
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {} {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
+    wait_critical_processes(duthost)
 
 
 @pytest.fixture(scope="module", autouse=True)
