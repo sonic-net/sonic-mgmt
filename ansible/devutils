@@ -283,7 +283,7 @@ def action_console(parameters):
 
 
 def pdu_action_on_dut(host, attrs, action):
-    ret = {'Host': host, 'PDU status': [], 'Summary': [], 'Action': action}
+    ret = {'Host': host, 'PSU status': [], 'PDU status': [], 'Summary': [], 'Action': action}
     succeed, result = get_pdu_info(host, attrs)
     if not succeed:
         ret['Summary'] = result
@@ -306,8 +306,18 @@ def pdu_action_on_dut(host, attrs, action):
         return ret
 
     status = pduman.get_outlet_status()
+    psu_status = {}
     for outlet in status:
         ret['PDU status'].append(outlet)
+        psu_name = outlet['psu_name']
+        status = psu_status.get(psu_name, {
+                'power_on': False,
+                'output_watts': 0,
+        })
+        status['power_on'] = status['power_on'] or outlet['outlet_on']
+        status['output_watts'] = status['output_watts'] + int(outlet['output_watts'])
+        psu_status[psu_name] = status
+    ret['PSU status'] = psu_status
 
     return ret
 
@@ -315,7 +325,7 @@ def pdu_action_on_dut(host, attrs, action):
 def action_pdu(parameters, action):
     hosts = parameters['hosts']
     data = []
-    header = ['Host', 'Action', 'PDU status', 'Summary']
+    header = ['Host', 'Action', 'PSU status', 'PDU status', 'Summary']
     for host, attrs in hosts.items():
         g_task_runner.submit_task(
             host, pdu_action_on_dut, host=host, attrs=attrs, action=action)
