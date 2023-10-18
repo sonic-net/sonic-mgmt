@@ -453,7 +453,7 @@ class HashTest(BaseTest):
                 for per_port in port:
                     if self.ptf_test_port_map[str(per_port)]['target_dut'] \
                             != self.ptf_test_port_map[str(src_port)]['target_dut']:
-                            return exp_port_list
+                        return exp_port_list
                     else:
                         if self.ptf_test_port_map[str(per_port)]['asic_idx'] \
                                 == self.ptf_test_port_map[str(src_port)]['asic_idx']:
@@ -463,7 +463,7 @@ class HashTest(BaseTest):
             else:
                 if self.ptf_test_port_map[str(port)]['target_dut'] \
                         != self.ptf_test_port_map[str(src_port)]['target_dut']:
-                        return exp_port_list
+                    return exp_port_list
                 else:
                     if self.ptf_test_port_map[str(port)]['asic_idx'] \
                             == self.ptf_test_port_map[str(src_port)]['asic_idx']:
