@@ -2730,7 +2730,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
-        time.sleep(5)
+        time.sleep(1)
         switch_init(self.clients)
 
         # Parse input parameters
@@ -2794,8 +2794,6 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     dst_port_id, real_dst_port_id), file=sys.stderr)
                 self.dst_port_ids[i] = real_dst_port_id
 
-        time.sleep(8)
-
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
@@ -2824,11 +2822,15 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         assert sum(self.pkt_counts) * cell_occupancy * \
             self.cell_size >= self.shared_limit_bytes
 
-        # get a snapshot of counter values at recv and transmit ports
-        recv_counters_bases = [sai_thrift_read_port_counters(
-            self.src_client, self.asic_type, port_list['src'][sid])[0] for sid in self.src_port_ids]
-        xmit_counters_bases = [sai_thrift_read_port_counters(
-            self.dst_client, self.asic_type, port_list['dst'][sid])[0] for sid in self.dst_port_ids]
+        # get a snapshot of counter values at unique recv and transmit ports
+        uniq_srcs = set(self.src_port_ids)
+        uniq_dsts = set(self.dst_port_ids)
+        pg_drop_counters_bases = {port_id: sai_thrift_read_pg_drop_counters(
+            self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
+        recv_counters_bases = {port_id: sai_thrift_read_port_counters(
+            self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in uniq_srcs}
+        xmit_counters_bases = {port_id: sai_thrift_read_port_counters(
+            self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
 
         # Disable all dst ports
         uniq_dst_ports = list(set(self.dst_port_ids))
@@ -2862,11 +2864,11 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     print(
                         "Verifying XOFF hasn't been triggered yet on final iteration", file=sys.stderr)
                     sys.stderr.flush()
-                    time.sleep(8)
+                    time.sleep(4)
                     recv_counters = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[i][self.pg_cntr_indices[i]]
+                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
                     assert xoff_txd == 0, "XOFF triggered too early on final iteration, XOFF count is %d" % xoff_txd
 
                 # Send requested number of packets
@@ -2885,27 +2887,32 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     print(
                         "Verifying XOFF has now been triggered on final iteration", file=sys.stderr)
                     sys.stderr.flush()
-                    time.sleep(8)
+                    time.sleep(4)
                     recv_counters = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[i][self.pg_cntr_indices[i]]
+                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
                     assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
 
             # Verify no ingress/egress drops for all ports
-            recv_counters_list = [sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])[
-                0] for sid in self.src_port_ids]
-            xmit_counters_list = [sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][sid])[
-                0] for sid in self.dst_port_ids]
-            for i in range(len(self.src_port_ids)):
-                for cntr in self.ingress_counters:
-                    drops = recv_counters_list[i][cntr] - \
-                        recv_counters_bases[i][cntr]
-                    assert drops == 0, "Detected %d ingress drops" % drops
+            pg_drop_counters = {port_id: sai_thrift_read_pg_drop_counters(
+                self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
+            for src_port_id in uniq_srcs:
+                for pg in range(len(pg_drop_counters[src_port_id])):
+                    drops = pg_drop_counters[src_port_id][pg] - pg_drop_counters_bases[src_port_id][pg]
+                    if pg in [3, 4]:
+                        assert drops == 0, "Detected %d lossless drops on PG %d src port %d" % (drops, pg, src_port_id)
+                    elif drops > 0:
+                        # When memory is full, any new lossy background traffic is dropped.
+                        print("Observed lossy drops %d on PG %d src port %d, expected." %
+                              (drops, pg, src_port_id), file=sys.stderr)
+            xmit_counters_list = {port_id: sai_thrift_read_port_counters(
+                self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
+            for dst_port_id in uniq_dsts:
                 for cntr in self.egress_counters:
-                    drops = xmit_counters_list[i][cntr] - \
-                        xmit_counters_bases[i][cntr]
-                    assert drops == 0, "Detected %d egress drops" % drops
+                    drops = xmit_counters_list[dst_port_id][cntr] - \
+                        xmit_counters_bases[dst_port_id][cntr]
+                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
