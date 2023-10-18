@@ -471,7 +471,7 @@ class HashTest(BaseTest):
         if updated_exp_port_list:
             exp_port_list = updated_exp_port_list
         return exp_port_list
-    
+
     def check_balancing(self, dest_port_list, port_hit_cnt, src_port):
         '''
         @summary: Check if the traffic is balanced across the ECMP groups and the LAG members
