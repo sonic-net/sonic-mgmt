@@ -477,6 +477,9 @@ def test_bgp_update_timer_session_down(
 
         for i, route in enumerate(constants.routes):
             if withdraw_intervals[i] >= constants.update_interval_threshold:
+                cmd_dut_time = duthost.shell("date +%s.%6N", module_ignore_errors=True)
+                logging.debug("timer: DUT {} local {}".format(cmd_dut_time.get('stdout', None), time.time()))
+
                 pytest.fail(
                     "withdraw route %s updates interval %d exceeds threshold %d"
                     % (
