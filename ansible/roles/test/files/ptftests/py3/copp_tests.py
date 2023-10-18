@@ -322,7 +322,7 @@ class DHCPTopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for DHCP
+# SONIC config contains policer CIR=300 for DHCP
 class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -356,7 +356,7 @@ class DHCPTest(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for DHCPv6
+# SONIC config contains policer CIR=300 for DHCPv6
 class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -408,9 +408,8 @@ class DHCP6TopoT1Test(PolicyTest):
 
         return packet
 
-# SONIC configuration has no policer limiting for LLDP
 
-
+# SONIC config contains policer CIR=300 for LLDP
 class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -431,7 +430,7 @@ class LLDPTest(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for UDLD
+# SONIC config contains policer CIR=300 for UDLD
 class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -457,7 +456,7 @@ class UDLDTest(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for BGP
+# SONIC config contains policer CIR=6000 for BGP
 class BGPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
@@ -480,7 +479,7 @@ class BGPTest(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for LACP
+# SONIC config contains policer CIR=6000 for LACP
 class LACPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
