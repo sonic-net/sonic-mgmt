@@ -57,7 +57,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "platform_tests"
     displayName: "Features to be executed"
 
   # Custom skip scripts
