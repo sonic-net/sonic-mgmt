@@ -22,7 +22,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_8111_ABOOT_202205)
+    default: $(IMAGE_CISCO_202305)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
