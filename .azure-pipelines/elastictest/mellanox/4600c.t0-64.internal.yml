@@ -40,6 +40,14 @@ parameters:
     default: "vms28-t0-4600c-03, vms28-t0-4600c-04"
     displayName: "Testbed Name"
 
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "2"
+
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_MLNX_INTERNAL)
@@ -79,7 +87,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 3600
 
 stages:
 - stage: Test
@@ -105,3 +113,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}

@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 16 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,20 +37,12 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms28-t0-4600c-03, vms28-t0-4600c-04"
+    default: "testbed-bjw-can-4600c-1"
     displayName: "Testbed Name"
-
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202205)
+    default: $(BJW_IMAGE_MLNX_202205)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -76,12 +68,12 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_MLNX_202205)"
+    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202205)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 4600c.t0-64.202205.NightlyTest_by_Elastictest
+    displayName: 4600c.t0-64.202205.bjw.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -113,5 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}
