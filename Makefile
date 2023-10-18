@@ -39,8 +39,7 @@ clear_sim:
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
-	 python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean
-	"
+	 python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean"
 
 run_sanity_using_cfg_file:
 	echo "run sanity on HW..."
