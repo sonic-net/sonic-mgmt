@@ -359,7 +359,7 @@ def fetch_vendor_specific_diagnosis_re(duthost):
     Args:
         duthost: The duthost object
     """
-    unsupported_branches = ['202211']
+    unsupported_branches = ['202012', '202205', '202211']
     if duthost.os_version in unsupported_branches or duthost.sonic_release in unsupported_branches:
         return ""
 
