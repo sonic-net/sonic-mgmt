@@ -1152,7 +1152,7 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 #######################################
 #####           telemetry         #####
 #######################################
-telemetry/test_events.py
+telemetry/test_events.py:
   skip:
     reason: "Skip telemetry test events for 202211 and older branches"
     conditions:
