@@ -34,6 +34,14 @@ create_sonic_topo:
 		--cicd \
 	"
 
+clear_sim:
+	echo "clearing SIM sonic topology..."
+	bash -c " \
+	 cd infra; \
+	 source pyats/bin/activate; \
+	 python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean
+	"
+
 run_sanity_using_cfg_file:
 	echo "run sanity on HW..."
 	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
