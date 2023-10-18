@@ -142,7 +142,7 @@ parameters:
   - $(IMAGE_MARVELL_PUBLIC)
   - custom
 
-- name: SONIC_IMAGE_URL
+- name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC image URL (used only for vsonic neighbors)"
   type: string
   default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
@@ -191,7 +191,7 @@ stages:
     FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
     TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
     TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
-    SONIC_IMAGE_URL: ${{ parameters.SONIC_IMAGE_URL }}
+    VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
     SKIP_REBOOT_CASES: ${{ parameters.SKIP_REBOOT_CASES }}
     SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
     ITERATIONS : ${{ parameters.ITERATIONS }}
