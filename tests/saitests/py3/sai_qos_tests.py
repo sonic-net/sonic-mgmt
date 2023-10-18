@@ -3491,6 +3491,24 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                                  ip_ecn=self.ecn,
                                  ip_ttl=self.ttl)
 
+    def _get_rx_port(self, src_port_id, pkt):
+        masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+        send_packet(self, src_port_id, pkt, 1)
+
+        result = self.dataplane.poll(
+            device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+        if isinstance(result, self.dataplane.PollFailure):
+            self.fail("Expected packet was not received. Received on port:{} {}".format(
+                result.port, result.format()))
+
+        return result.port
+
     def runTest(self):
         print("dst_port_id: {}, src_port_id: {}".format(
             self.dst_port_id, self.src_port_id), file=sys.stderr)
@@ -3501,6 +3519,18 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         # craft first udp packet with unique udp_dport for traffic to go through different flows
         flow_1_udp = 2048
         pkt = self._build_testing_pkt(flow_1_udp)
+        self.dst_port_id = self._get_rx_port(self.src_port_id, pkt)
+
+        # find out udp ports which use the same dst port in port-channel
+        udp_ports = []
+        max_iters = 50
+        for i in range(max_iters):
+            flow_2_udp = flow_1_udp + (10 * i)
+            pkt2 = self._build_testing_pkt(flow_2_udp)
+            dst_port_id_2 = self._get_rx_port(self.src_port_id, pkt2)
+            if dst_port_id_2 == self.dst_port_id:
+                udp_ports.append(flow_2_udp)
+        print("Found udp_ports {}".format(udp_ports), file=sys.stderr)
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                               port_list['dst'][self.dst_port_id])
@@ -3533,10 +3563,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.dst_port_id)
             xmit_counters_base = xmit_counters
             # Find a separate flow that uses alternate queue
-            max_iters = 50
-            for i in range(max_iters):
-                # Start out with i=0 to match flow_1 to confirm drop
-                flow_2_udp = flow_1_udp + (10 * i)
+            for flow_2_udp in udp_ports:
                 pkt2 = self._build_testing_pkt(flow_2_udp)
                 xmit_counters_base = xmit_counters
                 send_packet(self, self.src_port_id, pkt2, 1)
