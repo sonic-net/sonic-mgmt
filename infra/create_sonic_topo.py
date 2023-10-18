@@ -32,6 +32,7 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
+TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -919,13 +920,17 @@ def main():
     additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
 
-    with open('topo_and_platform_to_filename_map.json') as cfg_file:
-        TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP = json.load(cfg_file)
+
+    print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
+    with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
+        TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
+    
+    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT)) 
 
     #get topo_yaml from topo_type
-    if not topo_yaml and topo_type in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP:
-        if device_type in TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topo_type]:
-            topo_yaml = TOPO_AND_DEVICE_TYPE_TO_TOPO_FILE_MAP[topo_type][device_type]
+    if not topo_yaml and topo_type in TOPO_PLATFORM_FILE_DICT:
+        if device_type in TOPO_PLATFORM_FILE_DICT[topo_type]:
+            topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]
 
     ptf_intfcount = 32
 
