@@ -57,7 +57,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: "platform_tests"
+    default: " "
     displayName: "Features to be executed"
 
   # Custom skip scripts
@@ -68,7 +68,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
