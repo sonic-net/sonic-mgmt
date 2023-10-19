@@ -41,10 +41,8 @@ def simulate_ro(duthost):
     assert wait_until(30, 2, 0, check_disk_ro, duthost), "disk not in ro state"
 
     # Wait for disk remount finish
-    # Can't check remount finish by command here:
-    #  duthost.shell will failed with "no usable temporary directory found" error
-    #  also according to syslog, use ssh_remote_run before remount finish will cause UT failed
-    time.sleep(30)
+    # TODO: check remount finish by rsyslog
+    time.sleep(10)
 
 
 def chk_ssh_remote_run(localhost, remote_ip, username, password, cmd):
