@@ -760,9 +760,9 @@ pc/test_po_update.py::test_po_update_io_no_loss:
 
 pc/test_po_voq.py:
   skip:
-    reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
+    reason: "Skip for non t2 or Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
