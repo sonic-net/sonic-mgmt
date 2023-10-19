@@ -11,6 +11,7 @@ pytestmark = [
 
 localModule = 0
 supervisorAsicBase = 1
+supReferenceData = {}
 
 
 # Try to get the reference data, and if the reference data files
@@ -58,10 +59,9 @@ def supData(duthosts):
 
 
 # Added a function to setup fabric links reference data for sup.
-@pytest.fixture()
-def supReferenceData(duthosts):
+def supRefData(duthosts):
     # supReferenceData has the expected data for sup
-    supReferenceData = {}
+    global supReferenceData
     keys = []
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
@@ -74,7 +74,6 @@ def supReferenceData(duthosts):
     for asic in range(num_asics):
         keys.append('asic' + str(asic))
     supReferenceData = {key: {} for key in keys}
-    return supReferenceData
 
 # This test checks the output of the "show fabric reachability" command
 # on one linecard. It is called once for each linecard in the chassis.
@@ -83,11 +82,14 @@ def supReferenceData(duthosts):
 
 
 def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
-                                supReferenceData, refData, supData):
+                                refData, supData):
     """compare the CLI output with the reference data"""
     global localModule
     global supervisorAsicBase
+    global supReferenceData
 
+    if not supReferenceData:
+        supRefData(duthosts)
     # supReferenceData has the expected data
     if len(duthosts.supervisor_nodes) == 0:
         logger.info("Please run the test on modular systems")
@@ -109,9 +111,12 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
     # Testing on Linecards
     num_asics = duthost.num_asics()
     for asic in range(num_asics):
-        cmd = "show fabric reachability"
-        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
         asicName = "asic{}".format(asic)
+        if num_asics > 1:
+            cmd = "show fabric reachability -n {}".format(asicName)
+        else:
+            cmd = "show fabric reachability"
+        cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
         asicReferenceData = referenceData[asicName]
         for line in cmd_output:
             if not line:
@@ -122,7 +127,7 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
 
             # tokens: [localPort, remoteModule, remotLink, localLinkStatus]
             # Example output: ['0', '304', '171', 'up']
-            localPortName = int(tokens[0])
+            localPortName = tokens[0]
             referencePortData = asicReferenceData[localPortName]
             remoteModule = tokens[1]
             remotePort = tokens[2]
@@ -160,9 +165,10 @@ def test_fabric_reach_linecards(duthosts, enum_frontend_dut_hostname,
 # and compares the output.
 
 
-def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, supReferenceData, refData):
+def test_fabric_reach_supervisor(duthosts, enum_supervisor_dut_hostname, refData):
     """compare the CLI output with the reference data for each asic"""
 
+    global supReferenceData
     # supReferenceData has the expected data
     duthost = duthosts[enum_supervisor_dut_hostname]
     logger.info("duthost: {}".format(duthost.hostname))

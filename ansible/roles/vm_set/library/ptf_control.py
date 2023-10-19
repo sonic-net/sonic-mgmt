@@ -61,10 +61,12 @@ class PtfControl(object):
         cli = docker.from_env()
         try:
             ctn = cli.containers.get(ctn_name)
-        except Exception:
-            return None
+            if ctn.status == 'running':
+                return ctn.attrs['State']['Pid']
+        except Exception as e:
+            logging.debug("Failed to get pid for container %s: %s" % (ctn_name, str(e)))
 
-        return ctn.attrs['State']['Pid']
+        return None
 
     def get_process_pids(self, process):
         cmd = 'docker exec -t {} bash -c "pgrep -f \'{}\'"'.format(self.ctn_name, process)
