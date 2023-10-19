@@ -76,8 +76,8 @@ pdu-92,12,str3-7260cx3-acs-fan-37,PSU1
 pdu-92,13,str3-7260cx3-acs-fan-37,PSU2
 pdu-92,14,str3-7260cx3-acs-fan-38,PSU1
 pdu-92,15,str3-7260cx3-acs-fan-38,PSU2
-pdu-92,17,str3-msn4600c-acs-05,PSU1
-pdu-93,18,str3-msn4600c-acs-05,PSU2
+pdu-92,6,str3-msn4600c-acs-05,PSU1
+pdu-93,9,str3-msn4600c-acs-05,PSU2
 pdu-92,17,str3-msn4600c-acs-06,PSU1
 pdu-93,18,str3-msn4600c-acs-06,PSU2
 pdu-91,19,str3-msn4600c-acs-07,PSU1

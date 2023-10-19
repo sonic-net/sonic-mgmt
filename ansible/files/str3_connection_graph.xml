@@ -3854,6 +3854,9 @@
   </ConsoleGraphDeclaration>
   <BmcGraphDeclaration>
     <DevicesBmcInfo/>
+    <BmcLinksInfo>
+      <BmcLinkInfo BmcIp="192.168.11.1/23" EndDevice="str-acs-serv-01" EndPort="iDRAC" StartDevice="management-1" StartPort="Ethernet10"/>
+    </BmcLinksInfo>
   </BmcGraphDeclaration>
   <PowerControlGraphDeclaration>
     <DevicesPowerControlInfo>
@@ -3864,7 +3867,7 @@
       <DevicePowerControlInfo Hostname="pdu-90" HwSku="ApcRPDU" ManagementIp="10.3.155.90" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-91" HwSku="Sentry" ManagementIp="10.3.155.91" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-92" HwSku="ApcRPDU" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-93" HwSku="Sentry" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-93" HwSku="ApcRPDU" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-94" HwSku="Sentry" ManagementIp="10.3.155.94" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-96" HwSku="Sentry" ManagementIp="10.3.155.96" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-97" HwSku="Sentry" ManagementIp="10.3.155.97" Os="" Protocol="snmp" Type="Pdu"/>
@@ -3954,8 +3957,8 @@
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-37" EndPort="PSU2" StartDevice="pdu-92" StartPort="13"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-38" EndPort="PSU1" StartDevice="pdu-92" StartPort="14"/>
       <PowerControlLinkInfo EndDevice="str3-7260cx3-acs-fan-38" EndPort="PSU2" StartDevice="pdu-92" StartPort="15"/>
-      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU1" StartDevice="pdu-92" StartPort="17"/>
-      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU2" StartDevice="pdu-93" StartPort="18"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU1" StartDevice="pdu-92" StartPort="6"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-05" EndPort="PSU2" StartDevice="pdu-93" StartPort="9"/>
       <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-06" EndPort="PSU1" StartDevice="pdu-92" StartPort="17"/>
       <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-06" EndPort="PSU2" StartDevice="pdu-93" StartPort="18"/>
       <PowerControlLinkInfo EndDevice="str3-msn4600c-acs-07" EndPort="PSU1" StartDevice="pdu-91" StartPort="19"/>
