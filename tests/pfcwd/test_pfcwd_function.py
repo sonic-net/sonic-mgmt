@@ -190,6 +190,7 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
+        alpha = 0
         static_th = 0
         if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
             static_th = six.text_type(asic.run_redis_cmd(
@@ -498,19 +499,12 @@ class SendVerifyTraffic():
         self.pfc_wd_rx_port_vlan_id = pfc_params['rx_port_vlan_id']
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
-        self.update_macs(pfc_params['rx_port_id'][0], router_mac)
-        self.update_macs(pfc_params['test_port_id'], tx_mac)
         if is_dualtor:
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
             self.vlan_mac = router_mac
-
-    def update_macs(self, port, mac_address):
-        try:
-            self.mac_map
-        except AttributeError:
-            self.mac_map = {}
-        self.mac_map[port] = mac_address
+        # Verify traffic before pfc storm
+        self.verify_rx_ingress("forward")
 
     def verify_tx_egress(self, action):
         """
@@ -524,7 +518,7 @@ class SendVerifyTraffic():
         dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
         if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
             dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
+        ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -555,7 +549,7 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_test_port_id],
+        ptf_params = {'router_mac': self.tx_mac,
                       'vlan_mac': self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -588,7 +582,7 @@ class SendVerifyTraffic():
         else:
             other_queue = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
+        ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
                       'queue_index': other_queue,
                       'pkt_count': self.pfc_wd_test_pkt_count,
@@ -621,8 +615,8 @@ class SendVerifyTraffic():
         else:
             other_pg = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_test_port_id],
-                      'vlan_mac': self.mac_map[self.pfc_wd_test_port_id],
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -632,7 +626,6 @@ class SendVerifyTraffic():
                       'wd_action': 'forward'}
         if self.pfc_wd_rx_port_vlan_id is not None:
             ptf_params['port_dst_vlan_id'] = self.pfc_wd_rx_port_vlan_id
-            ptf_params['vlan_mac'] = self.vlan_mac
         if self.pfc_wd_test_port_vlan_id is not None:
             ptf_params['port_src_vlan_id'] = self.pfc_wd_test_port_vlan_id
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
@@ -645,7 +638,7 @@ class SendVerifyTraffic():
         Send traffic to fill up the buffer. No verification
         """
         logger.info("Send packets to {} to fill up the buffer".format(self.pfc_wd_test_port))
-        ptf_params = {'router_mac': self.mac_map[self.pfc_wd_rx_port_id[0]],
+        ptf_params = {'router_mac': self.router_mac,
                       'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
