@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 4"
+  - cron: "0 2 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -50,7 +50,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
+    default: $(IMAGE_BRCM_ABOOT_PUBLIC)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -71,7 +71,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -81,7 +81,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_PUBLIC)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-120.str.internal.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-120.str.master.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}

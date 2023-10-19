@@ -37,16 +37,8 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms21-dual-t0-7260,vms28-dual-t0-7260"
+    default: "vms24-dual-t0-7050-1"
     displayName: "Testbed Name"
-
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -65,13 +57,13 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "dualtor,dualtor_io,dualtor_mgmt,platform_tests,generic_config_updater,crm,autorestart,fdb,process_monitoring,show_techsupport,route,override_config_table,monit"
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -97,7 +89,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.dualtor-120.str.202305.NightlyTest_by_Elastictest
+    displayName: 7050cx3.dualtor.str.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -113,5 +105,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}

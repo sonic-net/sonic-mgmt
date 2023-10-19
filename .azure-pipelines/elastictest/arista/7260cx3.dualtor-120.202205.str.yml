@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 3"
+  - cron: "0 2 * * 0,1,2"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
+    default: "vms21-dual-t0-7260,vms28-dual-t0-7260"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -50,12 +50,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202305)
+    default: $(IMAGE_BRCM_ABOOT_202205)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202205
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -71,7 +71,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -81,7 +81,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-56.str.202305.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-120.202205.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
