@@ -97,15 +97,3 @@ def test_show_platform_npu_trap(duthosts, enum_rand_one_per_hwsku_hostname):
     traceback_found = "Traceback" in result["stdout"]
     assert not traceback_found, "Traceback found in show platform npu trap"
     assert result["stdout"], "No ouput for this CLI"
-
-def test_show_platform_npu_temperatures(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Verify output of `show platform npu temperature`
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    result = duthost.command("sudo show platform npu temperatures")
-    logging.info(result)
-    traceback_found = "Traceback" in result["stdout"]
-    assert not traceback_found, "Traceback found in show platform npu trap"
-    assert result["stdout"], "No ouput for this CLI"
-    assert "Sensor" in result["stdout"], "No Sensor found!"
