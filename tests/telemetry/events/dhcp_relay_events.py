@@ -20,7 +20,7 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
     try:
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, invoke_dhcp_relay_bind_failure,
                  "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag,
-                 False, 30, ipv4_address, ipv6_address, interface)
+                 False, 30, (ipv4_address, ipv6_address, interface))
     finally:
         restart_dhcp_container(duthost)
 
@@ -31,6 +31,7 @@ def backup_ip_address(duthost):
     # grab first Vlan interface
     interface = next((key for key in interface_facts.keys() if 'Vlan' in key), None)
     ipv4_interface_facts = interface_facts[interface]
+    logger.info("ALL IP ADDRESSES: {}".format(duthost.interface_facts()['ansible_facts']['ansible_interface_ips']))
     ipv6_interface_facts = duthost.interface_facts()['ansible_facts']['ansible_interface_facts'][interface]['ipv6'][0]
 
     ipv4_address = ipv4_interface_facts['ipv4']
