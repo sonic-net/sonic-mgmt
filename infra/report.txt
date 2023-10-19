@@ -1,3 +1,0 @@
-directory /home/vxr/golden-code/sonic-test/sonic-mgmt/tests/DT not found
-No XML file needs to be parsed or the file is empty.
-XML file doesn't exist or no data in the file.
