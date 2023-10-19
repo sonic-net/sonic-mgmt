@@ -23,16 +23,11 @@ create_sonic_topo:
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
-	 python3.8 -u ./create_sonic_topo.py \
-		--dut_uname cisco \
-		--dut_passwd cisco123 \
-		--topo_type ${TOPOLOGY} \
+	 echo "\
+	 	--topo_type ${TOPOLOGY} \
 		--device_type ${PLATFORM} \
-		--script_file $(TESTFILE) \
-		--tar_ball $(GOLDENCODE) \
-		--clean_sim \
-		--cicd \
-	"
+		--script_file ${TESTFILE} \
+		--tar_ball ${GOLDENCODE} "
 
 clear_sim:
 	echo "clearing SIM sonic topology..."
