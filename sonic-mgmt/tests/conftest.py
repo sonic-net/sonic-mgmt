@@ -192,6 +192,12 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--public_docker_registry", action="store_true", default=False,
                      help="To use public docker registry for syncd swap, by default is disabled (False)")
+    
+    ############################
+    #   Port Select options    #
+    ############################
+    parser.addoption("--all_ports", action="store_true", default=False,
+                     help="To run TC for all ports, by default TC is only run for one UP port and one DOWN port")
 
 
 def pytest_configure(config):
