@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
+    default: "vms21-dual-t0-7260,vms28-dual-t0-7260"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -71,7 +71,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -97,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-56.str.202205.NightlyTest_by_Elastictest
+    displayName: 7260cx3.dualtor-120.202205.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}

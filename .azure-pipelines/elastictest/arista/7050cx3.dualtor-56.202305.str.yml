@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "20 4 * * 0,1,2,3,4,6"
+  - cron: "0 2 * * 3"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: AGENT_POOL
     type: string
-    default: nightly-svc
+    default: nightly
     values:
       - nightly
       - nightly2
@@ -37,8 +37,16 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vmsvc1-dual-t0-7050-1"
+    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
     displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "2"
 
   - name: IMAGE_URL
     type: string
@@ -57,13 +65,13 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: "dualtor_io,dualtor_mgmt,bgp,decap,fdb,fib,pc,vlan"
+    default: " "
     displayName: "Features to be executed"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
@@ -79,7 +87,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 720
+    default: 1800
 
 stages:
 - stage: Test
@@ -89,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor-aa.strsvc.202305.NightlyTest_by_Elastictest
+    displayName: 7050cx3.dualtor-56.202305.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -105,3 +113,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}

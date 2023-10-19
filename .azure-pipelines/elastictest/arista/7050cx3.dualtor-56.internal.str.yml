@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 0"
+  - cron: "0 2 * * 4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,17 +37,25 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-dual-t0-7050-1"
+    default: "vms24-dual-t0-7050-2,vms21-dual-t0-7050-3"
     displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -63,17 +71,17 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: " "
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq,dualtor,dualtor_io,dualtor_mgmt,platform_tests,generic_config_updater,crm,autorestart,fdb,process_monitoring,show_techsupport,route,override_config_table,monit"
+    default: "pfc_asym,span,sub_port_interfaces,snappi,wan_test,metadata-scripts,mpls,mx,console,ixai,macsec,mclag,voq"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
+    default: "--topology t0,any,dualtor --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -89,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7050cx3.dualtor.str.202205.regular.NightlyTest_by_Elastictest
+    displayName: 7050cx3.dualtor-56.internal.str.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -105,3 +113,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
