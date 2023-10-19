@@ -56,9 +56,9 @@ arp/test_wr_arp.py:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-buildimage/issues/16502
   xfail:
-    reason: "Warm reboot has a known issue on 7050cx3"
+    reason: "Warm reboot has a known issue on 202305 branch"
     conditions:
-      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32'] and release in ['202305']"
       - https://github.com/sonic-net/sonic-mgmt/issues/10077
 
 #######################################
@@ -827,9 +827,9 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'t2' in topo_name"
    xfail:
-     reason: "Warm Reboot is not supported in dualtor."
+     reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
-        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master'])"
+        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32'] and release in ['202305'])"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
@@ -895,8 +895,8 @@ platform_tests/test_service_warm_restart.py:
 
 platform_tests/test_cont_warm_reboot.py:
   xfail:
-    reason: "warm reboot has a known issue on 7050cx3"
-    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+    reason: "warm reboot has a known issue on 202305 branch"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32'] and release in ['202305']"
 
 #######################################
 #####           qos               #####
@@ -1203,6 +1203,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 #######################################
 #####           telemetry         #####
 #######################################
+telemetry/test_events.py:
+  skip:
+    reason: "Skip telemetry test events for 202211 and older branches"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
