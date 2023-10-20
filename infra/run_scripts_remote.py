@@ -29,8 +29,14 @@ def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ss
     ssh.connect(host, ssh_port, username, password)
     print("connected")
     ftp_client=ssh.open_sftp()
-    ftp_client.put(script_file,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_file.rsplit('/', 1)[-1]))
+    uploaded_script_files = []
+    for script_file_path in script_file.split(","):
+        script_filename = script_file_path.rsplit('/', 1)[-1]
+        ftp_client.put(script_file_path,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_filename))
+        uploaded_script_files.append(script_filename)
     ftp_client.close()
+
+    return uploaded_script_files
 
 def get_build_project_name():
     if os.getenv("MODE"):
@@ -63,7 +69,7 @@ def get_build_project_name():
 
     return build_project_name
 
-def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt'):
+def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, additional_tests='', ssh_port=22, topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt'):
     print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -115,10 +121,20 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
     print(resp.decode("ascii"))
 
     delta1 = datetime.datetime.now()
+
+    additional_params = ""
+
     if create_allure_report:
-        chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} --create_allure_report |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name))
-    else:
-        chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name))
+        additional_params += " --create_allure_report "
+    if additional_tests:
+        additional_params += " --additional_tests={} ".format(additional_tests)
+
+
+    print("Run command:")
+    print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
+
+    chan.send('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
+    
     time.sleep(3)
     resp = chan.recv(9999)
 
@@ -295,13 +311,12 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ftp_client.close() 
     ssh.close()
 
-def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
+def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
     print("Script file: {}, drop version: {}, log_dir {}, sonic-test directory: {}, docker-mgmt container name: '{}', create-allure-report: {}".format(script_file, drop_version, log_dir, sonic_test_dir, docker_mgmt_container, create_allure_report))
     print("Upload Sanity Script file")
-
 
     print("determine sonic_test_dir from docker_mgmt_container name")
     ssh = paramiko.SSHClient()
@@ -331,9 +346,11 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     sonic_test_dir = tmp_sonic_test_dir
 
 
-    upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
-    print("Running Sanity Scripts : {}".format(script_file.rsplit('/', 1)[-1]))
-    run_result = run_scripts(host, username, password, script_file.rsplit('/', 1)[-1],drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
+    uploaded_script_files = upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
+    uploaded_script_files_str = ",".join(uploaded_script_files)
+
+    print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
+    run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests, ssh_port, topo_name, docker_mgmt_container)
     sanity_end_time = datetime.datetime.now()
 
 
@@ -383,6 +400,8 @@ def _create_parser():
                       required=False, default='golden-code')
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
                       default=False)           
+    parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
+                      required=False, default='')
     return parser
 
 
@@ -402,6 +421,7 @@ if __name__ == '__main__':
     docker_mgmt_container = args['docker_mgmt_container']
     sonic_test_dir = args['sonic_test_dir']
     create_allure_report = args['create_allure_report']
+    additional_tests = args['additional_tests']
 
     run_scripts_remote(
         host_address, 
@@ -414,6 +434,7 @@ if __name__ == '__main__':
         create_allure_report, 
         ssh_port,
         topo_name,
+        additional_tests,
         sonic_test_dir,
         docker_mgmt_container,
     )
