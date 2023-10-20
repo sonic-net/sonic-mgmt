@@ -28,7 +28,7 @@ parameters:
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
@@ -42,6 +42,12 @@ parameters:
     default: false
     displayName: "Skip uploading test results to Kusto"
 
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "qos/test_qos_sai.py"
+    displayName: "Skip Scripts"
+
 stages:
   - template: ../templates/nightly_test.yml
     parameters:
@@ -49,4 +55,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
