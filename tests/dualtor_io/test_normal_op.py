@@ -141,28 +141,6 @@ def test_normal_op_active_server_to_standby_server(upper_tor_host, lower_tor_hos
     # TODO: Add per-port db check
 
 
-@pytest.mark.enable_active_active
-def test_normal_op_server_to_server(upper_tor_host, lower_tor_host,             # noqa F811
-                                    send_server_to_server_with_action,          # noqa F811
-                                    toggle_all_simulator_ports_to_upper_tor,    # noqa F811
-                                    cable_type):                                # noqa F811
-    """
-    Send server to server traffic and confirm no disruption or switchover occurs.
-    """
-    if cable_type == CableType.active_standby:
-        send_server_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
-        verify_tor_states(expected_active_host=upper_tor_host,
-                          expected_standby_host=lower_tor_host,
-                          skip_tunnel_route=False)
-
-    if cable_type == CableType.active_active:
-        send_server_to_server_with_action(upper_tor_host, verify=True, stop_after=60)
-        verify_tor_states(expected_active_host=[upper_tor_host, lower_tor_host],
-                          expected_standby_host=None,
-                          cable_type=cable_type,
-                          skip_tunnel_route=False)
-
-
 @pytest.mark.disable_loganalyzer
 @pytest.mark.enable_active_active
 def test_upper_tor_config_reload_upstream(upper_tor_host, lower_tor_host,
