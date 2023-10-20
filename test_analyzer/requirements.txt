@@ -5,3 +5,4 @@ setuptools-rust==1.1.2
 pandas==2.0.3
 crontab==1.0.1
 azure-loganalytics==0.1.1
+msrestazure==0.6.4
