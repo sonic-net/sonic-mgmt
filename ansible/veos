@@ -3573,6 +3573,102 @@ vms_68:
   hosts:
     VM68000:
       ansible_host: 172.16.151.10
+    VM68001:
+      ansible_host: 172.16.151.11
+    VM68002:
+      ansible_host: 172.16.151.12
+    VM68003:
+      ansible_host: 172.16.151.13
+    VM68004:
+      ansible_host: 172.16.151.14
+    VM68005:
+      ansible_host: 172.16.151.15
+    VM68006:
+      ansible_host: 172.16.151.16
+    VM68007:
+      ansible_host: 172.16.151.17
+    VM68008:
+      ansible_host: 172.16.151.18
+    VM68009:
+      ansible_host: 172.16.151.19
+    VM68010:
+      ansible_host: 172.16.151.20
+    VM68011:
+      ansible_host: 172.16.151.21
+    VM68012:
+      ansible_host: 172.16.151.22
+    VM68013:
+      ansible_host: 172.16.151.23
+    VM68014:
+      ansible_host: 172.16.151.24
+    VM68015:
+      ansible_host: 172.16.151.25
+    VM68016:
+      ansible_host: 172.16.151.26
+    VM68017:
+      ansible_host: 172.16.151.27
+    VM68018:
+      ansible_host: 172.16.151.28
+    VM68019:
+      ansible_host: 172.16.151.29
+    VM68020:
+      ansible_host: 172.16.151.30
+    VM68021:
+      ansible_host: 172.16.151.31
+    VM68022:
+      ansible_host: 172.16.151.32
+    VM68023:
+      ansible_host: 172.16.151.33
+    VM68024:
+      ansible_host: 172.16.151.34
+    VM68025:
+      ansible_host: 172.16.151.35
+    VM68026:
+      ansible_host: 172.16.151.36
+    VM68027:
+      ansible_host: 172.16.151.37
+    VM68028:
+      ansible_host: 172.16.151.38
+    VM68029:
+      ansible_host: 172.16.151.39
+    VM68030:
+      ansible_host: 172.16.151.40
+    VM68031:
+      ansible_host: 172.16.151.41
+    VM68032:
+      ansible_host: 172.16.151.42
+    VM68033:
+      ansible_host: 172.16.151.43
+    VM68034:
+      ansible_host: 172.16.151.44
+    VM68035:
+      ansible_host: 172.16.151.45
+    VM68036:
+      ansible_host: 172.16.151.46
+    VM68037:
+      ansible_host: 172.16.151.47
+    VM68038:
+      ansible_host: 172.16.151.48
+    VM68039:
+      ansible_host: 172.16.151.49
+    VM68040:
+      ansible_host: 172.16.151.50
+    VM68041:
+      ansible_host: 172.16.151.51
+    VM68042:
+      ansible_host: 172.16.151.52
+    VM68043:
+      ansible_host: 172.16.151.53
+    VM68044:
+      ansible_host: 172.16.151.54
+    VM68045:
+      ansible_host: 172.16.151.55
+    VM68046:
+      ansible_host: 172.16.151.56
+    VM68047:
+      ansible_host: 172.16.151.57
+    VM68048:
+      ansible_host: 172.16.151.58
 
 vms_18:
   hosts:

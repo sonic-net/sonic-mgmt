@@ -268,7 +268,7 @@ class KustoConnector(object):
                                                                 $left.Result == $right.Result
                                                                 | sort by ReproCount desc
             | where not(BranchName has_any(ExcludeBranchList))
-            | where BranchName has_any(ProdQualOSList)
+            | where BranchName in(ProdQualOSList)
             | where OSVersion !contains "cisco"
             | where OSVersion !contains "nokia"
             | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
@@ -320,7 +320,7 @@ class KustoConnector(object):
                                                             $left.opTestCase == $right.opTestCase,
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName has_any(ProdQualOSList)
+        | where BranchName in(ProdQualOSList)
         | where OSVersion !contains "cisco"
         | where OSVersion !contains "nokia"
         | project ReproCount, UploadTimestamp, Feature,  ModulePath, FilePath, TestCase, opTestCase, FullCaseName, Result, BranchName, OSVersion, TestbedName, Asic, TopologyType, Summary, BuildId, PipeStatus
@@ -373,7 +373,7 @@ class KustoConnector(object):
                                                             $left.opTestCase == $right.opTestCase,
                                                             $left.Result == $right.Result
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName has_any(ProdQualOSList)
+        | where BranchName in(ProdQualOSList)
         | where OSVersion !contains "cisco"
         | where OSVersion !contains "nokia"
         | where ReproCount >= {}
@@ -409,7 +409,7 @@ class KustoConnector(object):
         | where not(TopologyType has_any(ExcludeTopoList))
         | where not(AsicType has_any(ExcludeAsicList))
         | where not(BranchName has_any(ExcludeBranchList))
-        | where BranchName has_any(ProdQualOSList)
+        | where BranchName in(ProdQualOSList)
         | where OSVersion !contains "cisco"
         | where OSVersion !contains "nokia"
         | where Summary !contains "test setup failure"
@@ -450,7 +450,7 @@ class KustoConnector(object):
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName has_any(ProdQualOSList)
+                | where BranchName in(ProdQualOSList)
                 | where OSVersion !contains "cisco"
                 | where OSVersion !contains "nokia"
                 | where ModulePath == "{}"
@@ -480,7 +480,7 @@ class KustoConnector(object):
                 | where not(TopologyType has_any(ExcludeTopoList))
                 | where not(AsicType has_any(ExcludeAsicList))
                 | where not(BranchName has_any(ExcludeBranchList))
-                | where BranchName has_any(ProdQualOSList)
+                | where BranchName in(ProdQualOSList)
                 | where OSVersion !contains "cisco"
                 | where OSVersion !contains "nokia"
                 | where opTestCase == "{}" and ModulePath == "{}"

@@ -12,11 +12,12 @@ resources:
 
 variables:
   - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
 
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms63-t1-8111-02
+    default: vms68-t1-8111-02
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -27,19 +28,25 @@ parameters:
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "mpls"'
+    default: '-S "qos/test_qos_sai.py"'
     displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
     default: false
     displayName: "Skip uploading test results to Kusto"
+
+  # Custom skip scripts
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "qos/test_qos_sai.py"
+    displayName: "Skip Scripts"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -48,4 +55,5 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}

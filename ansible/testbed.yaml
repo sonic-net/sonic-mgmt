@@ -1006,15 +1006,15 @@
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms63-t1-8111-02
-  group-name: vms63-6
-  topo: t1
+- conf-name: vms68-t1-8111-02
+  group-name: vms68-1
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: vms63-6
+  ptf: vms68-1
   ptf_ip: 10.64.247.51/23
   ptf_ipv6:
-  server: server_63
-  vm_base: VM63132
+  server: server_68
+  vm_base: VM68000
   dut:
     - str3-8111-02
   inv_name: str3

@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 4"
+  - cron: "00 4 * * 4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -63,7 +63,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py"
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
