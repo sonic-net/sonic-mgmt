@@ -1057,6 +1057,12 @@ show_techsupport/test_auto_techsupport.py:
     conditions:
       - (is_multi_asic==True)
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
+  xfail:
+    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/15051."
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/15051
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices"
