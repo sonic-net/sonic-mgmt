@@ -41,19 +41,27 @@ def change_service_state(duthost, service, enable):
 @pytest.mark.disable_loganalyzer
 def test_masked_services(duthosts, rand_one_dut_hostname):
     """
-    @summary: This test case will mask telemetry service, then test load_minigraph and check its success
+    @summary: This test case will mask telemetry/gnmi service, then test load_minigraph and check its success
     """
     duthost = duthosts[rand_one_dut_hostname]
-    test_service = "telemetry"
-    logging.info("Bringing down telemetry service")
-    service_status = duthost.critical_process_status("telemetry")
+    containers_states, succeeded = duthost.get_feature_status()
+    pytest_assert(succeeded, "Failed to get feature status of containers!")
+    if containers_states.get("telemetry", "") == "enabled":
+        test_service = "telemetry"
+    elif containers_states.get("gnmi", "") == "enabled":
+        test_service = "gnmi"
+    else:
+        pytest.fail("Make sure telemetry/gnmi service is enabled before calling this test")
+    logging.info("Bringing down {} service".format(test_service))
+    service_status = duthost.critical_process_status(test_service)
 
     if not service_status:
-        pytest.fail("Make sure telemetry is up and running before calling this test")
+        pytest.fail("Make sure {} is up and running before calling this test".format(test_service))
 
     change_service_state(duthost, test_service, False)
     logging.info("Wait until service is masked and inactive")
-    pytest_assert(not wait_until(30, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY still running")
+    pytest_assert(not wait_until(30, 10, 0, duthost.is_service_fully_started, test_service),
+                  "{} still running".format(test_service))
 
     logging.info("Check service status")
     assert not is_service_loaded(duthost, test_service)
@@ -66,7 +74,8 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
         logging.info("Bring back service if not up")
         change_service_state(duthost, test_service, True)
         logging.info("Wait until service is unmasked and active")
-        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "telemetry"), "TELEMETRY not started")
+        pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, test_service),
+                      "{} not started".format(test_service))
 
         if load_minigraph_error_code:
             pytest.fail("Test failed as load_minigraph was not successful")
