@@ -1,21 +1,12 @@
 import pytest
-<<<<<<< HEAD
 from spytest import st, tgapi, SpyTestDict
-=======
-
-from spytest import SpyTestDict, st, tgapi
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
 
 import apis.common.wait as waitapi
 import apis.routing.ip as ipfeature
 import apis.switching.vlan as vapi
 import apis.switching.portchannel as portchannel_obj
-<<<<<<< HEAD
 import apis.system.basic as basic_obj
 import apis.routing.bgp as bgpapi
-=======
-import apis.routing.arp as arpapi
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
 
 tg_info = dict()
 
@@ -46,25 +37,17 @@ data.d2d1_ip_addr = "192.168.12.2"
 data.d2t1_ip_addr = "192.168.13.1"
 data.t1d1_ip_addr = "192.168.11.2"
 data.t1d2_ip_addr = "192.168.13.2"
-<<<<<<< HEAD
 data.loopback_d1_addr = "192.168.14.1"
 data.loopback_d2_addr = "192.168.15.1"
 data.static_ip_list = ["192.168.11.0/24","192.168.13.0/24", "192.168.14.0/24","192.168.15.0/24"]
-=======
-data.static_ip_list = ["192.168.11.0/24", "192.168.13.0/24"]
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
 
 data.d1t1_ip_addr_v6 = "2011::1"
 data.d1d2_ip_addr_v6 = "2012::1"
 data.d2d1_ip_addr_v6 = "2012::2"
 data.d2t1_ip_addr_v6 = "2013::1"
-<<<<<<< HEAD
 data.loopback_d1_addr_v6 = "2014::1"
 data.loopback_d2_addr_v6 = "2015::1"
 data.static_ipv6_list = ["2011::0/64","2013::0/64","2014::0/64","2015::0/64"]
-=======
-data.static_ipv6_list = ["2011::/64", "2013::/64"]
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
 data.mask_v6 = "64"
 
 
@@ -137,7 +120,6 @@ def post_test_l3_fwding():
     vapi.show_vlan_config(dut1)
 
 
-<<<<<<< HEAD
 
 @pytest.fixture(scope="module", autouse=True)
 def sanity_l3_func_hooks(request):
@@ -185,10 +167,6 @@ def test_l3_fwding():
         ping_result = ipfeature.ping(dut2, data.d1t1_ip_addr)
         ping_result = ipfeature.ping(dut2, data.d1d2_ip_addr)
 
-=======
-def tg_config():
-    global tg1, tg_ph_1, tg_ph_2
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
     # L3 traffic streams
     (tg1, _, tg_ph_1, tg_ph_2) = get_handles()
 
@@ -323,7 +301,6 @@ def test_l2_to_l3_port():
     if ping_result and result_flag and ping_flag:
         st.report_pass("operation_successful")
     else:
-<<<<<<< HEAD
         st.report_fail("operation_failed")
 
 @pytest.mark.base_test_sanity
@@ -556,6 +533,3 @@ def test_static_route_with_portchannel():
         st.report_pass("operation_successful")
     else:
         st.report_fail("operation_failed")
-=======
-        st.report_fail("failed_l2_to_l3_port")
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3

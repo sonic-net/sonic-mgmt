@@ -44,7 +44,6 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
 
     # configure static ip address
     data.ip_address = ip_address_list[0]
-<<<<<<< HEAD
     if '1.74' in data.ip_address:
         gateway = '1.74.23.200'
     if '192.168' in data.ip_address:
@@ -53,7 +52,7 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
         gateway = '.'.join(gateway)
     command = "sudo ip route add 0.0.0.0/0 via {} dev {}".format(gateway, data.interface)
     st.config(vars.D1, command, skip_error_check=False)
-    
+
     data.netmask = basic_obj.get_ifconfig(vars.D1, data.interface)[0]['netmask'][0]
     data.gateway = basic_obj.get_ifconfig_gateway(vars.D1, data.interface)
     intf_obj.config_static_ip_to_interface(vars.D1, data.interface, data.ip_address, data.netmask, data.gateway)
@@ -63,21 +62,6 @@ def test_ft_ip_static_ip_on_mgmt_intrf():
         result= False
     intf_obj.delete_ip_on_interface_linux(vars.D1, data.interface, "{}/{}".format(data.ip_address, data.netmask))
     ip_address_list = basic_obj.get_ifconfig_inet(vars.D1, data.interface)
-=======
-    data.netmask = basic_obj.get_ifconfig(data.dut, data.interface)[0]['netmask'][0]
-    data.gateway = basic_obj.get_ifconfig_gateway(data.dut, data.interface)
-    intf_obj.config_static_ip_to_interface(data.dut, data.interface, data.ip_address, data.netmask, data.gateway)
-
-    # verify ping with static ip address
-    st.log("Verify connectivity from DUT", dut=data.dut)
-    if not ping_obj.ping(data.dut, data.gateway):
-        err = st.error("Ping is not successful for gateway {} with static IP".format(data.gateway))
-        err_list.append(err)
-
-    # unconfigure static ip address
-    intf_obj.delete_ip_on_interface_linux(data.dut, data.interface, "{}/{}".format(data.ip_address, data.netmask))
-    ip_address_list = basic_obj.get_ifconfig_inet(data.dut, data.interface)
->>>>>>> 2565f2608ec4e193959dd20e8d39fe4d913488f3
     if ip_address_list:
         err = st.error("DUT_have_IP_address {} {}".format(data.dut, data.interface))
         err_list.append(err)
