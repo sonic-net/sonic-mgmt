@@ -32,6 +32,8 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
+TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
+
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
 def get_dut_names(data):
@@ -63,7 +65,7 @@ def _create_parser():
     parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
                       required=False,default="http://172.29.93.10/sonic-images/golden-code/golden_code_202012.tar.gz")
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
-                      required=True,default=None)
+                      required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
@@ -83,7 +85,9 @@ def _create_parser():
     parser.add_argument('-l', '--log_dir', type=str, help='Log dir',
                       required=False,default='DT')
     parser.add_argument('-r', '--run_sanity', action='store_true', help='Run Sanity',
-                      default=False)
+                      default=False),
+    parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
+                      required=False, default='')
     parser.add_argument('--cicd', action='store_true', help='Use CICD related parameters',
                       default=False)
     parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
@@ -861,6 +865,42 @@ def print_env_info(data, device_type, vEOS_count):
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     print("******************************************************************************************************************************************************************************\n")
 
+def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
+    sim_cfg_filename = "sim_credentials.json"
+    sim_cfg = {}
+
+    for dut_name in get_dut_names(data):
+        device = data[dut_name]
+        dut_host = "{}_HOST".format(dut_name.upper().replace(" ", "_"))
+        dut_username = "{}_USERNAME".format(dut_name.upper().replace(" ", "_"))
+        dut_pass = "{}_PASSWORD".format(dut_name.upper().replace(" ", "_"))
+        dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
+
+        sim_cfg[dut_host] = device['HostAgent']
+        sim_cfg[dut_username] = "cisco"
+        sim_cfg[dut_pass] = "cisco123"
+        sim_cfg[dur_ssh_port] = device['xr_redir22']
+    
+    sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
+    sim_cfg["SONIC_MGMT_USERNAME"] = "vxr"
+    sim_cfg["SONIC_MGMT_PASSWORD"] = "cisco123"
+    sim_cfg["SONIC_MGMT_SSH_PORT"] = data['sonic_mgmt']['xr_redir22']
+
+    sim_cfg["PTF_HOST"] = data['docker_ptf']['HostAgent']
+    sim_cfg["PTF_USERNAME"] = "root"
+    sim_cfg["PTF_PASSWORD"] = "root"
+    sim_cfg["PTF_SSH_PORT"] = data['docker_ptf']['xr_redir22']
+
+    sim_cfg['TOPO_NAME'] = topo_name
+    sim_cfg['DEVICE_TYPE'] = device_type
+    sim_cfg['DOCKER_MGMT_CONTAINER'] = docker_mgmt_container
+
+    print("Exporting sim credentials to file: {}".format(sim_cfg_filename))
+    print("Contents: \n{}".format(sim_cfg))
+
+    with open(sim_cfg_filename,'w') as cfg_file:
+            json.dump(sim_cfg, cfg_file, indent=4)
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -877,7 +917,20 @@ def main():
     tar_ball = args['tar_ball']
     cicd = args['cicd']
     cicd_clean = args['cicd_clean']
+    additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
+
+
+    print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
+    with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
+        TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
+    
+    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT)) 
+
+    #get topo_yaml from topo_type
+    if not topo_yaml and topo_type in TOPO_PLATFORM_FILE_DICT:
+        if device_type in TOPO_PLATFORM_FILE_DICT[topo_type]:
+            topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]
 
     ptf_intfcount = 32
 
@@ -909,6 +962,8 @@ def main():
 
     vcr_configure_end = datetime.datetime.now()
 
+    export_sim_cfg_to_file(data, "docker-ptf", device_type, "docker-sonic-mgmt")
+
     if run_sanity:
         run_scripts_remote(
             data['sonic_mgmt']['HostAgent'], 
@@ -919,7 +974,8 @@ def main():
             log_dir,
             device_type,
             create_allure_report, 
-            ssh_port=data['sonic_mgmt']['xr_redir22']
+            ssh_port=data['sonic_mgmt']['xr_redir22'],
+            additional_tests=additional_tests
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
