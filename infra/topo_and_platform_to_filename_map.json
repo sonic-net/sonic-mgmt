@@ -1,6 +1,12 @@
 {
+    "t0": {
+        "churchill-mono": "../pyvxr_yaml_files/sonic_t0_topo/testbed-churchill-mono-t0.yaml"
+    },
     "t0-64": {
         "mth64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
+    },
+    "t1": {
+        "churchill-mono": "../pyvxr_yaml_files/sonic_t0_topo/testbed-churchill-mono-t0.yaml"
     },
     "t1-64-lag": {
         "mth64": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
