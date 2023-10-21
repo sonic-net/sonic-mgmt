@@ -19,6 +19,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
 from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.helpers.drop_counters.drop_counters import verify_drop_counters_dut, ensure_no_l2_drops
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -766,3 +767,121 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     for flow_count, nexthop_selected in recvd_pkt_result.items():
         pytest_assert(nexthop_map[flow_count] in nexthop_selected,
                       "Flow {} is not picking expected Neighbor".format(flow_count))
+
+
+def test_nhop_group_member_packet_drops(duthost, tbinfo, ptfadapter, gather_facts,
+                                        enum_rand_one_frontend_asic_index, fanouthosts, enable_debug_shell):
+    """
+    Create a static route with nexthop unreachable. The route points to drop destination.
+    If the nexthop becomes reachable later,
+    drop route is not cleared and correct route is not installed. This causes packet drops
+    Steps to make sure that correct route is installed and no packet drops occur
+    -Find a portchannel which is UP.
+    -Disable arp_evict_nocarrier for this portchannel to make sure arp cache isnt
+     cleared when portchannel member is disconnected
+    -Shutdown fanout port connected to portchannel member
+    -Add static route with the portchannel as next hop
+    -Run command sudo show platform npu router route-table. Make sure no drop in the output
+    -Unshut the fanout interface corresponding to the portchannel member
+    Send packets from PTF. Make sure no packet drops
+    -Run command sudo show platform npu router route-table. Make sure no drop in the output.
+    """
+
+    # Check Gather facts IP Interface is active one
+    asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    pytest_assert(len(ip_ifaces), "No IP interfaces found")
+    po_interface = gather_facts['src_router_intf_name']
+    pytest_assert(po_interface in ip_ifaces, "Selected IP interfaces is not active")
+
+    # Generate ARP entries
+    arp_count = 8
+    arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
+    ip_route = "192.168.100.50"
+    ip_prefix = ip_route + "/31"
+    ip_ttl = 121
+
+    # create nexthop group
+    nhop = IPRoutes(duthost, asic)
+
+    rtr_mac = asic.get_router_mac()
+
+    def build_and_send_tcp_ip_packet(pkt_drop_expected):
+        pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, 0)
+        count = 100
+        if not pkt_drop_expected:
+            duthost.command("sonic-clear counters")
+            testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, count)
+            ensure_no_l2_drops(duthost, packets_count=count)
+            (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+                                                             ports=gather_facts['src_port_ids'])
+        else:
+            duthost.command("sonic-clear counters")
+            testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, count)
+            verify_drop_counters_dut(duthost, gather_facts['dst_port'][0],
+                                     "portstat -j", "RX_DRP", packets_count=count)
+
+    try:
+        # Disable arp_evict_nocarrier for this portchannel
+        cmd = "sudo bash -c 'echo 0 > /proc/sys/net/ipv4/conf/{}/arp_evict_nocarrier'".format(po_interface)
+        duthost.shell(cmd)
+
+        # Create static route
+        arplist.arps_add()
+        ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
+
+        # Shutdown fanout port connected to portchannel member
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                        gather_facts['src_port'][0])
+        fanout.shutdown(fanout_port)
+
+        # add IP route
+        nhop.ip_nhops = []
+        nhop.add_ip_route(ip_prefix, ips)
+        nhop.program_routes()
+        # wait for routes to be synced and programmed
+        time.sleep(15)
+
+        # Send Traffic. Since next hop is unreachable, packet drops are expected
+        ptfadapter.dataplane.flush()
+        build_and_send_tcp_ip_packet(pkt_drop_expected=True)
+
+        if duthost.facts["asic_type"] == "cisco-8000":
+            # Make sure route appears in npu route-table and destination is not 'drop'
+            npu_route_list = duthost.shell("sudo show platform npu router route-table | grep {}"
+                                           .format(ip_prefix))["stdout_lines"]
+            '''
+            If the expected NPU Route is present, npu_route_list should look like below
+            [u" |    0x0    |       192.168.100.50/31       | multipath-group |    NA    |
+            ['LEVEL_2', '0']   |   0x0    | 360287970189639682  | False | 4  |"]
+            '''
+            assert npu_route_list is not None, "no NPU route when nexthop is unreachable"
+            if npu_route_list:
+                npu_route_dest_info = "".join(npu_route_list).split("|")[5].strip()
+                npu_route_dest_info_next_hop = npu_route_dest_info.strip('[').strip(']').split(',')[1].strip().upper()
+                assert npu_route_dest_info_next_hop != "'DROP'", "NPU route destination is 'Drop'"
+
+        # unshut fanout port connected to portchannel member
+        fanout.no_shutdown(fanout_port)
+        time.sleep(15)
+
+        # After next hop becomes reachable, send traffic and make sure there are no drops
+        ptfadapter.dataplane.flush()
+        build_and_send_tcp_ip_packet(pkt_drop_expected=False)
+
+        if duthost.facts["asic_type"] == "cisco-8000":
+            # Make sure route appears in npu route-table and destination is not 'drop'
+            npu_route_list = duthost.shell("sudo show platform npu router route-table | grep {}"
+                                           .format(ip_prefix))["stdout_lines"]
+            assert npu_route_list is not None, "no NPU route when nexthop is reachable"
+            if npu_route_list:
+                npu_route_dest_info = "".join(npu_route_list).split("|")[5].strip()
+                npu_route_dest_info_next_hop = npu_route_dest_info.strip('[').strip(']').split(',')[1].strip().upper()
+                assert npu_route_dest_info_next_hop != "'DROP'", "NPU route destination is 'Drop'"
+
+    finally:
+        fanout.no_shutdown(fanout_port)
+        nhop.delete_routes()
+        arplist.clean_up()
+        cmd = "sudo bash -c 'echo 1 > /proc/sys/net/ipv4/conf/{}/arp_evict_nocarrier'".format(po_interface)
+        duthost.shell(cmd)

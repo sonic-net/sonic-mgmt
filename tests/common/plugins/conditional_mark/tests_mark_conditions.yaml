@@ -652,6 +652,13 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_member_packet_drops:
+  skip:
+    reason: "testcase not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+      - 't1' not in topo_name
+
 #######################################
 #####           macsec            #####
 #######################################
