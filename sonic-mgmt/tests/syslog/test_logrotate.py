@@ -13,8 +13,6 @@ pytestmark = [
 ]
 
 LOG_FOLDER = '/var/log'
-ROTATE_THRESHOLD_LARGE = '16M'
-ROTATE_THRESHOLD_SMALL = '1024K'
 SMALL_VAR_LOG_PARTITION_SIZE = '100M'
 
 
@@ -169,6 +167,21 @@ def validate_logrotate_function(duthost, logrotate_threshold):
             'No logrotate happens, there should be one time logrotate executed'
 
 
+def get_threshold_based_on_memory(duthost):
+    """
+    Get the available memory from DUT to determine what is the threshold for the logrotate.
+    :param duthost: DUT host object
+    :return: value with unit, such as '1024K' which represents the logrotate size threshold.
+    """
+    available_memory = int(duthost.shell("df -k /var/log | sed -n 2p")["stdout_lines"][0].split()[1])
+    if available_memory <= 204800:
+        return "1024K"
+    elif available_memory <= 409600:
+        return "2048K"
+    else:
+        return "16M"
+
+
 @pytest.mark.disable_loganalyzer
 def test_logrotate_normal_size(rand_selected_dut):
     """
@@ -190,7 +203,8 @@ def test_logrotate_normal_size(rand_selected_dut):
     with allure.step('Check whether the DUT is a small flash DUT'):
         if get_var_log_size(duthost) < 200 * 1024:
             pytest.skip('{} size is lower than 200MB, skip this test'.format(LOG_FOLDER))
-    validate_logrotate_function(duthost, ROTATE_THRESHOLD_LARGE)
+    rotate_large_threshold = get_threshold_based_on_memory(duthost)
+    validate_logrotate_function(duthost, rotate_large_threshold)
 
 
 @pytest.mark.disable_loganalyzer
@@ -212,4 +226,5 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     :param simulate_small_var_log_partition: The fixture simulates a small var log partition
     """
     duthost = rand_selected_dut
-    validate_logrotate_function(duthost, ROTATE_THRESHOLD_SMALL)
+    rotate_small_threshold = get_threshold_based_on_memory(duthost)
+    validate_logrotate_function(duthost, rotate_small_threshold)

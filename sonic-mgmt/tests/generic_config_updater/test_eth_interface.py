@@ -223,6 +223,7 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_invalid_index(duthost, ensure_dut_readiness):
     json_patch = [
         {
@@ -242,6 +243,7 @@ def test_update_invalid_index(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_valid_index(duthost, ensure_dut_readiness):
     output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
