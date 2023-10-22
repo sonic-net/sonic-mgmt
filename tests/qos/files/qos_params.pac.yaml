@@ -10,15 +10,6 @@ qos_params:
                 pkts_num_margin: 4
                 packet_size: 1350
                 cell_size: 384
-            wm_pg_shared_lossy:
-                dscp: 8
-                ecn: 1
-                pg: 0
-                pkts_num_trig_egr_drp: 5121
-                pkts_num_fill_min: 0
-                pkts_num_margin: 4
-                packet_size: 8156
-                cell_size: 8192
             wm_buf_pool_lossy:
                 dscp: 8
                 ecn: 1
@@ -168,15 +159,6 @@ qos_params:
                     cell_size: 384
                     packet_size: 1350
         topo-t2:
-            wm_pg_shared_lossy:
-                dscp: 8
-                ecn: 1
-                pg: 0
-                pkts_num_trig_egr_drp: 5121
-                pkts_num_fill_min: 0
-                pkts_num_margin: 4
-                packet_size: 8156
-                cell_size: 8192
             wm_buf_pool_lossy:
                 dscp: 8
                 ecn: 1
