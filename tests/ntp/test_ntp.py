@@ -21,10 +21,16 @@ def config_long_jump(duthost, enable=False):
     using_ntpsec = ntpsec_conf_stat["stat"]["exists"]
     if enable:
         logger.info("enable ntp long jump")
-        regex = "s/NTPD_OPTS=\\\"-x -N\\\"/NTPD_OPTS=\\\"-g -N\\\"/" if using_ntpsec else "s/NTPD_OPTS='-x'/NTPD_OPTS='-g'/"
+        if using_ntpsec:
+            regex = "s/NTPD_OPTS=\\\"-x -N\\\"/NTPD_OPTS=\\\"-g -N\\\"/"
+        else:
+            regex = "s/NTPD_OPTS='-x'/NTPD_OPTS='-g'/"
     else:
         logger.info("disable ntp long jump")
-        regex = "s/NTPD_OPTS=\\\"-g -N\\\"/NTPD_OPTS=\\\"-x -N\\\"/" if using_ntpsec else "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
+        if using_ntpsec:
+            regex = "s/NTPD_OPTS=\\\"-g -N\\\"/NTPD_OPTS=\\\"-x -N\\\"/"
+        else:
+            regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
 
     if using_ntpsec:
         duthost.command("sed -i '%s' /etc/default/ntpsec" % regex)
