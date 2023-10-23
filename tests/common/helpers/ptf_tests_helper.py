@@ -4,9 +4,13 @@ A helper module for PTF tests.
 
 import pytest
 import random
+import os
+import logging
 
 from ipaddress import ip_address, IPv4Address
 from tests.common.config_reload import config_reload
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -84,23 +88,27 @@ def apply_dscp_cfg_setup(duthost, dscp_mode):
         dscp_mode: DSCP mode to apply
     """
 
-    default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")
-    ["stdout"].strip()
+    default_decap_mode = duthost.shell("redis-cli -n 0 hget 'TUNNEL_DECAP_TABLE:IPINIP_TUNNEL' 'dscp_mode'")["stdout"]
+    logger.info("Current DSCP decap mode: {}".format(default_decap_mode))
 
     if default_decap_mode == dscp_mode:
+        logger.info("Current DSCP decap mode: {} matches required decap mode - no reload required"
+                    .format(default_decap_mode))
         return
 
     for asic_id in duthost.get_frontend_asic_ids():
         swss = "swss{}".format(asic_id if asic_id is not None else '')
-        cmds = [
-            "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 /usr/share/sonic/templates/ipinip.json.j2.tmp"
-            .format(swss),
-            "docker exec {} sed -i 's/{}/{}/g' /usr/share/sonic/templates/ipinip.json.j2 "
-            .format(swss, default_decap_mode, dscp_mode)
-        ]
+        logger.info("DSCP decap mode required to be changed to {} on asic {}".format(dscp_mode, asic_id))
+        cmds = ["docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2 ".format(swss) +
+                "/usr/share/sonic/templates/ipinip.json.j2.tmp",
+                "docker exec {} sed -i 's/\"dscp_mode\":\"{}\"/\"dscp_mode\":\"{}\"/g\' ".
+                format(swss, default_decap_mode, dscp_mode) + "/usr/share/sonic/templates/ipinip.json.j2"]
+        # sed -i 's/"dscp_mode":"uniform"/"dscp_mode":"pipe"/g' ipinip.json.j2 - this is the command to change
         duthost.shell_cmds(cmds=cmds)
+        logger.info("DSCP decap mode changed from {} to {} on asic {}".format(default_decap_mode, dscp_mode, asic_id))
 
-    config_reload(duthost, safe_reload=True)
+    logger.info("SETUP: Reload required for dscp decap mode changes to take effect.")
+    config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
 def apply_dscp_cfg_teardown(duthost):
@@ -113,18 +121,19 @@ def apply_dscp_cfg_teardown(duthost):
     reload_required = False
     for asic_id in duthost.get_frontend_asic_ids():
         swss = 'swss{}'.format(asic_id if asic_id is not None else '')
-        file_exists = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp"
-                                    .format(swss))["rc"] == 0
-        if not file_exists:
+        try:
+            file_out = duthost.shell("docker exec {} ls /usr/share/sonic/templates/ipinip.json.j2.tmp".format(swss))
+        except Exception:
             continue
-        cmds = [
-            'docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp /usr/share/sonic/templates/ipinip.json.j2'
-            .format(swss)
-        ]
-        reload_required = True
-        duthost.shell_cmds(cmds=cmds)
+        if file_out["rc"] == 0:
+            cmd1 = "docker exec {} cp /usr/share/sonic/templates/ipinip.json.j2.tmp ".format(swss) + \
+                "/usr/share/sonic/templates/ipinip.json.j2"
+            reload_required = True
+            logger.info("DSCP decap mode required to be changed to default on asic {}".format(asic_id))
+            duthost.shell(cmd1)
 
     if reload_required:
+        logger.info("TEARDOWN: Reload required for dscp decap mode changes to take effect.")
         config_reload(duthost, safe_reload=True)
 
 
@@ -176,3 +185,15 @@ def get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_port_id):
             return dut_port
 
     return None
+
+
+def fetch_test_logs_ptf(ptfhost, ptf_location, dest_dir):
+    """
+    Fetch test logs from ptfhost after individual test run
+    """
+    log_dir = ptf_location
+    curr_dir = os.getcwd()
+    logFiles = {'src': log_dir, 'dest': curr_dir + dest_dir, 'flat': True, 'fail_on_missing': False}
+    ptfhost.fetch(**logFiles)
+
+    return logFiles['dest']
