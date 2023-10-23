@@ -63,12 +63,12 @@ def run_pfcwd_multi_node_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.duthost1
-    rx_port = snappi_extra_params.multidut_ports[0]
-    rx_port_id_list = [snappi_extra_params.multidut_ports[0]["port_id"]]
-    duthost2 = snappi_extra_params.duthost2
-    tx_port = [snappi_extra_params.multidut_ports[1], snappi_extra_params.multidut_ports[2]]
-    tx_port_id_list = [snappi_extra_params.multidut_ports[1]["port_id"], snappi_extra_params.multidut_ports[2]["port_id"]]
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id_list = [rx_port["port_id"]]
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1], snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
+    tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     stop_pfcwd(duthost1, rx_port['asic_value'])
