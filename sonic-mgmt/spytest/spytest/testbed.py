@@ -16,7 +16,7 @@ from spytest.st_time import get_timenow
 from spytest.st_time import get_elapsed
 
 import utilities.common as utils
-from utilities.profile import get_cache, set_cache
+from utilities.cache import get_cache, set_cache
 
 testbeds_root = os.path.join(os.path.dirname(__file__), '..')
 testbeds_root = os.path.join(os.path.abspath(testbeds_root), "testbeds")

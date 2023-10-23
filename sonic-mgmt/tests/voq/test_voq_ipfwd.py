@@ -793,6 +793,9 @@ class TestVoqIPFwd(object):
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
                                                                                                  size=size))
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         # these don't decrement ttl
         check_packet(sonic_ping, ports, 'portA', 'portA', src_ip_fld='my_lb_ip', dst_ip_fld='my_ip', size=size, ttl=ttl,
                      ttl_change=0)
@@ -894,6 +897,10 @@ class TestVoqIPFwd(object):
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}"
                     .format(ipv=version, ttl=ttl, size=size))
+
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         vm_host_to_A = nbrhosts[ports['portA']['nbr_vm']]['host']
         check_packet(eos_ping, ports, 'portB', 'portA', dst_ip_fld='nbr_lb', src_ip_fld='nbr_lb', dev=vm_host_to_A,
                      size=size, ttl=ttl)
@@ -922,6 +929,9 @@ def test_ipforwarding_ttl0(duthosts, all_cfg_facts, tbinfo, ptfhost, version, po
     """
 
     ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+    if 'portD' not in ports:
+        pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
 
     if 'portB' in ports:
         dst_list = [('portB', ports['portB']['nbr_lb']), ('portD', ports['portD']['nbr_lb'])]
@@ -1028,6 +1038,10 @@ class TestFPLinkFlap(LinkFlap):
         logger.info("Fanouthosts: %s", fanouthosts)
 
         ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         cfg_facts = all_cfg_facts[ports['portA']['dut'].hostname][ports['portA']['asic'].asic_index]['ansible_facts']
 
         if "portchannel" in ports['portA']['port'].lower():
@@ -1150,6 +1164,9 @@ def test_ipforwarding_jumbo_to_dut(duthosts, all_cfg_facts, tbinfo, ptfhost, por
 
     """
     ports = pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a=porttype, version=version)
+
+    if 'portD' not in ports:
+        pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
 
     dst_ip = ports[port][ip]
 

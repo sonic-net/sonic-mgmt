@@ -60,6 +60,8 @@ class QosParamCisco(object):
         Each function takes common parameters and outputs to the relevant section of the
         self.qos_params structure.
         '''
+        if not self.supports_autogen:
+            return self.qos_params
         self.__define_shared_reservation_size()
         self.__define_pfc_xoff_limit()
         self.__define_pfc_xon_limit()

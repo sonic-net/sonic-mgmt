@@ -278,7 +278,10 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                     state_times = get_state_times(
                         timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
-                break
+                if "PORT_READY" not in state_name:
+                    # If PORT_READY, don't break out of the for-loop here, because we want to
+                    # try to match the other regex as well
+                    break
     # Calculate time that services took to stop/start
     for _, timings in list(service_restart_times.items()):
         timestamps = timings["timestamp"]
@@ -398,13 +401,16 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(
-                key, {}).get(pattern, {}).get("Start count", 0)
+            if pattern == 'PORT_READY':
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start-changes-only count", 0)
+            else:
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start count", 0)
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
-                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
+            if observed_start_count != expected_count:
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:

@@ -32,7 +32,7 @@ def fanout_switch_port_lookup(fanout_switches, dut_name, dut_port):
 def get_dut_psu_line_pattern(dut):
     if "201811" in dut.os_version or "201911" in dut.os_version:
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
-    elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0" or dut.facts['asic_type'] == "cisco-8000":
+    elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0":
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(N/A)")
     else:
         """
