@@ -11,7 +11,7 @@ from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import run_pfcwd_multi_node_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -66,9 +66,9 @@ def test_pfcwd_many_to_one(snappi_api,                                  # noqa: 
     test_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.multidut_ports = snappi_ports
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfcwd_multi_node_test(api=snappi_api,
                               testbed_config=testbed_config,
