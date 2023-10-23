@@ -33,7 +33,7 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
-                          "t0-80", "t0-backend"]
+                          "t0-120", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
@@ -132,6 +132,7 @@ class QosBase:
             is_python3=True,
             relax=relax,
             timeout=1200,
+            socket_recv_size=16384,
             custom_options=custom_options
         )
 
@@ -177,6 +178,70 @@ class QosSaiBase(QosBase):
             {"static_th": int(
                 bufferProfile["size"]) + int(bufferScale * bufferSize)}
         )
+
+    def __compute_buffer_threshold_for_nvidia_device(self, dut_asic, table, port, pg_q_buffer_profile):
+        """
+        Computes buffer threshold for dynamic threshold profiles for nvidia device
+
+        Args:
+            dut_asic (SonicAsic): Device ASIC Under Test (DUT)
+            table (str): Redis table name
+            port (str): DUT port alias
+            pg_q_buffer_profile (dict, inout): Map of pg or q buffer profile attributes
+
+        Returns:
+            Updates bufferProfile with computed buffer threshold
+        """
+
+        port_table_name = "BUFFER_PORT_EGRESS_PROFILE_LIST_TABLE" if \
+            table == "BUFFER_QUEUE_TABLE" else "BUFFER_PORT_INGRESS_PROFILE_LIST_TABLE"
+        db = "0"
+        port_profile_res = dut_asic.run_redis_cmd(
+            argv=["redis-cli", "-n", db, "HGET", f"{port_table_name}:{port}", "profile_list"]
+        )[0]
+        port_profile_list = port_profile_res.split(",")
+
+        port_dynamic_th = ''
+        for port_profile in port_profile_list:
+            buffer_pool_name = dut_asic.run_redis_cmd(
+                argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "pool"]
+            )[0]
+            if buffer_pool_name == pg_q_buffer_profile["pool"]:
+                port_dynamic_th = dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", f'BUFFER_PROFILE_TABLE:{port_profile}', "dynamic_th"]
+                )[0]
+                break
+        if port_dynamic_th:
+
+            def calculate_alpha(dynamic_th):
+                if dynamic_th == "7":
+                    alpha = 64
+                else:
+                    alpha = 2 ** float(dynamic_th)
+                return alpha
+
+            pg_q_alpha = calculate_alpha(pg_q_buffer_profile['dynamic_th'])
+            port_alpha = calculate_alpha(port_dynamic_th)
+            pool = f'BUFFER_POOL_TABLE:{pg_q_buffer_profile["pool"]}'
+            buffer_size = int(
+                dut_asic.run_redis_cmd(
+                    argv=["redis-cli", "-n", db, "HGET", pool, "size"]
+                )[0]
+            )
+
+            buffer_scale = port_alpha * pg_q_alpha / (port_alpha * pg_q_alpha + pg_q_alpha + 1)
+
+            pg_q_max_occupancy = int(buffer_size * buffer_scale)
+
+            pg_q_buffer_profile.update(
+                {"static_th": int(
+                    pg_q_buffer_profile["size"]) + int(pg_q_max_occupancy)}
+            )
+            pg_q_buffer_profile["pg_q_alpha"] = pg_q_alpha
+            pg_q_buffer_profile["port_alpha"] = port_alpha
+            pg_q_buffer_profile["pool_size"] = buffer_size
+        else:
+            raise Exception("Not found port dynamic th")
 
     def __updateVoidRoidParams(self, dut_asic, bufferProfile):
         """
@@ -271,7 +336,10 @@ class QosSaiBase(QosBase):
 
         # Update profile static threshold value if  profile threshold is dynamic
         if "dynamic_th" in list(bufferProfile.keys()):
-            self.__computeBufferThreshold(dut_asic, bufferProfile)
+            if dut_asic.sonichost.facts['platform'] == "x86_64-nvidia_sn5600-r0":
+                self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
+            else:
+                self.__computeBufferThreshold(dut_asic, bufferProfile)
 
         if "pg_lossless" in bufferProfileName:
             pytest_assert(
@@ -606,7 +674,7 @@ class QosSaiBase(QosBase):
         yield rtn_dict
 
     def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids,
-                         dst_port_ids, get_src_dst_asic_and_duts):
+                         dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds):
         """
             Build map of test ports index and IPs
 
@@ -657,6 +725,10 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
+        if get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+            srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
+            dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
+            logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
 
         pytest_assert(len(dst_test_port_ids) >= 1 and len(src_test_port_ids) >= 1, "Provide at least 2 test ports")
         logging.debug(
@@ -730,6 +802,7 @@ class QosSaiBase(QosBase):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         src_dut = get_src_dst_asic_and_duts['src_dut']
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
@@ -760,7 +833,7 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
             dualTorPortIndexes[src_dut_index] = {}
-            dualTorPortIndexes[src_dut_index][src_asic_index] = {}
+            dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
             else:
@@ -827,7 +900,9 @@ class QosSaiBase(QosBase):
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
-                    if use_separated_upkink_dscp_tc_map:
+                    if (use_separated_upkink_dscp_tc_map or
+                            get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] ==
+                            "Cisco-8101-O8C48"):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -923,9 +998,30 @@ class QosSaiBase(QosBase):
 
         pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
+        # Get dst_dut asic type
+        if dst_asic != src_asic:
+            vendor = dst_dut.facts["asic_type"]
+            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+            dstDutAsic = None
+            for asic in self.SUPPORTED_ASIC_LIST:
+                vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dstDutAsic = asic
+                    break
+
+            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+        else:
+            dstDutAsic = dutAsic
+
         dutTopo = "topo-"
 
-        if dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
+        if dutAsic == "gb" and topo == "t2":
+            if get_src_dst_asic_and_duts['src_asic'] == \
+                    get_src_dst_asic_and_duts['dst_asic']:
+                dutTopo = dutTopo + "any"
+            else:
+                dutTopo = dutTopo + topo
+        elif dutTopo + topo in qosConfigs['qos_params'].get(dutAsic, {}):
             dutTopo = dutTopo + topo
         else:
             # Default topo is any
@@ -950,7 +1046,7 @@ class QosSaiBase(QosBase):
             testPortIds = dualTorPortIndexes
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps,
-                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts)
+                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds)
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -961,6 +1057,7 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
         })
         dutinterfaces = {}
+        uplinkPortIds = testPorts.get('uplink_port_ids', [])
 
         if tbinfo["topo"]["type"] == "t2":
             # dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'},
@@ -977,14 +1074,16 @@ class QosSaiBase(QosBase):
 
         yield {
             "dutInterfaces": dutinterfaces,
+            "uplinkPortIds": uplinkPortIds,
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic": dutAsic,
+            "dstDutAsic": dstDutAsic,
             "dutTopo": dutTopo,
             "srcDutInstance": src_dut,
-            "dstDutInstance": get_src_dst_asic_and_duts['dst_dut'],
+            "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
             "dualTorScenario": len(dualtor_ports_for_duts) != 0
         }
@@ -1376,9 +1475,14 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamCisco(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                    duthost,
-                                                    bufferConfig)
+            qpm = qos_param_generator.QosParamCisco(
+                      qosConfigs['qos_params'][dutAsic][dutTopo],
+                      duthost,
+                      dutAsic,
+                      dutTopo,
+                      bufferConfig,
+                      portSpeedCableLength)
+
             qosParams = qpm.run()
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
@@ -1913,6 +2017,21 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
+    @pytest.fixture(autouse=False)
+    def _check_ingress_speed_gte_400g(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        if not m:
+            raise RuntimeError(
+                "Format error in portSpeedCableLength:{}".
+                format(portSpeedCableLength))
+        speed = int(m.group(1))
+        if speed >= 400000:
+            pytest.skip("PGDrop test is not supported for 400G port speed.")
+
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
@@ -1945,3 +2064,35 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info(f"Test ports ids is{test_port_ids}")
         return test_port_ids
+
+    @pytest.fixture(scope="function", autouse=False)
+    def _skip_watermark_multi_DUT(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        if not is_cisco_device(get_src_dst_asic_and_duts['src_dut']):
+            yield
+            return
+        if (get_src_dst_asic_and_duts['src_dut'] !=
+                get_src_dst_asic_and_duts['dst_dut']):
+            pytest.skip(
+                "All WM Tests are skipped for multiDUT for cisco platforms.")
+
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_src_dst_different_asic(self, dutConfig):
+        if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
+            pytest.skip(
+                "This test is skipped since asic types of ingress and egress are different.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
+        yield
+        return
