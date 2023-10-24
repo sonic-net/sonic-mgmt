@@ -393,7 +393,7 @@ def _create_parser():
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2', 'mth-t0-64', 'dut-400g'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2', 'mth-t0-64', 'dut-400g', 'churchill-mono'])
     parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
                       required=False,default='docker-sonic-mgmt')
     parser.add_argument('-t', '--sonic_test_dir', type=str, help='Directory of sonic-test on DUT',
