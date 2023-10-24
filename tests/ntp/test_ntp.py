@@ -136,9 +136,15 @@ def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
     """ Verify that DUT is synchronized with configured NTP server """
     duthost = duthosts[rand_one_dut_hostname]
 
+    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+    using_ntpsec = ntpsec_conf_stat["stat"]["exists"]
+
     duthost.service(name='ntp', state='stopped')
-    ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
-    duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
+    if using_ntpsec:
+        duthost.command("timeout 20 ntpd -gq -u ntpsec:ntpsec")
+    else:
+        ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+        duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
     duthost.service(name='ntp', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP not in sync")
