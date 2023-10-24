@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms2-t1-7260-7"
+    default: "vms2-t1-7260-7, vms64-t1-7260-14"
     displayName: "Testbed Name"
 
   - name: IMAGE_URL
