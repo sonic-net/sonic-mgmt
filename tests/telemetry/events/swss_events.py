@@ -8,7 +8,6 @@ from run_events_test import run_test
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
 
-PFC_STORM_TEST_PORT = "Ethernet4"
 PFC_STORM_TEST_QUEUE = "4"
 PFC_STORM_DETECTION_TIME = 100
 PFC_STORM_RESTORATION_TIME = 100
@@ -45,6 +44,11 @@ def shutdown_interface(duthost):
 
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
+    interfaces = duthost.get_interfaces_status()
+    PFC_STORM_TEST_PORT = next((interface for interface, status in interfaces.items()
+                               if status["oper"] == "up" and status["admin"] == "up"), None)
+    assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
+
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
     duthost.shell("sonic-db-cli COUNTERS_DB HSET \"COUNTERS:{}\" \"DEBUG_STORM\" \"enabled\"".
                   format(queue_oid))
