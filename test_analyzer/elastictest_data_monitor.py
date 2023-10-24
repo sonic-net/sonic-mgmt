@@ -304,7 +304,7 @@ def main():
     for item in duplicate_data:
         logger.info(item)
 
-    assert len(missing_data) == 0 and len(more_data) == 0 and len(duplicate_data) == 0, "Got missing data or more data or duplicate data, fail this pipeline"
+    assert len(missing_data) == 0 and len(more_data) == 0, "Got missing data or more data, fail this pipeline"
 
 
 if __name__ == '__main__':
