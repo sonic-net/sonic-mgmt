@@ -42,6 +42,7 @@ class PFCStorm(object):
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
+        self.pfc_send_period = kwargs.pop('pfc_send_period', None)
         self.peer_info = kwargs.pop('peer_info')
         self._validate_params(expected_args=['pfc_fanout_interface', 'peerdevice'])
         if 'hwsku' not in self.peer_info:
@@ -137,7 +138,8 @@ class PFCStorm(object):
             "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'],
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku'],
-            "send_pfc_frame_interval": self.send_pfc_frame_interval
+            "send_pfc_frame_interval": self.send_pfc_frame_interval,
+            "pfc_send_period": self.pfc_send_period
             }
         if self.peer_device.os in self._PFC_GEN_DIR:
             self.extra_vars['pfc_gen_dir'] = \
@@ -154,8 +156,12 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
-        self.pfc_start_template = os.path.join(
-            TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
+        if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
+        else:
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_start_template})
 
     def _prepare_stop_template(self):
@@ -163,8 +169,12 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
-        self.pfc_stop_template = os.path.join(
-            TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
+        if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
+        else:
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
         self.extra_vars.update({"template_path": self.pfc_stop_template})
 
     def _run_pfc_gen_template(self):
@@ -273,12 +283,19 @@ class PFCMultiStorm(object):
                          'pfc_fanout_interface': self.peer_params[peer_dev]['intfs']}
 
             q_idx, frames_cnt, gen_file = self._get_pfc_params(peer_dev)
+            if self.duthost.topo_type == 't2' and self.fanouthosts[peer_dev].os == 'sonic':
+                gen_file = 'pfc_gen_t2.py'
+                pfc_send_time = 60
+            else:
+                gen_file = 'pfc_gen.py'
+                pfc_send_time = None
             # get pfc storm handle
             self.storm_handle[peer_dev] = PFCStorm(self.duthost, self.fanout_graph,
                                                    self.fanouthosts,
                                                    pfc_queue_index=q_idx,
                                                    pfc_frames_number=frames_cnt,
                                                    pfc_gen_file=gen_file,
+                                                   pfc_send_period=pfc_send_time,
                                                    peer_info=peer_info)
 
             self.storm_handle[peer_dev].deploy_pfc_gen()
