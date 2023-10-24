@@ -5262,7 +5262,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         time.sleep(5)
-        switch_init(self.client)
+        switch_init(self.clients)
         # Parse input parameters
         ingress_counters, egress_counters = get_counter_names(self.test_params['sonic_version'])
         ecn = int(self.test_params['ecn'])
