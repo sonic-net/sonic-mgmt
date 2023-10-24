@@ -155,19 +155,6 @@ function setup_test_options()
         FINAL_CASES="${FINAL_CASES} $(echo ${test_case} | grep -E "^(${includes})")"
     done
     TEST_CASES=$(python3 -c "print('\n'.join('''${FINAL_CASES}'''.split()))")
-        
-    # define list of testcases to be executed at the end
-    TESTCASES_RUN_AT_END="metadata-scripts/test_metadata_upgrade_path.py"
-    # Remove the testcases that are already deselected
-    TESTCASES_RUN_AT_END=$(python3 -c "tc_list=set('''$TEST_CASES'''.split()); tc_end_list=set('''$TESTCASES_RUN_AT_END'''.split()); print(' '.join([item for item in tc_end_list if item in tc_list]))")
-
-    # Remove testcases to be executed at the end from the list and add them back to the end
-    if [[ x"${TEST_INPUT_ORDER}" == x"True"  ]]; then
-        TEST_CASES=$(python3 -c "print '\n'.join(set('''$TEST_CASES'''.split()) - set('''$TESTCASES_RUN_AT_END'''.split()))")
-    else
-        TEST_CASES=$(python3 -c "print '\n'.join(set('''$TEST_CASES'''.split()) - set('''$TESTCASES_RUN_AT_END'''.split()))" | sort)
-    fi
-    TEST_CASES=$(python3 -c "tc_list='''$TEST_CASES'''.split(); tc_list.extend('''$TESTCASES_RUN_AT_END'''.split()); print '\n'.join(tc_list)")
 
     if [[ -z $TEST_CASES ]]; then
         echo "No test case to run based on conditions of '-c', '-I' and '-S'. Please check..."
