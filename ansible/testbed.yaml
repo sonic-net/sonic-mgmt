@@ -991,15 +991,15 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms63-t1-8111-01
-  group-name: vms63-5
+- conf-name: vms66-t1-8111-01
+  group-name: vms66-1
   topo: t1-64-lag
   ptf_image_name: docker-ptf
-  ptf: vms63-5
+  ptf: vms66-1
   ptf_ip: 10.64.247.50/23
   ptf_ipv6:
-  server: server_63
-  vm_base: VM63056
+  server: server_66
+  vm_base: VM66000
   dut:
     - str3-8111-01
   inv_name: str3
