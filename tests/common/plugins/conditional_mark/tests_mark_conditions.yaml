@@ -56,9 +56,9 @@ arp/test_wr_arp.py:
       - "'dualtor' in topo_name"
       - https://github.com/sonic-net/sonic-buildimage/issues/16502
   xfail:
-    reason: "Warm reboot has a known issue on 7050cx3"
+    reason: "Warm reboot has a known issue on 202305 branch"
     conditions:
-      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Force10-S6100', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q44', 'Arista-7260CX3-D108C8'] and release in ['202305']"
       - https://github.com/sonic-net/sonic-mgmt/issues/10077
 
 #######################################
@@ -710,6 +710,20 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     strict: True
     reason: "Known NTP bug"
 
+#######################################
+#####     override_config_table   #####
+#######################################
+override_config_table/test_override_config_table.py:
+  skip:
+    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
+    conditions:
+      - is_multi_asic == True
+
+override_config_table/test_override_config_table_masic.py:
+  skip:
+    reason: "Skip override-config-table-masic testing on single-asic platforms, test provided golden config format is not compatible with single-asics"
+    conditions:
+      - is_multi_asic == False
 
 #######################################
 #####           pc               #####
@@ -746,9 +760,9 @@ pc/test_po_update.py::test_po_update_io_no_loss:
 
 pc/test_po_voq.py:
   skip:
-    reason: "Skip since there is no portchannel configured or no portchannel member exists in current topology."
+    reason: "Skip for non t2 or Skip since there is no portchannel configured or no portchannel member exists in current topology."
     conditions:
-      - "num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
 #######################################
 #####           pfc               #####
@@ -795,9 +809,9 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'t2' in topo_name"
    xfail:
-     reason: "Warm Reboot is not supported in dualtor."
+     reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
-        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master'])"
+        - "('dualtor' in topo_name) or (hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Force10-S6100', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q44', 'Arista-7260CX3-D108C8'] and release in ['202305'])"
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
@@ -857,8 +871,8 @@ platform_tests/test_auto_negotiation.py:
 
 platform_tests/test_cont_warm_reboot.py:
   xfail:
-    reason: "warm reboot has a known issue on 7050cx3"
-    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+    reason: "warm reboot has a known issue on 202305 branch"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Force10-S6100', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q44', 'Arista-7260CX3-D108C8'] and release in ['202305']"
 
 #######################################
 #####           qos               #####
@@ -1043,6 +1057,12 @@ show_techsupport/test_auto_techsupport.py:
     conditions:
       - (is_multi_asic==True)
 
+show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit[core]:
+  xfail:
+    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/15051."
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/15051
+
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Test supported only on Nvidia(Mellanox) devices"
@@ -1165,6 +1185,12 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
 #######################################
 #####           telemetry         #####
 #######################################
+telemetry/test_events.py:
+  skip:
+    reason: "Skip telemetry test events for 202211 and older branches"
+    conditions:
+      - "release in ['201811', '201911', '202012', '202205', '202211']"
+
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
