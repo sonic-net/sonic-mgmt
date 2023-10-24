@@ -12,6 +12,7 @@ import struct
 import binascii
 import datetime
 import logging
+import inspect
 
 from spytest import st
 from spytest.datamap import DataMap
@@ -20,9 +21,6 @@ import utilities.parallel as pll
 from utilities.common import filter_and_select, dicts_list_values
 from utilities.common import make_list
 from utilities.common import str_encode, str_decode
-
-msgs = DataMap("messages").get()
-test_func_name = None
 
 
 def get_supported_ui_type_list(*more):
@@ -908,10 +906,17 @@ def report_tc_fail(tc, msg, *args):
     :return:
     """
 
-    import inspect
-    global test_func_name
-    if msg in msgs:
-        message = msgs[msg].format(*args)
+    data_name = "report_tc_fail_data"
+    # nosemgrep-next-line
+    data = globals().get(data_name, None)
+    if data is None:
+        from spytest import SpyTestDict
+        data = globals()[data_name] = SpyTestDict()
+        data.msgs = DataMap("messages").get()
+        data.test_func_name = None
+
+    if msg in data.msgs:
+        message = data.msgs[msg].format(*args)
     else:
         message = msg
 
@@ -924,24 +929,24 @@ def report_tc_fail(tc, msg, *args):
 
     try:
         # when this func is called for 2nd time onwards - from test_func_1
-        if test_func_name == calling_func_name:
+        if data.test_func_name == calling_func_name:
             collect_tech_support = False
         else:
             # when this func is called for first time - from test_func_2
-            test_func_name = calling_func_name
+            data.test_func_name = calling_func_name
             collect_tech_support = True
     except NameError:
         # when this func is called for first time - from test_func_1
-        test_func_name = calling_func_name
+        data.test_func_name = calling_func_name
         collect_tech_support = True
 
-    st.warn('Current Test Func: {} Previous Test Func: {}'.format(calling_func_name, test_func_name))
+    st.warn('Current Test Func: {} Previous Test Func: {}'.format(calling_func_name, data.test_func_name))
     st.warn("test_step_failed, tc_id: {}, fail_reason: {}".format(tc, message))
     if collect_tech_support:
         st.banner('Collecting tech support on all DUTs')
         st.generate_tech_support(dut=None, name=tc)
 
-    if msg in msgs:
+    if msg in data.msgs:
         return st.report_tc_fail(tc, msg, *args)
 
     return st.report_tc_fail(tc, "msg", msg, *args)
