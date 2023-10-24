@@ -1962,6 +1962,13 @@ class QosSaiBase(QosBase):
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
 
+        yield
+
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+            dut_asic.command("counterpoll watermark enable")
+            dut_asic.command("counterpoll queue enable")
+            dut_asic.command("config save -y")
+
     @pytest.fixture(scope='class')
     def dualtor_ports_for_duts(request, get_src_dst_asic_and_duts):
         # Fetch dual ToR ports
