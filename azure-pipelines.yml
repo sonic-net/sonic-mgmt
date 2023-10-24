@@ -143,6 +143,20 @@ stages:
           KVM_IMAGE_BRANCH: "master"
           MGMT_BRANCH: "master"
 
+  - job: dpu_elastictest
+    displayName: "kvmtest-dpu by Elastictest"
+    timeoutInMinutes: 240
+    continueOnError: false
+    pool: ubuntu-20.04
+    steps:
+      - template: .azure-pipelines/run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: dpu
+          MIN_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: "master"
+          MGMT_BRANCH: "master"
+
 #  - job: wan_elastictest
 #    displayName: "kvmtest-wan by Elastictest"
 #    timeoutInMinutes: 240

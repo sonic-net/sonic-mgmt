@@ -8,6 +8,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses                                 # noqa F401
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.ptf_runner import ptf_runner
+from tests.common.utilities import wait_until
 
 
 logger = logging.getLogger(__name__)
@@ -189,6 +190,31 @@ class TestWrArp:
         route, ptfIp, gwIp = self.setupRouteToPtfhost(duthost, ptfhost)
         yield
         self.teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
+
+    @pytest.fixture(scope='class', autouse=True)
+    def warmRebootSystemFlag(self, duthost):
+        """
+            Sets warm-reboot system flag to false after test. This class-scope fixture runs once before test start
+
+            Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
+
+            Returns:
+                None
+        """
+        yield
+        if not wait_until(300, 10, 0, self.checkWarmbootFlag, duthost):
+            logger.info('Setting warm-reboot system flag to false')
+            duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+
+    def checkWarmbootFlag(self, duthost):
+        """
+            Checks if warm-reboot system flag is set to false.
+        """
+        warmbootFlag = duthost.shell(
+            cmd='sonic-db-cli STATE_DB hget "WARM_RESTART_ENABLE_TABLE|system" enable')['stdout']
+        logger.info("warmbootFlag: " + warmbootFlag)
+        return warmbootFlag != 'true'
 
     def Setup(self, duthost, ptfhost, tbinfo):
         """

@@ -31,7 +31,7 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         }
         lines = [
             'cipher {}'.format(eos_cipher_suite[cipher_suite]),
-            'key {} 0 {}'.format(primary_ckn, primary_cak),
+            'key {} 7 {}'.format(primary_ckn, primary_cak),
             'mka key-server priority {}'.format(priority)
             ]
         if send_sci == 'true':
