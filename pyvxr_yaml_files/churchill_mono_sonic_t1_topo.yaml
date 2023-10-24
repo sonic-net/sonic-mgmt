@@ -4,6 +4,7 @@ simulation:
     pending_timeout: 60
     hours: 15
     partition: regression
+    cluster: rch-slurm-m1
           
 devices:
   docker_ptf:

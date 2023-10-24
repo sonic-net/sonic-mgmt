@@ -3,6 +3,7 @@ simulation:
   slurm_flags:
     hours: 120
     partition: regression
+    cluster: rch-slurm-m1
           
 devices:
   docker_ptf:
