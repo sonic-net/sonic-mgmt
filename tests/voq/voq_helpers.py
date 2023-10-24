@@ -386,7 +386,11 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
 
     """
     voqdb = VoqDbCli(sup)
-    neigh_key = voqdb.get_neighbor_key_by_ip(neighbor)
+    # Convert string to lowercases for furthur comparison
+    neigh_key = voqdb.get_neighbor_key_by_ip(neighbor).lower()
+    slot = slot.lower()
+    port = port.lower()
+    asic = asic.lower()
     logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
     pytest_assert("|%s|" % slot in neigh_key,
                   "Slot for %s does not match %s" % (neigh_key, slot))
@@ -779,21 +783,22 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
         # supervisor checks
         for entry in voq_dump:
             if entry.endswith('|%s' % neighbor) or entry.endswith(':%s' % neighbor):
-
+                # Convert strings to lowercases for furthur comparison
+                lower_entry = entry.lower()
                 if "portchannel" in local_port.lower():
-                    slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
-                    asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
+                    slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname'].lower()
+                    asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name'].lower()
                 else:
-                    slotname = sysport_info['slot']
-                    asicname = sysport_info['asic']
+                    slotname = sysport_info['slot'].lower()
+                    asicname = sysport_info['asic'].lower()
 
-                logger.debug("Neigh key: %s, slotnum: %s", entry, slotname)
-                pytest_assert("|%s|" % slotname in entry,
-                              "Slot for %s does not match %s" % (entry, slotname))
-                pytest_assert("|%s:" % local_port in entry or "|%s|" % local_port in entry,
-                              "Port for %s does not match %s" % (entry, local_port))
-                pytest_assert("|%s|" % asicname in entry,
-                              "Asic for %s does not match %s" % (entry, asicname))
+                logger.debug("Neigh key: %s, slotnum: %s", lower_entry, slotname)
+                pytest_assert("|%s|" % slotname in lower_entry,
+                              "Slot for %s does not match %s" % (lower_entry, slotname))
+                pytest_assert("|%s:" % local_port in lower_entry or "|%s|" % local_port in lower_entry,
+                              "Port for %s does not match %s" % (lower_entry, local_port))
+                pytest_assert("|%s|" % asicname in lower_entry,
+                              "Asic for %s does not match %s" % (lower_entry, asicname))
 
                 pytest_assert(voq_dump[entry]['value']['neigh'].lower() == neigh_mac.lower(),
                               "Voq: neighbor: %s mac does not match: %s" %
