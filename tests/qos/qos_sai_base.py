@@ -2067,3 +2067,11 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info("Test ports ids is{}".format(test_port_ids))
         return test_port_ids
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
+        yield
+        return
