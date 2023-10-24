@@ -39,8 +39,6 @@ all:
           ansible_host: 10.64.247.44
         vms63-4:
           ansible_host: 10.64.247.48
-        vms63-5:
-          ansible_host: 10.64.247.50
         vms63-7:
           ansible_host: 10.64.247.62
         vms63-8:
@@ -59,6 +57,8 @@ all:
           ansible_host: 10.64.246.84
         vms64-5:
           ansible_host: 10.64.247.68
+        vms66-1:
+          ansible_host: 10.64.247.50
         vms68-1:
           ansible_host: 10.64.247.51
 
