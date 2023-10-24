@@ -412,12 +412,55 @@ def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
 
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url, tbinfo):
+def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
     """
     A module level fixture to toggle all ports to specified side.
     """
-    def _toggle(side):
-        _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
+
+    def _check_toggle_and_probe(duthosts, active_side):
+        """Check if toggle success and probe those inconsistent mux ports if any."""
+        if active_side == UPPER_TOR:
+            active_duthost, standby_duthost = duthosts[0], duthosts[1]
+        elif active_side == LOWER_TOR:
+            standby_duthost, active_duthost = duthosts[0], duthosts[1]
+        else:
+            raise ValueError("Unsupported side %s" % active_side)
+
+        standby_ports_on_active_side = _get_mux_ports(active_duthost, exclude_status="active")
+        active_ports_on_standby_side = _get_mux_ports(standby_duthost, exclude_status="standby")
+        logging.debug("standby mux ports on the active side %s:\n%s",
+                      active_duthost, json.dumps(list(standby_ports_on_active_side.keys())))
+        logging.debug("active mux ports on the standby side %s:\n%s",
+                      standby_duthost, json.dumps(list(active_ports_on_standby_side.keys())))
+        if (not standby_ports_on_active_side) and (not active_ports_on_standby_side):
+            return True
+
+        # probe those inconsistent mux ports
+        _probe_mux_ports([active_duthost], list(standby_ports_on_active_side.keys()))
+        _probe_mux_ports([standby_duthost], list(active_ports_on_standby_side.keys()))
+        return False
+
+    def _toggle(active_side, retries=0):
+        _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+        if retries <= 0:
+            return
+
+        time.sleep(10)
+        if _check_toggle_and_probe(duthosts, active_side):
+            return
+
+        for retry in range(retries):
+            logging.info("Retry=%d, toggle all mux cables to %s", retry + 1, active_side)
+            _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+            time.sleep(10)
+            if _check_toggle_and_probe(duthosts, active_side):
+                return
+
+        pytest_assert(utilities.wait_until(120, 10, 0, _check_toggle_and_probe, duthosts, active_side),
+                      "Failed to toggle all mux cables to %s" % active_side)
+
     return _toggle
 
 
