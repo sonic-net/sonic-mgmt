@@ -13,7 +13,7 @@ def config_reload_after_test(duthosts,
                              enum_rand_one_per_hwsku_frontend_hostname):
     yield
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_reload(duthost, config_source='config_db')
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.mark.bsl

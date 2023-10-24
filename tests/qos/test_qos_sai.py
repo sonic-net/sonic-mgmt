@@ -880,16 +880,23 @@ class TestQosSai(QosSaiBase):
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
-        src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
-        if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
-            # Src and dst are the same asics, leave one for dst port and the rest for src ports
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[:-1]
-            qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
-        else:
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports
-            qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
+            # present
+            src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
+            if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                # Src and dst are the same asics, leave one for dst port and the rest for src ports
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[:-1]
+                qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            else:
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports
+                qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -1014,7 +1021,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile
+        ingressLossyProfile, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1084,7 +1091,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
+            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute, get_src_dst_asic_and_duts,
+            skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1104,9 +1112,17 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         if not get_src_dst_asic_and_duts['single_asic_test']:
-            pytest.skip(
-                "LossyQueueVoq: This test is skipped for now, will"
-                " be re-enabled for RH cards.")
+            pytest.skip("Lossy Queue Voq test is only supported on cisco-8000 single-asic")
+        if "lossy_queue_voq_1" in LossyVoq:
+            if 'modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and\
+              get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True":
+                pytest.skip("LossyQueueVoq: This test is skipped since cisco-8000 T2 "
+                            "doesn't support split-voq.")
+        elif "lossy_queue_voq_2" in LossyVoq:
+            if not ('modular_chassis' in get_src_dst_asic_and_duts['src_dut'].facts and
+                    get_src_dst_asic_and_duts['src_dut'].facts["modular_chassis"] == "True"):
+                pytest.skip("LossyQueueVoq: lossy_queue_voq_2 test is not applicable "
+                            "for split-voq.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
@@ -1443,14 +1459,12 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
-            if not get_src_dst_asic_and_duts['single_asic_test'] and \
-                dutTestParams["basicParams"].get("platform_asic", None) \
-                    == "cisco-8000":
+            if dutConfig['dstDutAsic'] == "pac":
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
-                    "multiple ASIC case in cisco-8000 platform.")
-
-            pktsNumFillShared = int(qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
+                    "cisco-8000 Q100 platform.")
+            pktsNumFillShared = int(
+                qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
@@ -1561,7 +1575,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiPGDrop(
-        self, ptfhost, dutTestParams, dutConfig, dutQosConfig
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        _check_ingress_speed_gte_400g
     ):
         """
             Test QoS SAI PG drop counter
@@ -1607,7 +1622,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT
+        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1937,8 +1952,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps,
-        _skip_watermark_multi_DUT  # noqa F811
+        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
