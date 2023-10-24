@@ -87,14 +87,16 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
         dict: A dict of PDU managers. Key is device hostname. Value is the PDU manager object for the device.
     """
     pdu_managers = {}
+    device_pdu_links = conn_graph_facts['device_pdu_links']
+    device_pdu_info = conn_graph_facts['device_pdu_info']
     for hostname in sonichosts.hostnames:
-        pdu_links = conn_graph_facts["device_pdu_links"][hostname]
-        pdu_hostnames = [peer_info["peerdevice"] for peer_info in pdu_links.values()]
+        pdu_links = device_pdu_links[hostname]
+        pdu_info = device_pdu_info[hostname]
         pdu_vars = {}
-        for pdu_hostname in pdu_hostnames:
-            pdu_vars[pdu_hostname] = sonichosts.get_host_visible_vars(pdu_hostname)
+        for pdu_name in pdu_info.keys():
+            pdu_vars[pdu_name] = sonichosts.get_host_visible_vars(pdu_name)
 
-        pdu_managers[hostname] = pdu_manager_factory(hostname, None, conn_graph_facts, pdu_vars)
+        pdu_managers[hostname] = pdu_manager_factory(hostname, pdu_links, pdu_info, pdu_vars)
     return pdu_managers
 
 
