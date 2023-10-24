@@ -113,7 +113,7 @@ def wait_for_http(host_ip, http_port, timeout=10):
 
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|appliance)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|dpu)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -956,7 +956,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce"):
         change_routes(action, ptf_ip, port6, routes_v6)
 
 
-def fib_appliance(topo, ptf_ip, action="announce"):
+def fib_dpu(topo, ptf_ip, action="announce"):
     common_config = topo['configuration_properties'].get('common', {})
     nhipv4 = common_config.get("nhipv4", NHIPV4)
     nhipv6 = common_config.get("nhipv6", NHIPV6)
@@ -1021,8 +1021,8 @@ def main():
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action)
             module.exit_json(changed=True)
-        elif topo_type == "appliance":
-            fib_appliance(topo, ptf_ip, action=action)
+        elif topo_type == "dpu":
+            fib_dpu(topo, ptf_ip, action=action)
             module.exit_json(change=True)
         else:
             module.exit_json(
