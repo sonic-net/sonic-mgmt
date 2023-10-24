@@ -1616,7 +1616,7 @@ Totals               6450                 6449
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host=self.hostname, namespace=namespace)['ansible_facts']
-        mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+        mg_facts['minigraph_ptf_indices'] = {}
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indices from
