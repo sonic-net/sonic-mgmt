@@ -945,6 +945,9 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         # PCs are a single bind point
         portToLag = {}
         for lag, lagData in mg_facts["minigraph_portchannels"].items():
+            # Check if Portchannel belongs to this namespace
+            if lagData['namespace'] != asichost.namespace:
+                continue
             for member in lagData['members']:
                 portToLag[member] = lag
         aclBindings = mg_facts["minigraph_acls"]["DataAcl"]
