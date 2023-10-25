@@ -2,11 +2,11 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                   # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map_dut_base,\
-    lossless_prio_list_dut_base
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
+    lossless_prio_list
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
@@ -15,7 +15,7 @@ import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -70,17 +70,16 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = [lossless_prio_list_dut_base(duthost1)[0]]
+    test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
     logger.info("Snappi Ports : {}".format(snappi_ports))
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.multidut_ports = snappi_ports
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -148,19 +147,16 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = lossless_prio_list_dut_base(duthost1)
-    bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
+    test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
+    bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.rx_port = snappi_ports[0]
-    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.tx_port = snappi_ports[1]
-    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -234,25 +230,21 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = lossless_prio_list_dut_base(duthost1)
+    test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
-    bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
+    bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
     logger.info("Snappi Ports : {}".format(snappi_ports))
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost1.hostname))
     reboot(duthost1, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
     wait_until(180, 20, 0, duthost1.critical_services_fully_started)
-
-    snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.rx_port = snappi_ports[0]
-    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.tx_port = snappi_ports[1]
-    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
@@ -328,24 +320,21 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = lossless_prio_list_dut_base(duthost1)
+    test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
-    bg_prio_list = [x for x in all_prio_list if x not in test_prio_list]
+    bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
+    logger.info("Snappi Ports : {}".format(snappi_ports))
+
+    snappi_extra_params = SnappiTestParams()
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost1.hostname))
     reboot(duthost1, localhost, reboot_type=reboot_type)
     logger.info("Wait until the system is stable")
     wait_until(180, 20, 0, duthost1.critical_services_fully_started)
-
-    snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.rx_port = snappi_ports[0]
-    snappi_extra_params.rx_port_id = snappi_ports[0]["port_id"]
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.tx_port = snappi_ports[1]
-    snappi_extra_params.tx_port_id = snappi_ports[1]["port_id"]
 
     run_pfc_test(api=snappi_api,
                  testbed_config=testbed_config,
