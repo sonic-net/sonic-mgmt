@@ -62,7 +62,8 @@ def temp_enable_bgp_autorestart(duthosts):
 def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
     ignore_errors = [
-        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'"
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: vtysh -c 'show bgp summary json'",
+        r".* ERR bgp#bgpmon: \*ERROR\* Failed with rc:1 when execute: \['vtysh', '-c', 'show bgp summary json'\]"
     ]
 
     if loganalyzer:
