@@ -1,10 +1,10 @@
 import pytest
 import random
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map_dut_base, lossless_prio_list_dut_base
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.common.reboot import reboot                              # noqa: F401
 from tests.common.utilities import wait_until                       # noqa: F401
@@ -12,7 +12,7 @@ from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import 
 from tests.snappi_tests.pfcwd.files.helper import skip_pfcwd_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize("trigger_pfcwd", [True])
@@ -72,12 +72,11 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                                                                             snappi_api)
     skip_pfcwd_test(duthost=duthost1, trigger_pfcwd=trigger_pfcwd)
     skip_pfcwd_test(duthost=duthost2, trigger_pfcwd=trigger_pfcwd)
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.multidut_ports = snappi_ports
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfcwd_basic_test(api=snappi_api,
                          testbed_config=testbed_config,
@@ -85,7 +84,7 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                          conn_data=conn_graph_facts,
                          fanout_data=fanout_graph_facts,
                          dut_port=snappi_ports[0]['peer_port'],
-                         prio_list=[lossless_prio_list_dut_base(duthost1)[0]],
+                         prio_list=lossless_prio_list,
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd,
                          snappi_extra_params=snappi_extra_params)
