@@ -21,6 +21,12 @@ SNAPPI_POLL_DELAY_SEC = 2
 PAUSE_FLOW_NAME = 'Pause Storm'
 DATA_FLOW_NAME = 'Data Flow'
 
+kmin = 500000
+kmax = 510000
+pmax = 100
+pkt_size = 1024
+pkt_cnt = 1000
+
 
 def run_ecn_test(api,
                  testbed_config,
@@ -51,18 +57,13 @@ def run_ecn_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.duthost1
-    rx_port = snappi_extra_params.multidut_ports[0]
-    rx_port_id = snappi_extra_params.multidut_ports[0]["port_id"]
-    duthost2 = snappi_extra_params.duthost2
-    tx_port = snappi_extra_params.multidut_ports[1]
-    tx_port_id = snappi_extra_params.multidut_ports[1]["port_id"]
-    kmin = snappi_extra_params.kmin
-    kmax = snappi_extra_params.kmax
-    pmax = snappi_extra_params.pmax
-    pkt_size = snappi_extra_params.pkt_size
-    pkt_cnt = snappi_extra_params.pkt_cnt
-    iters = snappi_extra_params.iters
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id = rx_port["port_id"]
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    tx_port_id = tx_port["port_id"]
+    iters = snappi_extra_params.test_iterations
 
     pytest_assert(testbed_config is not None, 'Failed to get L2/3 testbed config')
 

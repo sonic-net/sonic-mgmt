@@ -2,16 +2,16 @@ import pytest
 import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                                 # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map_dut_base, lossless_prio_list_dut_base    # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list   # noqa: F401
 
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test, is_ecn_marked
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -79,18 +79,15 @@ def test_dequeue_ecn(request,
                                                                             tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
-    lossless_prio = int(lossless_prio_list_dut_base(duthost1)[0])
+
+    lossless_prio = lossless_prio_list
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.multidut_ports = snappi_ports
-    snappi_extra_params.kmin = 500000
-    snappi_extra_params.kmax = 510000
-    snappi_extra_params.pmax = 100
-    snappi_extra_params.pkt_size = 1024
-    snappi_extra_params.pkt_cnt = 1000
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+
+    pkt_cnt = 1000
 
     ip_pkts = run_ecn_test(api=snappi_api,
                            testbed_config=testbed_config,
@@ -103,8 +100,8 @@ def test_dequeue_ecn(request,
                            snappi_extra_params=snappi_extra_params)[0]
 
     """ Check if we capture all the packets """
-    pytest_assert(len(ip_pkts) == snappi_extra_params.pkt_cnt,
-                  'Only capture {}/{} IP packets'.format(len(ip_pkts), snappi_extra_params.pkt_cnt))
+    pytest_assert(len(ip_pkts) == pkt_cnt,
+                  'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
 
     """ Check if the first packet is marked """
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
