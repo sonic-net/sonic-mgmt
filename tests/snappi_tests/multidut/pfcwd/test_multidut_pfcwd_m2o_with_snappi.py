@@ -1,11 +1,11 @@
 import pytest
 import random
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map_dut_base,\
-    lossless_prio_list_dut_base
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
+    lossless_prio_list
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test
 from tests.snappi_tests.pfcwd.files.helper import skip_pfcwd_test            # noqa: F401
@@ -72,18 +72,17 @@ def test_pfcwd_many_to_one(snappi_api,              # noqa: F811
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    prio_dscp_map = prio_dscp_map_dut_base(duthost1)
     all_prio_list = prio_dscp_map.keys()
-    test_prio_list = [lossless_prio_list_dut_base(duthost1)[0]]
+    test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
     skip_pfcwd_test(duthost=duthost1, trigger_pfcwd=trigger_pfcwd)
     skip_pfcwd_test(duthost=duthost2, trigger_pfcwd=trigger_pfcwd)
 
     snappi_extra_params = SnappiTestParams()
-    snappi_extra_params.duthost1 = duthost1
-    snappi_extra_params.duthost2 = duthost2
-    snappi_extra_params.multidut_ports = snappi_ports
+    snappi_extra_params.multi_dut_params.duthost1 = duthost1
+    snappi_extra_params.multi_dut_params.duthost2 = duthost2
+    snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
     run_pfcwd_multi_node_test(api=snappi_api,
                               testbed_config=testbed_config,
