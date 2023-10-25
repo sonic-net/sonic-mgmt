@@ -642,6 +642,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         self.icm_20220531_limit = self.config_info['icm_limitation']['icm_20220531_limit']
         self.icm_20230531_limit = self.config_info['icm_limitation']['icm_20230531_limit']
         self.icm_master_limit = self.config_info['icm_limitation']['icm_master_limit']
+        self.icm_internal_limit = self.config_info['icm_limitation']['icm_internal_limit']
         self.max_icm_count_per_module = self.config_info['icm_limitation']['max_icm_count_per_module']
         self.active_icm_list, self.icm_count_dict = self.analyze_active_icm()
 
@@ -832,11 +833,11 @@ class GeneralAnalyzer(BasicAnalyzer):
         final_icm_list = []
         error_final_icm_list = []
         count_platform_test = 0
-        count_general = 0
         count_202012 = 0
         count_202205 = 0
         count_202305 = 0
         count_master = 0
+        count_internal = 0
 
         logger.info("limit the number of setup error cases to {}".format(
             self.setup_error_limit))
@@ -852,6 +853,8 @@ class GeneralAnalyzer(BasicAnalyzer):
             self.icm_20230531_limit))
         logger.info("limit the number of master cases to {}".format(
             self.icm_master_limit))
+        logger.info("limit the number of internal cases to {}".format(
+            self.icm_internal_limit))
 
         if len(setup_error_new_icm_table) > self.setup_error_limit:
             error_final_icm_list = setup_error_new_icm_table[:self.setup_error_limit]
@@ -869,6 +872,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             if data['type'] == 'general':
                 failure_new_icm_table = common_summary_new_icm_list + data['table']
                 data['table'] = failure_new_icm_table
+                logger.info("There are {} general failure cases".format(len(failure_new_icm_table)))
                 break
         for data in original_failure_dict:
             icm_table = data['table']
@@ -928,41 +932,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         duplicated_flag = True
                         break
                 if not duplicated_flag:
-                    if failure_type == "general":
-                        count_general += 1
-                        if count_general > self.failure_limit:
-                            logger.info("Reach the limit of general case: {}, ignore this IcM {}".format(
-                                self.failure_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            break
-                    elif failure_type == "20201231":
-                        count_202012 += 1
-                        if count_202012 > self.icm_20201231_limit:
-                            logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
-                                self.icm_20201231_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            break
-                    elif failure_type == "20220531":
-                        count_202205 += 1
-                        if count_202205 > self.icm_20220531_limit:
-                            logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
-                                self.icm_20220531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            break
-                    elif failure_type == "20230531":
-                        count_202305 += 1
-                        if count_202305 > self.icm_20230531_limit:
-                            logger.info("Reach the limit of 202305 case: {}, ignore this IcM {}".format(
-                                self.icm_20230531_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            break
-                    elif failure_type == "master":
-                        count_master += 1
-                        if count_master > self.icm_master_limit:
-                            logger.info("Reach the limit of master case: {}, ignore this IcM {}".format(
-                                self.icm_master_limit, candidator['subject']))
-                            candidator['trigger_icm'] = False
-                            break
+                    candidator_branch = candidator['branch']
                     if 'platform_tests' in candidator['module_path']:
                         count_platform_test += 1
                         if count_platform_test > self.platform_limit:
@@ -970,9 +940,51 @@ class GeneralAnalyzer(BasicAnalyzer):
                                 candidator['subject']))
                             candidator['trigger_icm'] = False
                             continue
-                    logger.info("Add {} for type {} to final_icm_list".format(
-                        failure_type, candidator['subject']))
+                    if candidator_branch == "20201231":
+                        if count_202012 >= self.icm_20201231_limit:
+                            logger.info("Reach the limit of 202012 case: {}, ignore this IcM {}".format(
+                                self.icm_20201231_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_202012 += 1
+                    elif candidator_branch == "20220531":
+                        if count_202205 >= self.icm_20220531_limit:
+                            logger.info("Reach the limit of 202205 case: {}, ignore this IcM {}".format(
+                                self.icm_20220531_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_202205 += 1
+                    elif candidator_branch == "20230531":
+                        if count_202305 >= self.icm_20230531_limit:
+                            logger.info("Reach the limit of 202305 case: {}, ignore this IcM {}".format(
+                                self.icm_20230531_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_202305 += 1
+                    elif candidator_branch == "master":
+                        if count_master >= self.icm_master_limit:
+                            logger.info("Reach the limit of master case: {}, ignore this IcM {}".format(
+                                self.icm_master_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_master += 1
+                    elif candidator_branch == "internal":
+                        if count_internal >= self.icm_internal_limit:
+                            logger.info("Reach the limit of internal case: {}, ignore this IcM {}".format(
+                                self.icm_internal_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_internal += 1
+                    logger.info("Add branch {} type {} : {} to final_icm_list".format(
+                        candidator_branch, failure_type, candidator['subject']))
                     final_icm_list.append(candidator)
+        logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, master {}, internal {}".format(
+            count_platform_test, count_202012, count_202205, count_202305, count_master, count_internal))
 
         return error_final_icm_list, final_icm_list, duplicated_icm_list
 
