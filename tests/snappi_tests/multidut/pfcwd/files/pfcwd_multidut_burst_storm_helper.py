@@ -4,8 +4,8 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
     enable_packet_aging, start_pfcwd
 from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
@@ -50,12 +50,12 @@ def run_pfcwd_burst_storm_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.duthost1
-    rx_port = snappi_extra_params.multidut_ports[0]
-    rx_port_id = snappi_extra_params.multidut_ports[0]["port_id"]
-    duthost2 = snappi_extra_params.duthost2
-    tx_port = snappi_extra_params.multidut_ports[1]
-    tx_port_id = snappi_extra_params.multidut_ports[1]["port_id"]
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id = rx_port["port_id"]
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    tx_port_id = tx_port["port_id"]
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
