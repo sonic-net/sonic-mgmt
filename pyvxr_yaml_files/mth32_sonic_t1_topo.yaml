@@ -2,7 +2,8 @@ simulation:
   no_image_copy: true
   slurm_flags:
     hours: 120
-    partition: sonic_regression
+    partition: regression
+    cluster: rch-slurm-m1
           
 devices:
   docker_ptf:
