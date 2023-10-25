@@ -2,7 +2,7 @@ simulation:
   no_image_copy: true
   slurm_flags:
     pending_timeout: 60
-    hours: 15
+    hours: 30
     partition: regression
     cluster: rch-slurm-m1
 
