@@ -332,14 +332,30 @@ def get_asic_name(duthost):
     return asic
 
 
-def is_valid_platform_and_version(duthost, table, scenario):
+def is_valid_platform_and_version(duthost, table, scenario, operation, field_value=None):
     asic = get_asic_name(duthost)
     os_version = duthost.os_version
     if asic == "unknown":
         return False
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+
+    if operation == "add":
+        if field_value:
+            operation = "replace"
+
+    # Ensure that the operation is supported by comparing with conf
+    try:
+        valid_ops = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["operations"]
+        if operation not in valid_ops:
+            return False
+    except KeyError:
+        return False
+    except IndexError:
+        return False
+
+    # Ensure that the version is suported by comparing with conf
     if "master" in os_version or "internal" in os_version:
         return True
-    gcu_conf = get_gcu_field_operations_conf(duthost)
     try:
         version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
         # os_version is in format "20220531.04", version_required is in format "20220500"

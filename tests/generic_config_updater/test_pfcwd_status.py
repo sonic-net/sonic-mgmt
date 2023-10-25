@@ -213,10 +213,11 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
         expected_count = len(pfcwd_config) * 3
     json_patch = list()
     exp_str = 'Ethernet'
+    op = 'add'
     for interface, value in pfcwd_config.items():
         json_patch.extend([
                             {
-                              'op': 'add',
+                              'op': op,
                               'path': '/PFC_WD/{}'.format(interface),
                               'value': {'action': value['action'],
                                         'detection_time': value['detect_time'],
@@ -228,7 +229,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     try:
         tmpfile = generate_tmpfile(duthost)
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+        if is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", op):
             expect_op_success(duthost, output)
             pfcwd_updated_config = duthost.shell("show pfcwd config")
             pytest_assert(not pfcwd_updated_config['rc'], "Unable to read updated pfcwd config")
