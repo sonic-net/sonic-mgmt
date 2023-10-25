@@ -44,26 +44,35 @@ def get_build_project_name():
     elif os.getenv("SANITY_MODE"):
         sanity_mode = os.getenv("SANITY_MODE").replace("_", "")
     else:
-        sanity_mode = ""
+        sanity_mode = "sonic-mgmt"
 
-    sanity_index = os.getenv("SANITY_INDEX")
     if os.getenv("JOB_BASE_NAME"):
         job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
     else:
-        job_base_name = ""
+        job_base_name = "manual-sanity"
+
     if os.getenv("TIMESTAMP"):
         timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
     else:
-        timestamp = ""
-    
-    build_id = os.getenv("BUILD_ID")
-    if build_id is None:
-        build_id = 99999
+        timestamp = datetime.datetime.now().strftime("%d%b%Y%H%M%S")
 
-    if sanity_index:
-        build_project_name = "sonic-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, sanity_index, timestamp)
+    if os.getenv("BUILD_ID"):
+        build_id = os.getenv("BUILD_ID")
     else:
-        build_project_name = "sonic-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, timestamp)
+        build_id = 9999
+    
+    if os.getenv("PLATFORM"):
+        platform = os.getenv("PLATFORM").replace("_", "")
+    else:
+        platform = "unknownPlatform"
+    
+    if os.getenv("TOPOLOGY"):
+        topology = os.getenv("TOPOLOGY").replace("_", "")
+    else:
+        topology = "unknownTopology"
+
+
+    build_project_name = "sonic-{}-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, platform, topology, timestamp)
 
     build_project_name = build_project_name.lower()
 
