@@ -7,6 +7,10 @@ from tests.flow_counter.flow_counter_utils import is_route_flow_counter_supporte
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology("any")
+]
+
 test_update_route_pattern_para = [
     {
         'is_ipv6': False,

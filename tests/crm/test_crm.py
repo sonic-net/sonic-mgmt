@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
 from tests.common.fixtures.duthost_utils import disable_route_checker
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -766,19 +766,19 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     nhg_del_template="""
         %s
-        ip -4 {{ns_prefix}} route del 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route del 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh del 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh del 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh del 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     nhg_add_template="""
         %s
-        ip -4 {{ns_prefix}} route add 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route add 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route add 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh replace 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh replace 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     add_template = Template(nhg_add_template)
     del_template = Template(nhg_del_template)
@@ -912,37 +912,41 @@ def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
 
 
 def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                   collector, tbinfo, recover_acl_rule):
+                   collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
-
-    if duthost.facts["asic_type"] == "marvell":
-        # Remove DATA ACL Table and add it again with ports in same port group
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = mg_facts["minigraph_ports"].keys()
-        tmp_ports.sort(key=lambda x: int(x[8:]))
-        for i in range(4):
-            if i == 0:
-                ports = ",".join(tmp_ports[17:19])
-            elif i == 1:
-                ports = ",".join(tmp_ports[24:26])
-            elif i == 2:
-                ports = ",".join([tmp_ports[20], tmp_ports[25]])
-            recreate_acl_table(duthost, ports)
+    try:
+        if duthost.facts["asic_type"] == "marvell":
+            # Remove DATA ACL Table and add it again with ports in same port group
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            tmp_ports = mg_facts["minigraph_ports"].keys()
+            tmp_ports.sort(key=lambda x: int(x[8:]))
+            for i in range(4):
+                if i == 0:
+                    ports = ",".join(tmp_ports[17:19])
+                elif i == 1:
+                    ports = ",".join(tmp_ports[24:26])
+                elif i == 2:
+                    ports = ",".join([tmp_ports[20], tmp_ports[25]])
+                recreate_acl_table(duthost, ports)
+                verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_frontend_asic_index, asic_collector, tbinfo)
+                # Rebind DATA ACL at end to recover original config
+                recreate_acl_table(duthost, ports)
+                apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                duthost.command("acl-loader delete")
+        else:
             verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
                                  enum_frontend_asic_index, asic_collector, tbinfo)
-            # Rebind DATA ACL at end to recover original config
-            recreate_acl_table(duthost, ports)
-            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-            duthost.command("acl-loader delete")
-    else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_frontend_asic_index, asic_collector, tbinfo)
 
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
 
 def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
@@ -979,7 +983,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Reduce ACL to one rule (plus default)
     crm_stats_acl_entry_used = 2
     apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=1)
-    if duthost.facts["platform_asic"] == "broadcom-dnx":
+    if duthost.facts.get("platform_asic", None) == "broadcom-dnx":
         # Each ACL rule consumes an acl entry per bind point
         asicAclBindings = set()
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
