@@ -1,11 +1,11 @@
 import pytest
 import random
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                          # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                          # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import run_pfcwd_multi_node_test
