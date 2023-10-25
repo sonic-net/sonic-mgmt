@@ -5,7 +5,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
     start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time        # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
@@ -65,12 +65,14 @@ def run_pfcwd_multi_node_test(api,
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
-    duthost1 = snappi_extra_params.duthost1
-    rx_port = snappi_extra_params.multidut_ports[0]
-    rx_port_id_list = [snappi_extra_params.multidut_ports[0]["port_id"]]
-    duthost2 = snappi_extra_params.duthost2
-    tx_port = [snappi_extra_params.multidut_ports[1], snappi_extra_params.multidut_ports[2]]
+    duthost1 = snappi_extra_params.multi_dut_params.duthost1
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id_list = [rx_port["port_id"]]
+    duthost2 = snappi_extra_params.multi_dut_params.duthost2
+    tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
+               snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
     tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
