@@ -43,6 +43,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_hostname):
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
+    wait_critical_processes(duthost)
 
 
 @pytest.fixture(scope="module", autouse=True)
