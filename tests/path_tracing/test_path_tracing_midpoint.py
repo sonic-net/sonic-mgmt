@@ -30,7 +30,7 @@ class MCD(Packet):
 class HopByHopHdrPathTracing(Packet):
     """
     IPv6 Hop-By-Hop Path Tracing Option, draft-filsfils-spring-path-tracing-05, section #9.1
-    
+
                                     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                     |  Option Type  |  Opt Data Len |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -162,7 +162,7 @@ class TestPathTracingMidpoint:
 
         # Some platforms do not support rif counter
         try:
-            rif_counter_out = TestIPPacket.parse_rif_counters(
+            rif_counter_out = TestPathTracingMidpoint.parse_rif_counters(
                 duthost.command("show interfaces counters rif")["stdout_lines"])
             rif_iface = list(rif_counter_out.keys())[0]
             rif_support = False if rif_counter_out[rif_iface]['rx_err'] == 'N/A' else True
@@ -285,7 +285,8 @@ class TestPathTracingMidpoint:
 
         return exp_pkt
 
-    def expected_mask_path_tracing_push_mcd_packet(self, pkt, outgoing_interface_id, outgoing_interface_load=None, truncated_timestamp=None):
+    def expected_mask_path_tracing_push_mcd_packet(self, pkt, outgoing_interface_id,
+                                                   outgoing_interface_load=None, truncated_timestamp=None):
         """ return mask for Path Tracing MCD push operation packet """
 
         if (outgoing_interface_load is None):
@@ -317,7 +318,7 @@ class TestPathTracingMidpoint:
 
         # Case 1: Disable Path Tracing on interface
         if not enable:
-            logger.info('Disabling Path Tracing on interface %s'.format(ifname))
+            logger.info('Disabling Path Tracing on interface {}'.format(ifname))
             result = duthost.shell('config interface path-tracing del {}'.format(ifname))
             if result['rc'] != 0:
                 pytest.fail('Failed to disable Path Tracing on interface {} : {}'.format(ifname, result['stderr']))
@@ -325,18 +326,20 @@ class TestPathTracingMidpoint:
 
         # Case 2: Enable Path Tracing with default timestamp template
         if ts_template is None:
-            logger.info('Enabling Path Tracing on interface %s (interface ID {})'.format(ifname, interface_id))
-            result = duthost.shell('config interface path-tracing add {} --interface-id {}'.format(ifname, interface_id))
+            logger.info('Enabling Path Tracing on interface {} (interface ID {})'.format(ifname, interface_id))
+            result = duthost.shell('config interface path-tracing add {} --interface-id {}'
+                                   .format(ifname, interface_id))
             if result['rc'] != 0:
                 pytest.fail('Failed to enable Path Tracing on interface {} : {}'.format(ifname, result['stderr']))
             return
 
         # Case 3: Enable Path Tracing with default timestamp template
-        logger.info('Enabling Path Tracing on interface %s (interface ID {}, timestamp template "{}")'.format(ifname, interface_id, ts_template))
-        result = duthost.shell('config interface path-tracing add {} --interface-id {} --ts-template {}'.format(ifname, interface_id, ts_template))
+        logger.info('Enabling Path Tracing on interface {} (interface ID {}, timestamp template "{}")'
+                    .format(ifname, interface_id, ts_template))
+        result = duthost.shell('config interface path-tracing add {} --interface-id {} --ts-template {}'
+                               .format(ifname, interface_id, ts_template))
         if result['rc'] != 0:
             pytest.fail('Failed to enable Path Tracing on interface {} : {}'.format(ifname, result['stderr']))
-
 
     def test_base_forwarding(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfadapter, common_param):
         """
@@ -377,7 +380,6 @@ class TestPathTracingMidpoint:
             pytest.fail('Simple packet forwarding test failed \n' + str(e))
 
         self.teardown_path_tracing(duthost)
-
 
     def test_path_tracing(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfadapter, common_param):
         """
