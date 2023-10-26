@@ -40,8 +40,8 @@ parameters:
     default: '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
     displayName: Testbed specific
     values:
-      - '-I "platform_tests copp show_techport acl everflow drop_packets"'
-      - '-S "platform_tests copp show_techport acl everflow drop_packets"'
+      - '-I "platform_tests show_techport acl everflow drop_packets"'
+      - '-S "platform_tests copp show_techport acl everflow drop_packets qos"'
       - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py"'
 
 
