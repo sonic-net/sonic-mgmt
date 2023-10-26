@@ -1769,16 +1769,16 @@ sonic_cisco_8102:
       base_mac: E8:EB:34:E7:BD:B4
       syseeprom_info:
         "0x21": "8102-64H-O"
-        "0x22": "ECI123"
-        "0x23": "FLM24500AT6"
-        "0x24": "E8:EB:34:E7:BD:B4"
-        "0x26": "0"
+        "0x22": "477595"
+        "0x23": "FLM270501WW"
+        "0x24": "9C:54:16:4E:29:F0"
+        "0x26": "3"
         "0x28": "x86_64-8102_64h_o-r0"
         "0x2A": "516"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0xCA54AD10"
+        "0xFE": "0x4F61249F"
       plt_reboot_dict:
         cold:
           timeout: 300
