@@ -13,8 +13,6 @@ The below features/properties of the transceiver are to be tested in this test p
 - Verify DOM data is read correctly and is in acceptable range.
 - Check if any unexpected flags (such as LOS, LOL, DOM related warnings) are not set
 - Ensure firmware download, upgrade and downgrade works fine.
-- Verify that number of frames received is equal to number of frames sent in both northbound/southbound traffic flows for a predefined set period of time.
-- Verify traffic at line rate
 
 These are some of transceiver specific capabilities which should be tested if available.
 
@@ -25,15 +23,7 @@ These are some of transceiver specific capabilities which should be tested if av
 
 ### Testbed Setup
 
-The testcases which do not require traffic testing can have 2 ports with the onboarding transceiver and should be connected with a cable.
-
-For traffic related testcases, traffic from a different source (eg - IXIA) is required and 2 DUTs with both having 1 port of the onboarding transceiver should be connected with a cable.
-2 ports of IXIA are connected to 1 port of each DUT and the traffic is sent from one port and received on the other port. Also, the traffic is expected to be forwarded via the module being onboarded (On each DUT, the port connected to IXIA and the port having the onboarding transceiver should be in the same vlan to validate L2 traffic).
-
-
-The full testbed setup is shown below:
-
-![Transceiver_onboarding_traffic_topology](Img/Transceiver_onboarding_traffic_topology.png)
+A total of 2 ports with the onboarding transceiver attached should be connected with a cable. Each of the 2 ports can be on the same device or can be on different devices as well.
 
 ### CLI commands:
 
@@ -345,13 +335,3 @@ sudo sfputil firmware commit <port>
     | Execute module reset after firmware download | Firmware download validation | Ensure that the active and inactive FW versions do not change. Ensure link goes down after module reset is performed and then perform shutdown followed by startup to bring the link up |
     | Execute firmware run command | Firmware run validation | Look for “Firmware run in mode=1 success” message to confirm if the FW is successfully running. Also, return code 0 will denote CLI executed successfully. With the FW version dump CLI, ensure “Active Firmware” shows the new FW version |
     | Execute firmware commit command | Firmware commit validation | Look for “Firmware commit successful” message. Please do not proceed further if this message is not seen. Also, return code 0 will denote CLI executed successfully. With the FW version dump CLI, ensure “Committed Image” field is updated with the relevant bank. Also ensure no link flap is seen during this process |
-
-2. Traffic tests
-
-    These tests require traffic from a different source (eg - IXIA) and 2 DUTs with each having 1 port of the onboarding transceiver and should be connected with a cable.
-    2 ports of IXIA are connected to 1 port of each DUT and the traffic is sent from one port and received on the other port. Also, the traffic is expected to be forwarded via the onboarding transceiver (On each DUT, the port connected to IXIA and the port having module should be in the same vlan to validate L2 traffic).
-
-    | Step | Goal | Expected results |
-    |-|-|-|
-    | Traffic quantity validation | No packet loss | Verify the number of frames sent and received from/to IXIA is same |
-    | Traffic line rate validation for a finite time | No packet loss | Verify the number of frames sent and received from/to IXIA is same. Also, ensure no error counters are populated |
