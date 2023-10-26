@@ -157,7 +157,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
         print(resp)
     time.sleep(3)
 
-    later = datetime.datetime.now() + datetime.timedelta(hours=20)
+    later = datetime.datetime.now() + datetime.timedelta(hours=30)
     while True:
         chan.send('ps -ef | grep run_scripts.py\n')
         time.sleep(3)
@@ -174,7 +174,7 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
             if datetime.datetime.now() < later:
                 time.sleep(150)
             else:
-                print("Looks like test is taking longer than six hours. Check list of sanity scripts or increase time to wait")
+                print("Looks like test is taking longer than 30 hours. Check list of sanity scripts or increase time to wait")
                 break
         else:
             break
