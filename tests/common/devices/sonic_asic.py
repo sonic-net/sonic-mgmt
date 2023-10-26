@@ -562,7 +562,7 @@ class SonicAsic(object):
         # Wrapping shell cmd in try block to account for that case
         pcs = None
         try:
-            pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+            pcs = self.shell(cmd)["stdout_lines"][0]
         except RunAnsibleModuleFail as e:
             if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
                 return False
