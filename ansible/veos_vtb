@@ -47,6 +47,7 @@ all:
           - wan-ecmp
           - wan-pub-isis
           - dpu
+          - dpu-1
       children:
         server_1:
     lab:
