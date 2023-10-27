@@ -967,8 +967,6 @@ def main():
 
     vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
 
-    #remove lock
-    release_vxr_lock()
 
     vxr_start_end = datetime.datetime.now()
 
@@ -1017,6 +1015,9 @@ def main():
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
+    
+    #remove lock
+    release_vxr_lock()
 
 
 if __name__ == '__main__':
