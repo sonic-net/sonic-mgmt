@@ -30,7 +30,8 @@ from tests.common.fixtures.ptfhost_utils import run_garp_service                
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses            # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.dualtor.tunnel_traffic_utils import derive_queue_id_from_dscp, derive_out_dscp_from_inner_dscp
-from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby      # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup             # noqa F401
 
 pytestmark = [
     pytest.mark.topology("dualtor")
@@ -103,8 +104,7 @@ def build_encapsulated_ip_packet(
 
     inner_ttl = random.choice(list(range(3, 65)))
     inner_ecn = random.choice(list(range(0, 3)))
-    if is_tunnel_qos_remap_enabled(tor):
-        outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
+    outer_dscp = derive_out_dscp_from_inner_dscp(tor, inner_dscp)
     outer_ecn = inner_ecn
 
     logging.info("Inner DSCP: {0:06b}, Inner ECN: {1:02b}".format(inner_dscp, inner_ecn))
@@ -334,6 +334,18 @@ def write_standby(rand_selected_dut):
         pytest.skip('file {} not found'.format(file))
 
 
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                              config_active_active_dualtor_active_standby,                                  # noqa F811
+                              validate_active_active_dualtor_setup):                                        # noqa F811
+    if active_active_ports:
+        logging.info("Configuring {} as active".format(rand_unselected_dut.hostname))
+        logging.info("Configuring {} as standby".format(rand_selected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.parametrize("dscp", [3, 4, 2, 6])      # lossless queue is 3 or 4 or 2 or 6.
 def test_dscp_to_queue_during_encap_on_standby(
     dscp,
@@ -344,7 +356,8 @@ def test_dscp_to_queue_during_encap_on_standby(
     tunnel_traffic_monitor,                         # noqa F811
     duthosts,
     rand_one_dut_hostname,
-    write_standby
+    write_standby,
+    setup_active_active_ports
 ):
     """
     Test if DSCP to Q mapping for outer header is matching with inner header during encap on standby
@@ -408,7 +421,8 @@ def test_ecn_during_encap_on_standby(
     setup_dualtor_tor_standby,
     rand_selected_interface, ptfadapter,                    # noqa F811
     tbinfo, rand_selected_dut, tunnel_traffic_monitor,      # noqa F811
-    write_standby
+    write_standby,
+    setup_active_active_ports
 ):
     """
     Test if the ECN stamping on outer header is matching with inner during encap on standby

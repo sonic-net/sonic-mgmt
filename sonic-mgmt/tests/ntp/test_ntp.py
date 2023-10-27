@@ -17,14 +17,25 @@ TIME_FORWARD = 3600
 
 def config_long_jump(duthost, enable=False):
     """change ntpd option to enable or disable long jump"""
+    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+    using_ntpsec = ntpsec_conf_stat["stat"]["exists"]
     if enable:
         logger.info("enable ntp long jump")
-        regex = "s/NTPD_OPTS='-x'/NTPD_OPTS='-g'/"
+        if using_ntpsec:
+            regex = "s/NTPD_OPTS=\\\"-x -N\\\"/NTPD_OPTS=\\\"-g -N\\\"/"
+        else:
+            regex = "s/NTPD_OPTS='-x'/NTPD_OPTS='-g'/"
     else:
         logger.info("disable ntp long jump")
-        regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
+        if using_ntpsec:
+            regex = "s/NTPD_OPTS=\\\"-g -N\\\"/NTPD_OPTS=\\\"-x -N\\\"/"
+        else:
+            regex = "s/NTPD_OPTS='-g'/NTPD_OPTS='-x'/"
 
-    duthost.command("sed -i %s /etc/default/ntp" % regex)
+    if using_ntpsec:
+        duthost.command("sed -i '%s' /etc/default/ntpsec" % regex)
+    else:
+        duthost.command("sed -i %s /etc/default/ntp" % regex)
     duthost.service(name='ntp', state='restarted')
 
 
@@ -75,6 +86,8 @@ def setup_long_jump_config(duthosts, rand_one_dut_hostname):
     long_jump_enable = False
     if not duthost.shell("grep -q \"NTPD_OPTS='-g'\" /etc/default/ntp", module_ignore_errors=True)['rc']:
         long_jump_enable = True
+    if not duthost.shell("grep -q \"NTPD_OPTS=\\\"-g -N\\\"\" /etc/default/ntpsec", module_ignore_errors=True)['rc']:
+        long_jump_enable = True
 
     # get time before set time
     start_time_dut = int(duthost.command("date +%s")['stdout'])
@@ -123,9 +136,15 @@ def test_ntp(duthosts, rand_one_dut_hostname, setup_ntp):
     """ Verify that DUT is synchronized with configured NTP server """
     duthost = duthosts[rand_one_dut_hostname]
 
+    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+    using_ntpsec = ntpsec_conf_stat["stat"]["exists"]
+
     duthost.service(name='ntp', state='stopped')
-    ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
-    duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
+    if using_ntpsec:
+        duthost.command("timeout 20 ntpd -gq -u ntpsec:ntpsec")
+    else:
+        ntp_uid = ":".join(duthost.command("getent passwd ntp")['stdout'].split(':')[2:4])
+        duthost.command("timeout 20 ntpd -gq -u {}".format(ntp_uid))
     duthost.service(name='ntp', state='restarted')
     pytest_assert(wait_until(720, 10, 0, check_ntp_status, duthost),
                   "NTP not in sync")

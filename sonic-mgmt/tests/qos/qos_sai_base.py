@@ -1179,7 +1179,7 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR)
+            toggle_all_simulator_ports(LOWER_TOR, retries=3)
             check_result = wait_until(
                 120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
             validate_check_result(check_result, duthosts, get_mux_status)
@@ -2086,5 +2086,13 @@ class QosSaiBase(QosBase):
         if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
             pytest.skip(
                 "This test is skipped since asic types of ingress and egress are different.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
         yield
         return

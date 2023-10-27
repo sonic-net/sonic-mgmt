@@ -166,14 +166,14 @@ class TestPfcwdAllTimer(object):
             self.dut.shell("logrotate -f /etc/logrotate.conf")
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
-        time.sleep(8)
+        time.sleep(16)
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         else:
             storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
             storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(8)
+        time.sleep(16)
         if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
             storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
         else:
@@ -284,10 +284,28 @@ class TestPfcwdAllTimer(object):
             else:
                 for i in range(1, 20):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
+
+                    cmd = "show pfc counters"
+                    pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+                    logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
+
+                    cmd = "show pfcwd stats"
+                    pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+                    logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
+
                     self.run_test()
                 self.verify_pfcwd_timers()
 
         except Exception as e:
+            logger.info("exception: ")
+            cmd = "show pfc counters"
+            pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+            logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+            cmd = "show pfcwd stats"
+            pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+            logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
             pytest.fail(str(e))
 
         finally:
