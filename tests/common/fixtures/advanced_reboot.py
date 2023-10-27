@@ -401,7 +401,6 @@ class AdvancedReboot:
 
         logger.info('Copy ARP responder to the PTF container  {}'.format(self.ptfhost.hostname))
         self.ptfhost.copy(src='scripts/arp_responder.py', dest='/opt')
-        self.ptfhost.copy(src='scripts/dual_tor_sniffer.py', dest="/root/ptftests/advanced_reboot_sniffer.py")
         # Replace fast-reboot script
         if self.replaceFastRebootScript:
             logger.info('Replace fast-reboot script on DUT  {}'.format(self.duthost.hostname))
