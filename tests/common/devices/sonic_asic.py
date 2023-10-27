@@ -564,7 +564,16 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs = self.shell(cmd)["stdout_lines"][0]
+        # sonic-cfggen returns "'PORTCHANNEL' is undefined" error if no portchannels are defined in config
+        # Wrapping shell cmd in try block to account for that case
+        pcs = None
+        try:
+            pcs = self.shell(cmd)["stdout_lines"][0]
+        except RunAnsibleModuleFail as e:
+            if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
+                return False
+            else:
+                raise
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:
