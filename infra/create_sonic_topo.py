@@ -901,6 +901,26 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
+def acquire_vxr_lock(message=""):
+    while True:
+        output = subprocess.run("cd /tmp; mkdir vxr_setup_lock", shell=True, capture_output=True)
+
+        print(output)
+
+        if output.returncode == 0:
+            print("lock acquired, starting vxr setup")
+            subprocess.run("cd /tmp; echo '{}' >> vxr_setup_lock/vxr_lock".format(message),  shell=True, capture_output=True)
+            break
+        elif output.returncode != 0:
+            print("failed to acquire lock, retrying in a minute...")
+            time.sleep(60)
+
+def release_vxr_lock():
+    print("completed vxr setup, releasing lock")
+    output = subprocess.run("cd /tmp; rm -rf vxr_setup_lock", shell=True, capture_output=True)
+    print("output: {}".format(output))
+
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -941,8 +961,14 @@ def main():
     print("USING BASE TOPO {}".format(base_topo_file))
     
     vxr_start_begin = datetime.datetime.now()
-    
+
+    #create lock so only one process is starting vxr at a time
+    acquire_vxr_lock(message="creating vxr with topo_file {}".format(base_topo_file))
+
     vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
+
+    #remove lock
+    release_vxr_lock()
 
     vxr_start_end = datetime.datetime.now()
 
