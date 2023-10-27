@@ -235,14 +235,14 @@ def get_internal_interfaces(duthost):
 def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     dev_port = None
     route_to_ping = None
+    # Get internal interfaces for later filtering
+    internal_intfs = get_internal_interfaces(duthost)
     for dst_prefix in dst_prefix_set:
         if dev_port:
             break
         route_to_ping = dst_prefix.route
         cmd = ' -c "show ip route {} json"'.format(route_to_ping)
         if duthost.is_multi_asic:
-            # Get internal interfaces for later filtering
-            internal_intfs = get_internal_interfaces(duthost)
             for asic in duthost.frontend_asics:
                 if dev_port:
                     break
@@ -267,6 +267,12 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                 if 'interfaceName' not in per_hop.keys():
                     continue
                 if 'ip' not in per_hop.keys():
+                    continue
+                if per_hop['ip'] in internal_bgp_ips:
+                    continue
+                if per_hop['interfaceName'] in internal_intfs:
+                    continue
+                if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
                     continue
                 dev_port = per_hop['interfaceName']
                 break
