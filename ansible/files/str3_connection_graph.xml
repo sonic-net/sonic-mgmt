@@ -36,7 +36,7 @@
       <Device Hostname="str3-8101-fanout-11" HwSku="Cisco-8101-C64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-8101-fanout-12" HwSku="Cisco-8101-C64" Os="" Type="FanoutLeaf"/>
       <Device Hostname="str3-a7060dx5-acs-1" HwSku="Arista-7060DX5-32" Os="sonic" Type="DevSonic"/>
-      <Device Hostname="str3-7260cx3-acs-14" HwSku="Arista-7260CX3-D108C8" Os="sonic" Type="DevSonic"/>
+      <Device Hostname="str3-7260cx3-acs-14" HwSku="Arista-7260CX3-C64" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-msn4600c-acs-06" HwSku="ACS-MSN4600C" Os="sonic" Type="FanoutLeaf"/>
       <Device Hostname="str3-msn4600c-acs-05" HwSku="ACS-MSN4600C" Os="sonic" Type="DevSonic"/>
       <Device Hostname="str3-msn4600c-acs-07" HwSku="ACS-MSN4600C" Os="sonic" Type="DevSonic"/>
