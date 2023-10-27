@@ -45,8 +45,8 @@ pdu-114,22,str2-7260cx3-acs-10,PSU1
 pdu-113,22,str2-7260cx3-acs-10,PSU2
 pdu-114,20,str2-7260cx3-acs-11,PSU1
 pdu-113,20,str2-7260cx3-acs-11,PSU2
-pdu-123,4,str2-7260cx3-acs-12,PSU1
-pdu-122,4,str2-7260cx3-acs-12,PSU2
+pdu-123,41,str2-7260cx3-acs-12,PSU1
+pdu-122,41,str2-7260cx3-acs-12,PSU2
 pdu-123,13,str2-7260cx3-acs-13,PSU1
 pdu-122,13,str2-7260cx3-acs-13,PSU2
 pdu-84,2,str2-7260cx3-acs-36,PSU1
