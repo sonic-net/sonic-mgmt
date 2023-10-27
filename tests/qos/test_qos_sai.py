@@ -1100,14 +1100,14 @@ class TestQosSai(QosSaiBase):
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
 
-	dst_port_id = dutConfig["testPorts"]["dst_port_id"]
-	dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
+        dst_port_id = dutConfig["testPorts"]["dst_port_id"]
+        dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
         if separated_dscp_to_tc_map_on_uplink:
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
-            for index in range(length(dutConfig['testPorts']['downlink_port_ids']):
-                if dutConfig["testPorts"]["src_port_id"] !=
+            for index in range(length(dutConfig['testPorts']['downlink_port_ids'])):
+                if dutConfig["testPorts"]["src_port_id"] != \
                         dutConfig['testPorts']['downlink_port_ids'][index]:
                     dst_port_id = id
                     dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][0]
@@ -1907,8 +1907,8 @@ class TestQosSai(QosSaiBase):
         # Remove the upstream ports from the test port list.
         for index in range(len(allTestPorts)):
             if allTestPorts[index] in dutConfig['testPorts']['uplink_port_ids']:
-                allTestPorts.del(index)
-                allTestPortIps.del(index)
+                del allTestPorts[index]
+                del allTestPortIps[index]
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
