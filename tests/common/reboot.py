@@ -239,7 +239,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     # Release event to proceed poweron for PDU.
     power_on_event.set()
-    
+
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return

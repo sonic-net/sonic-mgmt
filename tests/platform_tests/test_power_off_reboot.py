@@ -57,7 +57,7 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
 
     # Check outlets status?
     outlet_status = pdu_ctrl.get_outlet_status()
-    for outlet in outlet_status:       
+    for outlet in outlet_status:
         logging.debug("After turn off outlet, its status is {}".format(outlet))
 
     logging.info("Power on {}".format(power_on_seq))
