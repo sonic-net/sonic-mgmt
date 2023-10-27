@@ -8,7 +8,7 @@ from tests.macsec.ZR_helper import get_asic_from_port,run_traffic,variables,freq
 
 
 @pytest.fixture(scope="module", autouse=True)
-def macsec_module_hooks(request):
+def optics_module_hooks(request):
     global vars, ports, duts, local_links_D1, local_links_D2, tg1, tg2, tg_handle_1, tg_handle_2, asic_dut1, asic_dut2, dut1_port, dut2_port
     (tg1, tg2, tg_handle_1, tg_handle_2) = get_handles()
     vars = st.ensure_min_topology("D1T1:1","D1D2:1","D2T1:1")
@@ -54,7 +54,7 @@ class Test_zr():
                 st.config(vars.D2, "sudo config interface -n asic"+str(asic_dut2)+" transceiver frequency " + dut2_port + " " + ZR_negative_frequency )
                 time.sleep(60)
  
-   def test_frequency(self,request):
+   def test_frequency(self):
             test_fail=0
             st.log("configure frequency")
             for dut in duts:
