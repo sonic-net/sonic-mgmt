@@ -6,6 +6,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, wait_tcp_connection
 from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient, GNMIEnvironment
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,6 +42,41 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("docker-sonic-gnmi is not part of the image")
 
 
+def check_gnmi_config(duthost):
+    cmd = 'sonic-db-cli CONFIG_DB HGET "GNMI|gnmi" port'
+    port = duthost.shell(cmd, module_ignore_errors=False)['stdout']
+    return port != ""
+
+
+def create_gnmi_config(duthost):
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+          "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+          "server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
+          "server_key /etc/sonic/telemetry/streamingtelemetryserver.key"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+
+
+def delete_gnmi_config(duthost):
+    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_crt"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+
+
 @pytest.fixture(scope="module")
 def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localhost,  ptfhost, gnxi_path):
     """
@@ -48,6 +84,9 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
     """
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        has_gnmi_config = check_gnmi_config(duthost)
+        if not has_gnmi_config:
+            create_gnmi_config(duthost)
         env = GNMIEnvironment(duthost)
         default_client_auth = setup_telemetry_forpyclient(duthost)
 
@@ -78,3 +117,5 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
 
     yield
     restore_telemetry_forpyclient(duthost, default_client_auth)
+    if not has_gnmi_config:
+        delete_gnmi_config(duthost)

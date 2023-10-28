@@ -1,6 +1,7 @@
 import time
 import re
 from functools import lru_cache
+import pytest
 
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
@@ -12,18 +13,28 @@ GNMI_SERVER_START_WAIT_TIME = 15
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     def __init__(self, duthost):
-        self.duthost = duthost
-        self.use_gnmi_container = duthost.shell("docker ps | grep -w gnmi", module_ignore_errors=True)['rc'] == 0
-        if self.use_gnmi_container:
-            self.gnmi_config_table = "GNMI"
-            self.gnmi_container = "gnmi"
-            self.gnmi_program = "gnmi-native"
-        else:
-            self.gnmi_config_table = "TELEMETRY"
-            self.gnmi_container = "telemetry"
-            self.gnmi_program = "telemetry"
-        self.gnmi_port = int(duthost.shell(
-            "sonic-db-cli CONFIG_DB hget '%s' 'port'" % (self.gnmi_config_table + '|gnmi'))['stdout'])
+        cmd = "docker images | grep -w sonic-gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            cmd = "docker ps | grep -w gnmi"
+            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                self.gnmi_config_table = "GNMI"
+                self.gnmi_container = "gnmi"
+                self.gnmi_program = "gnmi-native"
+                self.gnmi_port = 50052
+                return
+            else:
+                pytest.fail("GNMI is not running")
+        cmd = "docker images | grep -w sonic-telemety"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            cmd = "docker ps | grep -w telemety"
+            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                self.gnmi_config_table = "TELEMETRY"
+                self.gnmi_container = "telemetry"
+                self.gnmi_program = "telemetry"
+                self.gnmi_port = 50051
+                return
+            else:
+                pytest.fail("Telemetry is not running")
 
 
 def gnmi_container(duthost):

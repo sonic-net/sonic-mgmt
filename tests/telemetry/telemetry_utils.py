@@ -22,19 +22,38 @@ ON_CHANGE_REGEX = "json_ietf_val:\"({.*?})\""
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     def __init__(self, duthost):
-        self.duthost = duthost
-        self.use_telemetry_container = duthost.shell("docker ps | grep -w telemetry",
-                                                     module_ignore_errors=True)['rc'] == 0
-        if self.use_telemetry_container:
-            self.gnmi_config_table = "TELEMETRY"
-            self.gnmi_container = "telemetry"
-            self.gnmi_program = "telemetry"
-        else:
-            self.gnmi_config_table = "GNMI"
-            self.gnmi_container = "gnmi"
-            self.gnmi_program = "gnmi-native"
-        self.gnmi_port = int(duthost.shell(
-            "sonic-db-cli CONFIG_DB hget '%s' 'port'" % (self.gnmi_config_table + '|gnmi'))['stdout'])
+        cmd = "docker images | grep -w sonic-telemetry"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            cmd = "docker ps | grep -w telemetry"
+            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                self.gnmi_config_table = "TELEMETRY"
+                self.gnmi_container = "telemetry"
+                self.gnmi_program = "telemetry"
+                cmd = "sonic-db-cli CONFIG_DB hget 'TELEMETRY|gnmi' port"
+                res = duthost.shell(cmd, module_ignore_errors=True)
+                if res['stdout']:
+                    self.gnmi_port = int(res['stdout'])
+                else:
+                    pytest.fail("Configuration does not exist in config_db")
+                return
+            else:
+                pytest.fail("Telemetry is not running")
+        cmd = "docker images | grep -w sonic-gnmi"
+        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+            cmd = "docker ps | grep -w gnmi"
+            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+                self.gnmi_config_table = "GNMI"
+                self.gnmi_container = "gnmi"
+                self.gnmi_program = "gnmi-native"
+                cmd = "sonic-db-cli CONFIG_DB hget 'GNMI|gnmi' port"
+                res = duthost.shell(cmd, module_ignore_errors=True)
+                if res['stdout']:
+                    self.gnmi_port = int(res['stdout'])
+                else:
+                    pytest.fail("Configuration does not exist in config_db")
+                return
+            else:
+                pytest.fail("GNMI is not running")
 
 
 def assert_equal(actual, expected, message):
