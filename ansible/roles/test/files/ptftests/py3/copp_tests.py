@@ -44,13 +44,7 @@ class ControlPlaneBaseTest(BaseTest):
     MAX_PORTS = 128
     PPS_LIMIT = 600
     PPS_LIMIT_MIN = PPS_LIMIT * 0.9
-    if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
-        duthost.facts["hwsku"] == "Cisco-8111-O32" or
-        duthost.facts["hwsku"] == "Cisco-8111-C32" or
-        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
-        PPS_LIMIT_MAX = PPS_LIMIT * 1.4
-    else:
-        PPS_LIMIT_MAX = PPS_LIMIT * 1.3
+    PPS_LIMIT_MAX = PPS_LIMIT * 1.3
     NO_POLICER_LIMIT = PPS_LIMIT * 1.4
     TARGET_PORT = "3"  # Historically we have port 3 as a target port
     TASK_TIMEOUT = 600  # Wait up to 10 minutes for tasks to complete
@@ -77,6 +71,12 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.needPreSend = None
         self.has_trap = test_params.get('has_trap', True)
+        self.hw_sku = test_params.get('hw_sku', None)
+        if (self.hw_sku == "Cisco-8111-O64" or
+            self.hw_sku == "Cisco-8111-O32" or
+            self.hw_sku == "Cisco-8111-C32" or
+            self.hw_sku == "Cisco-8111-O62C2"):
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
