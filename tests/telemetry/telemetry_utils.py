@@ -54,6 +54,7 @@ class GNMIEnvironment(object):
                 return
             else:
                 pytest.fail("GNMI is not running")
+        pytest.fail("Can't find telemetry and gnmi image")
 
 
 def assert_equal(actual, expected, message):
