@@ -50,31 +50,31 @@ def check_gnmi_config(duthost):
 
 def create_gnmi_config(duthost):
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
           "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
           "server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
           "server_key /etc/sonic/telemetry/streamingtelemetryserver.key"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
 
 
 def delete_gnmi_config(duthost):
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' port"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|gnmi' client_auth"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' ca_crt"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_crt"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hdel 'GNMI|certs' server_key"
-    res = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
 
 
 @pytest.fixture(scope="module")
