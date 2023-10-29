@@ -274,8 +274,8 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    vlan_ports = {'Vlan1000': ports[:int(len(ports)/2)],
+                  'Vlan2000': ports[int(len(ports)/2):]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
