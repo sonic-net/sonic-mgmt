@@ -161,7 +161,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
         method = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reload"]:
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+            config_reload(dut, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         elif method["reboot"]:
             reboot_dut(dut, localhost, method["cmd"])
         else:
