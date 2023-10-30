@@ -2291,7 +2291,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
-                        pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
+                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy
                 )
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
@@ -2300,7 +2300,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_leak_out + pkts_num_trig_pfc -
-                        pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - 1
+                     pkts_num_dismiss_pfc - hysteresis) // cell_occupancy - 1
                 )
             else:
                 send_packet(
@@ -2328,7 +2328,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
-                        hysteresis) // cell_occupancy + margin - 1
+                     hysteresis) // cell_occupancy + margin - 1
                 )
             elif 'cisco-8000' in asic_type:
                 if not is_multi_asic:
@@ -2338,7 +2338,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(
                         self, src_port_id, pkt2,
                         (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                            hysteresis) // cell_occupancy + margin - 2
+                         hysteresis) // cell_occupancy + margin - 2
                     )
                 else:
                     fill_egress_plus_one(
