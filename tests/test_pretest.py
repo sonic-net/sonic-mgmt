@@ -11,7 +11,6 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
-from tests.common.helpers.dut_utils import is_container_running
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -170,9 +169,11 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # Skip dhcp_relay check if dhcp_server is enabled
         if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
-        if feature_name == "telemetry" and not is_container_running(duthost, feature_name):
-            # telemetry service is not running, skip it
-            continue
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
 
 

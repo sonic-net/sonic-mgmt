@@ -2,7 +2,6 @@ import pytest
 import logging
 import time
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.dut_utils import is_container_running
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +59,9 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
-        if feature_name == "telemetry" and not is_container_running(duthost, feature_name):
-            # telemetry service is not running, skip it
-            continue
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
