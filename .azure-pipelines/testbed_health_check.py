@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 import json
+from datetime import datetime
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -29,10 +30,11 @@ logger = logging.getLogger(__name__)
 
 
 class ElastictestCommonResponse:
-    def __init__(self, code: int, data: object, errmsg: str):
+    def __init__(self, code: int, timestamp: str, errmsg: str, data: object):
         self.code = code
-        self.data = data
+        self.timestamp = timestamp
         self.errmsg = errmsg
+        self.data = data
 
 
 class TestbedCheckResult(ElastictestCommonResponse):
@@ -99,7 +101,8 @@ def check(sonichosts, output=None):
         else:
             logger.info("Testbed is healthy.")
 
-        testbedCheckResult = TestbedCheckResult(code=code, data=data, errmsg=errmsg)
+        testbedCheckResult = TestbedCheckResult(code=code, timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                                                errmsg=errmsg, data=data)
 
         # If output file is specified, write result to it.
         if output:
@@ -110,8 +113,9 @@ def check(sonichosts, output=None):
         logger.error("Failed to check. {}".format(e))
         # todo: currently, both host unreachable and bgp container down will come here, mark them as unhealthy now.
         #  Should figure out and distinguish them in the future.
-        testbedCheckResult = TestbedCheckResult(code=1, data=None, errmsg="Unhealthy: host unreachable or bgp "
-                                                                          "container was down")
+        testbedCheckResult = TestbedCheckResult(code=1, timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                                                data=None,
+                                                errmsg="Unhealthy: host unreachable or bgp container was down")
 
         # If output file is specified, write result to it.
         if output:
