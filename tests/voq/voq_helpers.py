@@ -362,7 +362,7 @@ def check_rif_on_sup(systemintftable, slot, asic, port):
         asic_str = asic
 
     key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
-    lower_systemintftable = dict((k.lower(), v) for k,v in systemintftable.iteritems())
+    lower_systemintftable = dict((k.lower(), v) for k, v in systemintftable.iteritems())
     if key.lower() in lower_systemintftable.keys():
         logger.info("Found key {} on chassisdb on supervisor card".format(key))
     else:
@@ -393,7 +393,7 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
     pytest_assert("|%s|" % slot.lower() in lower_neigh_key,
                   "Slot for %s does not match %s" % (lower_neigh_key, slot.lower()))
-    pytest_assert("|%s|" % port.lower() in lower_neigh_key \
+    pytest_assert("|%s|" % port.lower() in lower_neigh_key
                   or "|%s|" % port.lower() in lower_neigh_key,
                   "Port for %s does not match %s" % (lower_neigh_key, port.lower()))
     pytest_assert("|%s|" % asic.lower() in lower_neigh_key,
