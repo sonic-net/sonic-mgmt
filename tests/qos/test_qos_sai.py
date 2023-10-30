@@ -1134,7 +1134,7 @@ class TestQosSai(QosSaiBase):
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         qosConfig = dutQosConfig["param"][portSpeedCableLength]
         flow_config = qosConfig[LossyVoq]["flow_config"]
-        assert flow_config in ["separate"], "Invalid flow config '{}'".format(
+        assert flow_config in ["separate", "shared"], "Invalid flow config '{}'".format(
             flow_config)
 
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig[LossyVoq])
