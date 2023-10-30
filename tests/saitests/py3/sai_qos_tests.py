@@ -1216,7 +1216,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
             ip_dscp=outer_dscp,
             ip_ecn=ecn,
             inner_frame=pkt[scapy.IP]
-            )
+        )
         return ipinip_packet
 
     def runTest(self):
