@@ -2005,6 +2005,9 @@ class TestQosSai(QosSaiBase):
                 "Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP"
                 "and key AZURE to run this test.")
         dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map}
+        if get_src_dst_asic_and_duts['single_asic_test']:
+            allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
+            allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
