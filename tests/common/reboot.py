@@ -267,9 +267,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool.terminate()
     dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
-    # some device does not have onchip clock and requires obtaining system time a little later from ntp or SUP to obtain the correct time
-    # so if the uptime is less than original device time, it means it is most likely due to this issue which we can wait a little more
-    # until the correct time is set in place.
+    # some device does not have onchip clock and requires obtaining system time a little later from ntp
+    # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
+    # is most likely due to this issue which we can wait a little more until the correct time is set in place.
     if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
         logger.info('DUT {} timestamp went backwards'.format(hostname))
         wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
@@ -286,6 +286,7 @@ def positive_uptime(duthost, dut_datetime):
         return False
 
     return True
+
 
 def get_reboot_cause(dut):
     """
