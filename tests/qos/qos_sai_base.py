@@ -999,7 +999,7 @@ class QosSaiBase(QosBase):
         pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
         # Get dst_dut asic type
-        if dst_asic != src_asic:
+        if dst_dut != src_dut:
             vendor = dst_dut.facts["asic_type"]
             hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
             dstDutAsic = None
