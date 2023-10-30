@@ -362,7 +362,8 @@ def check_rif_on_sup(systemintftable, slot, asic, port):
         asic_str = asic
 
     key = "SYSTEM_INTERFACE|{}|{}|{}".format(slot_str, asic_str, port)
-    if key in systemintftable:
+    lower_systemintftable = dict((k.lower(), v) for k,v in systemintftable.iteritems())
+    if key.lower() in lower_systemintftable.keys():
         logger.info("Found key {} on chassisdb on supervisor card".format(key))
     else:
         raise SonicDbKeyNotFound("No keys for %s found in chassisdb SYSTEM_INTERFACE table" % key)
@@ -387,17 +388,16 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     """
     voqdb = VoqDbCli(sup)
     # Convert string to lowercases for furthur comparison
-    neigh_key = voqdb.get_neighbor_key_by_ip(neighbor).lower()
-    slot = slot.lower()
-    port = port.lower()
-    asic = asic.lower()
+    neigh_key = voqdb.get_neighbor_key_by_ip(neighbor)
+    lower_neigh_key = neigh_key.lower()
     logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
-    pytest_assert("|%s|" % slot in neigh_key,
-                  "Slot for %s does not match %s" % (neigh_key, slot))
-    pytest_assert("|%s:" % port in neigh_key or "|%s|" % port in neigh_key,
-                  "Port for %s does not match %s" % (neigh_key, port))
-    pytest_assert("|%s|" % asic in neigh_key,
-                  "Asic for %s does not match %s" % (neigh_key, asic))
+    pytest_assert("|%s|" % slot.lower() in lower_neigh_key,
+                  "Slot for %s does not match %s" % (lower_neigh_key, slot.lower()))
+    pytest_assert("|%s|" % port.lower() in lower_neigh_key \
+                  or "|%s|" % port.lower() in lower_neigh_key,
+                  "Port for %s does not match %s" % (lower_neigh_key, port.lower()))
+    pytest_assert("|%s|" % asic.lower() in lower_neigh_key,
+                  "Asic for %s does not match %s" % (lower_neigh_key, asic.lower()))
 
     voqdb.get_and_check_key_value(neigh_key, mac, field="neigh")
     voqdb.get_and_check_key_value(neigh_key, encap_index, field="encap_index")
