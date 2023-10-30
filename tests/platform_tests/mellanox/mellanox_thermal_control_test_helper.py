@@ -6,7 +6,7 @@ import time
 from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
-from tests.common.mellanox_data import get_platform_data
+from tests.common.mellanox_data import get_hw_management_version, get_platform_data
 from .minimum_table import get_min_table
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -29,8 +29,8 @@ THERMAL_NAMING_RULE = {
     },
     "psu": {
         "name": "PSU-{} Temp",
-        "temperature": "psu{}_temp",
-        "high_threshold": "psu{}_temp_max"
+        "temperature": "psu{}_temp1",
+        "high_threshold": "psu{}_temp1_max"
     },
     "cpu_pack": {
         "name": "CPU Pack Temp",
@@ -41,14 +41,14 @@ THERMAL_NAMING_RULE = {
     "gearbox": {
         "name": "Gearbox {} Temp",
         "temperature": "gearbox{}_temp_input",
-        "high_threshold": "mlxsw-gearbox{}/temp_trip_hot",
-        "high_critical_threshold": "mlxsw-gearbox{}/temp_trip_crit"
+        "high_threshold": "gearbox{}_temp_emergency",
+        "high_critical_threshold": "gearbox{}_temp_trip_crit"
     },
     "asic_ambient": {
         "name": "ASIC",
         "temperature": "asic",
-        "high_threshold": "mlxsw/temp_trip_hot",
-        "high_critical_threshold": "mlxsw/temp_trip_crit"
+        "high_threshold": "asic_temp_emergency",
+        "high_critical_threshold": "asic_temp_trip_crit"
     },
     "port_ambient": {
         "name": "Ambient Port Side Temp",
@@ -78,15 +78,67 @@ THERMAL_NAMING_RULE = {
     }
 }
 
-ASIC_THERMAL_RULE_201911 = {
-    "name": "Ambient ASIC Temp",
-    "temperature": "asic"
+thermal_rule_patched = False
+
+THERMAL_RULE_PATCHES = {
+    "201911": {
+        "asic_ambient": {
+            "name": "Ambient ASIC Temp",
+            "temperature": "asic"
+        },
+        "gearbox": {
+            "name": "Gearbox {} Temp",
+            "temperature": "gearbox{}_temp_input"
+        }
+    },
+    "hw-mgmt.7.0030.2003.before": {
+        "asic_ambient": {
+            "name": "ASIC",
+            "temperature": "asic",
+            "high_threshold": "mlxsw/temp_trip_hot",
+            "high_critical_threshold": "mlxsw/temp_trip_crit"
+        },
+        "gearbox": {
+            "name": "Gearbox {} Temp",
+            "temperature": "gearbox{}_temp_input",
+            "high_threshold": "mlxsw-gearbox{}/temp_trip_hot",
+            "high_critical_threshold": "mlxsw-gearbox{}/temp_trip_crit"
+        },
+        "psu": {
+            "name": "PSU-{} Temp",
+            "temperature": "psu{}_temp",
+            "high_threshold": "psu{}_temp_max"
+        }
+    }
 }
 
-GEARBOX_THERMAL_RULE_201911 = {
-    "name": "Gearbox {} Temp",
-    "temperature": "gearbox{}_temp_input"
-}
+
+def patch_thermal_rule(mock_helper):
+    """
+    Patch thermal rule for different sonic version/kernel version/hw-management version.
+    This function is mainly for backward compatible.
+    :param mock_helper: Mock helper.
+    """
+    global thermal_rule_patched
+    global THERMAL_NAMING_RULE
+
+    if thermal_rule_patched:
+        return
+
+    patch = None
+    if mock_helper.is_201911():
+        patch = THERMAL_RULE_PATCHES['201911']
+    else:
+        hw_mgmt_version = get_hw_management_version(mock_helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+            patch = THERMAL_RULE_PATCHES['hw-mgmt.7.0030.2003.before']
+
+    if patch is not None:
+        for key, rule in patch.items():
+            THERMAL_NAMING_RULE[key] = rule
+
+    thermal_rule_patched = True
+
 
 FAN_NAMING_RULE = {
     "fan": {
@@ -675,12 +727,7 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
-        if self.helper.is_201911():
-            if 'ASIC' in naming_rule['name']:
-                naming_rule = ASIC_THERMAL_RULE_201911
-            elif 'Gearbox' in naming_rule['name']:
-                naming_rule = GEARBOX_THERMAL_RULE_201911
-
+        patch_thermal_rule(mock_helper)
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']
         self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
@@ -1210,56 +1257,6 @@ class AbnormalFanMocker(SingleFanMocker):
         self.expect_led_color = 'green'
 
 
-@mocker('MinTableMocker')
-class MinTableMocker(object):
-    FAN_AMB_PATH = 'fan_amb'
-    PORT_AMB_PATH = 'port_amb'
-    TRUST_PATH = 'module1_temp_fault'
-    LIST_THERMAL_ZONE_TEMPERATURE_FILE = 'ls /run/hw-management/thermal/mlxsw*/thermal_zone_temp'
-    NORMAL_TEMPERATURE = 40000
-
-    def __init__(self, dut):
-        self.mock_helper = MockerHelper(dut)
-
-    def get_expect_cooling_level(self, temperature, trust_state):
-        minimum_table = get_min_table(self.mock_helper.dut)
-        row = minimum_table['unk_{}'.format(
-            'trust' if trust_state else 'untrust')]
-        temperature = temperature / 1000
-        for range_str, cooling_level in list(row.items()):
-            range_str_list = range_str.split(':')
-            min_temp = int(range_str_list[0])
-            max_temp = int(range_str_list[1])
-            if min_temp <= temperature <= max_temp:
-                return cooling_level - 10
-
-        return None
-
-    def mock_min_table(self, temperature, trust_state):
-        trust_value = '0' if trust_state else '1'
-        fan_temp = temperature
-        port_temp = temperature
-
-        self.mock_helper.mock_thermal_value(self.FAN_AMB_PATH, str(fan_temp))
-        self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))
-        self.mock_helper.mock_thermal_value(self.TRUST_PATH, str(trust_value))
-
-    def mock_normal_temperature(self):
-        output = self.mock_helper.dut.shell(
-            self.LIST_THERMAL_ZONE_TEMPERATURE_FILE)
-        for thermal_file in output['stdout_lines']:
-            if self.mock_helper.read_value(thermal_file) != '0':
-                self.mock_helper.mock_value(
-                    thermal_file, self.NORMAL_TEMPERATURE)
-
-    def deinit(self):
-        """
-        Destructor of MinTableMocker.
-        :return:
-        """
-        self.mock_helper.deinit()
-
-
 @mocker('PsuMocker')
 class PsuMocker(object):
     PSU_PRESENCE = 'psu{}_status'
@@ -1269,7 +1266,7 @@ class PsuMocker(object):
 
     def deinit(self):
         """
-        Destructor of MinTableMocker.
+        Destructor of PsuMocker.
         :return:
         """
         self.mock_helper.deinit()
