@@ -10,7 +10,7 @@ PFC_MAC_CONTROL_CODE = 0x8808
 PFC_DEST_MAC = "01:80:c2:00:00:01"
 
 
-def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=100000, UTIL_THRESHOLD=0.8):
+def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
     """
     Validate PFC frame by checking the CBFC opcode, class enable vector and class pause times.
 
@@ -53,3 +53,42 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=100000, UTIL_THRESHOLD=0.8):
         return False
 
     return True
+
+
+def get_ip_pkts(pcap_file_name):
+    """
+    Get IP packets from the pcap/pcapng file
+
+    Args:
+        pcap_file_name (str): name of the pcap/pcapng file to store captured packets
+
+    Returns:
+        Captured IP packets (list)
+    """
+    f = open(pcap_file_name, "rb")
+    pcap = dpkt.pcapng.Reader(f)
+
+    logger.info("Reading packets from pcap file -> {}".format(pcap_file_name))
+    logger.info("Extracting ethernet frames from pcap file")
+
+    ip_pkts = []
+    for _, pkt in pcap:
+        eth = dpkt.ethernet.Ethernet(pkt)
+        if isinstance(eth.data, dpkt.ip.IP):
+            ip_pkts.append(eth.data)
+
+    return ip_pkts
+
+
+def is_ecn_marked(ip_pkt):
+    """
+    Determine if an IP packet is ECN congestion marked
+
+    Args:
+        ip_pkt (obj): IP packet
+
+    Returns:
+        Return if the packet is ECN congestion marked (bool)
+    """
+    logger.info("Checking if the packet is ECN congestion marked")
+    return (ip_pkt.tos & 3) == 3
