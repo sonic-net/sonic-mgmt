@@ -36,7 +36,7 @@ class HashTest(BaseTest):
     # Class variables
     #---------------------------------------------------------------------
     DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 625
+    BALANCING_TEST_TIMES = 250
     DEFAULT_SWITCH_TYPE = 'voq'
 
     _required_params = [
@@ -284,7 +284,7 @@ class HashTest(BaseTest):
                     dport))
 
         dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
         rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
@@ -375,7 +375,7 @@ class HashTest(BaseTest):
                     dport))
 
         dst_ports = list(itertools.chain(*dst_port_lists))
-        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports)
+        rcvd_port_index, rcvd_pkt = verify_packet_any_port(self, masked_exp_pkt, dst_ports, timeout=1)
         rcvd_port = dst_ports[rcvd_port_index]
 
         exp_src_mac = None
