@@ -2128,7 +2128,6 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
-        src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
 
         ttl = 64
@@ -2192,7 +2191,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkt_dst_mac = def_vlan_mac
             pkt_dst_mac3 = def_vlan_mac
 
-        pkt = get_multiple_flows(
+        pkt_s = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -2203,10 +2202,13 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+
+        pkt = pkt_s[0]
+        dst_port_id = pkt_s[2]
 
         # create packet
-        pkt2 = get_multiple_flows(
+        pkt2_s = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_2_id,
@@ -2217,21 +2219,27 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+
+        pkt2 = pkt2_s[0]
+        dst_port_2_id = pkt2_s[2]
 
         # create packet
-        pkt3 = construct_ip_pkt(packet_length,
-                                pkt_dst_mac3,
-                                src_port_mac,
-                                src_port_ip,
-                                dst_port_3_ip,
-                                dscp,
-                                src_port_vlan,
-                                ecn=ecn,
-                                ttl=ttl)
-        dst_port_3_id = self.get_rx_port(
-            src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
-        )
+        pkt3_s = get_multiple_flows(
+                self,
+                pkt_dst_mac3,
+                dst_port_3_id,
+                dst_port_3_ip,
+                src_port_vlan,
+                dscp,
+                ecn,
+                ttl,
+                packet_length,
+                [(src_port_id, src_port_ip)],
+                packets_per_port=1)[src_port_id][0]
+
+        pkt3 = pkt3_s[0]
+        dst_port_3_id = pkt3_s[2]
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
