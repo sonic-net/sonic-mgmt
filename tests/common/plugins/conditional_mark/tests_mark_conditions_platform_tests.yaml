@@ -782,8 +782,12 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
-      - "asic_type in ['broadcom', 'mellanox']"
+      - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7293
+  skip:
+    reason: "Not required on Mellanox platform"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
