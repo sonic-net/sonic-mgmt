@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
@@ -20,8 +21,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 WD_ACTION_MSG_PFX = {"dontcare": "Verify PFCWD detection when queue buffer is not empty "
                      "and proper function of pfcwd drop action",
                      "drop": "Verify proper function of pfcwd drop action",
@@ -693,7 +692,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
         loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
         loganalyzer.match_regex = []
 
         if action != "dontcare":
@@ -1089,7 +1088,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
                 loganalyzer.ignore_regex.extend(reg_exp)
                 loganalyzer.expect_regex = []
-                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)])
                 loganalyzer.match_regex = []
 
                 port_toggle(self.dut, tbinfo, ports=[port])

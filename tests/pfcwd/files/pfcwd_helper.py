@@ -8,6 +8,15 @@ from tests.common import constants
 if sys.version_info[0] >= 3:
     unicode = str
 
+EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
+VENDOR_SPEC_ADDITIONAL_INFO_RE = {
+    "mellanox":
+        r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
+        r"timestamp_last:[0-9]+\.[0-9]+\|real_poll_time:[0-9]+"
+    }
+EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
+
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
@@ -342,3 +351,16 @@ def start_wd_on_ports(duthost, port, restore_time, detect_time, action="drop"):
     """
     duthost.command("pfcwd start --action {} --restoration-time {} {} {}"
                     .format(action, restore_time, port, detect_time))
+
+
+def fetch_vendor_specific_diagnosis_re(duthost):
+    """
+    Fetch regular expression of vendor specific diagnosis information
+    Args:
+        duthost: The duthost object
+    """
+    unsupported_branches = ['202012', '202205', '202211']
+    if duthost.os_version in unsupported_branches or duthost.sonic_release in unsupported_branches:
+        return ""
+
+    return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
