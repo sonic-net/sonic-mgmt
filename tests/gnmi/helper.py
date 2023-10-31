@@ -1,6 +1,5 @@
 import time
 import re
-import pytest
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 
