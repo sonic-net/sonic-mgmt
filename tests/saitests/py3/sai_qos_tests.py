@@ -4936,7 +4936,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
 
-        pkt = get_multiple_flows(
+        pkt_s = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
@@ -4947,7 +4947,9 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 ttl,
                 packet_length,
                 [(src_port_id, src_port_ip)],
-                packets_per_port=1)[src_port_id][0][0]
+                packets_per_port=1)[src_port_id][0]
+        pkt = pkt_s[0]
+        dst_port_id = pkt_s[2]
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
@@ -5311,7 +5313,6 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
         ttl = 64
-        assert(router_mac != '')
 
         # Correct any destination ports that may be in a lag
         pkts = {}
