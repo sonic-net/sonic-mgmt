@@ -15,8 +15,8 @@ Verify rekey occurs after reconfiguring the rekey period.
 ### Scope
 
 The test is targeting a running SONIC system with fully functioning configuration.
-The purpose of the test is to verify macsec rekey occurs 
-after re-configuring the rekey period.
+The purpose of the test is to verify macsec rekey occurs after
+re-configuring the rekey period.
 
 ### Related DUT CLI commands
 
@@ -51,7 +51,7 @@ N/A
 
 Reconfigure the macsec rekey period and wait for rekey to occur.
 1. Disable the macsec port.
-2. Reconfigure the macsec rekey period. 
+2. Reconfigure the macsec rekey period.
 3. Reconfigure the macsec port.
 4. Wait for macsec rekey to occur.
 5. Verify rekey occurs on both dut and neighbor.
