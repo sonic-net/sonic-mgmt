@@ -3495,7 +3495,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_list = get_multiple_flows(self, self.dst_port_mac, self.dst_port_id,
                                       self.dst_port_ip, None, self.dscp, self.ecn,
                                       self.ttl,
-                                      self.packet_length,src_details, 20)[int(self.src_port_id)]
+                                      self.packet_length, src_details, 20)[int(self.src_port_id)]
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                               port_list['dst'][self.dst_port_id])
