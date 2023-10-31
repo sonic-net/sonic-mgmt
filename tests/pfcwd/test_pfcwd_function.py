@@ -189,6 +189,7 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
+        alpha = 0
         static_th = 0
         if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
             static_th = six.text_type(asic.run_redis_cmd(
@@ -475,7 +476,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -484,6 +485,7 @@ class SendVerifyTraffic():
         """
         self.ptf = ptf
         self.router_mac = router_mac
+        self.tx_mac = tx_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -546,8 +548,8 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -612,8 +614,8 @@ class SendVerifyTraffic():
         else:
             other_pg = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -820,6 +822,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
 
@@ -909,6 +912,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
                                                           duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                                                          duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                                                           self.pfc_wd,
                                                           self.is_dualtor)
                     self.run_test(self.dut, port, "drop", restore=False)
@@ -985,6 +989,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
@@ -996,6 +1001,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
@@ -1066,6 +1072,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
