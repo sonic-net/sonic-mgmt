@@ -4043,14 +4043,14 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                                    ecn=ecn,
                                    ttl=ttl)
 
-        print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
-              (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
-        # in case dst_port_id is part of LAG, find out the actual dst port
-        # for given IP parameters
-        dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
-        )
-        print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
+            print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
+                  (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
+            # in case dst_port_id is part of LAG, find out the actual dst port
+            # for given IP parameters
+            dst_port_id = get_rx_port(
+                self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+            )
+            print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
