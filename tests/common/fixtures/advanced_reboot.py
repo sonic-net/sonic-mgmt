@@ -554,9 +554,6 @@ class AdvancedReboot:
             try:
                 if self.preboot_setup:
                     self.preboot_setup()
-                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
-                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
-                                                        self.duthost.hostname)
                 if self.advanceboot_loganalyzer:
                     pre_reboot_analysis, post_reboot_analysis = self.advanceboot_loganalyzer
                     marker = pre_reboot_analysis()
@@ -574,6 +571,9 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.postboot_setup:
                     self.postboot_setup()
             except Exception:
@@ -641,6 +641,9 @@ class AdvancedReboot:
             'peer_dev_info': copy.deepcopy(self.mgFacts['minigraph_devices']),
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
+
+        if "warm-reboot" in self.rebootType:
+            event_counters["PORT_READY"] = 0
 
         if self.dual_tor_mode:
             dualtor_testData = {
@@ -756,7 +759,8 @@ class AdvancedReboot:
             params=params,
             log_file='/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors,
-            timeout=REBOOT_CASE_TIMEOUT
+            timeout=REBOOT_CASE_TIMEOUT,
+            is_python3=True
         )
 
         return result

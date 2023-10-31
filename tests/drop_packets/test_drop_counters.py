@@ -13,8 +13,15 @@ from tests.common.helpers.drop_counters.drop_counters import verify_drop_counter
     ensure_no_l3_drops, ensure_no_l2_drops
 from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_UPDATE_INTERVAL,\
     MELLANOX_MAC_UPDATE_SCRIPT, expected_packet_mask, log_pkt_params, setup, fanouthost, pkt_fields,\
-    send_packets, ports_info, tx_dut_ports, rif_port_down  # noqa F401
+    send_packets, ports_info, tx_dut_ports, rif_port_down, sai_acl_drop_adj_enabled, acl_ingress, \
+    acl_egress, configure_copp_drop_for_ttl_error, test_equal_smac_dmac_drop, test_multicast_smac_drop, \
+    test_not_expected_vlan_tag_drop, test_dst_ip_is_loopback_addr, test_src_ip_is_loopback_addr, \
+    test_dst_ip_absent, test_src_ip_is_multicast_addr, test_src_ip_is_class_e, test_ip_is_zero_addr, \
+    test_dst_ip_link_local, test_loopback_filter, test_ip_pkt_with_expired_ttl, test_broken_ip_header, \
+    test_absent_ip_header, test_unicast_ip_incorrect_eth_dst, test_non_routable_igmp_pkts, test_acl_drop, \
+    test_acl_egress_drop  # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -119,13 +126,13 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
                              GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
         for duthost in duthosts.frontend_nodes:
-            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            ensure_no_l3_drops(duthost, packets_count=PKT_NUMBER)
     elif discard_group == "L3":
         if COMBINED_L2L3_DROP_COUNTER:
             verify_drop_counters(duthosts, asic_index, ports_info["dut_iface"],
                                  GET_L2_COUNTERS, L2_COL_KEY, packets_count=PKT_NUMBER)
             for duthost in duthosts.frontend_nodes:
-                ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+                ensure_no_l3_drops(duthost, packets_count=PKT_NUMBER)
         else:
             if not tx_dut_ports:
                 pytest.fail("No L3 interface specified")
@@ -133,7 +140,7 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
             verify_drop_counters(duthosts, asic_index, tx_dut_ports[ports_info["dut_iface"]],
                                  GET_L3_COUNTERS, L3_COL_KEY, packets_count=PKT_NUMBER)
             for duthost in duthosts.frontend_nodes:
-                ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+                ensure_no_l2_drops(duthost, packets_count=PKT_NUMBER)
     elif discard_group == "ACL":
         if not tx_dut_ports:
             pytest.fail("No L3 interface specified")
@@ -154,12 +161,12 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
             pytest.fail(fail_msg)
         if not COMBINED_ACL_DROP_COUNTER:
             for duthost in duthosts.frontend_nodes:
-                ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
-                ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+                ensure_no_l3_drops(duthost, packets_count=PKT_NUMBER)
+                ensure_no_l2_drops(duthost, packets_count=PKT_NUMBER)
     elif discard_group == "NO_DROPS":
         for duthost in duthosts.frontend_nodes:
-            ensure_no_l2_drops(duthost, asic_index, packets_count=PKT_NUMBER)
-            ensure_no_l3_drops(duthost, asic_index, packets_count=PKT_NUMBER)
+            ensure_no_l2_drops(duthost, packets_count=PKT_NUMBER)
+            ensure_no_l3_drops(duthost, packets_count=PKT_NUMBER)
     else:
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 

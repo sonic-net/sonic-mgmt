@@ -16,6 +16,8 @@ import os
 import requests
 import sys
 
+from setuptools import distutils
+
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
 if base_path not in sys.path:
@@ -37,6 +39,8 @@ RC_INIT_FAILED = 1
 RC_UPGRADE_PREV_FAILED = 2
 RC_UPGRADE_FAILED = 3
 RC_ENABLE_FIPS_FAILED = 4
+RC_SET_DOCKER_FOLDER_SIZE_FAILED = 5
+RC_SHUTDOWN_FAILED = 6
 
 
 def validate_args(args):
@@ -83,14 +87,16 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
         dict: A dict of PDU managers. Key is device hostname. Value is the PDU manager object for the device.
     """
     pdu_managers = {}
+    device_pdu_links = conn_graph_facts['device_pdu_links']
+    device_pdu_info = conn_graph_facts['device_pdu_info']
     for hostname in sonichosts.hostnames:
-        pdu_links = conn_graph_facts["device_pdu_links"][hostname]
-        pdu_hostnames = [peer_info["peerdevice"] for peer_info in pdu_links.values()]
+        pdu_links = device_pdu_links[hostname]
+        pdu_info = device_pdu_info[hostname]
         pdu_vars = {}
-        for pdu_hostname in pdu_hostnames:
-            pdu_vars[pdu_hostname] = sonichosts.get_host_visible_vars(pdu_hostname)
+        for pdu_name in pdu_info.keys():
+            pdu_vars[pdu_name] = sonichosts.get_host_visible_vars(pdu_name)
 
-        pdu_managers[hostname] = pdu_manager_factory(hostname, None, conn_graph_facts, pdu_vars)
+        pdu_managers[hostname] = pdu_manager_factory(hostname, pdu_links, pdu_info, pdu_vars)
     return pdu_managers
 
 
@@ -188,18 +194,50 @@ def main(args):
         sys.exit(RC_UPGRADE_FAILED)
     else:
         logger.info("Upgraded to image {}".format(args.prev_image_url))
+
+    current_build_version = None
     for hostname, version in sonichosts.sonic_version.items():
         logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
+        if not current_build_version:
+            current_build_version = version.get("build_version")
 
     # Enable FIPS
+    need_shutdown = False
     if args.enable_fips:
         logger.info("Need to enable FIPS")
         try:
             sonichosts.command("sonic-installer set-fips", module_attrs={"become": True})
-            sonichosts.command("shutdown -r now", module_attrs={"become": True, "async": 300, "poll": 0})
+            need_shutdown = True
         except Exception as e:
             logger.error("Failed to enable FIPS mode: {}".repr(e))
             sys.exit(RC_ENABLE_FIPS_FAILED)
+
+    # Set docker folder size, required for platforms with small disk
+    if args.docker_folder_size:
+        logger.info("Need to set docker folder size to '{}'".format(args.docker_folder_size))
+        try:
+            sonichosts.lineinfile(
+                line="docker_inram_size={}".format(args.docker_folder_size),
+                path="/host/image-{}/kernel-cmdline-append".format(current_build_version),
+                state="present",
+                create=True,
+                module_attrs={"become": True}
+            )
+            need_shutdown = True
+        except Exception as e:
+            logger.error("Failed to set docker folder size: {}".repr(e))
+            sys.exit(RC_SET_DOCKER_FOLDER_SIZE_FAILED)
+    else:
+        logger.info("Use default docker folder size")
+
+    # Force reboot the device to apply changes
+    if need_shutdown:
+        logger.info("Need to shutdown")
+        try:
+            sonichosts.command("shutdown -r now", module_attrs={"become": True, "async": 300, "poll": 0})
+        except Exception as e:
+            logger.error("Failed to shutdown: {}".repr(e))
+            sys.exit(RC_SHUTDOWN_FAILED)
 
     localhost.pause(seconds=180, prompt="Pause after reboot")
     logger.info("===== UPGRADE IMAGE DONE =====")
@@ -251,17 +289,17 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--always-power-cycle",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="always_power_cycle",
-        default=False,
+        default=0,
         help="Always power cycle DUTs before upgrade."
     )
 
     parser.add_argument(
         "--power-cycle-unreachable",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="power_cycle_unreachable",
-        default=True,
+        default=1,
         help="Only power cycle unreachable DUTs."
     )
 
@@ -285,11 +323,21 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--enable-fips",
-        type=bool,
+        type=distutils.util.strtobool,
         dest="enable_fips",
         required=False,
-        default=False,
+        default=0,
         help="Enable FIPS."
+    )
+
+    parser.add_argument(
+        "--docker-folder-size",
+        type=str,
+        dest="docker_folder_size",
+        required=False,
+        default="",
+        help="Docker folder size. Required for devices with small SSD."
+             "If set to 0, docker folder size will not be updated. Example: '3000M'"
     )
 
     parser.add_argument(
