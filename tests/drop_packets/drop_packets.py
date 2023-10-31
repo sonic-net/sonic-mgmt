@@ -8,7 +8,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts  # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -81,7 +81,10 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
     # Check that class to handle fanout config is implemented
     if "mellanox" == duthost.facts["asic_type"]:
         fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
-        if not is_mellanox_fanout(duthost, localhost):
+        # if the leaf fanout switch is Mellanox, but running SONiC OS
+        # then we have to skip some test cases because some operation (like the openflow)
+        # is only supported on the Mellanox onyx
+        if not is_mellanox_fanout(duthost, localhost) or fanout.os == "sonic":
             fanout = None
 
     yield fanout
@@ -162,7 +165,8 @@ def is_mellanox_fanout(duthost, localhost):
         logger.info("Get dut_facts failed, reason:{}".format(e.results['msg']))
         return False
 
-    fanout_host = dut_facts["device_conn"][duthost.hostname]["Ethernet0"]["peerdevice"]
+    intf = list(dut_facts["device_conn"][duthost.hostname].keys())[0]
+    fanout_host = dut_facts["device_conn"][duthost.hostname][intf]["peerdevice"]
 
     try:
         fanout_facts = \
@@ -178,12 +182,11 @@ def is_mellanox_fanout(duthost, localhost):
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
-    fanout_obj = None
     for fanout_name, fanout_obj in list(fanouthosts.items()):
         for interface, interface_info in list(conn_graph_facts['device_conn'][duthost.hostname].items()):
             if fanout_name == interface_info.get('peerdevice'):
-                break
-    return fanout_obj
+                return fanout_obj
+    pytest_assert(False, "Failed to get the fanout for dut {}".format(duthost.hostname))
 
 
 @pytest.fixture(scope="module")
@@ -528,7 +531,7 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
 
 
 def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
-                              pkt_fields, ports_info, fanout_graph_facts):      # noqa F811
+                              pkt_fields, ports_info, enum_fanout_graph_facts):      # noqa F811
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
@@ -544,7 +547,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
-            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac,
+            fanout_graph_facts=enum_fanout_graph_facts, match_mac=src_mac,
             set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
@@ -570,7 +573,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
 
 
 def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
-                             pkt_fields, ports_info, fanout_graph_facts):   # noqa F811
+                             pkt_fields, ports_info, enum_fanout_graph_facts):   # noqa F811
     """
     @summary: Create a packet with multicast SMAC.
     """
@@ -588,7 +591,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
-            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+            fanout_graph_facts=enum_fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port

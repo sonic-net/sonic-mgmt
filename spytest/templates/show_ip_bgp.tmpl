@@ -1,38 +1,121 @@
 Value Filldown NETWORK ([.:\dabcdefABCDEF]+\/\d+)
-Value NEXT_HOP ([.:\dabcdefABCDEF]+)
+#Value Required NEXT_HOP ([.:\dabcdefABCDEF]+)
+Value Required NEXT_HOP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
 Value METRIC (\S{1,6})
-Value LOCAL_PREF (\S{0,6})
+Value LOCAL_PREF (\S{0,10})
 Value WEIGHT (\S{1,6})
 Value AS_PATH (.*?)
-Value VERSION (\d+)
-Value ROUTER_ID (\S{0,19})
-Value VRF_ID (\S+)
+Value Filldown VERSION (\d+)
+Value Filldown ROUTER_ID (\S{0,19})
+Value Filldown VRF_ID (\S+)
 Value STATUS_CODE ([sdhirSR*>=#]*)
 Value INTERNAL (i?)
 Value ORIGIN ([ie\?]?)
+Value Filldown LOCALASN (\d+)
 
 Start
   ^BGP table version is ${VERSION}, local router ID is ${ROUTER_ID}, vrf id ${VRF_ID}\s*$$ -> VTYSH
   ^BGP routing table information for VRF ${VRF_ID}\s*$$ -> KLISH
-    
+
 VTYSH
-  ^\s+Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> Bgp_table
+  ^\s*Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> Bgp_table_vtysh
+  ^Default local pref \d+, local AS ${LOCALASN} -> Continue
   ^Status codes:.*$$ -> Continue
   ^\s+i internal.*$$ -> Continue
   ^Origin codes:.*$$ -> Continue
+  ^RPKI validation codes.*$$ -> Continue
+
+Bgp_table_vtysh
+  #All in one line in klish. Only in case of ECMP, a network will have multiple lines
+  # IPv4 example
+  #     Network          Next Hop            Metric LocPrf Weight Path
+  #  *>i131.6.7.0/24     11.2.0.1                 0    100      0 65001 65002 i
+  # IPv6 example
+  #    Network          Next Hop            Metric LocPrf Weight Path
+  #   i2000:1::/64      67fe:1::1                0    100      0 (24) i
+  ^${STATUS_CODE}\s*${INTERNAL}\s*${NETWORK}\s+${NEXT_HOP}\s{1,24}${METRIC}\s{1,12}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
+  # ECMP routes, network from previous line will be fillodwn
+  # IPv4 example
+  #     Network          Next Hop            Metric LocPrf Weight Path
+  #  *>i131.6.7.0/24     11.2.0.1                 0    100      0 65001 65002 i
+  #  *>i                 11.9.0.1                 0    100      0 (24) i
+  # IPv6 example
+  #    Network          Next Hop            Metric LocPrf Weight Path
+  #   i2000:1::/64      67fe:1::1                0    100      0 (24) i
+  #   i                 67fe:2::1                0    100      0 (24) i
+  #
+  ^${STATUS_CODE}\s*${INTERNAL}\s+${NEXT_HOP}\s+${METRIC}\s{1,12}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #  ECMP routes - metric and local preferance is blank
+  ^${STATUS_CODE}\s*${INTERNAL}\s+${NEXT_HOP}\s+${WEIGHT}\s+\(*${AS_PATH}\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
+  #All in one line - metric and local preferance is blank - need to confirm if there can be any such entry
+  # IPv4 example
+  #     Network          Next Hop            Metric LocPrf Weight Path
+  # IPv6 example
+  #    Network          Next Hop            Metric LocPrf Weight Path
+  ^${STATUS_CODE}\s*${INTERNAL}\s*${NETWORK}\s+${NEXT_HOP}\s+${WEIGHT}\s+\(*${AS_PATH}\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
+  # IPv6 routes on 2 lines
+  # IPv6 example - entry on 2 line, upto nexthop in first line and all other info in 2nd line
+  #    Network          Next Hop            Metric LocPrf Weight Path
+  # *> 6002:1::/64      fe80::5054:5eff:fe39:56ce
+  #                                          50             0 65002 65003 i
+  ^${STATUS_CODE}\s*${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
+  #
+  # ECMP where nexthop in one line and all other info in next line
+  # Mostly applicable for IPV6 where nexthop length is more than 18 char.
+  #    Network          Next Hop            Metric LocPrf Weight Path
+  # *  216:52:1::/86    fe80::6f8:f8ff:fe99:8186
+  #                                          0                     0 65003 i
+  # *>                  fe80::ba6a:97ff:fef4:dc3d
+  #                                          0                     0 65001 i
+  #
+  ^${STATUS_CODE}\s*${INTERNAL}\s+${NEXT_HOP}\s*$$ -> Continue
+  # Following regexp is causing the run to hang/stuck
+  # replacing ^\s* with ^\s+ solves the issue, however following line is not matched if we use ^\s+, not sure why
+  #                                          0                     0 65001 i
+  # so moving this at the end, which seems to working for all combination
+  #
+  ^\s*${METRIC}\s{1,12}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
 
 KLISH
-  ^Router identifier ${ROUTER_ID},.*$$
-  ^\s+Network\s+Next Hop\s+Metric\s+LocPref\s+Weight\s+Path -> Bgp_table
-  ^Route status codes:.*$$ -> Continue
+  ^\s*Router identifier ${ROUTER_ID}, local AS number ${LOCALASN}\s*$$ -> Bgp_table_klish
+  ^\s*Network\s+Next Hop\s+Metric\s+LocPref\s+Weight\s+Path -> Continue
+  ^Status codes:.*$$ -> Continue
+  ^\s+h\s+-\s+history.*$$ -> Continue
   ^Origin codes:.*$$ -> Continue
 
-Bgp_table
-  ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s*$$ -> Continue
-  ^\s{20}\s+${METRIC}\s{0,9}${LOCAL_PREF}\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
-  ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NETWORK}\s+${NEXT_HOP}\s{1,18}${METRIC}\s{1,15}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*\s+${ORIGIN}\s*$$ -> Record
-  ^${STATUS_CODE}\s{1,16}${INTERNAL}\s+${NEXT_HOP}\s+${METRIC}\s{1,15}${LOCAL_PREF}\s+${WEIGHT}\s+\(*${AS_PATH}\)*\s+${ORIGIN}\s*$$ -> Record
-  ^${STATUS_CODE}\s+${INTERNAL}${NETWORK}\s+${NEXT_HOP}\s+\s+${WEIGHT}\s+${AS_PATH}\s*$$ -> Record
-  ^\s+${NETWORK}\s+${AS_PATH}\s*$$ -> Record
+Bgp_table_klish
+  #All in one line in klish. Only in case of ECMP, a network will have multiple lines
+  # IPv4 Example
+  #      Network             Next Hop                                 Metric      LocPref     Weight Path
+  # *>   172.16.2.2/32       11.2.0.2                                 0                       0      65003 1 1 1 1 65001 i
+  #
+  # Ipv6 Example
+  #      Network                                      Next Hop                                 Metric      LocPref     Weight Path
+  # *>   6002:1::3/128                                2002::2                                  0                       0      65001 i
+  ^${STATUS_CODE}\s*${INTERNAL}\s*${NETWORK}\s+${NEXT_HOP}\s{1,39}${METRIC}\s{1,12}${LOCAL_PREF}\s+${WEIGHT}\s+\{*\(*${AS_PATH}\}*\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
+  # ECMP routes, network from previous line will be fillodwn
+  # IPv4 Example
+  #      Network             Next Hop                                 Metric      LocPref     Weight Path
+  # *>                       11.5.0.2                                 0           100         0          i
+  # IPv6 Example
+  #      Network                                      Next Hop                                 Metric      LocPref     Weight Path
+  # *>                                                2002::3                                  0                       0      65001 i
+  ^${STATUS_CODE}\s*${INTERNAL}\s+${NEXT_HOP}\s{1,39}${METRIC}\s{1,12}${LOCAL_PREF}\s+${WEIGHT}\s+\{*\(*${AS_PATH}\}*\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
+  #All in one line - metric and local preferance is blank - need to confirm if there can be any such entry
+  # IPv4 Example
+  #      Network             Next Hop                                 Metric      LocPref     Weight Path
+  # *>   172.16.0.0/16       0.0.0.0                                                          32768  65003 i
+  #
+  # IPv6 Example
+  #      Network                                      Next Hop                                 Metric      LocPref     Weight Path
+  # *>   6002:1::/64                                  ::                                                               32768  {65001,65003} i
+  ^${STATUS_CODE}\s*${INTERNAL}\s*${NETWORK}\s+${NEXT_HOP}\s+${WEIGHT}\s+\{*\(*${AS_PATH}\}*\)*(\s+${ORIGIN})*\s*$$ -> Record
+  #
 
 EOF

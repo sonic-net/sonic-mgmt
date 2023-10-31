@@ -13,8 +13,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
-from tests.common.platform.processes_utils import check_critical_processes
+from tests.common.platform.processes_utils import check_critical_processes, wait_critical_processes
 from tests.common.utilities import compose_dict_from_cli, wait_until
+from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_hostname):
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     if daemon_en_status is False:
         pytest.skip("{} is not enabled in {} {}".format(daemon_name, duthost.facts['platform'], duthost.os_version))
+    wait_critical_processes(duthost)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -66,7 +68,7 @@ def check_daemon_status(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def check_expected_daemon_status(duthost, expected_daemon_status):
-    daemon_status, _ = duthost.get_pmon_daemon_status(daemon_name)
+    daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
     return daemon_status == expected_daemon_status
 
 
@@ -83,12 +85,13 @@ def collect_data(duthost):
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    return {'keys': keys, 'data': dev_data}
+    data_dict = {'keys': keys, 'data': dev_data}
+    return OrderedDict(sorted(data_dict.items()))
 
 
 def wait_data(duthost, expected_key_count):
     class shared_scope:
-        data_after_restart = {}
+        data_after_restart = OrderedDict()
 
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)
@@ -157,6 +160,7 @@ def test_pmon_chassisd_stop_and_start_status(check_daemon_status, duthosts,
 
     duthost.start_pmon_daemon(daemon_name)
 
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
     wait_until(50, 25, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
@@ -215,6 +219,7 @@ def test_pmon_chassisd_kill_and_start_status(check_daemon_status, duthosts,
 
     duthost.stop_pmon_daemon(daemon_name, SIG_KILL, pre_daemon_pid)
 
+    wait_until(120, 10, 0, check_if_daemon_restarted, duthost, daemon_name, pre_daemon_pid)
     wait_until(120, 10, 0, check_expected_daemon_status, duthost, expected_running_status)
 
     post_daemon_status, post_daemon_pid = duthost.get_pmon_daemon_status(

@@ -2,6 +2,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
+from tests.common.reboot import reboot
 
 
 pytestmark = [
@@ -39,6 +40,8 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    console_type = conn_graph_facts['device_console_link'][dut_hostname]["ConsolePort"]["type"]
+    pytest_require(console_type == "ssh", "Unsupported console type: {}".format(console_type))
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     dutuser = creds['sonicadmin_user']
@@ -52,9 +55,6 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
 
     ensure_console_session_up(client, console_port)
     client.sendline()
-    assert_expect_text(client, "login:", console_port, timeout_sec=1)
-    client.sendline(dutuser)
-    client.sendline(dutpass)
     yield client, console_port
 
     if client is not None:
@@ -90,14 +90,14 @@ def run_uboot_onie_test(client, console_port):
 
 def test_baud_rate_sonic_connect(console_client_setup_teardown):
     client, console_port = console_client_setup_teardown
-    assert_expect_text(client, "Last login:", console_port, timeout_sec=5)
+    assert_expect_text(client, "login:", console_port, timeout_sec=1)
 
 
-def test_baud_rate_boot_connect(duthost, console_client_setup_teardown, boot_connect_teardown):
+def test_baud_rate_boot_connect(localhost, duthost, console_client_setup_teardown, boot_connect_teardown):
     client, console_port = console_client_setup_teardown
     platform = duthost.facts["platform"]
     pytest_require(platform in BOOT_TYPE, "Unsupported platform: {}".format(platform))
-    client.sendline("sudo reboot")
+    reboot(duthost, localhost, wait_for_ssh=False)
     if BOOT_TYPE[platform] == "ABoot":
         run_aboot_test(client, console_port)
     elif BOOT_TYPE[platform] == "UBoot-ONIE":

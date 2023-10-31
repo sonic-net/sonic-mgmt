@@ -21,6 +21,14 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, \
                                                        toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
 from .utils import fdb_cleanup, send_eth, send_arp_request, send_arp_reply, send_recv_eth
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa F401
+from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
+from tests.common.fixtures.duthost_utils import ports_list            # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
+from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
+from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -40,9 +48,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def get_dummay_mac_count(tbinfo):
+def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
+        logger.info("Use dummy mac count {} for BSL test\n".format(DUMMY_MAC_COUNT_SLIM))
+        return DUMMY_MAC_COUNT_SLIM
+
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
-    REQUIRED_TOPO = ["t0-116"]
+    # Use DUMMY_MAC_COUNT_SLIM on dualtor-64 to reduce running time
+    REQUIRED_TOPO = ["t0-116", "dualtor-64"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
         # To reduce the case running time
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))
@@ -170,15 +185,18 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         # need to use Mask to ignore the priority field.
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
-    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'
-                 .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports))
 
-    # fdb test will send lots of pkts between paired ports, it's hard to guarantee there is no congestion
-    # on server side during this period. So tolerant to retry 3 times before complain the assert.
+    # FDB test sends lot of packets to validate all the dynamically learnt MACs.
+    # So, PTF server ports might get congested with the flood of packets and script
+    # may not capture the packets and validate the tests within the PTF timeout.
+    # When the failure is detected in the first pass, script retries 5 times
+    # with a delay and also dumps DUT's portstat to debug any issues.
 
-    retry_count = 3
+    retry_count = 5
     pkt_count = 1
-    for _ in range(retry_count):
+    for cnt in range(retry_count):
+        logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {} dst_vlan {} count {}'
+                     .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports, dst_vlan, pkt_count))
         try:
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
@@ -192,13 +210,17 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         except Exception:
             # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
             pkt_count = 10
+            logger.info("Packets not reached destination in first pass,sleep and retry count:{}".format(cnt))
+            time.sleep(FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+            result = duthost.command("portstat", module_ignore_errors=True)
+            logger.info("Port counters: {}".format(result['stdout']))
+            duthost.command("portstat -c", module_ignore_errors=True)
             pass
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
-                             "Dest MAC in fdb is {}"
-                             .format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
+                             .format(dest_ports))
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
@@ -296,6 +318,7 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 
 
 @pytest.mark.bsl
+@pytest.mark.po2vlan
 def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost, pkt_type,
              toggle_all_simulator_ports_to_rand_selected_tor_m, record_mux_status,              # noqa F811
              setup_active_active_ports, get_dummay_mac_count):                                  # noqa F811
@@ -310,7 +333,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     2. verify show mac command on DUT for learned mac.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    conf_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    conf_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
     # reinitialize data plane due to above changes on PTF interfaces
     ptfadapter.reinit()
