@@ -207,7 +207,7 @@ def get_test_cases_from_kusto(client_kusto, test_plan):
     duplicate_data_list = []
     for item in duplicate_data:
         duplicate_data_list.append(item['TestCase'])
-    return test_cases_kusto, duplicate_data
+    return test_cases_kusto, duplicate_data_list
 
 
 def compare_test_cases(client_kusto, client_loganalytics, test_plan):
