@@ -2393,7 +2393,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                                xmit_3_counters_base, self, src_port_id, pkt3, 40)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
@@ -2449,7 +2449,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_2_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get a snapshot of counter values at recv and transmit ports
             # queue counters value is not of our interest here
             recv_counters_base = recv_counters
@@ -2497,7 +2497,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_3_id], last_port=False)
 
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
+            time.sleep(2)
             # get new base counter values at recv ports
             # queue counters value is not of our interest here
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
