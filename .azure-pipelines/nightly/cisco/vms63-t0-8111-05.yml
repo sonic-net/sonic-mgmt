@@ -10,6 +10,14 @@ resources:
     name: sonic-metadata
     ref: master
 
+schedules:
+  - cron: "0 17 * * 0,2,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal-202305/8111-nightly
+    always: false
+
 variables:
   - group: SONIC_IMAGE_URLS
 
@@ -41,7 +49,6 @@ parameters:
     type: string
     default: "bgp/test_bgp_slb.py \
               qos/test_qos_sai.py \
-              platform_tests/test_memory_exhaustion.py \
               dhcp_relay/test_dhcp_relay.py \
               vxlan/test_vxlan_decap.py \
               ipfwd/test_dir_bcast.py \
