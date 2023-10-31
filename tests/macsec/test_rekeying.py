@@ -9,7 +9,7 @@ if sys.version_info.major > 2:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent))
 
-from tests.macsec.macsec_config_helper import setup_macsec_configuration
+from .macsec_config_helper import setup_macsec_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,6 @@ def setup(duthost, macsec_nbrhosts, ctrl_links):
     yield setup_info
 
 
-# @pytest.mark.disable_loganalyzer
 def test_rekeying(duthost, setup, ctrl_links):
     macsec_profile = setup['macsec_profile']
 
@@ -86,4 +85,3 @@ def test_rekeying(duthost, setup, ctrl_links):
             assert status
 
     logger.info("Rekey successful")
-
