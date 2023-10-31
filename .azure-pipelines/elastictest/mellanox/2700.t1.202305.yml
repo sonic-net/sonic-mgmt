@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 4 * * 0,2,4,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,17 +36,25 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-2700-1, testbed-bjw-can-2700-3"
+    default: "vms1-t1-2700, vms21-t1-2700-2, vms1-8"
     displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "3"
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MLNX_202205)
+    default: $(IMAGE_MLNX_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202205
+    default: internal-202305
 
   # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -67,18 +75,18 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "vrf, sflow, nat, sub_port_interfaces"
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202205)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2880
+    default: 3600
 
 stages:
 - stage: Test
@@ -88,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 2700.bjw.t0.202205.NightlyTest_by_Elastictest
+    displayName: 2700.t1.202305.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -104,3 +112,5 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
