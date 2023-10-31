@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-2700-1, testbed-bjw-can-2700-2, testbed-bjw-can-2700-3"
+    default: "testbed-bjw-can-2700-1, testbed-bjw-can-2700-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,7 +45,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
