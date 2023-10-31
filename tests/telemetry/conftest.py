@@ -4,7 +4,8 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, wait_tcp_connection
-from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient, GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
 
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
         has_gnmi_config = check_gnmi_config(duthost)
         if not has_gnmi_config:
             create_gnmi_config(duthost)
-        env = GNMIEnvironment(duthost)
+        env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         default_client_auth = setup_telemetry_forpyclient(duthost)
 
         if default_client_auth == "true":

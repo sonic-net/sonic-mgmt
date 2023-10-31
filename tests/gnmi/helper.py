@@ -1,7 +1,8 @@
 import time
 import re
-from functools import lru_cache
 import pytest
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
@@ -10,36 +11,8 @@ GNMI_PORT = 0
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
-@lru_cache(maxsize=None)
-class GNMIEnvironment(object):
-    def __init__(self, duthost):
-        cmd = "docker images | grep -w sonic-gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w gnmi"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "GNMI"
-                self.gnmi_container = "gnmi"
-                self.gnmi_program = "gnmi-native"
-                self.gnmi_port = 50052
-                return
-            else:
-                pytest.fail("GNMI is not running")
-        cmd = "docker images | grep -w sonic-telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
-                self.gnmi_program = "telemetry"
-                self.gnmi_port = 50051
-                return
-            else:
-                pytest.fail("Telemetry is not running")
-        pytest.fail("Can't find telemetry and gnmi image")
-
-
 def gnmi_container(duthost):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     return env.gnmi_container
 
 
@@ -57,7 +30,7 @@ IP      = %s
 
 
 def apply_cert_config(duthost):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command)
     dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
@@ -71,7 +44,7 @@ def apply_cert_config(duthost):
 
 
 def recover_cert_config(duthost):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
     output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
@@ -84,7 +57,7 @@ def recover_cert_config(duthost):
 
 
 def gnmi_capabilities(duthost, localhost):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnmi_cli -client_types=gnmi -a %s:%s " % (ip, port)
@@ -97,7 +70,7 @@ def gnmi_capabilities(duthost, localhost):
 
 
 def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnmi_set -target_addr %s:%s " % (ip, port)
@@ -116,7 +89,7 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
 
 
 def gnmi_get(duthost, localhost, path_list):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnmi_get -target_addr %s:%s " % (ip, port)
@@ -136,7 +109,7 @@ def gnmi_get(duthost, localhost, path_list):
 
 
 def gnoi_reboot(duthost, localhost, method, delay, message):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = "gnmi/gnoi_client -target %s:%s " % (ip, port)

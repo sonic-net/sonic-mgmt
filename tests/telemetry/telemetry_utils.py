@@ -4,9 +4,9 @@ import json
 import re
 
 from pkg_resources import parse_version
-from functools import lru_cache
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 logger = logging.getLogger(__name__)
 
 METHOD_GET = "get"
@@ -17,44 +17,6 @@ SUBMODE_ONCHANGE = 1
 
 EVENT_REGEX = "json_ietf_val: \"(.*)\""
 ON_CHANGE_REGEX = "json_ietf_val:\"({.*?})\""
-
-
-@lru_cache(maxsize=None)
-class GNMIEnvironment(object):
-    def __init__(self, duthost):
-        cmd = "docker images | grep -w sonic-telemetry"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
-                self.gnmi_program = "telemetry"
-                cmd = "sonic-db-cli CONFIG_DB hget 'TELEMETRY|gnmi' port"
-                res = duthost.shell(cmd, module_ignore_errors=True)
-                if res['stdout']:
-                    self.gnmi_port = int(res['stdout'])
-                else:
-                    pytest.fail("Configuration does not exist in config_db")
-                return
-            else:
-                pytest.fail("Telemetry is not running")
-        cmd = "docker images | grep -w sonic-gnmi"
-        if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w gnmi"
-            if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-                self.gnmi_config_table = "GNMI"
-                self.gnmi_container = "gnmi"
-                self.gnmi_program = "gnmi-native"
-                cmd = "sonic-db-cli CONFIG_DB hget 'GNMI|gnmi' port"
-                res = duthost.shell(cmd, module_ignore_errors=True)
-                if res['stdout']:
-                    self.gnmi_port = int(res['stdout'])
-                else:
-                    pytest.fail("Configuration does not exist in config_db")
-                return
-            else:
-                pytest.fail("GNMI is not running")
-        pytest.fail("Can't find telemetry and gnmi image")
 
 
 def assert_equal(actual, expected, message):
@@ -94,7 +56,7 @@ def setup_telemetry_forpyclient(duthost):
     """ Set client_auth=false. This is needed for pyclient to successfully set up channel with gnmi server.
         Restart telemetry process
     """
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
@@ -102,7 +64,7 @@ def setup_telemetry_forpyclient(duthost):
 
 
 def restore_telemetry_forpyclient(duthost, default_client_auth):
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     client_auth_out = duthost.shell('sonic-db-cli CONFIG_DB HGET "%s|gnmi" "client_auth"' % (env.gnmi_config_table),
                                     module_ignore_errors=False)['stdout_lines']
     client_auth = str(client_auth_out[0])
@@ -175,7 +137,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex=""):
     """ Generate the py_gnmicli command line based on the given params.
     """
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4} -o {5}'
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, "ndastreamingservertest")
 

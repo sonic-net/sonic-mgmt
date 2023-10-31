@@ -7,8 +7,9 @@ import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
-from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running, GNMIEnvironment
+from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -27,7 +28,7 @@ def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "%s|gnmi"' % (env.gnmi_config_table),
                          module_ignore_errors=False)['stdout_lines']
@@ -63,7 +64,7 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verify telemetry should be enabled by default
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|%s"' % (env.gnmi_container),
                            module_ignore_errors=False)['stdout_lines']
@@ -84,7 +85,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
@@ -125,7 +126,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
     """
     logger.info("start test the dataset 'system uptime'")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
@@ -238,7 +239,7 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     logger.info("Starting to test the memory spike issue of telemetry container")
 
     duthost = duthosts[rand_one_dut_hostname]
-    env = GNMIEnvironment(duthost)
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
