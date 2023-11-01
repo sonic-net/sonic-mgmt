@@ -941,7 +941,7 @@ def main():
     print("USING BASE TOPO {}".format(base_topo_file))
     
     vxr_start_begin = datetime.datetime.now()
-    
+
     vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
 
     vxr_start_end = datetime.datetime.now()

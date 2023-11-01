@@ -31,6 +31,7 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
     linecard_types: [8101-32FH]
+    linecard_versions: [p4]
 
   sonic_mgmt :
     platform: linux

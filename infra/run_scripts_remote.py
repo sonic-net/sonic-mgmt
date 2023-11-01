@@ -44,26 +44,35 @@ def get_build_project_name():
     elif os.getenv("SANITY_MODE"):
         sanity_mode = os.getenv("SANITY_MODE").replace("_", "")
     else:
-        sanity_mode = ""
+        sanity_mode = "sonic-mgmt"
 
-    sanity_index = os.getenv("SANITY_INDEX")
     if os.getenv("JOB_BASE_NAME"):
         job_base_name = os.getenv("JOB_BASE_NAME").replace("_", "")
     else:
-        job_base_name = ""
+        job_base_name = "manual-sanity"
+
     if os.getenv("TIMESTAMP"):
         timestamp = re.sub(r'[^a-zA-Z0-9]', '', os.getenv("TIMESTAMP"))
     else:
-        timestamp = ""
-    
-    build_id = os.getenv("BUILD_ID")
-    if build_id is None:
-        build_id = 99999
+        timestamp = datetime.datetime.now().strftime("%d%b%Y%H%M%S")
 
-    if sanity_index:
-        build_project_name = "sonic-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, sanity_index, timestamp)
+    if os.getenv("BUILD_ID"):
+        build_id = os.getenv("BUILD_ID")
     else:
-        build_project_name = "sonic-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, timestamp)
+        build_id = 99999
+    
+    if os.getenv("PLATFORM"):
+        platform = os.getenv("PLATFORM").replace("_", "")
+    else:
+        platform = "unknownPlatform"
+    
+    if os.getenv("TOPOLOGY"):
+        topology = os.getenv("TOPOLOGY").replace("_", "")
+    else:
+        topology = "unknownTopology"
+
+
+    build_project_name = "sonic-{}-{}-{}-{}-{}-{}".format(job_base_name, build_id, sanity_mode, platform, topology, timestamp)
 
     build_project_name = build_project_name.lower()
 
@@ -393,7 +402,7 @@ def _create_parser():
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2', 'mth-t0-64', 'dut-400g'])
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2', 'mth-t0-64', 'dut-400g', 'churchill-mono'])
     parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
                       required=False,default='docker-sonic-mgmt')
     parser.add_argument('-t', '--sonic_test_dir', type=str, help='Directory of sonic-test on DUT',
