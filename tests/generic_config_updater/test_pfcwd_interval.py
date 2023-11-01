@@ -123,10 +123,11 @@ def get_new_interval(duthost, is_valid):
         return min(detection_time, restoration_time) + 10
 
 
-@pytest.mark.parametrize("operation", ["add", "replace"])
+@pytest.mark.parametrize("oper", ["add", "replace"])
 @pytest.mark.parametrize("field_pre_status", ["existing", "nonexistent"])
 @pytest.mark.parametrize("is_valid_config_update", [True, False])
-def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation, field_pre_status, is_valid_config_update):
+def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, oper,
+                                       field_pre_status, is_valid_config_update):
     new_interval = get_new_interval(duthost, is_valid_config_update)
 
     operation_to_new_value_map = {"add": "{}".format(new_interval), "replace": "{}".format(new_interval), "remove": ""}
@@ -137,13 +138,13 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     prepare_pfcwd_interval_config(duthost, field_pre_status_to_value_map[field_pre_status])
 
     tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, operation))
-    value = operation_to_new_value_map[operation]
+    logger.info("tmpfile {} created for json patch of pfcwd poll interval and operation: {}".format(tmpfile, oper))
+    value = operation_to_new_value_map[oper]
     logger.info("value to be added to json patch: {}".format(value))
 
     json_patch = [
         {
-            "op": "{}".format(operation),
+            "op": "{}".format(oper),
             "path": "/PFC_WD/GLOBAL/POLL_INTERVAL",
             "value": "{}".format(value)
         }]
@@ -151,7 +152,7 @@ def test_pfcwd_interval_config_updates(duthost, ensure_dut_readiness, operation,
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
 
-        if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable"):
+        if is_valid_config_update and is_valid_platform_and_version(duthost, "PFC_WD", "PFCWD enable/disable", oper):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, value)
         else:
