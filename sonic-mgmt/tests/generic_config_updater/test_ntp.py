@@ -34,6 +34,11 @@ def setup_env(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
+    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+    if ntpsec_conf_stat["stat"]["exists"]:
+        global NTP_CONF
+        NTP_CONF = "/etc/ntpsec/ntp.conf"
+
     init_ntp_servers = running_ntp_servers(duthost)
 
     yield
