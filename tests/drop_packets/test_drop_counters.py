@@ -57,10 +57,11 @@ def enable_counters(duthosts):
 
         namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
         for namespace in namespace_list:
-            cmd_get_cnt_status = "sonic-db-cli -n '{}' CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
+            namespace_param = NAMESPACE_SUFFIX.format(namespace) if duthost.is_multi_asic else ''
+            cmd_get_cnt_status = "sonic-db-cli {} CONFIG_DB HGET \"FLEX_COUNTER_TABLE|{}\" FLEX_COUNTER_STATUS"
             previous_cnt_status[duthost][namespace] = {
                 item: duthost.command(
-                    cmd_get_cnt_status.format(namespace, item.upper()))["stdout"] for item in ["port", "rif"]}
+                    cmd_get_cnt_status.format(namespace_param, item.upper()))["stdout"] for item in ["port", "rif"]}
 
             ns_cmd_list = []
             CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
@@ -193,7 +194,7 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         @classmethod
         def set_mtu(cls, mtu, iface, asic_index):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-            namespace = duthost.get_namespace_from_asic_id(asic_index) if duthost.is_multi_asic else ''
+            namespace_param = NAMESPACE_SUFFIX.format(duthost.get_namespace_from_asic_id(asic_index)) if duthost.is_multi_asic else ''
             if "PortChannel" in iface:
                 cls.key = "PORTCHANNEL"
             elif "Ethernet" in iface:
@@ -202,8 +203,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 raise Exception("Unsupported interface parameter - {}".format(iface))
 
             cls.mtu = duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hget \"{}|{}\" mtu".format(
-                    namespace, cls.key, iface
+                "sonic-db-cli {} CONFIG_DB hget \"{}|{}\" mtu".format(
+                    namespace_param, cls.key, iface
                 )
             )["stdout"]
 
@@ -211,8 +212,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                 cls.mtu = cls.default_mtu
 
             duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
-                    namespace, cls.key, iface, mtu
+                "sonic-db-cli {} CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                    namespace_param, cls.key, iface, mtu
                 )
             )["stdout"]
 
@@ -230,12 +231,10 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         @classmethod
         def restore_mtu(cls):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-            namespace = duthost.get_namespace_from_asic_id(
-                cls.asic_index
-            ) if duthost.is_multi_asic else ''
+            namespace_param = NAMESPACE_SUFFIX.format(duthost.get_namespace_from_asic_id(asic_index)) if duthost.is_multi_asic else ''
             duthost.command(
-                "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
-                    namespace, cls.key, cls.iface, cls.mtu
+                "sonic-db-cli {} CONFIG_DB hset \"{}|{}\" mtu {}".format(
+                    namespace_param, cls.key, cls.iface, cls.mtu
                 )
             )["stdout"]
 
