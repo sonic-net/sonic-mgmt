@@ -50,7 +50,7 @@ parameters:
     default: "arp/test_wr_arp.py \
               platform_tests/test_advanced_reboot.py \
               platform_tests/test_cont_warm_reboot.py"
-    displayName: "Skip Scripts
+    displayName: "Skip Scripts"
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
