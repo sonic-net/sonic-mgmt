@@ -962,11 +962,7 @@ def main():
     
     vxr_start_begin = datetime.datetime.now()
 
-    #create lock so only one process is starting vxr at a time
-    acquire_vxr_lock(message="creating vxr with topo_file {}".format(base_topo_file))
-
     vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
-
 
     vxr_start_end = datetime.datetime.now()
 
@@ -1016,9 +1012,6 @@ def main():
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
     
-    #remove lock
-    release_vxr_lock()
-
 
 if __name__ == '__main__':
   main()
