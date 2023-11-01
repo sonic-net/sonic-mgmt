@@ -1669,6 +1669,9 @@ class QosSaiBase(QosBase):
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            duthost.shell("systemctl restart docker.service")
+            pytest_assert(wait_until(420, 20, 0, duthost.critical_services_fully_started),
+                          "All critical services should be fully started!")
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
