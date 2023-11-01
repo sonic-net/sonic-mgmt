@@ -30,7 +30,7 @@ parameters:
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_ABOOT_202305)
+    default: $(IMAGE_CISCO_202305)
     displayName: "Image URL"
 
   - name: NIGHTLY_TEST_TIMEOUT
