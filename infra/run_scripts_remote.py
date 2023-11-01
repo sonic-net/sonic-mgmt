@@ -59,7 +59,7 @@ def get_build_project_name():
     if os.getenv("BUILD_ID"):
         build_id = os.getenv("BUILD_ID")
     else:
-        build_id = 9999
+        build_id = 99999
     
     if os.getenv("PLATFORM"):
         platform = os.getenv("PLATFORM").replace("_", "")
