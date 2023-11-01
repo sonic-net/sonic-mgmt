@@ -88,7 +88,7 @@ def config_reload(duthost, config_source='config_db', wait=120, start_bgp=True, 
         duthost.shell(cmd, executable="/bin/bash")
 
     modular_chassis = duthost.get_facts().get("modular_chassis")
-    wait = max(wait, 240) if modular_chassis else wait
+    wait = max(wait, 240) if modular_chassis.lower() == 'true' else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
