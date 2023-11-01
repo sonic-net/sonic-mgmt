@@ -901,26 +901,6 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
-def acquire_vxr_lock(message=""):
-    while True:
-        output = subprocess.run("cd /tmp; mkdir vxr_setup_lock", shell=True, capture_output=True)
-
-        print(output)
-
-        if output.returncode == 0:
-            print("lock acquired, starting vxr setup")
-            subprocess.run("cd /tmp; echo '{}' >> vxr_setup_lock/vxr_lock".format(message),  shell=True, capture_output=True)
-            break
-        elif output.returncode != 0:
-            print("failed to acquire lock, retrying in a minute...")
-            time.sleep(60)
-
-def release_vxr_lock():
-    print("completed vxr setup, releasing lock")
-    output = subprocess.run("cd /tmp; rm -rf vxr_setup_lock", shell=True, capture_output=True)
-    print("output: {}".format(output))
-
-
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -1011,7 +991,7 @@ def main():
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
-    
+
 
 if __name__ == '__main__':
   main()
