@@ -170,7 +170,8 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
 
 def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
-
+    logger.warning("Jianquan skip recover")
+    return
     method = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
     if method["adaptive"]:
