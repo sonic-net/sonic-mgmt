@@ -16,10 +16,9 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
                               'desc': "Test PFC storm detect/restore before and after warm boot"},
                  'storm': {'test_sequence': ["detect", "warm-reboot", "detect", "restore"],
