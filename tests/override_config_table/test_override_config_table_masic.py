@@ -37,7 +37,7 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, tbinfo, enum_rand_one_per_hwsku_hostname):
+def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname):
     """
     Setup/teardown
     Args:
