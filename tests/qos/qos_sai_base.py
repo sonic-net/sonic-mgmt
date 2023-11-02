@@ -1445,20 +1445,21 @@ class QosSaiBase(QosBase):
                 if sub_folder_dir not in sys.path:
                     sys.path.append(sub_folder_dir)
                 import qos_param_generator
-                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                           dutAsic,
-                                                           portSpeedCableLength,
-                                                           dutConfig,
-                                                           ingressLosslessProfile,
-                                                           ingressLossyProfile,
-                                                           egressLosslessProfile,
-                                                           egressLossyProfile,
-                                                           sharedHeadroomPoolSize,
-                                                           dutConfig["dualTor"],
-                                                           dutTopo,
-                                                           bufferConfig,
-                                                           duthost,
-                                                           tbinfo["topo"]["name"])
+                qpm = qos_param_generator.QosParamBroadcom({'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                            'asic_type': dutAsic,
+                                                            'speed_cable_len': portSpeedCableLength,
+                                                            'dutConfig': dutConfig,
+                                                            'ingressLosslessProfile': ingressLosslessProfile,
+                                                            'ingressLossyProfile': ingressLossyProfile,
+                                                            'egressLosslessProfile': egressLosslessProfile,
+                                                            'egressLossyProfile': egressLossyProfile,
+                                                            'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
+                                                            'dualTor': dutConfig["dualTor"],
+                                                            'dutTopo': dutTopo,
+                                                            'bufferConfig': bufferConfig,
+                                                            'dutHost': duthost,
+                                                            'testbedTopologyName': tbinfo["topo"]["name"],
+                                                            'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
             bufferConfig = self.dutBufferConfig(duthost, dut_asic)
