@@ -680,6 +680,10 @@ class TestQosSai(QosSaiBase):
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
+
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
@@ -745,6 +749,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -853,6 +860,10 @@ class TestQosSai(QosSaiBase):
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
+
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -909,6 +920,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
