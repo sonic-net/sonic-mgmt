@@ -1905,10 +1905,7 @@ class TestQosSai(QosSaiBase):
             pass
 
         # Remove the upstream ports from the test port list.
-        for index in range(len(allTestPorts)):
-            if allTestPorts[index] in dutConfig['testPorts']['uplink_port_ids']:
-                del allTestPorts[index]
-                del allTestPortIps[index]
+        allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
