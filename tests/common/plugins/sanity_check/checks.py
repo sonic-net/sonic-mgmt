@@ -532,7 +532,9 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
         duts_parsed_mux_status.clear()
         err_msg_from_mux_status.clear()
         dut_wrong_mux_status_ports.clear()
-        run_result.update(**parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result))
+        run_result.update(
+            **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+        )
         duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
         duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
         return (all(result['failed'] is False for result in run_result.values()) and
