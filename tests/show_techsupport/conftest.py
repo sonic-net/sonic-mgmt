@@ -20,7 +20,8 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
         ".*ERR kernel:.*Fails to read module eeprom.*",
         ".*ERR kernel:.*Fails to access.*module eeprom.*",
         ".*ERR kernel:.*Fails to get module type.*",
-        ".*ERR pmon#xcvrd:.*Failed to read sfp.*"
+        ".*ERR pmon#xcvrd:.*Failed to read sfp.*",
+        ".*DEBUG systemd.*"
     ]
     for dut in duthosts:
         if loganalyzer and loganalyzer[dut.hostname]:
