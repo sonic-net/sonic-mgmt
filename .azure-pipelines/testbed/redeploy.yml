@@ -73,7 +73,7 @@ stages:
     jobs:
       - job: RedeployTopology
         pool: ${{ parameters.AGENT_POOL }}
-        timeoutInMinutes: 120
+        timeoutInMinutes: 300
         variables:
           - group: TBSHARE_SECRETS
           - group: SECRETS_JSON
