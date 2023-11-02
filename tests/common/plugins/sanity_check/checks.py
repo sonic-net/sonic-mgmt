@@ -215,7 +215,7 @@ def check_bgp(duthosts, tbinfo):
             # If max_timeout is higher than 600, it will exceed parallel_run's timeout
             # the check will be killed by parallel_run, we can't get expected results.
             # 500 seconds is about 8 mins, bgp has enough to get up
-            max_timeout = 500
+            max_timeout = 20
         else:
             max_timeout = SYSTEM_STABILIZE_MAX_TIME - networking_uptime + 480
         timeout = max(max_timeout, 1)
