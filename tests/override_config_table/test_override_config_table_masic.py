@@ -37,7 +37,7 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, tbinfo):
+def setup_env(duthost, tbinfo, enum_rand_one_per_hwsku_hostname):
     """
     Setup/teardown
     Args:
@@ -46,6 +46,7 @@ def setup_env(duthost, tbinfo):
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     # Backup configDB
     for asic_id in duthost.get_asic_ids():
         if asic_id is None:
