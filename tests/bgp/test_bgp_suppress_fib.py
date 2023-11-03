@@ -101,13 +101,26 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
 @pytest.fixture(scope="function")
 def restore_bgp_suppress_fib(duthost):
     """
+    Record the configuration before test only restore bgp suppress fib
+    if it is not enabled before test
+    """
+    suppress_fib = False
+    rets = duthost.shell('show suppress-fib-pending')
+    if rets['rc'] != 0:
+        logger.info("Failed to get suppress-fib-pending configuration")
+    else:
+        logger.info("Get suppress-fib-pending configuration: {}".format(rets['stdout']))
+        if rets['stdout'] == 'Enabled':
+            suppress_fib = True
+
+    """
     Restore bgp suppress fib pending function
     """
     yield
-
-    config_bgp_suppress_fib(duthost, False)
-    logger.info("Save configuration")
-    duthost.shell('sudo config save -y')
+    if not suppress_fib:
+        config_bgp_suppress_fib(duthost, False)
+        logger.info("Save configuration")
+        duthost.shell('sudo config save -y')
 
 
 @pytest.fixture(scope="module")
