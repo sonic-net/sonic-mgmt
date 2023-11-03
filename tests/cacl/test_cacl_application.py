@@ -33,7 +33,13 @@ ignored_iptable_rules = [
     '-A INPUT -s 40.78.203.96/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
     '-A INPUT -s 40.78.203.96/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
     '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8081 -j ACCEPT',
-    '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT'
+    '-A INPUT -s 20.150.171.224/27 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -d 10.20.8.199/32 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -d 10.20.8.199/32 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -d 10.212.64.1/32 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -d 10.212.64.1/32 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -d 10.212.64.2/32 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -d 10.212.64.2/32 -p tcp -m tcp --dport 8090 -j ACCEPT'
 ]
 
 IGNORE_BGP_PORT_VERSION = ["internal", "master"]
