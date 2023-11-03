@@ -61,7 +61,7 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
         announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
-    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    sleep_to_wait(CRM_POLLING_INTERVAL * 120)
 
     ipv4_route_used_after = get_crm_resources(duthost, "ipv4_route", "used")
     ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")
