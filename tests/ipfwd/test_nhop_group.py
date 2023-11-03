@@ -757,6 +757,9 @@ def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
     Test for packet drop when route is added with ECMP and all ECMP member's
     interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
     eviction from the kernel when the interface goes down.
+    Kernel flag is used to easily recreate the scenario of ECMP with no
+    Nexthop members. Without this kernel flag, static route addition fails when
+    Nexthop ARP entries are not resolved.
     """
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
