@@ -194,7 +194,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         @classmethod
         def set_mtu(cls, mtu, iface, asic_index):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-            namespace_param = NAMESPACE_SUFFIX.format(duthost.get_namespace_from_asic_id(asic_index)) if duthost.is_multi_asic else ''
+            namespace_param = NAMESPACE_SUFFIX.format(
+                duthost.get_namespace_from_asic_id(asic_index)) if duthost.is_multi_asic else ''
             if "PortChannel" in iface:
                 cls.key = "PORTCHANNEL"
             elif "Ethernet" in iface:
@@ -231,7 +232,8 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         @classmethod
         def restore_mtu(cls):
             duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-            namespace_param = NAMESPACE_SUFFIX.format(duthost.get_namespace_from_asic_id(asic_index)) if duthost.is_multi_asic else ''
+            namespace_param = NAMESPACE_SUFFIX.format(
+                duthost.get_namespace_from_asic_id(cls.asic_index)) if duthost.is_multi_asic else ''
             duthost.command(
                 "sonic-db-cli {} CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace_param, cls.key, cls.iface, cls.mtu
