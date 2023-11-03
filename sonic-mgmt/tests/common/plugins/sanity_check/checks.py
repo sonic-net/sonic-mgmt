@@ -527,6 +527,19 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
         err_msg_from_mux_status.append("")
         return True
 
+    def _check_mux_status_helper():
+        run_result.clear()
+        duts_parsed_mux_status.clear()
+        err_msg_from_mux_status.clear()
+        dut_wrong_mux_status_ports.clear()
+        run_result.update(
+            **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+        )
+        duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+        duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+        return (all(result['failed'] is False for result in run_result.values()) and
+                _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor))
+
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
 
@@ -563,21 +576,21 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     dut_wrong_mux_status_ports = []
 
     init_result = {"failed": False, "check_item": "check_mux_simulator"}
-    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+    run_result = {}
+
+    check_success = _check_mux_status_helper()
 
     for result in run_result.values():
         if result['failed'] is True:
             err_msg = result["error_msg"][-1]
             return False, err_msg, {}
 
-    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
-    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
-
-    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
-        if len(dut_wrong_mux_status_ports) != 0:
+    if not check_success:
+        if len(dut_wrong_mux_status_ports) == 0:
+            # NOTE: Let's probe here to see if those inconsistent mux ports could be
+            # restored before using the recovery method.
             _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
-        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
-                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+        if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
             else:

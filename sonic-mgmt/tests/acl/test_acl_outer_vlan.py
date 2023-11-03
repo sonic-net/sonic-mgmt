@@ -166,7 +166,7 @@ def vlan_setup_info(rand_selected_dut, tbinfo):
     return vlan_setup, original_ports, new_ports, portchannel_setup
 
 
-def setup_vlan(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
+def setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost):
     """
     Create vlan 100 and 200 on DUT for testing.
     - port1 belongs to both Vlan100 (tagged) and Vlan200 (tagged)
@@ -201,8 +201,8 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
 
     # Create portchannel
     # Port in acl table can't be added to port channel, and acl table can only be updated by json file
-    duthost.remove_acl_table("EVERFLOW")
-    duthost.remove_acl_table("EVERFLOWV6")
+    rand_selected_dut.remove_acl_table("EVERFLOW")
+    rand_selected_dut.remove_acl_table("EVERFLOWV6")
     rand_selected_dut.shell_cmds(cmds=["config portchannel add {}".format(DUT_LAG_NAME)])
     cmds = []
     for port_name in portchannel_setup[DUT_LAG_NAME]['member']:
@@ -240,9 +240,9 @@ def setup_vlan(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
+def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, ptfhost):
     try:
-        setup_vlan(rand_selected_dut, vlan_setup_info, duthost, ptfhost)
+        setup_vlan(rand_selected_dut, vlan_setup_info, ptfhost)
         yield
     finally:
         _, _, _, portchannel_setup = vlan_setup_info
@@ -258,7 +258,7 @@ def vlan_setup_teardown(rand_selected_dut, vlan_setup_info, duthost, ptfhost):
         ptfhost.ptf_nn_agent()
         # Wait for lag sync
         time.sleep(10)
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+        config_reload(rand_selected_dut, safe_reload=True, check_intf_up_ports=True)
 
 
 def send_and_verify_traffic(ptfadapter, pkt, exp_pkt, src_port_list, dst_port_list, pkt_action=ACTION_FORWARD):
@@ -402,34 +402,6 @@ def check_rule_counters(duthost):
         return True
 
 
-def check_mac_status(duthost, ptfadapter, vlan, mac, port):
-    """
-    Check if mac table has expected vlan and mac
-
-    Args:
-        duthost: DUT host object
-        ptfadapter: ptfadapter
-        vlan: expected vlan
-        mac: expected mac
-        port: source port
-    Returns:
-        Bool value
-    """
-    if isinstance(mac, bytes):
-        mac = mac.decode()
-    # Populate mac table on DUT
-    # Learn mac
-    mac_pkt = testutils.simple_tcp_packet(eth_src=mac, dl_vlan_enable=True, vlan_vid=vlan)
-    testutils.send(ptfadapter, port, mac_pkt)
-    fdb_fact = duthost.fdb_facts()['ansible_facts']
-    for k, vl in list(fdb_fact.items()):
-        if k.lower() == mac:
-            for v in vl:
-                if vlan == v['vlan']:
-                    return True
-    return False
-
-
 def check_arp_status(duthost, ip):
     """
     Check if arp table has expected ip
@@ -557,7 +529,11 @@ class AclVlanOuterTest_Base(object):
 
         pkt_type = QINQ if stage == INGRESS else None
         src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
-        dst_mac = test_setup_config.get('dst_mac', ptfadapter.dataplane.get_mac(0, dst_port[0]))
+        if stage == INGRESS:
+            # Use broadcast for ingress test
+            dst_mac = "ff:ff:ff:ff:ff:ff"
+        else:
+            dst_mac = test_setup_config.get('dst_mac', ptfadapter.dataplane.get_mac(0, dst_port[0]))
         pkt, exp_pkt = craft_packet(src_mac=src_mac,
                                     dst_mac=dst_mac,
                                     dst_ip=dst_ip,
@@ -567,15 +543,9 @@ class AclVlanOuterTest_Base(object):
                                     pkt_type=pkt_type,
                                     tagged_mode=tagged_mode,
                                     stage=stage)
-        if stage == INGRESS:
-            # Wait mac
-            pytest_assert(wait_until(30, 1, 0, check_mac_status, duthost,
-                                     ptfadapter, outer_vlan_id, dst_mac, dst_port[0]), "mac table is not updated")
-        elif stage == EGRESS:
+        if stage == EGRESS:
             # Wait arp
             pytest_assert(wait_until(30, 1, 0, check_arp_status, duthost, dst_ip), "arp table is not updated")
-        else:
-            pytest.fail("Unexpected stage: {}".format(stage))
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
         try:

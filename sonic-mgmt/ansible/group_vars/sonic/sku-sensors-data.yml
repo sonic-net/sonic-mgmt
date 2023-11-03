@@ -5069,11 +5069,12 @@ sensors_checks:
         - pmbus-i2c-25-62/pin/power1_max
 
     non_zero:
-      fan: []
-      power: []
-      temp: []
-    psu_skips: {}
-    sensor_skip_per_version: {}
+      fan: [ ]
+      power: [ ]
+      temp: [ ]
+    psu_skips: { }
+    sensor_skip_per_version: { }
+
 
   x86_64-8102_64h_o-r0:
     alarms:

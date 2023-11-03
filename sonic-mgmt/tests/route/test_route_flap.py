@@ -208,13 +208,35 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
-def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
-    # Get internal bgp ips for later filtering
-    internal_bgp_ips = duthost.get_internal_bgp_peers().keys()
-    # Get voq inband interface for later filtering
+def get_internal_interfaces(duthost):
+    """
+    This function returns internal interfaces for any
+    multi-asic dut, including voq/packet chassis
+    """
+    internal_intfs = []
+
+    # First check for packet chassis, or any dut that has PORTCHANNEL_MEMBER in config db
+    pcs = duthost.get_portchannel_member()
+    for pc in pcs:
+        """
+        For packet chassis, 'pcs' looks like:
+        ["PortChannel101|Ethernet104", "PortChannel01|Ethernet-BPxx",...]
+        """
+        if 'IB' in pc or 'BP' in pc:
+            internal_intfs.append(pc)
+
+    # Then check for voq chassis: get voq inband interface for later filtering
     voq_inband_interfaces = duthost.get_voq_inband_interfaces()
+    internal_intfs.append([voq_inband_interfaces])
+
+    return internal_intfs
+
+
+def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
     dev_port = None
     route_to_ping = None
+    # Get internal interfaces for later filtering
+    internal_intfs = get_internal_interfaces(duthost)
     for dst_prefix in dst_prefix_set:
         if dev_port:
             break
@@ -230,20 +252,22 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                         continue
                     if 'ip' not in per_hop.keys():
                         continue
-                    if per_hop['ip'] in internal_bgp_ips:
+                    if per_hop['interfaceName'] in internal_intfs:
                         continue
-                    if per_hop['interfaceName'] in voq_inband_interfaces:
-                        continue
-                    if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
-                        continue
-                    dev_port = per_hop['interfaceName']
+                    port = per_hop['interfaceName']
+                    neigh = duthost.shell("show ip int | grep -w {}".format(port))['stdout']
+                    if neigh == '':
+                        logger.info("{} is still internal interface, skipping".format(port))
+                    else:
+                        dev_port = port
                     break
         else:
             dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
             for per_hop in dev[route_to_ping][0]['nexthops']:
                 if 'interfaceName' not in per_hop.keys():
                     continue
-                if per_hop['interfaceName'] in voq_inband_interfaces:
+                # For chassis, even single-asic linecard could have internal interface
+                if per_hop['interfaceName'] in internal_intfs:
                     continue
                 if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
                     continue
