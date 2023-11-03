@@ -6448,6 +6448,145 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
+  x86_64-8101_32fh_o-r0:
+    alarms:
+      voltage:
+      - pmbus-i2c-21-40/MB_GB_CORE_VIN_L1/in1_lcrit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VIN_L1/in1_crit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VIN_L1/in1_min_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_lcrit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_crit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_min_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_max_alarm
+
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_lcrit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_crit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_lcrit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_crit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_lcrit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_crit_alarm
+
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_lcrit_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_crit_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_lcrit_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_crit_alarm
+
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_lcrit_alarm
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_crit_alarm
+
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_lcrit_alarm
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_crit_alarm
+
+      current:
+      - pmbus-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_crit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_max_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_crit_alarm
+      - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_max_alarm
+
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_crit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_max_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_crit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDS_L1_IOUT/curr2_max_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_crit_alarm
+      - tps53679-i2c-21-58/MB_GB_VDDA_L2_IOUT/curr3_max_alarm
+
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_crit_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_max_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit_alarm
+      - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_max_alarm
+
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_crit_alarm
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_max_alarm
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit_alarm
+      - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_max_alarm        
+
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_crit_alarm
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_IIN/curr1_max_alarm
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_crit_alarm
+      - tps53679-i2c-21-5b/MB_3_3V_R_L1_IOUT/curr2_max_alarm  
+ 
+    compares:
+      voltage:
+      - - pmbus-i2c-21-40/MB_GB_CORE_VIN_L1/in1_input
+        - pmbus-i2c-21-40/MB_GB_CORE_VIN_L1/in1_crit
+      - - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_input
+        - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_crit
+      - - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_input
+        - pmbus-i2c-21-40/MB_GB_CORE_VOUT_L1/in2_max
+
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_VIN/in1_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_VOUT/in2_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_input
+        - tps53679-i2c-21-58/MB_GB_VDDA_L2_VOUT/in3_crit
+
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VIN/in1_crit
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_VOUT/in2_crit
+
+      - - tps53679-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_input
+        - tps53679-i2c-21-5a/MB_3_3V_L_L1_VIN/in1_crit
+
+      - - tps53679-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_input
+        - tps53679-i2c-21-5b/MB_3_3V_R_L1_VIN/in1_crit
+
+      current:
+      - - pmbus-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_input
+        - pmbus-i2c-21-40/MB_GB_CORE_IIN_L1/curr1_max
+      - - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_input
+        - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_crit
+      - - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_input
+        - pmbus-i2c-21-40/MB_GB_CORE_IOUT_L1/curr2_max
+
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr1_max
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr2_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr2_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr2_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr2_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr3_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr3_crit
+      - - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr3_input
+        - tps53679-i2c-21-58/MB_GB_VDDS_L1_IIN/curr3_crit
+
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_crit
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IIN/curr1_max
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit
+      - - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_input
+        - tps53679-i2c-21-59/MB_GB_VDDCK_L1_IOUT/curr2_crit
+
+      - - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_input
+        - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_crit
+      - - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_input
+        - tps53679-i2c-21-5a/MB_3_3V_L_L1_IIN/curr1_max
+      - - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_input
+        - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit
+      - - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_input
+        - tps53679-i2c-21-5a/MB_3_3V_L_L1_IOUT/curr2_crit
+
+      - - tps53679-i2c-21-58/MB_3_3V_R_L1_IIN/curr1_input
+        - tps53679-i2c-21-58/MB_3_3V_R_L1_IIN/curr1_crit
+      - - tps53679-i2c-21-58/MB_3_3V_R_L1_IIN/curr1_input
+        - tps53679-i2c-21-58/MB_3_3V_R_L1_IIN/curr1_max
+      - - tps53679-i2c-21-58/MB_3_3V_R_L1_IOUT/curr2_input
+        - tps53679-i2c-21-58/MB_3_3V_R_L1_IOUT/curr2_crit
+      - - tps53679-i2c-21-58/MB_3_3V_R_L1_IOUT/curr2_input
+        - tps53679-i2c-21-58/MB_3_3V_R_L1_IOUT/curr2_crit
+
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}
+    sensor_skip_per_version: {}
+
   x86_64-8101_32h_o-r0:
     alarms:
       voltage:
