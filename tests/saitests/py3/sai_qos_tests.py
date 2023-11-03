@@ -910,8 +910,8 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     standby_tor_mac=standby_tor_mac,
                     active_tor_ip=active_tor_ip,
                     standby_tor_ip=standby_tor_ip,
-                    inner_dscp=dscp,
-                    outer_dscp=0,
+                    inner_dscp=inner_dscp,
+                    outer_dscp=outer_dscp,
                     dst_ip=dst_port_ip,
                     packet_size=packet_size
                 )
@@ -2204,6 +2204,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if not self.pkts_num_trig_pfc:
             self.pkts_num_trig_pfc_shp = self.test_params.get(
                 'pkts_num_trig_pfc_shp')
+        self.pkts_num_trig_pfc_multi = self.test_params.get('pkts_num_trig_pfc_multi', None)
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
         packet_size = self.test_params.get('packet_size')
@@ -2217,9 +2218,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             self.pkt_size_factor = 1
 
         if self.pkts_num_trig_pfc:
-            print(("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (
-                self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full,
-                self.pkts_num_hdrm_partial, self.pkt_size)), file=sys.stderr)
+            print("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(
+                self.pkts_num_leak_out,
+                self.pkts_num_trig_pfc_multi if self.pkts_num_trig_pfc_multi else self.pkts_num_trig_pfc,
+                self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size), file=sys.stderr)
         elif self.pkts_num_trig_pfc_shp:
             print(("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(
                 self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full,
@@ -2364,7 +2366,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
                 if self.pkts_num_trig_pfc:
-                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_multi[i] \
+                        if self.pkts_num_trig_pfc_multi else self.pkts_num_trig_pfc
                 else:
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
@@ -3026,7 +3029,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
-        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
@@ -3053,7 +3056,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
         # Release port
-        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
 
         cnt = 0
         pkts = []
@@ -3351,6 +3354,24 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                                  ip_ecn=self.ecn,
                                  ip_ttl=self.ttl)
 
+    def _get_rx_port(self, src_port_id, pkt):
+        masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+        send_packet(self, src_port_id, pkt, 1)
+
+        result = self.dataplane.poll(
+            device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+        if isinstance(result, self.dataplane.PollFailure):
+            self.fail("Expected packet was not received. Received on port:{} {}".format(
+                result.port, result.format()))
+
+        return result.port
+
     def runTest(self):
         print("dst_port_id: {}, src_port_id: {}".format(
             self.dst_port_id, self.src_port_id), file=sys.stderr)
@@ -3361,6 +3382,18 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         # craft first udp packet with unique udp_dport for traffic to go through different flows
         flow_1_udp = 2048
         pkt = self._build_testing_pkt(flow_1_udp)
+        self.dst_port_id = self._get_rx_port(self.src_port_id, pkt)
+
+        # find out udp ports which use the same dst port in port-channel
+        udp_ports = []
+        max_iters = 50
+        for i in range(max_iters):
+            flow_2_udp = flow_1_udp + (10 * i)
+            pkt2 = self._build_testing_pkt(flow_2_udp)
+            dst_port_id_2 = self._get_rx_port(self.src_port_id, pkt2)
+            if dst_port_id_2 == self.dst_port_id:
+                udp_ports.append(flow_2_udp)
+        print("Found udp_ports {}".format(udp_ports), file=sys.stderr)
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                               port_list['dst'][self.dst_port_id])
@@ -3393,10 +3426,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.dst_port_id)
             xmit_counters_base = xmit_counters
             # Find a separate flow that uses alternate queue
-            max_iters = 50
-            for i in range(max_iters):
-                # Start out with i=0 to match flow_1 to confirm drop
-                flow_2_udp = flow_1_udp + (10 * i)
+            for flow_2_udp in udp_ports:
                 pkt2 = self._build_testing_pkt(flow_2_udp)
                 xmit_counters_base = xmit_counters
                 send_packet(self, self.src_port_id, pkt2, 1)

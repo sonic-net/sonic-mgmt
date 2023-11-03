@@ -3,6 +3,7 @@ import logging
 import re
 import binascii
 import time
+import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -47,6 +48,16 @@ def stop_tacacs_server(ptfhost):
         return "tacacs+ apparently not running" in out
     ptfhost.shell("service tacacs_plus stop")
     return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
+
+
+@pytest.fixture
+def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
+    """make sure tacacs server running after UT finish"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    yield
+
+    start_tacacs_server(duthost)
 
 
 def setup_local_user(duthost, tacacs_creds):
