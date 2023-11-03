@@ -30,6 +30,7 @@ stages:
         steps:
 
           - task: Bash@3
+            retryCountOnTaskFailure: 3
             displayName: Run elastictest data monitor script
             inputs:
               targetType: 'inline'
