@@ -226,8 +226,8 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
                 masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
 
-            if src_vlan is not None:
-                masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
+                if src_vlan is not None:
+                    masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
                 try:
                     all_pkts[src_tuple[0]]
                 except KeyError:
