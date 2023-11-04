@@ -103,6 +103,9 @@ class ThriftInterface(BaseTest):
                     continue
                 interface_front_pair = line.split("@")
                 interface_to_front_mapping['src'][interface_front_pair[0]] = interface_front_pair[1].strip()
+                # src = dst on single ASIC device.
+                # Copy the src to dst cause some function will read this key
+                interface_to_front_mapping['dst'] = interface_to_front_mapping['src']
             f.close()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
