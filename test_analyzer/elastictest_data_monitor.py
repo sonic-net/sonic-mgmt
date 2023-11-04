@@ -27,7 +27,6 @@ tenant_id = os.getenv("ELASTICTEST_MSAL_TENANT_ID")
 
 def get_start_and_end_time():
     current_datetime = datetime.now()
-    current_datetime = current_datetime.replace(hour=current_datetime.hour - 4)
     start_day = end_day = current_datetime.day
     logger.info("Current datetime: {}, day: {}".format(current_datetime, current_datetime.day))
 
