@@ -649,6 +649,10 @@ class TestQosSai(QosSaiBase):
         if 'hdrm_pool_size' not in list(qosConfig.keys()):
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
+
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
@@ -717,6 +721,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -839,6 +846,10 @@ class TestQosSai(QosSaiBase):
         if 'hdrm_pool_size' not in list(qosConfig.keys()):
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
+
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -897,6 +908,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -1428,6 +1442,10 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
+            if dutConfig['dstDutAsic'] == "pac":
+                pytest.skip(
+                    "PGSharedWatermark: Lossy test is not applicable in "
+                    "cisco-8000 Q100 platform.")
             pktsNumFillShared = int(
                 qosConfig[pgProfile]["pkts_num_trig_egr_drp"]) - 1
 
@@ -1595,7 +1613,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT
+        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1919,7 +1937,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT
+        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
