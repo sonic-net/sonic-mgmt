@@ -21,7 +21,7 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut_username=${DUT_USERNAME} --dut_password=${DUT_PASSWORD}"
+	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --dut-password=${DUT_PASSWORD}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
