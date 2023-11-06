@@ -24,6 +24,7 @@ from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -1670,6 +1671,9 @@ class QosSaiBase(QosBase):
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+            duthost.shell("ip -6 addr add fd00::1/80 dev docker0")
+            config_reload(duthost, config_source='config_db')
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
