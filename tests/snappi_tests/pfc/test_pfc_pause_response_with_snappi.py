@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from .files.helper import run_pfc_test
+from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts                      # noqa F401

@@ -10,7 +10,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
-from .files.pfcwd_basic_helper import run_pfcwd_basic_test
+from tests.snappi_tests.pfcwd.files.pfcwd_basic_helper import run_pfcwd_basic_test
 from tests.snappi_tests.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
@@ -165,7 +165,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
     lossless_prio = int(lossless_prio)
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
@@ -227,7 +227,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
     testbed_config, port_config_list = snappi_testbed_config
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")

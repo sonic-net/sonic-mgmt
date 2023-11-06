@@ -685,6 +685,36 @@ class MultiAsicSonicHost(object):
             )
         return voq_inband_interfaces.keys()
 
+    def get_portchannel_member(self):
+        """
+        This Function is applicable on packet Chassis, or
+        any dut that has PORTCHANNEL_MEMBER in config dbs.
+        Get PORTCHANNEL_MEMBER from config db of all asics.
+        Returns:
+              List of [portchannel]. e.g. ["PortChannel101|Ethernet104", "PortChannel01|EthernetBPxx", ...]
+              {} if VOQ chassis or other dut that doesn't have PORTCHANNEL_MEMBER
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        pcs = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            pcs.update(
+                config_facts.get("PORTCHANNEL_MEMBER", {})
+            )
+        return pcs.keys()
+
+    def run_redis_cmd(self, argv=[], asic_index=DEFAULT_ASIC_ID):
+        """
+        Wrapper function to call run_redis_cmd on sonic_asic.py
+        This will work for both single/multi-asic.
+        Note that for multi-asic, it will run on specific asic given, or asic0
+        """
+        self.asic_instance(asic_index).run_redis_cmd(argv)
+
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
         duthost = self.sonichost
