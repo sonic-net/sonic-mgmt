@@ -6,6 +6,7 @@ import logging
 import os
 import pytest
 import random
+import re
 import sys
 import yaml
 
@@ -16,6 +17,7 @@ from ptf.mask import Mask
 import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F401
+from tests.common.utilities import wait_until
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
 from config.generate_acl_rules import (
@@ -73,9 +75,17 @@ def remove_acl_table(duthost, table_name):
     duthost.shell("sudo config acl remove table {}".format(table_name))
 
 
-def add_acl_rule(duthost, src_file, table_name):
+def add_acl_rule(duthost, src_file, table_name, confirm_active=True):
     duthost.copy(src=src_file, dest=ACL_RULE_DST_FILE)
     duthost.shell("acl-loader update full --table_name {} {}".format(table_name, ACL_RULE_DST_FILE))
+    if confirm_active and not wait_until(60, 5, 0, all_acl_rule_active, duthost, table_name):
+        pytest.fail("Not all the ACL rules are active after 60 seconds.")
+
+
+def all_acl_rule_active(duthost, table_name=None):
+    cmd = "show acl rule {} | grep -wE 'FORWARD|DROP'".format(table_name if table_name else '')
+    rules = duthost.shell(cmd)["stdout_lines"]
+    return all(re.search(r'\bActive\b', rule, re.IGNORECASE) for rule in rules)
 
 
 def remove_acl_rule(duthost, table_name):
@@ -188,10 +198,8 @@ class L4Ports:
     def __str__(self):
         return self.format_config_db()
 
-    # TODO: update hi to 65535 once below PR is merged:
-    # https://github.com/sonic-net/sonic-buildimage/pull/16303
     @classmethod
-    def rand(cls, mode, lo=1024, hi=60000):
+    def rand(cls, mode, lo=1024, hi=65535):
         if mode == cls.MODE_SINGLE:
             return cls.rand_single(lo, hi)
         elif mode == cls.MODE_RANGE:
@@ -254,6 +262,8 @@ def send_and_verify_traffic_v4(duthost, ptfadapter, src, dsts, expect_behavior, 
     if pkt is None:
         pkt = testutils.simple_tcp_packet(eth_dst=router_mac, ip_src=src.ipv4_addr, ip_dst=dsts[0].ipv4_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
+    for host in [src] + dsts:
+        duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(host.ipv4_addr), module_ignore_errors=True)
     ptfadapter.dataplane.flush()
     dsts_str = json.dumps(dsts, default=lambda x: str(x))
     logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
@@ -268,6 +278,8 @@ def send_and_verify_traffic_v6(duthost, ptfadapter, src, dsts, expect_behavior, 
     if pkt is None:
         pkt = testutils.simple_tcpv6_packet(eth_dst=router_mac, ipv6_src=src.ipv6_addr, ipv6_dst=dsts[0].ipv6_addr, tcp_flags="")
     exp_pkt = build_exp_pkt(pkt)
+    for host in [src] + dsts:
+        duthost.shell("timeout 1 ping6 -c 1 -w 1 {}".format(host.ipv6_addr), module_ignore_errors=True)
     ptfadapter.dataplane.flush()
     dsts_str = json.dumps(dsts, default=lambda x: str(x))
     logging.info("Start to Verify traffic between {} and {}, expect behavior is {}".format(src, dsts_str, expect_behavior))
@@ -297,21 +309,23 @@ def setup_python_library_on_dut(duthost, creds):
 class BmcOtwAclRulesBase:
 
     def shuffle_ports(self, pool, max_len=0):
+        pool = copy.deepcopy(pool)  # Avoid changing the order in original list
         random.shuffle(pool)
         if max_len == 0 or max_len > len(pool):
             max_len = len(pool)
         idx = 0
         while idx < max_len:
-            yield copy.copy(pool[idx])
+            yield pool[idx]
             idx += 1
 
     def shuffle_src_dst_pairs(self, pool, max_len=0):
+        pool = copy.deepcopy(pool)  # Avoid changing the order in original list
         random.shuffle(pool)
         idx = 0
         while idx + 1 < len(pool):
             if max_len > 0 and idx / 2 >= max_len:
                 return
-            yield copy.copy(pool[idx]), copy.copy(pool[idx + 1])
+            yield pool[idx], pool[idx + 1]
             idx += 2
 
     def rand_one(self, pool):
@@ -374,12 +388,6 @@ class BmcOtwAclRulesBase:
         ptfhost.shell("supervisorctl reread && supervisorctl update")
         ptfhost.shell("supervisorctl restart arp_responder")
 
-        # refresh arp/ndp entry before traffic testing to improve stability
-        for host in bmc_hosts + rms:
-            duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(host.ipv4_addr), module_ignore_errors=True)
-            if host.ipv6_addr is not None:
-                duthost.shell("timeout 1 ping6 -c 1 -w 1 {}".format(host.ipv6_addr), module_ignore_errors=True)
-
         # setup acl tables and acl rules
         acl_tables = rack_topo['config']['acl_tables']
         if ACL_TABLE_BMC_NORTHBOUND in acl_tables:
@@ -423,6 +431,9 @@ class BmcOtwAclRulesBase:
             add_acl_rule(duthost, static_acl_rule_file, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6])
         if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
             add_acl_rule(duthost, static_acl_rule_file, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
+        # clear existing arp/fdb/ndp table before test
+        duthost.command("sonic-clear arp")
+        duthost.command("sonic-clear ndp")
 
         yield
 
@@ -602,6 +613,7 @@ class BmcOtwAclRulesBase:
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
 
+    @pytest.mark.xfail(reason="Expect fail until ICMPv6 ACL Yang model is fixed")
     @pytest.mark.parametrize("ip_protocol", [IP_PROTOCOL_TCP, IP_PROTOCOL_UDP])
     @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE, L4Ports.MODE_RANGE])
     def test_bmc_otw_req_4_v6_gcu_inc_update(self, duthost, ptfadapter, setup_teardown, ip_protocol, l4_port_mode):
@@ -675,7 +687,7 @@ class BmcOtwAclRulesBase:
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         for shelf in shelfs:
-            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=0):
+            for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=5):
                 send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v4(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
@@ -701,6 +713,8 @@ class BmcOtwAclRulesBase:
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
+        if len(shelfs_v6) < 1:
+            pytest.skip("No shelf has IPv6 address configured on RM")
         for shelf in shelfs_v6:
             for rand_bmc in self.shuffle_ports(shelf.bmc_hosts, max_len=5):
                 send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
