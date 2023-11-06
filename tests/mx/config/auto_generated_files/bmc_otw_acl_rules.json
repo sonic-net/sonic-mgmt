@@ -104,6 +104,48 @@
                 "BMC_ACL_NORTHBOUND_V6": {
                     "acl-entries": {
                         "acl-entry": {
+                            "9001_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9001
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 135
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9002_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9002
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 136
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
                             "9990_DROP_ALL": {
                                 "actions": {
                                     "config": {
@@ -125,6 +167,88 @@
                 "BMC_ACL_SOUTHBOUND_V6": {
                     "acl-entries": {
                         "acl-entry": {
+                            "9001_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9001
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 135
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9002_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9002
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 136
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9011_ALLOW_BGP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9011
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": 179
+                                    }
+                                }
+                            },
+                            "9012_ALLOW_BGP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9012
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "6"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": 179
+                                    }
+                                }
+                            },
                             "9990_DROP_ALL": {
                                 "actions": {
                                     "config": {

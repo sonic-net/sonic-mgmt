@@ -23,11 +23,13 @@ ACL_TABLE_BMC_SOUTHBOUND_V6 = "bmc_acl_southbound_v6"
 ETHERTYPE_IPV4 = 0x0800
 ETHERTYPE_IPV6 = 0x86DD
 
+IP_PROTOCOL_ICMPV6 = "IP_ICMPV6"
 IP_PROTOCOL_TCP = "IP_TCP"
 IP_PROTOCOL_UDP = "IP_UDP"
 IP_PROTOCOL_MAP = {
     IP_PROTOCOL_TCP: 6,
     IP_PROTOCOL_UDP: 17,
+    IP_PROTOCOL_ICMPV6: 58,
 }
 
 TCP_FLAG_ACK = "TCP_ACK"
@@ -59,7 +61,7 @@ def ip_merge(ip_list, exclude_list=None):
 
 def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
               src_ip=None, dst_ip=None, ip_protocol=None, tcp_flags=None,
-              l4_src_port=None, l4_dst_port=None):
+              icmp_type=None, icmp_code=None, l4_src_port=None, l4_dst_port=None):
     rule = {
         "config": {"sequence-id": seq_id},
         "actions": {"config": {"forwarding-action": action}},
@@ -71,7 +73,9 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
         if dst_ip:
             ip_cfg["destination-ip-address"] = dst_ip
         if ip_protocol:
-            ip_cfg["protocol"] = ip_protocol
+            if ip_protocol in IP_PROTOCOL_MAP:
+                ip_protocol = IP_PROTOCOL_MAP[ip_protocol]
+            ip_cfg["protocol"] = str(ip_protocol)
         else:
             ip_cfg["protocol"] = "0"  # NDM requires protocol set to 0 if not specified
         rule["ip"] = {"config": ip_cfg}
@@ -79,6 +83,13 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
         rule["input_interface"] = {"interface_ref": {"config": {"interface": ",".join(interfaces)}}}
     if ethertype:
         rule["l2"] = {"config": {"ethertype": ethertype}}
+    if icmp_code is not None or icmp_type is not None:
+        icmp_cfg = {}
+        if icmp_type is not None:
+            icmp_cfg["type"] = icmp_type
+        if icmp_code is not None:
+            icmp_cfg["code"] = icmp_code
+        rule["icmp"] = {"config": icmp_cfg}
     if tcp_flags or l4_src_port or l4_dst_port:
         transport_cfg = {}
         if tcp_flags:
@@ -224,6 +235,21 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
                             acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
                         sequence_id += 5
 
+    # Allow NDP between Mx and BMC
+    sequence_id = 9001
+    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
+    sequence_id = 9002
+    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
+
+    '''TODO: Will add DHCPv6 ACL rule later
+    # Allow DHCPv6 packets from BMC (client port = 546) to upstream (server/relay port = 547)
+    sequence_id = 9021
+    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=546, l4_dst_port=547)
+    '''
+
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)
     # (If RM doesn't support IPv6, this rule can also prevent one BMC send package to another BMC)
@@ -236,6 +262,33 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
 
 def gen_southbound_acl_entries_v6(rack_topo, hwsku):
     acl_entries = {}
+
+    # Allow NDP between Mx and M0
+    sequence_id = 9001
+    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
+    sequence_id = 9002
+    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
+
+    # Allow BGPv6 between Mx and M0
+    sequence_id = 9011
+    acl_entries["{:04d}_ALLOW_BGP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_TCP, l4_src_port=179)
+    sequence_id = 9012
+    acl_entries["{:04d}_ALLOW_BGP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_TCP, l4_dst_port=179)
+
+    '''TODO: Will add DHCPv6 ACL rule later
+    # Allow DHCPv6 packets from upstream (server port = 546) to BMC (client port = 546)
+    sequence_id = 9021
+    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=547, l4_dst_port=546)
+    # Allow DHCPv6 packets from upstream (server port = 546) to Mx (relay-agent port = 547)
+    sequence_id = 9022
+    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=547, l4_dst_port=547)
+    '''
 
     # By default, drop all the southbound traffic:
     # MARCH_ALL => DROP
