@@ -4442,13 +4442,16 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
-        cell_size = int(self.test_params['cell_size'])
+        cell_size = int(self.test_params.get('cell_size', 0))
         # Should be set to cause at least 1 drop at ingress
         pkts_num_trig_ingr_drp = int(
             self.test_params['pkts_num_trig_ingr_drp'])
         iterations = int(self.test_params['iterations'])
         is_multi_asic = self.src_client != self.dst_client
         margin = int(self.test_params['pkts_num_margin'])
+        if is_multi_asic:
+            assert cell_size != 0, \
+                "'cell_size' argument is needed for multi-asic or multi-dut."
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         dst_port_id = get_rx_port(
