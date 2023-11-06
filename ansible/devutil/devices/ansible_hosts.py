@@ -543,6 +543,8 @@ class AnsibleHostsBase(object):
                 json.dumps(results, indent=indent)
             )
 
+        unreachable = False
+        failed = False
         if isinstance(self, AnsibleHosts):
             if isinstance(module_info, dict):
                 unreachable = not all([res["reachable"] for res in results.values()])
@@ -559,6 +561,8 @@ class AnsibleHostsBase(object):
             else:
                 unreachable = not any([res["reachable"] for res in results])
                 failed = any([res["failed"] for res in results])
+        else:
+            raise TypeError("Unsupported type of object: {}".format(type(self)))
 
         if unreachable:
             raise HostsUnreachable(err_msg)
