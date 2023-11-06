@@ -766,3 +766,92 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     for flow_count, nexthop_selected in recvd_pkt_result.items():
         pytest_assert(nexthop_map[flow_count] in nexthop_selected,
                       "Flow {} is not picking expected Neighbor".format(flow_count))
+
+
+def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
+                                   enum_rand_one_frontend_asic_index, fanouthosts):
+    """
+    Test for packet drop when route is added with ECMP and all ECMP member's
+    interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
+    eviction from the kernel when the interface goes down.
+    Kernel flag is used to easily recreate the scenario of ECMP with no
+    Nexthop members. Without this kernel flag, static route addition fails when
+    Nexthop ARP entries are not resolved.
+    """
+    asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+
+    # Check Gather facts IP Interface is active one
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    pytest_assert(len(ip_ifaces), "No IP interfaces found")
+    pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
+
+    # Generate ARP entries
+    arp_count = 2
+    logger.debug("ARP interface: %s", gather_facts['src_router_intf_name'])
+    for i in range(0, len(gather_facts['src_port'])):
+        logger.debug("Src port: %s, src port index: %d", gather_facts['src_port'][i], gather_facts['src_port_ids'][i])
+
+    arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
+    neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
+    ip_route = "192.168.100.50"
+    ip_prefix = ip_route + "/32"
+    ip_ttl = 64
+
+    arp_noevict_cmd = "echo 0 > /proc/sys/net/ipv4/conf/%s/arp_evict_nocarrier"
+    arp_evict_cmd = "echo 1 > /proc/sys/net/ipv4/conf/%s/arp_evict_nocarrier"
+
+    # create nexthop group
+    nhop = IPRoutes(duthost, asic)
+
+    try:
+        rtr_mac = asic.get_router_mac()
+        arplist.arps_add()
+        ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
+        # add IP route
+        nhop.ip_nhops = []
+
+        # Enable kernel flag to not evict ARP entries when the interface goes down
+        # and shut the fanout switch ports.
+        duthost.shell(arp_noevict_cmd % gather_facts['src_router_intf_name'])
+        for i in range(0, len(gather_facts['src_port'])):
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                            gather_facts['src_port'][i])
+            logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
+            fanout.shutdown(fanout_port)
+        nhop.add_ip_route(ip_prefix, ips)
+
+        nhop.program_routes()
+        # wait for routes to be synced and programmed
+        pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, 1)
+        pkt_count = 1
+
+        logger.debug("Sending packet on %s", gather_facts['dst_port'][0])
+        testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=gather_facts['src_port_ids'])
+
+        result = duthost.shell("portstat")
+        logger.info("portstats: %s", result['stdout'])
+
+        for i in range(0, len(gather_facts['src_port'])):
+            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
+                                                            gather_facts['src_port'][i])
+            logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
+            fanout.no_shutdown(fanout_port)
+        time.sleep(10)
+        duthost.shell("portstat -c")
+        ptfadapter.dataplane.flush()
+        testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
+        (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
+                                                         ports=gather_facts['src_port_ids'])
+        # Make sure routing is done
+        pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
+        pytest_assert(scapy.Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
+        pytest_assert(scapy.Ether(recv_pkt).dst.lower() in neighbor_mac,
+                      "Routed Packet Destination Mac not valid neighbor entry")
+        result = duthost.shell("portstat")
+        logger.info("portstats: %s", result['stdout'])
+
+    finally:
+        duthost.shell(arp_evict_cmd % gather_facts['src_router_intf_name'])
+        nhop.delete_routes()
+        arplist.clean_up()
