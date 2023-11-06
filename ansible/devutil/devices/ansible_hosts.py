@@ -58,6 +58,10 @@ class UnsupportedAnsibleModule(Exception):
     pass
 
 
+class HostsUnreachable(Exception):
+    pass
+
+
 class RunAnsibleModuleFailed(Exception):
     pass
 
@@ -541,14 +545,23 @@ class AnsibleHostsBase(object):
 
         if isinstance(self, AnsibleHosts):
             if isinstance(module_info, dict):
+                unreachable = not all([res["reachable"] for res in results.values()])
                 failed = any([res["failed"] for res in results.values()])
             else:
+                unreachable = not all(
+                    [all([res["reachable"] for res in module_results]) for module_results in results.values()]
+                )
                 failed = any([any([res["failed"] for res in module_results]) for module_results in results.values()])
         elif isinstance(self, AnsibleHost):
             if isinstance(module_info, dict):
+                unreachable = results["unreachable"]
                 failed = results["failed"]
             else:
+                unreachable = not any([res["reachable"] for res in results])
                 failed = any([res["failed"] for res in results])
+
+        if unreachable:
+            raise HostsUnreachable(err_msg)
         if failed:
             raise RunAnsibleModuleFailed(err_msg)
 
@@ -917,7 +930,26 @@ class AnsibleHostsBase(object):
         self._log_results(caller_info, loaded_modules, results, verbosity)
         self._check_results(caller_info, loaded_modules, results, module_ignore_errors, verbosity)
 
+        if isinstance(self, AnsibleHost):
+            results = results[self.hostnames[0]]
+
         return results
+
+    def reachable(self):
+        """Check if ansible hosts are reachable.
+
+        Returns:
+            (bool, dict): The first element in returned tuple indicates if all hosts are reachable.
+                True if all hosts are reachable. False if any host is unreachable. The second element
+                is the detailed ping check results.
+
+        """
+        results = self.run_module("ping", kwargs={"module_ignore_errors": True})
+        if isinstance(self, AnsibleHost):
+            is_reachable = results["reachable"]
+        else:
+            is_reachable = all([res["reachable"] for res in results.values()])
+        return is_reachable, results
 
     def get_inv_host(self, hostname, strict=False):
         """Tool for getting ansible.inventory.host.Host object from self.inventories using ansible inventory manager.
