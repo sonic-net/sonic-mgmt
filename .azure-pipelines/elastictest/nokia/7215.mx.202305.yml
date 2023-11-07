@@ -40,6 +40,14 @@ parameters:
     default: "testbed-str2-7215-acs-3, testbed-bjw-can-7215-11"
     displayName: "Testbed Name"
 
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "2"
+
   - name: IMAGE_URL
     type: string
     default: $(BJW_IMAGE_MARVELL_202305)
@@ -86,7 +94,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 3600
 
 stages:
 - stage: Test
@@ -113,3 +121,5 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
