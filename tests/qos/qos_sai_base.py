@@ -1245,7 +1245,7 @@ class QosSaiBase(QosBase):
                 pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
 
             lower_tor_host.shell('sudo config feature state mux enabled')
-            lower_tor_host.shell('sudo config feature state mux enabled')
+            duthost_upper.shell('sudo config feature state mux enabled')
             logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
