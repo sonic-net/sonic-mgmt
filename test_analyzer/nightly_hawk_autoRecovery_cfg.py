@@ -87,6 +87,7 @@ trusty_images_url = {
     'vms28-t0-4600c-04'        : '$(TRUSTY_IMAGE_MLNX_202012)',
     'vms28-t0-7280-4'          : '$(TRUSTY_IMAGE_BRCM_DNX_ABOOT_PUBLIC)',
     'vms28-t1-8102-02'         : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)',
+    'vms28-dual-mix-8102'      : '$(TRUSTY_IMAGE_CISCO_ABOOT_202305)',
     'vms3-t1-7280'             : '$(TRUSTY_IMAGE_BRCM_ABOOT_DNX_CHASSIS_202205)',
     'vms3-t1-dx010-1'          : '$(TRUSTY_IMAGE_BRCM_202205)',
     'vms6-t0-7060'             : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012_SLIM)',
