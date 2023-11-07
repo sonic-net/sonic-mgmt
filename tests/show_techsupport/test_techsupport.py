@@ -1,11 +1,13 @@
 import os
 import pprint
 import pytest
+import re
 import time
 import logging
 import tech_support_cmds as cmds
 
 from random import randint
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
