@@ -75,10 +75,12 @@ class MultiAsicSonicHost(object):
 
         config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
         # NOTE: Add mux to critical services for dualtor
-        if ("DEVICE_METADATA" in config_facts and
+        if (
+            "DEVICE_METADATA" in config_facts and
             "localhost" in config_facts["DEVICE_METADATA"] and
             "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"):
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+        ):
             service_list.append("mux")
 
         if self.get_facts().get("modular_chassis"):
