@@ -937,23 +937,8 @@ class TGStc(TGBase):
         port_details_all = self.tg_interface_stats(port_handle=port_handle_list)
         if port_details_all.get('status', '0') == '1' and port_details_all.get('intf_speed', '') != '':
             intf_speed_list = port_details_all['intf_speed'].split()
-            for intf_speed, port_handle in zip(intf_speed_list, port_handle_list):
-                if not self.ports_fec_disable.get(intf_speed, []):
-                    self.ports_fec_disable[intf_speed] = []
-                self.ports_fec_disable[intf_speed].append(port_handle)
-            for speed in ['100000', '50000', '25000']:
-                if speed == '100000' and self.ports_fec_disable.get(speed):
-                    logger.info('Disabling FEC on ports {} is of speed {}'.format(self.ports_fec_disable[speed], speed))
-                    self.tg_interface_config(port_handle=self.ports_fec_disable[speed],
-                                             mode="modify", forward_error_correct="false")
-                if speed in ['50000', '25000'] and self.ports_fec_disable.get(speed):
-                    fec_opt = 'disable_fec_50g' if speed == '50000' else 'disable_fec'
-                    logger.info('Disabling FEC on ports {} is of speed {}'.format(self.ports_fec_disable[speed], speed))
-                    self.tg_interface_config(port_handle=self.ports_fec_disable[speed],
-                                             mode="modify", fec_option=fec_opt, autonegotiation='1')
-                    self.tg_interface_config(port_handle=self.ports_fec_disable[speed],
-                                             mode="modify", fec_option=fec_opt, autonegotiation='0')
-        return None
+
+        return None 
 
     def get_card_type(self, port_list):
         card_type = {}
