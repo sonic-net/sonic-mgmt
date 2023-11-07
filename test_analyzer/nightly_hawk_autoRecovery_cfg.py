@@ -82,7 +82,7 @@ trusty_images_url = {
     'vms24-t0-7260-2'          : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
     'vms24-t1-7050qx-acs-01'   : '$(TRUSTY_IMAGE_BRCM_ABOOT_202205_SLIM)',
     'vms28-dual-t0-7260'       : '$(TRUSTY_IMAGE_BRCM_ABOOT_202012)',
-    'vms28-dual-t0-8102'       : '$(TRUSTY_IMAGE_CISCO_ABOOT_202012)',
+    'vms28-dual-mixed-8102'    : '$(TRUSTY_IMAGE_CISCO_ABOOT_202305)',
     'vms28-t0-4600c-03'        : '$(TRUSTY_IMAGE_MLNX_202012)',
     'vms28-t0-4600c-04'        : '$(TRUSTY_IMAGE_MLNX_202012)',
     'vms28-t0-7280-4'          : '$(TRUSTY_IMAGE_BRCM_DNX_ABOOT_PUBLIC)',
@@ -113,7 +113,7 @@ pipeline_testbeds = ['testbed-bjw-can-2700-1','testbed-bjw-can-7050qx-1','testbe
                      'vms2-4-t0-2700','vms2-t1-7260-7','vms20-t0-7050cx3-1','vms20-t0-7050cx3-2','vms20-t0-ixia-2','vms20-t0-sn3800-2','vms20-t1-7050cx3-3',
                      'vms20-t1-dx010-6','vms21-dual-t0-7050-3','vms21-dual-t0-7260','vms21-t0-2700','vms21-t0-z9332f-02','vms21-t1-2700-2','vms21-t1-8101-02',
                      'vms21-t1-8102-01','vms24-dual-t0-7050-1','vms24-dual-t0-7050-2','vms24-t0-7260-2','vms24-t1-7050qx-acs-01','vms28-dual-t0-7260',
-                     'vms28-dual-t0-8102','vms28-t0-4600c-03','vms28-t0-4600c-04','vms28-t0-7280-4','vms28-t1-8102-02','vms3-t1-7280','vms3-t1-dx010-1',
+                     'vms28-dual-mixed-8102','vms28-t0-4600c-03','vms28-t0-4600c-04','vms28-t0-7280-4','vms28-t1-8102-02','vms3-t1-7280','vms3-t1-dx010-1',
                      'vms6-t0-7060','vms6-t1-7060','vms63-t0-7060-1','vms63-t0-7060-2','vms63-t1-7060-3','vms7-t0-4600c-2','vms7-t0-7260-1','vms7-t0-7260-2',
                      'vms7-t0-dx010-4','vms7-t0-dx010-5','vms7-t0-s6100','vms7-t0-s6100-4','vms7-t1-s6100','vmsvc1-dual-t0-7050-1','vmsvc1-dual-t0-7050-2']
 
