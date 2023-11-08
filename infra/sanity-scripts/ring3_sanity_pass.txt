@@ -131,6 +131,7 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 #platform_tests/test_reload_config.py::test_reload_configuration_checks
+platform_tests/test_sim_reboot.py
 #portstat/test_portstat.py
 process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
 scp/test_scp_copy.py::test_scp_copy
