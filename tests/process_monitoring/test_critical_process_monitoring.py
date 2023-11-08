@@ -609,3 +609,44 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
     logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def get_latest_stuck_message(duthost):
+    res = duthost.command(r"sudo sed -n 's/.*\(Process '\''orchagent'\'' is stuck in namespace\).*/\0/p'  /var/log/syslog")
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    """Tests orchagent heartbeat after warm-restart
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # get last stuck message
+    last_stuck = get_latest_stuck_message(duthost)
+    logger.warning("last_stuck: {}".format(last_stuck))
+
+    # freeze orchagent for warm-reboot
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    exit_code = command_output["rc"]
+    logger.warning("command_output: {}".format(command_output))
+    pytest_assert(exit_code == 0, "Failed to freeze orchagen for warm reboot")
+
+    # check orchagent stuck alert not been triggered
+    def found_stuck_alert(duthost):
+        latest_stuck = get_latest_stuck_message(duthost)
+        logger.warning("latest_stuck: {}".format(latest_stuck))
+        return latest_stuck != last_stuck
+
+    # stuck alert will be trigger after 60s
+    orchagent_stuck = wait_until(120, 5, 0, found_stuck_alert, duthost)
+
+    # restart orchagent by reload config
+    logger.info("Executing the config reload...")
+    config_reload(duthost)
+    logger.info("Executing the config reload was done!")
+
+    # assert after config reload, make sure orchange recovered after test
+    pytest_assert(orchagent_stuck == False, "Orchagent not stuck after frozen for warm-reboot.")
