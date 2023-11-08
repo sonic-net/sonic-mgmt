@@ -9,6 +9,7 @@ The 'stress' utility is leveraged to increase the memory usage of a container co
    help of new Monit syntax although Monit failed to reset its internal counter.
 """
 import logging
+import time
 from multiprocessing.pool import ThreadPool
 
 import pytest

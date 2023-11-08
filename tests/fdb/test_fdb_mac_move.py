@@ -2,6 +2,7 @@ import pytest
 import logging
 import time
 import math
+from collections import defaultdict
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert

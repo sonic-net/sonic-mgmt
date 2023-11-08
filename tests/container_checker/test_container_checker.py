@@ -2,6 +2,7 @@
 Test the feature of container_checker
 """
 import logging
+import time
 
 import pytest
 

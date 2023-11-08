@@ -1,4 +1,5 @@
 """Test cases to support the Everflow IPv6 Mirroring feature in SONiC."""
+import time
 import pytest
 import ptf.testutils as testutils
 
