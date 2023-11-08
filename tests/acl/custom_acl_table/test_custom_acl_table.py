@@ -230,7 +230,7 @@ def test_custom_acl(rand_selected_dut, tbinfo, ptfadapter,
     """
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     if "dualtor" in tbinfo["topo"]["name"]:
-        vlan_name = mg_facts['minigraph_vlans'].keys()[0]
+        vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
         # Use VLAN MAC as router MAC on dual-tor testbed
         router_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
     else:
