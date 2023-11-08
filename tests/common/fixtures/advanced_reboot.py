@@ -831,7 +831,7 @@ class AdvancedReboot:
         """
         logger.info('Running test tear down')
         if 'warm-reboot' in self.rebootType:
-            if not wait_until(300, 10, 0, self.checkWarmbootFlag, self.duthost):
+            if not wait_until(300, 10, 0, self.__checkWarmbootFlag, self.duthost):
                 logger.info('Setting warm-reboot system flag to false')
                 self.duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
 
