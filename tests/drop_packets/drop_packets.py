@@ -490,7 +490,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
-            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
+            fanout_graph_facts=enum_fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port

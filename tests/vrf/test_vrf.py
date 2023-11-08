@@ -1150,7 +1150,7 @@ class TestVrfCapacity():
     def random_vrf_list(self, vrf_count, request):
         test_count = request.config.option.vrf_test_count or self.TEST_COUNT  # get cmd line option value, use default if none
 
-        return sorted(random.sample(xrange(1, vrf_count+1), min(test_count, vrf_count)))
+        return sorted(random.sample(range(1, vrf_count+1), min(test_count, vrf_count)))
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_capacity(self, duthosts, rand_one_dut_hostname, ptfhost, localhost, cfg_facts, vrf_count, random_vrf_list, request):
