@@ -128,7 +128,6 @@ def generate_and_verify_traffic(
     exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
     if ipv6:
         exp_pkt.set_do_not_care_scapy(packet.IPv6, "hlim")
-        exp_pkt.set_do_not_care_scapy(packet.IPv6, "chksum")
     else:
         exp_pkt.set_do_not_care_scapy(packet.IP, "ttl")
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
