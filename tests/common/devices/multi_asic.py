@@ -723,7 +723,7 @@ class MultiAsicSonicHost(object):
         This will work for both single/multi-asic.
         Note that for multi-asic, it will run on specific asic given, or asic0
         """
-        self.asic_instance(asic_index).run_redis_cmd(argv)
+        return self.asic_instance(asic_index).run_redis_cmd(argv)
 
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
