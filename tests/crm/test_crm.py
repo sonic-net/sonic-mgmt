@@ -1200,7 +1200,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
         # Hence, the available counter may not increase as per initial value.
         pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= -5,
-                "Counter 'crm_stats_fdb_entry_available' was not incremented")
+                      "Counter 'crm_stats_fdb_entry_available' was not incremented")
     else:
         # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
         # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
