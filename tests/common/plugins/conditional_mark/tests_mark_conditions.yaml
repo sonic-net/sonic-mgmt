@@ -800,15 +800,6 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - https://github.com/sonic-net/sonic-mgmt/issues/8400
 
 #######################################
-#####         pktgen              #####
-#######################################
-test_pktgen.py:
-   skip:
-     reason: "Currently only supported in cisco-8000"
-     conditions:
-        - "asic_type not in ['cisco-8000']"
-
-#######################################
 #####         platform_tests      #####
 #######################################
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
@@ -1190,6 +1181,15 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+#######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+   skip:
+     reason: "Currently only supported in cisco-8000"
+     conditions:
+        - "asic_type not in ['cisco-8000']"
 
 #######################################
 #####            vlan             #####
