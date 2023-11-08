@@ -84,8 +84,6 @@ def init(dut, type):
         return
 
     method = get_method()
-    print("printing method")
-    print(method)
     st.log("init base config using {} method".format(method), dut=dut)
     from apis.system import basic
     basic.clear_core_files(dut)

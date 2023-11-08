@@ -179,7 +179,6 @@ def dut_bgp_ip_cleanup():
                 bgpapi.delete_bgp_neighbor(dut2,data.dut_asn_list[dut2], data.t1d2_ip_addr,data.tgen2_asn,'default', "vtysh-multi-asic", True, asic=intf_ns2[globalVars.get("D2T1P1")].lstrip('asic'))
 
             ipapi.clear_ip_configuration(data.lc_name_list, cli_type='vtysh-multi-asic')
-            print('done deleting everything') 
         else: 
             for i, link in enumerate(local_links_dut1):
                 addr1=data.local_links_info["D1D2P{}".format(i+1)]["ipaddr"]
@@ -191,6 +190,9 @@ def dut_bgp_ip_cleanup():
     except Exception as e:
         st.error('Failed with: '+str(e))
         return False  
+
+    return True 
+
 
 def generate_addresses():
 
