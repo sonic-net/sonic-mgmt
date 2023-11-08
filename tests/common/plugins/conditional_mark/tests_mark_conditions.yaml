@@ -802,9 +802,9 @@ pfcwd/test_pfcwd_warm_reboot.py:
 #######################################
 #####         pktgen              #####
 #######################################
-test_pktgen.py
+test_pktgen.py:
    skip:
-     reason: "Only supported in cisco-8000"
+     reason: "Currently only supported in cisco-8000"
      conditions:
         - "asic_type not in ['cisco-8000']"
 
