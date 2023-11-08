@@ -612,7 +612,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
 
 def get_latest_stuck_message(duthost):
-    res = duthost.command(r"sudo sed -n 's/.*\(Process '\''orchagent'\'' is stuck in namespace\).*/\0/p'  /var/log/syslog")
+    query_command = r"sudo sed -n 's/.*\(Process '\''orchagent'\'' is stuck in namespace\).*/\0/p'  /var/log/syslog"
+    res = duthost.command(query_command)
     if len(res["stdout_lines"]) == 0:
         return ""
 
@@ -649,4 +650,4 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     logger.info("Executing the config reload was done!")
 
     # assert after config reload, make sure orchange recovered after test
-    pytest_assert(orchagent_stuck == False, "Orchagent not stuck after frozen for warm-reboot.")
+    pytest_assert(not orchagent_stuck, "Orchagent not stuck after frozen for warm-reboot.")
