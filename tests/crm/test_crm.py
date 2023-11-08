@@ -1084,7 +1084,7 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     if is_cisco_device(duthost):
         topo_name_lower = tbinfo["topo"]["name"].lower()
         if "t0" not in topo_name_lower and "m0" not in topo_name_lower:
-            pytest.skip("Unsupported topology, expected to run only on 'T0*' or 'M0' topology")
+            pytest.skip("Unsupported topology, expected to run only on 'T0*' or 'M0' topology ")
 
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
