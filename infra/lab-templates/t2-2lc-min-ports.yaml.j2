@@ -9,6 +9,13 @@ all:
             sonic_multi_asic:
             sonic_cisco_sup:
             sonic_cisco_lc_100G:
+        fanout:
+          vars:
+            hwsku: C9336C-FX2
+            os: nxos
+          hosts:
+            nexus-5:
+              ansible_host: 1.74.23.205 
     ptf:
       hosts:
         docker-ptf:

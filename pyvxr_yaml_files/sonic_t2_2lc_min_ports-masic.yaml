@@ -2,9 +2,15 @@ simulation:
   no_image_copy: true
   slurm_flags:
     hours: 26
-    #partition: amd
+    pending_timeout: 60
+    partition: regression
+    cluster: rch-slurm-m1
   pyvxr_flags:
     sonic_lc_bringup: True
+  # Using temporary SIM release for RP crash fix: MIGSOFTWAR-10686
+  sim_rel: /auto/vxr1/kqlin/release/vxr2_05859_pvt_kqlin
+  # Skip platform check due to MIGSOFTWAR-10688
+  skip_platform_check: True
 
 devices:
   docker_ptf:
