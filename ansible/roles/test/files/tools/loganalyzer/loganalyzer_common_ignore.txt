@@ -190,3 +190,6 @@ r, ".* ERROR: Failed to parse lldp age.*"
 
 # NTPsec always expects the statistics directory to be available, but for now, we don't need NTP stats to be logged
 r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, error No such file or directory"
+
+# NTPsec logs a message with ERR in it at NOTICE level when exiting gracefully, ignore it
+r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
