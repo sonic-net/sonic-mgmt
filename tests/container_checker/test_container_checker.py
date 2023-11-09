@@ -4,6 +4,7 @@ Test the feature of container_checker
 import logging
 
 import pytest
+import time
 
 from pkg_resources import parse_version
 from tests.common import config_reload
