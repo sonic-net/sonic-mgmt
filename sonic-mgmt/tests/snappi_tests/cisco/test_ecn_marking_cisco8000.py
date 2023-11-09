@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000
+from tests.snappi_tests.cisco.files.ecnhelper import run_ecn_test_cisco8000
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
     fanout_graph_facts
@@ -9,10 +9,8 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_testbed_config
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
     lossy_prio_list
-from tests.common.reboot import reboot
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.snappi_tests.files.helper import skip_warm_reboot
 
 logger = logging.getLogger(__name__)
 
