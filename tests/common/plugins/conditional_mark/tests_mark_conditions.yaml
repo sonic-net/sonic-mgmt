@@ -1183,6 +1183,15 @@ telemetry/test_telemetry.py:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
 #######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+   skip:
+     reason: "Currently only supported in cisco-8000"
+     conditions:
+        - "asic_type not in ['cisco-8000']"
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
