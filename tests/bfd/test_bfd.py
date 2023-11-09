@@ -219,10 +219,20 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
             assert expected_state in line.split('=')[1].strip()
 
 
-def check_dut_bfd_status(duthost, neighbor_addr, expected_state):
-    bfd_state = duthost.shell("sonic-db-cli STATE_DB HGET 'BFD_SESSION_TABLE|default|default|{}' 'state'"
-                              .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
-    assert expected_state in bfd_state[0]
+def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
+    for i in range(max_attempts + 1):
+        bfd_state = duthost.shell("sonic-db-cli STATE_DB HGET 'BFD_SESSION_TABLE|default|default|{}' 'state'"
+                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
+        logger.info("BFD state check: {} - {}".format(neighbor_addr, bfd_state[0]))
+
+        if expected_state in bfd_state[0]:
+            return  # Success, no need to retry
+
+        logger.error("BFD state check failed: {} - {}".format(neighbor_addr, bfd_state[0]))
+        if i < max_attempts:
+            time.sleep(retry_interval)
+
+    assert expected_state in bfd_state[0]  # If all attempts fail, raise an assertion error
 
 
 def create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first, scale_test=False):
@@ -304,7 +314,9 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
     ptfhost.template(src='templates/bfd_responder.conf.j2', dest='/etc/supervisor/conf.d/bfd_responder.conf')
     ptfhost.command('supervisorctl reread')
     ptfhost.command('supervisorctl update')
-    ptfhost.command('supervisorctl start bfd_responder')
+    ptfhost.command('supervisorctl restart bfd_responder')
+    logger.info("Waiting for bfd session to be in Up state")
+    time.sleep(30)
     temp = duthost.shell('show bfd summary')
     logger.info("BFD Summary dump: {}".format(temp['stdout']))
 
@@ -454,13 +466,13 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
 
         create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs)
 
-        time.sleep(1)
-        for neighbor_addr in neighbor_addrs:
-            check_dut_bfd_status(duthost, neighbor_addr, "Up")
         duthost.shell("sonic-clear queuecounters")
         # sleep for 10 seconds to check queue counters
         time.sleep(10)
         verify_bfd_queue_counters(duthost, dut_intf)
+
+        for neighbor_addr in neighbor_addrs:
+            check_dut_bfd_status(duthost, neighbor_addr, "Up")
     finally:
         remove_bfd_sessions(duthost, neighbor_addrs)
         cmd_buffer = ""
