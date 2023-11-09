@@ -265,7 +265,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "myip": test_params.myip,
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
-              "has_trap": has_trap}
+              "has_trap": has_trap,
+              "hw_sku": dut.facts["hwsku"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
