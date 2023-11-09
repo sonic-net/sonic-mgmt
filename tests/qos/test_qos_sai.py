@@ -1103,7 +1103,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute, get_src_dst_asic_and_duts,
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
             skip_src_dst_different_asic
     ):
         """
