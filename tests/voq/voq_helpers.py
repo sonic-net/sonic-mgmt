@@ -393,7 +393,7 @@ def check_voq_neighbor_on_sup(sup, slot, asic, port, neighbor, encap_index, mac)
     logger.info("Neigh key: %s, slotnum: %s", neigh_key, slot)
     pytest_assert("|%s|" % slot.lower() in lower_neigh_key,
                   "Slot for %s does not match %s" % (lower_neigh_key, slot.lower()))
-    pytest_assert("|%s|" % port.lower() in lower_neigh_key
+    pytest_assert("|%s:" % port.lower() in lower_neigh_key
                   or "|%s|" % port.lower() in lower_neigh_key,
                   "Port for %s does not match %s" % (lower_neigh_key, port.lower()))
     pytest_assert("|%s|" % asic.lower() in lower_neigh_key,
@@ -793,10 +793,11 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
                     asicname = sysport_info['asic'].lower()
 
                 logger.debug("Neigh key: %s, slotnum: %s", lower_entry, slotname)
+                lower_port = local_port.lower()
                 pytest_assert("|%s|" % slotname in lower_entry,
                               "Slot for %s does not match %s" % (lower_entry, slotname))
-                pytest_assert("|%s:" % local_port in lower_entry or "|%s|" % local_port in lower_entry,
-                              "Port for %s does not match %s" % (lower_entry, local_port))
+                pytest_assert("|%s:" % lower_port in lower_entry or "|%s|" % lower_port in lower_entry,
+                              "Port for %s does not match %s" % (lower_entry, lower_port))
                 pytest_assert("|%s|" % asicname in lower_entry,
                               "Asic for %s does not match %s" % (lower_entry, asicname))
 
