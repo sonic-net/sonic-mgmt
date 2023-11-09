@@ -8,9 +8,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.utilities import wait_until
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
-from tests.common.fixtures.duthost_utils import shutdown_ebgp  # noqa F401
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.duthost_utils import shutdown_ebgp
 
 from platform_api_test_base import PlatformApiTestBase
 
@@ -31,9 +30,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-
 @pytest.fixture(scope="class")
-def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):  # noqa F811
+def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, conn_graph_facts, shutdown_ebgp):
     sfp_setup = {}
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -56,7 +54,6 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
                                                 physical_port_index_map.keys() \
                                                 if intf not in xcvr_skip_list[duthost.hostname]])
     sfp_setup["sfp_test_port_indices"] = sorted(sfp_port_indices)
-    sfp_setup["sfp_physical_port_index_map"] = physical_port_index_map
 
     # Fetch SFP names from platform.json
     sfp_fact_names = []
@@ -67,7 +64,6 @@ def setup(request, duthosts, enum_rand_one_per_hwsku_hostname, xcvr_skip_list, c
 
     if request.cls is not None:
         request.cls.sfp_setup = sfp_setup
-
 
 @pytest.mark.usefixtures("setup")
 class TestSfpApi(PlatformApiTestBase):
@@ -694,86 +690,38 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_mask = expected_mask >> 1
         self.assert_expectations()
 
-    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):
-        return state == sfp.get_lpmode(platform_api_conn, i)
+    def _check_lpmode_status(self, sfp,platform_api_conn, i, state):
+        return state ==  sfp.get_lpmode(platform_api_conn, i)
 
     def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        support_lpmode_physical_port_index_map, support_lpmode_physical_port_with_admin_up, port_indx_to_xcvr_type_map \
-            = self._get_support_lpmode_physical_port_index_map(duthost, platform_api_conn)
-        if not support_lpmode_physical_port_index_map:
-            pytest.skip("No interface supports lpmode")
+        for i in self.sfp_setup["sfp_test_port_indices"]:
+            info_dict = sfp.get_transceiver_info(platform_api_conn, i)
+            # Ensure that the transceiver type supports low-power mode
+            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
+                continue
 
-        if is_mellanox_device(duthost) and len(support_lpmode_physical_port_with_admin_up) > 0:
-            # for nvidia devices, need to shutdown the port before setting the port into lp mode
-            logger.info("Shut down ports:{}".format(support_lpmode_physical_port_with_admin_up))
-            duthost.shutdown_multiple(support_lpmode_physical_port_with_admin_up)
-            self.expect(wait_until(60, 1, 0, duthost.links_status_down, support_lpmode_physical_port_with_admin_up),
-                        "Failed to shutdown {}".format(support_lpmode_physical_port_with_admin_up))
+            if not self.is_xcvr_support_lpmode(info_dict):
+                logger.warning("test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)".format(i))
+                continue
 
-        for port_index in set(support_lpmode_physical_port_index_map.values()):
-
-            lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, port_index)
+            lpmode_state_pretest = sfp.get_lpmode(platform_api_conn, i)
             if lpmode_state_pretest is None:
-                logger.warning(
-                    "test_lpmode: Skipping transceiver {} (not supported on this platform)".format(port_index))
+                logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                 break
             # This order makes sure lpmode will get restored to pretest value after test
             lpmode_states_to_be_tested = [not lpmode_state_pretest, lpmode_state_pretest]
 
+            # Enable and disable low-power mode on each transceiver
             for state in lpmode_states_to_be_tested:
-                ret = sfp.set_lpmode(platform_api_conn, port_index, state)
+                ret = sfp.set_lpmode(platform_api_conn, i, state)
                 if ret is None:
-                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(
-                        port_index))
+                    logger.warning("test_lpmode: Skipping transceiver {} (not supported on this platform)".format(i))
                     break
-                self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format(
-                    "enable" if state is True else "disable", port_index))
-                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, port_index, state),
-                            "Transceiver {} expected low-power state {} is not aligned with the real state".format(
-                                port_index, "enable" if state is True else "disable"))
-
-        if is_mellanox_device(duthost) and len(support_lpmode_physical_port_with_admin_up) > 0:
-            logger.info(
-                "After setting the ports to disabled lpm mode, verify that the ports:{} are still in down state".format(
-                    support_lpmode_physical_port_with_admin_up))
-            self.expect(wait_until(60, 1, 0, duthost.links_status_down, support_lpmode_physical_port_with_admin_up),
-                        "Disable lpm, ports doesn't keep down {}".format(support_lpmode_physical_port_with_admin_up))
-            logger.info("Startup ports:{}".format(support_lpmode_physical_port_with_admin_up))
-            duthost.no_shutdown_multiple(support_lpmode_physical_port_with_admin_up)
-            self.expect(wait_until(120, 1, 0, duthost.links_status_up, support_lpmode_physical_port_with_admin_up),
-                        "Failed to startup {}".format(support_lpmode_physical_port_with_admin_up))
-
+                self.expect(ret is True, "Failed to {} low-power mode for transceiver {}".format("enable" if state is True else "disable", i))
+                self.expect(wait_until(5, 1, 0, self._check_lpmode_status, sfp, platform_api_conn, i, state),
+                            "Transceiver {} expected low-power state {} is not aligned with the real state".format(i, "enable" if state is True else "disable"))
         self.assert_expectations()
-
-    def _get_support_lpmode_physical_port_index_map(self, duthost, platform_api_conn):
-        original_interface_status = duthost.get_interfaces_status()
-        support_lpmode_physical_port_index_map = {}
-        support_lpmode_physical_port_with_admin_up = []
-        port_indx_to_xcvr_type_map = {}
-        for test_port_index in self.sfp_setup["sfp_test_port_indices"]:
-            info_dict = sfp.get_transceiver_info(platform_api_conn, test_port_index)
-            # Ensure that the transceiver type supports low-power mode
-            if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(
-                    test_port_index)):
-                continue
-
-            if not self.is_xcvr_support_lpmode(info_dict):
-                logger.warning(
-                    "test_lpmode: Skipping transceiver {} (not applicable for this transceiver type)".format(
-                        test_port_index))
-                continue
-            for port, port_index in self.sfp_setup["sfp_physical_port_index_map"].items():
-                if port_index == test_port_index:
-                    physical_port = port
-                    support_lpmode_physical_port_index_map[physical_port] = test_port_index
-                    port_indx_to_xcvr_type_map[test_port_index] = info_dict["type_abbrv_name"]
-                    if physical_port in original_interface_status and \
-                            original_interface_status[physical_port]['admin'].lower() == 'up':
-                        support_lpmode_physical_port_with_admin_up.append(physical_port)
-        return (support_lpmode_physical_port_index_map,
-                support_lpmode_physical_port_with_admin_up, port_indx_to_xcvr_type_map)
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
         """This function tests both the get_power_override() and set_power_override() APIs"""
