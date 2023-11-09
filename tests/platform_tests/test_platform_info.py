@@ -304,7 +304,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         pdu_ctrl.turn_on_outlet(outlet)
         time.sleep(5)
 
-        retry_call(validate_psu_status, fargs=[duthost, psu_line_pattern, psu_under_test], tries=3, delay=5)
+        retry_call(validate_psu_status, fargs=[duthost, psu_line_pattern, psu_under_test], tries=3, delay=10)
         psu_test_results[psu_under_test] = True
 
     for psu in psu_test_results:
