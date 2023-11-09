@@ -10,6 +10,7 @@ import logging
 import pprint
 import re
 import random
+from collections import defaultdict
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]

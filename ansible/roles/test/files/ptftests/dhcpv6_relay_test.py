@@ -1,5 +1,7 @@
 import ast
+import os
 import socket
+import struct
 import subprocess
 
 # Packet Test Framework imports
@@ -96,7 +98,7 @@ class DHCPTest(DataplaneBaseTest):
         self.test_params = testutils.test_params_get()
         self.client_port_index = int(self.test_params['client_port_index'])
         self.client_link_local =  self.generate_client_interace_ipv6_link_local_address(self.client_port_index)
-        
+
         DataplaneBaseTest.__init__(self)
 
     def setUp(self):
@@ -375,10 +377,10 @@ class DHCPTest(DataplaneBaseTest):
         masked_packet.set_do_not_care_scapy(packet.UDP, "len")
         masked_packet.set_do_not_care_scapy(DHCP6OptClientLinkLayerAddr, "clladdr")
         masked_packet.set_do_not_care_scapy(scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
-        
+
         # verify packets received on the ports connected to our leaves
         testutils.verify_packet_any_port(self, masked_packet, self.server_port_indices)
-                
+
     # Simulate a DHCP server sending a DHCPv6 RELAY-REPLY encapsulating REPLY packet message to client.
     def server_send_reply_relay_reply(self):
         # Form and send DHCPv6 RELAY-REPLY encapsulating REPLY packet

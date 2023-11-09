@@ -1,8 +1,11 @@
 import ipaddress
 import json
 import logging
+import os
 import pytest
+import random
 import re
+import sys
 import yaml
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file    # lgtm[py/unused-import]

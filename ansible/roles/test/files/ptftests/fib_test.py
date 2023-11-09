@@ -305,14 +305,14 @@ class FibTest(BaseTest):
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
-            actual_src_mac = Ether(rcvd_pkt).src
+            actual_src_mac = scapy.Ether(rcvd_pkt).src
             if exp_src_mac != actual_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                                 "but the src mac doesn't match, expected {}, got {}".
                                 format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
             return (None, None)
     #---------------------------------------------------------------------
 
@@ -384,14 +384,14 @@ class FibTest(BaseTest):
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(rcvd_port,len_rcvd_pkt))
             logging.info('Recieved packet with length of {}'.format(len_rcvd_pkt))
             exp_src_mac = self.router_macs[self.ptf_test_port_map[str(dst_port_list[rcvd_port])]['target_dut']]
-            actual_src_mac = Ether(rcvd_pkt).src
+            actual_src_mac = scapy.Ether(rcvd_pkt).src
             if actual_src_mac != exp_src_mac:
                 raise Exception("Pkt sent from {} to {} on port {} was rcvd pkt on {} which is one of the expected ports, "
                                 "but the src mac doesn't match, expected {}, got {}".
                                 format(ip_src, ip_dst, src_port, dst_port_list[rcvd_port], exp_src_mac, actual_src_mac))
             return (rcvd_port, rcvd_pkt)
         elif self.pkt_action == self.ACTION_DROP:
-            verify_no_packet_any(self, masked_exp_pkt, dst_ports)
+            verify_no_packet_any(self, masked_exp_pkt, dst_port_list)
             return (None, None)
 
     def check_within_expected_range(self, actual, expected):

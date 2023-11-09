@@ -47,8 +47,8 @@ ACL_RULES_FULL_TEMPLATE = {
     "ipv6": "acltb_v6_test_rules.j2"
 }
 ACL_RULES_PART_TEMPLATES = {
-    "ipv4": tuple("acltb_test_rules_part_{}.j2".format(i) for i in xrange(1, 3)),
-    "ipv6": tuple("acltb_v6_test_rules_part_{}.j2".format(i) for i in xrange(1, 3))
+    "ipv4": tuple("acltb_test_rules_part_{}.j2".format(i) for i in range(1, 3)),
+    "ipv6": tuple("acltb_v6_test_rules_part_{}.j2".format(i) for i in range(1, 3))
 }
 
 DEFAULT_SRC_IP = {
@@ -129,7 +129,7 @@ BYTES_COUNT = "bytes_count"
 def remove_dataacl_table(duthosts):
     """
     Remove DATAACL to free TCAM resources.
-    The change is written to configdb as we don't want DATAACL recovered after reboot  
+    The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME = "DATAACL"
     for duthost in duthosts:

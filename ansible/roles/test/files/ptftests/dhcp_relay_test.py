@@ -1,6 +1,7 @@
 import ast
 import struct
 import ipaddress
+import os
 
 # Packet Test Framework imports
 import ptf
@@ -107,7 +108,7 @@ class DHCPTest(DataplaneBaseTest):
 
         self.hostname = self.test_params['hostname']
         self.verified_option82 = False
-        
+
         if self.test_params.has_key('other_client_port'):
             self.other_client_port = ast.literal_eval(self.test_params['other_client_port'])
 
@@ -171,7 +172,7 @@ class DHCPTest(DataplaneBaseTest):
             self.option82 += link_selection
 
         # We'll assign our client the IP address 1 greater than our relay interface (i.e., gateway) IP
-        self.client_ip = incrementIpAddress(self.relay_iface_ip, 1) 
+        self.client_ip = incrementIpAddress(self.relay_iface_ip, 1)
         self.client_subnet = self.test_params['relay_iface_netmask']
 
         self.dest_mac_address = self.test_params['dest_mac_address']
@@ -184,7 +185,7 @@ class DHCPTest(DataplaneBaseTest):
 
     """
      Packet generation functions/wrappers
-    
+
     """
 
     def create_dhcp_discover_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
@@ -492,8 +493,8 @@ class DHCPTest(DataplaneBaseTest):
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
         testutils.send_packet(self, self.client_port_index, dhcp_discover)
 
-    #Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and 
-    #once the packet is recieved checking for the destination and looking into options and verifying 
+    #Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and
+    #once the packet is recieved checking for the destination and looking into options and verifying
     #the option82 info
 
     def pkt_callback(self, pkt):
@@ -762,4 +763,3 @@ class DHCPTest(DataplaneBaseTest):
         if self.test_params.has_key('other_client_port'):
             self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(self.dest_mac_address, self.client_udp_src_port)
-        

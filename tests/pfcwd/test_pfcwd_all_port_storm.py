@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts

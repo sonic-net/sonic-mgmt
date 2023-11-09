@@ -35,7 +35,7 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac, active
                 ip_dst=active_tor_ip,
                 ip_dscp=outer_dscp,
                 ip_ecn=ecn,
-                inner_frame=pkt[IP]
+                inner_frame=pkt[scapy.IP]
             )
     pkt.ttl += 1
     exp_tunnel_pkt = Mask(ipinip_packet)
@@ -64,7 +64,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
         Ethernet4    UC0               0                0            0             0
     """
     txq = "UC{}".format(queue)
-    for line in output:    
+    for line in output:
         fields = line.split()
         if fields[1] == txq:
             return int(fields[2])
@@ -79,7 +79,7 @@ def check_queue_counter(duthost, intfs, queue, counter):
         if len(fields) == 6 and fields[0] in intfs and fields[1] == 'UC{}'.format(queue):
             if int(fields[2]) >= counter:
                 return True
-    
+
     return False
 
 
@@ -97,7 +97,7 @@ def counter_poll_config(duthost, type, interval_ms):
 def load_tunnel_qos_map():
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
-    return a dict 
+    return a dict
     """
     TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
     TUNNEL_MAP_NAME = "AZURE_TUNNEL"
@@ -146,7 +146,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     server_ip = muxcable_info[server_port_name]['server_ipv4'].split('/')[0]
     server_port_ptf_id = mg_facts['minigraph_ptf_indices'][server_port_name]
     server_port_slice = mg_facts['minigraph_port_indices'][server_port_name]
-    
+
     selected_tor_mgmt = mg_facts['minigraph_mgmt_interface']['addr']
     selected_tor_mac = rand_selected_dut.facts['router_mac']
     selected_tor_loopback = get_iface_ip(mg_facts, 'Loopback0')
@@ -194,7 +194,7 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     qos_configs = {}
     with open(r"qos/files/qos.yml") as file:
         qos_configs = yaml.load(file, Loader=yaml.FullLoader)
-    
+
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -214,7 +214,7 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     else:
         # Default topo is any
         dut_topo = dut_topo + "any"
-    
+
     # Get profile name for src port
     lag_port_name = dut_config["lag_port_name"]
     profile_name = _lossless_profile_name(duthost, lag_port_name, '2-4')
@@ -255,7 +255,7 @@ def swap_syncd(request, rand_selected_dut, creds):
 
 def _update_docker_service(duthost, docker="", action="", service=""):
     """
-    A helper function to start/stop service      
+    A helper function to start/stop service
     """
     cmd = "docker exec {docker} supervisorctl {action} {service}".format(docker=docker, action=action, service=service)
     duthost.shell(cmd)
@@ -275,10 +275,10 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
             {"docker": "lldp", "service": "lldpd"},
             {"docker": "bgp",  "service": "bgpd"},
             {"docker": "bgp",  "service": "bgpmon"}
-            ] 
+            ]
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="stop", **service)
-    
+
     yield
 
     enable_container_autorestart(rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
@@ -312,7 +312,7 @@ def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services)
     # Disable the counter for watermark so that the cached counter in SAI is not cleared periodically
     _update_counterpoll_state(rand_selected_dut, 'watermark', 'disable')
     _update_counterpoll_state(rand_unselected_dut, 'watermark', 'disable')
-    
+
     yield
 
     # Set the muxcable mode to auto
@@ -341,7 +341,7 @@ def toggle_mux_to_host(duthost):
         else:
             logger.info("Mux cable toggled to {}".format(duthost.hostname))
             break
-    
+
     pytest_assert(TIMEOUT > 0, "Failed to toggle muxcable to {}".format(duthost.hostname))
 
 

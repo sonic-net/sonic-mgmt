@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import logging
+import os
 import ptf
 
 # Packet Test Framework imports
