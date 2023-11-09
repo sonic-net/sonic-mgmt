@@ -1190,9 +1190,9 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms61-dual-mixed-8102
+- conf-name: vms61-dual-t0-8102
   group-name: vms61-1
-  topo: dualtor-mixed
+  topo: dualtor-aa
   ptf_image_name: docker-ptf
   ptf: vms61-1
   ptf_ip: 10.64.246.5/23
