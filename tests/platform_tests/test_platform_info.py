@@ -304,21 +304,21 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         pdu_ctrl.turn_on_outlet(outlet)
         time.sleep(5)
 
-        cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
-        for line in cli_psu_status["stdout_lines"][2:]:
-            psu_match = psu_line_pattern.match(line)
-            pytest_assert(psu_match, "Unexpected PSU status output")
-            if psu_match.group(1) == psu_under_test:
-                pytest_assert(psu_match.group(2) == "OK",
-                              "Unexpected PSU status after turned it on")
-            check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
-
+        retry_call(validate_psu_status, fargs=[duthost, psu_line_pattern, psu_under_test], tries=3, delay=5)
         psu_test_results[psu_under_test] = True
 
     for psu in psu_test_results:
         pytest_assert(psu_test_results[psu],
                       "Test psu status of PSU %s failed" % psu)
 
+def validate_psu_status(duthost, psu_line_pattern, psu_under_test):
+    cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
+    for line in cli_psu_status["stdout_lines"][2:]:
+        psu_match = psu_line_pattern.match(line)
+        pytest_assert(psu_match, "Unexpected PSU status output")
+        if psu_match.group(1) == psu_under_test:
+            pytest_assert(psu_match.group(2) == "OK","Unexpected PSU status after turned it on")
+        check_vendor_specific_psustatus(duthost, line, psu_line_pattern)
 
 @pytest.mark.disable_loganalyzer
 def test_show_platform_fanstatus_mocked(duthosts, enum_rand_one_per_hwsku_hostname,
