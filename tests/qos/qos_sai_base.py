@@ -33,7 +33,7 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
-                          "t0-80", "t0-backend"]
+                          "t0-120", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
@@ -675,7 +675,7 @@ class QosSaiBase(QosBase):
         yield rtn_dict
 
     def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids,
-                         dst_port_ids, get_src_dst_asic_and_duts):
+                         dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds):
         """
             Build map of test ports index and IPs
 
@@ -726,6 +726,10 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
+        if get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] == "Cisco-8101-O8C48":
+            srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
+            dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
+            logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
 
         pytest_assert(len(dst_test_port_ids) >= 1 and len(src_test_port_ids) >= 1, "Provide at least 2 test ports")
         logging.debug(
@@ -799,6 +803,7 @@ class QosSaiBase(QosBase):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         src_dut = get_src_dst_asic_and_duts['src_dut']
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
@@ -829,7 +834,7 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
             dualTorPortIndexes[src_dut_index] = {}
-            dualTorPortIndexes[src_dut_index][src_asic_index] = {}
+            dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
             else:
@@ -896,7 +901,9 @@ class QosSaiBase(QosBase):
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
-                    if use_separated_upkink_dscp_tc_map:
+                    if (use_separated_upkink_dscp_tc_map or
+                            get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] ==
+                            "Cisco-8101-O8C48"):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -992,6 +999,21 @@ class QosSaiBase(QosBase):
 
         pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
+        # Get dst_dut asic type
+        if dst_dut != src_dut:
+            vendor = dst_dut.facts["asic_type"]
+            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+            dstDutAsic = None
+            for asic in self.SUPPORTED_ASIC_LIST:
+                vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dstDutAsic = asic
+                    break
+
+            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+        else:
+            dstDutAsic = dutAsic
+
         dutTopo = "topo-"
 
         if dutAsic == "gb" and "t2" in topo:
@@ -1025,7 +1047,7 @@ class QosSaiBase(QosBase):
             testPortIds = dualTorPortIndexes
 
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps,
-                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts)
+                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds)
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -1036,6 +1058,7 @@ class QosSaiBase(QosBase):
             "downlink_port_names": downlinkPortNames
         })
         dutinterfaces = {}
+        uplinkPortIds = testPorts.get('uplink_port_ids', [])
 
         if tbinfo["topo"]["type"] == "t2":
             # dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'},
@@ -1052,14 +1075,16 @@ class QosSaiBase(QosBase):
 
         yield {
             "dutInterfaces": dutinterfaces,
+            "uplinkPortIds": uplinkPortIds,
             "testPortIds": testPortIds,
             "testPortIps": testPortIps,
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic": dutAsic,
+            "dstDutAsic": dstDutAsic,
             "dutTopo": dutTopo,
             "srcDutInstance": src_dut,
-            "dstDutInstance": get_src_dst_asic_and_duts['dst_dut'],
+            "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
             "dualTorScenario": len(dualtor_ports_for_duts) != 0
         }
@@ -1125,9 +1150,6 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
 
-        if 'dualtor' in tbinfo['topo']['name']:
-            duthost_upper = upper_tor_host
-
         def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
             """
                 Helper function to update docker services
@@ -1155,7 +1177,7 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR)
+            toggle_all_simulator_ports(LOWER_TOR, retries=3)
             check_result = wait_until(
                 120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
             validate_check_result(check_result, duthosts, get_mux_status)
@@ -1168,7 +1190,7 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
-            duthost_upper.shell('sudo config feature state mux disabled')
+            upper_tor_host.shell('sudo config feature state mux disabled')
             lower_tor_host.shell('sudo config feature state mux disabled')
 
         src_services = [
@@ -1193,7 +1215,7 @@ class QosSaiBase(QosBase):
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
             disable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
@@ -1221,7 +1243,7 @@ class QosSaiBase(QosBase):
                 pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
 
             lower_tor_host.shell('sudo config feature state mux enabled')
-            lower_tor_host.shell('sudo config feature state mux enabled')
+            upper_tor_host.shell('sudo config feature state mux enabled')
             logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
@@ -1229,7 +1251,7 @@ class QosSaiBase(QosBase):
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
             enable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, get_src_dst_asic_and_duts, loganalyzer):
@@ -1421,20 +1443,21 @@ class QosSaiBase(QosBase):
                 if sub_folder_dir not in sys.path:
                     sys.path.append(sub_folder_dir)
                 import qos_param_generator
-                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                           dutAsic,
-                                                           portSpeedCableLength,
-                                                           dutConfig,
-                                                           ingressLosslessProfile,
-                                                           ingressLossyProfile,
-                                                           egressLosslessProfile,
-                                                           egressLossyProfile,
-                                                           sharedHeadroomPoolSize,
-                                                           dutConfig["dualTor"],
-                                                           dutTopo,
-                                                           bufferConfig,
-                                                           duthost,
-                                                           tbinfo["topo"]["name"])
+                qpm = qos_param_generator.QosParamBroadcom({'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                            'asic_type': dutAsic,
+                                                            'speed_cable_len': portSpeedCableLength,
+                                                            'dutConfig': dutConfig,
+                                                            'ingressLosslessProfile': ingressLosslessProfile,
+                                                            'ingressLossyProfile': ingressLossyProfile,
+                                                            'egressLosslessProfile': egressLosslessProfile,
+                                                            'egressLossyProfile': egressLossyProfile,
+                                                            'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
+                                                            'dualTor': dutConfig["dualTor"],
+                                                            'dutTopo': dutTopo,
+                                                            'bufferConfig': bufferConfig,
+                                                            'dutHost': duthost,
+                                                            'testbedTopologyName': tbinfo["topo"]["name"],
+                                                            'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
             bufferConfig = self.dutBufferConfig(duthost, dut_asic)
@@ -2119,6 +2142,21 @@ class QosSaiBase(QosBase):
 
         return mapping
 
+    @pytest.fixture(autouse=False)
+    def _check_ingress_speed_gte_400g(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        if not m:
+            raise RuntimeError(
+                "Format error in portSpeedCableLength:{}".
+                format(portSpeedCableLength))
+        speed = int(m.group(1))
+        if speed >= 400000:
+            pytest.skip("PGDrop test is not supported for 400G port speed.")
+
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
@@ -2165,5 +2203,21 @@ class QosSaiBase(QosBase):
             pytest.skip(
                 "All WM Tests are skipped for multiDUT for cisco platforms.")
 
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_src_dst_different_asic(self, dutConfig):
+        if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
+            pytest.skip(
+                "This test is skipped since asic types of ingress and egress are different.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
         yield
         return
