@@ -59,6 +59,8 @@ all:
           ansible_host: 10.64.247.68
         vms66-1:
           ansible_host: 10.64.247.50
+        vms66-2:
+          ansible_host: 10.64.247.69
         vms68-1:
           ansible_host: 10.64.247.51
 
@@ -236,6 +238,7 @@ sonic:
     sonic_mlnx_4600C:
     sonic_mlnx_4700:
     sonic_dell64_40:
+    sonic_arista_400:
 
 sonic_mlnx_4600C:
   vars:

@@ -2216,18 +2216,18 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
-- conf-name: vms64-t1-7060dx5-1
-  group-name: vms64-1
+- conf-name: vms66-t1-7060dx5-1
+  group-name: vms66-2
   topo: t1-lag
   ptf_image_name: docker-ptf
-  ptf: vms64-1
-  ptf_ip:
+  ptf: vms66-2
+  ptf_ip: 10.64.247.69/23
   ptf_ipv6:
-  server: server_64
-  vm_base: VM64132
+  server: server_66
+  vm_base: VM66049
   dut:
     - str3-a7060dx5-acs-1
-  inv_name: str
+  inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
 
