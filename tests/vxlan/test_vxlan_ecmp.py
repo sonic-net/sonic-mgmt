@@ -1005,9 +1005,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc9 on tc8.
         '''
-        if self.setup[encap_type].get('tc8_dest', None):
-            return
-
         Logger.info("Pick a vnet for testing.")
         vnet = list(self.setup[encap_type]['vnet_vni_map'].keys())[0]
 
@@ -1046,8 +1043,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc10 on tc9
         '''
-        if self.setup[encap_type].get('tc9_dest', None):
-            return
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
@@ -1108,8 +1103,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc9.2 on tc9
         '''
-        if self.setup[encap_type].get('tc9_dest', None):
-            return
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
@@ -1121,6 +1114,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         tc9_new_dest1 = self.setup[encap_type]['tc8_dest']
         old_nh = \
             self.setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1][0]
+
+        tc9_new_nh = ecmp_utils.get_ip_address(
+        af=ecmp_utils.get_outer_layer_version(encap_type),
+        netid=NEXTHOP_PREFIX)
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = \
+            [tc9_new_nh]
 
         nh1 = None
         nh2 = None
