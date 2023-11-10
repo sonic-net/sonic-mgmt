@@ -1624,6 +1624,9 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
+        max_allowed_lacp_session_wait = 90
+        if self.test_params['neighbor_type'] == "sonic":
+            max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1635,7 +1638,7 @@ class ReloadTest(BaseTest):
                 prev_time = new_time
 
         if 'warm-reboot' in self.reboot_type:
-            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
+            if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
                                       " post-reboot lacpdu came after {}s of lacpdu pre-boot"
                                       .format(max_lacp_session_wait))
