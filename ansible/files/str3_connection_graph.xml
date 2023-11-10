@@ -1264,18 +1264,18 @@
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet136" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet136"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet144" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet144"/>
       <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-01" EndPort="Ethernet152" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet152"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet0" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet0"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet8" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet8"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet16" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet16"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet24" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet24"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet32" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet32"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet40" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet40"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet48" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet48"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet56" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet56"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet64" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet64"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet72" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet72"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet80" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet80"/>
-      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet88" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet88"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet0" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet160"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet8" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet168"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet16" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet176"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet24" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet184"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet32" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet192"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet40" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet200"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet48" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet208"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet56" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet216"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet64" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet224"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet72" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet232"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet80" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet240"/>
+      <DeviceInterfaceLink BandWidth="400000" EndDevice="str3-8101-fanout-04" EndPort="Ethernet88" StartDevice="str3-a7060dx5-acs-1" StartPort="Ethernet248"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet0" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet0"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet4" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet4"/>
       <DeviceInterfaceLink BandWidth="100000" EndDevice="str3-msn4600c-acs-06" EndPort="Ethernet8" StartDevice="str3-msn4600c-acs-05" StartPort="Ethernet8"/>
@@ -2057,11 +2057,11 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet22/1" vlanids="1157-1598,1601-1612"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet24/1" vlanids="1669-1698"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet25/1" vlanids="1157-1796,1801-1928,1929-1992,2025-2088,2143-2270"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet59/1" vlanids="825-832,865-888,2089-2142,2400-2591"/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet44/1" vlanids=""/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet59/1" vlanids="2089-2142,2400-2591"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet44/1" vlanids="825-832,865-888,1701-1764"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet45/1" vlanids=""/>
       <InterfaceVlan mode="Trunk" portname="Ethernet46/1" vlanids=""/>
-      <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids="1701-1764"/>
+      <InterfaceVlan mode="Trunk" portname="Ethernet26/1" vlanids="1701-1762"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet27/1" vlanids="1765-1796,1993-2024"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet32/1" vlanids="1801-1863"/>
       <InterfaceVlan mode="Trunk" portname="Ethernet38/1" vlanids="2089-2142"/>
@@ -2667,7 +2667,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.177/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str3-8101-fanout-05">
-      <InterfaceVlan mode="Trunk" portname="etp31" vlanids="1701-1764"/>
+      <InterfaceVlan mode="Trunk" portname="etp31" vlanids="1701-1762"/>
       <InterfaceVlan mode="Access" portname="Ethernet0" vlanids="1701"/>
       <InterfaceVlan mode="Access" portname="Ethernet4" vlanids="1702"/>
       <InterfaceVlan mode="Access" portname="Ethernet8" vlanids="1703"/>
@@ -4031,7 +4031,7 @@
       <DevicePowerControlInfo Hostname="pdu-90" HwSku="ApcRPDU" ManagementIp="10.3.155.90" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-91" HwSku="Sentry" ManagementIp="10.3.155.91" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-92" HwSku="ApcRPDU" ManagementIp="10.3.155.92" Os="" Protocol="snmp" Type="Pdu"/>
-      <DevicePowerControlInfo Hostname="pdu-93" HwSku="ApcRPDU" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
+      <DevicePowerControlInfo Hostname="pdu-93" HwSku="Sentry" ManagementIp="10.3.155.93" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-94" HwSku="Sentry" ManagementIp="10.3.155.94" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-96" HwSku="Sentry" ManagementIp="10.3.155.96" Os="" Protocol="snmp" Type="Pdu"/>
       <DevicePowerControlInfo Hostname="pdu-97" HwSku="Sentry" ManagementIp="10.3.155.97" Os="" Protocol="snmp" Type="Pdu"/>
