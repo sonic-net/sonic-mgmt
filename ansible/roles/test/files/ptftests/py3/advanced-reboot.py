@@ -1387,7 +1387,7 @@ class ReloadTest(BaseTest):
         for neigh in self.ssh_targets:
             flap_cnt = None
             if self.test_params['neighbor_type'] == "sonic":
-                flap_cnt = self.cli_info[neigh][1]
+                flap_cnt = self.cli_info[neigh]['po'][1]
             else:
                 self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                              if x['mgmt_addr'] == neigh]
