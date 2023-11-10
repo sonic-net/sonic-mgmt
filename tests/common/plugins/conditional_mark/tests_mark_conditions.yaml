@@ -1213,6 +1213,15 @@ telemetry/test_events.py:
       - https://msazure.visualstudio.com/One/_workitems/edit/25280320
 
 #######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+   skip:
+     reason: "Currently only supported in cisco-8000"
+     conditions:
+        - "asic_type not in ['cisco-8000']"
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
