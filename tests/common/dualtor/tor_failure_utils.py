@@ -116,6 +116,7 @@ def reboot_tor(localhost, wait_for_device_reachable, wait_for_mux_container):
         wait_for_device_reachable(duthost)
     for duthost in torhost:
         wait_for_mux_container(duthost)
+        wait_for_pmon_container(duthost)
 
 
 @pytest.fixture
@@ -185,6 +186,26 @@ def wait_for_mux_container(duthost):
             raise Exception("Mux container is not up after {} seconds".format(timeout))
 
     return wait_for_mux_container
+
+
+def check_pmon_container(duthost):
+    output = duthost.shell("docker inspect -f '{{ '{{' }} .State.Status {{ '}}' }}' pmon")['stdout_lines']
+    return "running" in str(output)
+
+
+@pytest.fixture
+def wait_for_pmon_container(duthost):
+    """
+    Returns a function that waits for pmon container to be available on a device
+    """
+
+    def wait_for_pmon_container(duthost, timeout=100, check_interval=1):
+        logger.info("Waiting for pmon container to start on {}".format((duthost.hostname)))
+        if not wait_until(timeout, check_interval, 0, check_pmon_container, duthost):
+            # Could not detect pmon container so raise exception
+            raise Exception("pmon container is not up after {} seconds".format(timeout))
+
+    return wait_for_pmon_container
 
 
 @contextlib.contextmanager
