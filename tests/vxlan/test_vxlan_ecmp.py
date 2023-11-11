@@ -1139,8 +1139,8 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
             self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1][0]
 
         tc9_new_nh = ecmp_utils.get_ip_address(
-        af=ecmp_utils.get_outer_layer_version(encap_type),
-        netid=NEXTHOP_PREFIX)
+            af=ecmp_utils.get_outer_layer_version(encap_type),
+            netid=NEXTHOP_PREFIX)
         self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = \
             [tc9_new_nh]
 
