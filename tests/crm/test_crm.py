@@ -12,10 +12,11 @@ from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from collections import OrderedDict
+from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
+     EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -24,35 +25,9 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-CRM_POLLING_INTERVAL = 1
-CRM_UPDATE_TIME = 10
 SONIC_RES_UPDATE_TIME = 50
 CISCO_8000_ADD_NEIGHBORS = 3000
 ACL_TABLE_NAME = "DATAACL"
-
-THR_VERIFY_CMDS = OrderedDict([
-    ("exceeded_used", "bash -c \"crm config thresholds {{crm_cli_res}}  type used; \
-         crm config thresholds {{crm_cli_res}} low {{crm_used|int - 1}}; \
-         crm config thresholds {{crm_cli_res}} high {{crm_used|int}}\""),
-    ("clear_used", "bash -c \"crm config thresholds {{crm_cli_res}} type used && \
-         crm config thresholds {{crm_cli_res}} low {{crm_used|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_used|int + 1}}\""),
-    ("exceeded_free", "bash -c \"crm config thresholds {{crm_cli_res}} type free && \
-         crm config thresholds {{crm_cli_res}} low {{crm_avail|int - 1}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_avail|int}}\""),
-    ("clear_free", "bash -c \"crm config thresholds {{crm_cli_res}} type free && \
-         crm config thresholds {{crm_cli_res}} low {{crm_avail|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{crm_avail|int + 1}}\""),
-    ("exceeded_percentage", "bash -c \"crm config thresholds {{crm_cli_res}} type percentage && \
-         crm config thresholds {{crm_cli_res}} low {{th_lo|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{th_hi|int}}\""),
-    ("clear_percentage", "bash -c \"crm config thresholds {{crm_cli_res}} type percentage && \
-         crm config thresholds {{crm_cli_res}} low {{th_lo|int}} && \
-         crm config thresholds {{crm_cli_res}} high {{th_hi|int}}\"")
-])
-
-EXPECT_EXCEEDED = ".* THRESHOLD_EXCEEDED .*"
-EXPECT_CLEAR = ".* THRESHOLD_CLEAR .*"
 
 RESTORE_CMDS = {"test_crm_route": [],
                 "test_crm_nexthop": [],
@@ -239,11 +214,6 @@ def get_acl_tbl_key(asichost):
     acl_tbl_key = "CRM:ACL_TABLE_STATS:{0}".format(oid.replace("oid:", ""))
 
     return acl_tbl_key
-
-
-def get_used_percent(crm_used, crm_available):
-    """ Returns percentage of used entries """
-    return crm_used * 100 / (crm_used + crm_available)
 
 
 def verify_thresholds(duthost, asichost, **kwargs):
@@ -441,13 +411,23 @@ def get_entries_num(used, available):
     return ((used + available) // 100) + 1
 
 
-def get_crm_resources_fdb_and_ip_route(duthost):
+def get_crm_resources_fdb_and_ip_route(duthost, asic_ix):
     keys = ['ipv4_route', 'ipv6_route', 'fdb_entry']
     output = duthost.shell("crm show resources all")
     result = {}
+    asic_str = ""
+    asic_matched = False
+
+    if duthost.sonichost.is_multi_asic:
+        asic_str = 'ASIC' + str(asic_ix)
+
     for line in output['stdout_lines']:
         if line:
             line = line.split()
+            if duthost.sonichost.is_multi_asic and asic_matched is False:
+                if line[0] == asic_str:
+                    asic_matched = True
+                continue
             if line[0] in keys:
                 counters = {'used': int(line[1]), 'available': int(line[2])}
                 result[line[0]] = counters
@@ -491,7 +471,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     add_routes_template = Template(add_template)
 
     # Get ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used = crm_stats['fdb_entry']['used']
@@ -518,11 +498,15 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
 
+    check_available_counters = True
+    if duthost.facts['asic_type'] == 'broadcom':
+        check_available_counters = False
+
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_add_route = crm_stats['fdb_entry']['used']
@@ -539,7 +523,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-    if not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+    if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
         for i in range(total_routes):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
@@ -552,7 +536,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     time.sleep(CRM_UPDATE_TIME)
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
-    crm_stats = get_crm_resources_fdb_and_ip_route(duthost)
+    crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
     new_crm_stats_route_used = crm_stats['ipv{}_route'.format(ip_ver)]['used']
     new_crm_stats_route_available = crm_stats['ipv{}_route'.format(ip_ver)]['available']
     crm_stats_fdb_used_after_del_route = crm_stats['fdb_entry']['used']
@@ -564,36 +548,38 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     # Verify "crm_stats_ipv[4/6]_route_used" counter was decremented
     pytest_assert(new_crm_stats_route_used - crm_stats_route_used == 0,
                   "\"crm_stats_ipv{}_route_used\" counter was not decremented".format(ip_ver))
-    # Verify "crm_stats_ipv[4/6]_route_available" counter was incremented
-    pytest_assert(new_crm_stats_route_available - crm_stats_route_available == 0,
-                  "\"crm_stats_ipv{}_route_available\" counter was not incremented".format(ip_ver))
+    if check_available_counters:
+        # Verify "crm_stats_ipv[4/6]_route_available" counter was incremented
+        pytest_assert(new_crm_stats_route_available - crm_stats_route_available == 0,
+                      "\"crm_stats_ipv{}_route_available\" counter was not incremented".format(ip_ver))
 
     used_percent = get_used_percent(new_crm_stats_route_used, new_crm_stats_route_available)
     if used_percent < 1:
         routes_num = get_entries_num(new_crm_stats_route_used, new_crm_stats_route_available)
         if ip_ver == "4":
             routes_list_raw = [str(ipaddress.IPv4Address(u'2.0.0.1') + item) + "/32"
-                for item in range(1, routes_num + 1)]
+                               for item in range(1, routes_num + 1)]
         elif ip_ver == "6":
             routes_list_raw = [str(ipaddress.IPv6Address(u'2001::') + item) + "/128"
-                for item in range(1, routes_num + 1)]
+                               for item in range(1, routes_num + 1)]
         else:
-             pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
+            pytest.fail("Incorrect IP version specified - {}".format(ip_ver))
         # Group commands to avoid command line too long errors
         num_cmds_to_run_at_once = 100
         routes_list_list = [" ".join(routes_list_raw[i:i+num_cmds_to_run_at_once])
-              for i in range(0, len(routes_list_raw), num_cmds_to_run_at_once)]
+                            for i in range(0, len(routes_list_raw), num_cmds_to_run_at_once)]
         # Store CLI command to delete all created neighbours if test case will fail
         for routes_list in routes_list_list:
             RESTORE_CMDS["test_crm_route"].append(
                 del_routes_template.render(routes_list=routes_list,
-                  interface=crm_interface[0],  namespace = asichost.namespace))
+                                           interface=crm_interface[0],
+                                           namespace=asichost.namespace))
 
         # Add test routes entries to correctly calculate used CRM resources in percentage
         for routes_list in routes_list_list:
             duthost.shell(add_routes_template.render(routes_list=routes_list,
-                                             interface=crm_interface[0],
-                                             namespace=asichost.namespace))
+                                                     interface=crm_interface[0],
+                                                     namespace=asichost.namespace))
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries
         time.sleep(SONIC_RES_UPDATE_TIME)
@@ -775,19 +761,19 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
     nhg_del_template = """
         %s
-        ip -4 {{ns_prefix}} route del 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route del 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh del 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh del 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh del 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     nhg_add_template = """
         %s
-        ip -4 {{ns_prefix}} route add 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route add 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route add 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh replace 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh replace 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     add_template = Template(nhg_add_template)
     del_template = Template(nhg_del_template)
@@ -879,44 +865,52 @@ def recreate_acl_table(duthost, ports):
     duthost.shell_cmds(cmds=cmds)
 
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo):
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                   collector, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
+    try:
+        if duthost.facts["asic_type"] == "marvell":
+            # Remove DATA ACL Table and add it again with ports in same port group
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
+            for i in range(4):
+                if i == 0:
+                    ports = ",".join(tmp_ports[17:19])
+                elif i == 1:
+                    ports = ",".join(tmp_ports[24:26])
+                elif i == 2:
+                    ports = ",".join([tmp_ports[20], tmp_ports[25]])
+                recreate_acl_table(duthost, ports)
+                verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_frontend_asic_index, asic_collector, tbinfo)
+                # Rebind DATA ACL at end to recover original config
+                recreate_acl_table(duthost, ports)
+                apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                duthost.command("acl-loader delete")
+        else:
+            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                 enum_frontend_asic_index, asic_collector, tbinfo)
 
-    if duthost.facts["asic_type"] == "marvell":
-        # Remove DATA ACL Table and add it again with ports in same port group
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = mg_facts["minigraph_ports"].keys()
-        tmp_ports.sort(key=lambda x: int(x[8:]))
-        for i in range(4):
-            if i == 0:
-                ports = ",".join(tmp_ports[17:19])
-            elif i == 1:
-                ports = ",".join(tmp_ports[24:26])
-            elif i == 2:
-                ports = ",".join([tmp_ports[20],tmp_ports[25]])
-            recreate_acl_table(duthost, ports)
-            verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
-            # Rebind DATA ACL at end to recover original config
-            recreate_acl_table(duthost, ports)
-            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-            duthost.command("acl-loader delete")
-    else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector)
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
 
-def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, asic_collector):
-    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                         enum_frontend_asic_index, asic_collector, tbinfo):
+    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=2)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
                             crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                            .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
+
     RESTORE_CMDS["crm_threshold_name"] = "acl_entry"
     crm_stats_acl_entry_used = 0
     crm_stats_acl_entry_available = 0
@@ -924,10 +918,8 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Get new "crm_stats_acl_entry" used and available counter value
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
     # Verify "crm_stats_acl_entry_used" counter was incremented
-    pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2,
-                    "\"crm_stats_acl_entry_used\" counter was not incremented")
-
-    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
+    pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 4,
+                  "\"crm_stats_acl_entry_used\" counter was not incremented")
 
     used_percent = get_used_percent(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
     if used_percent < 1:
@@ -942,18 +934,72 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Verify thresholds for "ACL entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
 
-    # Remove ACL
-    duthost.command("acl-loader delete")
+    # Reduce ACL to one rule (plus default)
+    crm_stats_acl_entry_used = 2
+    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=1)
+    if duthost.facts.get("platform_asic", None) == "broadcom-dnx":
+        # Each ACL rule consumes an acl entry per bind point
+        asicAclBindings = set()
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+        # PCs are a single bind point
+        portToLag = {}
+        for lag, lagData in mg_facts["minigraph_portchannels"].items():
+            # Check if Portchannel belongs to this namespace
+            if lagData['namespace'] != asichost.namespace:
+                continue
+            for member in lagData['members']:
+                portToLag[member] = lag
+        aclBindings = mg_facts["minigraph_acls"]["DataAcl"]
+        for port in aclBindings:
+            if port in portToLag:
+                if asichost.portchannel_on_asic(portToLag[port]):
+                    asicAclBindings.add(portToLag[port])
+            else:
+                if asichost.port_on_asic(port):
+                    asicAclBindings.add(port)
+
+        freed_acl_entries = (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
+    else:
+        freed_acl_entries = new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+
+    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + freed_acl_entries
+
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
                             crm_stats_acl_entry_available"\
-                            .format(db_cli=asichost.sonic_db_cli,
-                            acl_tbl_key=acl_tbl_key)
+                            .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
+
     global crm_stats_checker
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
-                                    crm_stats_acl_entry_used,
-                                    crm_stats_acl_entry_available,"==", ">=")
+    if duthost.facts["asic_type"] == "marvell":
+        crm_stats_checker = wait_until(
+            30,
+            5,
+            0,
+            check_crm_stats,
+            get_acl_entry_stats,
+            duthost,
+            crm_stats_acl_entry_used,
+            crm_stats_acl_entry_available,
+            "==",
+            ">=",
+        )
+    else:
+        crm_stats_checker = wait_until(
+            30,
+            5,
+            0,
+            check_crm_stats,
+            get_acl_entry_stats,
+            duthost,
+            crm_stats_acl_entry_used,
+            crm_stats_acl_entry_available,
+        )
+
+    # Remove ACL
+    duthost.command("acl-loader delete")
+
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]

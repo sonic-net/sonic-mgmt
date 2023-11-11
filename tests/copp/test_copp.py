@@ -24,6 +24,7 @@ import logging
 import pytest
 import json
 import random
+import time
 from collections import namedtuple
 
 from tests.copp import copp_utils
@@ -73,7 +74,13 @@ class TestCOPP(object):
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
                                           "SNMP",
-                                          "SSH"])
+                                          "SSH",
+                                          "DHCP",
+                                          "DHCP6",
+                                          "BGP",
+                                          "LACP",
+                                          "LLDP",
+                                          "UDLD"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                      ptfhost, copp_testbed, dut_type):
         """
@@ -81,27 +88,6 @@ class TestCOPP(object):
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
-        """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        _copp_runner(duthost,
-                     ptfhost,
-                     protocol,
-                     copp_testbed,
-                     dut_type)
-
-    @pytest.mark.parametrize("protocol", ["BGP",
-                                          "DHCP",
-                                          "DHCP6",
-                                          "LACP",
-                                          "LLDP",
-                                          "UDLD"])
-    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                        ptfhost, copp_testbed, dut_type):
-        """
-            Validates that non-rate-limited COPP groups work as expected.
-
-            Checks that the policer does not enforce a rate limit for protocols
-            that do not have any set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
@@ -279,7 +265,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "myip": test_params.myip,
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
-              "has_trap": has_trap}
+              "has_trap": has_trap,
+              "hw_sku": dut.facts["hwsku"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
@@ -299,7 +286,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
                params=params,
                relax=None,
                debug_level=None,
-               device_sockets=device_sockets)
+               device_sockets=device_sockets,
+               is_python3=True)
     return True
 
 
@@ -398,6 +386,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
 
     # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
     upStreamDuthost.command("sudo config bgp shutdown all")
+    time.sleep(30)
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
                                test_params.nn_target_namespace, test_params.nn_target_vlanid,

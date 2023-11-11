@@ -13,6 +13,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.system_utils import docker
 from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,37 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac,
     return pkt, exp_tunnel_pkt
 
 
+def get_queue_watermark(duthost, port, queue, clear_after_read=False):
+    """
+    Return the queue watermark for the given port and queue
+    """
+    # Wait a default interval (60 seconds)
+    time.sleep(60)
+    cmd = "show queue watermark unicast"
+    output = duthost.shell(cmd)['stdout_lines']
+    """
+        Egress shared pool occupancy per unicast queue:
+               Port    UC0    UC1    UC2    UC3    UC4    UC5    UC6    UC7
+        -----------  -----  -----  -----  -----  -----  -----  -----  -----
+          Ethernet0      0      0      0      0      0      0      0      0
+    """
+    port_line = None
+    for line in output:
+        if line.split()[0] == port:
+            port_line = line
+            break
+    assert port_line is not None, "Failed to find queue watermark line in output for port '{}'".format(port)
+    items = port_line.split()
+    index = queue + 1
+    assert index < len(items), "Index {} out of range for line:\n{}".format(index, port_line)
+    wmk_str = items[index]
+    assert wmk_str.isdigit(), "Invalid watermark string '{}' in line:\n{}".format(wmk_str, port_line)
+    wmk = int(items[index])
+    if clear_after_read:
+        duthost.shell("sonic-clear queue watermark unicast")
+    return wmk
+
+
 def get_queue_counter(duthost, port, queue, clear_before_read=False):
     """
     Return the counter for given queue in given port
@@ -74,7 +106,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     for line in output:
         fields = line.split()
         if fields[1] == txq:
-            return int(fields[2])
+            return int(fields[2].replace(',', ''))
 
     return 0
 
@@ -101,32 +133,65 @@ def counter_poll_config(duthost, type, interval_ms):
         time.sleep(10)
 
 
-def load_tunnel_qos_map():
+@pytest.fixture(scope='class')
+def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
+    or config DB depending on the ASIC type.
     return a dict
     """
-    TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
+    asic_name = rand_selected_dut.get_asic_name()
+    is_nvidia_platform = asic_name is not None and 'spc' in asic_name
+    if not is_nvidia_platform:
+        TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map.json"
+    else:
+        TUNNEL_QOS_MAP_FILENAME = r"qos/files/tunnel_qos_map_nvidia.json"
     TUNNEL_MAP_NAME = "AZURE_TUNNEL"
+    UPLINK_MAP_NAME = "AZURE_UPLINK"
     MAP_NAME = "AZURE"
+    asic_type = rand_selected_dut.facts["asic_type"]
+    if 'cisco-8000' in asic_type:
+        # Cisco-8000 does not use the tunneled tc to pg map
+        tc_to_pg_map_name = MAP_NAME
+        # Use config DB for maps
+        maps = {}
+        for map_name in dut_qos_maps_module:
+            maps[map_name.upper()] = dut_qos_maps_module[map_name]
+    else:
+        tc_to_pg_map_name = TUNNEL_MAP_NAME
+        # Load maps from file
+        with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
+            maps = json.load(f)
     ret = {}
-    with open(TUNNEL_QOS_MAP_FILENAME, "r") as f:
-        maps = json.load(f)
     # inner_dscp_to_pg map, a map for mapping dscp to priority group at decap side
     ret['inner_dscp_to_pg_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
-        ret['inner_dscp_to_pg_map'][int(k)] = int(
-            maps['TC_TO_PRIORITY_GROUP_MAP'][TUNNEL_MAP_NAME][v])
+    if is_nvidia_platform:
+        for k, v in maps['DSCP_TO_TC_MAP'][UPLINK_MAP_NAME].items():
+            ret['inner_dscp_to_pg_map'][int(k)] = int(
+                maps['TC_TO_PRIORITY_GROUP_MAP'][MAP_NAME][v])
+    else:
+        for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_pg_map'][int(k)] = int(
+                maps['TC_TO_PRIORITY_GROUP_MAP'][tc_to_pg_map_name][v])
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
-        ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
-            maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
+    if 'cisco-8000' in asic_type:
+        for k, v in list(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME].items()):
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(v)
+    else:
+        for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
+            ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
+                maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME][v])
     # inner_dscp_to_queue_map, a map for mapping the tunnel traffic to egress queue at decap side
     ret['inner_dscp_to_queue_map'] = {}
-    for k, v in list(maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items()):
-        ret['inner_dscp_to_queue_map'][int(k)] = int(
-            maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+    if is_nvidia_platform:
+        for k, v in maps['DSCP_TO_TC_MAP'][UPLINK_MAP_NAME].items():
+            ret['inner_dscp_to_queue_map'][int(k)] = int(
+                maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
+    else:
+        for k, v in maps['DSCP_TO_TC_MAP'][TUNNEL_MAP_NAME].items():
+            ret['inner_dscp_to_queue_map'][int(k)] = int(
+                maps['TC_TO_QUEUE_MAP'][MAP_NAME][v])
 
     return ret
 
@@ -147,7 +212,10 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     asic_type = duthost.facts["asic_type"]
-    platform_asic = duthost.facts['platform_asic']
+    if 'platform_asic' in duthost.facts:
+        platform_asic = duthost.facts['platform_asic']
+    else:
+        platform_asic = None
     # Always use the first portchannel member
     lag_port_name = list(mg_facts['minigraph_portchannels'].values())[
         0]['members'][0]
@@ -185,7 +253,7 @@ def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_
         "unselected_tor_mgmt": unselected_tor_mgmt,
         "unselected_tor_mac": unselected_tor_mac,
         "unselected_tor_loopback": unselected_tor_loopback,
-        "port_map_file": ptf_portmap_file_module
+        "port_map_file_ini": ptf_portmap_file_module
     }
 
 
@@ -240,6 +308,30 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
     return qos_configs['qos_params'][dut_asic][dut_topo][profile_name]
 
 
+@pytest.fixture(scope='module', autouse=True)
+def disable_packet_aging(rand_selected_dut, duthosts):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout. Need to disable this
+        before any buffer tests.
+    """
+    for duthost in duthosts:
+        asic = duthost.get_asic_name()
+        if 'spc' in asic:
+            logger.info("Disable Mellanox packet aging")
+            duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+            duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+            duthost.command("docker exec syncd python /packets_aging.py disable")
+
+    yield
+
+    for duthost in duthosts:
+        asic = duthost.get_asic_name()
+        if 'spc' in asic:
+            logger.info("Enable Mellanox packet aging")
+            duthost.command("docker exec syncd python /packets_aging.py enable")
+            duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
     dut_asic = duthost.asic_instance()
     dut_asic.create_ssh_tunnel_sai_rpc()
@@ -252,22 +344,24 @@ def _remove_ssh_tunnel_to_syncd_rpc(duthost):
 
 @pytest.fixture(scope='module')
 def swap_syncd(request, rand_selected_dut, creds):
-    public_docker_reg = request.config.getoption("--public_docker_registry")
-    new_creds = None
-    if public_docker_reg:
-        new_creds = copy.deepcopy(creds)
-        new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
-        new_creds['docker_registry_username'] = ''
-        new_creds['docker_registry_password'] = ''
-    else:
-        new_creds = creds
-    # Swap syncd container
-    docker.swap_syncd(rand_selected_dut, new_creds)
-    _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        public_docker_reg = request.config.getoption("--public_docker_registry")
+        new_creds = None
+        if public_docker_reg:
+            new_creds = copy.deepcopy(creds)
+            new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+            new_creds['docker_registry_username'] = ''
+            new_creds['docker_registry_password'] = ''
+        else:
+            new_creds = creds
+        # Swap syncd container
+        docker.swap_syncd(rand_selected_dut, new_creds)
+        _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
     yield
-    # Restore syncd container
-    docker.restore_default_syncd(rand_selected_dut, new_creds)
-    _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        # Restore syncd container
+        docker.restore_default_syncd(rand_selected_dut, new_creds)
+        _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
 
 
 def _update_docker_service(duthost, docker="", action="", service=""):
@@ -431,7 +525,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
             "--log-file",
             "/tmp/{0}.log".format(test_case),
             "--test-case-timeout",
-            "600"
+            "1200"
         ],
         chdir="/root",
     )["rc"] == 0, "Failed when running test '{0}'".format(test_case))

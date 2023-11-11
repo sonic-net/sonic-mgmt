@@ -19,6 +19,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +129,7 @@ class AdvancedReboot:
         self.postRebootCheckScript = self.request.config.getoption("--post_reboot_check_script")
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
+        self.neighborType = self.request.config.getoption("--neighbor_type")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -569,6 +572,9 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
                 self.__verifyRebootOper(rebootOper)
+                if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
+                    test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
+                                                        self.duthost.hostname)
                 if self.postboot_setup:
                     self.postboot_setup()
             except Exception:
@@ -636,6 +642,9 @@ class AdvancedReboot:
             'peer_dev_info': copy.deepcopy(self.mgFacts['minigraph_devices']),
             'neigh_port_info': copy.deepcopy(self.mgFacts['minigraph_neighbors']),
         }
+
+        if "warm-reboot" in self.rebootType:
+            event_counters["PORT_READY"] = 0
 
         if self.dual_tor_mode:
             dualtor_testData = {
@@ -710,6 +719,7 @@ class AdvancedReboot:
                             ._hostvars[self.duthost.hostname].get("ansible_altpassword"),
             "service_list": None if self.rebootType != 'service-warm-restart' else self.service_list,
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
+            "neighbor_type": self.neighborType,
         }
 
         if self.dual_tor_mode:
@@ -750,7 +760,8 @@ class AdvancedReboot:
             params=params,
             log_file='/tmp/advanced-reboot.ReloadTest.log',
             module_ignore_errors=self.moduleIgnoreErrors,
-            timeout=REBOOT_CASE_TIMEOUT
+            timeout=REBOOT_CASE_TIMEOUT,
+            is_python3=True
         )
 
         return result
@@ -805,11 +816,25 @@ class AdvancedReboot:
             wait=300
         )
 
+    def __checkWarmbootFlag(self, duthost):
+        """
+            Checks if warm-reboot system flag is set to false.
+        """
+        warmbootFlag = duthost.shell(
+            cmd='sonic-db-cli STATE_DB hget "WARM_RESTART_ENABLE_TABLE|system" enable')['stdout']
+        logger.info("warmbootFlag: " + warmbootFlag)
+        return warmbootFlag != 'true'
+
     def tearDown(self):
         """
         Tears down test case. It also verifies that config_db.json exists.
         """
         logger.info('Running test tear down')
+        if 'warm-reboot' in self.rebootType:
+            if not wait_until(300, 10, 0, self.__checkWarmbootFlag, self.duthost):
+                logger.info('Setting warm-reboot system flag to false')
+                self.duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+
         if 'warm-reboot' in self.rebootType and self.newSonicImage is not None:
             logger.info('Save configuration after warm rebooting into new image')
             self.duthost.shell('config save -y')

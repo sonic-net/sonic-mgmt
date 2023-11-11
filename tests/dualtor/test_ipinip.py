@@ -203,17 +203,18 @@ def setup_uplink(rand_selected_dut, tbinfo):
     # Update the LAG if it has more than one member
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
-        cmds = [
-            # Update min_links
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel),
-            # Remove 1 portchannel member
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),
-            # Unmask the service
-            "systemctl unmask teamd",
-            # Resart teamd
-            "systemctl restart teamd"
-        ]
+        # Update min_links
+        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        rand_selected_dut.shell(min_link_cmd)
+        # Delete to min_links
+        cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
+        # Ensure delete to complete before restarting service
+        time.sleep(5)
+        # Unmask the service
+        rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Restart teamd
+        rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
 
@@ -247,7 +248,9 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     The mirror session is to trigger the issue. No packet is mirrored actually.
     """
     session_name = "dummy_session"
-    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 1234 0".format(session_name)
+    # Nvidia platforms support only the gre_type 0x8949, which is 35145 in decimal.
+    gre_type = 35145 if "mellanox" == rand_selected_dut.facts['asic_type'] else 1234
+    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 {} 0".format(session_name, gre_type)
     rand_selected_dut.shell(cmd=cmd)
     uplink_port_id = setup_uplink
     yield uplink_port_id

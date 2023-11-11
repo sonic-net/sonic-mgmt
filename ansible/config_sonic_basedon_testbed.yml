@@ -38,7 +38,7 @@
   - block:
     - name: set default testbed file
       set_fact:
-        testbed_file: testbed.csv
+        testbed_file: testbed.yaml
       when: testbed_file is not defined
 
     - name: Gathering testbed information
@@ -64,6 +64,10 @@
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
+    - name: check if testbed is an ixia testbed
+      set_fact:
+        is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
 
     - name: set vm
       set_fact:
@@ -197,7 +201,7 @@
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
-    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1)"
+    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
 
   - name: set default vm file path
     set_fact:
