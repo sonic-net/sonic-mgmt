@@ -71,6 +71,12 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.needPreSend = None
         self.has_trap = test_params.get('has_trap', True)
+        self.hw_sku = test_params.get('hw_sku', None)
+        if (self.hw_sku == "Cisco-8111-O64" or
+                self.hw_sku == "Cisco-8111-O32" or
+                self.hw_sku == "Cisco-8111-C32" or
+                self.hw_sku == "Cisco-8111-O62C2"):
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

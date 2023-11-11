@@ -20,6 +20,7 @@ from tests.common.utilities import InterruptableThread
 from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -815,11 +816,25 @@ class AdvancedReboot:
             wait=300
         )
 
+    def __checkWarmbootFlag(self, duthost):
+        """
+            Checks if warm-reboot system flag is set to false.
+        """
+        warmbootFlag = duthost.shell(
+            cmd='sonic-db-cli STATE_DB hget "WARM_RESTART_ENABLE_TABLE|system" enable')['stdout']
+        logger.info("warmbootFlag: " + warmbootFlag)
+        return warmbootFlag != 'true'
+
     def tearDown(self):
         """
         Tears down test case. It also verifies that config_db.json exists.
         """
         logger.info('Running test tear down')
+        if 'warm-reboot' in self.rebootType:
+            if not wait_until(300, 10, 0, self.__checkWarmbootFlag, self.duthost):
+                logger.info('Setting warm-reboot system flag to false')
+                self.duthost.shell(cmd='sonic-db-cli STATE_DB hset "WARM_RESTART_ENABLE_TABLE|system" enable false')
+
         if 'warm-reboot' in self.rebootType and self.newSonicImage is not None:
             logger.info('Save configuration after warm rebooting into new image')
             self.duthost.shell('config save -y')
