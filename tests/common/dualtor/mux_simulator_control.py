@@ -401,14 +401,20 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
     return _get_active_torhost
 
 
-def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
+def _toggle_all_simulator_ports(mux_server_url, side, tbinfo, retries=1):
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
+    toggle_success = False
+    for retry in range(retries):
+        logger.info("Retry=%d, toggle all mux cables to %s side", retry + 1, side)
+        toggle_success = _post(mux_server_url, data)
+        if toggle_success:
+            break
+    pytest_assert(toggle_success, "Failed to toggle all ports to '{}'".format(side))
 
 
 @pytest.fixture(scope='module')
@@ -740,7 +746,7 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
-    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
+    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo, retries=3)
     upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']
