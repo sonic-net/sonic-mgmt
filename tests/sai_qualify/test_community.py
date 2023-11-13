@@ -1,3 +1,7 @@
+import logging
+import pytest
+import time
+
 from sai_infra import *
 from conftest import *
 from cases_community import *
@@ -9,13 +13,12 @@ pytestmark = [
 ]
 
 
-
 @pytest.mark.parametrize("community_test_case", TEST_CASE)
 def test_sai(
     sai_testbed, sai_community_test_env_check, creds, duthost, ptfhost, community_test_case, request, create_sai_test_interface_param):
     """
     Trigger the community test here.
-    
+
     Args:
         sai_testbed: Fixture which can help prepare the sai testbed.
         sai_community_test_env_check: Fixture, use to check the test env.
@@ -32,8 +35,8 @@ def test_sai(
         sai_test_interface_para = create_sai_test_interface_param
         run_case_from_ptf(duthost, dut_ip, ptfhost, community_test_case, sai_test_interface_para, request)
     except BaseException as e:
-        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(community_test_case, e))               
-        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
+        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(community_test_case, e))
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
         pytest.fail("Test case [{}] failed".format(community_test_case), e)
     finally:
         store_test_result(ptfhost)
@@ -47,7 +50,7 @@ def sai_community_test_env_check(creds, duthost, ptfhost, request, create_sai_te
     This check has three stage:
     1. If the liveness check test failed, then it will make a environment reset.
     2. If the envvironment reset failed with attempts, then the test environment will be marked as failed.
-    3. If environment marked as failed, this check will be failed in following round of check. 
+    3. If environment marked as failed, this check will be failed in following round of check.
 
     Args:
         creds (dict): Credentials used to access the docker registry.
@@ -78,9 +81,9 @@ def check_commun_test_env_with_retry(creds, duthost, ptfhost, request, create_sa
     for retry in range(SAI_TEST_ENV_RESET_TIMES):
         try:
             sai_test_interface_para = create_sai_test_interface_param
-            sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request, sai_test_interface_para)   
+            sai_test_container_liveness_check(duthost, ptfhost, PROBE_TEST_CASE, request, sai_test_interface_para)
             break
-        except BaseException as e:  
+        except BaseException as e:
             logger.info("Run test env check failed, reset the env, retry: [{}/{}], failed as {}.".format(retry + 1, SAI_TEST_ENV_RESET_TIMES, e))
             if retry + 1 < SAI_TEST_ENV_RESET_TIMES:
                 reset_sai_test_dut(duthost, creds, request)

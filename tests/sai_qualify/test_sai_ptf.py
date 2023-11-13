@@ -1,3 +1,6 @@
+import logging
+import pytest
+
 from conftest import *
 from sai_infra import *
 from cases_sai_ptf import *
@@ -33,8 +36,8 @@ def test_sai(
         if request.config.option.always_stop_sai_test_container:
             stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
     except BaseException as e:
-        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(ptf_sai_test_case, e))               
-        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
+        logger.info("Test case [{}] failed, trying to restart sai test container, failed as {}.".format(ptf_sai_test_case, e))
+        stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
         pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
     finally:
         store_test_result(ptfhost)
