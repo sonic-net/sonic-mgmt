@@ -385,7 +385,7 @@ stages:
 
           - task: Bash@3
             displayName: Deploy Minigraph
-            timeoutInMinutes: 30
+            timeoutInMinutes: 60
             inputs:
               targetType: 'inline'
               script: |
