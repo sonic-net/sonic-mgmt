@@ -225,11 +225,10 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
 
         chan.send(commands[i])
         print(f"Running command '{commands[i]}'")
-        buff = ''
-        while not buff.endswith(':~$ '):
-            resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+        resp = ''
+        while ':~$' not in resp:
+            resp = chan.recv(9999).decode("ascii")
+            print(resp)
         time.sleep(3)
         if chan.recv_ready():
             print(chan.recv(9999).decode("ascii"))
