@@ -332,6 +332,9 @@ class DHCPTopoT1Test(PolicyTest):
 class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        self.PPS_LIMIT = 300
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCPTest")
@@ -366,6 +369,9 @@ class DHCPTest(PolicyTest):
 class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        self.PPS_LIMIT = 300
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -419,6 +425,9 @@ class DHCP6TopoT1Test(PolicyTest):
 class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        self.PPS_LIMIT = 300
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("LLDPTest")
@@ -440,6 +449,9 @@ class LLDPTest(PolicyTest):
 class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        self.PPS_LIMIT = 300
+        self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+        self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("UDLDTest")
