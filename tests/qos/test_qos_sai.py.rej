@@ -1,0 +1,32 @@
+diff a/tests/qos/test_qos_sai.py b/tests/qos/test_qos_sai.py	(rejected hunks)
+@@ -39,7 +39,6 @@
+ from tests.common.helpers.pfc_storm import PFCStorm
+ from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+ from .qos_sai_base import QosSaiBase
+-from tests.common.cisco_data import get_markings_dut, setup_markings_dut
+ from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
+     get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
+ from tests.common.utilities import get_ipv4_loopback_ip
+@@ -1051,10 +1100,10 @@ def testQosSaiLossyQueue(
+             testParams=testParams
+         )
+ 
+-    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
++    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
+     def testQosSaiLossyQueueVoq(
+         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+-            ingressLossyProfile, duthost, localhost, singleMemberPortStaticRoute, get_src_dst_asic_and_duts,
++            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
+             skip_src_dst_different_asic
+     ):
+         """
+@@ -1923,7 +1964,8 @@ def testQosSaiDwrrWeightChange(
+     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
+     def testQosSaiQWatermarkAllPorts(
+         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+-        resetWatermark, _skip_watermark_multi_DUT, skip_pacific_dst_asic
++        get_src_dst_asic_and_duts, resetWatermark, _skip_watermark_multi_DUT,
++        skip_pacific_dst_asic, dut_qos_maps    # noqa F811
+     ):
+         """
+             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
