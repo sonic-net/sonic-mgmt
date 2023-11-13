@@ -1884,8 +1884,8 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, _skip_watermark_multi_DUT,
-        skip_pacific_dst_asic, dut_qos_maps,
-        resetWatermark, _skip_watermark_multi_DUT    # noqa F811
+        skip_pacific_dst_asic, dut_qos_maps,  # noqa F811
+        resetWatermark
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
