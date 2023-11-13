@@ -1042,10 +1042,7 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
 
-        if 'dualtor' in tbinfo['topo']['name']:
-            duthost_upper = upper_tor_host
-
-        def updateDockerService(host, docker="", action="", service=""):
+        def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
             """
                 Helper function to update docker services
 
@@ -1085,7 +1082,7 @@ class QosSaiBase(QosBase):
             except:
                 pytest.skip('file {} not found'.format(file))
 
-            duthost_upper.shell('sudo config feature state mux disabled')
+            upper_tor_host.shell('sudo config feature state mux disabled')
             lower_tor_host.shell('sudo config feature state mux disabled')
 
         src_services = [
@@ -1109,8 +1106,8 @@ class QosSaiBase(QosBase):
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
-            disable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
+            disable_container_autorestart(
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
@@ -1129,25 +1126,25 @@ class QosSaiBase(QosBase):
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-           try:
+            try:
 
-               lower_tor_host.shell("ls %s" % backup_file)
-               lower_tor_host.shell("sudo cp {} {}".format(backup_file,file))
-               lower_tor_host.shell("sudo chmod +x {}".format(file))
-               lower_tor_host.shell("sudo rm {}".format(backup_file))
-           except:
-               pytest.skip('file {} not found'.format(backup_file))
+                lower_tor_host.shell("ls %s" % backup_file)
+                lower_tor_host.shell("sudo cp {} {}".format(backup_file,file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
+                lower_tor_host.shell("sudo rm {}".format(backup_file))
+            except:
+                pytest.skip('file {} not found'.format(backup_file))
 
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           logger.info("Start mux container for dual ToR testbed")
+            lower_tor_host.shell('sudo config feature state mux enabled')
+            upper_tor_host.shell('sudo config feature state mux enabled')
+            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
+            enable_container_autorestart(
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, get_src_dst_asic_and_duts, loganalyzer):
