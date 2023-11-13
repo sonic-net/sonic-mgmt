@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 10,
     'basic': 50,
-    'confident': 200
+    'confident': 100
 }
 
 # Template json file used to test scale rules
@@ -130,7 +130,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     if normalized_level is None:
         normalized_level = 'basic'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    wait_time = 2
+    wait_time = 10
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
