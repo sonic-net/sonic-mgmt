@@ -63,6 +63,8 @@ class QosParamCisco(object):
         if not self.supports_autogen:
             return self.qos_params
         self.__define_shared_reservation_size()
+        if not self.supports_autogen:
+            return self.qos_params
         self.__define_pfc_xoff_limit()
         self.__define_pfc_xon_limit()
         self.__define_pg_shared_watermark()
