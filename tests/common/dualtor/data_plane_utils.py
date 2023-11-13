@@ -1,7 +1,10 @@
 import pytest
 import json
+import os.path
+import re
 import time
 import random
+import shutil
 
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa F401
@@ -209,7 +212,31 @@ def cleanup(ptfadapter, duthosts_list):
 
 
 @pytest.fixture
-def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):       # noqa F811
+def save_pcap(request, pytestconfig):
+    """Save pcap file to the log directory."""
+
+    yield
+
+    pcap_file = "/tmp/capture.pcap"
+    local_pcap_file_template = "%s_dump.pcap"
+    if os.path.isfile(pcap_file):
+        test_log_file = pytestconfig.getoption("log_file", None)
+        if test_log_file:
+            log_dir = os.path.dirname(os.path.abspath(test_log_file))
+            # Remove any illegal characters from the test name
+            local_pcap_filename = local_pcap_file_template % re.sub(r"[^\w\s-]", "_", request.node.name)
+            local_pcap_filename = re.sub(r'[_\s]+', '_', local_pcap_filename)
+            pcap_file_dst = os.path.join(log_dir, local_pcap_filename)
+            logging.debug("Save dualtor-io pcap file to %s", pcap_file_dst)
+            shutil.copyfile(src=pcap_file, dst=pcap_file_dst)
+        else:
+            logging.info("Skip saving pcap file to log directory as log directory not set.")
+    else:
+        logging.warn("No pcap file found at {}".format(pcap_file))
+
+
+@pytest.fixture
+def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost, save_pcap):       # noqa F811
     """
     Starts IO test from T1 router to server.
     As part of IO test the background thread sends and sniffs packets.
@@ -274,7 +301,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
 
 @pytest.fixture
-def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):   # noqa F811
+def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost, save_pcap):   # noqa F811
     """
     Starts IO test from server to T1 router.
     As part of IO test the background thread sends and sniffs packets.
@@ -339,7 +366,7 @@ def send_server_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
 
 
 @pytest.fixture
-def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):      # noqa F811
+def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost, save_pcap):      # noqa F811
 
     arp_setup(ptfhost)
 
@@ -363,7 +390,7 @@ def send_soc_to_t1_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type
 
 
 @pytest.fixture
-def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):      # noqa F811
+def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost, save_pcap):      # noqa F811
 
     arp_setup(ptfhost)
 
@@ -405,7 +432,7 @@ def select_test_mux_ports(active_active_ports, active_standby_ports):           
 
 
 @pytest.fixture
-def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost):   # noqa F811
+def send_server_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_type, vmhost, save_pcap):   # noqa F811
 
     arp_setup(ptfhost)
 
