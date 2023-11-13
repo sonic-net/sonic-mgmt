@@ -58,7 +58,11 @@ def common_setup_teardown(ptfhost, duthosts):
     # the test_lag will suffer from the monit alert, so let's config reload the
     # device here to reduce any potential impact.
     parallel_run_threaded(
-        target_functions=[lambda duthost=_: config_reload(duthost) for _ in duthosts],
+        target_functions=[
+            lambda duthost=_: config_reload(
+                duthost, config_source='running_golden_config'
+            ) for _ in duthosts
+        ],
         timeout=300
     )
 
