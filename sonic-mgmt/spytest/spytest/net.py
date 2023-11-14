@@ -5816,6 +5816,8 @@ class Net(object):
         if opts.ctype == "click" and opts.exec_mode is not None:
             if opts.exec_mode.startswith("mgmt"):
                 opts.ctype = "klish"
+            elif opts.exec_mode.startswith("vtysh-multi-asic"): 
+                opts.ctype = "vtysh-multi-asic" 
             elif opts.exec_mode.startswith("vtysh"):
                 opts.ctype = "vtysh"
             elif opts.exec_mode.startswith("lldp"):

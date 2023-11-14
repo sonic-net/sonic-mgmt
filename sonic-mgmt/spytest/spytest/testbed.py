@@ -16,6 +16,7 @@ from spytest.st_time import get_timenow
 from spytest.st_time import get_elapsed
 
 import utilities.common as utils
+#from utilities.profile import get_cache, set_cache
 from utilities.cache import get_cache, set_cache
 
 testbeds_root = os.path.join(os.path.dirname(__file__), '..')
@@ -214,7 +215,9 @@ class Testbed(object):
                 else:
                     retval["access_model"] = "{}_terminal".format(device_model)
                 retval["device_model"] = device_model
+
                 return retval
+
         return None
 
     def get_device_info(self, name, dtype=None):
@@ -726,7 +729,6 @@ class Testbed(object):
                 self._override_values(value, dst[name])
             elif isinstance(dst[name], list):
                 print("TODO list update {} - {}".format(name, value))
-                # import pdb;pdb.set_trace()
             else:
                 # print("leaf {} - {}".format(name, value))
                 dst[name] = value
@@ -819,6 +821,7 @@ class Testbed(object):
 
             for profile in self.get_all_profiles():
                 self._init_topology(profile)
+
             return True
 
         except Exception:
@@ -1533,43 +1536,50 @@ class Testbed(object):
         return ",".join(retval) if retval else "D1"
 
     def get_platform_type(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
             if dut1 == dut:
                 return dinfo.platform_type
         return None
     
     def get_rp_ip_address(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
+        #for dut, dinfo in self.topology.devices.items():
             if dut1 == dut:
                 return dinfo.rpip
         return None
 
     def get_build_commit_hash(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
             if dut1 == dut:
                 return dinfo.build_commit_hash
         return None
 
     def get_build_time(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+       # for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
             if dut1 == dut:
                 return dinfo.build_time
         return None
 
     def get_sdk_version(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
             if dut1 == dut:
                 return dinfo.sdk_version
         return None
 
     def get_username(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items(): 
             if dut1 == dut:
                 return dinfo.credentials.username
         return None
 
     def get_password(self,dut1):
-        for dut, dinfo in self.topology.devices.items():
+        #for dut, dinfo in self.topology.devices.items():
+        for dut, dinfo in self.topologies[self.current_topo_index]['devices'].items():
             if dut1 == dut:
                 return dinfo.credentials.password
         return None
