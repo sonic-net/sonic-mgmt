@@ -19,8 +19,6 @@ all:
           ansible_host: 10.64.247.36
         vms61-3:
           ansible_host: 10.64.246.148
-        vms61-4:
-          ansible_host: 10.64.246.37
         vms61-5:
           ansible_host: 10.64.247.37
         vms61-6:
@@ -63,6 +61,8 @@ all:
           ansible_host: 10.64.247.69
         vms68-1:
           ansible_host: 10.64.247.51
+        vms68-2:
+          ansible_host: 10.64.246.37
 
     pdu:
       hosts:
