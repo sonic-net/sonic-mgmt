@@ -1627,6 +1627,7 @@ class QosSaiBase(QosBase):
             Update ARP entries of QoS SAI test ports
 
             Args:
+                duthost (AnsibleHost): Device Under Test (DUT)
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
