@@ -451,6 +451,15 @@ class SonicHost(AnsibleHostBase):
 
         return len(status["stdout_lines"]) > 1
 
+    def is_host_service_running(self, service):
+        """
+        Check if the specified service is running or not
+        @param service: Service name
+        @return: True if specified service is running, else False
+        """
+        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        return "active (running)" in service_status['stdout']
+
     def critical_services_status(self):
         # Initialize service status
         services = {}
@@ -485,8 +494,7 @@ class SonicHost(AnsibleHostBase):
                  and service type.
         """
         monit_services_status = {}
-
-        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=False)
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=True)
 
         exit_code = services_status_result["rc"]
         if exit_code != 0:
@@ -1607,7 +1615,7 @@ Totals               6450                 6449
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host=self.hostname, namespace=namespace)['ansible_facts']
-        mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+        mg_facts['minigraph_ptf_indices'] = {}
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indices from
@@ -2190,6 +2198,13 @@ Totals               6450                 6449
                             raise ValueError('Got invalid packets count "{}" for {}|{}'
                                              .format(acl_table_name, acl_rule_name, rule['packets count']))
         raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
+
+    def get_port_counters(self, in_json=True):
+        cli = "portstat"
+        if in_json:
+            cli += " -j"
+        res = self.shell(cli)['stdout']
+        return re.sub(r"Last cached time was.*\d+\n", "", res)
 
     def remove_acl_table(self, acl_table):
         """
