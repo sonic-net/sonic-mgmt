@@ -328,11 +328,11 @@ class DHCPTopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for DHCP
+# SONIC config contains policer CIR=100 for DHCP
 class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        self.PPS_LIMIT = 300
+        self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
         self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -365,11 +365,11 @@ class DHCPTest(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for DHCPv6
+# SONIC config contains policer CIR=100 for DHCPv6
 class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        self.PPS_LIMIT = 300
+        self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
         self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -421,11 +421,11 @@ class DHCP6TopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for LLDP
+# SONIC config contains policer CIR=100 for LLDP
 class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        self.PPS_LIMIT = 300
+        self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
         self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
@@ -445,11 +445,11 @@ class LLDPTest(PolicyTest):
         return packet
 
 
-# SONIC config contains policer CIR=300 for UDLD
+# SONIC config contains policer CIR=100 for UDLD
 class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
-        self.PPS_LIMIT = 300
+        self.PPS_LIMIT = 100
         self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
         self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
