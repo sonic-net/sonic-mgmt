@@ -24,7 +24,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms61-dual-mixed-8102
+    default: vms61-dual-t0-8102
     displayName: "Testbed Name"
 
   # Upgrade parameters

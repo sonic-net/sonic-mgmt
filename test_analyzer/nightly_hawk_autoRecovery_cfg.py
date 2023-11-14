@@ -8,7 +8,7 @@ skip_testbeds_list = [
     '-t2-',
     'testbed-bjw-can-720dt-3',
     'testbed-bjw-can-7050qx-2',
-    'vms61-dual-mixed-8102'
+    'vms61-dual-t0-8102'
 ]
 
 curr_convert_to_trusty_images_dict = {
