@@ -38,6 +38,11 @@ parameters:
     type: string
     default: '-S ""'
     displayName: Testbed specific
+  
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880
 
   # Custom skip scripts
   - name: SKIP_SCRIPTS
