@@ -9,16 +9,19 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+NAMESPACE_PREFIX = "sudo ip netns exec {} "
 
-def clear_queue_counters(duthost):
-    duthost.shell("sonic-clear queuecounters")
+def clear_queue_counters(duthost, namespace):
+    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+    duthost.shell(CMD_PREFIX + "sonic-clear queuecounters")
 
 
-def get_queue_counters(duthost, port, queue):
+def get_queue_counters(duthost, port, queue, namespace):
     """
     Return the counter for a given queue in given port
     """
-    cmd = "show queue counters {}".format(port)
+    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+    cmd = CMD_PREFIX + "show queue counters {}".format(port)
     output = duthost.shell(cmd)['stdout_lines']
     txq = "UC{}".format(queue)
     for line in output:
@@ -30,7 +33,8 @@ def get_queue_counters(duthost, port, queue):
 
 def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
     duthost = duthosts[enum_frontend_dut_hostname]
-    clear_queue_counters(duthost)
+    namespace = duthost.get_namespace_from_asic_id(enum_asic_index) if duthost.is_multi_asic else ''
+    clear_queue_counters(duthost, namespace)
     time.sleep(10)
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -38,8 +42,10 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     arp_dict = {}
     ndp_dict = {}
     processed_intfs = set()
-    show_arp = duthost.command('show arp')
-    show_ndp = duthost.command('show ndp')
+
+    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+    show_arp = duthost.command(CMD_PREFIX + 'show arp')
+    show_ndp = duthost.command(CMD_PREFIX + 'show ndp')
     for arp_entry in show_arp['stdout_lines']:
         items = arp_entry.split()
         if (len(items) != 4):
@@ -69,9 +75,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert(get_queue_counters(duthost, port, q) == 0)
+                        assert(get_queue_counters(duthost, port, q, namespace) == 0)
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert(get_queue_counters(duthost, ifname, q) == 0)
+                    assert(get_queue_counters(duthost, ifname, q, namespace) == 0)
             processed_intfs.add(ifname)
