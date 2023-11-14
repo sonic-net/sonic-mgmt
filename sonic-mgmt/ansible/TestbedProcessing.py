@@ -298,6 +298,74 @@ def makeTestbed(data, outfile):
     except IOError:
         print("I/O error: issue creating testbed.yaml")
 
+def makeTestbedYaml(data, outfile):
+    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment"
+    topology = data
+    csv_file = outfile
+    result = dict()
+
+    for group, groupDetails in topology.items():
+        confName = group
+        groupName = groupDetails.get("group-name")
+        topo = groupDetails.get("topo")
+        ptf_image_name = groupDetails.get("ptf_image_name")
+        ptf_ip = groupDetails.get("ptf_ip")
+        ptf_ipv6 = groupDetails.get("ptf_ipv6")
+        server = groupDetails.get("server")
+        vm_base = groupDetails.get("vm_base")
+        dut = groupDetails.get("dut")
+        ptf = groupDetails.get("ptf")
+        comment = groupDetails.get("comment")
+
+        # catch empty types
+        if not groupName:
+            groupName = ""
+        if not topo:
+            topo = ""
+        if not ptf_image_name:
+            ptf_image_name = ""
+        if not ptf_ip:
+            ptf_ip = ""
+        if not ptf_ipv6:
+            ptf_ipv6 = ""
+        if not server:
+            server = ""
+        if not vm_base:
+            vm_base = ""
+        if not dut:
+            dut = ""
+        if not ptf:
+            ptf = ""
+        if not comment:
+            comment = ""
+        dutDict = dict()
+        # dut is a list for multi-dut testbed, convert it to string
+        #if type(dut) is not str:
+        #    dut = dut.__str__()
+        for d in dut:
+            dutDict.update({dut: d})
+
+        #dut = dut.replace(",", ";")
+        #dut = dut.replace(" ", "")
+
+        result.update({'conf-name': confName,
+                       'group-name': groupName,
+                       "topo": topo,
+                       "ptf_image_name": ptf_image_name,
+                       "ptf": ptf,
+                       "ptf_ip": ptf_ip,
+                       "ptf_ipv6": ptf_ipv6,
+                       "server": server,
+                       "vm_base": vm_base,
+                       "dut": dutDict,
+                       "inv_name": "lab",
+                       "auto_recover": "'True'",
+                       "comment": comment})
+
+        with open(outfile, "w") as toWrite:
+            yaml.dump(result, stream=toWrite, default_flow_style=False)
+
+
 
 """
 makeSonicLabLinks(data, outfile)
@@ -997,7 +1065,7 @@ def main():
     # Load Data
     print("LOADING PROCESS STARTED")
     print("LOADING: " + args.i)
-    doc = yaml.load(open(args.i, 'r'))
+    doc = yaml.load(open(args.i, 'r'), Loader=yaml.FullLoader)
     # dictionary contains information about devices
     devices = dict()
     generateDictionary(doc, devices, "devices")             # load devices

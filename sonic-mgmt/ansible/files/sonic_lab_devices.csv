@@ -1,5 +1,5 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 sonic-ucs-m3-2,1.74.23.19,,blank,ssh,ubuntu
-nexus-5,1.74.23.8,C9336C-FX2,fanout,ssh,nxos
-mathilda-01,1.74.23.17/16,36x100Gb,DevSonic,ssh,sonic
-
+docker-ptf,192.168.122.133/24,,blank,
+mathilda-01,192.168.122.42,Cisco-8102-C64,DevSonic,
+nexus-5,10.251.0.13/23,Arista-7260QX-64,FanoutLeaf,
