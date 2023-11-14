@@ -336,6 +336,47 @@ def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
 
 
+def check_show_platform_sensor_output(cmd, duthost):
+    """
+    @summary: Run and verify output of `show platform [voltage|current]`. Expected output
+              is "Sensor Not detected" or a table of sensor status data with 8 columns.
+    """
+    num_expected_clos = 8
+
+    logging.info("Verifying output of '{}' on '{}'...".format(cmd, duthost.hostname))
+    raw_output_lines = duthost.command(cmd)["stdout_lines"]
+
+    pytest_assert(len(raw_output_lines) > 0, "There must be at least one line of output on '{}'".format(hostname))
+    if len(raw_output_lines) == 1:
+        pytest_assert(raw_output_lines[0].strip() == "Sensor Not detected",
+                      "Unexpected sensor status output on '{}'".format(hostname))
+    else:
+        pytest_assert(len(raw_output_lines) > 2,
+                      "There must be at least two lines of output if any sensor is detected on '{}'".format(hostname))
+        second_line = raw_output_lines[1]
+        field_ranges = util.get_field_range(second_line)
+        pytest_assert(len(field_ranges) == num_expected_clos, "Output should consist of {} columns on '{}'".
+                      format(num_expected_clos, hostname))
+
+
+def test_show_platform_voltage(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform voltage`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = " ".join([CMD_SHOW_PLATFORM, "voltage"])
+    check_show_platform_sensor_output(cmd, duthost):
+
+
+def test_show_platform_current(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of `show platform current`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = " ".join([CMD_SHOW_PLATFORM, "current"])
+    check_show_platform_sensor_output(cmd, duthost):
+
+
 def verify_show_platform_temperature_output(raw_output_lines, hostname):
     """
     @summary: Verify output of `show platform temperature`. Expected output is
