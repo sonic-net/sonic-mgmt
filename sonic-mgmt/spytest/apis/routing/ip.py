@@ -29,7 +29,7 @@ try:
     from apis.yang.utils.common import Operation
 
 except ImportError:
-    pass    
+    pass
 
 # below  time_out is for Rest/Gnmi url timeout
 time_out = 125
