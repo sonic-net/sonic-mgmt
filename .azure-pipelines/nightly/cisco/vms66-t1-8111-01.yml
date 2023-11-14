@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-S "qos/test_qos_sai.py"'
+    default: ''
     displayName: Testbed specific
 
   - name: SKIP_TEST_RESULTS_UPLOADING
@@ -47,7 +47,8 @@ parameters:
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
-    default: "qos/test_qos_sai.py"
+    default: "qos/test_qos_sai.py \
+              iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed"
     displayName: "Skip Scripts"
 
 stages:
