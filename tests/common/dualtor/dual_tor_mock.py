@@ -365,7 +365,6 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
     dut = rand_selected_dut
 
     dut_loopback = (mock_peer_switch_loopback_ip - 1).ip
-
     tunnel_params = {
         'TUNNEL': {
             'MuxTunnel0': {
@@ -378,6 +377,9 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
             }
         }
     }
+    if 'spc' in rand_selected_dut.get_asic_name():
+        tunnel_params['TUNNEL']['MuxTunnel0'].update(
+            {'src_ip': str(mock_peer_switch_loopback_ip.ip)})
 
     dut.copy(content=json.dumps(tunnel_params, indent=2), dest="/tmp/tunnel_params.json")
     dut.shell("sonic-cfggen -j /tmp/tunnel_params.json --write-to-db")

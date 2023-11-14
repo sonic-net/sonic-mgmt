@@ -130,8 +130,16 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     logger.info("Setting up storm params")
     pfc_queue_index = 4
     pfc_frames_count = 1000000
+    peer_device = peer_params['peerdevice']
+    if dut.topo_type == 't2' and fanout[peer_device].os == 'sonic':
+        pfc_gen_file = 'pfc_gen_t2.py'
+        pfc_send_time = 8
+    else:
+        pfc_gen_file = 'pfc_gen.py'
+        pfc_send_time = None
     storm_handle = PFCStorm(dut, fanout_info, fanout, pfc_queue_idx=pfc_queue_index,
-                           pfc_frames_number=pfc_frames_count, peer_info=peer_params)
+                            pfc_frames_number=pfc_frames_count, pfc_gen_file=pfc_gen_file,
+                            pfc_send_period=pfc_send_time, peer_info=peer_params)
     storm_handle.deploy_pfc_gen()
     return storm_handle
 
@@ -149,17 +157,28 @@ class TestPfcwdAllTimer(object):
         self.storm_handle.start_storm()
         logger.info("Wait for queue to recover from PFC storm")
         time.sleep(8)
-
-        storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
-        storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+        else:
+            storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
+            storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
         logger.info("Wait for PFC storm end marker to appear in logs")
         time.sleep(8)
-        storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
-        storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
-        real_detect_time = storm_detect_ms - storm_start_ms
-        real_restore_time = storm_restore_ms - storm_end_ms
-        self.all_detect_time.append(real_detect_time)
-        self.all_restore_time.append(real_restore_time)
+        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+            storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+        else:
+            storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
+            storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+            real_detect_time = storm_detect_ms - storm_start_ms
+            real_restore_time = storm_restore_ms - storm_end_ms
+            self.all_detect_time.append(real_detect_time)
+            self.all_restore_time.append(real_restore_time)
+
+        dut_detect_restore_time = storm_restore_ms - storm_detect_ms
+        self.all_dut_detect_restore_time.append(dut_detect_restore_time)
+        logger.info(
+            "Iteration all_dut_detect_restore_time list {} and length {}".format(
+                ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
 
     def verify_pfcwd_timers(self):
         """
@@ -195,6 +214,24 @@ class TestPfcwdAllTimer(object):
                                                                           config_restore_time))
         pytest_assert(self.all_restore_time[9] < config_restore_time, err_msg)
 
+    def verify_pfcwd_timers_t2(self):
+        """
+        Compare the timestamps obtained and verify the timer accuracy for t2 chassis
+        """
+        self.all_dut_detect_restore_time.sort()
+        # Detect to restore elapsed time should always be less than 10 seconds since
+        # storm is sent for 8 seconds
+        dut_config_pfcwd_time = 10000
+
+        logger.info(
+            "all_dut_detect_restore_time sorted list {} and length {}".format(
+                ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
+
+        logger.info("Verify that real dut detection-restoration time is less than expected value")
+        err_msg = ("Real dut detection-restoration time is greater than configured: Real dut detection-restore time: {}"
+                   " Expected: {}".format(self.all_dut_detect_restore_time[5], dut_config_pfcwd_time))
+        pytest_assert(self.all_dut_detect_restore_time[5] < dut_config_pfcwd_time, err_msg)
+
     def retrieve_timestamp(self, pattern):
         """
         Retreives the syslog timestamp in ms associated with the pattern
@@ -226,11 +263,18 @@ class TestPfcwdAllTimer(object):
         self.dut = duthost
         self.all_detect_time = list()
         self.all_restore_time = list()
+        self.all_dut_detect_restore_time = list()
         try:
-            for i in xrange(1, 20):
-                logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
-                self.run_test()
-            self.verify_pfcwd_timers()
+            if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
+                for i in range(1, 11):
+                    logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
+                    self.run_test()
+                self.verify_pfcwd_timers_t2()
+            else:
+                for i in range(1, 20):
+                    logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
+                    self.run_test()
+                self.verify_pfcwd_timers()
 
         except Exception as e:
             pytest.fail(str(e))

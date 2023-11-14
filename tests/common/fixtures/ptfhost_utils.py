@@ -235,9 +235,9 @@ icmp_responder_session_started = False
 def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
-    if "dualtor" not in tbinfo["topo"]["name"]:
+    if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
         logger.info("Skip running icmp_responder at session level, "
-                    "it is only for dualtor testbed.")
+                    "it is only for dualtor testbed with active-active mux ports.")
         yield
         return
 
@@ -269,17 +269,8 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     yield
 
-    if "dualtor-mixed" in tbinfo["topo"]["name"] or "dualtor-aa" in tbinfo["topo"]["name"]:
-        logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
-        return
-
-    logger.info("Stop running icmp_responder")
-    ptfhost.shell("supervisorctl stop icmp_responder")
-    icmp_responder_session_started = False
-
-    logger.info("Recover linkmgrd probe interval")
-    recover_linkmgrd_probe_interval(duthosts, tbinfo)
-    duthosts.shell("config save -y")
+    logger.info("Leave icmp_responder running for dualtor-mixed/dualtor-aa topology")
+    return
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -528,10 +519,10 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
                 ]
 
     disabled_ptf_ports = set()
+    # Data in ptf_map_disabled is {dut_port_index: ptf_port_index} 
     for ptf_map in tbinfo['topo']['ptf_map_disabled'].values():
         # Loop ptf_map of each DUT. Each ptf_map maps from ptf port index to dut port index
-        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.keys()))
-
+        disabled_ptf_ports = disabled_ptf_ports.union(set(ptf_map.values()))
     router_macs = []
     all_dut_names = [duthost.hostname for duthost in duthosts]
     for a_dut_name in tbinfo['duts']:
@@ -544,10 +535,9 @@ def ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url, d
     logger.info('active_dut_map={}'.format(active_dut_map))
     logger.info('disabled_ptf_ports={}'.format(disabled_ptf_ports))
     logger.info('router_macs={}'.format(router_macs))
-
     ports_map = {}
     for ptf_port, dut_intf_map in tbinfo['topo']['ptf_dut_intf_map'].items():
-        if str(ptf_port) in disabled_ptf_ports:
+        if int(ptf_port) in disabled_ptf_ports:
             # Skip PTF ports that are connected to disabled VLAN interfaces
             continue
         asic_idx = 0

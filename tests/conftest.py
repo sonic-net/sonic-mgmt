@@ -47,6 +47,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
     from tests.macsec import MacsecPlugin
@@ -61,6 +62,8 @@ from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
+DUTHOSTS_FIXTURE_FAILED_RC = 15
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -140,7 +143,17 @@ def pytest_addoption(parser):
     parser.addoption("--deep_clean", action="store_true", default=False,
                      help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
-                     help="Specify the url of the saithrift package to be installed on the ptf (should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+                     help="Specify the url of the saithrift package to be installed on the ptf "
+                          "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+
+    #########################
+    #   post-test options   #
+    #########################
+    parser.addoption("--posttest_show_tech_since", action="store", default="yesterday",
+                     help="collect show techsupport since <date>. <date> should be a string which can "
+                          "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
+                          "To collect all time spans, please use '@0' as the value.")
+
     ############################
     #  keysight ixanvl options #
     ############################
@@ -197,6 +210,8 @@ def enhance_inventory(request):
     This fixture is automatically applied, you don't need to declare it in your test script.
     """
     inv_opt = request.config.getoption("ansible_inventory")
+    if isinstance(inv_opt, list):
+        return
     inv_files = [inv_file.strip() for inv_file in inv_opt.split(",")]
     try:
         setattr(request.config.option, "ansible_inventory", inv_files)
@@ -294,6 +309,12 @@ def get_specified_duts(request):
     return duts
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("duthosts_fixture_failed", None):
+        session.config.cache.set("duthosts_fixture_failed", None)
+        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+
+
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
@@ -303,7 +324,14 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize duthosts.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! duthosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 @pytest.fixture(scope="session")
@@ -421,7 +449,7 @@ def localhost(ansible_adhoc):
 
 
 @pytest.fixture(scope="session")
-def ptfhost(ansible_adhoc, tbinfo, duthost, request):
+def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -434,7 +462,7 @@ def ptfhost(ansible_adhoc, tbinfo, duthost, request):
 
 
 @pytest.fixture(scope="module")
-def k8smasters(ansible_adhoc, request):
+def k8smasters(enhance_inventory, ansible_adhoc, request):
     """
     Shortcut fixture for getting Kubernetes master hosts
     """
@@ -466,7 +494,7 @@ def k8scluster(k8smasters):
 
 
 @pytest.fixture(scope="session")
-def nbrhosts(ansible_adhoc, tbinfo, creds, request):
+def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     Shortcut fixture for getting VM host
     """
@@ -509,7 +537,7 @@ def nbrhosts(ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
+def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):
     """
     Shortcut fixture for getting Fanout hosts
     """
@@ -595,7 +623,7 @@ def fanouthosts(ansible_adhoc, conn_graph_facts, creds, duthosts):
 
 
 @pytest.fixture(scope="session")
-def vmhost(ansible_adhoc, request, tbinfo):
+def vmhost(enhance_inventory, ansible_adhoc, request, tbinfo):
     server = tbinfo["server"]
     inv_files = get_inventory_files(request)
     vmhost = get_test_server_host(inv_files, server)
@@ -1379,6 +1407,19 @@ def pytest_generate_tests(metafunc):
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
 
+    if 'vlan_name' in metafunc.fixturenames:
+        if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
+            if tbinfo['topo']['name'] == 'm0-2vlan':
+                metafunc.parametrize('vlan_name', ['Vlan1000', 'Vlan2000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+        # Non M0 topo
+        else:
+            if tbinfo['topo']['type'] in ['t0', 'mx']:
+                metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
+            else:
+                metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
 
 def parametrise_autoneg_tests():
     folder = 'metadata'
@@ -1805,7 +1846,7 @@ def __dut_reload(duts_data, node=None, results=None):
         logger.error('Missing kwarg "node" or "results"')
         return
     logger.info("dut reload called on {}".format(node.hostname))
-    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"]["asic0"], indent=4),
+    node.copy(content=json.dumps(duts_data[node.hostname]["pre_running_config"][None], indent=4),
               dest='/etc/sonic/config_db.json', verbose=False)
 
     if node.is_multi_asic:
@@ -1885,7 +1926,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if not duthost.stat(path="/etc/sonic/running_golden_config.json")['stat']['exists']:
                 logger.info("Collecting running golden config before test on {}".format(duthost.hostname))
                 duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-            duts_data[duthost.hostname]["pre_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["pre_running_config"][None] = \
                 json.loads(duthost.shell("cat /etc/sonic/running_golden_config.json", verbose=False)['stdout'])
 
             if duthost.is_multi_asic:
@@ -1921,10 +1962,14 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             if new_core_dumps[duthost.hostname]:
                 core_dump_check_pass = False
 
+                base_dir = os.path.dirname(os.path.realpath(__file__))
+                for new_core_dump in new_core_dumps[duthost.hostname]:
+                    duthost.fetch(src="/var/core/{}".format(new_core_dump), dest=os.path.join(base_dir, "logs"))
+
             logger.info("Collecting running config after test on {}".format(duthost.hostname))
             # get running config after running
             duts_data[duthost.hostname]["cur_running_config"] = {}
-            duts_data[duthost.hostname]["cur_running_config"]["asic0"] = \
+            duts_data[duthost.hostname]["cur_running_config"][None] = \
                 json.loads(duthost.shell("sonic-cfggen -d --print-data", verbose=False)['stdout'])
             if duthost.is_multi_asic:
                 for asic_index in range(0, duthost.facts.get('num_asic')):
@@ -2056,7 +2101,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
         items = request.session.items
         for item in items:
             if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
+                    'core_dump_check_pass': core_dump_check_pass,
+                    'config_db_check_pass': config_db_check_pass
+                }})))
 
 
 @pytest.fixture(scope="function")

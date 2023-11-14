@@ -6,12 +6,12 @@ from tests.common.utilities import skip_release
 
 sys.path.append("./configlet/util")
 
-from base_test import do_test_add_rack, backup_minigraph, restore_orig_minigraph
-from helpers import log_info
+from tests.configlet.util.base_test import restore_orig_minigraph, backup_minigraph, do_test_add_rack
+from tests.configlet.util.helpers import log_info
 
 pytestmark = [
-        pytest.mark.topology("t1")
-        ]
+    pytest.mark.topology("t1")
+]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -27,21 +27,6 @@ def check_image_version(duthost):
     skip_release(duthost, ["201811", "201911", "202012", "202106", "202111"])
 
 
-@pytest.fixture(scope="module", autouse=True)
-def bypass_duplicate_lanes_platform(duthost):
-    """Skips platform that has duplicate lanes in default config
-
-    Args:
-        duthost: DUT host object.
-
-    Returns:
-        None.
-    """
-    if duthost.facts['platform'] == 'x86_64-arista_7050cx3_32s' or \
-            duthost.facts['platform'] == 'x86_64-dellemc_s5232f_c3538-r0':
-        pytest.skip("Temporary skip platform with duplicate lanes...")
-
-
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
     """
@@ -52,12 +37,12 @@ def ignore_expected_loganalyzer_exceptions(duthost, loganalyzer):
            duthost: DUT host object
     """
     if loganalyzer:
-         loganalyzer_ignore_regex = [
-             ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
-             ".*ERR sonic_yang: Failed to validate data tree#012.*",
-             ".*ERR config: Change Applier:.*",
-         ]
-         loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+        loganalyzer_ignore_regex = [
+            ".*ERR sonic_yang: Data Loading Failed:Must condition not satisfied.*",
+            ".*ERR sonic_yang: Failed to validate data tree#012.*",
+            ".*ERR config: Change Applier:.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
 
     yield
 
@@ -84,4 +69,3 @@ def test_add_rack(configure_dut, tbinfo, duthosts, rand_one_dut_hostname):
 
     log_info("sys.version={}".format(sys.version))
     do_test_add_rack(duthost, is_storage_backend='backend' in tbinfo['topo']['name'], skip_clet_test=True)
-

@@ -9,6 +9,7 @@ import random
 import os
 import sys
 import copy
+from operator import xor
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 import copy
@@ -31,10 +32,11 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor", "t0-80", "t0-backend"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
+                          "t0-120", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -118,6 +120,8 @@ class QosBase:
                   "--test-dir",
                   "saitests/py3",
                   testCase,
+                  "--socket-recv-size",
+                  "16384",
                   "--platform-dir",
                   "ptftests",
                   "--platform",
@@ -381,12 +385,31 @@ class QosSaiBase(QosBase):
                 ]
             )[0].encode("utf-8").translate(None, "[]")
         else:
-            schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
-                argv = [
-                    "redis-cli", "-n", "4", "HGET",
-                    "QUEUE|{0}|{1}".format(port, queue), "scheduler"
-                ]
-            )[0].encode("utf-8")
+            if dut_asic.sonichost.facts['switch_type'] == 'voq':
+                # For VoQ chassis, the scheduler queues config is based on system port
+                if dut_asic.sonichost.is_multi_asic:
+                    schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|{1}|{2}|{3}"
+                            .format(dut_asic.sonichost.hostname, dut_asic.namespace, port, queue), "scheduler"
+                        ]
+                    )[0].encode("utf-8")
+                else:
+                    schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                        argv=[
+                            "redis-cli", "-n", "4", "HGET",
+                            "QUEUE|{0}|Asic0|{1}|{2}"
+                            .format(dut_asic.sonichost.hostname, port, queue), "scheduler"
+                        ]
+                    )[0].encode("utf-8")
+            else:
+                schedProfile = "SCHEDULER|" + dut_asic.run_redis_cmd(
+                    argv=[
+                        "redis-cli", "-n", "4", "HGET",
+                        "QUEUE|{0}|{1}".format(port, queue), "scheduler"
+                    ]
+                )[0].encode("utf-8")
 
         schedWeight = dut_asic.run_redis_cmd(
             argv = ["redis-cli", "-n", "4", "HGET", schedProfile, "weight"]
@@ -394,7 +417,7 @@ class QosSaiBase(QosBase):
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
-    def __assignTestPortIps(self, mgFacts):
+    def __assignTestPortIps(self, mgFacts, topo):
         """
             Assign IPs to test ports of DUT host
 
@@ -406,9 +429,19 @@ class QosSaiBase(QosBase):
         """
         dutPortIps = {}
         if len(mgFacts["minigraph_vlans"]) > 0:
-            #TODO: handle the case when there are multiple vlans
-            testVlan = next(iter(mgFacts["minigraph_vlans"]))
+            # TODO: handle the case when there are multiple vlans
+            vlans = iter(mgFacts["minigraph_vlans"])
+            testVlan = next(vlans)
             testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+            # To support t0-56-po2vlan topo, choose the Vlan with physical ports and remove the lag in Vlan members
+            if topo == 't0-56-po2vlan':
+                if len(testVlanMembers) == 1:
+                    testVlan = next(vlans)
+                    testVlanMembers = mgFacts["minigraph_vlans"][testVlan]["members"]
+                for member in testVlanMembers:
+                    if 'PortChannel' in member:
+                        testVlanMembers.remove(member)
+                        break
 
             testVlanIp = None
             for vlan in mgFacts["minigraph_vlan_interfaces"]:
@@ -691,7 +724,7 @@ class QosSaiBase(QosBase):
 
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
-        if topo in self.SUPPORTED_T0_TOPOS or isMellanoxDevice(src_dut):
+        if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
             # as dst_dut and dst_asic
             pytest_assert(
@@ -716,7 +749,7 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
             dualTorPortIndexes[src_dut_index] = {}
-            dualTorPortIndexes[src_dut_index][src_asic_index] = {}
+            dualTorPortIndexes[src_dut_index][src_asic_index] = []
             if 'backend' in topo:
                 intf_map = src_mgFacts["minigraph_vlan_sub_interfaces"]
             else:
@@ -749,7 +782,7 @@ class QosSaiBase(QosBase):
                             uplinkPortNames.append(intf)
 
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
@@ -797,9 +830,13 @@ class QosSaiBase(QosBase):
 
                 testPortIds[src_dut_index][dut_asic.asic_index] = sorted(dutPortIps[src_dut_index][dut_asic.asic_index].keys())
 
+                if isMellanoxDevice(src_dut):
+                    testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
+                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index])
+
             # Need to fix this
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
@@ -1005,10 +1042,7 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
 
-        if 'dualtor' in tbinfo['topo']['name']:
-            duthost_upper = upper_tor_host
-
-        def updateDockerService(host, docker="", action="", service=""):
+        def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
             """
                 Helper function to update docker services
 
@@ -1035,8 +1069,9 @@ class QosSaiBase(QosBase):
         if 'dualtor' in tbinfo['topo']['name']:
             file = "/usr/local/bin/write_standby.py"
             backup_file = "/usr/local/bin/write_standby.py.bkup"
-            toggle_all_simulator_ports(LOWER_TOR)
-            check_result = wait_until(120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
+            toggle_all_simulator_ports(LOWER_TOR, retries=3)
+            check_result = wait_until(
+                120, 10, 10, check_mux_status, duthosts, LOWER_TOR)
             validate_check_result(check_result, duthosts, get_mux_status)
 
             try:
@@ -1047,7 +1082,7 @@ class QosSaiBase(QosBase):
             except:
                 pytest.skip('file {} not found'.format(file))
 
-            duthost_upper.shell('sudo config feature state mux disabled')
+            upper_tor_host.shell('sudo config feature state mux disabled')
             lower_tor_host.shell('sudo config feature state mux disabled')
 
         src_services = [
@@ -1071,8 +1106,8 @@ class QosSaiBase(QosBase):
 
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
-            disable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
+            disable_container_autorestart(
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
@@ -1091,25 +1126,25 @@ class QosSaiBase(QosBase):
 
         """ Start mux conatiner for dual ToR """
         if 'dualtor' in tbinfo['topo']['name']:
-           try:
+            try:
 
-               lower_tor_host.shell("ls %s" % backup_file)
-               lower_tor_host.shell("sudo cp {} {}".format(backup_file,file))
-               lower_tor_host.shell("sudo chmod +x {}".format(file))
-               lower_tor_host.shell("sudo rm {}".format(backup_file))
-           except:
-               pytest.skip('file {} not found'.format(backup_file))
+                lower_tor_host.shell("ls %s" % backup_file)
+                lower_tor_host.shell("sudo cp {} {}".format(backup_file,file))
+                lower_tor_host.shell("sudo chmod +x {}".format(file))
+                lower_tor_host.shell("sudo rm {}".format(backup_file))
+            except:
+                pytest.skip('file {} not found'.format(backup_file))
 
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           lower_tor_host.shell('sudo config feature state mux enabled')
-           logger.info("Start mux container for dual ToR testbed")
+            lower_tor_host.shell('sudo config feature state mux enabled')
+            upper_tor_host.shell('sudo config feature state mux enabled')
+            logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         if src_asic != dst_asic:
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
-            enable_container_autorestart(duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
-
+            enable_container_autorestart(
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, get_src_dst_asic_and_duts, loganalyzer):
@@ -1261,7 +1296,8 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dutTopo], dutAsic,
+            dut_top = dutTopo if dutTopo in qosConfigs['qos_params']['mellanox'] else "topo-any"
+            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dut_top], dutAsic,
                                                        portSpeedCableLength,
                                                        dutConfig,
                                                        ingressLosslessProfile,
@@ -1299,20 +1335,21 @@ class QosSaiBase(QosBase):
                 if sub_folder_dir not in sys.path:
                     sys.path.append(sub_folder_dir)
                 import qos_param_generator
-                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                           dutAsic,
-                                                           portSpeedCableLength,
-                                                           dutConfig,
-                                                           ingressLosslessProfile,
-                                                           ingressLossyProfile,
-                                                           egressLosslessProfile,
-                                                           egressLossyProfile,
-                                                           sharedHeadroomPoolSize,
-                                                           dutConfig["dualTor"],
-                                                           dutTopo,
-                                                           bufferConfig,
-                                                           duthost,
-                                                           tbinfo["topo"]["name"])
+                qpm = qos_param_generator.QosParamBroadcom({'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                            'asic_type': dutAsic,
+                                                            'speed_cable_len': portSpeedCableLength,
+                                                            'dutConfig': dutConfig,
+                                                            'ingressLosslessProfile': ingressLosslessProfile,
+                                                            'ingressLossyProfile': ingressLossyProfile,
+                                                            'egressLosslessProfile': egressLosslessProfile,
+                                                            'egressLossyProfile': egressLossyProfile,
+                                                            'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
+                                                            'dualTor': dutConfig["dualTor"],
+                                                            'dutTopo': dutTopo,
+                                                            'bufferConfig': bufferConfig,
+                                                            'dutHost': duthost,
+                                                            'testbedTopologyName': tbinfo["topo"]["name"],
+                                                            'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
             bufferConfig = self.dutBufferConfig(duthost, dut_asic)
@@ -1338,7 +1375,10 @@ class QosSaiBase(QosBase):
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][topo],
                       duthost,
-                      bufferConfig)
+                      dutAsic,
+                      topo,
+                      bufferConfig,
+                      portSpeedCableLength)
 
             qosParams = qpm.run()
         else:
@@ -1959,3 +1999,71 @@ class QosSaiBase(QosBase):
 
         return mapping
 
+    def get_hbm_status(self, dut_asic):
+        hbm_platforms = ['x86_64-88_lc0_36fh_m-r0', 'x86_64-88_lc0_36fh_mo-r0']
+        if 'platform' in dut_asic.sonichost.facts and \
+                dut_asic.sonichost.facts['platform'] in hbm_platforms:
+            return True
+        return False
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if src_asic == dst_asic and \
+                get_src_dst_asic_and_duts['src_dut'] == \
+                    get_src_dst_asic_and_duts['dst_dut'] :
+            yield
+            return
+        if xor(src_hbm_enabled, dst_hbm_enabled):
+            pytest.skip(
+                "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_check_for_hbm_either_asic(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        src_hbm_enabled = self.get_hbm_status(src_asic)
+        dst_hbm_enabled = self.get_hbm_status(dst_asic)
+        if src_hbm_enabled or dst_hbm_enabled:
+            pytest.skip(
+                "This test needs to be revisited for HBM enabled systems.")
+        yield
+        return
+
+    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
+        """
+        For Nvidia devices, the tested ports must have the same cable length and speed.
+        Firstly, categorize the ports by the same cable length and speed.
+        Secondly, select the port group with the largest number of ports as test ports from the above results.
+        """
+        ptf_port_dut_port_dict = dict(zip(mgFacts["minigraph_ptf_indices"].values(),
+                                          mgFacts["minigraph_ptf_indices"].keys()))
+        get_interface_cable_length_info = 'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"'
+        interface_cable_length_list = duthost.shell(get_interface_cable_length_info)['stdout_lines']
+        interface_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
+
+        cable_length_speed_interface_dict = {}
+        for ptf_port in testPortIds:
+            dut_port = ptf_port_dut_port_dict[ptf_port]
+            if dut_port in interface_cable_length_list:
+                cable_length = interface_cable_length_list[interface_cable_length_list.index(dut_port) + 1]
+                speed = interface_status[dut_port]['speed']
+                cable_length_speed = "{}_{}".format(cable_length, speed)
+                if cable_length_speed in cable_length_speed_interface_dict:
+                    cable_length_speed_interface_dict[cable_length_speed].append(ptf_port)
+                else:
+                    cable_length_speed_interface_dict[cable_length_speed] = [ptf_port]
+        max_port_num = 0
+        test_port_ids = []
+        # Find the port group with the largest number of ports as test ports
+        for _, port_list in cable_length_speed_interface_dict.items():
+            if max_port_num < len(port_list):
+                test_port_ids = port_list
+                max_port_num = len(port_list)
+        logger.info("Test ports ids is{}".format(test_port_ids))
+        return test_port_ids

@@ -39,4 +39,5 @@ def test_mtu(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                        "dst_ptf_port_list": gather_facts['dst_port_ids']
                        },
                log_file=log_file,
-               socket_recv_size=16384)
+               socket_recv_size=16384,
+               is_python3=True)

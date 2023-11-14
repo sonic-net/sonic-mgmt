@@ -21,8 +21,11 @@ __all__ = [
     'get_mux_status',
     'check_simulator_read_side',
     'set_output',
+    'set_output_all',
     'set_drop',
-    'recover_all_directions',
+    'set_drop_all',
+    'recover_directions',
+    'recover_directions_all',
     'reset_simulator_port',
     'toggle_all_simulator_ports_to_upper_tor',
     'toggle_all_simulator_ports_to_lower_tor',
@@ -33,6 +36,7 @@ __all__ = [
     'toggle_all_simulator_ports',
     'check_mux_status',
     'validate_check_result',
+    'simulator_flap_counter',
     ]
 
 logger = logging.getLogger(__name__)
@@ -55,7 +59,7 @@ def mux_server_info(request, tbinfo):
         server = tbinfo['server']
         vmset_name = tbinfo['group-name']
 
-        inv_files = request.config.option.ansible_inventory
+        inv_files = utilities.get_inventory_files(request)
         ip = utilities.get_test_server_vars(inv_files, server).get('ansible_host')
         _port_map = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')
         port = _port_map[tbinfo['conf-name']]
@@ -118,7 +122,7 @@ def url(mux_server_url, duthost, tbinfo):
         """
         if not interface_name:
             if action:
-                # Only for flap_counter, clear_flap_counter, or reset
+                # For flap_counter, clear_flap_counter, drop(for all), output(for all) or reset
                 return mux_server_url + "/{}".format(action)
             return mux_server_url
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -177,7 +181,7 @@ def _post(server_url, data):
 
 
 @pytest.fixture(scope='function')
-def set_drop(url, recover_all_directions):
+def set_drop(url, recover_directions):
     """
     A helper function is returned to make fixture accept arguments
     """
@@ -200,7 +204,23 @@ def set_drop(url, recover_all_directions):
     yield _set_drop
 
     for intf in drop_intfs:
-        recover_all_directions(intf)
+        recover_directions(intf)
+
+
+@pytest.fixture(scope='function')
+def set_drop_all(url, recover_directions_all):
+    """
+    A helper function is returned to make fixture accept arguments
+    """
+    def _set_drop_all(directions):
+        server_url = url(action=DROP)
+        data = {"out_sides": directions}
+        logger.info("Dropping all packets to {}".format(directions))
+        pytest_assert(_post(server_url, data), "Failed to set drop all on {}".format(directions))
+
+    yield _set_drop_all
+
+    recover_directions_all()
 
 
 @pytest.fixture(scope='function')
@@ -222,6 +242,21 @@ def set_output(url):
         pytest_assert(_post(server_url, data), "Failed to set output on {}".format(directions))
 
     return _set_output
+
+
+@pytest.fixture(scope='function')
+def set_output_all(url):
+    """
+    A helper function is returned to make fixture accept arguments
+    """
+    def _set_output_all(directions):
+        server_url = url(action=OUTPUT)
+        data = {"out_sides": directions}
+        logger.info("Output all packets to {}".format(directions))
+        pytest_assert(_post(server_url, data), "Failed to set output all on {}".format(directions))
+
+    return _set_output_all
+
 
 @pytest.fixture(scope='module')
 def toggle_simulator_port_to_upper_tor(url, tbinfo, active_standby_ports):
@@ -265,11 +300,12 @@ def toggle_simulator_port_to_lower_tor(url, tbinfo):
     return _toggle_simulator_port_to_lower_tor
 
 @pytest.fixture(scope='module')
-def recover_all_directions(url):
+def recover_directions(url):
     """
-    A function level fixture, will return _recover_all_directions to make fixture accept arguments
+    A function level fixture, will return _recover_directions to make fixture accept arguments
     """
-    def _recover_all_directions(interface_name):
+
+    def _recover_directions(interface_name):
         """
         Function to recover all traffic on all directions on a certain port
         Args:
@@ -281,7 +317,29 @@ def recover_all_directions(url):
         data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
         pytest_assert(_post(server_url, data), "Failed to set output on all directions for interface {}".format(interface_name))
 
-    return _recover_all_directions
+    return _recover_directions
+
+
+@pytest.fixture(scope='module')
+def recover_directions_all(url):
+    """
+    A function level fixture, will return recover_directions_all to make fixture accept arguments
+    """
+
+    def _recover_directions_all():
+        """
+        Function to recover all traffic on all directions on a certain port
+        Args:
+            interface_name: a str, the name of interface to control
+        Returns:
+            None.
+        """
+        server_url = url(action=OUTPUT)
+        data = {"out_sides": [UPPER_TOR, LOWER_TOR, NIC]}
+        pytest_assert(_post(server_url, data),
+                      "Failed to set output on all directions for all interfaces")
+
+    return _recover_directions_all
 
 @pytest.fixture(scope='module')
 def check_simulator_read_side(url):
@@ -329,22 +387,73 @@ def get_active_torhost(upper_tor_host, lower_tor_host, check_simulator_read_side
 
     return _get_active_torhost
 
-def _toggle_all_simulator_ports(mux_server_url, side, tbinfo):
+
+def _toggle_all_simulator_ports(mux_server_url, side, tbinfo, retries=1):
     # Skip on non dualtor testbed
     if 'dualtor' not in tbinfo['topo']['name']:
         return
     pytest_assert(side in TOGGLE_SIDES, "Unsupported side '{}'".format(side))
     data = {"active_side": side}
     logger.info('Toggle all ports to "{}"'.format(side))
-    pytest_assert(_post(mux_server_url, data), "Failed to toggle all ports to '{}'".format(side))
+    toggle_success = False
+    for retry in range(retries):
+        logger.info("Retry=%d, toggle all mux cables to %s side", retry + 1, side)
+        toggle_success = _post(mux_server_url, data)
+        if toggle_success:
+            break
+    pytest_assert(toggle_success, "Failed to toggle all ports to '{}'".format(side))
+
 
 @pytest.fixture(scope='module')
-def toggle_all_simulator_ports(mux_server_url, tbinfo):
+def toggle_all_simulator_ports(mux_server_url, tbinfo, duthosts):
     """
     A module level fixture to toggle all ports to specified side.
     """
-    def _toggle(side):
-        _toggle_all_simulator_ports(mux_server_url, side, tbinfo)
+
+    def _check_toggle_and_probe(duthosts, active_side):
+        """Check if toggle success and probe those inconsistent mux ports if any."""
+        if active_side == UPPER_TOR:
+            active_duthost, standby_duthost = duthosts[0], duthosts[1]
+        elif active_side == LOWER_TOR:
+            standby_duthost, active_duthost = duthosts[0], duthosts[1]
+        else:
+            raise ValueError("Unsupported side %s" % active_side)
+
+        standby_ports_on_active_side = _get_mux_ports(active_duthost, exclude_status="active")
+        active_ports_on_standby_side = _get_mux_ports(standby_duthost, exclude_status="standby")
+        logging.debug("standby mux ports on the active side %s:\n%s",
+                      active_duthost, json.dumps(list(standby_ports_on_active_side.keys())))
+        logging.debug("active mux ports on the standby side %s:\n%s",
+                      standby_duthost, json.dumps(list(active_ports_on_standby_side.keys())))
+        if (not standby_ports_on_active_side) and (not active_ports_on_standby_side):
+            return True
+
+        # probe those inconsistent mux ports
+        _probe_mux_ports([active_duthost], list(standby_ports_on_active_side.keys()))
+        _probe_mux_ports([standby_duthost], list(active_ports_on_standby_side.keys()))
+        return False
+
+    def _toggle(active_side, retries=0):
+        _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+        if retries <= 0:
+            return
+
+        time.sleep(10)
+        if _check_toggle_and_probe(duthosts, active_side):
+            return
+
+        for retry in range(retries):
+            logging.info("Retry=%d, toggle all mux cables to %s", retry + 1, active_side)
+            _toggle_all_simulator_ports(mux_server_url, active_side, tbinfo)
+
+            time.sleep(10)
+            if _check_toggle_and_probe(duthosts, active_side):
+                return
+
+        pytest_assert(utilities.wait_until(120, 10, 0, _check_toggle_and_probe, duthosts, active_side),
+                      "Failed to toggle all mux cables to %s" % active_side)
+
     return _toggle
 
 
@@ -517,6 +626,10 @@ def toggle_all_simulator_ports_to_rand_selected_tor_m(duthosts, mux_server_url,
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
 
 
 @pytest.fixture
@@ -615,7 +728,7 @@ def toggle_all_simulator_ports_to_random_side(active_standby_ports, duthosts, mu
     if 'dualtor' not in tbinfo['topo']['name'] or not active_standby_ports:
         return
 
-    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo)
+    _toggle_all_simulator_ports(mux_server_url, RANDOM, tbinfo, retries=3)
     upper_tor_host, lower_tor_host = duthosts[0], duthosts[1]
     mg_facts = upper_tor_host.get_extended_minigraph_facts(tbinfo)
     port_indices = mg_facts['minigraph_port_indices']

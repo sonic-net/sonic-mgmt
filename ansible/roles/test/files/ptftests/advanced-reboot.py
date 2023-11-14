@@ -1,5 +1,6 @@
 #
-# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+# ptf --test-dir ptftests fast-reboot --qlen=1000 --platform remote -t 'verbose=True;dut_username="admin";dut_hostname="10.0.0.243";reboot_limit_in_seconds=30;portchannel_ports_file="/tmp/portchannel_interfaces.json";vlan_ports_file="/tmp/vlan_interfaces.json";ports_file="/tmp/ports.json";peer_ports_file="/tmp/peer_ports.json";dut_mac="4c:76:25:f5:48:80";default_ip_range="192.168.0.0/16";vlan_ip_range="{\"Vlan100\": \"172.0.0.0/22\"}";arista_vms="[\"10.0.0.200\",\"10.0.0.201\",\"10.0.0.202\",\"10.0.0.203\"]"' --platform-dir ptftests --disable-vxlan --disable-geneve --disable-erspan --disable-mpls --disable-nvgre
+#
 #
 #
 # This test checks that DUT is able to make FastReboot procedure
@@ -138,6 +139,8 @@ class ReloadTest(BaseTest):
         self.check_param('portchannel_ports_file', '', required=True)
         self.check_param('vlan_ports_file', '', required=True)
         self.check_param('ports_file', '', required=True)
+        self.check_param('peer_ports_file', '', required=False)
+        self.check_param('dut_mux_status', '', required=False)
         self.check_param('dut_mac', '', required=True)
         self.check_param('vlan_mac', '', required=True)
         self.check_param('default_ip_range', '', required=True)
@@ -165,6 +168,8 @@ class ReloadTest(BaseTest):
             self.test_params['preboot_oper'] = None
         if not self.test_params['inboot_oper'] or self.test_params['inboot_oper'] == 'None':
             self.test_params['inboot_oper'] = None
+
+        self.dataplane_loss_checked_successfully = False
 
         # initialize sad oper
         if self.test_params['preboot_oper']:
@@ -275,8 +280,20 @@ class ReloadTest(BaseTest):
 
     def read_port_indices(self):
         port_indices = self.read_json('ports_file')
+        peer_port_indices = {}
+        if self.is_dualtor:
+            peer_port_indices = self.read_json('peer_ports_file')
 
-        return port_indices
+        return port_indices, peer_port_indices
+
+    def read_mux_status(self):
+        active_port_indices = []
+        mux_status = self.read_json('dut_mux_status')
+        for intf, port in self.port_indices.items():
+            if intf in mux_status and mux_status[intf]['status'] == 'active':
+                active_port_indices.append(port)
+        
+        return active_port_indices
 
     def read_vlan_portchannel_ports(self):
         portchannel_content = self.read_json('portchannel_ports_file')
@@ -304,7 +321,17 @@ class ReloadTest(BaseTest):
             if not pc['name'] in pc_in_vlan and pc['name'] in active_portchannels:
                 pc_ifaces.extend([self.port_indices[member] for member in pc['members']])
 
-        return ports_per_vlan, pc_ifaces
+        dualtor_pc_ifaces = []
+        if self.is_dualtor:
+            peer_active_portchannels = list()
+            for neighbor_info in list(self.peer_vm_dut_map.values()):
+                peer_active_portchannels.append(neighbor_info["dut_portchannel"])
+            dualtor_pc_ifaces.extend(pc_ifaces)
+            for pc in portchannel_content.values():
+                if not pc['name'] in pc_in_vlan and pc['name'] in peer_active_portchannels:
+                    dualtor_pc_ifaces.extend([self.peer_port_indices[member] for member in pc['members']])
+        
+        return ports_per_vlan, pc_ifaces, dualtor_pc_ifaces
 
     def check_param(self, param, default, required = False):
         if param not in self.test_params:
@@ -407,6 +434,9 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[key]['dut_ports'] = []
                 self.vm_dut_map[key]['neigh_ports'] = []
                 self.vm_dut_map[key]['ptf_ports'] = []
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[key] = dict()
+                    self.peer_vm_dut_map[key]['dut_ports'] = []
 
     def get_portchannel_info(self):
         content = self.read_json('portchannel_ports_file')
@@ -416,6 +446,8 @@ class ReloadTest(BaseTest):
                     if member in self.vm_dut_map[vm_key]['dut_ports']:
                         self.vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         self.vm_dut_map[vm_key]['neigh_portchannel'] = 'Port-Channel1'
+                        if self.is_dualtor:
+                            self.peer_vm_dut_map[vm_key]['dut_portchannel'] = str(key)
                         break
 
     def get_neigh_port_info(self):
@@ -425,6 +457,8 @@ class ReloadTest(BaseTest):
                 self.vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
                 self.vm_dut_map[content[key]['name']]['neigh_ports'].append(str(content[key]['port']))
                 self.vm_dut_map[content[key]['name']]['ptf_ports'].append(self.port_indices[key])
+                if self.is_dualtor:
+                    self.peer_vm_dut_map[content[key]['name']]['dut_ports'].append(str(key))
 
     def build_peer_mapping(self):
         '''
@@ -438,6 +472,7 @@ class ReloadTest(BaseTest):
                                     }
         '''
         self.vm_dut_map = {}
+        self.peer_vm_dut_map = {}
         for file in self.test_params['preboot_files'].split(','):
             self.test_params[file] = '/tmp/' + file + '.json'
         self.get_peer_dev_info()
@@ -551,10 +586,19 @@ class ReloadTest(BaseTest):
 
     def setUp(self):
         self.fails['dut'] = set()
-        self.port_indices = self.read_port_indices()
+        self.dut_mac = self.test_params['dut_mac']
+        self.vlan_mac = self.test_params['vlan_mac']
+        self.lo_prefix = self.test_params['lo_prefix']
+        if self.vlan_mac != self.dut_mac:
+            self.is_dualtor = True
+        else:
+            self.is_dualtor = False
+        self.port_indices, self.peer_port_indices = self.read_port_indices()
+        if self.is_dualtor:
+            self.active_port_indices = self.read_mux_status()
         self.vlan_ip_range = ast.literal_eval(self.test_params['vlan_ip_range'])
         self.build_peer_mapping()
-        self.ports_per_vlan, self.portchannel_ports = self.read_vlan_portchannel_ports()
+        self.ports_per_vlan, self.portchannel_ports, self.dualtor_portchannel_ports = self.read_vlan_portchannel_ports()
         self.vlan_ports = []
         for ports in self.ports_per_vlan.values():
             self.vlan_ports += ports
@@ -567,9 +611,6 @@ class ReloadTest(BaseTest):
         self.reboot_type = self.test_params['reboot_type']
         if self.reboot_type in ['soft-reboot', 'reboot']:
             raise ValueError('Not supported reboot_type %s' % self.reboot_type)
-        self.dut_mac = self.test_params['dut_mac']
-        self.vlan_mac = self.test_params['vlan_mac']
-        self.lo_prefix = self.test_params['lo_prefix']
 
         if self.kvm_test:
             self.log("This test is for KVM platform")
@@ -598,7 +639,7 @@ class ReloadTest(BaseTest):
         self.from_server_src_addr  = random.choice(self.vlan_host_map[self.random_vlan].keys())
         self.from_server_src_mac   = self.hex_to_mac(self.vlan_host_map[self.random_vlan][self.from_server_src_addr])
         self.from_server_dst_addr  = self.random_ip(self.test_params['default_ip_range'])
-        self.from_server_dst_ports = self.portchannel_ports
+        self.from_server_dst_ports = self.dualtor_portchannel_ports if self.is_dualtor else self.portchannel_ports
 
         self.log("Test params:")
         self.log("DUT ssh: %s@%s" % (self.test_params['dut_username'], self.test_params['dut_hostname']))
@@ -752,7 +793,8 @@ class ReloadTest(BaseTest):
     def generate_ping_dut_lo(self):
         self.ping_dut_packets = []
         dut_lo_ipv4 = self.lo_prefix.split('/')[0]
-        for src_port in self.vlan_host_ping_map:
+        
+        for src_port in self.active_port_indices if self.is_dualtor else self.vlan_host_ping_map:
             src_addr = random.choice(self.vlan_host_ping_map[src_port].keys())
             src_mac = self.hex_to_mac(self.vlan_host_ping_map[src_port][src_addr])
             packet = simple_icmp_packet(eth_src=src_mac,
@@ -1332,7 +1374,18 @@ class ReloadTest(BaseTest):
 
         self.log("Rebooting remote side")
         if self.reboot_type != 'service-warm-restart':
-            stdout, stderr, return_code = self.dut_connection.execCommand("sudo " + self.reboot_type, timeout=30)
+            reboot_command = self.reboot_type
+            # create an empty log file to capture output of reboot command
+            reboot_log_file = "/host/{}.log".format(reboot_command.replace(' ', ''))
+            self.dut_connection.execCommand("sudo touch {}; sudo chmod 666 {}".format(
+                reboot_log_file, reboot_log_file))
+
+            # execute reboot command w/ nohup so that when the execCommand times-out:
+            # 1. there is a reader/writer for any bash commands using PIPE
+            # 2. the output and error of CLI still gets written to log file
+            stdout, stderr, return_code = self.dut_connection.execCommand(
+                "nohup sudo {} -v &> {}".format(
+                    reboot_command, reboot_log_file), timeout=10)
         else:
             self.restart_service()
             return
@@ -1492,47 +1545,121 @@ class ReloadTest(BaseTest):
             # 1. sniffer max timeout is increased (to prevent sniffer finish before sender)
             # 2. and sender can signal sniffer to end after all packets are sent.
             time.sleep(1)
-            kill_sniffer_cmd = "pkill -SIGINT -f {}".format(self.ptf_sniffer)
-            subprocess.Popen(kill_sniffer_cmd.split())
+            self.kill_sniffer = True
+            time.sleep(1)  # required for prevent error in line below: raise Scapy_Exception(\"Filter parse error\")
             self.apply_filter_all_ports('')
 
     def sniff_in_background(self, wait = None):
         """
         This function listens on all ports, in both directions, for the TCP src=1234 dst=5000 packets, until timeout.
         Once found, all packets are dumped to local pcap file,
-        and all packets are saved to self.packets as scapy type.
-        The native scapy.snif() is used as a background thread, to allow delayed start for the send_in_background().
+        and all packets are saved to self.packets as scapy type(pcap format).
         """
         if not wait:
             wait = self.time_to_listen + self.test_params['sniff_time_incr']
         sniffer_start = datetime.datetime.now()
         self.log("Sniffer started at %s" % str(sniffer_start))
         sniff_filter = "tcp and tcp dst port 5000 and tcp src port 1234 and not icmp"
-        scapy_sniffer = threading.Thread(target=self.scapy_sniff,
-            kwargs={'wait': wait, 'sniff_filter': sniff_filter})
-        scapy_sniffer.start()
+        sniffer = threading.Thread(target=self.tcpdump_sniff, kwargs={'wait': wait, 'sniff_filter': sniff_filter})
+        sniffer.start()
         time.sleep(2)               # Let the scapy sniff initialize completely.
         self.sniffer_started.set()  # Unblock waiter for the send_in_background.
-        scapy_sniffer.join()
+        sniffer.join()
         self.log("Sniffer has been running for %s" % str(datetime.datetime.now() - sniffer_start))
         self.sniffer_started.clear()
 
-    def scapy_sniff(self, wait=300, sniff_filter=''):
+    def tcpdump_sniff(self, wait=300, sniff_filter=''):
         """
         @summary: PTF runner -  runs a sniffer in PTF container.
         Args:
             wait (int): Duration in seconds to sniff the traffic
-            sniff_filter (str): Filter that Scapy will use to collect only relevant packets
+            sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
         capture_pcap = "/tmp/capture_%s.pcap" % self.logfile_suffix if self.logfile_suffix is not None else "/tmp/capture.pcap"
-        capture_log = "/tmp/capture.log"
-        self.ptf_sniffer = "/root/ptftests/advanced_reboot_sniffer.py"
-        sniffer_command = ["python", self.ptf_sniffer, "-f", "'{}'".format(sniff_filter), "-p",\
-        capture_pcap, "-l", capture_log, "-t" , str(wait)]
         subprocess.call(["rm", "-rf", capture_pcap]) # remove old capture
-        subprocess.call(sniffer_command)
+        self.kill_sniffer = False
+        self.start_sniffer(capture_pcap, sniff_filter, wait)
+        self.create_single_pcap(capture_pcap)
         self.packets = scapyall.rdpcap(capture_pcap)
         self.log("Number of all packets captured: {}".format(len(self.packets)))
+
+    def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
+        """
+        Star tcpdump sniffer on all data interfaces
+        """
+        self.tcpdump_data_ifaces = [iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
+        processes_list = []
+        for iface in self.tcpdump_data_ifaces:
+            process = multiprocessing.Process(target=self.start_dump_process, kwargs={'iface': iface,
+                                                                                      'pcap_path': pcap_path,
+                                                                                      'tcpdump_filter': tcpdump_filter})
+            process.start()
+            processes_list.append(process)
+
+        time_start = time.time()
+        while not self.kill_sniffer:
+            time.sleep(1)
+            curr_time = time.time()
+            if curr_time - time_start > timeout:
+                break
+            time_start = curr_time
+
+        self.log("Going to kill all tcpdump processes by SIGINT")
+        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
+
+        for process in processes_list:
+            process.join()
+
+    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
+        """
+        Start tcpdump on specific interface and save data to pcap file
+        """
+        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
+        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
+        subprocess.call(cmd)
+
+    def create_single_pcap(self, pcap_path):
+        """
+        Merge all pcaps from each interface into single pcap file
+        """
+        tmp_file_name = self.merge_pcaps(pcap_path, self.tcpdump_data_ifaces)
+        self.convert_pcapng_to_pcap(pcap_path, tmp_file_name)
+        self.log('Pcap files merged into single pcap file: {}'.format(pcap_path))
+
+    def merge_pcaps(self, pcap_path, data_ifaces):
+        """
+        Merge all pcaps into one, format: pcapng
+        """
+        tmp_file_name = '{}_tmp'.format(pcap_path)
+        cmd = ['mergecap', '-w', tmp_file_name]
+        ifaces_pcap_files_list = []
+        for iface in data_ifaces:
+            pcap_file_path = '{}_{}'.format(pcap_path, iface)
+            if os.path.exists(pcap_file_path):
+                cmd.append(pcap_file_path)
+                ifaces_pcap_files_list.append(pcap_file_path)
+
+        self.log('Starting merge pcap files')
+        subprocess.call(cmd)
+        self.log('Pcap files merged into tmp pcapng file')
+
+        # Remove pcap files created per interface
+        for pcap_file in ifaces_pcap_files_list:
+            subprocess.call(['rm', '-f', pcap_file])
+
+        return tmp_file_name
+
+    def convert_pcapng_to_pcap(self, pcap_path, tmp_file_name):
+        """
+        Convert pcapng file into pcap. We can't just merge all in pcap,
+        mergecap can merge multiple files only into pcapng format
+        """
+        cmd = ['mergecap', '-F', 'pcap', '-w', pcap_path, tmp_file_name]
+        self.log('Converting pcapng file into pcap file')
+        subprocess.call(cmd)
+        self.log('Pcapng file converted into pcap file')
+        subprocess.call(['rm', '-f', tmp_file_name])  # Remove tmp pcapng file
 
     def send_and_sniff(self):
         """
@@ -1625,6 +1752,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].add("Sniffer failed to capture any traffic")
         self.assertTrue(packets, "Sniffer failed to capture any traffic")
         self.fails['dut'].clear()
+        prev_payload = None
         if packets:
             prev_payload, prev_time = 0, 0
             sent_payload = 0
@@ -1705,6 +1833,36 @@ class ReloadTest(BaseTest):
             self.total_disrupt_packets = 0
             self.total_disrupt_time = 0
             self.log("Gaps in forwarding not found.")
+
+        self.dataplane_loss_checked_successfully = True
+
+        if self.reboot_type == "fast-reboot" and not self.lost_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Data traffic loss not found but reboot test type is '%s' which "
+                                  "must have data traffic loss" % self.reboot_type)
+
+        if len(self.packets_list) > sent_counter:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Not all sent packets counted by receiver process. "
+                                  "Could be issue with sniffer performance")
+
+        total_validation_packets = received_t1_to_vlan + received_vlan_to_t1 + missed_t1_to_vlan + missed_vlan_to_t1
+        # In some cases DUT may flood original packet to all members of VLAN, we do check that we do not flood too much
+        allowed_number_of_flooded_original_packets = 150
+        if (sent_counter - total_validation_packets) > allowed_number_of_flooded_original_packets:
+            self.dataplane_loss_checked_successfully = False
+            self.fails["dut"].add("Unexpected count of sent packets available in pcap file. "
+                                  "Could be issue with DUT flooding for original packets which was sent to DUT")
+
+        if prev_payload != (self.packets_to_send - 1):
+            # Specific case when packet loss started but final lost packet not detected
+            self.dataplane_loss_checked_successfully = False
+            message = "Unable to calculate the dataplane traffic loss time. The traffic did not restore after " \
+                      "performing reboot for the pre-defined test checker period. Note: the traffic could possibly " \
+                      "restore after too long time, this could be checked manually."
+            self.log(message)
+            self.fails["dut"].add(message)
+
         self.log("Total incoming packets captured %d" % received_counter)
         if packets:
             filename = '/tmp/capture_filtered.pcap' if self.logfile_suffix is None else "/tmp/capture_filtered_%s.pcap" % self.logfile_suffix
@@ -1985,11 +2143,6 @@ class ReloadTest(BaseTest):
                 testutils.send_packet(self, src_port, packet)
 
         total_rcv_pkt_cnt = testutils.count_matched_packets_all_ports(self, self.ping_dut_exp_packet, self.vlan_ports, timeout=self.PKT_TOUT)
-
-        if self.vlan_mac != self.dut_mac:
-            # handle two-for-one icmp reply for dual tor (when vlan and dut mac are diff):
-            # icmp_responder will also generate a response for this ICMP req, ignore that reply
-            total_rcv_pkt_cnt = total_rcv_pkt_cnt - self.ping_dut_pkts
 
         self.log("Send %5d Received %5d ping DUT" % (self.ping_dut_pkts, total_rcv_pkt_cnt), True)
 

@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from collections import OrderedDict
 from tests.common.fixtures.duthost_utils import disable_route_checker
 from tests.common.fixtures.duthost_utils import disable_fdb_aging
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_data_acl
 
 
 pytestmark = [
@@ -25,7 +25,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CRM_POLLING_INTERVAL = 1
-CRM_UPDATE_TIME = 10
+CRM_UPDATE_TIME = 5
 SONIC_RES_UPDATE_TIME = 50
 CISCO_8000_ADD_NEIGHBORS = 3000
 ACL_TABLE_NAME = "DATAACL"
@@ -766,19 +766,19 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
 
     nhg_del_template="""
         %s
-        ip -4 {{ns_prefix}} route del 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route del 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route del 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh del 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh del 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh del 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route del {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     nhg_add_template="""
         %s
-        ip -4 {{ns_prefix}} route add 3.3.3.0/24 dev {{iface}}
+        ip -4 {{ns_prefix}} route add 5.5.5.0/24 dev {{iface}}
         ip -4 {{ns_prefix}} route add 4.4.4.0/24 dev {{iface2}}
-        ip {{ns_prefix}} neigh replace 3.3.3.1 lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace 5.5.5.1 lladdr 11:22:33:44:55:66 dev {{iface}}
         ip {{ns_prefix}} neigh replace 4.4.4.1 lladdr 77:22:33:44:55:66 dev {{iface2}}
-        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 3.3.3.1 nexthop via 4.4.4.1""" %(NS_PREFIX_TEMPLATE)
+        ip -4 {{ns_prefix}} route add {{prefix}} nexthop via 5.5.5.1 nexthop via 4.4.4.1""" % (NS_PREFIX_TEMPLATE)
 
     add_template = Template(nhg_add_template)
     del_template = Template(nhg_del_template)
@@ -870,42 +870,88 @@ def recreate_acl_table(duthost, ports):
     duthost.shell_cmds(cmds=cmds)
 
 
-def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector, tbinfo):
+@pytest.fixture
+def recover_acl_rule(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, collector):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
+
+    base_dir = os.path.dirname(os.path.realpath(__file__))
+    template_dir = os.path.join(base_dir, "templates")
+    acl_rules_template = "acl.json"
+
+    dut_tmp_dir = "/tmp-{}".format(asichost.asic_index)
+    dut_conf_file_path = os.path.join(dut_tmp_dir, acl_rules_template)
+
+    pre_acl_rules = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["rules"]
+
+    yield
+
+    if pre_acl_rules:
+        for key, value in pre_acl_rules.items():
+            if key != "DEFAULT_RULE":
+                seq_id = key.split('_')[1]
+                acl_config = json.loads(open(os.path.join(template_dir, acl_rules_template)).read())
+                acl_entry_template = \
+                    acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]["1"]
+                acl_entry_config = acl_config["acl"]["acl-sets"]["acl-set"]["dataacl"]["acl-entries"]["acl-entry"]
+
+                acl_entry_config[seq_id] = copy.deepcopy(acl_entry_template)
+                acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
+                acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
+                acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
+                acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
+
+        with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
+            json.dump(acl_config, fp)
+            fp.flush()
+            logger.info("Generating config for ACL rule, ACL table - DATAACL")
+            duthost.template(src=fp.name, dest=dut_conf_file_path, force=True)
+
+        logger.info("Applying {}".format(dut_conf_file_path))
+        duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+
+
+def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                   collector, tbinfo):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    data_acl = get_data_acl(duthost)
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
-
-    if duthost.facts["asic_type"] == "marvell":
-        # Remove DATA ACL Table and add it again with ports in same port group
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        tmp_ports = mg_facts["minigraph_ports"].keys()
-        tmp_ports.sort(key=lambda x: int(x[8:]))
-        for i in range(4):
-            if i == 0:
-                ports = ",".join(tmp_ports[17:19])
-            elif i == 1:
-                ports = ",".join(tmp_ports[24:26])
-            elif i == 2:
-                ports = ",".join([tmp_ports[20], tmp_ports[25]])
-            recreate_acl_table(duthost, ports)
+    try:
+        if duthost.facts["asic_type"] == "marvell":
+            # Remove DATA ACL Table and add it again with ports in same port group
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            tmp_ports = mg_facts["minigraph_ports"].keys()
+            tmp_ports.sort(key=lambda x: int(x[8:]))
+            for i in range(4):
+                if i == 0:
+                    ports = ",".join(tmp_ports[17:19])
+                elif i == 1:
+                    ports = ",".join(tmp_ports[24:26])
+                elif i == 2:
+                    ports = ",".join([tmp_ports[20], tmp_ports[25]])
+                recreate_acl_table(duthost, ports)
+                verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
+                                     enum_frontend_asic_index, asic_collector, tbinfo)
+                # Rebind DATA ACL at end to recover original config
+                recreate_acl_table(duthost, ports)
+                apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                duthost.command("acl-loader delete")
+        else:
             verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                                 enum_frontend_asic_index, asic_collector)
-            # Rebind DATA ACL at end to recover original config
-            recreate_acl_table(duthost, ports)
-            apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
-            duthost.command("acl-loader delete")
-    else:
-        verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                             enum_frontend_asic_index, asic_collector)
+                                 enum_frontend_asic_index, asic_collector, tbinfo)
 
-    pytest_assert(crm_stats_checker,
-                  "\"crm_stats_acl_entry_used\" counter was not decremented or "
-                  "\"crm_stats_acl_entry_available\" counter was not incremented")
+        pytest_assert(crm_stats_checker,
+                      "\"crm_stats_acl_entry_used\" counter was not decremented or "
+                      "\"crm_stats_acl_entry_available\" counter was not incremented")
+    finally:
+        if data_acl:
+            RESTORE_CMDS["test_acl_entry"].append({"data_acl": data_acl})
 
 
 def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hostname,
-                         enum_frontend_asic_index, asic_collector):
-    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector)
+                         enum_frontend_asic_index, asic_collector, tbinfo):
+    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=2)
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
@@ -918,10 +964,8 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Get new "crm_stats_acl_entry" used and available counter value
     new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available = get_crm_stats(get_acl_entry_stats, duthost)
     # Verify "crm_stats_acl_entry_used" counter was incremented
-    pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 2,
+    pytest_assert(new_crm_stats_acl_entry_used - crm_stats_acl_entry_used == 4,
                   "\"crm_stats_acl_entry_used\" counter was not incremented")
-
-    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + new_crm_stats_acl_entry_used
 
     used_percent = get_used_percent(new_crm_stats_acl_entry_used, new_crm_stats_acl_entry_available)
     if used_percent < 1:
@@ -936,17 +980,67 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
     # Verify thresholds for "ACL entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
 
-    # Remove ACL
-    duthost.command("acl-loader delete")
+    # Reduce ACL to one rule (plus default)
+    crm_stats_acl_entry_used = 2
+    apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, entry_num=1)
+    if duthost.facts.get("platform_asic", None) == "broadcom-dnx":
+        # Each ACL rule consumes an acl entry per bind point
+        asicAclBindings = set()
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+        # PCs are a single bind point
+        portToLag = {}
+        for lag, lagData in mg_facts["minigraph_portchannels"].items():
+            for member in lagData['members']:
+                portToLag[member] = lag
+        aclBindings = mg_facts["minigraph_acls"]["DataAcl"]
+        for port in aclBindings:
+            if port in portToLag:
+                if asichost.portchannel_on_asic(portToLag[port]):
+                    asicAclBindings.add(portToLag[port])
+            else:
+                if asichost.port_on_asic(port):
+                    asicAclBindings.add(port)
+
+        freed_acl_entries = (new_crm_stats_acl_entry_used - crm_stats_acl_entry_used) * len(asicAclBindings)
+    else:
+        freed_acl_entries = new_crm_stats_acl_entry_used - crm_stats_acl_entry_used
+
+    crm_stats_acl_entry_available = new_crm_stats_acl_entry_available + freed_acl_entries
+
     acl_tbl_key = asic_collector["acl_tbl_key"]
     get_acl_entry_stats = "{db_cli} COUNTERS_DB HMGET {acl_tbl_key} \
                             crm_stats_acl_entry_used \
                             crm_stats_acl_entry_available"\
                             .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
     global crm_stats_checker
-    crm_stats_checker = wait_until(30, 5, 0, check_crm_stats, get_acl_entry_stats, duthost,
-                                   crm_stats_acl_entry_used,
-                                   crm_stats_acl_entry_available, "==", ">=")
+    if duthost.facts["asic_type"] == "marvell":
+        crm_stats_checker = wait_until(
+            30,
+            5,
+            0,
+            check_crm_stats,
+            get_acl_entry_stats,
+            duthost,
+            crm_stats_acl_entry_used,
+            crm_stats_acl_entry_available,
+            "==",
+            ">=",
+        )
+    else:
+        crm_stats_checker = wait_until(
+            30,
+            5,
+            0,
+            check_crm_stats,
+            get_acl_entry_stats,
+            duthost,
+            crm_stats_acl_entry_used,
+            crm_stats_acl_entry_available,
+        )
+
+    # Remove ACL
+    duthost.command("acl-loader delete")
 
 
 def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname,enum_frontend_asic_index, collector):
@@ -1027,6 +1121,11 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
 
+    if is_cisco_device(duthost):
+        topo_name_lower = tbinfo["topo"]["name"].lower()
+        if "t0" not in topo_name_lower and "m0" not in topo_name_lower:
+            pytest.skip("Unsupported topology, expected to run only on 'T0*' or 'M0' topology")
+
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -1062,6 +1161,10 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
     time.sleep(5)
+
+    if is_cisco_device(duthost):
+        # Sleep more time after fdbclear
+        time.sleep(10)
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
@@ -1130,5 +1233,11 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented
-    pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0, \
+    if is_cisco_device(duthost):
+        # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
+        # Hence, the available counter may not increase as per initial value.
+        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= -5, \
+        "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    else:
+        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0, \
         "Counter 'crm_stats_fdb_entry_available' was not incremented")

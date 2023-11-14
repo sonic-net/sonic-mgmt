@@ -2,6 +2,7 @@ import logging
 import pytest
 import re
 
+from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from vnet_constants import *

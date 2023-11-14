@@ -3270,176 +3270,6 @@ sensors_checks:
         - mp2975-i2c-5-6e/PMIC-5 PSU 12V Rail Curr (in1)/curr1_alarm
         - mp2975-i2c-5-6e/PMIC-5 PSU 12V Rail Pwr (in1)/power1_alarm
 
-  x86_64-arista_7050_qx32:
-    alarms:
-      fan: []
-      power:
-      - dps460-i2c-8-58/vin/in1_min_alarm
-      - dps460-i2c-8-58/vin/in1_max_alarm
-      - dps460-i2c-8-58/vin/in1_lcrit_alarm
-      - dps460-i2c-8-58/vin/in1_crit_alarm
-      - dps460-i2c-8-58/vout1/in3_min_alarm
-      - dps460-i2c-8-58/vout1/in3_max_alarm
-      - dps460-i2c-8-58/vout1/in3_lcrit_alarm
-      - dps460-i2c-8-58/vout1/in3_crit_alarm
-      - dps460-i2c-8-58/iin/curr1_max_alarm
-      - dps460-i2c-8-58/iin/curr1_crit_alarm
-      - dps460-i2c-8-58/iout1/curr2_max_alarm
-      - dps460-i2c-8-58/iout1/curr2_lcrit_alarm
-      - dps460-i2c-8-58/iout1/curr2_crit_alarm
-      - dps460-i2c-9-58/vin/in1_min_alarm
-      - dps460-i2c-9-58/vin/in1_max_alarm
-      - dps460-i2c-9-58/vin/in1_lcrit_alarm
-      - dps460-i2c-9-58/vin/in1_crit_alarm
-      - dps460-i2c-9-58/vout1/in3_min_alarm
-      - dps460-i2c-9-58/vout1/in3_max_alarm
-      - dps460-i2c-9-58/vout1/in3_lcrit_alarm
-      - dps460-i2c-9-58/vout1/in3_crit_alarm
-      - dps460-i2c-9-58/iin/curr1_max_alarm
-      - dps460-i2c-9-58/iin/curr1_crit_alarm
-      - dps460-i2c-9-58/iout1/curr2_max_alarm
-      - dps460-i2c-9-58/iout1/curr2_lcrit_alarm
-      - dps460-i2c-9-58/iout1/curr2_crit_alarm
-
-      temp:
-      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_max_alarm
-      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_min_alarm
-      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
-      - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
-      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_max_alarm
-      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_min_alarm
-      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_crit_alarm
-      - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_lcrit_alarm
-      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_max_alarm
-      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_min_alarm
-      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
-      - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
-      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_max_alarm
-      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_min_alarm
-      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_crit_alarm
-      - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_lcrit_alarm
-
-    compares:
-      fan: []
-      power: []
-      temp:
-      - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
-        - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - lm73-i2c-6-48/Back panel temp sensor/temp1_input
-        - lm73-i2c-6-48/Back panel temp sensor/temp1_max
-      - - max6658-i2c-5-4c/Board temp sensor/temp1_input
-        - max6658-i2c-5-4c/Board temp sensor/temp1_max
-      - - max6658-i2c-5-4c/Front panel temp sensor/temp2_input
-        - max6658-i2c-5-4c/Front panel temp sensor/temp2_max
-      - - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_input
-        - dps460-i2c-8-58/Power supply 1 inlet temp sensor/temp1_max
-      - - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_input
-        - dps460-i2c-8-58/Power supply 1 internal sensor/temp2_max
-      - - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_input
-        - dps460-i2c-9-58/Power supply 2 inlet temp sensor/temp1_max
-      - - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_input
-        - dps460-i2c-9-58/Power supply 2 internal sensor/temp2_max
-
-    non_zero:
-      fan:
-      - dps460-i2c-8-58/fan1/fan1_input
-      - dps460-i2c-9-58/fan1/fan1_input
-      power: []
-      temp: []
-
-    psu_skips: {}
-    sensor_skip_per_version: {}
-
-  x86_64-arista_7260cx3_64:
-    alarms:
-      fan:
-      - pmbus-i2c-3-58/fan1/fan1_alarm
-      - pmbus-i2c-4-58/fan1/fan1_alarm
-      - pmbus-i2c-3-58/fan1/fan1_fault
-      - pmbus-i2c-4-58/fan1/fan1_fault
-      - la_cpld-i2c-85-60/fan1/fan1_fault
-      - la_cpld-i2c-85-60/fan2/fan2_fault
-      - la_cpld-i2c-85-60/fan3/fan3_fault
-      - la_cpld-i2c-85-60/fan4/fan4_fault
-      power:
-      - pmbus-i2c-3-58/iin/curr1_max_alarm
-      - pmbus-i2c-3-58/iout1/curr2_max_alarm
-      - pmbus-i2c-3-58/iout1/curr2_crit_alarm
-      - pmbus-i2c-3-58/iout2/curr3_crit_alarm
-      - pmbus-i2c-3-58/vin/in1_alarm
-      - pmbus-i2c-3-58/vout1/in2_lcrit_alarm
-      - pmbus-i2c-3-58/vout1/in2_crit_alarm
-      - pmbus-i2c-4-58/iin/curr1_max_alarm
-      - pmbus-i2c-4-58/iout1/curr2_max_alarm
-      - pmbus-i2c-4-58/iout1/curr2_crit_alarm
-      - pmbus-i2c-4-58/iout2/curr3_crit_alarm
-      - pmbus-i2c-4-58/vin/in1_alarm
-      - pmbus-i2c-4-58/vout1/in2_lcrit_alarm
-      - pmbus-i2c-4-58/vout1/in2_crit_alarm
-      temp:
-      - coretemp-isa-0000/Package id 0/temp1_crit_alarm
-      - coretemp-isa-0000/Core 0/temp2_crit_alarm
-      - coretemp-isa-0000/Core 1/temp3_crit_alarm
-      - lm73-i2c-88-48/Front panel temp sensor/temp1_min_alarm
-      - lm73-i2c-88-48/Front panel temp sensor/temp1_max_alarm
-      - max6658-i2c-1-4c/Asic temp sensor/temp1_min_alarm
-      - max6658-i2c-1-4c/Asic temp sensor/temp1_max_alarm
-      - max6658-i2c-1-4c/Asic temp sensor/temp1_crit_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_min_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_crit_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_min_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_crit_alarm
-      - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_fault
-      - pmbus-i2c-3-58/Power supply 1 exhaust temp sensor/temp3_alarm
-      - pmbus-i2c-3-58/Power supply 1 inlet temp sensor/temp2_alarm
-      - pmbus-i2c-3-58/Power supply 1 hotspot sensor/temp1_alarm
-      - pmbus-i2c-4-58/Power supply 2 exhaust temp sensor/temp3_alarm
-      - pmbus-i2c-4-58/Power supply 2 inlet temp sensor/temp2_alarm
-      - pmbus-i2c-4-58/Power supply 2 hotspot sensor/temp1_alarm
-
-    compares:
-      fan: []
-      power:
-      - - pmbus-i2c-3-58/iin/curr1_input
-        - pmbus-i2c-3-58/iin/curr1_max
-      - - pmbus-i2c-3-58/iout1/curr2_input
-        - pmbus-i2c-3-58/iout1/curr2_max
-      - - pmbus-i2c-4-58/iin/curr1_input
-        - pmbus-i2c-4-58/iin/curr1_max
-      - - pmbus-i2c-4-58/iout1/curr2_input
-        - pmbus-i2c-4-58/iout1/curr2_max
-      temp:
-      - - coretemp-isa-0000/Package id 0/temp1_input
-        - coretemp-isa-0000/Package id 0/temp1_max
-      - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
-      - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
-      - - lm73-i2c-88-48/Front panel temp sensor/temp1_input
-        - lm73-i2c-88-48/Front panel temp sensor/temp1_max
-      - - max6658-i2c-1-4c/Asic temp sensor/temp1_input
-        - max6658-i2c-1-4c/Asic temp sensor/temp1_max
-      - - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_input
-        - max6658-i2c-73-4c/Back panel temp sensor 1/temp1_max
-      - - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_input
-        - max6658-i2c-73-4c/Back panel temp sensor 2/temp2_max
-
-    non_zero:
-      fan:
-      - pmbus-i2c-3-58/fan1/fan1_input
-      - pmbus-i2c-4-58/fan1/fan1_input
-      - la_cpld-i2c-85-60/fan1/fan1_input
-      - la_cpld-i2c-85-60/fan2/fan2_input
-      - la_cpld-i2c-85-60/fan3/fan3_input
-      - la_cpld-i2c-85-60/fan4/fan4_input
-      power: []
-      temp: []
-
-    psu_skips: {}
-    sensor_skip_per_version: {}
-
   x86_64-ingrasys_s9100-r0:
     alarms:
       fan:
@@ -3837,76 +3667,6 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-arista_7060_cx32s:
-    alarms:
-      fan:
-      - pmbus-i2c-5-58/fan1/fan1_alarm
-      - pmbus-i2c-6-58/fan1/fan1_alarm
-      - pmbus-i2c-5-58/fan1/fan1_fault
-      - pmbus-i2c-6-58/fan1/fan1_fault
-      power:
-      - pmbus-i2c-5-58/iin/curr1_max_alarm
-      - pmbus-i2c-5-58/iout1/curr2_max_alarm
-      - pmbus-i2c-5-58/iout1/curr2_crit_alarm
-      - pmbus-i2c-5-58/iout2/curr3_crit_alarm
-      - pmbus-i2c-5-58/vin/in1_alarm
-      - pmbus-i2c-5-58/vout1/in2_crit_alarm
-      - pmbus-i2c-5-58/vout1/in2_lcrit_alarm
-      - pmbus-i2c-6-58/iin/curr1_max_alarm
-      - pmbus-i2c-6-58/iout1/curr2_max_alarm
-      - pmbus-i2c-6-58/iout1/curr2_crit_alarm
-      - pmbus-i2c-6-58/iout2/curr3_crit_alarm
-      - pmbus-i2c-6-58/vin/in1_alarm
-      - pmbus-i2c-6-58/vout1/in2_crit_alarm
-      - pmbus-i2c-6-58/vout1/in2_lcrit_alarm
-      temp:
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_min_alarm
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max_alarm
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_crit_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_min_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_max_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_crit_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_fault
-      - pmbus-i2c-5-58/Power supply 2 hotspot sensor/temp1_alarm
-      - pmbus-i2c-5-58/Power supply 2 inlet temp sensor/temp2_alarm
-      - pmbus-i2c-5-58/Power supply 2 exhaust temp sensor/temp3_alarm
-      - pmbus-i2c-6-58/Power supply 1 hotspot sensor/temp1_alarm
-      - pmbus-i2c-6-58/Power supply 1 inlet temp sensor/temp2_alarm
-      - pmbus-i2c-6-58/Power supply 1 exhaust temp sensor/temp3_alarm
-
-    compares:
-      fan: []
-      power:
-      - - pmbus-i2c-5-58/iin/curr1_input
-        - pmbus-i2c-5-58/iin/curr1_max
-      - - pmbus-i2c-5-58/iout1/curr2_input
-        - pmbus-i2c-5-58/iout1/curr2_max
-      - - pmbus-i2c-6-58/iin/curr1_input
-        - pmbus-i2c-6-58/iin/curr1_max
-      - - pmbus-i2c-6-58/iout1/curr2_input
-        - pmbus-i2c-6-58/iout1/curr2_max
-      temp:
-      - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
-        - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - max6658-i2c-3-4c/Cpu board temp sensor/temp1_input
-        - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max
-      - - max6658-i2c-3-4c/Back panel temp sensor/temp2_input
-        - max6658-i2c-3-4c/Back panel temp sensor/temp2_max
-
-    non_zero:
-      fan:
-      - pmbus-i2c-5-58/fan1/fan1_input
-      - pmbus-i2c-6-58/fan1/fan1_input
-      - crow_cpld-i2c-3-60/fan1/fan1_input
-      - crow_cpld-i2c-3-60/fan2/fan2_input
-      - crow_cpld-i2c-3-60/fan3/fan3_input
-      - crow_cpld-i2c-3-60/fan4/fan4_input
-      power: []
-      temp: []
-
-    psu_skips: {}
-    sensor_skip_per_version: {}
-
   x86_64-accton_as7712_32x-r0:
     alarms:
       fan:
@@ -4161,93 +3921,6 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-arista_7170_64c:
-    alarms:
-      fan:
-        # to specify regular expression use backslash '\' at the beginning and end of expression
-        # Platform has two chip names:
-        # dps1900-i2c-X-58 for Sonic 201911
-        # pmbus-i2c-X-58 for Sonic master
-      - \[a-zA-Z0-9]*\-i2c-6-58\/fan1/fan1_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/fan1/fan1_alarm
-      - la_cpld-i2c-93-60/fan1/fan1_fault
-      - la_cpld-i2c-93-60/fan2/fan2_fault
-      - la_cpld-i2c-93-60/fan3/fan3_fault
-      - la_cpld-i2c-93-60/fan4/fan4_fault
-      power:
-      - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_max_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_max_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/vin/in1_min_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/vout1/in3_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/vout1/in3_lcrit_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_max_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_max_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/vin/in1_min_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/vout1/in3_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/vout1/in3_lcrit_alarm
-      temp:
-        # to specify regular expression use backslash '\' at the beginning and end of expression
-      - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_crit_alarm
-      - coretemp-isa-0000/Core 0/temp2_crit_alarm
-      - coretemp-isa-0000/Core 1/temp3_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/PSU1 primary hotspot temp/temp1_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-6-58/PSU1 inlet temp/temp2_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/PSU2 primary hotspot temp/temp1_crit_alarm
-      - \[a-zA-Z0-9]*\-i2c-7-58/PSU2 inlet temp/temp2_crit_alarm
-      - lm73-i2c-96-48/Front air temp/temp1_max_alarm
-      - lm73-i2c-96-48/Front air temp/temp1_min_alarm
-      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_crit_alarm
-      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_max_alarm
-      - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_min_alarm
-      - max6658-i2c-81-4c/Rear air temp1/temp1_crit_alarm
-      - max6658-i2c-81-4c/Rear air temp1/temp1_max_alarm
-      - max6658-i2c-81-4c/Rear air temp1/temp1_min_alarm
-      - max6658-i2c-81-4c/Rear air temp2/temp2_crit_alarm
-      - max6658-i2c-81-4c/Rear air temp2/temp2_max_alarm
-      - max6658-i2c-81-4c/Rear air temp2/temp2_min_alarm
-
-    compares:
-      fan: []
-      power:
-      - - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_input
-        - \[a-zA-Z0-9]*\-i2c-6-58/iin/curr1_max
-      - - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_input
-        - \[a-zA-Z0-9]*\-i2c-6-58/iout1/curr2_max
-      - - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_input
-        - \[a-zA-Z0-9]*\-i2c-7-58/iin/curr1_max
-      - - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_input
-        - \[a-zA-Z0-9]*\-i2c-7-58/iout1/curr2_max
-      temp:
-        # to specify regular expression use backslash '\' at the beginning and end of expression
-      - - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_input
-        - coretemp-isa-0000/\P[a-z]*\ id 0/temp1_max
-      - - coretemp-isa-0000/Core 0/temp2_input
-        - coretemp-isa-0000/Core 0/temp2_max
-      - - coretemp-isa-0000/Core 1/temp3_input
-        - coretemp-isa-0000/Core 1/temp3_max
-      - - lm73-i2c-96-48/Front air temp/temp1_input
-        - lm73-i2c-96-48/Front air temp/temp1_max
-      - - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_input
-        - max6658-i2c-8-4c/Temp sensor near ASIC/temp1_max
-      - - max6658-i2c-81-4c/Rear air temp1/temp1_input
-        - max6658-i2c-81-4c/Rear air temp1/temp1_max
-      - - max6658-i2c-81-4c/Rear air temp2/temp2_input
-        - max6658-i2c-81-4c/Rear air temp2/temp2_max
-
-    non_zero:
-      fan:
-      - la_cpld-i2c-93-60/fan1/fan1_input
-      - la_cpld-i2c-93-60/fan2/fan2_input
-      - la_cpld-i2c-93-60/fan3/fan3_input
-      - la_cpld-i2c-93-60/fan4/fan4_input
-      power: []
-      temp: []
-
-    psu_skips: {}
-    sensor_skip_per_version: {}
-
   x86_64-cel_e1031-r0:
     alarms:
       fan: []
@@ -4271,90 +3944,6 @@ sensors_checks:
       fan: []
       power: []
       temp: []
-    psu_skips: {}
-    sensor_skip_per_version: {}
-
-  x86_64-arista_7050_qx32s:
-    alarms:
-      fan:
-      - pmbus-i2c-5-58/fan1/fan1_alarm
-      - pmbus-i2c-6-58/fan1/fan1_alarm
-
-      power:
-      - pmbus-i2c-5-58/iin/curr1_max_alarm
-      - pmbus-i2c-5-58/iout1/curr2_crit_alarm
-      - pmbus-i2c-5-58/iout1/curr2_max_alarm
-      - pmbus-i2c-5-58/iout2/curr3_crit_alarm
-      - pmbus-i2c-5-58/vin/in1_alarm
-      - pmbus-i2c-5-58/vout1/in2_crit_alarm
-      - pmbus-i2c-5-58/vout1/in2_lcrit_alarm
-
-      temp:
-      - max6658-i2c-2-4c/Board temp sensor/temp1_max_alarm
-      - max6658-i2c-2-4c/Board temp sensor/temp1_min_alarm
-      - max6658-i2c-2-4c/Board temp sensor/temp1_crit_alarm
-      - max6658-i2c-2-4c/Front panel temp sensor/temp2_max_alarm
-      - max6658-i2c-2-4c/Front panel temp sensor/temp2_min_alarm
-      - max6658-i2c-2-4c/Front panel temp sensor/temp2_crit_alarm
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max_alarm
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_min_alarm
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_crit_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_max_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_min_alarm
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_crit_alarm
-      - pmbus-i2c-5-58/Power supply 2 hotspot sensor/temp1_alarm
-      - pmbus-i2c-5-58/Power supply 2 inlet temp sensor/temp2_alarm
-      - pmbus-i2c-5-58/Power supply 2 sensor/temp3_alarm
-
-    compares:
-      fan: []
-      power:
-      - - pmbus-i2c-5-58/iin/curr1_input
-        - pmbus-i2c-5-58/iin/curr1_max
-      - - pmbus-i2c-5-58/iout1/curr2_input
-        - pmbus-i2c-5-58/iout1/curr2_max
-
-      temp:
-      - - k10temp-pci-00c3/Cpu temp sensor/temp1_input
-        - k10temp-pci-00c3/Cpu temp sensor/temp1_max
-      - - max6658-i2c-2-4c/Board temp sensor/temp1_input
-        - max6658-i2c-2-4c/Board temp sensor/temp1_max
-      - - max6658-i2c-2-4c/Front panel temp sensor/temp2_input
-        - max6658-i2c-2-4c/Front panel temp sensor/temp2_max
-      - - max6658-i2c-3-4c/Cpu board temp sensor/temp1_input
-        - max6658-i2c-3-4c/Cpu board temp sensor/temp1_max
-      - - max6658-i2c-3-4c/Back panel temp sensor/temp2_input
-        - max6658-i2c-3-4c/Back panel temp sensor/temp2_max
-
-    non_zero:
-      fan:
-      - crow_cpld-i2c-3-60/fan1/fan1_input
-      - crow_cpld-i2c-3-60/fan2/fan2_input
-      - crow_cpld-i2c-3-60/fan3/fan3_input
-      - crow_cpld-i2c-3-60/fan4/fan4_input
-      - pmbus-i2c-5-58/fan1/fan1_input
-      - pmbus-i2c-6-58/fan1/fan1_input
-
-      power:
-      - pmbus-i2c-5-58/iin/curr1_input
-      - pmbus-i2c-5-58/iout1/curr2_input
-      - pmbus-i2c-5-58/iout2/curr3_input
-      - pmbus-i2c-5-58/pin/power1_input
-      - pmbus-i2c-5-58/pout1/power2_input
-      - pmbus-i2c-5-58/pout2/power3_input
-      - pmbus-i2c-5-58/vin/in1_input
-      - pmbus-i2c-5-58/vout1/in2_input
-
-      temp:
-      - k10temp-pci-00c3/Cpu temp sensor/temp1_input
-      - max6658-i2c-2-4c/Board temp sensor/temp1_input
-      - max6658-i2c-2-4c/Front panel temp sensor/temp2_input
-      - max6658-i2c-3-4c/Cpu board temp sensor/temp1_input
-      - max6658-i2c-3-4c/Back panel temp sensor/temp2_input
-      - pmbus-i2c-5-58/Power supply 2 hotspot sensor/temp1_input
-      - pmbus-i2c-5-58/Power supply 2 inlet temp sensor/temp2_input
-      - pmbus-i2c-5-58/Power supply 2 sensor/temp3_input
-
     psu_skips: {}
     sensor_skip_per_version: {}
 
@@ -6857,38 +6446,17 @@ sensors_checks:
     psu_skips: {}
     sensor_skip_per_version: {}
 
-  x86_64-8102_64h_o-r0:
+  x86_64-8101_32h_o-r0:
     alarms:
       voltage:
-      - tps53679-i2c-21-58/CPU_U17_PVCCIN_VIN/in1_alarm
-
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VIN/in2_alarm
-
       - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_lcrit_alarm
       - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_crit_alarm
-
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-21-58/CPU_U17_P1P05V_VOUT/in4_crit_alarm
-
-      - tps53679-i2c-21-59/CPU_U117_P1P2V_VIN/in1_alarm
-
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VIN/in2_alarm
 
       - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_lcrit_alarm
       - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_crit_alarm
 
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-21-59/CPU_U117_P1P05V_VOUT/in4_crit_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDS_L1_VIN/in1_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VIN/in2_alarm
-
       - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_crit_alarm
-
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-25-60/MB_GB_VDDA_L2_VOUT/in4_crit_alarm
 
       - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_min_alarm
       - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_max_alarm
@@ -6900,17 +6468,249 @@ sensors_checks:
       - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_lcrit_alarm
       - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_crit_alarm
 
-      - tps53679-i2c-25-65/MB_3_3V_R_L1_VIN/in1_alarm
-
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VIN/in2_alarm
-
       - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_crit_alarm
 
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VOUT/in4_lcrit_alarm
-      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VOUT/in4_crit_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_min_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_max_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_lcrit_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_crit_alarm
 
-      - tps53679-i2c-25-64/MB_3_3V_L_L1_VIN/in1_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_min_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_max_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_lcrit_alarm
+      - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_crit_alarm
+
+      - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_min_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_max_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_lcrit_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_crit_alarm
+
+      - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_min_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_max_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_lcrit_alarm
+      - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_crit_alarm
+
+      - ltc2979-i2c-26-5e/MB_A1V8/in3_min_alarm
+      - ltc2979-i2c-26-5e/MB_A1V8/in3_max_alarm
+      - ltc2979-i2c-26-5e/MB_A1V8/in3_lcrit_alarm
+      - ltc2979-i2c-26-5e/MB_A1V8/in3_crit_alarm
+
+      - ltc2979-i2c-26-5e/MB_A1V/in4_min_alarm
+      - ltc2979-i2c-26-5e/MB_A1V/in4_max_alarm
+      - ltc2979-i2c-26-5e/MB_A1V/in4_lcrit_alarm
+      - ltc2979-i2c-26-5e/MB_A1V/in4_crit_alarm
+
+      - ltc2979-i2c-26-5e/MB_A3V3/in5_min_alarm
+      - ltc2979-i2c-26-5e/MB_A3V3/in5_max_alarm
+      - ltc2979-i2c-26-5e/MB_A3V3/in5_lcrit_alarm
+      - ltc2979-i2c-26-5e/MB_A3V3/in5_crit_alarm
+
+      - ltc2979-i2c-26-5e/MB_A1V2/in6_min_alarm
+      - ltc2979-i2c-26-5e/MB_A1V2/in6_max_alarm
+      - ltc2979-i2c-26-5e/MB_A1V2/in6_lcrit_alarm
+      - ltc2979-i2c-26-5e/MB_A1V2/in6_crit_alarm
+
+      - ltc2979-i2c-26-5e/MB_P3V3/in7_min_alarm
+      - ltc2979-i2c-26-5e/MB_P3V3/in7_max_alarm
+      - ltc2979-i2c-26-5e/MB_P3V3/in7_lcrit_alarm
+      - ltc2979-i2c-26-5e/MB_P3V3/in7_crit_alarm
+
+      current:
+      - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_max_alarm
+      - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_crit_alarm
+
+      - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_max_alarm
+      - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_crit_alarm
+
+      - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_max_alarm
+      - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_crit_alarm
+
+      - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_max_alarm
+      - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_crit_alarm
+
+      - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_max_alarm
+      - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_max_alarm
+
+      - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_max_alarm
+      - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_crit_alarm
+
+      - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_max_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_crit_alarm
+
+      - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_max_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_lcrit_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_crit_alarm
+
+      - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_max_alarm
+      - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_crit_alarm
+
+      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_max_alarm
+      - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_crit_alarm
+
+      power:
+      - pmbus-i2c-25-62/pin/power1_alarm
+
+    compares:
+      voltage:
+      - - tps53679-i2c-21-58/CPU_U17_PVCCIN_VIN/in1_input
+        - tps53679-i2c-21-58/CPU_U17_PVCCIN_VIN/in1_crit
+
+      - - tps53679-i2c-21-58/CPU_U17_P1P05V_VIN/in2_input
+        - tps53679-i2c-21-58/CPU_U17_P1P05V_VIN/in2_crit
+
+      - - tps53679-i2c-21-59/CPU_U117_P1P2V_VIN/in1_input
+        - tps53679-i2c-21-59/CPU_U117_P1P2V_VIN/in1_crit
+
+      - - tps53679-i2c-21-59/CPU_U117_P1P05V_VIN/in2_input
+        - tps53679-i2c-21-59/CPU_U117_P1P05V_VIN/in2_crit
+
+      - - tps53679-i2c-25-60/MB_GB_VDDS_L1_VIN/in1_input
+        - tps53679-i2c-25-60/MB_GB_VDDS_L1_VIN/in1_crit
+
+      - - tps53679-i2c-25-60/MB_GB_VDDA_L2_VIN/in2_input
+        - tps53679-i2c-25-60/MB_GB_VDDA_L2_VIN/in2_crit
+
+      - - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_input
+        - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_max
+
+      - - tps53679-i2c-25-65/MB_3_3V_R_L1_VIN/in1_input
+        - tps53679-i2c-25-65/MB_3_3V_R_L1_VIN/in1_crit
+
+      - - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VIN/in2_input
+        - tps53679-i2c-25-65/MB_GB_VDDCK_L2_VIN/in2_crit
+
+      - - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_input
+        - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_max
+      - - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_input
+        - ltc2979-i2c-26-5d/GB_PCIE_VDDH/in2_crit
+
+      - - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_input
+        - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_max
+      - - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_input
+        - ltc2979-i2c-26-5d/GB_PCIE_VDDACK/in3_crit
+
+      - - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_input
+        - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_max
+      - - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_input
+        - ltc2979-i2c-26-5d/GB_P1V8_VDDIO/in5_crit
+
+      - - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_input
+        - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_max
+      - - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_input
+        - ltc2979-i2c-26-5d/GB_P1V8_PLLVDD/in6_crit
+
+      - - ltc2979-i2c-26-5e/MB_A1V8/in3_input
+        - ltc2979-i2c-26-5e/MB_A1V8/in3_max
+      - - ltc2979-i2c-26-5e/MB_A1V8/in3_input
+        - ltc2979-i2c-26-5e/MB_A1V8/in3_crit
+
+      - - ltc2979-i2c-26-5e/MB_A1V/in4_input
+        - ltc2979-i2c-26-5e/MB_A1V/in4_max
+      - - ltc2979-i2c-26-5e/MB_A1V/in4_input
+        - ltc2979-i2c-26-5e/MB_A1V/in4_crit
+
+      - - ltc2979-i2c-26-5e/MB_A3V3/in5_input
+        - ltc2979-i2c-26-5e/MB_A3V3/in5_max
+      - - ltc2979-i2c-26-5e/MB_A3V3/in5_input
+        - ltc2979-i2c-26-5e/MB_A3V3/in5_crit
+
+      - - ltc2979-i2c-26-5e/MB_A1V2/in6_input
+        - ltc2979-i2c-26-5e/MB_A1V2/in6_max
+      - - ltc2979-i2c-26-5e/MB_A1V2/in6_input
+        - ltc2979-i2c-26-5e/MB_A1V2/in6_crit
+
+      - - ltc2979-i2c-26-5e/MB_P3V3/in7_input
+        - ltc2979-i2c-26-5e/MB_P3V3/in7_max
+      - - ltc2979-i2c-26-5e/MB_P3V3/in7_input
+        - ltc2979-i2c-26-5e/MB_P3V3/in7_crit
+
+      current:
+      - - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_input
+        - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_max
+      - - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_input
+        - tps53679-i2c-21-58/CPU_U17_PVCCIN_IOUT/curr1_crit
+
+      - - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_input
+        - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_max
+      - - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_input
+        - tps53679-i2c-21-58/CPU_U17_P1P05V_IOUT/curr2_crit
+
+      - - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_input
+        - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_max
+      - - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_input
+        - tps53679-i2c-21-59/CPU_U117_P1P2V_IOUT/curr1_crit
+
+      - - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_input
+        - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_max
+      - - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_input
+        - tps53679-i2c-21-59/CPU_U117_P1P05V_IOUT/curr2_crit
+
+      - - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_input
+        - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_max
+      - - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_input
+        - tps53679-i2c-25-60/MB_GB_VDDS_L1_IOUT/curr1_crit
+
+      - - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_input
+        - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_max
+      - - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_input
+        - tps53679-i2c-25-60/MB_GB_VDDA_L2_IOUT/curr2_crit
+
+      - - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_input
+        - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_max
+      - - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_input
+        - pmbus-i2c-25-62/MB_GB_CORE_IIN_L1/curr1_crit
+
+      - - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_input
+        - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_max
+      - - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_input
+        - pmbus-i2c-25-62/MB_GB_CORE_IOUT_L1/curr2_crit
+
+      - - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_input
+        - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_max
+      - - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_input
+        - tps53679-i2c-25-65/MB_3_3V_R_L1_IOUT/curr1_crit
+
+      - - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_input
+        - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_max
+      - - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_input
+        - tps53679-i2c-25-65/MB_GB_VDDCK_L2_IOUT/curr2_crit
+
+      power:
+      - - pmbus-i2c-25-62/pin/power1_input
+        - pmbus-i2c-25-62/pin/power1_max
+
+    non_zero:
+      fan: []
+      power: []
+      temp: []
+    psu_skips: {}
+    sensor_skip_per_version: {}
+
+  x86_64-8102_64h_o-r0:
+    alarms:
+      voltage:
+      - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_lcrit_alarm
+      - tps53679-i2c-21-58/CPU_U17_PVCCIN_VOUT/in3_crit_alarm
+
+      - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_lcrit_alarm
+      - tps53679-i2c-21-59/CPU_U117_P1P2V_VOUT/in3_crit_alarm
+
+      - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_lcrit_alarm
+      - tps53679-i2c-25-60/MB_GB_VDDS_L1_VOUT/in3_crit_alarm
+
+      - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_min_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_max_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_lcrit_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VIN_L1/in1_crit_alarm
+
+      - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_min_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_max_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_lcrit_alarm
+      - pmbus-i2c-25-62/MB_GB_CORE_VOUT_L1/in2_crit_alarm
+
+      - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_lcrit_alarm
+      - tps53679-i2c-25-65/MB_3_3V_R_L1_VOUT/in3_crit_alarm
 
       - tps53679-i2c-25-64/MB_3_3V_L_L1_VOUT/in3_lcrit_alarm
       - tps53679-i2c-25-64/MB_3_3V_L_L1_VOUT/in3_crit_alarm

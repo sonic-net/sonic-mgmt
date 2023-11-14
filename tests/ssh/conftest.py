@@ -35,6 +35,11 @@ def generate_ssh_ciphers(request, typename):
         remote_cmd = "ssh -Q kex"
         permitted_list = PERMITTED_KEXS
 
+    # If --collect-only is specified, return the permitted list directly. Otherwise, pytest will try to
+    # connect to DUT. If DUT is not online, pytest will fail with collecting test items.
+    if hasattr(request.config.option, "collectonly") and request.config.option.collectonly:
+        return permitted_list
+
     testbed_name = request.config.option.testbed
     testbed_file = request.config.option.testbed_file
     testbed_module = imp.load_source('testbed', 'common/testbed.py')

@@ -467,8 +467,7 @@ class SonicHost(AnsibleHostBase):
                  and service type.
         """
         monit_services_status = {}
-
-        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=False)
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=True)
 
         exit_code = services_status_result["rc"]
         if exit_code != 0:
@@ -548,11 +547,11 @@ class SonicHost(AnsibleHostBase):
         # Get critical group and process definitions by running cmds in batch to save overhead
         cmds = []
         for service in self.critical_services:
-            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
-                  " && cat /etc/supervisor/critical_processes'".format(service)
+            cmd = 'docker exec {} bash -c "[ -f /etc/supervisor/critical_processes ]' \
+                  ' && cat /etc/supervisor/critical_processes"'.format(service)
 
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -632,7 +631,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -1591,7 +1590,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
             "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
               "Broadcom Limited Broadcom BCM56850" in output):
@@ -2201,7 +2200,7 @@ Totals               6450                 6449
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
@@ -2217,7 +2216,7 @@ Totals               6450                 6449
     def links_status_up(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down

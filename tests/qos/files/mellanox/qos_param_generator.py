@@ -3,7 +3,7 @@ import math
 class QosParamMellanox(object):
     def __init__(self, qos_params, asic_type, speed_cable_len, dutConfig, ingressLosslessProfile,
                  ingressLossyProfile, egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-                 dualTor, src_dut_index, src_asic_index, dst_asic_index, dst_dut_index):
+                 dualTor, src_dut_index, src_asic_index, dst_dut_index, dst_asic_index):
         self.asic_param_dic = {
             'spc1': {
                 'cell_size': 96,

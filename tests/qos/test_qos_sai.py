@@ -26,7 +26,7 @@ import time
 import json
 import re
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
@@ -52,8 +52,14 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
             ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
     ]
+
     if loganalyzer:
         for a_dut in get_src_dst_asic_and_duts['all_duts']:
+            hwsku = a_dut.facts["hwsku"]
+            if "7050" in hwsku and "QX" in hwsku.upper():
+                logger.info("ignore memory threshold check for 7050qx")
+                # ERR memory_threshold_check: Free memory 381608 is less then free memory threshold 400382.4
+                ignore_regex.append(".*ERR memory_threshold_check: Free memory .* is less then free memory threshold.*")
             loganalyzer[a_dut.hostname].ignore_regex.extend(ignore_regex)
 
 
@@ -292,7 +298,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,
-        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
+        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile, localhost
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
@@ -369,12 +375,12 @@ class TestQosSai(QosSaiBase):
         fanout_neighbors = conn_graph_facts["device_conn"][duthost.hostname]
         peerdevice = fanout_neighbors[pfcwd_test_port]["peerdevice"]
         peerport = fanout_neighbors[pfcwd_test_port]["peerport"]
+        peerdevice_hwsku = get_graph_facts(duthost, localhost, peerdevice)["device_info"][peerdevice]["HwSku"]
         peer_info = {
             'peerdevice': peerdevice,
-            'hwsku': fanout_graph_facts[peerdevice]["device_info"]["HwSku"],
+            'hwsku': peerdevice_hwsku,
             'pfc_fanout_interface': peerport
         }
-
         queue_index = qosConfig[xonProfile]["pg"]
         frames_number = 100000000
 
@@ -526,7 +532,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_pfc": qosConfig[xonProfile]["pkts_num_trig_pfc"],
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "hwsku":dutTestParams['hwsku']
+            "hwsku":dutTestParams['hwsku'],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "pkts_num_egr_mem" :  qosConfig[xonProfile].get('pkts_num_egr_mem', None)
+
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -558,7 +567,7 @@ class TestQosSai(QosSaiBase):
          "lossless_voq_3", "lossless_voq_4"])
     def testQosSaiLosslessVoq(
             self, LosslessVoqProfile, ptfhost, dutTestParams, dutConfig,
-            dutQosConfig, get_src_dst_asic_and_duts
+            dutQosConfig, get_src_dst_asic_and_duts, skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI XOFF limits for various voq mode configurations
@@ -596,6 +605,14 @@ class TestQosSai(QosSaiBase):
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         all_src_ports = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        all_src_port_ids = set(all_src_ports.keys())
+        if get_src_dst_asic_and_duts['single_asic_test']:
+            all_src_port_ids = set(all_src_ports.keys()) - \
+                    set([dutConfig["testPorts"]["src_port_id"],
+                        dutConfig["testPorts"]["dst_port_id"], 
+                        dutConfig["testPorts"]["dst_port_2_id"],
+                        dutConfig["testPorts"]["dst_port_3_id"]])
+        all_src_port_ids = list(all_src_port_ids)
         # Swapping the src_port_*_id with all available src ports, src_port* are
         # not available in this structure anymore.
         testParams.update({
@@ -606,10 +623,10 @@ class TestQosSai(QosSaiBase):
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-            "src_port_1_id": all_src_ports.keys()[0],
-            "src_port_1_ip": all_src_ports.values()[0]['peer_addr'],
+            "src_port_1_id": all_src_port_ids[0],
+            "src_port_1_ip": all_src_ports[all_src_port_ids[0]]['peer_addr'],
             "src_port_2_id": all_src_ports.keys()[1],
-            "src_port_2_ip": all_src_ports.values()[1]['peer_addr'],
+            "src_port_2_ip":  all_src_ports[all_src_port_ids[1]]['peer_addr'],
             "num_of_flows": qosConfig[LosslessVoqProfile]["num_of_flows"],
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[LosslessVoqProfile]
@@ -662,6 +679,10 @@ class TestQosSai(QosSaiBase):
 
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
+
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
 
         if not dutConfig['dualTor']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
@@ -728,6 +749,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in list(qosConfig.keys()):
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -836,20 +860,31 @@ class TestQosSai(QosSaiBase):
         if not 'hdrm_pool_size' in qosConfig.keys():
             pytest.skip("Headroom pool size is not enabled on this DUT")
 
+        # if no enough ports, src_port_ids is empty list, skip the test
+        if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
+            pytest.skip("No enough test ports on this DUT")
+
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
-        src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
-        if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
-            # Src and dst are the same asics, leave one for dst port and the rest for src ports
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[:-1]
-            qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
-        else:
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports
-            qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
-            qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+
+        if ('platform_asic' in dutTestParams["basicParams"] and
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
+            # present
+            src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
+            if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
+                # Src and dst are the same asics, leave one for dst port and the rest for src ports
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[:-1]
+                qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+            else:
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports
+                qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
+                qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -885,6 +920,9 @@ class TestQosSai(QosSaiBase):
 
         if "pkts_num_egr_mem" in qosConfig.keys():
             testParams["pkts_num_egr_mem"] = qosConfig["pkts_num_egr_mem"]
+
+        if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
+            testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
@@ -930,8 +968,13 @@ class TestQosSai(QosSaiBase):
             fillMin = qosConfig[bufPool]["pkts_num_fill_ingr_min"]
             buf_pool_roid = ingressLosslessProfile["bufferPoolRoid"]
         elif "wm_buf_pool_lossy" in bufPool:
-            qosConfig = dutQosConfig["param"]
-            triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
+            baseQosConfig = dutQosConfig["param"]
+            qosConfig = baseQosConfig.get(portSpeedCableLength, baseQosConfig)
+            try:
+                triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
+            except KeyError:
+                qosConfig = baseQosConfig
+                triggerDrop = qosConfig[bufPool]["pkts_num_trig_egr_drp"]
             fillMin = qosConfig[bufPool]["pkts_num_fill_egr_min"]
             buf_pool_roid = egressLossyProfile["bufferPoolRoid"]
         else:
@@ -944,6 +987,7 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[bufPool]["ecn"],
             "pg": qosConfig[bufPool]["pg"],
             "queue": qosConfig[bufPool]["queue"],
+            "pkts_num_margin": qosConfig[bufPool].get("pkts_num_margin", 0),
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
@@ -1040,7 +1084,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
+            skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1677,6 +1722,10 @@ class TestQosSai(QosSaiBase):
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"]
         })
 
+        if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000':
+            src_port_name = dutConfig["dutInterfaces"][testParams["src_port_id"]]
+            testParams['dscp_to_pg_map'] = load_dscp_to_pg_map(duthost, src_port_name, dut_qos_maps)
+
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
         else:
@@ -1811,7 +1860,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, get_src_dst_asic_and_duts
+        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -1844,20 +1893,28 @@ class TestQosSai(QosSaiBase):
         all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
         allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
         allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        try:
+            tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
+            tc_to_dscp_map = {v: k for k,v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
+        except KeyError:
+            pytest.skip("Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP and key AZURE to run this test.")
+        dscp_to_q_map = {tc_to_dscp_map[tc]:tc_to_q_map[tc] for tc in tc_to_dscp_map}
+        allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
+        allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        # Expected keys: ecn, pkt_count, pkts_num_margin, cell_size, packet_size
+        testParams.update(qosConfig[queueProfile])
         testParams.update({
-            "ecn": qosConfig[queueProfile]["ecn"],
             "dst_port_ids": allTestPorts,
             "dst_port_ips": allTestPortIps,
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
-            "pkt_count": qosConfig[queueProfile]["pkt_count"],
-            "cell_size": qosConfig[queueProfile]["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "dscp_to_q_map": dscp_to_q_map
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:

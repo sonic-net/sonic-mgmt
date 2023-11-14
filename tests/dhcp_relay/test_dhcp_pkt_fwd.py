@@ -1,6 +1,7 @@
 import logging
 import random
 import ipaddr
+import ipaddress
 import pytest
 
 import ptf.testutils as testutils
@@ -104,7 +105,7 @@ class DhcpPktFwdBase:
         """
         duthost = duthosts[rand_one_dut_hostname]
         topo_name = tbinfo["topo"]["name"]
-        if "t1" not in topo_name and topo_name != "m0":
+        if "t1" not in topo_name and tbinfo["topo"]["type"] != "m0":
             pytest.skip("Unsupported topology: {}".format(topo_name))
 
         downstreamPorts = []
@@ -113,9 +114,9 @@ class DhcpPktFwdBase:
         mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
 
         for dutPort, neigh in mgFacts["minigraph_neighbors"].items():
-            if "t1" in topo_name and "T0" in neigh["name"] or topo_name == "m0" and "MX" in neigh["name"]:
+            if "t1" in topo_name and "T0" in neigh["name"] or "m0" in topo_name and "MX" in neigh["name"]:
                 downstreamPorts.append(dutPort)
-            elif "t1" in topo_name and "T2" in neigh["name"] or topo_name == "m0" and "M1" in neigh["name"]:
+            elif "t1" in topo_name and "T2" in neigh["name"] or "m0" in topo_name and "M1" in neigh["name"]:
                 upstreamPorts.append(dutPort)
 
         yield {"upstreamPorts": upstreamPorts, "downstreamPorts": downstreamPorts}
