@@ -11,6 +11,7 @@ pytestmark = [
 
 NAMESPACE_PREFIX = "sudo ip netns exec {} "
 
+
 def clear_queue_counters(duthost, namespace):
     CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
     duthost.shell(CMD_PREFIX + "sonic-clear queuecounters")
