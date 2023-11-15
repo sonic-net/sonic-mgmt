@@ -16,6 +16,7 @@ from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
+from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 
@@ -624,6 +625,12 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     """Tests orchagent heartbeat after warm-restart
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    # t1 lag does not have swss container
+    swss_running = is_container_running(duthost, 'swss')
+    if not swss_running:
+        logger.info("swss container not running.")
+        return
 
     # get last stuck message
     last_stuck = get_latest_stuck_message(duthost)
