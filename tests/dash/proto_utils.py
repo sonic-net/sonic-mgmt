@@ -137,7 +137,7 @@ def acl_rule_from_json(json_obj):
             ip.ip.ipv4 = socket.htonl(int(net.network_address))
             ip.mask.ipv4 = socket.htonl(int(net.netmask))
             pb.dst_addr.append(ip)
-    elif "src_port" in json_obj:
+    if "src_port" in json_obj:
         for port in json_obj["src_port"].split(','):
             vr = ValueOrRange()
             if "-" not in port:
@@ -146,7 +146,7 @@ def acl_rule_from_json(json_obj):
                 vr.range.min = int(port.split('-')[0])
                 vr.range.max = int(port.split('-')[1])
             pb.src_port.append(vr)
-    elif "dst_port" in json_obj:
+    if "dst_port" in json_obj:
         for port in json_obj["dst_port"].split(','):
             vr = ValueOrRange()
             if "-" not in port:
@@ -155,11 +155,9 @@ def acl_rule_from_json(json_obj):
                 vr.range.min = int(port.split('-')[0])
                 vr.range.max = int(port.split('-')[1])
             pb.dst_port.append(vr)
-    elif "protocol" in json_obj:
+    if "protocol" in json_obj:
         for proto in json_obj["protocol"].split(','):
             pb.protocol.append(int(proto))
-    else:
-        pytest.fail("Unknown attribute %s" % json_obj)
     return pb
 
 
