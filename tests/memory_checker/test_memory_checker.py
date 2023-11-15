@@ -263,7 +263,7 @@ def get_test_container(duthost):
         test_container.append('gnmi')
     else:
         test_container.append('telemetry')
-    return test_container 
+    return test_container
 
 
 def create_container_name_fixture(duthost):
