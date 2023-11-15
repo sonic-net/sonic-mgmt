@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pytest
 import time
@@ -35,7 +36,7 @@ PTF_TEST_ROOT_DIR = "/tmp/sai_qualify"
 DUT_WORKING_DIR = "/home/admin"
 
 
-#These paths are for the SAI cases/results 
+#These paths are for the SAI cases/results
 SAI_TEST_CASE_DIR_ON_PTF = "/tmp/sai_qualify/tests"
 SAI_TEST_REPORT_DIR_ON_PTF = "/tmp/sai_qualify/test_results"
 SAI_TEST_REPORT_TMP_DIR_ON_PTF = "/tmp/sai_qualify/test_results_tmp"
@@ -114,7 +115,7 @@ def prepare_sai_test_container(duthost, creds, container_name):
     """
         Prepare the sai test container.
     Args:
-        duthost (SonicHost): The target device.        
+        duthost (SonicHost): The target device.
         creds (dict): Credentials used to access the docker registry.
         container_name: The container name for sai testing on DUT.
     """
@@ -129,7 +130,7 @@ def revert_sai_test_container(duthost, creds, container_name):
     """
         Reverts the sai test container.
     Args:
-        duthost (SonicHost): The target device.        
+        duthost (SonicHost): The target device.
         creds (dict): Credentials used to access the docker registry.
         container_name: The container name for sai testing on DUT.
     """
@@ -160,7 +161,7 @@ def start_sai_test_conatiner_with_retry(duthost, container_name):
     dut_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     logger.info("Checking the PRC connection before starting the {}.".format(container_name))
     rpc_ready = wait_until(1, 1, 0, _is_rpc_server_ready, dut_ip)
-    
+
     if not rpc_ready:
         logger.info("Attempting to start {}.".format(container_name))
         sai_ready = wait_until(SAI_TEST_CTNR_CHECK_TIMEOUT_IN_SEC, SAI_TEST_CTNR_RESTART_INTERVAL_IN_SEC, 0, _is_sai_test_container_restarted, duthost, container_name)
@@ -188,7 +189,7 @@ def stop_and_rm_sai_test_container(duthost, container_name):
 def _is_sai_test_container_restarted(duthost, container_name):
     """
     Checks if the sai test container started.
-    
+
     Args:
         duthost (SonicHost): The target device.
         container_name: The container name for sai testing on DUT.
@@ -219,7 +220,7 @@ def _is_rpc_server_ready(dut_ip):
         transport.open()
         logger.info("Successful in creating rpc connection : {}:{}".format(dut_ip, SAI_PRC_PORT))
         return True
-    except Exception: 
+    except Exception:
         logger.info("Failed to open rpc connection.")
         return False
     finally:
@@ -234,7 +235,7 @@ def _start_sai_test_container(duthost, container_name):
         duthost (SonicHost): The target device.
         container_name: The container name for sai testing on DUT.
     """
-    logger.info("Starting {} docker for testing".format(container_name))      
+    logger.info("Starting {} docker for testing".format(container_name))
     duthost.shell(USR_BIN_DIR + "/" + container_name + ".sh" + " start")
 
 
@@ -253,7 +254,7 @@ def _deploy_saiserver(duthost, creds):
     docker_saiserver_image = docker_saiserver_name
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
 
     # Set sysctl RCVBUF parameter for tests
     duthost.command("sysctl -w net.core.rmem_max=609430500")
@@ -276,7 +277,7 @@ def _deploy_saiserver(duthost, creds):
 def _deploy_syncd_rpc_as_syncd(duthost, creds):
     """Replaces the running syncd container with the RPC version of it.
 
-    This will download a new Docker image to the duthost. 
+    This will download a new Docker image to the duthost.
     service.
 
     Args:
@@ -289,7 +290,7 @@ def _deploy_syncd_rpc_as_syncd(duthost, creds):
     docker_rpc_image = docker_syncd_name + "-rpc"
 
     # Force image download to go through mgmt network
-    duthost.command("config bgp shutdown all")  
+    duthost.command("config bgp shutdown all")
     duthost.stop_service("swss")
     duthost.delete_container(SYNCD_CONATINER)
 
@@ -321,12 +322,12 @@ def stop_dockers(duthost):
     """
     for service in SERVICES_LIST:
         logger.info("Stopping service '{}' ...".format(service))
-        duthost.stop_service(service)    
+        duthost.stop_service(service)
 
     _services_env_stop_check(duthost)
 
 
-def reload_dut_config(duthost):   
+def reload_dut_config(duthost):
     """
     Reloads the dut config.
 
@@ -353,7 +354,7 @@ def _remove_saiserver_deploy(duthost, creds):
 
     logger.info("Cleaning the SAI Testing env ...")
     registry = load_docker_registry_info(duthost, creds)
-    duthost.delete_container(SAISERVER_CONTAINER)    
+    duthost.delete_container(SAISERVER_CONTAINER)
 
     logger.info("Removing the image '{}'...".format(docker_saiserver_image))
     duthost.shell("docker image rm {}".format(docker_saiserver_image))
@@ -439,7 +440,7 @@ def _services_env_stop_check(duthost):
 
     shutdown_check = wait_until(20, 4, 0, ready_for_sai_test)
     if running_services:
-        format_list = ['{:>1}' for item in running_services] 
+        format_list = ['{:>1}' for item in running_services]
         servers = ','.join(format_list)
         pt_assert(shutdown_check, "Docker {} failed to shut down in 20s".format(servers.format(*running_services)))
 
