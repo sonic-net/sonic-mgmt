@@ -542,7 +542,7 @@ class Nightly_hawk_branch_verify(object):
         else:
             prev_image_url = None
 
-        saithrift_macro = ['SAITHRIFT']
+        saithrift_macro = ['BJW_SAITHRIFT'] if require_bjw_lab else ['SAITHRIFT']
         saithrift_macro.append(package_pattern['sai_vendor'])
         if image_base_branch == 'master':
             saithrift_macro.append('PUBLIC')
@@ -556,12 +556,15 @@ class Nightly_hawk_branch_verify(object):
 
         self.testbeds[testbed_name]['image_url'] = image_url
 
-        return (image_url, prev_image_url, saithrift_macro)
+
+        AGENT_POOL = 'nightly-bjw' if require_bjw_lab else 'nightly'
+
+        return (image_url, prev_image_url, saithrift_macro, AGENT_POOL)
 
 
     def build_case_verify_pipeline_payload(self, testbed):
         logger.debug("build_case_verify_pipeline_payload {}".format(testbed))
-        image_url, prev_image_url, saithrift_macro = self.build_URLs(testbed)
+        image_url, prev_image_url, saithrift_macro, agent_pool = self.build_URLs(testbed)
 
         if image_url is None:
             return None
@@ -585,6 +588,7 @@ class Nightly_hawk_branch_verify(object):
                 "FORCE_LOCK": False,
                 "DOCKER_FOLDER_SIZE" : '3500M',
                 "SKIP_TEST_RESULTS_UPLOADING" : self.skip_upload_result ,
+                "AGENT_POOL" : agent_pool ,
             }
         }
         if prev_image_url:
