@@ -53,6 +53,7 @@ main_file = "group_vars/vm_host/main.yml"
 vmHostCreds_file = "group_vars/vm_host/creds.yml"
 labLinks_file = "files/sonic_lab_links.csv"
 testbed_file = "testbed.yaml"
+testbed_csv_file = "testbed.csv"
 devices_file = "files/sonic_lab_devices.csv"
 eosCred_file = "group_vars/eos/creds.yml"
 fanoutSecrets_file = "group_vars/fanout/secrets.yml"
@@ -73,6 +74,7 @@ backupList.append(main_file)
 backupList.append(vmHostCreds_file)
 backupList.append(labLinks_file)
 backupList.append(testbed_file)
+backupList.append(testbed_csv_file)
 backupList.append(devices_file)
 backupList.append(eosCred_file)
 backupList.append(fanoutSecrets_file)
@@ -299,10 +301,10 @@ def makeTestbed(data, outfile):
         print("I/O error: issue creating testbed.yaml")
 
 def makeTestbedYaml(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,inv_name,auto_recover,comment"
     topology = data
     csv_file = outfile
     result = dict()
+    resultList = list()
 
     for group, groupDetails in topology.items():
         confName = group
@@ -338,15 +340,8 @@ def makeTestbedYaml(data, outfile):
             ptf = ""
         if not comment:
             comment = ""
-        dutDict = dict()
-        # dut is a list for multi-dut testbed, convert it to string
-        #if type(dut) is not str:
-        #    dut = dut.__str__()
-        for d in dut:
-            dutDict.update({dut: d})
-
-        #dut = dut.replace(",", ";")
-        #dut = dut.replace(" ", "")
+        if dut is not list():
+            dut = [dut]
 
         result.update({'conf-name': confName,
                        'group-name': groupName,
@@ -357,14 +352,13 @@ def makeTestbedYaml(data, outfile):
                        "ptf_ipv6": ptf_ipv6,
                        "server": server,
                        "vm_base": vm_base,
-                       "dut": dutDict,
-                       "inv_name": "lab",
-                       "auto_recover": "'True'",
+                       "dut": dut,
+                       "inv_name": 'lab',
+                       "auto_recover": 'True',
                        "comment": comment})
-
+        resultList.append(result)
         with open(outfile, "w") as toWrite:
-            yaml.dump(result, stream=toWrite, default_flow_style=False)
-
+            yaml.dump(resultList, stream=toWrite, default_flow_style=False, sort_keys=False)
 
 
 """
@@ -1105,7 +1099,8 @@ def main():
     makeSonicLabDevices(devices, args.basedir + devices_file)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
     # Generate testbed.yaml (TESTBED)
-    makeTestbed(testbed, args.basedir + testbed_file)
+    makeTestbed(testbed, args.basedir + testbed_csv_file)
+    makeTestbedYaml(testbed, args.basedir + testbed_file)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)
     # Generate vm_host\creds.yml (CREDS)
     makeVMHostCreds(veos, args.basedir + vmHostCreds_file)
