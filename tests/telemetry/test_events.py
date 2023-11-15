@@ -2,7 +2,6 @@ import logging
 import pytest
 import os
 import sys
-import shutil
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
@@ -42,11 +41,9 @@ def do_init(duthost):
     #duthost.copy(src="telemetry/testcases/expected_op_file.txt", dest="~/")
 
     for file in ["events_publish_tool.py", "events_tool"]:
-        duthost.shell("docker cp eventd:/usr/bin/%s /tmp" % (file))
-        ret = duthost.fetch(src="/tmp/%s" % file, dest=".")
-        bin = ret.get("dest", None)
-        shutil.copyfile(bin, "telemetry/%s" % file)
-        os.system("chmod +x telemetry/%s" % file)
+        duthost.shell("docker cp eventd:/usr/bin/%s ~/" % (file))
+        duthost.shell("ls -all ~/")
+        duthost.shell("chmod +x ~/%s" % file)
 
 
 @pytest.mark.disable_loganalyzer
@@ -114,12 +111,12 @@ def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
 
 
 def event_publish_tool(duthost, localhost, json_file):
-    ret = localhost.shell("python telemetry/events_publish_tool.py -f ~/{}".format(json_file))
+    ret = duthost.shell("python ~/events_publish_tool.py -f ~/{}".format(json_file))
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
 
 
 def event_receive_tool(duthost, localhost, op_file):
-    ret = localhost.shell("telemetry/events_tool -c -r -o ~/{} -f test_event_source".format(op_file))
+    ret = duthost.shell("~/events_tool -c -r -o ~/{} -f test_event_source".format(op_file))
     assert ret["rc"] == 0, "Unable to receive events via events_tool"
 
 
