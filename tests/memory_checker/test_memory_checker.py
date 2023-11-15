@@ -277,13 +277,11 @@ def create_container_name_fixture(duthost):
 
 
 @pytest.fixture
-def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                     enum_memory_checker_container):
+def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
 
     Args:
         duthosts: The fixture returns list of DuTs.
-        enum_memory_checker_container: Fixture returning the name of the container to test
         enum_rand_one_per_hwsku_frontend_hostname: The fixture randomly pick up
           a frontend DuT from testbed.
 
