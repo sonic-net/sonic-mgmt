@@ -579,9 +579,9 @@ iface_loopback_action/test_iface_loopback_action.py:
 #######################################
 #####      iface_namingmode       #####
 #######################################
-iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed:
   skip:
-    reason: "x86_64-8111_32eh_o-r0 platform does not support TestConfigInterface"
+    reason: "x86_64-8111_32eh_o-r0 platform does not support TestConfigInterface test config interface speed"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
