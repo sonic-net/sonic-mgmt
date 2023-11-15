@@ -416,8 +416,8 @@ def _create_parser():
                       default=False)           
     parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
                       required=False, default='')
-    parser.add_argument('-k', '--skip_sanity', action='store_true', help='additional options',
-                      default=True)
+    parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
+                      default=False)
     return parser
 
 
