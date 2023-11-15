@@ -141,7 +141,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
     if normalized_level is None:
         normalized_level = 'basic'
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
-    wait_time = 15
+    wait_timeout = 15
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
@@ -161,14 +161,14 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
                                         .format(readd_id, ip_addr2, ip_addr1, readd_id))
                 acl_rule_list.append(readd_id)
 
-            wait_until(wait_time, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports, acl_rule_list, 0, "drop")
 
             del_rule_id = random.choice(acl_rule_list)
             rand_selected_dut.shell('sonic-db-cli CONFIG_DB del "ACL_RULE|STRESS_ACL| RULE_{}"'.format(del_rule_id))
             acl_rule_list.remove(del_rule_id)
 
-            wait_until(wait_time, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
+            wait_until(wait_timeout, 2, 0, acl_rule_loaded, rand_selected_dut, acl_rule_list)
             verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
                              acl_rule_list, del_rule_id, "drop")
 
