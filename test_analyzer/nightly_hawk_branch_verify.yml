@@ -62,7 +62,7 @@ parameters:
   # Lock testbed polling timeout
   - name: LOCK_POLLING_TIMEOUT
     type: number
-    default: 7200
+    default: 300
 
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
