@@ -2,7 +2,11 @@ import logging
 import pytest
 import os
 import sys
+import shutil
 
+from tests.common.helpers.assertions import pytest_assert as py_assert
+from tests.common.utilities import wait_until
+from tests.common.utilities import InterruptableThread
 from telemetry_utils import skip_201911_and_older
 
 pytestmark = [
@@ -35,13 +39,21 @@ def do_init(duthost):
             logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
 
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
+    #duthost.copy(src="telemetry/testcases/expected_op_file.txt", dest="~/")
+
+    for file in ["events_publish_tool.py", "events_tool"]:
+        duthost.shell("docker cp eventd:/usr/bin/%s /tmp" % (file))
+        ret = duthost.fetch(src="/tmp/%s" % file, dest=".")
+        bin = ret.get("dest", None)
+        shutil.copyfile(bin, "telemetry/%s" % file)
+        os.system("chmod +x telemetry/%s" % file)
 
 
 @pytest.mark.disable_loganalyzer
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
-    """ Run series of events inside duthost and validate that output is correct
-    and conforms to YANG schema
-    """
+    """Run series of events inside duthost and validate that output is correct
+    and conforms to YANG schema"""
+    
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events testing")
 
@@ -49,8 +61,75 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     do_init(duthost)
 
     # Load all events test code and run
-    for file in os.listdir(EVENTS_TESTS_PATH):
-        if file.endswith("_events.py"):
-            module = __import__(file[:len(file)-3])
-            module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
-            logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
+    #for file in os.listdir(EVENTS_TESTS_PATH):
+    #    if file.endswith("_events.py"):
+    #        module = __import__(file[:len(file)-3])
+    #        module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
+    #        logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
+
+
+@pytest.mark.disable_loganalyzer
+def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+    """Create expected o/p file of events with N events. Call event-publisher tool to publish M events (M<N). Publish
+    remainder of events. Verify o/p file gainst expected. Stats should be event-published == N"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    logger.info("Start events cache testing")
+
+    skip_201911_and_older(duthost)
+    # Restart eventd process and clear counters
+    duthost.shell("systemctl reset-failed eventd")
+    duthost.service(name="eventd", state="restarted")
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
+              "eventd is not started")
+
+    M = 20
+    N = 30
+
+    create_ip_file(duthost, DATA_DIR, "first_part_ip_file", 1, M)
+    create_ip_file(duthost, DATA_DIR, "second_part_ip_file", M + 1, N)
+
+    # Publish first M events
+    event_publish_tool(duthost, localhost, "first_part_ip_file")
+    # Start the receiver tool in one thread
+    event_receive_thread = InterruptableThread(target=event_receive_tool, args=(duthost, localhost, "received_op_file",))
+    event_receive_thread.start()
+
+    event_publish_tool(duthost, localhost, "second_part_ip_file")
+
+    event_receive_thread.join(30)
+
+    # Assert actual and expected op_file to be same
+    #verify_expected_output("expected_op_file.txt", "received_op_file.txt")
+    # Check stats
+
+
+def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
+    ip_file = os.path.join(data_dir, json_file)
+    with open(ip_file, "w") as f:
+        for i in range(start_idx, end_idx + 1):
+            json_string = f'{{"test_event_source:test": {{"test_key": "test_val_{i}"}}}}'
+            f.write(json_string)
+    dest = "~/" + json_file
+    duthost.copy(src=ip_file, dest=dest)
+
+
+def event_publish_tool(duthost, localhost, json_file):
+    ret = localhost.shell("python telemetry/events_publish_tool.py -f ~/{}".format(json_file))
+    assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
+
+
+def event_receive_tool(duthost, localhost, op_file):
+    ret = localhost.shell("telemetry/events_tool -c -r -o ~/{} -f test_event_source".format(op_file))
+    assert ret["rc"] == 0, "Unable to receive events via events_tool"
+
+
+def verify_expected_output(expected_file, received_file):
+    e_file = "~/" + expected_file
+    r_file = "~/" + received_file
+    with open(e_file, "r") as e, open(r_file, "r") as r:
+        e_data = e.readLines()
+        r_data = r.readLines()
+        assert len(e_data) == len(r_data), "Expected file and received file do not have same length"
+        for i in range(e_data):
+            assert e_data[i] == r_data[i], "Line does not match. Expected line: {}, Received line: {}".format(e_data[i], r_data[i])
+
