@@ -43,6 +43,8 @@ def _create_parser():
                       default=False)  
     parser.add_argument('--additional_tests', type=str, help='Additional Sanity Test to run',
                       required=False, default="")
+    parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity check',
+                      default=False)
     return parser
 
 def run_exec_cmds(host,port,user,passwd,cmd_list):
@@ -98,7 +100,7 @@ def get_testcases(script_file, additional_tests=''):
     
     return tcs
 
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests=''):
+def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -132,7 +134,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     delta1 = datetime.datetime.now()
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options,log_dir)
     os.system("bash -c '{}'".format(cmd))
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     if not int(passed):
@@ -140,7 +142,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
         current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options,log_dir)
         os.system("bash -c '{}'".format(cmd))
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
         if not int(passed):
@@ -148,7 +150,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
             current_result_file.flush()
             time.sleep(60)
-            cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name,log_dir)
+            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options,log_dir)
             os.system("bash -c '{}'".format(cmd))
 
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
@@ -215,7 +217,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
 
         total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
@@ -260,7 +262,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build
 
     print("Total time : {} mins".format(minutes))
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests=''):
+def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options=''):
     if drop_version is not None:
         filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
     else:
@@ -294,7 +296,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
 
     delta1 = datetime.datetime.now()
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
     os.system("bash -c '{}'".format(cmd))
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     if not int(passed):
@@ -302,7 +304,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
         current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
         os.system("bash -c '{}'".format(cmd))
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
         if not int(passed):
@@ -310,7 +312,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
             current_result_file.flush()
             time.sleep(60)
-            cmd = "./run_tests.sh -n {} -d {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,dut_name)
+            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir=/tmp/allure_results -e -rapP -m individual -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name,run_options)
             os.system("bash -c '{}'".format(cmd))
 
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
@@ -369,7 +371,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,b
             cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
             run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
-        cmd = "./run_tests.sh -n {} -d {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,dut_name,log_dir,tc,tc_name)
+        cmd = "./run_tests.sh -n {} {} -e --alluredir=/tmp/allure_results -e -rapP -O -u -e --skip_sanity -m individual -p {} -c {} |& tee {}.log".format(topo_name,run_options,log_dir,tc,tc_name)
         os.system("bash -c '{}'".format(cmd))
 
         if collect_logs and dut_address is not None:
@@ -447,13 +449,23 @@ def main():
     build_id = args['build_id']
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
+    skip_sanity = args['skip_sanity']
 
+    run_options = ''
     if device_type == 'sherman':
         dut_name = 'sherman-01'
     elif device_type == 'churchill-mono':
         dut_name = 'churchill-mono-01'
+    elif device_type == 'sfd':
+        dut_name = 'sfd'
     else:
         dut_name = 'mathilda-01'
+
+    if dut_name != 'sfd':
+        run_options += '-d {} '.format(dut_name)
+
+    if skip_sanity:
+        run_options += '-e --skip_sanity '
 
     if tstamp is None:
         tstamp = datetime.datetime.now().strftime("%d-%b-%Y-%H:%M:%S.%f")
@@ -462,12 +474,12 @@ def main():
         parse_results()
     else:
         if not collect_logs:
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,additional_tests=additional_tests)
+            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,run_options=run_options,additional_tests=additional_tests)
         else:
             if dut_address is None:
                 print('Missing DUT Address, specify DUT address for collecting logs')
                 exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,additional_tests=additional_tests)
+            run_scripts(script_file,drop_version,log_dir,dut_name,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests)
 
         #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
 
