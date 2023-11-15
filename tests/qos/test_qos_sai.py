@@ -27,7 +27,7 @@ import json
 import re
 from tabulate import tabulate
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa F401
 from tests.common.fixtures.duthost_utils import dut_qos_maps, \
     separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
@@ -278,7 +278,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("xonProfile", ["xon_1", "xon_2", "xon_3", "xon_4"])
     def testPfcStormWithSharedHeadroomOccupancy(
         self, xonProfile, ptfhost, fanouthosts, conn_graph_facts,  fanout_graph_facts,              # noqa F811
-        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile
+        dutTestParams, dutConfig, dutQosConfig, sharedHeadroomPoolSize, ingressLosslessProfile, localhost
     ):
         """
             Verify if the PFC Frames are not sent from the DUT after a PFC Storm from peer link.
@@ -356,12 +356,12 @@ class TestQosSai(QosSaiBase):
         fanout_neighbors = conn_graph_facts["device_conn"][duthost.hostname]
         peerdevice = fanout_neighbors[pfcwd_test_port]["peerdevice"]
         peerport = fanout_neighbors[pfcwd_test_port]["peerport"]
+        peerdevice_hwsku = get_graph_facts(duthost, localhost, peerdevice)["device_info"][peerdevice]["HwSku"]
         peer_info = {
             'peerdevice': peerdevice,
-            'hwsku': fanout_graph_facts[peerdevice]["device_info"]["HwSku"],
+            'hwsku': peerdevice_hwsku,
             'pfc_fanout_interface': peerport
         }
-
         queue_index = qosConfig[xonProfile]["pg"]
         frames_number = 100000000
 
