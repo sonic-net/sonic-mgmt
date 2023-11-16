@@ -738,6 +738,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                 tasks.append(executor.submit(
                     self.analysis_process, item_dict))
             for task in concurrent.futures.as_completed(tasks):
+                kusto_data = []
                 try:
                     kusto_data = task.result()
                 except Exception as exc:

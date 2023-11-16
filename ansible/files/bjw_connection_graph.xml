@@ -2228,7 +2228,7 @@
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-2700-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="40"/>
       <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-3" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="42"/>
       <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-4" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="43"/>
-      <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-8102-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="44"/>
+      <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-8102-1" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="44"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-ec9516-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="45"/>
       <ConsoleLinkInfo BaudRate="115200" Console_type="ssh" EndDevice="bjw-can-z9332f-2" Proxy="admin" StartDevice="bjw-can-7215-10" StartPort="46"/>
       <ConsoleLinkInfo BaudRate="9600" Console_type="ssh" EndDevice="bjw-can-7215-10" Proxy="admin" StartDevice="bjw-can-7215-9" StartPort="48"/>
