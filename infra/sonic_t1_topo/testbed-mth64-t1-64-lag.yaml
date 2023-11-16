@@ -100,385 +100,385 @@ topology:
     interfaces:
       Ethernet0:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/0
         VlanID: 2000
         VlanMode: Access
       Ethernet4:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/1
         VlanID: 2001
         VlanMode: Access
       Ethernet8:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/2
         VlanID: 2002
         VlanMode: Access
       Ethernet12:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/3
         VlanID: 2003
         VlanMode: Access
       Ethernet16:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/4
         VlanID: 2004
         VlanMode: Access
       Ethernet20:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/5
         VlanID: 2005
         VlanMode: Access
       Ethernet24:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/6
         VlanID: 2006
         VlanMode: Access
       Ethernet28:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/7
         VlanID: 2007
         VlanMode: Access
       Ethernet32:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/8
         VlanID: 2008
         VlanMode: Access
       Ethernet36:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/9
         VlanID: 2009
         VlanMode: Access
       Ethernet40:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/10
         VlanID: 2010
         VlanMode: Access
       Ethernet44:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/11
         VlanID: 2011
         VlanMode: Access
       Ethernet48:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/12
         VlanID: 2012
         VlanMode: Access
       Ethernet52:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/13
         VlanID: 2013
         VlanMode: Access
       Ethernet56:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/14
         VlanID: 2014
         VlanMode: Access
       Ethernet60:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/15
         VlanID: 2015
         VlanMode: Access
       Ethernet64:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/16
         VlanID: 2016
         VlanMode: Access
       Ethernet68:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/17
         VlanID: 2017
         VlanMode: Access
       Ethernet72:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/18
         VlanID: 2018
         VlanMode: Access
       Ethernet76:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/19
         VlanID: 2019
         VlanMode: Access
       Ethernet80:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/20
         VlanID: 2020
         VlanMode: Access
       Ethernet84:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/21
         VlanID: 2021
         VlanMode: Access
       Ethernet88:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/22
         VlanID: 2022
         VlanMode: Access
       Ethernet92:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/23
         VlanID: 2023
         VlanMode: Access
       Ethernet96:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/24
         VlanID: 2024
         VlanMode: Access
       Ethernet100:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/25
         VlanID: 2025
         VlanMode: Access
       Ethernet104:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/26
         VlanID: 2026
         VlanMode: Access
       Ethernet108:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/27
         VlanID: 2027
         VlanMode: Access
       Ethernet112:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/28
         VlanID: 2028
         VlanMode: Access
       Ethernet116:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/29
         VlanID: 2029
         VlanMode: Access
       Ethernet120:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/30
         VlanID: 2030
         VlanMode: Access
       Ethernet124:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/31
         VlanID: 2031
         VlanMode: Access
       Ethernet128:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/32
         VlanID: 2032
         VlanMode: Access
       Ethernet132:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/33
         VlanID: 2033
         VlanMode: Access
       Ethernet136:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/34
         VlanID: 2034
         VlanMode: Access
       Ethernet140:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/35
         VlanID: 2035
         VlanMode: Access
       Ethernet144:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/36
         VlanID: 2036
         VlanMode: Access
       Ethernet148:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/37
         VlanID: 2037
         VlanMode: Access
       Ethernet152:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/38
         VlanID: 2038
         VlanMode: Access
       Ethernet156:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/39
         VlanID: 2039
         VlanMode: Access
       Ethernet160:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/40
         VlanID: 2040
         VlanMode: Access
       Ethernet164:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/41
         VlanID: 2041
         VlanMode: Access
       Ethernet168:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/42
         VlanID: 2042
         VlanMode: Access
       Ethernet172:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/43
         VlanID: 2043
         VlanMode: Access
       Ethernet176:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/44
         VlanID: 2044
         VlanMode: Access
       Ethernet180:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/45
         VlanID: 2045
         VlanMode: Access
       Ethernet184:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/46
         VlanID: 2046
         VlanMode: Access
       Ethernet188:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/47
         VlanID: 2047
         VlanMode: Access
       Ethernet192:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/48
         VlanID: 2048
         VlanMode: Access
       Ethernet196:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/49
         VlanID: 2049
         VlanMode: Access
       Ethernet200:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/50
         VlanID: 2050
         VlanMode: Access
       Ethernet204:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/51
         VlanID: 2051
         VlanMode: Access
       Ethernet208:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/52
         VlanID: 2052
         VlanMode: Access
       Ethernet212:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/53
         VlanID: 2053
         VlanMode: Access
       Ethernet216:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/54
         VlanID: 2054
         VlanMode: Access
       Ethernet220:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/55
         VlanID: 2055
         VlanMode: Access
       Ethernet224:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/56
         VlanID: 2056
         VlanMode: Access
       Ethernet228:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/57
         VlanID: 2057
         VlanMode: Access
       Ethernet232:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/58
         VlanID: 2058
         VlanMode: Access
       Ethernet236:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/59
         VlanID: 2059
         VlanMode: Access
       Ethernet240:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/60
         VlanID: 2060
         VlanMode: Access
       Ethernet244:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/61
         VlanID: 2061
         VlanMode: Access
       Ethernet248:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/62
         VlanID: 2062
         VlanMode: Access
       Ethernet252:
         Bandwidth: 100000
-        EndDevice: nexus5
+        EndDevice: nexus-5
         EndPort: Ethernet1/63
         VlanID: 2063
         VlanMode: Access
