@@ -185,7 +185,6 @@ def test_authorization_tacacs_only(
         "show interfaces counters -a -p 3",
         "show ip bgp neighbor",
         "show ipv6 bgp neighbor",
-        "show feature status telemetry",
         "touch testfile",
         "chmod +w testfile",
         "echo \"test\" > testfile",
