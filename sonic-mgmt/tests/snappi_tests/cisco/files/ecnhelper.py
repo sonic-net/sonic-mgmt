@@ -19,22 +19,11 @@ from tests.common.snappi_tests.read_pcap import validate_pfc_frame
 
 logger = logging.getLogger(__name__)
 
-dut_port_config = []
-PAUSE_FLOW_NAME = 'Pause Storm'
-TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
-BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
-PAUSE_FLOW_DUR_BASE_SEC = 3
-
-data_flow_pkt_size = 1024
+DATA_FLOW_PKT_SIZE = 1024
 DATA_FLOW_DURATION_SEC = 2
-data_flow_delay_sec = 1
-SNAPPI_POLL_DELAY_SEC = 2
-TOLERANCE_THRESHOLD = 0.05
-CONTINUOUS_MODE = -5
-#
+DATA_FLOW_DELAY_SEC = 1
 TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
+PAUSE_FLOW_NAME = 'Pause Storm'
 
 def get_npu_voq_queue_counters(duthost, interface, priority):
     full_line = "".join(duthost.shell("show platform npu voq queue_counters -t {} -i {} -d".format(priority, interface))['stdout_lines'])
@@ -45,17 +34,8 @@ def get_npu_voq_queue_counters(duthost, interface, priority):
 
     return dict_output
 
-logger = logging.getLogger(__name__)
-
-EXP_DURATION_SEC = 1
-DATA_START_DELAY_SEC = 0.1
-SNAPPI_POLL_DELAY_SEC = 2
-PAUSE_FLOW_NAME = 'Pause Storm'
-DATA_FLOW_NAME = 'Data Flow'
-
 # line rate percent for TC 3, 4 from tx port a, b
 # ecn counter is per TC, both TC has same dwrr weight
-
 def run_ecn_test_cisco8000(api,
                  testbed_config,
                  port_config_list,
@@ -87,6 +67,7 @@ def run_ecn_test_cisco8000(api,
         bg_prio_list (list): priorities of background flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         test_traffic_pause (bool): if test flows are expected to be paused
+        test_flow_percent: percent of line rate for the traffic to be used for test
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
@@ -134,8 +115,8 @@ def run_ecn_test_cisco8000(api,
                         test_flow_prio_list=test_prio_list0,
                         test_flow_rate_percent=test_flow_rate_percent,
                         test_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                        test_flow_delay_sec=data_flow_delay_sec,
-                        test_flow_pkt_size=data_flow_pkt_size,
+                        test_flow_delay_sec=DATA_FLOW_DELAY_SEC,
+                        test_flow_pkt_size=DATA_FLOW_PKT_SIZE,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
@@ -147,8 +128,8 @@ def run_ecn_test_cisco8000(api,
                         test_flow_prio_list=test_prio_list1,
                         test_flow_rate_percent=test_flow_rate_percent,
                         test_flow_dur_sec=DATA_FLOW_DURATION_SEC,
-                        test_flow_delay_sec=data_flow_delay_sec,
-                        test_flow_pkt_size=data_flow_pkt_size,
+                        test_flow_delay_sec=DATA_FLOW_DELAY_SEC,
+                        test_flow_pkt_size=DATA_FLOW_PKT_SIZE,
                         prio_dscp_map=prio_dscp_map,
                         snappi_extra_params=snappi_extra_params)
 
@@ -166,7 +147,7 @@ def run_ecn_test_cisco8000(api,
                              config=testbed_config,
                              data_flow_names=data_flow_names,
                              all_flow_names=all_flow_names,
-                             exp_dur_sec=DATA_FLOW_DURATION_SEC + data_flow_delay_sec,
+                             exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                              snappi_extra_params=snappi_extra_params)
 
     speed_str = testbed_config.layer1[0].speed
@@ -203,6 +184,9 @@ def run_ecn_test_cisco8000(api,
         if test_flow_percent[1] < 50:
             pytest_assert(flow4_ecn == 0, 'Must not have ecn marked packets on flow 4, percent {}'.format(test_flow_percent))
        
+        if test_flow_percent[0] == 50 and test_flow_percent[1] == 50:
+            pytest_assert(flow3_ecn > 0 and flow4_ecn > 0, 'Must have ecn marked packets on flows 3, 4, percent {}'.format(test_flow_percent))
+
     # verify that the total packets sent match  the rate configured :test_flow_percent=[90, 15]
     flow_ratio = float(flow3_total/flow4_total)
     flow_percent_ratio = float(test_flow_percent[0] / test_flow_percent[1])

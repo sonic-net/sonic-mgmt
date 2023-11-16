@@ -13,7 +13,6 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
-
 pytestmark = [ pytest.mark.topology('tgen') ]
 
 # ecn counter is per TC
@@ -22,7 +21,6 @@ pytestmark = [ pytest.mark.topology('tgen') ]
 #  second stream from second tx port is for TC 4
 #  each TC has same dwrr weight. 
 # line rate percent for TC 3, 4 from tx two ports, respectively 
-#test_flow_percent_list=[[90, 15]]
 test_flow_percent_list=[[90, 15], [53, 49], [15, 90], [49, 49], [50,50]]
 
 @pytest.mark.parametrize("test_flow_percent", test_flow_percent_list)
@@ -50,7 +48,8 @@ def test_ecn_multi_lossless_prio(snappi_api,
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         lossless_prio_list (pytest fixture): list of all the lossless priorities
         lossy_prio_list (pytest fixture): list of all the lossy priorities
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
+        test_flow_percent: percent of traffic for the test
 
     Returns:
         N/A
@@ -80,4 +79,3 @@ def test_ecn_multi_lossless_prio(snappi_api,
                  prio_dscp_map=prio_dscp_map,
                  test_traffic_pause=False,
                  test_flow_percent=test_flow_percent)
-
