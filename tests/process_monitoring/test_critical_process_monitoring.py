@@ -612,15 +612,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
-def get_latest_stuck_message(duthost):
-    query_command = r"sudo sed -n 's/.*\(Process '\''orchagent'\'' is stuck in namespace\).*/\0/p'  /var/log/syslog"
-    res = duthost.command(query_command)
-    if len(res["stdout_lines"]) == 0:
-        return ""
-
-    return res["stdout_lines"][-1]
-
-
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     """Tests orchagent heartbeat after warm-restart
     """
@@ -632,9 +623,11 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
         logger.info("swss container not running.")
         return
 
-    # get last stuck message
-    last_stuck = get_latest_stuck_message(duthost)
-    logger.warning("last_stuck: {}".format(last_stuck))
+    # initialize LogAnalyzer for check stuck warning message
+    marker_prefix = "test_orchagent_heartbeat_checker"
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
+    loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
+    marker = loganalyzer.init()
 
     # freeze orchagent for warm-reboot
     command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
@@ -642,14 +635,11 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     logger.warning("command_output: {}".format(command_output))
     pytest_assert(exit_code == 0, "Failed to freeze orchagen for warm reboot")
 
-    # check orchagent stuck alert not been triggered
-    def found_stuck_alert(duthost):
-        latest_stuck = get_latest_stuck_message(duthost)
-        logger.warning("latest_stuck: {}".format(latest_stuck))
-        return latest_stuck != last_stuck
+    # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
+    time.sleep(120)
 
-    # stuck alert will be trigger after 60s
-    orchagent_stuck = wait_until(120, 5, 0, found_stuck_alert, duthost)
+    analysis = loganalyzer.analyze(marker, fail=False)
+    logger.warning("latest_stuck: {}".format(analysis['total']['expected_match']))
 
     # restart orchagent by reload config
     logger.info("Executing the config reload...")
@@ -657,4 +647,4 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     logger.info("Executing the config reload was done!")
 
     # assert after config reload, make sure orchange recovered after test
-    pytest_assert(not orchagent_stuck, "Orchagent not stuck after frozen for warm-reboot.")
+    pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")
