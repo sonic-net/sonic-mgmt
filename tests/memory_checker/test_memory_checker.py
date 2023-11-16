@@ -266,16 +266,6 @@ def get_test_container(duthost):
     return test_container
 
 
-def create_container_name_fixture(duthost):
-    container = get_test_container(duthost)
-
-    @pytest.fixture(params=container)
-    def enum_memory_checker_container(request):
-        return request.param
-
-    return enum_memory_checker_container
-
-
 @pytest.fixture
 def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
@@ -290,7 +280,7 @@ def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    container_name = create_container_name_fixture(duthost)
+    container_name = get_test_container(duthost)
     container = MemoryCheckerContainer(container_name, duthost)
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
