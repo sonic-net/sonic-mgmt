@@ -78,8 +78,10 @@ def get_build_project_name():
 
     return build_project_name
 
-def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, additional_tests='', ssh_port=22, topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt'):
-    print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port, topo_name, docker_mgmt_container)
+def run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, additional_tests='', ssh_port=22,
+            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False):
+    print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report,
+            ssh_port, topo_name, docker_mgmt_container, skip_sanity)
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -131,13 +133,14 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 
     delta1 = datetime.datetime.now()
 
-    additional_params = ""
+    additional_params = "" 
 
     if create_allure_report:
         additional_params += " --create_allure_report "
     if additional_tests:
         additional_params += " --additional_tests={} ".format(additional_tests)
-
+    if skip_sanity:
+        additional_params += " -k "
 
     print("Run command:")
     print('./run_scripts.py -s {} -v {} -l {} -d {} -t {} -g {} -b {} {} |& tee run_script.log &\n'.format(script_file,drop_version,log_dir,device_type,tstamp,topo_name,build_project_name, additional_params))
@@ -320,7 +323,8 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     ftp_client.close() 
     ssh.close()
 
-def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='', sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt'):
+def run_scripts_remote(host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report, ssh_port=22, topo_name='docker-ptf', additional_tests='',
+            sonic_test_dir='golden-code', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False):
     sanity_start_time = datetime.datetime.now()
     print("Running scripts remotely on host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("Device type: {}, topo_name: {}".format(device_type, topo_name))
@@ -359,7 +363,8 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     uploaded_script_files_str = ",".join(uploaded_script_files)
 
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
-    run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests, ssh_port, topo_name, docker_mgmt_container)
+    run_result = run_scripts(host, username, password, uploaded_script_files_str,drop_version,log_dir,device_type,create_allure_report, additional_tests,
+                        ssh_port, topo_name, docker_mgmt_container, skip_sanity)
     sanity_end_time = datetime.datetime.now()
 
 
@@ -411,6 +416,8 @@ def _create_parser():
                       default=False)           
     parser.add_argument('--additional_tests', type=str, help='Additional Testscases to test',
                       required=False, default='')
+    parser.add_argument('-k', '--skip_sanity', action='store_true', help='skip sanity check',
+                      default=False)
     return parser
 
 
@@ -431,7 +438,7 @@ if __name__ == '__main__':
     sonic_test_dir = args['sonic_test_dir']
     create_allure_report = args['create_allure_report']
     additional_tests = args['additional_tests']
-
+    skip_sanity = args['skip_sanity']
     run_scripts_remote(
         host_address, 
         username, 
@@ -446,4 +453,5 @@ if __name__ == '__main__':
         additional_tests,
         sonic_test_dir,
         docker_mgmt_container,
+        skip_sanity 
     )

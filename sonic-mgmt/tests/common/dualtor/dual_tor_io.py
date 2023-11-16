@@ -585,6 +585,11 @@ class DualTorIO:
         self.capture_pcap = '/tmp/capture.pcap'
         self.capture_log = '/tmp/capture.log'
 
+        # Do some cleanup first
+        self.ptfhost.file(path=self.capture_pcap, state="absent")
+        if os.path.exists(self.capture_pcap):
+            os.unlink(self.capture_pcap)
+
         self.setup_ptf_sniffer()
         self.start_ptf_sniffer()
 

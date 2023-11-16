@@ -1,7 +1,7 @@
 # This file contains the list of API's which performs BGP operations.
 # Author : Chaitanya Vella (Chaitanya-vella.kumar@broadcom.com)
 import re
-import json
+import time, json
 
 from spytest import st, putils, filter_and_select
 
@@ -25,6 +25,7 @@ except ImportError:
 
 def get_forced_cli_type(cmd_type):
     cmn_type = st.getenv("SPYTEST_BGP_API_UITYPE", "")
+
     if cmd_type == "show":
         return st.getenv("SPYTEST_BGP_SHOW_API_UITYPE", cmn_type)
     if cmd_type == "config":
@@ -35,13 +36,14 @@ def get_forced_cli_type(cmd_type):
 def get_cfg_cli_type(dut, **kwargs):
     cli_type = get_forced_cli_type("config")
     cli_type = cli_type or st.get_ui_type(dut, **kwargs)
+
     if cli_type in ["click", "vtysh"]:
         cli_type = "vtysh"
     elif cli_type in ["rest-patch", "rest-put"]:
         cli_type = "rest-patch"
     elif cli_type in get_supported_ui_type_list():
         return cli_type
-    else:
+    elif cli_type != 'vtysh-multi-asic':
         cli_type = "klish"
     return cli_type
 
@@ -53,10 +55,9 @@ def get_show_cli_type(dut, **kwargs):
         cli_type = "vtysh"
     elif cli_type in ["rest-patch", "rest-put"]:
         cli_type = "rest-patch"
-    else:
+    elif cli_type != 'vtysh-multi-asic':
         cli_type = "klish"
     return cli_type
-
 
 def enable_docker_routing_config_mode(dut, **kwargs):
     """
@@ -143,7 +144,7 @@ def enable_router_bgp_mode(dut, **kwargs):
     return False
 
 
-def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', cli_type="", skip_error_check=True, ebgp_req_policy=False):
+def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', cli_type="", skip_error_check=True, ebgp_req_policy=False,**kwargs):
     """
     :param dut:
     :param local_asn:
@@ -168,8 +169,8 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
             st.log('test_step_failed: Enabling Router BGP mode {}'.format(result.data))
             return False
         return True
-    elif cli_type in ['vtysh', 'click']:
-        cli_type = 'vtysh'
+    elif cli_type in ['vtysh', 'click','vtysh-multi-asic']:
+
         if vrf.lower() == 'default':
             command = "{} router bgp {} \n".format(mode, local_asn)
             command += "no bgp ebgp-requires-policy \n"
@@ -177,10 +178,19 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
             command = "{} router bgp {} vrf {}".format(mode, local_asn, vrf)
         if not mode and not ebgp_req_policy:
             command += "\n no bgp ebgp-requires-policy"
-        st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+
+        if cli_type in ['vtysh', 'click']: 
+            st.config(dut, command, type='vtysh', skip_error_check=skip_error_check)   
+        else: 
+            if kwargs.get('asic'):   
+                st.config(dut, command, type=cli_type, skip_error_check=skip_error_check, asic=kwargs.get("asic"))
+            else:
+                st.log("asic is not present for multi-asic platform")
+                return False 
+
         return True
 
-    if cli_type == 'klish':
+    elif cli_type == 'klish':
         if vrf.lower() == 'default':
             if not mode:
                 command = "router bgp {}".format(local_asn)
@@ -194,7 +204,7 @@ def config_router_bgp_mode(dut, local_asn, config_mode='enable', vrf='default', 
         st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
         return True
 
-    if cli_type in ["rest-patch", "rest-put"]:
+    elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         # vrf_name = "default" if vrf.lower() == 'default' else vrf.lower()
         vrf_name = "default" if vrf == 'default' else vrf
@@ -254,7 +264,7 @@ def unconfig_router_bgp(dut, **kwargs):
     return True
 
 
-def cleanup_router_bgp(dut_list, cli_type="", skip_error_check=True):
+def cleanup_router_bgp(dut_list, cli_type="", skip_error_check=True,**kwargs):
     """
 
     :param dut_list:
@@ -269,20 +279,27 @@ def cleanup_router_bgp(dut_list, cli_type="", skip_error_check=True):
             st.log("Cleanup BGP mode ..")
             command = "no router bgp"
             st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+        elif cli_type=="vtysh-multi-asic": 
+            asn=kwargs['asn']
+            neighbor_ip=kwargs['neighbor_ip']
+            asic=kwargs['asic']
+            command = "router bgp {} \n".format(asn)
+            command+="no neighbor {} \n".format(neighbor_ip)
+            st.config(dut, command, type='vtysh-multi-asic',asic=asic)
+
         elif cli_type in ["rest-patch", "rest-put"]:
             rest_urls = st.get_datastore(dut, 'rest_urls')
             url = rest_urls['bgp_remove'].format("default")
             if not delete_rest(dut, rest_url=url):
                 st.error("Error in Unconfiguring router BGP")
                 return False
-            return True
         else:
             st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
             return False
     return True
 
 
-def _cleanup_bgp_config(dut_list, cli_type=""):
+def _cleanup_bgp_config(dut_list, cli_type="",**kwargs):
     """
 
     :param dut_list:
@@ -293,9 +310,14 @@ def _cleanup_bgp_config(dut_list, cli_type=""):
         cli_type = st.get_ui_type(dut, cli_type=cli_type)
         if cli_type in get_supported_ui_type_list():
             config_router_bgp_mode(dut, local_asn='not_used_with_config_mode_disable', config_mode='disable', cli_type=cli_type)
-        elif cli_type in ["click", "klish", "vtysh"]:
+        elif cli_type in ["click", "klish", "vtysh","vtysh-multi-asic"]:
             command = "show running bgp"
-            output = st.show(dut, command, type="vtysh", skip_error_check=True, skip_tmpl=True)
+            if cli_type in ["click", "klish", "vtysh"]:
+                ctype="vtysh" 
+            else:
+                ctype=cli_type 
+
+            output = st.show(dut, command, type=ctype, skip_error_check=True, skip_tmpl=True,**kwargs)
             st.log("Cleanup BGP configuration on %s.." % dut)
             config = output.splitlines()
             line = 0
@@ -322,7 +344,15 @@ def _cleanup_bgp_config(dut_list, cli_type=""):
                 line += 1
 
             for inst in bgp_inst:
-                st.config(dut, "no {}".format(inst), type=cli_type)
+                st.config(dut, "no {}".format(inst), type=cli_type,**kwargs)
+        elif cli_type=="vtysh-multi-asic": 
+            asn=kwargs['asn']
+            neighbor_ip=kwargs['neighbor_ip']
+            asic=kwargs['asic']
+            command = "no router bgp {} \n".format(asn)
+            c#ommand+="no neighbor {} \n".format(neighbor_ip)
+            st.config(dut, command, type='vtysh-multi-asic',asic=asic) 
+
         elif cli_type in ["rest-patch", "rest-put"]:
             rest_urls = st.get_datastore(dut, 'rest_urls')
             url = rest_urls['bgp_config'].format("default")
@@ -336,7 +366,7 @@ def _cleanup_bgp_config(dut_list, cli_type=""):
     return True
 
 
-def cleanup_bgp_config(dut_list, cli_type="", thread=True):
+def cleanup_bgp_config(dut_list, cli_type="", thread=True,**kwargs):
     """
 
     :param dut_list:
@@ -344,7 +374,7 @@ def cleanup_bgp_config(dut_list, cli_type="", thread=True):
     :return:
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    [out, _] = putils.exec_foreach(thread, dut_li, _cleanup_bgp_config, cli_type=cli_type)
+    [out, _] = putils.exec_foreach(thread, dut_li, _cleanup_bgp_config, cli_type=cli_type,**kwargs)
     return False if False in out else True
 
 
@@ -536,7 +566,7 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
     return True
 
 
-def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, cli_type="", ebgp_req_policy=False):
+def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, cli_type="", ebgp_req_policy=False,**kwargs):
     """
     :param dut:
     :param local_asn:
@@ -588,7 +618,7 @@ def create_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, cli
     return True
 
 
-def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, hold=180, password=None, family="ipv4", vrf='default', cli_type="", ebgp_req_policy=False):
+def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, hold=180, password=None, family="ipv4", vrf='default', cli_type="", ebgp_req_policy=False,**kwargs):
     """
 
     :param dut:
@@ -602,6 +632,15 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
     :return:
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
+
+    if family == "ipv6":
+            allcommands = list()
+            allcommands.append("route-map set-next-hop-global-v6 permit 10")
+            allcommands.append("set ipv6 next-hop prefer-global")
+            allcommands.append("exit")
+            allcommands.append("exit")
+            st.config(dut, allcommands, type=cli_type,**kwargs)
+
     st.log("Creating BGP neighbor ..")
     if cli_type in get_supported_ui_type_list():
         kwargs = dict()
@@ -616,29 +655,58 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
 
         return config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=family, mode='unicast', **kwargs)
 
-    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type, ebgp_req_policy=ebgp_req_policy)
+    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type, ebgp_req_policy=ebgp_req_policy,**kwargs)
+    time.sleep(15) 
+
     if cli_type == 'vtysh':
         command = "neighbor {} remote-as {}".format(neighbor_ip, remote_asn)
-        st.config(dut, command, type='vtysh')
+        st.config(dut, command, type=cli_type, **kwargs)
         command = "neighbor {} timers {} {}".format(neighbor_ip, keep_alive, hold)
-        st.config(dut, command, type='vtysh')
+        st.config(dut, command, type=cli_type,**kwargs)
         if password:
             command = " neighbor {} password {}".format(neighbor_ip, password)
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type,**kwargs)
         # Gather the IP type using the validation result
         # ipv6 = False
         if family == "ipv6":
             command = "address-family ipv6 unicast"
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type,**kwargs)
             command = "neighbor {} activate".format(neighbor_ip)
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type,**kwargs)
         if family == "ipv4":
             command = "address-family ipv4 unicast"
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type,**kwargs)
             command = "neighbor {} activate".format(neighbor_ip)
-            st.config(dut, command, type='vtysh')
+            st.config(dut, command, type=cli_type,**kwargs) 
+    elif cli_type == 'vtysh-multi-asic':
+        command = ["router bgp {} \n".format(local_asn)] 
+
+        command.append("neighbor {} remote-as {} \n".format(neighbor_ip, remote_asn))
+        #st.config(dut, command, type=cli_type, **kwargs)
+        command.append("neighbor {} timers {} {} \n".format(neighbor_ip, keep_alive, hold))
+        #st.config(dut, command, type=cli_type,**kwargs)
+        if password:
+            command.append("neighbor {} password {} \n".format(neighbor_ip, password))
+            #st.config(dut, command, type=cli_type,**kwargs)
+        # Gather the IP type using the validation result
+        # ipv6 = False
+        if family == "ipv6":
+            command.append("address-family ipv6 unicast \n") 
+            #st.config(dut, command, type=cli_type,**kwargs)
+            command.append("neighbor {} activate \n".format(neighbor_ip)) 
+            #st.config(dut, command, type=cli_type,**kwargs)
+        elif family == "ipv4":
+            command.append("address-family ipv4 unicast \n") 
+            #st.config(dut, command, type=cli_type,**kwargs)
+            command.append("neighbor {} activate \n".format(neighbor_ip)) 
+
+        st.config(dut, command, type=cli_type,**kwargs)
+
+
     elif cli_type == 'klish':
+
         commands = list()
+
         commands.append("neighbor {}".format(neighbor_ip))
         commands.append("remote-as {}".format(remote_asn))
         commands.append("timers {} {}".format(keep_alive, hold))
@@ -650,7 +718,7 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
             commands.append("exit")
         commands.append("exit")
         commands.append("exit")
-        st.config(dut, commands, type=cli_type)
+        st.config(dut, commands, type=cli_type,**kwargs)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         url = rest_urls['bgp_config'].format(vrf)
@@ -1137,7 +1205,7 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
         return False
 
 
-def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', cli_type="", skip_error_check=True):
+def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', cli_type="", skip_error_check=True,**kwargs):
     """
 
     :param dut:
@@ -1149,7 +1217,7 @@ def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', 
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
     st.log("Deleting BGP neighbor ..")
     # Add validation for IPV4 / IPV6 address
-    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type)
+    config_router_bgp_mode(dut, local_asn, vrf=vrf, cli_type=cli_type,**kwargs)
 
     if cli_type in get_supported_ui_type_list():
         ni_obj = umf_ni.NetworkInstance(Name=vrf)
@@ -1163,6 +1231,11 @@ def delete_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, vrf='default', 
     elif cli_type == "vtysh":
         command = "no neighbor {} remote-as {}".format(neighbor_ip, remote_asn)
         st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+    elif cli_type== "vtysh-multi-asic":
+        asic=kwargs.get('asic') 
+        command = "router bgp {} \n".format(local_asn)
+        command += "no neighbor {} remote-as {} \n".format(neighbor_ip, remote_asn)
+        st.config(dut, command, type='vtysh-multi-asic',asic=asic) 
     elif cli_type == "klish":
         commands = list()
         commands.append("neighbor {}".format(neighbor_ip))
@@ -1377,12 +1450,20 @@ def show_bgp_ipv4_summary_vtysh(dut, vrf='default', **kwargs):
     """
     cli_type = get_show_cli_type(dut, **kwargs)
     skip_tmpl = kwargs.get("skip_tmpl", False)
-    if cli_type == "vtysh":
+    if cli_type in ["vtysh"]:
         if vrf == 'default':
             command = "show ip bgp summary"
         else:
             command = "show ip bgp vrf {} summary".format(vrf)
-        return st.show(dut, command, type='vtysh', skip_tmpl=skip_tmpl)
+        return st.show(dut, command, type=cli_type, skip_tmpl=skip_tmpl)
+    elif cli_type == 'vtysh-multi-asic':
+        asic = kwargs.get('asic',0)
+        if vrf == 'default':
+            command = "show ip bgp summary"
+        else:
+            command = "show ip bgp vrf {} summary".format(vrf)
+        return st.show(dut, command, type='vtysh-multi-asic', asic=asic, skip_tmpl=skip_tmpl)
+
     elif cli_type == "klish":
         if vrf == 'default':
             command = "show bgp ipv4 unicast summary"
@@ -1417,6 +1498,14 @@ def show_bgp_ipv6_summary_vtysh(dut, vrf='default', **kwargs):
         else:
             command = "show bgp vrf {} ipv6 summary".format(vrf)
         return st.show(dut, command, type='vtysh')
+    elif cli_type == 'vtysh-multi-asic': 
+        asic = kwargs.get('asic',0)
+        if vrf == 'default':
+            command = "show bgp ipv6 summary"
+        else:
+            command = "show bgp vrf {} ipv6 summary".format(vrf)
+        return st.show(dut, command, type='vtysh-multi-asic', asic=asic)
+
     elif cli_type == "klish":
         if vrf == 'default':
             command = "show bgp ipv6 unicast summary"
@@ -1625,7 +1714,11 @@ def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None, vrf='default', **kwargs)
     :return:
     """
     cli_type = get_show_cli_type(dut, **kwargs)
-    if cli_type == 'vtysh':
+
+    if kwargs.get('cli_type'):
+        cli_type=kwargs.get('cli_type') 
+
+    if cli_type in ['vtysh','vtysh-multi-asic']:
         if vrf == 'default':
             command = "show ip bgp neighbors"
         else:
@@ -1659,7 +1752,7 @@ def show_bgp_ipv4_neighbor_vtysh(dut, neighbor_ip=None, vrf='default', **kwargs)
         else:
             return []
 
-    return st.show(dut, command, type=cli_type)
+    return st.show(dut, command, type=cli_type,**kwargs)
 
 
 def show_bgp_ipv6_neighbor_vtysh(dut, neighbor_ip=None, vrf='default', **kwargs):
@@ -1899,6 +1992,11 @@ def clear_ip_bgp_vtysh(dut, value="*", **kwargs):
     if cli_type == 'vtysh':
         command = "clear ip bgp ipv4 {}".format(value)
         st.config(dut, command, type='vtysh', conf=False)
+    elif cli_type == 'vtysh-multi-asic':
+        asic = kwargs.get('asic')
+        command = "clear ip bgp ipv4 {}".format(value)
+        st.config(dut, command, type='vtysh-multi-asic', asic=asic, conf=False)
+
     elif cli_type == 'klish':
         if soft:
             command = "clear bgp ipv4 unicast {} soft {}".format(value, dir)
@@ -4091,7 +4189,7 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
         vrf = kwargs.pop('vrf') if 'vrf' in kwargs else "default"
         return verify_bgp_neigh_umf(dut, vrf=vrf, family=family, neighborip=kwargs['neighbor'],
                                     state=kwargs['state'], cli_type=cli_type)
-    if cli_type in ["klish", "rest-patch", "rest-put"]:
+    if cli_type in ["klish", "rest-patch", "rest-put","vtysh-multi-asic"]:
         vrf = kwargs.pop('vrf') if 'vrf' in kwargs else "default"
         if family.lower() == 'ipv4':
             output = show_bgp_ipv4_summary_vtysh(dut, vrf=vrf, cli_type=cli_type)
@@ -4100,7 +4198,7 @@ def verify_bgp_summary(dut, family='ipv4', shell="sonic", **kwargs):
         else:
             st.log("Invalid family {}".format(family))
             return False
-    if cli_type in ["click", "vtysh"]:
+    elif cli_type in ["click", "vtysh"]:
         if 'vrf' in kwargs:
             vrf = kwargs.pop('vrf')
             cmd = "show bgp vrf {} {} summary".format(vrf, family.lower())
