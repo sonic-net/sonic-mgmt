@@ -91,9 +91,9 @@ def _create_parser():
     parser.add_argument('--cicd', action='store_true', help='Use CICD related parameters',
                       default=False)
     parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
-                      default=False)    
+                      default=False)
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
-                      default=False)            
+                      default=False)
     return parser
 
 def repo_update(data):
@@ -102,7 +102,7 @@ def repo_update(data):
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     chan = ssh.invoke_shell()
     buff = ''
-    
+
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("ascii")
@@ -520,11 +520,11 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     elif topo_type == 't1-28-lag':
         ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-spine.j2')
         ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-28-lag-tor.j2')
-        ftp_client.put('topo_t1-28-lag.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-28-lag.yml')    
+        ftp_client.put('topo_t1-28-lag.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-28-lag.yml')
     elif topo_type == 't1-lag-dash-4':
         ftp_client.put('t1-28-lag-spine.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-spine.j2')
         ftp_client.put('t1-28-lag-tor.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t1-lag-dash-4-tor.j2')
-        ftp_client.put('topo_t1-lag-dash-4.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-lag-dash-4.yml')    
+        ftp_client.put('topo_t1-lag-dash-4.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t1-lag-dash-4.yml')
     ftp_client.close()
 
 def replace_dut_mgmt_address(data):
@@ -611,7 +611,7 @@ def add_vEOS_cfg(data):
     resp = chan.recv(9999)
     print(resp.decode("ascii"))
 
-    chan.send('./testbed-cli.sh -t testbed.csv -m veos add-topo docker-ptf password.txt\n')
+    chan.send('./testbed-cli.sh -t testbed.csv -k veos -m veos add-topo docker-ptf password.txt\n')
     chan.settimeout(180)
     buff = ''
     err_buff = ''
@@ -642,7 +642,7 @@ def add_vEOS_cfg(data):
     #finally:
     #    print(buff)
 
-    chan.send('./testbed-cli.sh -t testbed.csv -m veos announce-routes docker-ptf password.txt\n')
+    chan.send('./testbed-cli.sh -t testbed.csv -k veos -m veos announce-routes docker-ptf password.txt\n')
     chan.settimeout(180)
     buff = ''
     err_buff = ''
@@ -775,7 +775,7 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-churchill-mono-t0.yaml'
         else:
             base_topo_file = 'testbed-mth64-t0-64.yaml'
-    
+
     return base_topo_file, vEOS_count, ptf_intfcount
 
 def start_vxr(input_file, cicd, clean_sim, topo_yaml):
@@ -783,15 +783,15 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
 
     if input_file:
         return vxr_path, input_file
-    
+
     if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py" 
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
 
     if clean_sim:
         os.system("{} clean".format(vxr_path))
 
     os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
-    
+
     sim_output = subprocess.check_output("grep -i 'sim up' sim_op.log | wc -l", shell=True).strip()
 
     # Populate results file with failure data
@@ -880,7 +880,7 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
         sim_cfg[dut_username] = "cisco"
         sim_cfg[dut_pass] = "cisco123"
         sim_cfg[dur_ssh_port] = device['xr_redir22']
-    
+
     sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
     sim_cfg["SONIC_MGMT_USERNAME"] = "vxr"
     sim_cfg["SONIC_MGMT_PASSWORD"] = "cisco123"
@@ -924,8 +924,8 @@ def main():
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
         TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
-    
-    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT)) 
+
+    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT))
 
     #get topo_yaml from topo_type
     if not topo_yaml and topo_type in TOPO_PLATFORM_FILE_DICT:
@@ -935,11 +935,11 @@ def main():
     ptf_intfcount = 32
 
     dut_platform = get_dut_platform(device_type)
-    
+
     base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type)
 
     print("USING BASE TOPO {}".format(base_topo_file))
-    
+
     vxr_start_begin = datetime.datetime.now()
 
     vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
@@ -966,14 +966,14 @@ def main():
 
     if run_sanity:
         run_scripts_remote(
-            data['sonic_mgmt']['HostAgent'], 
-            "vxr", 
-            "cisco123", 
+            data['sonic_mgmt']['HostAgent'],
+            "vxr",
+            "cisco123",
             script_file,
             drop_version,
             log_dir,
             device_type,
-            create_allure_report, 
+            create_allure_report,
             ssh_port=data['sonic_mgmt']['xr_redir22'],
             additional_tests=additional_tests
         )
