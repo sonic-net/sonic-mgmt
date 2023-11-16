@@ -401,6 +401,7 @@ class MemoryCheckerContainer(object):
     # NOTE: these limits could be computed by reading the monit_$container config
     MEMORY_LIMITS = {
         'telemetry': 400 * 1024 * 1024,
+        'gnmi': 400 * 1024 * 1024,
     }
 
     def __init__(self, name, duthost):
@@ -463,6 +464,8 @@ class MemoryCheckerContainer(object):
 
     def get_restart_expected_logre(self):
         cap_name = self.name.capitalize()
+        if self.name == "gnmi":
+            cap_name = "GNMI"
         return [
             r".*restart_service.*Restarting service '{}'.*".format(self.name),
             r".*Stopping {} container.*".format(cap_name),
