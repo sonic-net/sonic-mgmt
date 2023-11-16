@@ -257,12 +257,10 @@ def remove_and_restart_container(memory_checker_dut_and_container):
 
 
 def get_test_container(duthost):
-    test_container = []
+    test_container = "telemetry"
     cmd = "docker images | grep -w sonic-gnmi"
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container.append('gnmi')
-    else:
-        test_container.append('telemetry')
+        test_container = "gnmi"
     return test_container
 
 
