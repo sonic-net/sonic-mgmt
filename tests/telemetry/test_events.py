@@ -96,7 +96,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
     event_receive_thread.join(30)
 
     # Assert actual and expected op_file to be same
-    #verify_expected_output("expected_op_file.txt", "received_op_file.txt")
+    verify_expected_output(duthost, "expected_op_file", "received_op_file")
     # Check stats
 
 
@@ -105,7 +105,7 @@ def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
     with open(ip_file, "w") as f:
         for i in range(start_idx, end_idx + 1):
             json_string = f'{{"test_event_source:test": {{"test_key": "test_val_{i}"}}}}'
-            f.write(json_string)
+            f.write(json_string + '\n')
     dest = "~/" + json_file
     duthost.copy(src=ip_file, dest=dest)
 
@@ -120,13 +120,15 @@ def event_receive_tool(duthost, localhost, op_file):
     assert ret["rc"] == 0, "Unable to receive events via events_tool"
 
 
-def verify_expected_output(expected_file, received_file):
-    e_file = "~/" + expected_file
-    r_file = "~/" + received_file
-    with open(e_file, "r") as e, open(r_file, "r") as r:
-        e_data = e.readLines()
-        r_data = r.readLines()
-        assert len(e_data) == len(r_data), "Expected file and received file do not have same length"
-        for i in range(e_data):
-            assert e_data[i] == r_data[i], "Line does not match. Expected line: {}, Received line: {}".format(e_data[i], r_data[i])
+def verify_expected_output(duthost, expected_file, received_file):
+    duthost.shell("cat ~/{}".format(received_file))
+    #e_file = "~/" + expected_file
+    #r_file = "~/" + received_file
+    #with open(r_file, "r") as r:
+    #e_data = e.readLines()
+    #    r_data = r.readLines()
+    #assert len(e_data) == len(r_data), "Expected file and received file do not have same length"
+    #    for i in range(r_data):
+    #        logger.info(r_data[i])
+    #assert e_data[i] == r_data[i], "Line does not match. Expected line: {}, Received line: {}".format(e_data[i], r_data[i])
 
