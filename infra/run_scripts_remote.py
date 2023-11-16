@@ -216,22 +216,22 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     time.sleep(3)
     commands = []
 
-    commands.append('python3 ~/golden-code/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/golden-code/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/golden-code/sonic-test/sonic-mgmt/tests/{} > ~/golden-code/sonic-test/sonic-mgmt/tests/report.txt \n'.format(log_dir))
-    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{} --merge ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml\n'.format(log_dir, log_dir))
-    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/golden-code/sonic-test/sonic-mgmt/tests/report.html\n'.format(log_dir))
-    commands.append('junit2html ~/golden-code/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(log_dir))
+    commands.append('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
+        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
+    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir, log_dir))
+    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/{}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
+    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
     i = 0
     while True:
         if len(commands) == i:
             break
 
         chan.send(commands[i])
-        buff = ''
-        while not buff.endswith(':~$ '):
-            resp = chan.recv(9999)
-            buff += resp.decode("ascii")
-            print(resp.decode("ascii"))
+        print(f"Running command '{commands[i]}'")
+        resp = ''
+        while ':~$' not in resp:
+            resp = chan.recv(9999).decode("ascii")
+            print(resp)
         time.sleep(3)
         if chan.recv_ready():
             print(chan.recv(9999).decode("ascii"))

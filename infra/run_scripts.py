@@ -25,7 +25,7 @@ def _create_parser():
                       required=False,default=None)
     parser.add_argument('-p', '--only_parse', action='store_true', help='Just Parse results',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32',
+    parser.add_argument('-d', '--device_type', type=str, help='the device type of the DUT',
                       required=False,default="mth32")
     parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
                       required=False,default=None)
@@ -456,6 +456,8 @@ def main():
         dut_name = 'sherman-01'
     elif device_type == 'churchill-mono':
         dut_name = 'churchill-mono-01'
+    elif device_type == 'm64-zz-2':
+        dut_name = 'm64-zz-2'
     elif device_type == 'sfd':
         dut_name = 'sfd'
     else:
