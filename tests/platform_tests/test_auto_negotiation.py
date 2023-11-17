@@ -265,7 +265,8 @@ def test_auto_negotiation_dut_advertises_each_speed(enum_speed_per_dutport_fixtu
 
 
 @pytest.mark.parametrize('dut_all_speeds_option', [SPEEDS_BY_LITERAL, SPEEDS_BY_LIST])
-def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fixture, dut_all_speeds_option, xcvr_skip_list):
+def test_auto_negotiation_fanout_advertises_each_speed(enum_speed_per_dutport_fixture, dut_all_speeds_option,
+                                                       xcvr_skip_list):
     """
     Test the case when DUT advertises all supported speeds while fanout advertises one speed at a time.
     Verify that the port operational status is up after auto negotiation
