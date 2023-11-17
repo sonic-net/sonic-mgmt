@@ -221,9 +221,9 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     common_supported_speeds = enum_dut_portname_module_fixture['speeds']
     highest_speed = max([int(p) for p in common_supported_speeds])
     if int_status[dut_port]['speed'][-1] == 'G':
-        actual_speed = int_status[dut_port]['speed'][:-1] + '000'
+        actual_speed = int(int_status[dut_port]['speed'][:-1] + '000')
     else:
-        actual_speed = int_status[dut_port]['speed'][:-1]
+        actual_speed = int(int_status[dut_port]['speed'][:-1])
     pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 
 
