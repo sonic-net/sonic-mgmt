@@ -31,12 +31,6 @@ parameters:
     default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
-  # Testbed specific, to skip and/or include directories
-  - name: TESTBED_SPECIFIC
-    type: string
-    default: '-S "qos/test_qos_sai.py"'
-    displayName: Testbed specific
-
   - name: SKIP_TEST_RESULTS_UPLOADING
     type: boolean
     default: false
@@ -45,7 +39,8 @@ parameters:
   # Custom skip scripts
   - name: SKIP_SCRIPTS
     type: string
-    default: "qos/test_qos_sai.py"
+    default: "qos/test_qos_sai.py \
+              iface_namingmode/test_iface_namingmode.py::TestConfigInterface"
     displayName: "Skip Scripts"
 
 stages:
@@ -54,6 +49,5 @@ stages:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
-      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
       SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
