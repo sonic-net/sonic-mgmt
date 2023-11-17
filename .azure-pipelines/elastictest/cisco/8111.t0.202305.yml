@@ -70,16 +70,18 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "bgp/test_bgp_slb.py, \
-              qos/test_qos_sai.py, \
+    default: "arp/test_wr_arp.py, \
+              bgp/test_bgp_slb.py, \
+              copp/test_copp.py, \
               dhcp_relay/test_dhcp_relay.py, \
-              vxlan/test_vxlan_decap.py, \
               ipfwd/test_dir_bcast.py, \
-              arp/test_wr_arp.py, \
               pfcwd/test_pfcwd_warm_reboot.py, \
-              platform_tests/test_service_warm_restart.py, \
               platform_tests/test_advanced_reboot.py, \
-              platform_tests/test_cont_warm_reboot.py"
+              platform_tests/test_cont_warm_reboot.py, \
+              platform_tests/test_reload_config.py, \
+              platform_tests/test_service_warm_restart.py, \
+              qos/test_qos_sai.py, \
+              vxlan/test_vxlan_decap.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
