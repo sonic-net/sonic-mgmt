@@ -1206,12 +1206,6 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
-telemetry/test_events.py:
-  skip:
-    reason: "Testcase not working in internal image"
-    conditions:
-      - https://msazure.visualstudio.com/One/_workitems/edit/25280320
-
 #######################################
 #####         pktgen              #####
 #######################################
