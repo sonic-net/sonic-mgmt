@@ -10,12 +10,9 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_pfc_frame_count, packet_capture, config_capture_pkt # noqa F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
-from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
-    generate_background_flows, generate_pause_flows, run_traffic, verify_pause_flow, verify_basic_test_flow,\
-    verify_background_flow, verify_pause_frame_count, verify_egress_queue_frame_count, verify_in_flight_buffer_pkts,\
-    verify_unset_cev_pause_frame_count
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.read_pcap import validate_pfc_frame
+import json
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,32 +22,35 @@ DATA_FLOW_DELAY_SEC = 1
 TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
 PAUSE_FLOW_NAME = 'Pause Storm'
 
+
 def get_npu_voq_queue_counters(duthost, interface, priority):
-    full_line = "".join(duthost.shell("show platform npu voq queue_counters -t {} -i {} -d".format(priority, interface))['stdout_lines'])
-    import json
+    full_line = "".join(duthost.shell(
+        "show platform npu voq queue_counters -t {} -i {} -d".
+        format(priority, interface))['stdout_lines'])
     dict_output = json.loads(full_line)
-    for entry,value in zip(dict_output['stats_name'], dict_output['counters']):
+    for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
         dict_output[entry] = value
 
     return dict_output
 
+
 # line rate percent for TC 3, 4 from tx port a, b
 # ecn counter is per TC, both TC has same dwrr weight
 def run_ecn_test_cisco8000(api,
-                 testbed_config,
-                 port_config_list,
-                 conn_data,
-                 fanout_data,
-                 duthost,
-                 dut_port,
-                 global_pause,
-                 pause_prio_list,
-                 test_prio_list,
-                 bg_prio_list,
-                 prio_dscp_map,
-                 test_traffic_pause,
-                 test_flow_percent,
-                 snappi_extra_params=None):
+                           testbed_config,
+                           port_config_list,
+                           conn_data,
+                           fanout_data,
+                           duthost,
+                           dut_port,
+                           global_pause,
+                           pause_prio_list,
+                           test_prio_list,
+                           bg_prio_list,
+                           prio_dscp_map,
+                           test_traffic_pause,
+                           test_flow_percent,
+                           snappi_extra_params=None):
     """
     Run a PFC test
     Args:
@@ -77,7 +77,6 @@ def run_ecn_test_cisco8000(api,
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     pytest_assert(len(test_prio_list) >= 2, 'Must have atleast two lossless priorities')
 
-
     if snappi_extra_params is None:
         snappi_extra_params = SnappiTestParams()
 
@@ -97,13 +96,13 @@ def run_ecn_test_cisco8000(api,
                   'Fail to get ID for port {}'.format(dut_port))
 
     # Generate base traffic config
-    base_flow_config1 =  setup_base_traffic_config(testbed_config=testbed_config,
-                                                   port_config_list=port_config_list,
-                                                   port_id=port_id)
-    port_config_list2 = [ x for x in port_config_list if x != base_flow_config1['tx_port_config'] ]
+    base_flow_config1 = setup_base_traffic_config(testbed_config=testbed_config,
+                                                  port_config_list=port_config_list,
+                                                  port_id=port_id)
+    port_config_list2 = [x for x in port_config_list if x != base_flow_config1['tx_port_config']]
     base_flow_config2 = setup_base_traffic_config(testbed_config=testbed_config,
-                                                                     port_config_list=port_config_list2,
-                                                                     port_id=port_id)
+                                                  port_config_list=port_config_list2,
+                                                  port_id=port_id)
 
     # Generate test flow config
     # Rate percent must be an integer
@@ -150,44 +149,59 @@ def run_ecn_test_cisco8000(api,
                              exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                              snappi_extra_params=snappi_extra_params)
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-
     post_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
     post_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
     # verify that each flow had packets
-    flow3_total = post_ctr_3['SAI_QUEUE_STAT_PACKETS'] - init_ctr_3['SAI_QUEUE_STAT_PACKETS'] 
+    flow3_total = post_ctr_3['SAI_QUEUE_STAT_PACKETS'] - init_ctr_3['SAI_QUEUE_STAT_PACKETS']
     if test_flow_percent[0] > 0:
         pytest_assert(flow3_total > 0, 'Must have packets on queue 3')
 
-    flow4_total = post_ctr_4['SAI_QUEUE_STAT_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_PACKETS'] 
+    flow4_total = post_ctr_4['SAI_QUEUE_STAT_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_PACKETS']
     if test_flow_percent[1] > 0:
-        pytest_assert(flow4_total  > 0, 'Must have packets on queue 4')
+        pytest_assert(flow4_total > 0, 'Must have packets on queue 4')
 
-    flow3_ecn = post_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] - init_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
-    flow4_ecn = post_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
+    flow3_ecn = post_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] -\
+        init_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
+    flow4_ecn = post_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] -\
+        init_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
 
     if sum(test_flow_percent) < 100:
-        pytest_assert(flow3_ecn == 0, 'Must have no ecn marked packets on flow 3 without congestion, percent {}'.format(test_flow_percent))
-        pytest_assert(flow4_ecn == 0, 'Must have no ecn marked packets on flow 4 without congestion, percent {}'.format(test_flow_percent))
+        pytest_assert(flow3_ecn == 0,
+                      'Must have no ecn marked packets on flow 3 without congestion, percent {}'.
+                      format(test_flow_percent))
+        pytest_assert(flow4_ecn == 0,
+                      'Must have no ecn marked packets on flow 4 without congestion, percent {}'.
+                      format(test_flow_percent))
     elif sum(test_flow_percent) >= 100:
         if test_flow_percent[0] > 50:
-            pytest_assert(flow3_ecn > 0, 'Must have ecn marked packets on flow 3, percent {}'.format(test_flow_percent))
+            pytest_assert(flow3_ecn > 0,
+                          'Must have ecn marked packets on flow 3, percent {}'.
+                          format(test_flow_percent))
 
         if test_flow_percent[1] > 50:
-            pytest_assert(flow4_ecn > 0, 'Must have ecn marked packets on flow 4, percent {}'.format(test_flow_percent))
+            pytest_assert(flow4_ecn > 0,
+                          'Must have ecn marked packets on flow 4, percent {}'.
+                          format(test_flow_percent))
 
         if test_flow_percent[0] < 50:
-            pytest_assert(flow3_ecn == 0, 'Must not have ecn marked packets on flow 3, percent {}'.format(test_flow_percent))
+            pytest_assert(flow3_ecn == 0,
+                          'Must not have ecn marked packets on flow 3, percent {}'.
+                          format(test_flow_percent))
 
         if test_flow_percent[1] < 50:
-            pytest_assert(flow4_ecn == 0, 'Must not have ecn marked packets on flow 4, percent {}'.format(test_flow_percent))
-       
-        if test_flow_percent[0] == 50 and test_flow_percent[1] == 50:
-            pytest_assert(flow3_ecn > 0 and flow4_ecn > 0, 'Must have ecn marked packets on flows 3, 4, percent {}'.format(test_flow_percent))
+            pytest_assert(flow4_ecn == 0,
+                          'Must not have ecn marked packets on flow 4, percent {}'.
+                          format(test_flow_percent))
 
-    # verify that the total packets sent match  the rate configured :test_flow_percent=[90, 15]
+        if test_flow_percent[0] == 50 and test_flow_percent[1] == 50:
+            pytest_assert(flow3_ecn > 0 and flow4_ecn > 0,
+                          'Must have ecn marked packets on flows 3, 4, percent {}'.
+                          format(test_flow_percent))
+
+    # verify: total packets sent match the ration of rate configured
     flow_ratio = float(flow3_total/flow4_total)
     flow_percent_ratio = float(test_flow_percent[0] / test_flow_percent[1])
-    pytest_assert(flow_ratio == flow_percent_ratio , "The packet flow ratio {}, must match flow percent ratio {}".format(flow_ratio, flow_percent_ratio))
+    pytest_assert(flow_ratio == flow_percent_ratio,
+                  "The packet flow ratio {}, must match flow percent ratio {}".
+                  format(flow_ratio, flow_percent_ratio))
