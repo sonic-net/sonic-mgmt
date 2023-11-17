@@ -1060,7 +1060,7 @@ class ReloadTest(BaseTest):
         # TODO: add timestamp
         self.log("Service has restarted")
 
-    def handle_advanced_reboot_health_check(self):
+    def handle_advanced_reboot_health_check(self, finalizer_timeout):
         self.log("Check that device is still forwarding data plane traffic")
         self.fails['dut'].add(
             "Data plane has a forwarding problem after CPU went down")
@@ -1074,6 +1074,15 @@ class ReloadTest(BaseTest):
         self.log("IO sender and sniffer threads have started, wait until completion")
         self.sniff_thr.join()
         self.sender_thr.join()
+        total_timeout = finalizer_timeout + self.test_params['warm_up_timeout_secs']
+        start_time = datetime.datetime.now()
+        # Wait until timeout happens OR the IO test completes
+        while (datetime.datetime.now() - start_time).seconds < total_timeout and\
+                self.warmboot_finalizer_thread.is_alive():
+            time.sleep(0.5)
+        if self.warmboot_finalizer_thread.is_alive():
+            self.fails['dut'].add(f"Warmboot Finalizer hasn't finished for {total_timeout} seconds. "
+                                  f"Finalizer state: {self.get_warmboot_finalizer_state()}")
 
         # Stop watching DUT
         self.watching = False
@@ -1358,20 +1367,8 @@ class ReloadTest(BaseTest):
                 self.handle_advanced_reboot_health_check_kvm()
                 self.handle_post_reboot_health_check_kvm()
             else:
-                self.handle_advanced_reboot_health_check()
+                self.handle_advanced_reboot_health_check(finalizer_timeout)
                 self.handle_post_reboot_health_check()
-
-            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
-                total_timeout = finalizer_timeout + \
-                    self.test_params['warm_up_timeout_secs']
-                start_time = datetime.datetime.now()
-                # Wait until timeout happens OR the IO test completes
-                while ((datetime.datetime.now() - start_time).seconds < total_timeout) and\
-                        self.warmboot_finalizer_thread.is_alive():
-                    time.sleep(0.5)
-                if self.warmboot_finalizer_thread.is_alive():
-                    self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
-                                          .format(total_timeout, self.get_warmboot_finalizer_state()))
 
             # Check sonic version after reboot
             self.check_sonic_version_after_reboot()
