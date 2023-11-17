@@ -96,7 +96,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 1800
+    default: 1380  # 23 hours
 
 stages:
 - stage: Test
