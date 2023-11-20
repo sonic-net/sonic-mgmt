@@ -396,3 +396,16 @@ def wait_until_pfcwd_stormed( dut, storm_port ):
       10*60, 5, 0,
       is_pfcwd_port_stormed, dut, storm_port )
    pytest_assert( is_stormed, f"Port {storm_port} did not detect storm!" )
+
+def is_pfcwd_port_restored(dut, storm_port):
+    stats = pfcwd_stats( dut )
+    for queue, status in stats.items():
+        if queue.startswith( storm_port ) and status == 'operational':
+            return True
+    return False
+
+def wait_until_pfcwd_restored(dut, storm_port):
+    is_restored = wait_until(
+       10*60, 5, 0,
+       is_pfcwd_port_restored, dut, storm_port)
+    pytest_assert(is_restored, f"Port {storm_port} did not restore storm!")
