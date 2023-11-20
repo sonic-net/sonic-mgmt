@@ -59,7 +59,7 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     config_reload(duthost, config_source="minigraph", safe_reload=True)
     running_config = get_running_config(duthost)
 
-    yield running_config
+    yield running_config, duthost
 
     if topo_type in ["m0", "mx"]:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
@@ -168,17 +168,15 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
     )
 
 
-def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_hostname):
+def test_load_minigraph_with_golden_config(setup_env):
     """Test Golden Config override during load minigraph
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    full_config, duthost = setup_env
     if duthost.is_multi_asic:
         pytest.skip("Skip override-config-table testing on multi-asic platforms,\
                     test provided golden config format is not compatible with multi-asics")
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     load_minigraph_with_golden_new_feature(duthost)
-    full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost)
