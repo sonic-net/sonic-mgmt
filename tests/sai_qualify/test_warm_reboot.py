@@ -1,3 +1,6 @@
+import logging
+import pytest
+
 from conftest import *
 from sai_infra import *
 from cases_warmreboot import *
@@ -39,18 +42,18 @@ def test_sai(
             run_case_from_ptf(duthost, dut_ip, ptfhost, ptf_sai_test_case, sai_test_interface_para, request, stage)
             if stage == WARM_TEST_SETUP:
                 #Prepare for start in next round
-                saiserver_warmboot_config(duthost, "start")                
-                warm_reboot(duthost, localhost)        
+                saiserver_warmboot_config(duthost, "start")
+                warm_reboot(duthost, localhost)
             if stage == WARM_TEST_POST:
                 saiserver_warmboot_config(duthost, "restore")
         except BaseException as e:
             Test_failed = True
-            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))               
-            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))        
+            logger.info("Test case [{}] failed, failed as {}.".format(ptf_sai_test_case, e))
+            stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))
             pytest.fail("Test case [{}] failed".format(ptf_sai_test_case), e)
         finally:
             store_test_result(ptfhost)
 
-    if not Test_failed:        
+    if not Test_failed:
         if request.config.option.always_stop_sai_test_container:
             stop_and_rm_sai_test_container(duthost, get_sai_test_container_name(request))

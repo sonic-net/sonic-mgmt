@@ -145,7 +145,7 @@ def check_sysfs(dut):
 
     logging.info("Check SFP related sysfs")
     for sfp_id, sfp_info in sysfs_facts['sfp_info'].items():
-        assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % sfp_id
+        assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % int(sfp_id)
         sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
         sfp_temp_crit = float(sfp_info['crit_temp']) if sfp_info['crit_temp'] != '0' else 0
         sfp_temp_emergency = float(sfp_info['emergency_temp']) if sfp_info['emergency_temp'] != '0' else 0

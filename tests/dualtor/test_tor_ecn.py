@@ -12,6 +12,7 @@
 import logging
 import pytest
 import random
+import re
 import time
 import contextlib
 

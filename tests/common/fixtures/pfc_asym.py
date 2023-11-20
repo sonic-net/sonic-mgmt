@@ -355,7 +355,7 @@ class Setup(object):
             elif "lossy" in out[index]:
                 lossy.extend(value)
             else:
-                pytest.fail("Unable to read lossless and lossy priorities. Buffer PG profile value - {}".format(var))
+                pytest.fail("Unable to read lossless and lossy priorities. Buffer PG profile value - {}".format(self.vars))
 
         self.vars["ptf_test_params"]["lossless_priorities"] = list(set(lossless))
         self.vars["ptf_test_params"]["lossy_priorities"] = list(set(lossy))
