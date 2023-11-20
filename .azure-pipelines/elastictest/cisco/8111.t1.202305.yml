@@ -54,7 +54,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: dev/internal-202305/cisco-nightly
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
