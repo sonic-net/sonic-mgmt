@@ -113,14 +113,14 @@ def config_dut_ports(duthost, ports, vlan):
 
 
 def get_default_agent(duthost):
-    # get_default_agent function is used to get the agentip selected by the hsflowd dameon.
+    # get_default_agent function is used to get the agentip selected by the hsflowd daemon.
     # hsflowd.auto is the auto generated file by hsflowd daemon
     hsflowd_autogen_file = '/etc/hsflowd.auto'
     result = duthost.shell(
                         r"docker exec -i sflow sh -c 'test -f {} && echo exist'".format(hsflowd_autogen_file),
                         module_ignore_errors=True)['stdout'].strip()
     if result != 'exist':
-        pytest.fail("{} file doesnot exist.".format(hsflowd_autogen_file))
+        pytest.fail("{} file does not exist.".format(hsflowd_autogen_file))
 
     selected_agent = duthost.shell(
             "docker exec sflow grep -w 'agentIP' {} | cut -d '=' -f 2".format(hsflowd_autogen_file))['stdout'].strip()
