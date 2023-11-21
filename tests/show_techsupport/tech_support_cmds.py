@@ -25,7 +25,6 @@ copy_proc_files = [
     "/proc/self/net",
     "/proc/pagetypeinfo",
     "/proc/partitions",
-    "/proc/sched_debug",
     "/proc/slabinfo",
     "/proc/softirqs",
     "/proc/stat",
