@@ -81,7 +81,8 @@ def route_rule_from_json(json_obj):
     pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
     pb.priority = int(json_obj["priority"])
     pb.pa_validation = json_obj["pa_validation"] == "true"
-    pb.vnet = json_obj["vnet"]
+    if json_obj["pa_validation"] == "true":
+        pb.vnet = json_obj["vnet"]
     return pb
 
 
