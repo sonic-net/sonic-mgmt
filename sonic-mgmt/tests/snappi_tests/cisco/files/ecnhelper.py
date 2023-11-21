@@ -159,11 +159,11 @@ def run_ecn_test_cisco8000(api,
     # verify that each flow had packets
     flow3_total = post_ctr_3['SAI_QUEUE_STAT_PACKETS'] - init_ctr_3['SAI_QUEUE_STAT_PACKETS']
     if test_flow_percent[0] > 0:
-        pytest_assert(flow3_total > 0, 'Must have packets on queue 3')
+        pytest_assert(flow3_total > 0, 'Queue 3 counters at start {} at end {} did not increment'.format(init_ctr_3['SAI_QUEUE_STAT_PACKETS'], post_ctr_3['SAI_QUEUE_STAT_PACKETS']))
 
     flow4_total = post_ctr_4['SAI_QUEUE_STAT_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_PACKETS']
     if test_flow_percent[1] > 0:
-        pytest_assert(flow4_total > 0, 'Must have packets on queue 4')
+        pytest_assert(flow4_total > 0, 'Queue 4 counters at start {} at end {} did not increment'.format(init_ctr_4['SAI_QUEUE_STAT_PACKETS'], post_ctr_4['SAI_QUEUE_STAT_PACKETS']))
 
     flow3_ecn = post_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] -\
         init_ctr_3['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
