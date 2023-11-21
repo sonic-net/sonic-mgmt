@@ -95,8 +95,6 @@ def get_intf_from_ip(local_ip, config_facts):
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
-    if request.param == "with-underlay-route":
-        pytest.skip("Underlay route not supported yet")
     return request.param == "with-underlay-route"
 
 

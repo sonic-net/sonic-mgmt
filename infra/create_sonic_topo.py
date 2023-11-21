@@ -186,6 +186,14 @@ def repo_update(data):
         print(resp.decode("ascii"))
     time.sleep(3)
 
+    chan.send("mkdir ansible/vars/docker-ptf\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
     chan.send("docker run -v $PWD:/data --privileged --network host --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt-vxr bash \n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
@@ -512,8 +520,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
-        ftp_client.put('topo_8800-RP-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-RP-O.yml')
+        ftp_client.put('topo_Cisco-8800-LC-48H-C48.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
+        ftp_client.put('topo_Cisco-8800-RP.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-RP.yml')
         ftp_client.put('topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
