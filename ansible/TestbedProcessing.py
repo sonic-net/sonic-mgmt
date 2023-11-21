@@ -311,7 +311,7 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeSonicLabLinks(data, outfile):
-    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode"
+    csv_columns = "StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,SlotId"
     topology = data
     csv_file = outfile
 
@@ -331,6 +331,7 @@ def makeSonicLabLinks(data, outfile):
                     bandWidth = element.get("Bandwidth")
                     vlanID = element.get("VlanID")
                     vlanMode = element.get("VlanMode")
+                    slotId = element.get("SlotId")
 
                     # catch empty values
                     if not endDevice:
@@ -343,10 +344,13 @@ def makeSonicLabLinks(data, outfile):
                         vlanID = ""
                     if not vlanMode:
                         vlanMode = ""
+                    if not slotId:
+                        slotId = ""
 
                     row = startDevice + "," + startPort + "," + endDevice + "," + \
                         endPort + "," + str(bandWidth) + \
-                        "," + str(vlanID) + "," + vlanMode
+                        "," + str(vlanID) + "," + vlanMode + \
+                        "," + str(slotId)
                     f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating sonic_lab_links.csv")
@@ -560,7 +564,7 @@ def makeLab(data, devices, testbed, outfile):
                         try:  # get frontend_asics
                             frontend_asics = dev.get("frontend_asics")
                             if frontend_asics is not None:
-                                entry += "\tfrontend_asics=" + frontend_asics.__str__()
+                                entry += "\tfrontend_asics=\"" + frontend_asics.__str__() + "\""
                         except AttributeError:
                             print("\t\t" + host + ": frontend_asics not found")
 
@@ -584,6 +588,13 @@ def makeLab(data, devices, testbed, outfile):
                             switch_type = dev.get("switch_type")
                             if switch_type is not None:
                                 entry += "\tswitch_type=" + str(switch_type)
+                                if switch_type == 'fabric' and card_type == 'supervisor':
+                                    # Add switchids for fabric asics
+                                    # switchids, single asic example "[4]", 3 asic example "[4,6,8]"
+                                    switchids = dev.get("switchids")
+                                    if switchids:
+                                        entry += "\tswitchids=\"" + str(switchids) + "\""
+
                                 if switch_type == 'voq' and card_type != 'supervisor':
                                     if num_asics is None:
                                         num_asics = 1
@@ -615,28 +626,28 @@ def makeLab(data, devices, testbed, outfile):
                                         switchids = [
                                             start_switchid +
                                             (asic_id * num_cores_per_asic) for asic_id in range(num_asics)]
-                                    entry += "\tswitchids=" + str(switchids)
+                                    entry += "\tswitchids=\"" + str(switchids) + "\""
 
                                     if voq_inband_ip is None:
                                         voq_inband_ip = [
                                             "1.1.1.{}/32"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ip=" + \
-                                        str(voq_inband_ip)
+                                    entry += "\tvoq_inband_ip=\"" + \
+                                        str(voq_inband_ip) + "\""
 
                                     if voq_inband_ipv6 is None:
-                                        voq_inband_ip = [
+                                        voq_inband_ipv6 = [
                                             "1111::1:{}/128"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ipv6=" + \
-                                        str(voq_inband_ip)
+                                    entry += "\tvoq_inband_ipv6=\"" + \
+                                        str(voq_inband_ipv6) + "\""
 
                                     if voq_inband_intf is None:
                                         voq_inband_intf = [
                                             "Ethernet-IB{}"
                                             .format(asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_intf=" + \
-                                        str(voq_inband_intf)
+                                    entry += "\tvoq_inband_intf=\"" + \
+                                        str(voq_inband_intf) + "\""
 
                                     if voq_inband_type is None:
                                         voq_inband_type = "port"
@@ -650,13 +661,13 @@ def makeLab(data, devices, testbed, outfile):
                                         lo4096_ip = [
                                             "8.0.0.{}/32"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tloopback4096_ip=" + lo4096_ip
+                                    entry += "\tloopback4096_ip=\"" + str(lo4096_ip) + "\""
 
                                     if lo4096_ipv6 is None:
                                         lo4096_ipv6 = [
                                             "2603:10e2:400::{}/128"
                                             .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tloopback4096_ipv6=" + lo4096_ipv6
+                                    entry += "\tloopback4096_ipv6=\"" + str(lo4096_ipv6) + "\""
 
                                     start_switchid += (num_asics *
                                                        num_cores_per_asic)
@@ -851,6 +862,9 @@ def makeVeos(data, veos, devices, outfile):
                             entry += "\ttype=" + dev.get("type")
                             entry += "\thwsku=" + dev.get("hwsku")
                             entry += "\tcard_type=" + dev.get("card_type")
+                            entry += "\tmodel=" + dev.get("model")
+                            entry += "\tserial=" + dev.get("serial")
+                            entry += "\tbase_mac=" + dev.get("base_mac")
                     except Exception:
                         try:
                             ansible_host = veos.get(key).get(
@@ -939,7 +953,7 @@ def makeHostVar(data):
     host_vars = data
     for key, value in host_vars.items():  # iterate through all devices in host_vars dictionary
         # create (or overwrite) a file named <device>.yml
-        with open(args.basedir + "host_vars/" + key.upper() + ".yml", "w") as toWrite:
+        with open(args.basedir + "host_vars/" + key + ".yml", "w") as toWrite:
             for attribute, attribute_data in value.items():  # for each element in device's dictionary
                 # write the attribute and the attribute value to <device>.yml
                 toWrite.write(str(attribute) + ": " +

@@ -17,5 +17,7 @@ ansible/plugins/*/*.pyc
 .vscode/
 .idea/
 
+.python-version
+
 # Credential files
 ansible/group_vars/all/secrets.json
