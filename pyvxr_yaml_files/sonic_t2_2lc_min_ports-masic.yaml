@@ -2,7 +2,9 @@ simulation:
   no_image_copy: true
   slurm_flags:
     hours: 26
-    #partition: amd
+    pending_timeout: 60
+    partition: regression
+    cluster: rch-slurm-m1
   pyvxr_flags:
     sonic_lc_bringup: True
 

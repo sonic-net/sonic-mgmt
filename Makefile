@@ -5,6 +5,8 @@ GOLDENBRANCH ?= 202012
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
 REPORT_REPO ?= /home/report_server_pv/
+DUT_USERNAME ?= "cisco"
+DUT_PASSWORD ?= "cisco123"
 
 .PHONY: init t0_run t1_run collect
 
@@ -19,19 +21,20 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM}"
+	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --dut-password=${DUT_PASSWORD}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
 	 python3.8 -u ./create_sonic_topo.py \
-		--dut_uname cisco \
-		--dut_passwd cisco123 \
+		--dut_uname ${DUT_USERNAME} \
+		--dut_passwd ${DUT_PASSWORD} \
 		--topo_type ${TOPOLOGY} \
 		--device_type ${PLATFORM} \
 		--script_file $(TESTFILE) \
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
 		--cicd \
+		$(SIM_ADDITIONAL_PARAMS) \
 	"
 
 clear_sim:
@@ -64,7 +67,9 @@ run_sanity:
 		--docker_mgmt_container='${DOCKER_MGMT_CONTAINER}' \
 		--sonic_test_dir='${SONIC_TEST_DIR}' \
 		--create_allure_report \
-		--additional_tests='${ADDITIONAL_TESTS}'"
+		--additional_tests='${ADDITIONAL_TESTS}' \
+		$(SIM_ADDITIONAL_PARAMS) \
+	"
 
 t0_run:
 	echo "run T0 testing..."

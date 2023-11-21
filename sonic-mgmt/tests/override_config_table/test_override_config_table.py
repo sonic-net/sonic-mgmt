@@ -33,18 +33,19 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def golden_config_exists_on_dut(duthost):
-    return file_exists_on_dut(duthost, GOLDEN_CONFIG)
+def golden_config_exists_on_dut(duthosts, enum_rand_one_per_hwsku_hostname):
+    return file_exists_on_dut(duthosts[enum_rand_one_per_hwsku_hostname], GOLDEN_CONFIG)
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, golden_config_exists_on_dut, tbinfo):
+def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_hwsku_hostname):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")

@@ -14,6 +14,12 @@ PFC_STORM_DETECTION_TIME = 100
 PFC_STORM_RESTORATION_TIME = 100
 CRM_DEFAULT_POLLING_INTERVAL = 300
 CRM_DEFAULT_ACL_GROUP_HIGH = 85
+CRM_TEST_IPV4_ROUTE_FREE_LOW = 52530
+CRM_TEST_IPV4_ROUTE_FREE_HIGH = 52531
+CRM_TEST_IPV4_ROUTE_USED_LOW = 6475
+CRM_TEST_IPV4_ROUTE_USED_HIGH = 6476
+CRM_DEFAULT_IPV4_ROUTE_LOW = 70
+CRM_DEFAULT_IPV4_ROUTE_HIGH = 85
 CRM_TEST_POLLING_INTERVAL = 1
 CRM_TEST_ACL_GROUP_HIGH = 0
 WAIT_TIME = 3
@@ -59,7 +65,24 @@ def generate_pfc_storm(duthost):
 def trigger_crm_threshold_exceeded(duthost):
     logger.info("Triggering crm threshold exceeded")
     duthost.shell("crm config polling interval {}".format(CRM_TEST_POLLING_INTERVAL))
+
     duthost.shell("crm config thresholds acl group high {}".format(CRM_TEST_ACL_GROUP_HIGH))
+
+    duthost.shell("crm config thresholds ipv4 route type free")
+    duthost.shell("crm config thresholds ipv4 route low {}".format(CRM_TEST_IPV4_ROUTE_FREE_LOW))
+    duthost.shell("crm config thresholds ipv4 route high {}".format(CRM_TEST_IPV4_ROUTE_FREE_HIGH))
+    duthost.shell("crm config thresholds ipv4 route type used")
+    duthost.shell("crm config thresholds ipv4 route low {}".format(CRM_TEST_IPV4_ROUTE_USED_LOW))
+    duthost.shell("crm config thresholds ipv4 route high {}".format(CRM_TEST_IPV4_ROUTE_USED_HIGH))
+
     time.sleep(WAIT_TIME)  # give time for crm threshold exceed to be detected
+
     duthost.shell("crm config polling interval {}".format(CRM_DEFAULT_POLLING_INTERVAL))
+
     duthost.shell("crm config thresholds acl group high {}".format(CRM_DEFAULT_ACL_GROUP_HIGH))
+
+    duthost.shell("crm config thresholds ipv4 route low {}".format(CRM_DEFAULT_IPV4_ROUTE_LOW))
+    duthost.shell("crm config thresholds ipv4 route high {}".format(CRM_DEFAULT_IPV4_ROUTE_HIGH))
+    duthost.shell("crm config thresholds ipv4 route type free")
+    duthost.shell("crm config thresholds ipv4 route low {}".format(CRM_DEFAULT_IPV4_ROUTE_LOW))
+    duthost.shell("crm config thresholds ipv4 route high {}".format(CRM_DEFAULT_IPV4_ROUTE_HIGH))

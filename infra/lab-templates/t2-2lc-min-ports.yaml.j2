@@ -9,6 +9,13 @@ all:
             sonic_multi_asic:
             sonic_cisco_sup:
             sonic_cisco_lc_100G:
+        fanout:
+          vars:
+            hwsku: C9336C-FX2
+            os: nxos
+          hosts:
+            nexus-5:
+              ansible_host: 1.74.23.205 
     ptf:
       hosts:
         docker-ptf:
@@ -44,16 +51,11 @@ sonic_cisco_sup:
       base_mac: E4:1F:7B:37:52:08
       syseeprom_info:
         "0x21": "8800-RP-O"
-        "0x22": "1A4841"
-        "0x23": "FOC2428P4EW"
-        "0x24": "E4:1F:7B:37:52:08"
-        "0x26": "1"
-        "0x28": "x86_64-8800_rp_o-r1"
+        "0x28": "x86_64-8800_rp_o-r0"
         "0x2A": "8"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0xB956E41D"
       skip_modules:
           'psus':
             - psu0.0
@@ -104,16 +106,11 @@ sonic_cisco_lc_100G:
       base_mac: F8:6B:D9:78:5E:18
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
-        "0x22": "1A5235"
-        "0x23": "FOC2417NH06"
-        "0x24": "F8:6B:D9:78:5E:18"
-        "0x26": "2"
-        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x28": "x86_64-8800_lc_48h_o-r0"
         "0x2A": "200"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x824248F5"
 
     sfd-lc1:
       hwsku: 8800-LC-48H-O
@@ -128,13 +125,8 @@ sonic_cisco_lc_100G:
       base_mac: E4:1F:7B:DE:01:50
       syseeprom_info:
         "0x21": "8800-LC-48H-O"
-        "0x22": "1A5235"
-        "0x23": "FOC2434PLPJ"
-        "0x24": "E4:1F:7B:DE:01:50"
-        "0x26": "2"
-        "0x28": "x86_64-8800_lc_48h_o-r2"
+        "0x28": "x86_64-8800_lc_48h_o-r0"
         "0x2A": "200"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0xB5D301F7"

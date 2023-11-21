@@ -3,8 +3,6 @@ memory_checker/test_memory_checker.py::test_memory_checker_without_container_cre
 monit/test_monit_status.py::test_monit_status
 mvrf/test_mgmtvrf.py:test_ping
 mvrf/test_mgmtvrf.py:test_snmp_fact
-platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json
-platform_tests/cli/test_show_platform.py::test_show_platform_psustatus
 platform_tests/cli/test_show_platform.py::test_show_platform_summary
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
 platform_tests/cli/test_show_platform.py::test_show_platform_temperature
