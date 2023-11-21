@@ -464,6 +464,8 @@ class MemoryCheckerContainer(object):
 
     def get_restart_expected_logre(self):
         cap_name = self.name.capitalize()
+        if self.name == "gnmi":
+            cap_name = "GNMI"
         if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
             return [
                 r".*restart_service.*Restarting service '{}'.*".format(self.name),
