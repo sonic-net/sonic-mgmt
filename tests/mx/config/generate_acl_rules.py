@@ -13,6 +13,9 @@ try:
 except ImportError:
     from port_utils import get_port_alias_to_name_map
 
+TOPO_MX_YAML = '../../../ansible/vars/topo_mx.yml'
+MX_VLAN_CONFIG = './mx_vlan_conf.json'
+
 ACL_ACTION_ACCEPT = "ACCEPT"
 ACL_ACTION_DROP = "DROP"
 
@@ -22,6 +25,11 @@ ACL_TABLE_BMC_SOUTHBOUND_V6 = "bmc_acl_southbound_v6"
 
 ETHERTYPE_IPV4 = 0x0800
 ETHERTYPE_IPV6 = 0x86DD
+
+IP2ME_TYPE_IP_INTF = "IPInterface"
+IP2ME_TYPE_LO_IP_INTF = "LoopbackIPInterface"
+IP2ME_TYPE_MGMT_IP_INTF = "ManagementIPInterface"
+IP2ME_TYPE_VLAN_INTF = "VlanInterface"
 
 IP_PROTOCOL_ICMPV6 = "IP_ICMPV6"
 IP_PROTOCOL_TCP = "IP_TCP"
@@ -36,6 +44,12 @@ TCP_FLAG_ACK = "TCP_ACK"
 TCP_FLAG_SYN = "TCP_SYN"
 
 AUTO_GENERATED_FOLDER = "auto_generated_files"
+
+
+class IP2ME(object):
+    def __init__(self, addr, type):
+        self.addr = addr
+        self.type = type
 
 
 def minimum_supernet(ip_list):
@@ -102,6 +116,32 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
     return rule
 
 
+def ip2me_list(vlan_count):
+    # Loopback0 or MGMT
+    ipv4_list = [IP2ME(ipaddress.ip_network('10.1.0.32'), IP2ME_TYPE_MGMT_IP_INTF)]
+    ipv6_list = [IP2ME(ipaddress.ip_network('fc00:1::32'), IP2ME_TYPE_MGMT_IP_INTF)]
+    # VLAN Interface
+    with open(MX_VLAN_CONFIG) as f:
+        vlan_config = json.load(f)[str(vlan_count)]
+        for vlan_id, vlan_cfg in vlan_config.items():
+            if 'interface_ipv4' in vlan_cfg:
+                ipv4_list.append(IP2ME(ipaddress.ip_network(vlan_cfg['interface_ipv4'].split('/')[0]), IP2ME_TYPE_VLAN_INTF))
+            if 'interface_ipv6' in vlan_cfg:
+                ipv6_list.append(IP2ME(ipaddress.ip_network(vlan_cfg['interface_ipv6'].split('/')[0]), IP2ME_TYPE_VLAN_INTF))
+    # P2P
+    with open(TOPO_MX_YAML) as f:
+        topo_mx = yaml.safe_load(f)
+        neighbors = topo_mx['configuration']
+        for neigh_name, neigh_cfg in neighbors.items():
+            for ip_addr in neigh_cfg['bgp']['peers'][64001]:
+                ip_net = ipaddress.ip_network(ip_addr)
+                if type(ip_net) is ipaddress.IPv4Network:
+                    ipv4_list.append(IP2ME(ip_net, IP2ME_TYPE_IP_INTF))
+                elif type(ip_net) is ipaddress.IPv6Network:
+                    ipv6_list.append(IP2ME(ip_net, IP2ME_TYPE_IP_INTF))
+    return ipv4_list, ipv6_list
+
+
 def gen_northbound_acl_entries_v4(rack_topo, hwsku):
     port_alias_to_name, _, _ = get_port_alias_to_name_map(hwsku)
     shelfs = rack_topo['shelfs']
@@ -113,9 +153,17 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
               [bh['ipv4_addr'] for bh in bmc_hosts if bh.get('ipv4_addr', None) is not None]
 
     acl_entries = {}
-    sequence_id = 1
+
+    # IP2ME Rules
+    ipv4_list, _ = ip2me_list(rack_topo['config']['vlan_count'])
+    sequence_id = 101
+    for ip2me in ipv4_list:
+        if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
+            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+            sequence_id += 5
 
     # IN_PORTS = BMC, DST_IP = BMC => DROP
+    sequence_id = 1001
     bmc_intfs = [port_alias_to_name[host['port_alias']] for host in bmc_hosts]
     bmc_nets = ip_merge(bmc_ips, rm_ips)
     for bmc_net in bmc_nets:
@@ -123,10 +171,10 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
             acl_entry(sequence_id, dst_ip=format(bmc_net), interfaces=bmc_intfs)
         sequence_id += 5
 
-    sequence_id = max(sequence_id, 101)
     # For same shelf:
     #   - SRC_IP = RM, DST_IP = BMC => ACCEPT
     #   - SRC_IP = BMC, DST_IP = RM => ACCEPT
+    sequence_id = max(sequence_id, 1101)
     if len(shelfs) == 1:
         shelf = shelfs[0]
         rm = shelf['rm']
@@ -186,9 +234,16 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
 
     acl_entries = {}
 
-    sequence_id = 1  # 9900 <= priority < 10000
+    # IP2Me Rules
+    sequence_id = 101
+    _, ipv6_list = ip2me_list(rack_topo['config']['vlan_count'])
+    for ip2me in ipv6_list:
+        if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
+            acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+            sequence_id += 5
 
     # If IPv6 is supported on any RM
+    sequence_id = 1001
     if rm_support_ipv6:
         # IN_PORTS = BMC, DST_IP = BMC => DROP
         # (Avoid one BMC send package to another BMC)
@@ -206,8 +261,7 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
                 acl_entry(sequence_id, ACL_ACTION_DROP, dst_ip=format(rm_net), interfaces=rm_intfs)
             sequence_id += 5
 
-    sequence_id = 9001  # 900 <= priority < 1000
-
+    sequence_id = 8001
     if rm_support_ipv6:
         # For same shelf: (Only needed if IPv6 is supported on RM)
         #   - SRC_IP = RM, DST_IP = BMC => ACCEPT
@@ -243,13 +297,6 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
 
-    '''TODO: Will add DHCPv6 ACL rule later
-    # Allow DHCPv6 packets from BMC (client port = 546) to upstream (server/relay port = 547)
-    sequence_id = 9021
-    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=546, l4_dst_port=547)
-    '''
-
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)
     # (If RM doesn't support IPv6, this rule can also prevent one BMC send package to another BMC)
@@ -263,6 +310,13 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
 def gen_southbound_acl_entries_v6(rack_topo, hwsku):
     acl_entries = {}
 
+    # IP2Me Rules
+    sequence_id = 101
+    _, ipv6_list = ip2me_list(rack_topo['config']['vlan_count'])
+    for ip2me in ipv6_list:
+        acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
+        sequence_id += 5
+
     # Allow NDP between Mx and M0
     sequence_id = 9001
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
@@ -270,25 +324,6 @@ def gen_southbound_acl_entries_v6(rack_topo, hwsku):
     sequence_id = 9002
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
-
-    # Allow BGPv6 between Mx and M0
-    sequence_id = 9011
-    acl_entries["{:04d}_ALLOW_BGP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_TCP, l4_src_port=179)
-    sequence_id = 9012
-    acl_entries["{:04d}_ALLOW_BGP".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_TCP, l4_dst_port=179)
-
-    '''TODO: Will add DHCPv6 ACL rule later
-    # Allow DHCPv6 packets from upstream (server port = 546) to BMC (client port = 546)
-    sequence_id = 9021
-    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=547, l4_dst_port=546)
-    # Allow DHCPv6 packets from upstream (server port = 546) to Mx (relay-agent port = 547)
-    sequence_id = 9022
-    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
-        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_UDP, l4_src_port=547, l4_dst_port=547)
-    '''
 
     # By default, drop all the southbound traffic:
     # MARCH_ALL => DROP

@@ -5,14 +5,94 @@
                 "BMC_ACL_NORTHBOUND": {
                     "acl-entries": {
                         "acl-entry": {
-                            "0001_IN_PORTS_BMC_DST_IP_BMC": {
+                            "0101_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "10.1.0.32/32",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0106_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.62/32",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0111_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 111
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.126/32",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0116_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 116
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.182/32",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0121_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 121
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "172.17.0.201/32",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "1001_IN_PORTS_BMC_DST_IP_BMC": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "DROP"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 1
+                                    "sequence-id": 1001
                                 },
                                 "input_interface": {
                                     "interface_ref": {
@@ -28,14 +108,14 @@
                                     }
                                 }
                             },
-                            "0006_IN_PORTS_BMC_DST_IP_BMC": {
+                            "1006_IN_PORTS_BMC_DST_IP_BMC": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "DROP"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 6
+                                    "sequence-id": 1006
                                 },
                                 "input_interface": {
                                     "interface_ref": {
@@ -51,14 +131,14 @@
                                     }
                                 }
                             },
-                            "0101_SRC_IP_RM": {
+                            "1101_SRC_IP_RM": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 101
+                                    "sequence-id": 1101
                                 },
                                 "ip": {
                                     "config": {
@@ -67,14 +147,14 @@
                                     }
                                 }
                             },
-                            "0106_DST_IP_RM": {
+                            "1106_DST_IP_RM": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 106
+                                    "sequence-id": 1106
                                 },
                                 "ip": {
                                     "config": {
@@ -107,6 +187,70 @@
                             {% for acl_name, acl_rule in dynamic_northbound_v6.items() %}
                             "{{ acl_name }}": {{ acl_rule }},
                             {% endfor %}
+                            "0101_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00:1::32/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0106_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::220:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0111_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 111
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::221:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0116_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 116
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::222:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
                             "9001_ALLOW_NDP": {
                                 "actions": {
                                     "config": {
@@ -173,6 +317,102 @@
                             {% for acl_name, acl_rule in dynamic_southbound_v6.items() %}
                             "{{ acl_name }}": {{ acl_rule }},
                             {% endfor %}
+                            "0101_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00:1::32/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0106_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::220:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0111_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 111
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::221:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0116_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 116
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::222:0:abcd/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0121_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 121
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00::81/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
+                            "0126_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 126
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00::85/128",
+                                        "protocol": "0"
+                                    }
+                                }
+                            },
                             "9001_ALLOW_NDP": {
                                 "actions": {
                                     "config": {
@@ -212,46 +452,6 @@
                                 "ip": {
                                     "config": {
                                         "protocol": "58"
-                                    }
-                                }
-                            },
-                            "9011_ALLOW_BGP": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9011
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": "6"
-                                    }
-                                },
-                                "transport": {
-                                    "config": {
-                                        "source-port": 179
-                                    }
-                                }
-                            },
-                            "9012_ALLOW_BGP": {
-                                "actions": {
-                                    "config": {
-                                        "forwarding-action": "ACCEPT"
-                                    }
-                                },
-                                "config": {
-                                    "sequence-id": 9012
-                                },
-                                "ip": {
-                                    "config": {
-                                        "protocol": "6"
-                                    }
-                                },
-                                "transport": {
-                                    "config": {
-                                        "destination-port": 179
                                     }
                                 }
                             },

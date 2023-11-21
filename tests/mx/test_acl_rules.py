@@ -431,7 +431,7 @@ class BmcOtwAclRulesBase:
             add_acl_rule(duthost, static_acl_rule_file, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6])
         if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
             add_acl_rule(duthost, static_acl_rule_file, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
-        # clear existing arp/fdb/ndp table before test
+        # clear existing arp/ndp table before test
         duthost.command("sonic-clear arp")
         duthost.command("sonic-clear ndp")
 
@@ -481,6 +481,9 @@ class BmcOtwAclRulesBase:
 
         add_acl_rule(duthost, dynamic_acl_rule_file, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6])
         add_acl_rule(duthost, dynamic_acl_rule_file, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
+        # clear existing arp/ndp table before test
+        duthost.command("sonic-clear arp")
+        duthost.command("sonic-clear ndp")
 
     def build_gcu_dynamic_acl_rule_patch(self, bmc, upstream, bmc_l4_ports, upstream_l4_ports, ip_protocol=None):
         seq_id = 3000
