@@ -72,6 +72,11 @@
         - net-tools
         - bridge-utils
         - util-linux
+
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
         - iproute2
         - vlan
         - apt-transport-https
