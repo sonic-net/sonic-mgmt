@@ -26,14 +26,15 @@ TEST_DIR = "/tmp/acstests/"
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
-            [
-                r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-            ]
-        )
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+                ]
+            )
 
     return
 
