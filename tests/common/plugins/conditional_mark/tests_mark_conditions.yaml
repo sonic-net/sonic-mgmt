@@ -995,6 +995,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
+  skip:
+    reason: "All Port Watermark test is verified only on Cisco Platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
