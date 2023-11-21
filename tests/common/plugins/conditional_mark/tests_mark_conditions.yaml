@@ -711,21 +711,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
-#####     override_config_table   #####
-#######################################
-override_config_table/test_override_config_table.py:
-  skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
-    conditions:
-      - is_multi_asic == True
-
-override_config_table/test_override_config_table_masic.py:
-  skip:
-    reason: "Skip override-config-table-masic testing on single-asic platforms, test provided golden config format is not compatible with single-asics"
-    conditions:
-      - is_multi_asic == False
-
-#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
@@ -1010,6 +995,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
+  skip:
+    reason: "All Port Watermark test is verified only on Cisco Platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
@@ -1196,6 +1187,15 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+#######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+   skip:
+     reason: "Currently only supported in cisco-8000"
+     conditions:
+        - "asic_type not in ['cisco-8000']"
 
 #######################################
 #####            vlan             #####

@@ -4,6 +4,7 @@ logger = logging.getLogger(__name__)
 
 class QosParamCisco(object):
     SMALL_SMS_PLATFORMS = ["x86_64-8102_64h_o-r0"]
+    DEEP_BUFFER_PLATFORMS = ["x86_64-8111_32eh_o-r0"]
     LOG_PREFIX = "QosParamCisco: "
 
     def __init__(self, qos_params, duthost, dutAsic, topo, bufferConfig, portSpeedCableLength):
@@ -25,6 +26,7 @@ class QosParamCisco(object):
             self.egress_pool_size = int(self.bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"])
         # Find SMS size
         self.is_large_sms = duthost.facts['platform'] not in self.SMALL_SMS_PLATFORMS
+        self.is_deep_buffer = duthost.facts['platform'] in self.DEEP_BUFFER_PLATFORMS
         self.buffer_size = 384
         # Lossless profile attributes
         lossless_prof_name = "pg_lossless_{}_profile".format(self.portSpeedCableLength)
@@ -60,9 +62,9 @@ class QosParamCisco(object):
         Each function takes common parameters and outputs to the relevant section of the
         self.qos_params structure.
         '''
+        self.__define_shared_reservation_size()
         if not self.supports_autogen:
             return self.qos_params
-        self.__define_shared_reservation_size()
         self.__define_pfc_xoff_limit()
         self.__define_pfc_xon_limit()
         self.__define_pg_shared_watermark()
@@ -120,22 +122,38 @@ class QosParamCisco(object):
             self.__mark_skip("shared_res_size_2", skip_reason)
             return
         if self.is_large_sms:
-            res_1 = {"dscps": [8, 8, 8, 8, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                     "pgs": [0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                     "queues": [0, 0, 0, 0, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                     "src_port_i": [0, 1, 2, 3, 0, 1, 2, 3, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
-                     "dst_port_i": [6, 7, 8, 9, 6, 7, 8, 9, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
-                     "pkt_counts": [3822, 3822, 3822, 3822, 3822, 3822, 3822, 3822, 2595, 2595, 2595, 2595,
-                                    2038, 2038, 1014, 1014, 1014, 1014, 64, 1],
-                     "shared_limit_bytes": 75497472}
-            res_2 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
-                     "pgs": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
-                     "queues": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
-                     "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8],
-                     "dst_port_i": [9, 9, 10, 10, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6],
-                     "pkt_counts": [3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 2052, 2052,
-                                    1286, 1286, 1286, 238, 1],
-                     "shared_limit_bytes": 67109376}
+            if self.is_deep_buffer:
+                res_1 = {"dscps": [8, 8, 1, 1, 3, 4, 3, 4, 3, 4, 3],
+                         "pgs": [0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3],
+                         "queues": [0, 0, 1, 1, 3, 4, 3, 4, 3, 4, 3],
+                         "src_port_i": [0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 4],
+                         "dst_port_i": [5, 6, 7, 8, 5, 5, 6, 6, 7, 7, 8],
+                         "pkt_counts": [9728, 9728, 9728, 9728, 3583, 6646, 6646, 1654, 1654, 979, 1],
+                         "shared_limit_bytes": 92274816}
+                res_2 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4],
+                         "pgs": [3, 4, 3, 4, 3, 4, 3, 4],
+                         "queues": [3, 4, 3, 4, 3, 4, 3, 4],
+                         "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3],
+                         "dst_port_i": [4, 4, 5, 5, 6, 6, 7, 7],
+                         "pkt_counts": [11946, 11946, 11946, 11946, 2561, 2561, 1707, 1],
+                         "shared_limit_bytes": 83886720}
+            else:
+                res_1 = {"dscps": [8, 8, 8, 8, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                         "pgs": [0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                         "queues": [0, 0, 0, 0, 1, 1, 1, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
+                         "src_port_i": [0, 1, 2, 3, 0, 1, 2, 3, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5],
+                         "dst_port_i": [6, 7, 8, 9, 6, 7, 8, 9, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11],
+                         "pkt_counts": [3822, 3822, 3822, 3822, 3822, 3822, 3822, 3822, 2595, 2595, 2595, 2595,
+                                        2038, 2038, 1014, 1014, 1014, 1014, 64, 1],
+                         "shared_limit_bytes": 75497472}
+                res_2 = {"dscps": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
+                         "pgs": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
+                         "queues": [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3],
+                         "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8],
+                         "dst_port_i": [9, 9, 10, 10, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6],
+                         "pkt_counts": [3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 3549, 2052, 2052,
+                                        1286, 1286, 1286, 238, 1],
+                         "shared_limit_bytes": 67109376}
         else:
             res_1 = {"dscps": [8, 8, 8, 8, 8, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                      "pgs": [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
