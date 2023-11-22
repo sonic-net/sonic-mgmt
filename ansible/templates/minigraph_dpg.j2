@@ -170,6 +170,9 @@
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
           <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+{% if 'secondary_subnet' in vlan_param %}
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('secondary_subnet') }}<SecondarySubnets>
+{% endif %}
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
 {% endif %}
@@ -208,6 +211,13 @@
           <AttachTo>{{ vlan }}</AttachTo>
           <Prefix>{{ vlan_param['prefix'] }}</Prefix>
         </IPInterface>
+{%if 'secondary_subnet' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['secondary_subnet'] }}</Prefix>
+        </IPInterface>
+{% endif %}
 {% endfor %}
 {% for vlan, vlan_param in vlan_configs.items() %}
 {%   if 'prefix_v6' in vlan_param %}
