@@ -466,13 +466,22 @@ class MemoryCheckerContainer(object):
         cap_name = self.name.capitalize()
         if self.name == "gnmi":
             cap_name = "GNMI"
-        return [
-            r".*restart_service.*Restarting service '{}'.*".format(self.name),
-            r".*Stopping {} container.*".format(cap_name),
-            r".*Stopped {} container.*".format(cap_name),
-            r".*Starting {} container.*".format(cap_name),
-            r".*Started {} container.*".format(cap_name),
-        ]
+        if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+            return [
+                r".*restart_service.*Restarting service '{}'.*".format(self.name),
+                r".*Stopping {}.service - {} container.*".format(self.name, cap_name),
+                r".*Stopped {}.service - {} container.*".format(self.name, cap_name),
+                r".*Starting {}.service - {} container.*".format(self.name, cap_name),
+                r".*Started {}.service - {} container.*".format(self.name, cap_name),
+            ]
+        else:
+            return [
+                r".*restart_service.*Restarting service '{}'.*".format(self.name),
+                r".*Stopping {} container.*".format(cap_name),
+                r".*Stopped {} container.*".format(cap_name),
+                r".*Starting {} container.*".format(cap_name),
+                r".*Started {} container.*".format(cap_name),
+            ]
 
     def get_last_start_date(self):
         rc = self.duthost.shell(r"docker inspect --format \{{\{{.State.StartedAt\}}\}} {}".format(self.name))
