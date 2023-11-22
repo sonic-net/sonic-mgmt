@@ -1,6 +1,7 @@
 import pytest
 import json
 import time
+
 from tests.common.dualtor.dual_tor_io import DualTorIO
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
@@ -92,7 +93,8 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             "disrupted {} times. Allowed number of disruptions: {}"\
                             .format(server_ip, total_disruptions, allowed_disruption))
 
-        if longest_disruption > delay:
+        if longest_disruption > delay and _validate_long_disruption(result['disruptions'],
+                                                                    allowed_disruption, delay):
             failures.append("Traffic on server {} was disrupted for {}s. "
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
@@ -102,7 +104,8 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
 
-        if longest_duplication > delay:
+        if longest_duplication > delay and _validate_long_disruption(result['duplications'],
+                                                                     allowed_disruption, delay):
             failures.append("Traffic on server {} was duplicated for {}s. "
                             "Maximum allowed duplication: {}s"
                             .format(server_ip, longest_duplication, delay))
@@ -118,6 +121,25 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay):
                             .format(server_ip, result['sent_packets'] - disruption_after_traffic))
 
     pytest_assert(len(failures) == 0, '\n' + '\n'.join(failures))
+
+
+def _validate_long_disruption(disruptions, allowed_disruption, delay):
+    """
+    Helper function to validate when two continuous disruption combine as one.
+    """
+
+    total_disruption_length = 0
+
+    for disruption in disruptions:
+        total_disruption_length += disruption['end_time'] - disruption['start_time']
+
+    logger.debug("total_disruption_length: {}, total_allowed_disruption_length=allowed_disruption*delay: {}".format(
+        total_disruption_length, allowed_disruption*delay))
+
+    if total_disruption_length > allowed_disruption * delay:
+        return True
+    return False
+
 
 def verify_and_report(tor_IO, verify, delay, allowed_disruption):
     # Wait for the IO to complete before doing checks
