@@ -8,6 +8,7 @@ bjw-can-z9332f-4,10.150.22.127/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-5,10.150.22.141/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-6,10.150.22.142/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-7,10.150.22.143/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
+bjw-slx-can-1,10.150.22.104/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 bjw-slx-can-2,10.150.22.105/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 bjw-slx-can-4,10.150.22.107/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
 bjw-can-slx-5,10.150.22.100/23,Celestica-DX010-C32,FanoutLeafSonic,,sonic
@@ -48,7 +49,6 @@ bjw-can-720dt-4,10.150.22.131/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw-can-ec9516-1,10.150.22.109/23,newport,DevSonic,,sonic
 bjw-can-2700-1,10.150.22.101/23,Mellanox-SN2700,DevSonic,,sonic
 bjw-can-2700-2,10.150.22.115/23,Mellanox-SN2700,DevSonic,,sonic
-bjw-slx-can-1,10.150.22.104/23,Celestica-DX010-C32,DevSonic,,sonic
 bjw-slx-can-3,10.150.22.106/23,Celestica-DX010-C32,DevSonic,,sonic
 bjw-can-7215-1,10.150.22.110/23,Nokia-M0-7215,DevSonic,,sonic
 bjw-can-7215-6,10.150.22.124/23,Nokia-M0-7215,DevSonic,,sonic
