@@ -1264,15 +1264,15 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         # perform cleanup by removing all the routes added by this test class.
         # reset to add only the routes added in the setup phase.
         ecmp_utils.set_routes_in_dut(
-            self.setup['duthost'],
-            self.setup[encap_type]['dest_to_nh_map'],
+            self.vxlan_test_setup['duthost'],
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'],
             ecmp_utils.get_payload_version(encap_type),
             "DEL")
 
-        self.setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.vxlan_test_setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
         ecmp_utils.set_routes_in_dut(
-            self.setup['duthost'],
-            self.setup[encap_type]['dest_to_nh_map'],
+            self.vxlan_test_setup['duthost'],
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'],
             ecmp_utils.get_payload_version(encap_type),
             "SET")
 
