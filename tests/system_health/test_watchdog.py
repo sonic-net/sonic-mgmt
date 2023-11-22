@@ -32,6 +32,7 @@ def pause_orchagent(duthost):
     duthost.shell(r"sudo kill -CONT {}".format(pid), module_ignore_errors=True)
     duthost.shell(r"sudo truncate -s 0 /var/log/syslog", module_ignore_errors=True)
 
+
 def check_process_status(duthost, process):
     result = duthost.shell(
                         r"docker exec -i swss sh -c 'ps -au | grep {}".format(process),
@@ -50,12 +51,14 @@ def make_ut_fail_if_process_not_running(duthost):
     if not result:
         pytest.fail("Orchagent does not running.")
 
+
 def create_log_analyzer(duthost):
     marker_prefix = "test_orchagent_heartbeat_checker_{}".format(time.time())
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
     loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
     marker = loganalyzer.init()
     return loganalyzer, marker
+
 
 def test_orchagent_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, pause_orchagent):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
