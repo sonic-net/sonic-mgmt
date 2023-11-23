@@ -1081,8 +1081,8 @@ class ReloadTest(BaseTest):
                 self.warmboot_finalizer_thread.is_alive():
             time.sleep(0.5)
         if self.warmboot_finalizer_thread.is_alive():
-            self.fails['dut'].add(f"Warmboot Finalizer hasn't finished for {total_timeout} seconds. "
-                                  f"Finalizer state: {self.get_warmboot_finalizer_state()}")
+            self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
+                                  .format(total_timeout, self.get_warmboot_finalizer_state()))
 
         # Stop watching DUT
         self.watching = False
