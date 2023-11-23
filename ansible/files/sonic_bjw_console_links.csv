@@ -1,8 +1,7 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy,BaudRate
 bjw-can-7215-10,1,bjw-can-2700-1,ssh,admin,9600
 bjw-can-7215-10,2,bjw-can-slx-5,ssh,admin,9600
-bjw-can-7215-10,3,bjw-slx-can-1,ssh,admin,9600
-bjw-can-7215-10,4,bjw-slx-can-2,ssh,admin,9600
+bjw-can-7215-10,4,bjw-slx-can-1,ssh,admin,9600
 bjw-can-7215-10,5,bjw-slx-can-3,ssh,admin,9600
 bjw-can-7215-10,6,bjw-slx-can-4,ssh,admin,9600
 bjw-can-7215-10,7,bjw-can-7260-root-1,ssh,admin,9600

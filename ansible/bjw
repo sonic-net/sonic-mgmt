@@ -110,9 +110,6 @@ fanout:
     bjw-can-z9332f-4:
       ansible_host: 10.150.22.127
       os: sonic
-    bjw-slx-can-2:
-      ansible_host: 10.150.22.105
-      os: sonic
     bjw-slx-can-4:
       ansible_host: 10.150.22.107
       os: sonic
