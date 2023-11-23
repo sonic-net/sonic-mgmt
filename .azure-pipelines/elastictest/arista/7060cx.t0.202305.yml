@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 4 * * 3,7"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -56,7 +56,7 @@ parameters:
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--prev-url $(IMAGE_BRCM_ABOOT_201811) --docker-folder-size 4000M"
+    default: "--prev-url $(IMAGE_BRCM_ABOOT_201811)"
     displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH

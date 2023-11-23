@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 3,7"
+  - cron: "0 4 * * 1,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms63-t1-7060-3, vms6-t1-7060"
+    default: "vms6-t0-7060, vms63-t0-7060-1, vms63-t0-7060-2"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -47,11 +47,11 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "2"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202305_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_INTERNAL_SLIM)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
@@ -61,7 +61,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -80,15 +80,23 @@ parameters:
     default: " "
     displayName: "Scripts to be excluded"
 
+  # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
   - name: FEATURES_EXCLUDE
     type: string
-    default: "sub_port_interfaces"
+    default: "metadata-scripts"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_BRCM_INTERNAL)"
     displayName: "Common test parameters"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "metadata-scripts", "param": "--upgrade_type=warm,fast --base_image_list=$(IMAGE_BRCM_ABOOT_202012_SLIM).PREV.1,$(IMAGE_BRCM_ABOOT_201811) --target_image_list=$(IMAGE_BRCM_ABOOT_202012_SLIM) --metadata_process"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
@@ -103,7 +111,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7060cx.t1.202305.NightlyTest_by_Elastictest
+    displayName: 7060cx.t0.internal.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -120,5 +128,6 @@ stages:
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
