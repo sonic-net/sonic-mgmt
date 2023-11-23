@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 3,7"
+  - cron: "0 4 * * 0,3"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -82,7 +82,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "qos,sub_port_interfaces"
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS

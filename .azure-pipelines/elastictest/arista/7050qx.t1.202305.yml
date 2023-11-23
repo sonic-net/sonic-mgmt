@@ -82,7 +82,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "qos,sub_port_interfaces"
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
