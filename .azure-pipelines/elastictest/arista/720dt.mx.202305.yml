@@ -73,7 +73,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology mx,any --no_dscp_uniform"
+    default: "--topology mx,any --no_dscp_uniform --unresettable_xcvr_types=SFP"
     displayName: "Common test parameters"
 
   - name: SPECIFIC_PARAM
