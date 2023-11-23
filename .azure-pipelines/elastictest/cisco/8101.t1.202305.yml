@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 13 * * 0,2,5,6"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -41,7 +49,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202305)
+    default: $(IMAGE_CISCO_202305_PRI)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
