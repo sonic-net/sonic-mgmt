@@ -1156,7 +1156,7 @@ class ReloadTest(BaseTest):
             # verify there are no interface flaps after warm boot
             self.neigh_lag_status_check()
 
-    def handle_advanced_reboot_health_check_kvm(self):
+    def handle_advanced_reboot_health_check_kvm(self, finalizer_timeout):
         self.log("Wait until data plane stops")
         forward_stop_signal = multiprocessing.Event()
         async_forward_stop = self.pool.apply_async(
@@ -1195,6 +1195,16 @@ class ReloadTest(BaseTest):
         else:
             self.no_routing_stop = datetime.datetime.min
             self.no_routing_start = datetime.datetime.min
+
+        total_timeout = finalizer_timeout + self.test_params['warm_up_timeout_secs']
+        start_time = datetime.datetime.now()
+        # Wait until timeout happens OR the IO test completes
+        while (datetime.datetime.now() - start_time).seconds < total_timeout and\
+                self.warmboot_finalizer_thread.is_alive():
+            time.sleep(0.5)
+        if self.warmboot_finalizer_thread.is_alive():
+            self.fails['dut'].add("Warmboot Finalizer hasn't finished for {} seconds. Finalizer state: {}"
+                                  .format(total_timeout, self.get_warmboot_finalizer_state()))
 
         # Stop watching DUT
         self.watching = False
@@ -1364,7 +1374,7 @@ class ReloadTest(BaseTest):
                 self.warmboot_finalizer_thread = thr
 
             if self.kvm_test:
-                self.handle_advanced_reboot_health_check_kvm()
+                self.handle_advanced_reboot_health_check_kvm(finalizer_timeout)
                 self.handle_post_reboot_health_check_kvm()
             else:
                 self.handle_advanced_reboot_health_check(finalizer_timeout)
