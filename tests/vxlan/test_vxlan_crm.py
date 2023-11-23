@@ -12,6 +12,11 @@ from tests.vxlan.test_vxlan_ecmp import (   # noqa: F401
     fixture_setUp,
     fixture_encap_type)
 
+
+pytestmark = [
+    pytest.mark.topology("t1")
+]
+
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
 
