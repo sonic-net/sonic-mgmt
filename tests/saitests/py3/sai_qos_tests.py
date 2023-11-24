@@ -5363,6 +5363,7 @@ class QWatermarkAllPortTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, dst_port_ids)
 
+
 class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
@@ -5399,14 +5400,18 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
         self.ttl = 64
 
     def runTest(self):
-        print("dst_port_id: {}, src_port_id: {}, src_port_2_id: {}".format(self.dst_port_id, self.src_port_id, self.src_port_2_id), file=sys.stderr)
+        print("dst_port_id: {}, src_port_id: {}, src_port_2_id: {}".format(self.dst_port_id,
+                                                                           self.src_port_id,
+                                                                           self.src_port_2_id),
+              file=sys.stderr)
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(self.sonic_version)
 
         port_counter_indexes = [self.pg]
         port_counter_indexes += ingress_counters
         port_counter_indexes += egress_counters
-        port_counter_indexes += [TRANSMITTED_PKTS, RECEIVED_PKTS, RECEIVED_NON_UC_PKTS, TRANSMITTED_NON_UC_PKTS, EGRESS_PORT_QLEN]
+        port_counter_indexes += [TRANSMITTED_PKTS, RECEIVED_PKTS, RECEIVED_NON_UC_PKTS,
+                                 TRANSMITTED_NON_UC_PKTS, EGRESS_PORT_QLEN]
 
         # construct packets
         pkt = get_multiple_flows(
@@ -5457,7 +5462,8 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets short of triggering egress drop on both flows, uses the
             # "multiple" packet count to cause a drop when 2 flows are present.
             short_of_drop_npkts = self.pkts_num_leak_out + multi_flow_drop_pkt_count - 1 - margin
-            print("Sending {} packets on each of 2 streams to approach drop".format(short_of_drop_npkts), file=sys.stderr)
+            print("Sending {} packets on each of 2 streams to approach drop".format(short_of_drop_npkts),
+                  file=sys.stderr)
             send_packet(self, self.src_port_id, pkt, short_of_drop_npkts)
             send_packet(self, self.src_port_2_id, pkt2, short_of_drop_npkts)
             # allow enough time for counters to update
@@ -5497,14 +5503,21 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send 1 packet to trigger egress drop
             npkts = 1 + 2 * margin
-            print("Sending {} packets on 2 streams to trigger drop".format(npkts), file=sys.stderr)
+            print("Sending {} packets on 2 streams to trigger drop".format(npkts),
+                  file=sys.stderr)
             send_packet(self, self.src_port_id, pkt, npkts)
             send_packet(self, self.src_port_2_id, pkt2, npkts)
             # allow enough time for counters to update
             time.sleep(2)
-            recv_counters, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][self.src_port_id])
-            recv_counters_2, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][self.src_port_2_id])
-            xmit_counters, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
+            recv_counters, _ = sai_thrift_read_port_counters(self.src_client,
+                                                             self.asic_type,
+                                                             port_list['src'][self.src_port_id])
+            recv_counters_2, _ = sai_thrift_read_port_counters(self.src_client,
+                                                               self.asic_type,
+                                                               port_list['src'][self.src_port_2_id])
+            xmit_counters, _ = sai_thrift_read_port_counters(self.dst_client,
+                                                             self.asic_type,
+                                                             port_list['dst'][self.dst_port_id])
             # recv port no pfc
             diff = recv_counters[self.pg] - recv_counters_base[self.pg]
             assert diff == 0, "Unexpected PFC frames {} on port {}".format(diff, self.src_port_id)

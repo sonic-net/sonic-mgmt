@@ -1114,7 +1114,7 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
-    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
+    @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1", "lossy_queue_voq_2"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
@@ -2077,8 +2077,8 @@ class TestQosSai(QosSaiBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         if not get_src_dst_asic_and_duts['single_asic_test']:
-             pytest.skip("LossyQueueVoqMultiSrc: This test is skipped on multi-asic,"
-                 "since same ingress backplane port will be used on egress asic.")
+            pytest.skip("LossyQueueVoqMultiSrc: This test is skipped on multi-asic,"
+                        "since same ingress backplane port will be used on egress asic.")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         LossyVoq = "lossy_queue_voq_3"
         if LossyVoq in dutQosConfig["param"][portSpeedCableLength].keys():
