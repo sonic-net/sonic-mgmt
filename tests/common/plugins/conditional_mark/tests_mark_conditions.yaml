@@ -965,12 +965,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
-  skip:
-    reason: "Lossy Queue Voq multiple source test is not supported"
-    conditions:
-      - "asic_type not in ['cisco-8000']"
-
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
     reason: "Lossless Voq test is not supported"
@@ -980,6 +974,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
     reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
+  skip:
+    reason: "Lossy Queue Voq multiple source test is not supported"
     conditions:
       - "asic_type not in ['cisco-8000']"
 

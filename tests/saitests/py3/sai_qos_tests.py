@@ -5453,7 +5453,7 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type,
                                                                   port_list['src'][self.src_port_id])
             recv_counters_2_base, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type,
-                                                                  port_list['src'][self.src_port_2_id])
+                                                                    port_list['src'][self.src_port_2_id])
             xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                                   port_list['dst'][self.dst_port_id])
             fill_leakout_plus_one(self, self.src_port_id, self.dst_port_id, pkt,
@@ -5471,7 +5471,7 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             recv_counters, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type,
                                                              port_list['src'][self.src_port_id])
             recv_counters_2, _ = sai_thrift_read_port_counters(self.src_client, self.asic_type,
-                                                             port_list['src'][self.src_port_2_id])
+                                                               port_list['src'][self.src_port_2_id])
             xmit_counters, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                              port_list['dst'][self.dst_port_id])
 
