@@ -233,4 +233,4 @@ def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
 
     ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
     pytest_assert("32767:\tfrom all lookup default" in ipv6_rules,
-                    "IPV6 rules does not include default route table: {}".format(ipv6_rules))
+        "IPV6 rules does not include default route table: {}".format(ipv6_rules))
