@@ -225,7 +225,7 @@ def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
     """
     duthost = find_duthost_on_role(
         duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
-    
+
     # When management-vrf enabled, IPV6 route of management interface will not add to 'default' route table
     if is_mgmt_vrf_enabled(duthost):
         logging.info("Ignore IPV6 default route table test because management-vrf enabled")
@@ -233,4 +233,4 @@ def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
 
     ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
     pytest_assert("32767:\tfrom all lookup default" in ipv6_rules,
-        "IPV6 rules does not include default route table: {}".format(ipv6_rules))
+                  "IPV6 rules does not include default route table: {}".format(ipv6_rules))
