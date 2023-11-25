@@ -21,22 +21,15 @@ mocker = None
 MAX_PSUS = None
 
 
-@pytest.fixture
-# We can not set it as module because mocker_factory is function scope
-def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factory):  # noqa F811
-    global mocker
+@pytest.fixture(autouse=True)
+def check_feature_supported(request, duthosts, rand_one_dut_hostname, mocker_factory): # noqa F811
     global MAX_PSUS
-
-    psudaemon_restarted = False
-
+    global mocker
     duthost = duthosts[rand_one_dut_hostname]
     platform_data = get_platform_data(duthost)
     MAX_PSUS = platform_data['psus']['number']
-
-    mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
-
     all_psus_supporting_thresholds = True
-
+    mocker = mocker_factory(duthost, 'PsuPowerThresholdMocker')
     try:
         for psu_index in range(MAX_PSUS):
             mocker.read_psu_power_threshold(psu_index + 1)
@@ -44,7 +37,39 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
     except Exception:
         all_psus_supporting_thresholds = False
 
-    if all_psus_supporting_thresholds:
+    MockPlatform = request.config.getoption("--mock_any_testbed")
+
+    if MockPlatform and all_psus_supporting_thresholds:
+        pytest.fail('CLI option "--mock_any_testbed" is provided while power thresholds are supported on both PSUs')
+
+    if not (all_psus_supporting_thresholds or MockPlatform):
+        pytest.skip('PSU power threshold is not supported')
+
+
+@pytest.fixture
+def mock_ambient_temp_threshold():
+    ambient_temp_critical_threshold = 60000
+    ambient_temp_warning_threshold = 50000
+    mocker.mock_ambient_temp_critical_threshold(ambient_temp_critical_threshold)
+    mocker.mock_ambient_temp_warning_threshold(ambient_temp_warning_threshold)
+
+
+@pytest.fixture
+def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mock_ambient_temp_threshold):  # noqa F811
+    psudaemon_restarted = False
+    duthost = duthosts[rand_one_dut_hostname]
+
+    MockPlatform = request.config.getoption("--mock_any_testbed")
+    if MockPlatform:
+        logger.info('Mocking the system to support PSU power threshold')
+        mocker.mock_power_threshold(MAX_PSUS)
+
+        # Restart PSU daemon to take the mock stuff
+        logger.info('Restart PSU daemon to take mock PSU power threshold')
+        duthost.shell('docker exec pmon supervisorctl restart psud')
+        psudaemon_restarted = True
+        time.sleep(2)
+    else:
         try:
             ambient_critical_threshold = None
             ambient_warning_threshold = None
@@ -54,23 +79,6 @@ def mock_power_threshold(request, duthosts, rand_one_dut_hostname, mocker_factor
             pytest.fail('Some required information does not exist (ambient thresholds critical {} warning {})'.format(
                 ambient_critical_threshold,
                 ambient_warning_threshold))
-
-    MockPlatform = request.config.getoption("--mock_any_testbed")
-    if MockPlatform:
-        if all_psus_supporting_thresholds:
-            logger.info(
-                'CLI option "--mock_any_testbed" is provided while power thresholds are supported on both PSUs')
-
-        logger.info('Mocking the system to support PSU power threshold')
-        mocker.mock_power_threshold(MAX_PSUS)
-
-        # Restart PSU daemon to take the mock stuff
-        logger.info('Restart PSU daemon to take mock PSU power threshold')
-        duthost.shell('docker exec pmon supervisorctl restart psud')
-        psudaemon_restarted = True
-        time.sleep(2)
-    elif not all_psus_supporting_thresholds:
-        pytest.skip('PSU power threshold is not supported')
 
     yield
 
@@ -113,10 +121,12 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             pytest.fail(
                 'Got wrong information ({}) from STATE_DB PSU_INFO|{}'.format(output, psuname))
 
-        if int(float(output[0])) != power/1000000 \
-           or int(float(output[1])) != power_warning_suppress_threshold/1000000 \
+        if int(float(output[1])) != power_warning_suppress_threshold/1000000 \
            or int(float(output[2])) != power_critical_threshold/1000000 \
            or output[3] != str(power_overload):
+            return False
+
+        if abs(float(output[0])*1000000 - power/MAX_PSUS) > 100:
             return False
 
         command_check_system_health_db = 'sonic-db-cli STATE_DB hget SYSTEM_HEALTH_INFO "{}"'
@@ -186,7 +196,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
             power_warning_suppress_threshold/1000000,
             power_critical_threshold/1000000))
 
-        mocker.mock_psu_power(psu_index, power)
+        mocker.mock_psu_power(power, MAX_PSUS)
         if was_power_exceeded and power < power_warning_suppress_threshold \
            or not was_power_exceeded and power >= power_critical_threshold:
             timeout = 80
@@ -242,7 +252,7 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
         # This is to make sure the power will be a fixed value because it can flucuate if it was read from a sensor.
         logger.info(
             'Mock PSU power to {} which is in normal range'.format(power/1000000))
-        mocker.mock_psu_power(psu_index, power)
+        mocker.mock_psu_power(power, MAX_PSUS)
 
         power_warning_suppress_threshold = None
         power_critical_threshold = None
@@ -278,8 +288,8 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
                                                         'PSU power exceeds threshold',
-                                                        ['PSU power warning: PSU {} power .* exceeds critical threshold'
-                                                         .format(psu_index)])
+                                                        ['PSU power warning: '
+                                                         'system power .* exceeds the critical threshold'])
 
             with allure.step('Mock the power'):
                 power = power_critical_threshold + 1000000
@@ -317,8 +327,9 @@ def test_psu_power_threshold(request, duthosts, rand_one_dut_hostname, mock_powe
                 check_log_analyzer(loganalyzer, marker)
                 loganalyzer, marker = init_log_analyzer(duthost,
                                                         'PSU power become back to normal',
-                                                        ['PSU power warning cleared: PSU {} power .* is back to normal'.
-                                                         format(psu_index)])
+                                                        ['PSU power warning cleared: '
+                                                         'system power .* is back to normal, '
+                                                         'below the warning suppress threshold'])
 
             with allure.step('Mock power'):
                 _update_power_and_check_db(psu_index,

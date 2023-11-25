@@ -314,6 +314,11 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
 #######################################
 ##### api/test_module.py #####
 #######################################
+platform_tests/api/test_module.py:
+  skip:
+    reason: "Only support T2"
+    conditions:
+      - "topo_type not in ['t2']"
 
 platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
   xfail:
@@ -324,10 +329,10 @@ platform_tests/api/test_module.py::TestModuleApi::test_get_system_eeprom_info:
 
 
 platform_tests/api/test_module.py::TestModuleApi::test_reboot:
-   skip:
-     reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
-     conditions:
-       - "asic_type in ['cisco-8000']"
+  skip:
+    reason: "Reboot commands currently not supported from inside pmon container for Cisco 8000 platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####        api/test_psu.py      #####
@@ -763,9 +768,15 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 platform_tests/test_advanced_reboot.py:
   xfail:
-    reason: "Xfail advanced reboot due to known issue on master and internal image"
+    reason: "Xfail advanced reboot on TD3 due to known SAI issue in SAI 8.4+"
     conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/9201
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
+  skip:
+    reason: "Unsupported platform"
+    conditions_logical_operator: or
+    conditions:
+      - "platform in ['x86_64-arista_7050_qx32s']"
+      - "'dualtor' in topo_name and release in ['202012']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -831,13 +842,6 @@ platform_tests/test_reboot.py::test_cold_reboot:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
-platform_tests/test_reboot.py::test_continuous_reboot:
-  xfail:
-    reason: "case failed and waiting for fix"
-    conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
-
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for m0/mx"
@@ -877,7 +881,6 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
-      - "'t1' in topo_type and platform in ['x86_64-8102_64h_o-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -887,6 +890,16 @@ platform_tests/test_reload_config.py:
     reason: "Unsupported platform API"
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
+
+
+#######################################
+######  test_secure_upgrade.py  #######
+#######################################
+platform_tests/test_secure_upgrade.py:
+  skip:
+    reason: "Skip test_secure_upgrade for m0/mx with 202305 release"
+    conditions:
+      - "topo_type in ['m0', 'mx'] and release in ['202305']"
 
 #######################################
 #########  test_sensors.py  ###########

@@ -65,7 +65,7 @@ x86_64-nvidia_sn5600-r0:
 x86_64-dell.*:
   default:
     greater_timeout: 180
-    too_big_timeout: 660
+    too_big_timeout: 1200
 
 # Arista watchdog
 x86_64-arista.*:
@@ -145,6 +145,12 @@ x86_64-8800_rp-r0:
 
 # Cisco-Churchill-Mono watchdog
 x86_64-8101_32fh_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8111_32eh_o-r0:
   default:
     valid_timeout: 10
     greater_timeout: 6553

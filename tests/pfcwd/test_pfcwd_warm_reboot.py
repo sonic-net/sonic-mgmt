@@ -16,10 +16,9 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 TESTCASE_INFO = {'no_storm': {'test_sequence': ["detect", "restore", "warm-reboot", "detect", "restore"],
                               'desc': "Test PFC storm detect/restore before and after warm boot"},
                  'storm': {'test_sequence': ["detect", "warm-reboot", "detect", "restore"],
@@ -133,7 +132,7 @@ class SetupPfcwdFunc(object):
             # Will send traffic for (queues 4 and 3) per each port
             self.pfc_wd['queue_indices'].append(3)
         self.pfc_wd['test_pkt_count'] = 100
-        self.pfc_wd['frames_number'] = 10000000000000
+        self.pfc_wd['frames_number'] = 1000000000
         self.peer_device = self.ports[port]['peer_device']
         self.pfc_wd['test_port'] = port
         self.pfc_wd['rx_port'] = self.ports[port]['rx_port']
@@ -254,7 +253,7 @@ class SendVerifyTraffic(object):
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_rx_ingress(self, wd_action):
         """
@@ -280,7 +279,7 @@ class SendVerifyTraffic(object):
         log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
         log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
         ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file)
+                   log_file=log_file, is_python3=True)
 
     def verify_wd_func(self, dut, detect=True):
         """
