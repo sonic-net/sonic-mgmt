@@ -54,6 +54,8 @@ def create_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
     duthost.shell(cmd, module_ignore_errors=True)
+    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' log_level 2"
+    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
           "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
     duthost.shell(cmd, module_ignore_errors=True)
@@ -120,3 +122,14 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
     restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
+
+
+@pytest.fixture(scope="module")
+def setup_eventd(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.shell("systemctl reset-failed eventd")
+    duthost.service(name="eventd", state="restarted")
+    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
+              "eventd not started.")
+    logger.info("eventd process restarted.")
+

@@ -38,7 +38,7 @@ def do_init(duthost):
 
 
 @pytest.mark.disable_loganalyzer
-def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
+def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, setup_eventd, localhost, gnxi_path):
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema
     """
