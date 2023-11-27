@@ -337,7 +337,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                            "asic_type": asic_type,
                            "test_balancing": False},
                    log_file="/tmp/bgp_speaker_test.FibTest.log",
-                   socket_recv_size=16384)
+                   socket_recv_size=16384,
+                   is_python3=True)
 
     logger.info("Withdraw routes")
     withdraw_route(ptfip, lo_addr, prefix, nexthop_ips[1].ip, port_num[0])
