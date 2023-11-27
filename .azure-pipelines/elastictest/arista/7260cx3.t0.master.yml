@@ -104,7 +104,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.t0.internal.NightlyTest_by_Elastictest
+    displayName: 7260cx3.t0.master.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
