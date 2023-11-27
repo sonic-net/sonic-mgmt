@@ -205,7 +205,9 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
+            expected_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
+            assert parsed_lpmode[intf].lower() == expected_lpmode, \
+                "Unexpected SFP lpmode, actual:{}, expected:{}".format(parsed_lpmode[intf].lower(), expected_lpmode)
 
     logging.info("Try to change SFP lpmode")
     tested_physical_ports = set()
@@ -232,7 +234,9 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
-            assert parsed_lpmode[intf].lower() == "on" or parsed_lpmode[intf].lower() == "off", "Unexpected SFP lpmode"
+            assert parsed_lpmode[intf].lower() == original_lpmode[intf].lower(),\
+                "Unexpected SFP lpmode. actual:{}, expected:{}".format(
+                    parsed_lpmode[intf].lower(), original_lpmode[intf].lower())
 
     logging.info("Check sfp presence again after setting lpmode")
     sfp_presence = duthost.command(cmd_sfp_presence)
