@@ -54,8 +54,6 @@ def create_gnmi_config(duthost):
     duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true"
     duthost.shell(cmd, module_ignore_errors=True)
-    cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' log_level 2"
-    duthost.shell(cmd, module_ignore_errors=True)
     cmd = "sonic-db-cli CONFIG_DB hset 'GNMI|certs' "\
           "ca_crt /etc/sonic/telemetry/dsmsroot.cer"
     duthost.shell(cmd, module_ignore_errors=True)
