@@ -130,4 +130,3 @@ def setup_eventd(duthosts, enum_rand_one_per_hwsku_hostname):
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
               "eventd not started.")
     logger.info("eventd process restarted.")
-
