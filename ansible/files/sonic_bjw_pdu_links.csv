@@ -19,8 +19,8 @@ bjw-pdu-126-132,20,bjw-can-720dt-4,PSU1
 bjw-pdu-126-133,20,bjw-can-720dt-4,PSU2
 bjw-pdu-126-135,20,bjw-can-ec9516-1,PSU1
 bjw-pdu-126-134,20,bjw-can-ec9516-1,PSU2
-bjw-pdu-126-137,42,bjw-can-ec9516-2,PSU1
-bjw-pdu-126-136,42,bjw-can-ec9516-2,PSU2
+bjw-pdu-126-137,42,bjw-can-7050qx-3,PSU1
+bjw-pdu-126-136,42,bjw-can-7050qx-3,PSU2
 bjw-pdu-126-135,35,bjw-can-z9332f-1,PSU1
 bjw-pdu-126-134,35,bjw-can-z9332f-1,PSU2
 bjw-pdu-126-137,41,bjw-can-z9332f-2,PSU1
@@ -35,10 +35,8 @@ bjw-pdu-126-135,6,bjw-can-2700-1,PSU1
 bjw-pdu-126-134,6,bjw-can-2700-1,PSU2
 bjw-pdu-126-132,35,bjw-can-2700-2,PSU1
 bjw-pdu-126-133,35,bjw-can-2700-2,PSU2
-bjw-pdu-126-135,41,bjw-slx-can-1,PSU1
-bjw-pdu-126-134,41,bjw-slx-can-1,PSU2
-bjw-pdu-126-135,39,bjw-slx-can-2,PSU1
-bjw-pdu-126-134,39,bjw-slx-can-2,PSU2
+bjw-pdu-126-136,39,bjw-slx-can-1,PSU1
+bjw-pdu-126-137,39,bjw-slx-can-1,PSU2
 bjw-pdu-126-137,23,bjw-slx-can-3,PSU1
 bjw-pdu-126-136,23,bjw-slx-can-3,PSU2
 bjw-pdu-126-137,22,bjw-slx-can-4,PSU1

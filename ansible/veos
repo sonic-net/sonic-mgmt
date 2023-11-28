@@ -6272,46 +6272,6 @@ vms_bjw_6:
       ansible_host: 172.16.190.88
     VM56057:
       ansible_host: 172.16.190.89
-    VM56058:
-      ansible_host: 172.16.190.90
-    VM56059:
-      ansible_host: 172.16.190.91
-    VM56060:
-      ansible_host: 172.16.190.92
-    VM56061:
-      ansible_host: 172.16.190.93
-    VM56062:
-      ansible_host: 172.16.190.94
-    VM56063:
-      ansible_host: 172.16.190.95
-    VM56064:
-      ansible_host: 172.16.190.96
-    VM56065:
-      ansible_host: 172.16.190.97
-    VM56066:
-      ansible_host: 172.16.190.98
-    VM56067:
-      ansible_host: 172.16.190.99
-    VM56068:
-      ansible_host: 172.16.190.100
-    VM56069:
-      ansible_host: 172.16.190.101
-    VM56070:
-      ansible_host: 172.16.190.102
-    VM56071:
-      ansible_host: 172.16.190.103
-    VM56072:
-      ansible_host: 172.16.190.104
-    VM56073:
-      ansible_host: 172.16.190.105
-    VM56074:
-      ansible_host: 172.16.190.106
-    VM56075:
-      ansible_host: 172.16.190.107
-    VM56076:
-      ansible_host: 172.16.190.108
-    VM56077:
-      ansible_host: 172.16.190.109
     VM56078:
       ansible_host: 172.16.190.110
     VM56079:
@@ -6609,14 +6569,6 @@ vms_bjw_13:
       ansible_host: 172.16.199.30
     VM74003:
       ansible_host: 172.16.199.31
-    VM74004:
-      ansible_host: 172.16.199.32
-    VM74005:
-      ansible_host: 172.16.199.33
-    VM74006:
-      ansible_host: 172.16.199.34
-    VM74007:
-      ansible_host: 172.16.199.35
 
 vms_bjw_14:
   hosts:

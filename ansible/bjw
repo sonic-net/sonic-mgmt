@@ -102,9 +102,6 @@ fanout:
     bjw-can-z9332f-4:
       ansible_host: 10.150.22.127
       os: sonic
-    bjw-slx-can-2:
-      ansible_host: 10.150.22.105
-      os: sonic
     bjw-slx-can-4:
       ansible_host: 10.150.22.107
       os: sonic
@@ -152,6 +149,9 @@ fanout:
       os: sonic
     bjw-can-2700-4:
       ansible_host: 10.150.22.140
+      os: sonic
+    bjw-slx-can-1:
+      ansible_host: 10.150.22.104
       os: sonic
 
 sonic:
@@ -210,6 +210,28 @@ sonic_arista_7050qx_32s_s4q31:
       serial: SSJ18381373
       base_mac: 98:5d:82:08:c4:84
       syseeprom_info:   # needs to update eeprom info
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910D0"
+        "0x23": "SSJ18381373"
+        "0x24": "98:5d:82:08:c4:84"
+        "0x25": "2018/09/26 17:09:33"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.0-3037060"
+        "0x2F": "SSJ18381373"
+        "0xFE": "0xdeadbeef"
+    bjw-can-7050qx-3:
+      ansible_host: 10.150.22.121
+      hwsku: Arista-7050-QX-32S
+      model: DCS-7050QX-32S
+      serial: JPA22421574
+      base_mac: 94:8e:d3:cf:fa:0e
+      syseeprom_info:
         "0x21": "DCS-7050QX-32S"
         "0x22": "ASY0105910D0"
         "0x23": "SSJ18381373"
@@ -322,28 +344,6 @@ sonic_celestica_dx010:
     hwsku: Celestica-DX010-C32
     iface_speed: 100000
   hosts:
-    bjw-slx-can-1:
-      ansible_host: 10.150.22.104
-      model: R0872-F0020-01
-      serial: DX010B2F019723BY200001
-      base_mac: 00:E0:EC:E7:68:5C
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0020-01"
-        "0x23": "DX010B2F019723BY200001"
-        "0x24": "00:E0:EC:E7:68:5C"
-        "0x25": "08/30/2019 22:41:11"
-        "0x26": "1"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "THA"
-        "0x2D": "Celestica"
-        "0x2E": "1.1.1"
-        "0x2F": "LB"
-        "0xFE": "0xD8A8FAEE"
     bjw-slx-can-3:
       ansible_host: 10.150.22.106
       model: R0872-F0020-01
@@ -387,21 +387,6 @@ sonic_intel_ec9516:
         "0x2A": "260"
         "0x2B": "Intel"
         "0xFE": "0xA6E0E529"
-    bjw-can-ec9516-2:
-      ansible_host: 10.150.22.121
-      model: NP5ZZ8632007A
-      serial: 9516D2226043
-      base_mac: 98:19:2c:12:33:ed
-      syseeprom_info:
-        "0x21": "Newport"
-        "0x22": "NP5ZZ8632007A"
-        "0x23": "9516D2226043"
-        "0x24": "E0:01:A6:A8:14:5C"
-        "0x25": "06/26/2022 00:00:00"
-        "0x26": "1"
-        "0x2A": "260"
-        "0x2B": "Intel"
-        "0xFE": "0x2988A06B"
 
 sonic_mlnx_sn2700:
   vars:
