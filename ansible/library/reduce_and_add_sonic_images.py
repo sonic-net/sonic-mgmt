@@ -152,7 +152,7 @@ def download_new_sonic_image(module, new_image_url, save_as):
         log("Downloaded image version: {}".format(results["downloaded_image_version"]))
 
 
-def install_new_sonic_image(module, new_image_url, save_as=None):
+def install_new_sonic_image(module, new_image_url, keep_config_db_json, save_as=None):
     log("install new sonic image")
 
     if not save_as:
@@ -203,7 +203,7 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
 
     # If sonic device is configured with minigraph, remove config_db.json
     # to force next image to load minigraph.
-    if path.exists("/host/old_config/minigraph.xml"):
+    if path.exists("/host/old_config/minigraph.xml") and not keep_config_db_json:
         log("Remove /host/old_config/config_db.json when /etc/old_config/minigraph.xml exists")
         exec_command(
             module,
@@ -275,12 +275,14 @@ def main():
             disk_used_pcent=dict(required=False, type='int', default=8),
             new_image_url=dict(required=False, type='str', default=None),
             save_as=dict(required=False, type='str', default=None),
+            keep_config_db_json=dict(required=False, type='bool', default=False),
         ),
         supports_check_mode=False)
 
     disk_used_pcent = module.params['disk_used_pcent']
     new_image_url = module.params['new_image_url']
     save_as = module.params['save_as']
+    keep_config_db_json = module.params['keep_config_db_json']
 
     try:
         if not new_image_url:
@@ -298,7 +300,7 @@ def main():
             setup_swap_if_necessary(module)
             results["current_stage"] = "install"
 
-            install_new_sonic_image(module, new_image_url, save_as)
+            install_new_sonic_image(module, new_image_url, keep_config_db_json, save_as)
             results["current_stage"] = "complete"
     except Exception:
         err = str(sys.exc_info())
