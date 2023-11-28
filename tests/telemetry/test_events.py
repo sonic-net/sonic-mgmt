@@ -7,7 +7,6 @@ from tests.common.utilities import wait_until
 from tests.common.utilities import InterruptableThread
 from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
-from telemetry_utils import restart_eventd
 from events.event_utils import create_ip_file
 from events.event_utils import event_publish_tool, verify_received_output
 
@@ -55,12 +54,18 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     logger.info("Start events testing")
 
     skip_201911_and_older(duthost)
-    #restart_eventd(duthost)
     do_init(duthost)
 
-    # Load all events test code and run
+    # Test eventd heartbeat event first
+
+    file = "./telemetry/events/eventd_events.py"
+    module = __import__(file[:len(file)-3])
+    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, valdidate_yang)
+
+    # Test rest of events
+
     for file in os.listdir(EVENTS_TESTS_PATH):
-        if file.endswith("bgp_events.py"):
+        if file.endswith("bgp_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
