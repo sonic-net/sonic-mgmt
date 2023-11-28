@@ -138,6 +138,16 @@ class TestbedHealthCheck:
         for sonichost in self.sonichosts:
 
             hostname = sonichost.hostname
+
+            # Retrieve the basic facts of the DUT
+            dut_basic_facts = sonichost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+
+            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
+            if dut_basic_facts["is_multi_asic"]:
+                logger.info('Not support to check bgp sessions status on multi-asic DUT now.')
+                bgp_facts_on_hosts[hostname] = 'Not support to check bgp sessions status on multi-asic DUT now.'
+                continue
+
             logger.info("----------------------- check_bgp_session_state on [{}] -----------------------".format(
                 hostname))
 
@@ -242,6 +252,14 @@ class TestbedHealthCheck:
         logger.info("======================= check_critical_containers_running starts =======================")
 
         for sonichost in self.sonichosts:
+
+            # Retrieve the basic facts of the DUT
+            dut_basic_facts = sonichost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
+
+            # todo: Skip multi_asic check on multi_asic dut now
+            if dut_basic_facts["is_multi_asic"]:
+                logger.info('Not support to check critical containers running on multi-asic DUT now.')
+                continue
 
             hostname = sonichost.hostname
             logger.info(
