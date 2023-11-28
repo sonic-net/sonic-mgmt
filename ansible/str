@@ -250,8 +250,6 @@ sonic_dell32_40:
   hosts:
     str-s6000-on-2:
       ansible_host: 10.3.147.142
-    str-s6000-on-4:
-      ansible_host: 10.3.146.113
     str-s6000-on-6:
       ansible_host: 10.3.147.172
     str-s6000-acs-7:
@@ -434,6 +432,28 @@ sonic_arista_40:
       model: DCS-7050QX-32S
       serial: SSJ17212198
       base_mac: 28:99:3a:b6:f5:7c
+    str-7050qx-32s-acs-04:
+      ansible_host: 10.3.146.113
+      hwsku: Arista-7050QX32S-Q32
+      model: DCS-7050QX-32S
+      serial: JPE20255843
+      base_mac: d4:af:f7:0f:95:0c
+      syseeprom_info:
+        "0x21": "DCS-7050QX-32S"
+        "0x22": "ASY0105910E0"
+        "0x23": "JPE20255843"
+        "0x24": "d4:af:f7:0f:95:0c"
+        "0x25": "2020/07/06 00:04:49"
+        "0x26": "01"
+        "0x27": "02.00"
+        "0x28": "x86_64-arista_7050_qx32s"
+        "0x2A": 65535
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal4-4.1.1-13522936"
+        "0x2F": "JPE20255843"
+        "0xFE": 3735928559      
   vars:
     iface_speed: 40000
 

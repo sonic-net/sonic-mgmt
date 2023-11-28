@@ -44,7 +44,7 @@ console-81,4,str-s6000-acs-8,ssh,admin
 console-81,18,str-s6000-acs-9,ssh,admin
 console-81,16,str-s6000-on-01,ssh,admin
 console-81,13,str-s6000-on-2,ssh,admin
-console-81,10,str-s6000-on-4,ssh,admin
+console-81,10,str-7050qx-32s-acs-04,ssh,admin
 console-81,8,str-s6000-on-6,ssh,admin
 console-81,28,str-s6100-acs-1,ssh,admin
 console-82,4,str-s6100-acs-2,ssh,admin

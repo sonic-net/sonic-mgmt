@@ -30,7 +30,7 @@ vms7-t0-4600c-2,vms7-13,t0-64,docker-ptf,vms7-13,10.64.246.151/23,,server_7,VM07
 vms11-2-t0,v11-21,t0,docker-ptf,v11-21,10.64.246.23/23,,server_11,VM11032,str-msn2700-03,str,True,qiluo
 vms11-3-t1,v11-31,t1,docker-ptf,v11-31,10.64.246.22/23,,server_11,VM11064,str-s6000-acs-11,str,True,Travis
 vms11-t0-s6000,vms11-4,t0,docker-ptf,vms11-4,10.64.246.83/23,,server_11,VM11016,str-s6000-acs-10,str,True,Pradnya
-vms11-t0-on-4,vms11-5,t0,docker-ptf,vms11-5,10.64.246.108/23,,server_11,VM11020,str-s6000-on-4,str,True,daall
+vms11-t0-7050qx-acs-4,vms11-5,t0,docker-ptf,vms11-5,10.64.246.108/23,,server_11,VM11020,str-7050qx-32s-acs-04,str,True,7050qx
 vms11-t0-s6000-6,vms11-6,t0,docker-ptf,vms11-6,10.64.246.109/23,,server_11,VM11024,str-s6000-on-6,str,False,isabel
 vms12-t1-lag-1,v12-11,t1-lag,docker-ptf,v12-11,10.64.247.27/23,,server_12,VM12000,str-s6000-acs-8,str,True,Jenkins
 vms12-t0-1,v12-12,t0,docker-ptf,v12-12,10.64.247.26/23,,server_12,VM12024,str-s6000-acs-7,str,True,Jenkins
