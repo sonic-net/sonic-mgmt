@@ -102,7 +102,7 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
         duthost.shell("config save -y")
     with allure.step("System reload"):
 
-        reboot_type = request.config.getoption("--rif_loppback_reboot_type")
+        reboot_type = request.config.getoption("--rif_loopback_reboot_type")
         if reboot_type == "random":
             reload_types = ["reload", "cold", "fast", "warm"]
             reboot_type = random.choice(reload_types)

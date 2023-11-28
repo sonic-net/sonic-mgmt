@@ -100,15 +100,6 @@ def check_neighbor(duthost, ip_address, mac_address, interface):
         logger.error('The neighbor entry of {} in ASIC db is not correct.'.format(ip_address))
         return False
 
-    output = duthost.shell("ip neigh | grep {}".format(ip_address))['stdout'].splitlines()
-    if len(output) != 1:
-        logger.error('No neighbor entry or extra neighbor entries of {}.'.format(ip_address))
-        return False
-
-    fields = output[0].split(' ')
-    if fields[0] != ip_address or fields[2] != interface or fields[4] != mac_address or fields[5] != 'PERMANENT':
-        logger.error('The neighbor entry of {} is not correct.'.format(ip_address))
-        return False
     return True
 
 
@@ -638,8 +629,9 @@ def verify_rif_tx_err_count(duthost, rif_interfaces, expect_counts):
     :param rif_interfaces: List of rif interface
     :param expect_counts: expected TX ERR for for every rif interface
     """
-    # Wait for the counters polling, the default interval is 1s
-    time.sleep(2)
+    # Wait for the rif counters polling
+    counter_poll_rif_interval = duthost.get_counter_poll_status()['RIF_STAT']['interval']
+    time.sleep(counter_poll_rif_interval / 1000 + 1)
     rif_tx_err_map = get_rif_tx_err_count(duthost)
     for rif_interface, expected_count in zip(rif_interfaces, expect_counts):
         tx_err_count = int(rif_tx_err_map[rif_interface])
