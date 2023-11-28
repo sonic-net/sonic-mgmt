@@ -322,7 +322,7 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
             attr_stats_row.append(attr_summary)
             filepath = os.path.join(get_logs_path(), "message_coverage", "{}_{}.html".format(mod, msg_dict[msg]['name']))
             utils.write_html_table2(attr_stats_header, attr_stats_row, filepath)
-            msg_stats_row = ["<a href=' {}_{}.html'>{}</a>".format(mod, msg_dict[msg]['name'], msg_dict[msg]['name']), "{}".format(len(attr_stats[msg]['used_attrs'])/len(attr_stats[msg]['all_attrs'])(round(len(attr_stats[msg]['used_attrs'])/en(attr_stats[msg]['all_attrs'])*100)))]
+            msg_stats_row = ["<a href=' {}_{}.html'>{}</a>".format(mod, msg_dict[msg]['name'], msg_dict[msg]['name']), "{}".format(len(attr_stats[msg]['used_attrs'])/len(attr_stats[msg]['all_attrs'])(round(len(attr_stats[msg]['used_attrs'])/en(attr_stats[msg]['all_attrs'])*100)))] 
             msg_stats_row.extend(get_attr_stats_row(class_stats[mod]["msg_ops"][msg]))
             msg_line = []
             add_top_level_data(attr_stats[msg], class_stats[mod]["msg_ops"][msg])
@@ -430,7 +430,7 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
         msg_stats_line.append("{}%".format(class_stats[mod]['used_update']/class_stats[mod]['total_update'](class_stats[mod]['update_coverage'])))
         msg_stats_line.append("{}%".format(class_stats[mod]['used_delete']/class_stats[mod]['total_delete'](class_stats[mod]['delete_coverage'])))
         msg_stats_line.append("{}%".format(class_stats[mod]['used_subscribe']/class_stats[mod]['total_subscribe'](class_stats[mod]['subscribe_coverage'])))
-        msg_stats_line.append("{}%".format(class_stats[mod]['used_create_payload']/class_stats[mod]['total_create_payload']({class_stats[mod]['payload_create_coverage'])))
+        msg_stats_line.append("{}%".format(class_stats[mod]['used_create_payload']/class_stats[mod]['total_create_payload'](class_stats[mod]['payload_create_coverage'])))
         msg_stats_line.append("{}%".format(class_stats[mod]['used_replace_payload']/class_stats[mod]['total_replace_payload'](class_stats[mod]['payload_replace_coverage'])))
         msg_stats_line.append("{}%".format(class_stats[mod]['used_update_payload']/class_stats[mod]['total_update_payload'](class_stats[mod]['payload_update_coverage'])))
         msg_stats_rows.append(msg_stats_line)
@@ -529,7 +529,7 @@ def generate_msg_coverage_report(consolidated=False, logs_path=None):
     stats_line.extend(["{}%".format(stats['used_replace']/stats['total_replace'](stats['replace_coverage']))])
     stats_line.extend(["{}%".format(stats['used_update']/stats['total_update'](stats['update_coverage']))])
     stats_line.extend(["{}%".format(stats['used_delete']/stats['total_delete'](stats['delete_coverage']))])
-    stats_line.extend(["{}%".format(stats['used_subscribe']/stats['total_subscribe']({stats['subscribe_coverage']))])
+    stats_line.extend(["{}%".format(stats['used_subscribe']/stats['total_subscribe'](stats['subscribe_coverage']))])
     stats_line.extend(["{}%".format(stats['used_create_payload']/stats['total_create_payload'](stats['payload_create_coverage']))])
     stats_line.extend(["{}%".format(stats['used_replace_payload']/stats['total_replace_payload'](stats['payload_replace_coverage']))])
     stats_line.extend(["{}%".format(stats['used_update_payload']/stats['total_update_payload'](stats['payload_update_coverage']))])

@@ -21,6 +21,7 @@ from utilities.utils import is_valid_ipv4_address
 from utilities.utils import is_valid_ipv6_address
 from utilities.utils import is_valid_ip_address
 from utilities.utils import get_intf_short_name, convert_intf_name_to_component
+from apis.common.sonic_hooks import SonicHooks
 
 try:
     import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
@@ -35,6 +36,7 @@ time_out = 125
 
 get_phy_port = lambda intf: re.search(r"(\S+)\.\d+", intf).group(1) if re.search(r"(\S+)\.\d+", intf) else intf
 
+sonichooks=SonicHooks()   
 
 def force_cli_type_to_klish(cli_type):
     cli_type = "klish" if cli_type in get_supported_ui_type_list() else cli_type
@@ -96,6 +98,9 @@ def ping(dut, addresses, family='ipv4', **kwargs):
     ping_pattern1 = r'(\d+)\s+bytes\s+from(.*)time=(.*)\s+ms\s+\(DUP\!\)'
     external = kwargs.get("external", False)
     distributed = kwargs.get("distributed", False)
+    if cli_type == 'vtysh-multi-asic':
+        distributed = True 
+
     # add defaults
     
     kwargs['tgen'] = kwargs.get('tgen', False)
@@ -210,8 +215,18 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
     :param config: add | remove
     :return:
     """
-    st.log('API_NAME: config_ip_addr_interface, API_ARGS: {}'.format(locals()))
-    cli_type = st.get_ui_type(dut, **kwargs)
+    if kwargs.get('cli_type'):
+        cli_type=kwargs.get('cli_type')
+    else:
+        cli_type = st.get_ui_type(dut, **kwargs)
+
+    if cli_type == 'vtysh-multi-asic' or kwargs.get('is_multi_asic'):
+        asic_ns=kwargs.get('asic_ns')
+        if not asic_ns: 
+            asic_ns=sonichooks.get_asic_instance_for_interface(dut,interface_name) 
+            if not asic_ns:
+                st.error('asic namespace is not provided for multi-asic platform')
+
     is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
     max_time = kwargs.get('max_time', 600)
     gw_addr = kwargs.get('gw_addr', None)
@@ -342,6 +357,42 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
             return True
         elif config == 'remove':
             return delete_ip_interface(dut, interface_name, ip_address, subnet, family, cli_type=cli_type, is_secondary_ip=is_secondary_ip)
+    elif cli_type == 'vtysh-multi-asic':
+        if config == 'add':
+            try:
+                if not interface_name:
+                    st.error("Please provide interface name..")
+                    return False
+                if not ip_address:
+                    st.error("Please provide ip|ipv6 address..")
+                    return False
+
+                if family == "ipv4":
+                    if not is_valid_ipv4_address(ip_address):
+                        st.error("Invalid IP address.")
+                        return False
+                elif family == "ipv6":
+                    if not is_valid_ipv6_address(ip_address):
+                        st.error("Invalid IPv6 address.")
+                        return False
+                interface_name = convert_intf_name_to_component(dut, interface_name, component="applications")
+                command = "config interface -n {} ip add {} {}/{}".format(asic_ns, interface_name, ip_address, subnet)
+
+                output = st.config(dut, command, skip_error_check=skip_error)
+            except Exception as e:
+                st.log(e)
+                return False
+            if "Error: " in output:
+                return False
+            else:
+                return True
+        elif config == 'remove':
+            return delete_ip_interface(dut, interface_name, ip_address, subnet, family, cli_type=cli_type, asic_ns=asic_ns)
+
+        else:
+            st.error("Invalid config used - {}.".format(config))
+            return False
+
     else:
         st.error("Invalid cli_type for this API - {}.".format(cli_type))
         return False
@@ -366,7 +417,12 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
     elif family == "ipv6":
         if not is_valid_ipv6_address(ip_address):
             st.error("Invalid IPv6 address.")
-    cli_type = st.get_ui_type(dut, **kwargs)
+
+    if kwargs.get('cli_type'):
+        cli_type=kwargs.get('cli_type')
+    else:
+        cli_type = st.get_ui_type(dut)
+
     is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
     max_time = kwargs.get('max_time', 600)
 
@@ -432,6 +488,21 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
             st.error("Failed to remove IP address: {} on interface: {}".format(ip_address, interface_name))
             return False
         return True
+    elif cli_type=='vtysh-multi-asic':
+        if interface_name.startswith('Ethernet'):      
+            asic_ns=kwargs.get('asic_ns')
+            if not asic_ns:
+                asic_ns=sonichooks.get_asic_instance_for_interface(dut, interface_name)
+
+                if not asic_ns:
+                    st.error('asic namespace is not provided for multi-asic Ethernet Interface')
+
+            command="config interface -n {} ip remove {} {}/{}".format(asic_ns,interface_name, ip_address, subnet)
+        else: 
+            command="config interface ip remove {} {}/{}".format(interface_name, ip_address, subnet)
+
+        st.config(dut, command, skip_error_check=skip_error)
+        return True
     else:
         st.log("Unsupported CLI TYPE {}".format(cli_type))
         return False
@@ -449,6 +520,9 @@ def get_interface_ip_address(dut, interface_name=None, family="ipv4", cli_type='
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type=='vtysh-multi-asic':
+        cli_type='click' 
+
     if cli_type == 'click':
         interface_name = get_intf_short_name(interface_name)
     else:
@@ -456,7 +530,7 @@ def get_interface_ip_address(dut, interface_name=None, family="ipv4", cli_type='
             interface_name = "Management0"
     if cli_type in ['rest-patch', 'rest-put']:
         cli_type = 'klish'  # OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
-    if cli_type in ['click', 'klish']:
+    if cli_type in ['click', 'klish','vtysh-multi-asic']:
         command = "show ip interface"
         if family == "ipv6":
             command = "show ipv6 interface"
@@ -542,7 +616,11 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
     st.log('API_NAME: create_static_route, API_ARGS: {}'.format(locals()))
     if shell != 'vtysh':
         st.log("shell parameter is obsolete and will be ignored. Please use cli_type.")
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    if kwargs.get('cli_type'):
+        cli_type=kwargs.get('cli_type')
+    else: 
+        cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+
     if cli_type == 'click':
         cli_type = 'vtysh'
     cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type  # Due to JIRA: SONIC-28182 we are fallback to klish
@@ -657,6 +735,25 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
         if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data):
             st.error("Failed to create IP address")
             return False
+    elif cli_type=='vtysh-multi-asic' or kwargs.get('is_multi_asic'):
+        asic_ns=kwargs.get('asic_ns')
+        if not asic_ns:
+            st.error('asic namespace not provided for multi-asic system')
+
+        if family.lower() == "ipv4" or family.lower() == "":
+            if next_hop:
+                command = "sudo ip netns exec {} config route add prefix {} nexthop {}".format(asic_ns,static_ip, next_hop)
+            else:
+                command = "sudo ip netns exec {} config route add prefix {}".format(asic_ns,static_ip)
+        elif family.lower() == "ipv6":
+            if next_hop:
+                command = "sudo ip netns exec {} config route add prefix {} nexthop {}".format(asic_ns, static_ip, next_hop)
+            else:
+                command = "sudo ip netns exec {} config route add prefix {} ".format(asic_ns,static_ip)
+        if interface:
+            command +=" dev {}".format(interface)
+        st.config(dut, command)
+
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -677,7 +774,10 @@ def delete_static_route(dut, next_hop=None, static_ip=None, family='ipv4', shell
     """
     if shell != 'vtysh':
         st.log("shell parameter is obsolete and will be ignored. Please use cli_type.")
-    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    if kwargs.get('cli_type'):
+        cli_type=kwargs.get('cli_type')
+    else:
+        cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     if cli_type == 'click':
         cli_type = 'vtysh'
     cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
@@ -740,6 +840,26 @@ def delete_static_route(dut, next_hop=None, static_ip=None, family='ipv4', shell
         if nexthop_vrf:
             command += " nexthop-vrf {}".format(nexthop_vrf)
         st.config(dut, command, type="klish", conf=True)
+    elif cli_type=='vtysh-multi-asic' or kwargs.get('cli_type')=='vtysh-multi-asic' or kwargs.get('is_multi_asic'):
+        if not kwargs.get('asic_ns'):
+            st.error('Asic namespace not defined for multi-asic system')
+        else:
+            asic_ns=kwargs.get('asic_ns')
+
+        if family.lower() == "ipv4" or family.lower() == "":
+            if next_hop:
+                command = "sudo ip netns exec {} config route del prefix {} nexthop {}".format(asic_ns,static_ip, next_hop)
+            else:
+                command = "sudo ip netns exec {} config route del prefix {}".format(asic_ns,static_ip)
+        elif family.lower() == "ipv6":
+            if next_hop:
+                command = "sudo ip netns exec {} config route del prefix {} nexthop {}".format(asic_ns, static_ip, next_hop)
+            else:
+                command = "sudo ip netns exec {} config route del prefix {} ".format(asic_ns,static_ip)
+        if interface:
+            command +=" dev {}".format(interface)
+        st.config(dut, command)
+
     else:
         st.error("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
         return False
@@ -772,6 +892,9 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     elif cli_type in ["rest", "gnmi"]:
         cli_type = "klish"
 
+    if kwargs.get('cli_type')=='vtysh-multi-asic':
+        cli_type='vtysh-multi-asic'
+
     summary_routes = ' summary' if kwargs.get('summary_routes') else ''
     if cli_type in ['click', 'klish']:
         if vrf_name:
@@ -785,7 +908,11 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
             else:
                 cmd = "show ipv6 route" + summary_routes
 
-    output = st.show(dut, cmd, type=cli_type)
+    if cli_type == 'vtysh-multi-asic':
+        output = st.show(dut, cmd)
+    else:
+        output = st.show(dut, cmd, type=cli_type)
+
     return output
 
 
@@ -957,7 +1084,7 @@ def _clear_ip_configuration_helper(dut_list, family="ipv4", cli_type='', skip_er
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
-#    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+
     if family == "ipv4":
         family_li = ['ipv4']
     elif family == "ipv6":
@@ -980,7 +1107,17 @@ def _clear_ip_configuration_helper(dut_list, family="ipv4", cli_type='', skip_er
                     if "A" in each_ip['flags']:
                         config_sag_ip(dut, interface=each_ip['interface'], gateway=ip, mask=subnet, config="remove", cli_type=cli_type)
                     elif not each_ip['ipaddr'].startswith('fe80::'):
-                        delete_ip_interface(dut, each_ip['interface'], ip, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
+                        #delete_ip_interface(dut, each_ip['interface'], ip, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
+                        if cli_type == 'vtysh-multi-asic':
+                            if each_ip['interface'].startswith('Ethernet'):
+                                asic_ns=sonichooks.get_asic_instance_for_interface(dut, each_ip['interface'])
+                                delete_ip_interface(dut, each_ip['interface'], ip, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check,asic_ns=asic_ns)
+                        else:
+                            delete_ip_interface(dut, each_ip['interface'], ip, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
+                    else:
+                        ip_link_local = ip.split('%')[0] if '%' in ip else ip
+                        delete_ip_interface(dut, each_ip['interface'], ip_link_local, subnet, family=each_af, cli_type=cli_type, skip_error=skip_error_check)
+
 
     return True
 
@@ -995,10 +1132,12 @@ def clear_ip_configuration(dut_list, family='ipv4', thread=True, cli_type='', sk
     :param thread: True (Default) / False
     :return:
     """
-    if not thread:
-        return _clear_ip_configuration_helper(dut_list, family, cli_type, skip_error_check)
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
+
+    if not thread:
+        return _clear_ip_configuration_helper(dut_list, family, cli_type, skip_error_check)
+
     [out, _] = utils.exec_foreach(thread, dut_li, _clear_ip_configuration_helper, family, cli_type=cli_type, skip_error_check=skip_error_check)
     return False if False in out else True
 

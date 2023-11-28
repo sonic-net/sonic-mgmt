@@ -94,6 +94,10 @@ def _create_parser():
                       default=False)    
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
                       default=False)            
+    parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity test',
+                      default=False)
+    parser.add_argument('--sim_attach', action='store_true', help='Use the existing SIM',
+                      default=False)
     return parser
 
 def repo_update(data):
@@ -175,6 +179,14 @@ def repo_update(data):
     time.sleep(3)
 
     chan.send("cd sonic-test/sonic-mgmt\n")
+    buff = ''
+    while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send("mkdir ansible/vars/docker-ptf\n")
     buff = ''
     while not buff.endswith(':~/golden-code/sonic-test/sonic-mgmt$ '):
         resp = chan.recv(9999)
@@ -508,8 +520,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('topo_8800-LC-48H-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-LC-48H-O.yml')
-        ftp_client.put('topo_8800-RP-O.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_8800-RP-O.yml')
+        ftp_client.put('topo_Cisco-8800-LC-48H-C48.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
+        ftp_client.put('topo_Cisco-8800-RP.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-RP.yml')
         ftp_client.put('topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
@@ -802,6 +814,12 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
     return vxr_path, "vxr_ports.yaml"
 
+def attach_vxr():
+    vxr_path = "/auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+
+    os.system("{} ports > vxr_ports.yaml".format(vxr_path))
+    return vxr_path, "vxr_ports.yaml"
+
 def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
@@ -860,6 +878,9 @@ def print_env_info(data, device_type, vEOS_count):
     elif device_type == 'churchill-mono':
         print("Device name is churchill-mono. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'sfd':
+        print("Device name is sfd. To execute a pytest script:\n")
+        print("./run_tests.sh -n docker-ptf -O -u -l debug -e -s -e --skip_sanity -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     else:
         print("Device name is mth32 or m64. To execute a pytest script:\n")
         print("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
@@ -919,7 +940,8 @@ def main():
     cicd_clean = args['cicd_clean']
     additional_tests = args['additional_tests']
     create_allure_report = args['create_allure_report']
-
+    skip_sanity = args['skip_sanity']
+    sim_attach = args['sim_attach']
 
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
@@ -942,7 +964,10 @@ def main():
     
     vxr_start_begin = datetime.datetime.now()
 
-    vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
+    if sim_attach:
+        vxr_path, input_file = attach_vxr()
+    else:
+        vxr_path, input_file = start_vxr(args['input_file'], cicd, clean_sim, topo_yaml)
 
     vxr_start_end = datetime.datetime.now()
 
@@ -975,7 +1000,8 @@ def main():
             device_type,
             create_allure_report, 
             ssh_port=data['sonic_mgmt']['xr_redir22'],
-            additional_tests=additional_tests
+            additional_tests=additional_tests,
+            skip_sanity=skip_sanity
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

@@ -1,0 +1,36 @@
+# TextFSM auto lowercases all names, use underscores to make it more readable
+Value Key port ((Ethernet|Eth)[0-9/]+)
+Value eeprom_status ([^\n]+)
+Value Connector ([^\n]+)
+Value Encoding ([^\n]+)
+Value Extended_Identifier ([^\n]+)
+Value Extended_RateSelect_Compliance ([^\n]+)
+Value Identifier ([^\n]+)
+Value Length ([^\n]+)
+Value Nominal_Bit_Rate ([^\n]+)
+Value Specification_Compliance ([^\n]+)
+Value Vendor_Date_Code ([^\n]+)
+Value Vendor_Name ([^\n]+)
+Value Vendor_OUI ([^\n]+)
+Value Vendor_PN ([^\n]+)
+Value Vendor_Rev ([^\n]+)
+Value Vendor_SN ([^\n]+)
+
+Start
+  ^\s+Connector:\s+${Connector}\s*$$
+  ^\s+Encoding:\s+${Encoding}\s*$$
+  ^\s+Extended\s*Identifier:\s+${Extended_Identifier}\s*$$
+  ^\s+Extended\s*RateSelect\s*Compliance:\s+${Extended_RateSelect_Compliance}\s*$$
+  ^\s+Identifier:\s+${Identifier}\s*$$
+  ^\s+Length\s*Cable\s*Assembly\S+\s+${Length}\s*$$
+  ^\s+Nominal\s*Bit\s*Rate\S+\s+${Nominal_Bit_Rate}\s*$$
+  ^\s+Vendor\s*Date\s*Code\S+\s*\S+\s+${Vendor_Date_Code}\s*$$
+  ^\s+Vendor\s*Name:\s+${Vendor_Name}\s*$$
+  ^\s+Vendor\s*OUI:\s+${Vendor_OUI}\s*$$
+  ^\s+Vendor\s*PN:\s+${Vendor_PN}\s*$$
+  ^\s+Vendor\s*Rev:\s+${Vendor_Rev}\s*$$
+  ^\s+Vendor\s*SN:\s+${Vendor_SN}\s*$$ -> Record
+  # Continue here assigns the interface and status values, but continues to check the rules
+  ^${port}:\s*${eeprom_status}\s*$$ -> Continue
+  # Acts like an if statement: If "EEPROM Not detected" present, record and create a new row in the FSM Output
+  ^[\s\S]+EEPROM\s*Not\s*detected[\s\S]*$$ -> Record

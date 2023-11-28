@@ -215,8 +215,56 @@ class SonicHooks(object):
             result[fields[0]]=fields[1] 
         return result 
 
+    def get_asic_namespace_list(self,dut):
+        if not self.is_multi_asic(dut):
+            raise AssertionError('This is not a multi asic system')
+
+        out=self.parse_show_platform_summary(dut)
+        return ["asic"+str(i) for i in range(int(out["ASIC Count"]))]
+
+    def get_all_interfaces_on_all_namespaces(self,dut):
+        '''Retrieve all interface information for all namespaces
+           Returns:
+               A dictionary: key of each namespace, value of all interface info in this namespace
+        '''
+
+        asic_namespace_list=self.get_asic_namespace_list(dut)
+        result={}
+
+        for ns in asic_namespace_list:
+            command="show interfaces status -n "+ns
+            out=st.show(dut, command)
+
+            result.update({ns: out})
+
+        return result
+
+    def get_interface_list_asic_namespace(self, dut,namespace):
+        '''Function to retrieve list of interfaces that are associated with this namespaces
+           Parameters:
+               dut: dut from the testbed
+               namespace: specific namespace to obtain the list of interfaces
+           Returns:
+               Dictionary of interface info
+        '''
+        return self.get_all_interfaces_on_all_namespaces(dut).get(namespace)
+
+    def get_asic_instance_for_interface(self, dut, interface_name):
+        '''Return the asic namespace for this interface"
+        '''
+
+        ns_list=self.get_asic_namespace_list(dut)
+
+        for ns in ns_list:
+            interface_list_info=self.get_interface_list_asic_namespace(dut,ns)
+            for interface_info in interface_list_info:
+                if interface_name==interface_info.get("interface"):
+                    return ns
+        else:
+            raise AssertionError('Interface %s does not exist in any namespace'%interface_name)
+
     def shutdown(self, dut, portlist, **kwargs):
-        if self.is_multi_asic:
+        if self.is_multi_asic(dut):
             cli_type = "vtysh-multi-asic" 
         else:
             cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
@@ -224,7 +272,7 @@ class SonicHooks(object):
         port.shutdown(dut, portlist, cli_type=cli_type)
 
     def noshutdown(self, dut, portlist, **kwargs):
-        if self.is_multi_asic:
+        if self.is_multi_asic(dut):
             cli_type = "vtysh-multi-asic"
         else:
             cli_type = st.getenv("SPYTEST_HOOKS_PORT_ADMIN_STATE_UITYPE", "click")
