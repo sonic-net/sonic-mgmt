@@ -2,7 +2,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v4.2.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
@@ -11,7 +11,7 @@ repos:
     -   id: check-ast
 
 -   repo: https://github.com/PyCQA/flake8
-    rev: 6.1.0
+    rev: 4.0.1
     hooks:
     -   id: flake8
         args: ["--max-line-length=120"]
@@ -21,6 +21,6 @@ repos:
         args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,E7,W5"]
 
 -   repo: https://github.com/sonic-net/sonic-mgmt
-    rev: 08e5b77e474b5ec6e458d56b207da85d9b5feb5d
+    rev: 1.0.0+pre_commit
     hooks:
     -   id: check-conditional-mark-sort
