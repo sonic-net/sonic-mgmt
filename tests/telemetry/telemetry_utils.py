@@ -100,9 +100,9 @@ def listen_for_event(ptfhost, cmd, results):
     results[0] = ret["stdout"]
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
+                              submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
     results = [""]
     event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))

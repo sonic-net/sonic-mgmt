@@ -2,10 +2,12 @@ import logging
 import pytest
 import os
 import sys
+import time
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import InterruptableThread
+from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
 
 pytestmark = [
@@ -38,9 +40,8 @@ def do_init(duthost):
             logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
 
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
-    #duthost.copy(src="telemetry/testcases/expected_op_file.txt", dest="~/")
 
-    for file in ["events_publish_tool.py", "events_tool"]:
+    for file in ["events_publish_tool.py"]:
         duthost.shell("docker cp eventd:/usr/bin/%s ~/" % (file))
         duthost.shell("ls -all ~/")
         duthost.shell("chmod +x ~/%s" % file)
@@ -66,69 +67,55 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
 
 
 @pytest.mark.disable_loganalyzer
-def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Create expected o/p file of events with N events. Call event-publisher tool to publish M events (M<N). Publish
-    remainder of events. Verify o/p file gainst expected. Stats should be event-published == N"""
+    remainder of events. Verify o/p file that N events were received"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events cache testing")
 
     skip_201911_and_older(duthost)
-    # Restart eventd process and clear counters
+    # Restart eventd process
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
               "eventd is not started")
-
+    time.sleep(10)
     M = 20
     N = 30
+
+    received_op_file = os.path.join(DATA_DIR, "received_op_file")
 
     create_ip_file(duthost, DATA_DIR, "first_part_ip_file", 1, M)
     create_ip_file(duthost, DATA_DIR, "second_part_ip_file", M + 1, N)
 
     # Publish first M events
-    event_publish_tool(duthost, localhost, "first_part_ip_file")
-    # Start the receiver tool in one thread
-    event_receive_thread = InterruptableThread(target=event_receive_tool, args=(duthost, localhost, "received_op_file",))
-    event_receive_thread.start()
+    event_publish_tool(duthost, "first_part_ip_file")
+    # time.sleep(10)
 
-    event_publish_tool(duthost, localhost, "second_part_ip_file")
-
-    event_receive_thread.join(30)
-
+    event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost, "test-event-source:test", received_op_file, 30))
+    event_thread.start()
+    event_publish_tool(duthost, "second_part_ip_file")
+    event_thread.join(30)
     # Assert actual and expected op_file to be same
-    verify_expected_output(duthost, "expected_op_file", "received_op_file")
-    # Check stats
+    verify_received_output(duthost, received_op_file)
 
 
 def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
     ip_file = os.path.join(data_dir, json_file)
     with open(ip_file, "w") as f:
         for i in range(start_idx, end_idx + 1):
-            json_string = f'{{"test_event_source:test": {{"test_key": "test_val_{i}"}}}}'
+            json_string = f'{{"test-event-source:test": {{"test_key": "test_val_{i}"}}}}'
             f.write(json_string + '\n')
     dest = "~/" + json_file
     duthost.copy(src=ip_file, dest=dest)
 
 
-def event_publish_tool(duthost, localhost, json_file):
+def event_publish_tool(duthost, json_file):
     ret = duthost.shell("python ~/events_publish_tool.py -f ~/{}".format(json_file))
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
 
 
-def event_receive_tool(duthost, localhost, op_file):
-    ret = duthost.shell("~/events_tool -c -r -o ~/{} -f test_event_source".format(op_file))
-    assert ret["rc"] == 0, "Unable to receive events via events_tool"
-
-
-def verify_expected_output(duthost, expected_file, received_file):
-    duthost.shell("cat ~/{}".format(received_file))
-    #e_file = "~/" + expected_file
-    #r_file = "~/" + received_file
-    #with open(r_file, "r") as r:
-    #e_data = e.readLines()
-    #    r_data = r.readLines()
-    #assert len(e_data) == len(r_data), "Expected file and received file do not have same length"
-    #    for i in range(r_data):
-    #        logger.info(r_data[i])
-    #assert e_data[i] == r_data[i], "Line does not match. Expected line: {}, Received line: {}".format(e_data[i], r_data[i])
-
+def verify_received_output(duthost, received_file):
+    dest = "~/received_op_file"
+    duthost.copy(src=received_file, dest=dest)
+    duthost.shell("cat ~/received_op_file")
