@@ -43,9 +43,10 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
             # get syslog for debug
             recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
             logger.debug("Target device syslog: {}".format(recent_syslog))
-        
+
         time.sleep(1)
         retry_count -= 1
+
 
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
