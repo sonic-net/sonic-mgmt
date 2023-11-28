@@ -34,6 +34,11 @@ def setup_env(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
+    ntpsec_conf_stat = duthost.stat(path="/etc/ntpsec/ntp.conf")
+    if ntpsec_conf_stat["stat"]["exists"]:
+        global NTP_CONF
+        NTP_CONF = "/etc/ntpsec/ntp.conf"
+
     init_ntp_servers = running_ntp_servers(duthost)
 
     yield
@@ -102,6 +107,20 @@ def ntp_server_tc1_add_config(duthost):
             "op": "add",
             "path": "/NTP_SERVER",
             "value": {
+                NTP_SERVER_INIT: {
+                    "resolve_as": NTP_SERVER_INIT,
+                    "association_type": "server",
+                    "iburst": "on"
+                }
+            }
+        }
+    ]
+
+    json_patch_bc = [
+        {
+            "op": "add",
+            "path": "/NTP_SERVER",
+            "value": {
                 NTP_SERVER_INIT: {}
             }
         }
@@ -113,6 +132,8 @@ def ntp_server_tc1_add_config(duthost):
     try:
         start_time = datetime.datetime.now()
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        if output['rc'] != 0:
+            output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
@@ -171,6 +192,22 @@ def ntp_server_tc1_replace(duthost):
         {
             "op": "add",
             "path": "/NTP_SERVER/{}".format(NTP_SERVER_DUMMY),
+            "value": {
+                "resolve_as": NTP_SERVER_DUMMY,
+                "association_type": "server",
+                "iburst": "on"
+            }
+        }
+    ]
+
+    json_patch_bc = [
+        {
+            "op": "remove",
+            "path": "/NTP_SERVER/{}".format(NTP_SERVER_INIT)
+        },
+        {
+            "op": "add",
+            "path": "/NTP_SERVER/{}".format(NTP_SERVER_DUMMY),
             "value": {}
         }
     ]
@@ -181,6 +218,8 @@ def ntp_server_tc1_replace(duthost):
     try:
         start_time = datetime.datetime.now()
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        if output['rc'] != 0:
+            output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
