@@ -36,11 +36,11 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     docker_out_list = []
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    docker_out = duthost.shell('docker images docker-sonic-gnmi', module_ignore_errors=False)['stdout_lines']
+    docker_out = duthost.shell('docker images', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
-    matching = [s for s in docker_out_list if b"docker-sonic-gnmi" in s]
+    matching = [s for s in docker_out_list if b"docker-sonic-gnmi" in s or b"docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
-        pytest.skip("docker-sonic-gnmi is not part of the image")
+        pytest.skip("docker-sonic-gnmi and docker-sonic-telemetry are not part of the image")
 
 
 def check_gnmi_config(duthost):
