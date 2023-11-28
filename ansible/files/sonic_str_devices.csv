@@ -1,6 +1,5 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str-s6000-on-2,10.3.147.142/23,Force10-S6000,DevSonic,,sonic
-str-s6000-on-4,10.3.146.113/23,Force10-S6000,DevSonic,,sonic
 str-s6000-on-6,10.3.147.172/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-7,10.3.147.195/23,Force10-S6000,DevSonic,,sonic
 str-s6000-acs-8,10.3.147.197/23,Force10-S6000,DevSonic,,sonic
@@ -46,6 +45,7 @@ str-n3164-acs-2,10.3.147.150/23,Nexus-3164,DevSonic,,sonic
 str-s5232f-on-1,10.3.146.247/23,DellEMC-S5232f-C32,DevSonic,,sonic
 str-sn3800-01,10.3.146.62/23,ACS-MSN3800,DevSonic,,sonic
 str-msn4600c-acs-02,10.3.146.175/23,ACS-MSN4600C,DevSonic,,sonic
+str-7050qx-32s-acs-04,10.3.146.113/23,Arista-7050QX32S-Q32,DevSonic,,sonic
 str-7260-02,10.3.147.154/23,Arista-7260QX-64,FanoutLeaf,,
 str-7260-03,10.3.147.169/23,Arista-7260QX-64,FanoutLeaf,,
 str-7260-04,10.3.147.164/23,Arista-7260QX-64,FanoutLeaf,,

@@ -450,21 +450,6 @@
   auto_recover: 'True'
   comment: Pradnya
 
-- conf-name: vms11-t0-on-4
-  group-name: vms11-5
-  topo: t0
-  ptf_image_name: docker-ptf
-  ptf: vms11-5
-  ptf_ip: 10.64.246.108/23
-  ptf_ipv6:
-  server: server_11
-  vm_base: VM11020
-  dut:
-    - str-s6000-on-4
-  inv_name: str
-  auto_recover: 'True'
-  comment: daall
-
 - conf-name: vms11-t0-s6000-6
   group-name: vms11-6
   topo: t0
@@ -719,6 +704,21 @@
   inv_name: str2
   auto_recover: 'True'
   comment: topo_with_12_vms
+
+- conf-name: vms11-t0-7050qx-acs-4
+  group-name: vms11-5
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: vms11-5
+  ptf_ip: 10.64.246.108/23
+  ptf_ipv6:
+  server: server_11
+  vm_base: VM11020
+  dut:
+    - str-7050qx-32s-acs-04
+  inv_name: str
+  auto_recover: 'True'
+  comment: 7050qx
 
 - conf-name: testbed-str2-pikez-acs-1
   group-name: vms18-8
