@@ -2,13 +2,14 @@ import logging
 import pytest
 import os
 import sys
-import time
 
-from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import InterruptableThread
 from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
+from telemetry_utils import restart_eventd
+from events.event_utils import create_ip_file
+from events.event_utils import event_publish_tool, verify_received_output
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -41,10 +42,8 @@ def do_init(duthost):
 
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
-    for file in ["events_publish_tool.py"]:
-        duthost.shell("docker cp eventd:/usr/bin/%s ~/" % (file))
-        duthost.shell("ls -all ~/")
-        duthost.shell("chmod +x ~/%s" % file)
+    duthost.shell("docker cp eventd:/usr/bin/events_publish_tool.py ~/")
+    duthost.shell("chmod +x ~/events_publish_tool.py")
 
 
 @pytest.mark.disable_loganalyzer
@@ -56,14 +55,15 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     logger.info("Start events testing")
 
     skip_201911_and_older(duthost)
+    #restart_eventd(duthost)
     do_init(duthost)
 
     # Load all events test code and run
-    #for file in os.listdir(EVENTS_TESTS_PATH):
-    #    if file.endswith("_events.py"):
-    #        module = __import__(file[:len(file)-3])
-    #        module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
-    #        logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
+    for file in os.listdir(EVENTS_TESTS_PATH):
+        if file.endswith("bgp_events.py"):
+            module = __import__(file[:len(file)-3])
+            module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
+            logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
 
 
 @pytest.mark.disable_loganalyzer
@@ -74,12 +74,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     logger.info("Start events cache testing")
 
     skip_201911_and_older(duthost)
-    # Restart eventd process
-    duthost.shell("systemctl reset-failed eventd")
-    duthost.service(name="eventd", state="restarted")
-    py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
-              "eventd is not started")
-    time.sleep(10)
+
     M = 20
     N = 30
 
@@ -90,32 +85,14 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
 
     # Publish first M events
     event_publish_tool(duthost, "first_part_ip_file")
-    # time.sleep(10)
 
     event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost, "test-event-source:test", received_op_file, 30))
     event_thread.start()
+
+    # Publish second batch of events
     event_publish_tool(duthost, "second_part_ip_file")
+
     event_thread.join(30)
-    # Assert actual and expected op_file to be same
+
+    # Verify received output
     verify_received_output(duthost, received_op_file)
-
-
-def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
-    ip_file = os.path.join(data_dir, json_file)
-    with open(ip_file, "w") as f:
-        for i in range(start_idx, end_idx + 1):
-            json_string = f'{{"test-event-source:test": {{"test_key": "test_val_{i}"}}}}'
-            f.write(json_string + '\n')
-    dest = "~/" + json_file
-    duthost.copy(src=ip_file, dest=dest)
-
-
-def event_publish_tool(duthost, json_file):
-    ret = duthost.shell("python ~/events_publish_tool.py -f ~/{}".format(json_file))
-    assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
-
-
-def verify_received_output(duthost, received_file):
-    dest = "~/received_op_file"
-    duthost.copy(src=received_file, dest=dest)
-    duthost.shell("cat ~/received_op_file")

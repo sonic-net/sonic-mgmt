@@ -6,6 +6,7 @@ import re
 from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
+from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 TELEMETRY_PORT = 50051
@@ -145,3 +146,11 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
         if filter_event_regex != "":
             cmd += " --filter_event_regex {}".format(filter_event_regex)
     return cmd
+
+
+def restart_eventd(duthost):
+    duthost.shell("systemctl reset-failed eventd")
+    duthost.service(name="eventd", state="restarted")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"),
+                  "eventd not started.")
+    logger.info("eventd process restarted.")

@@ -1,4 +1,5 @@
 import logging
+import os
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -45,3 +46,24 @@ def restart_monit(duthost):
 def check_monit_running(duthost):
     monit_services_status = duthost.get_monit_services_status()
     return monit_services_status
+
+
+def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
+    ip_file = os.path.join(data_dir, json_file)
+    with open(ip_file, "w") as f:
+        for i in range(start_idx, end_idx + 1):
+            json_string = f'{{"test-event-source:test": {{"test_key": "test_val_{i}"}}}}'
+            f.write(json_string + '\n')
+    dest = "~/" + json_file
+    duthost.copy(src=ip_file, dest=dest)
+
+
+def event_publish_tool(duthost, json_file):
+    ret = duthost.shell("python ~/events_publish_tool.py -f ~/{}".format(json_file))
+    assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
+
+
+def verify_received_output(duthost, received_file):
+    dest = "~/received_op_file"
+    duthost.copy(src=received_file, dest=dest)
+    duthost.shell("cat ~/received_op_file")
