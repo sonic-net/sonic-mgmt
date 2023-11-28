@@ -255,7 +255,7 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
                     if per_hop['interfaceName'] in internal_intfs:
                         continue
                     port = per_hop['interfaceName']
-                    neigh = duthost.shell("show ip int | grep -w {}".format(port))['stdout']
+                    neigh = duthost.shell("show ip int | grep -w {}".format(port), module_ignore_errors=True)['stdout']
                     if neigh == '':
                         logger.info("{} is still internal interface, skipping".format(port))
                     else:
