@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:jammy
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=US/Pacific
