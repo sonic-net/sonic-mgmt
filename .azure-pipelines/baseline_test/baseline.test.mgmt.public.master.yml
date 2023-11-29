@@ -22,7 +22,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     steps:
-    - template: ../../pytest-collect-only.yml
+    - template: ../pytest-collect-only.yml
 
 - stage: Test_round_1
   dependsOn:
