@@ -42,12 +42,12 @@ parameters:
 
   - name: RUN_STOP_TOPO_VMS
     type: boolean
-    default: true
+    default: false
     displayName: "Run stop-topo-vms to delete neighbor VMs for this testbed? (Should be unchecked if CURRENT_VM_TYPE is ceos)"
 
   - name: RUN_START_TOPO_VMS
     type: boolean
-    default: true
+    default: false
     displayName: "Run start-topo-vms to start neighbor VMs for this testbed? (Should be unchecked if TARGET_VM_TYPE is ceos)"
 
   - name: RUN_ADD_TOPO
