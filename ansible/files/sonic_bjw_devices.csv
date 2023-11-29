@@ -27,6 +27,7 @@ bjw-can-7260-2,10.150.22.148/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-3,10.150.22.149/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-4,10.150.22.150/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-5,10.150.22.151/23,Arista-7260CX3,FanoutLeaf,,
+bjw-can-7260-6,10.150.22.152/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-serv-1,10.150.22.222/23,TestServ,Server,,
 bjw-can-serv-2,10.150.22.223/23,TestServ,Server,,
 bjw-can-serv-3,10.150.22.224/23,TestServ,Server,,
@@ -68,6 +69,7 @@ bjw-can-2700-4,10.150.22.140/23,Mellanox-SN2700,DevSonic,,sonic
 bjw-can-7250-sup-1,10.150.22.144/23,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
 bjw-can-7250-lc1-1,10.150.22.145/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
 bjw-can-7250-lc2-1,10.150.22.146/23,Nokia-IXR7250E-36x400G,DevSonic,,sonic
+bjw-can-a7280cr3-1,10.150.22.153/23,Arista-7280CR3-C40,DevSonic,,sonic
 bjw-pdu-126-130,10.150.126.130,Vertiv,Pdu,snmp,
 bjw-pdu-126-131,10.150.126.131,Vertiv,Pdu,snmp,
 bjw-pdu-126-132,10.150.126.132,Vertiv,Pdu,snmp,

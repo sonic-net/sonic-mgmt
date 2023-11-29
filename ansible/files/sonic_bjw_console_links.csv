@@ -54,3 +54,5 @@ bjw-can-e1031-2,8,bjw-can-3800-2,ssh,admin,9600
 bjw-can-e1031-2,9,bjw-can-7260-4,ssh,admin,9600
 bjw-can-e1031-2,10,bjw-can-4600c-2,ssh,admin,9600
 bjw-can-e1031-2,11,bjw-can-7260-5,ssh,admin,9600
+bjw-can-e1031-2,12,bjw-can-7260-6,ssh,admin,9600
+bjw-can-e1031-2,13,bjw-can-a7280cr3-1,ssh,admin,9600
