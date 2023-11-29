@@ -28,6 +28,13 @@ stages:
   dependsOn:
   - Pre_test
   condition: succeeded('Pre_test')
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
@@ -36,6 +43,13 @@ stages:
   - Pre_test
   - Test_round_1
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_1'))
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
@@ -44,6 +58,13 @@ stages:
   - Pre_test
   - Test_round_2
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_2'))
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
 
@@ -52,5 +73,12 @@ stages:
   - Pre_test
   - Test_round_3
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_3'))
+  variables:
+  - group: SONiC-Elastictest
+  - name: inventory
+    value: veos_vtb
+  - name: testbed_file
+    value: vtestbed.yaml
+  - group: GIT_SECRETS
   jobs:
   - template: baseline.test.template.yml
