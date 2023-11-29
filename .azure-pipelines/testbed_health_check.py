@@ -174,7 +174,7 @@ class TestbedHealthCheck:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
-        failed = True
+        failed = False
         bgp_facts_on_hosts = {}
 
         logger.info("======================= check_bgp_session_state starts =======================")
@@ -220,7 +220,7 @@ class TestbedHealthCheck:
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
 
-        failed = True
+        failed = False
         interface_facts_on_hosts = {}
 
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
