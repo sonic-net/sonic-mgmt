@@ -7,6 +7,7 @@ from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
 from tests.common.mellanox_data import get_hw_management_version, get_platform_data
+from .minimum_table import get_min_table
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -1254,6 +1255,56 @@ class AbnormalFanMocker(SingleFanMocker):
         self.fan_data.mock_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.fan_data.mock_target_speed(AbnormalFanMocker.TARGET_SPEED_VALUE)
         self.expect_led_color = 'green'
+
+
+@mocker('MinTableMocker')
+class MinTableMocker(object):
+    FAN_AMB_PATH = 'fan_amb'
+    PORT_AMB_PATH = 'port_amb'
+    TRUST_PATH = 'module1_temp_fault'
+    LIST_THERMAL_ZONE_TEMPERATURE_FILE = 'ls /run/hw-management/thermal/mlxsw*/thermal_zone_temp'
+    NORMAL_TEMPERATURE = 40000
+
+    def __init__(self, dut):
+        self.mock_helper = MockerHelper(dut)
+
+    def get_expect_cooling_level(self, temperature, trust_state):
+        minimum_table = get_min_table(self.mock_helper.dut)
+        row = minimum_table['unk_{}'.format(
+            'trust' if trust_state else 'untrust')]
+        temperature = temperature / 1000
+        for range_str, cooling_level in list(row.items()):
+            range_str_list = range_str.split(':')
+            min_temp = int(range_str_list[0])
+            max_temp = int(range_str_list[1])
+            if min_temp <= temperature <= max_temp:
+                return cooling_level - 10
+
+        return None
+
+    def mock_min_table(self, temperature, trust_state):
+        trust_value = '0' if trust_state else '1'
+        fan_temp = temperature
+        port_temp = temperature
+
+        self.mock_helper.mock_thermal_value(self.FAN_AMB_PATH, str(fan_temp))
+        self.mock_helper.mock_thermal_value(self.PORT_AMB_PATH, str(port_temp))
+        self.mock_helper.mock_thermal_value(self.TRUST_PATH, str(trust_value))
+
+    def mock_normal_temperature(self):
+        output = self.mock_helper.dut.shell(
+            self.LIST_THERMAL_ZONE_TEMPERATURE_FILE)
+        for thermal_file in output['stdout_lines']:
+            if self.mock_helper.read_value(thermal_file) != '0':
+                self.mock_helper.mock_value(
+                    thermal_file, self.NORMAL_TEMPERATURE)
+
+    def deinit(self):
+        """
+        Destructor of MinTableMocker.
+        :return:
+        """
+        self.mock_helper.deinit()
 
 
 @mocker('PsuMocker')
