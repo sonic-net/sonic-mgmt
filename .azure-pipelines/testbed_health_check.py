@@ -25,6 +25,7 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
+from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa E402
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,14 @@ class TestbedCheckResult(ElastictestCommonResponse):
     pass
 
 
+class TestbedConditionalCheckFailed(Exception):
+    pass
+
+
+class TestbedUnhealthy(Exception):
+    pass
+
+
 class TestbedHealthCheck:
     """
     Testbed health check class
@@ -74,32 +83,50 @@ class TestbedHealthCheck:
     def run_check(self):
         try:
 
+            self.conditional_check()
+
             # Check if critical containers are running
             self.check_critical_containers_running()
-            if self.check_result.code != 0:
-                logger.info("Check finished. Testbed is unhealthy: {}".format(self.check_result.errmsg))
-                return
 
             # Check bgp sessions
             self.check_bgp_session_state()
-            if self.check_result.code != 0:
-                logger.info("Check finished. Testbed is unhealthy: {}".format(self.check_result.errmsg))
-                return
 
             # Check interfaces status
             self.check_interface_status_of_up_ports()
-            if self.check_result.code != 0:
-                logger.info("Check finished. Testbed is unhealthy: {}".format(self.check_result.errmsg))
-                return
 
             logger.info("Check finished. Testbed is healthy.")
 
-        except Exception as e:
-            logger.info("Exception occurred during checking: {}".format(e))
-            # todo: currently, host unreachable will raise exception, but others run ansible module fail as well.
-            #  Should figure out and distinguish them in the future.
+        except TestbedConditionalCheckFailed as e:
+            # catch exception: TestbedConditionalCheckFailed
+            logger.info("Testbed conditional check failed, skip check current testbed health: {}".format(e))
+            # Currently, if the testbed conditional check fails, skip it and consider it healthy.
+            self.check_result.code = 0
+            self.check_result.data = str(e)
+
+        except TestbedUnhealthy as e:
+            # catch exception: TestbedUnhealthy
+            self.check_result.code = 1
+            logger.info("Check finished. Testbed is unhealthy: {}".format(e))
+
+        except HostsUnreachable as e:
+            # catch exception: HostsUnreachable
+            logger.info("Host unreachable: {}".format(e))
             self.check_result.code = 2
             self.check_result.errmsg = ["Host unreachable."]
+            self.check_result.data = str(e)
+
+        except RunAnsibleModuleFailed as e:
+            # catch exception: RunAnsibleModuleFailed
+            logger.info("Run ansible module failed: {}".format(e))
+            self.check_result.code = 3
+            self.check_result.errmsg = ["Run ansible module failed."]
+            self.check_result.data = str(e)
+
+        except Exception as e:
+            # catch other exceptions
+            logger.info("An error occurred: {}".format(e))
+            self.check_result.code = 4
+            self.check_result.errmsg = ["An error occurred."]
             self.check_result.data = str(e)
 
         finally:
@@ -107,6 +134,37 @@ class TestbedHealthCheck:
             if self.output_file:
                 with open(self.output_file, "w") as f:
                     f.write(json.dumps(self.check_result.__dict__, separators=(",", ":")))
+
+    def conditional_check(self):
+        """
+        Perform conditional check before checking testbeds health.
+        Currently, if failed, regard it as healthy and skip.
+        """
+
+        logger.info("======================= conditional_check starts =======================")
+
+        failed = False
+        errmsg = ""
+
+        # Retrieve the basic facts of the DUTs
+        duts_basic_facts = self.sonichosts.dut_basic_facts()
+
+        for dut_name, single_dut_basic_facts in duts_basic_facts.items():
+
+            # Get the basic facts of one DUT
+            dut_basic_facts = single_dut_basic_facts["ansible_facts"]["dut_basic_facts"]
+
+            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
+            if dut_basic_facts["is_multi_asic"]:
+                errmsg = "Not support to perform checks on multi-asic DUT now."
+                logger.info(errmsg)
+                failed = True
+                break
+
+        logger.info("======================= conditional_check ends =======================")
+
+        if failed:
+            raise TestbedConditionalCheckFailed(errmsg)
 
     def check_bgp_session_state(self, state="established"):
         """
@@ -116,7 +174,7 @@ class TestbedHealthCheck:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
-        check_passed = True
+        failed = True
         bgp_facts_on_hosts = {}
 
         logger.info("======================= check_bgp_session_state starts =======================")
@@ -124,6 +182,7 @@ class TestbedHealthCheck:
         for sonichost in self.sonichosts:
 
             hostname = sonichost.hostname
+
             logger.info("----------------------- check_bgp_session_state on [{}] -----------------------".format(
                 hostname))
 
@@ -143,23 +202,25 @@ class TestbedHealthCheck:
             logger.info(errlog)
 
             if len(neigh_not_ok) > 0:
-                # Set the flag check_passed to False if any BGP neighbors are not established
-                check_passed = False
+                # Set failed to True if any BGP neighbors are not established
+                failed = True
                 # Add errlog to check result errmsg
                 self.check_result.errmsg.append(errlog)
 
         # Set the check result
-        self.check_result.code = 0 if check_passed else 1
         self.check_result.data["bgp_facts_on_hosts"] = bgp_facts_on_hosts
 
         logger.info("======================= check_bgp_session_state ends =======================")
+
+        if failed:
+            raise TestbedUnhealthy(self.check_result.errmsg)
 
     def check_interface_status_of_up_ports(self):
         """
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
 
-        check_passed = True
+        failed = True
         interface_facts_on_hosts = {}
 
         logger.info("======================= check_interface_status_of_up_ports starts =======================")
@@ -170,15 +231,6 @@ class TestbedHealthCheck:
             logger.info(
                 "----------------------- check_interface_status_of_up_ports on [{}] -----------------------".format(
                     hostname))
-
-            # Retrieve the basic facts of the DUT
-            dut_basic_facts = sonichost.dut_basic_facts()["ansible_facts"]["dut_basic_facts"]
-
-            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
-            if dut_basic_facts["is_multi_asic"]:
-                logger.info('Not support to check interfaces status on multi-asic DUT now.')
-                interface_facts_on_hosts[hostname] = 'Not support to check interfaces status on multi-asic DUT now.'
-                continue
 
             # Retrieve the configuration facts for the DUT
             cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
@@ -200,16 +252,18 @@ class TestbedHealthCheck:
 
             # Check if there are any link down ports in the interface facts
             if len(interface_facts['ansible_interface_link_down_ports']) > 0:
-                # Set the flag check_passed to False if any BGP neighbors are not established
-                check_passed = False
+                # Set failed to True if any BGP neighbors are not established
+                failed = True
                 # Add errlog to check result errmsg
                 self.check_result.errmsg.append(errlog)
 
         # Set the check result
-        self.check_result.code = 0 if check_passed else 1
         self.check_result.data["interface_facts_on_hosts"] = interface_facts_on_hosts
 
         logger.info("======================= check_interface_status_of_up_ports ends =======================")
+
+        if failed:
+            raise TestbedUnhealthy(self.check_result.errmsg)
 
     def check_critical_containers_running(self, critical_containers: list = None):
         """
@@ -223,7 +277,7 @@ class TestbedHealthCheck:
         if not critical_containers:
             critical_containers = ["syncd", "swss", "bgp"]
 
-        check_passed = True
+        failed = False
 
         logger.info("======================= check_critical_containers_running starts =======================")
 
@@ -242,19 +296,18 @@ class TestbedHealthCheck:
 
                 # If the critical container is not running, add an error log
                 if critical_container not in running_containers:
-                    # Set the flag check_passed to False if any critical container is not running
-                    check_passed = False
-
+                    # Set failed to True if any critical containers not running
+                    failed = True
+                    # Log the error
                     errlog = "{} is not running on {}.".format(critical_container, hostname)
                     logger.info(errlog)
-
                     # Add errlog to check result errmsg
                     self.check_result.errmsg.append(errlog)
 
-        # Set the check result
-        self.check_result.code = 0 if check_passed else 1
-
         logger.info("======================= check_critical_containers_running ends =======================")
+
+        if failed:
+            raise TestbedUnhealthy(self.check_result.errmsg)
 
 
 def validate_args(args):
