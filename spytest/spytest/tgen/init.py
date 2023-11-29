@@ -89,7 +89,9 @@ def tg_ixia_load(version, logger, logs_path=None):
                         "9.0": "9.00", "9.00": "9.00",
                         "9.1": "9.10", "9.10": "9.10",
                         "9.2": "9.20", "9.20": "9.20",
-                        "9.24": "9.24", "9.31": "9.31"}
+                        "9.24": "9.24", "9.31": "9.31",
+                        "9.27": "9.27", "9.28": "9.28",
+                        "9.3": "9.30", "9.30": "9.30"}
     version_string = str(version)
     version_string = ixia_version_map.get(version_string, version_string)
     if (version_string not in ixia_version_map
@@ -106,6 +108,9 @@ def tg_ixia_load(version, logger, logs_path=None):
                        '9.10': 'HLTSET237',
                        '9.20': 'HLTSET249',
                        '9.24': 'HLTSET251',
+                       '9.27': 'HLTSET255',
+                       '9.28': 'HLTSET257',
+                       '9.30': 'HLTSET259',
                        '9.31': 'HLTSET261',
                        }
 
