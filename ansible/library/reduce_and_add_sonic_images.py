@@ -212,7 +212,6 @@ def install_new_sonic_image(module, new_image_url, save_as=None):
         )
 
 
-
 def work_around_for_slow_disks(module):
     # Increase hung task timeout to 600 seconds to avoid kernel panic
     # while writing lots of data to a slow disk.
