@@ -3,7 +3,6 @@ import pytest
 import os
 import sys
 
-from tests.common.utilities import wait_until
 from tests.common.utilities import InterruptableThread
 from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
@@ -58,14 +57,14 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
 
     # Test eventd heartbeat event first
 
-    file = "./telemetry/events/eventd_events.py"
+    file = "eventd_events.py"
     module = __import__(file[:len(file)-3])
-    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, valdidate_yang)
+    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
 
     # Test rest of events
 
     for file in os.listdir(EVENTS_TESTS_PATH):
-        if file.endswith("bgp_events.py") and not file.endswith("eventd_events.py"):
+        if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
@@ -91,7 +90,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     # Publish first M events
     event_publish_tool(duthost, "first_part_ip_file")
 
-    event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost, "test-event-source:test", received_op_file, 30))
+    event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost, "test-event-source:test", received_op_file, 30, N, N-1))
     event_thread.start()
 
     # Publish second batch of events
@@ -100,4 +99,4 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     event_thread.join(30)
 
     # Verify received output
-    verify_received_output(duthost, received_op_file)
+    verify_received_output(received_op_file, N)

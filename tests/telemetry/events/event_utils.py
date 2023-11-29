@@ -1,5 +1,7 @@
 import logging
 import os
+import json
+import re
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -63,7 +65,11 @@ def event_publish_tool(duthost, json_file):
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
 
 
-def verify_received_output(duthost, received_file):
-    dest = "~/received_op_file"
-    duthost.copy(src=received_file, dest=dest)
-    duthost.shell("cat ~/received_op_file")
+def verify_received_output(received_file, N):
+    key = "test_key"
+    with open(received_file, 'r') as file:
+        json_array = json.load(file)
+        pytest_assert(len(json_array) == N, "Expected {} events, but found {}".format(N, len(json_array)))
+        for i in range (0, len(json_array)):
+            block = json_array[i]["test-event-source:test"]
+            pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0, "Missing key or incorrect value")
