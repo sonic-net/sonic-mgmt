@@ -170,7 +170,7 @@ stages:
           RETRY_TIMES: "0"
 
 - stage: Test_round_2
-  dependsOn: 
+  dependsOn:
   - Pre_test
   - Test_round_1
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_1'))
@@ -317,7 +317,7 @@ stages:
           RETRY_TIMES: "0"
 
 - stage: Test_round_3
-  dependsOn: 
+  dependsOn:
   - Pre_test
   - Test_round_2
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_2'))
@@ -464,7 +464,7 @@ stages:
           RETRY_TIMES: "0"
 
 - stage: Test_round_4
-  dependsOn: 
+  dependsOn:
   - Pre_test
   - Test_round_3
   condition: and(succeeded('Pre_test'), succeededOrFailed('Test_round_3'))
