@@ -1,4 +1,7 @@
 {
+    "t2-min": {
+        "sfd": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
+    },
     "t0": {
         "churchill-mono": "../pyvxr_yaml_files/churchill_mono_sonic_t0_topo.yaml"
     },

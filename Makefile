@@ -34,6 +34,7 @@ create_sonic_topo:
 		--tar_ball $(GOLDENCODE) \
 		--clean_sim \
 		--cicd \
+		$(SIM_ADDITIONAL_PARAMS) \
 	"
 
 clear_sim:
@@ -66,7 +67,9 @@ run_sanity:
 		--docker_mgmt_container='${DOCKER_MGMT_CONTAINER}' \
 		--sonic_test_dir='${SONIC_TEST_DIR}' \
 		--create_allure_report \
-		--additional_tests='${ADDITIONAL_TESTS}'"
+		--additional_tests='${ADDITIONAL_TESTS}' \
+		$(SIM_ADDITIONAL_PARAMS) \
+	"
 
 t0_run:
 	echo "run T0 testing..."
