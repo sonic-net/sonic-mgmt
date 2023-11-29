@@ -149,15 +149,6 @@ fanout:
     bjw-can-7215-13:
       ansible_host: 10.150.22.132
       os: sonic
-    bjw-can-3800-2:
-      ansible_host: 10.150.22.136
-      os: sonic
-    bjw-can-4600c-2:
-      ansible_host: 10.150.22.138
-      os: sonic
-    bjw-can-2700-4:
-      ansible_host: 10.150.22.140
-      os: sonic
     bjw-can-z9332f-5:
       ansible_host: 10.150.22.141
       os: sonic
@@ -170,6 +161,16 @@ fanout:
     bjw-slx-can-1:
       ansible_host: 10.150.22.104
       os: sonic
+    bjw-can-7260-1:
+      ansible_host: 10.150.22.147
+    bjw-can-7260-2:
+      ansible_host: 10.150.22.148
+    bjw-can-7260-3:
+      ansible_host: 10.150.22.149
+    bjw-can-7260-4:
+      ansible_host: 10.150.22.150
+    bjw-can-7260-5:
+      ansible_host: 10.150.22.151
 
 sonic:
   vars:
@@ -463,6 +464,9 @@ sonic_mlnx_sn2700:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x55EBE5E5"
+    bjw-can-2700-4:
+      ansible_host: 10.150.22.140
+      # todo
 
 sonic_nokia_7215:
   vars:
@@ -595,6 +599,9 @@ sonic_mlnx_sn3800:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0xC12E2792"
+    bjw-can-3800-2:
+      ansible_host: 10.150.22.136
+      # todo
 
 sonic_mlnx_sn4600c:
   vars:
@@ -617,6 +624,9 @@ sonic_mlnx_sn4600c:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x4D23FBB2"
+    bjw-can-4600c-2:
+      ansible_host: 10.150.22.138
+      # todo
 
 sonic_nokia_sup:
   vars:
@@ -760,3 +770,6 @@ mgmt:
       os: sonic
     bjw-can-4kts-1:
       ansible_host: 10.150.22.12
+    bjw-can-e1031-2:
+      ansible_host: 10.150.22.13
+      os: sonic
