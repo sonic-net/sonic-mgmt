@@ -565,6 +565,16 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
+        "--build-reason",
+        type=str,
+        dest="build_reason",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Build reason"
+    )
+    parser_create.add_argument(
         "--repo-name",
         type=str,
         dest="repo_name",
@@ -840,7 +850,7 @@ if __name__ == "__main__":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = os.environ.get("BUILD_REASON")
+            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
