@@ -19,6 +19,7 @@ PORT_TOGGLE_TIMEOUT = 30
 
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
+
 def skip_test_for_multi_asic(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
@@ -406,11 +407,13 @@ def test_show_pfc_counters(setup, setup_config_mode):
     if mode == 'alias':
         for alias in setup['port_alias']:
             assert (alias in pfc_rx_names) and (alias in pfc_tx_names)
-            assert (setup['port_alias_map'][alias] not in pfc_rx_names) and (setup['port_alias_map'][alias] not in pfc_tx_names)
+            assert (setup['port_alias_map'][alias] not in pfc_rx_names) and \
+                (setup['port_alias_map'][alias] not in pfc_tx_names)
     elif mode == 'default':
         for intf in setup['default_interfaces']:
             assert (intf in pfc_rx_names) and (intf in pfc_tx_names)
-            assert (setup['port_name_map'][intf] not in pfc_rx_names) and (setup['port_name_map'][intf] not in pfc_tx_names)
+            assert (setup['port_name_map'][intf] not in pfc_rx_names) and \
+                (setup['port_name_map'][intf] not in pfc_tx_names)
 
 
 class TestShowPriorityGroup():
@@ -542,9 +545,9 @@ class TestShowQueue():
                 if intf not in setup['port_name_map']:
                     continue
                 assert (re.search(QUEUE_COUNTERS_RE_FMT.format(intf),
-                    queue_counter) is not None) \
+                                  queue_counter) is not None) \
                     and (re.search(QUEUE_COUNTERS_RE_FMT.format(setup['port_name_map'][intf]),
-                        queue_counter) is None)
+                                   queue_counter) is None)
                 intfsChecked += 1
 
         # At least one interface should have been checked to have a valid result
