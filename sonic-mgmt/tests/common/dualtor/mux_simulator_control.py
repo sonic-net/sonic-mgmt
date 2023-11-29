@@ -1,3 +1,4 @@
+import inspect
 import logging
 import pytest
 import time
@@ -175,11 +176,16 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        session.mount('http://', HTTPAdapter(max_retries=Retry(
-            total=3, connect=3, backoff_factor=1,
-            allowed_methods=frozenset(['GET', 'POST']),
-            status_forcelist=[x for x in requests.status_codes._codes if x != 200]
-        )))
+        if "allowed_methods" in inspect.getargspec(Retry).args:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          allowed_methods=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+        else:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          method_whitelist=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+
+        session.mount('http://', HTTPAdapter(max_retries=retry))
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
