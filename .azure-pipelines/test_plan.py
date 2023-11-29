@@ -565,12 +565,14 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--azp-pr-id",
+        "--build-reason",
         type=str,
-        dest="azp_pr_id",
-        default="",
+        dest="build_reason",
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
-        help="Pullrequest ID from Azure Pipelines"
+        help="Build reason"
     )
     parser_create.add_argument(
         "--repo-name",
@@ -845,9 +847,10 @@ if __name__ == "__main__":
             env["client_secret"])
 
         if args.action == "create":
-            pr_id = args.azp_pr_id if args.azp_pr_id else os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
+            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
+                "SYSTEM_PULLREQUEST_PULLREQUESTID")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = os.environ.get("BUILD_REASON")
+            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")

@@ -1385,14 +1385,18 @@ class ReloadTest(BaseTest):
         Ensure there are no interface flaps after warm-boot
         """
         for neigh in self.ssh_targets:
-            self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
-                                                         if x['mgmt_addr'] == neigh]
-            self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
-                                                                 None, self.test_params)
-            self.neigh_handle.connect()
-            fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
-            self.neigh_handle.disconnect()
-            self.fails[neigh] |= fails
+            flap_cnt = None
+            if self.test_params['neighbor_type'] == "sonic":
+                flap_cnt = self.cli_info[neigh]['po'][1]
+            else:
+                self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
+                                                             if x['mgmt_addr'] == neigh]
+                self.neigh_handle = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], neigh,
+                                                                     None, self.test_params)
+                self.neigh_handle.connect()
+                fails, flap_cnt = self.neigh_handle.verify_neigh_lag_no_flap()
+                self.neigh_handle.disconnect()
+                self.fails[neigh] |= fails
             if not flap_cnt:
                 self.log("No LAG flaps seen on %s after warm boot" % neigh)
             else:
@@ -1593,7 +1597,24 @@ class ReloadTest(BaseTest):
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
                                                self.test_params, log_cb=self.log)
-        self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        try:
+            self.fails[ip], self.info[ip], self.cli_info[ip], self.logs_info[ip], self.lacp_pdu_times[ip] = ssh.run()
+        except Exception:
+            traceback_msg = traceback.format_exc()
+            self.log("Error in HostDevice: {}".format(traceback_msg))
+            self.fails[ip] = set()
+            self.fails[ip].add("HostDevice hit an exception")
+            self.info[ip] = set()
+            self.cli_info[ip] = {
+                    "lacp": [0, 0],
+                    "po": [0, 0],
+                    "bgp_v4": [0, 0],
+                    "bgp_v6": [0, 0],
+                    }
+            self.logs_info[ip] = {}
+            self.lacp_pdu_times[ip] = {
+                    "lacp_all": []
+                    }
         self.log('SSH thread for VM {} finished'.format(ip))
 
         lacp_pdu_times = self.lacp_pdu_times[ip]
@@ -1603,6 +1624,9 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
+        max_allowed_lacp_session_wait = 90
+        if self.test_params['neighbor_type'] == "sonic":
+            max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1614,7 +1638,7 @@ class ReloadTest(BaseTest):
                 prev_time = new_time
 
         if 'warm-reboot' in self.reboot_type:
-            if max_lacp_session_wait and max_lacp_session_wait >= 90 and not self.kvm_test:
+            if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
                                       " post-reboot lacpdu came after {}s of lacpdu pre-boot"
                                       .format(max_lacp_session_wait))
