@@ -42,6 +42,12 @@ ignored_iptable_rules = [
     '-A INPUT -d 10.212.64.2/32 -p tcp -m tcp --dport 8090 -j ACCEPT'
 ]
 
+ignored_ip6table_rules = [
+    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 2603:1061:1000::/40 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 2603:1061:1000::/40 -p tcp -m tcp --dport 8081 -j ACCEPT'
+]
 IGNORE_BGP_PORT_VERSION = ["internal", "master"]
 
 
@@ -933,7 +939,7 @@ def verify_cacl(duthost, tbinfo, localhost, creds, docker_network,
                   .format(repr(missing_ip6tables_rules)))
 
     # Ensure there are no unexpected ip6tables rules present on the DuT
-    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules)
+    unexpected_ip6tables_rules = set(actual_ip6tables_rules) - set(expected_ip6tables_rules) - set(ignored_ip6table_rules)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
 
