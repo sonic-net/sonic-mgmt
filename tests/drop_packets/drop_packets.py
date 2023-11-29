@@ -866,7 +866,7 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
+    setattr(pkt[packet.IP], pkt_field, value)
 
     group = "L3"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
@@ -887,8 +887,8 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    tcp = pkt[testutils.scapy.scapy.all.TCP]
-    del pkt[testutils.scapy.scapy.all.IP]
+    tcp = pkt[packet.TCP]
+    del pkt[packet.IP]
     pkt.type = 0x800
     pkt = pkt/tcp
 
