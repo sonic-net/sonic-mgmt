@@ -144,7 +144,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
                 action = _recover_services(dut, result)
             elif result['check_item'] == 'bgp' or result['check_item'] == "neighbor_macsec_empty":
                 action = neighbor_vm_restore(dut, nbrhosts, tbinfo, result)
-            elif result['check_item'] in ['processes', 'mux_simulator']:
+            elif result['check_item'] == 'mux_simulator':
                 action = 'config_reload'
             else:
                 action = 'reboot'
