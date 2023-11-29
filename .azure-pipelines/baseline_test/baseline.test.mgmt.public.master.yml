@@ -41,7 +41,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -59,7 +59,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -79,7 +79,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -97,7 +97,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -116,7 +116,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -136,7 +136,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -157,7 +157,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -188,7 +188,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -206,7 +206,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -226,7 +226,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -244,7 +244,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -263,7 +263,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -283,7 +283,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -304,7 +304,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -335,7 +335,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -353,7 +353,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -373,7 +373,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -391,7 +391,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -410,7 +410,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -430,7 +430,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -451,7 +451,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -482,7 +482,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -500,7 +500,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -520,7 +520,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
     - template: ../../run-test-elastictest-template.yml
       parameters:
@@ -538,7 +538,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -557,7 +557,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -577,7 +577,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
@@ -598,7 +598,7 @@ stages:
     continueOnError: false
     pool: ubuntu-20.04
     strategy:
-      parallel: 5
+      parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
     steps:
       - template: ../../run-test-elastictest-template.yml
         parameters:
