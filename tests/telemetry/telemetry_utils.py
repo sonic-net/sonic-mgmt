@@ -94,7 +94,6 @@ def parse_gnmi_output(gnmi_output, match_no, find_data):
 def fetch_json_ptf_output(regex, output, match_no):
     match = re.findall(regex, output)
     assert len(match) > match_no, "Not able to parse json from output"
-    logger.info(match)
     return match[:match_no+1]
 
 
