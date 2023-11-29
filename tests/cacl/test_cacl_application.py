@@ -42,9 +42,9 @@ ignored_iptable_rules = [
     '-A INPUT -d 10.212.64.2/32 -p tcp -m tcp --dport 8090 -j ACCEPT'
 ]
 ignored_ip6table_rules = [
-    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8081 -j ACCEPT'
-    '-A INPUT -s 2603:1061:1000::/40 -p tcp -m tcp --dport 8090 -j ACCEPT'
-    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8090 -j ACCEPT'
+    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8081 -j ACCEPT',
+    '-A INPUT -s 2603:1061:1000::/40 -p tcp -m tcp --dport 8090 -j ACCEPT',
+    '-A INPUT -s 2603:10e2:1100::/40 -p tcp -m tcp --dport 8090 -j ACCEPT',
     '-A INPUT -s 2603:1061:1000::/40 -p tcp -m tcp --dport 8081 -j ACCEPT'
 ]
 
