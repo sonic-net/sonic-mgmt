@@ -97,13 +97,15 @@ def fetch_json_ptf_output(regex, output, match_no):
     logger.info(match)
     return match[:match_no+1]
 
+
 def listen_for_event(ptfhost, cmd, results):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker was not able to query EVENTS path"
     results[0] = ret["stdout"]
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1, match_number=0):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1, 
+                      match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)

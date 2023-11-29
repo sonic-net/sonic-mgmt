@@ -70,6 +70,7 @@ def verify_received_output(received_file, N):
     with open(received_file, 'r') as file:
         json_array = json.load(file)
         pytest_assert(len(json_array) == N, "Expected {} events, but found {}".format(N, len(json_array)))
-        for i in range (0, len(json_array)):
+        for i in range(0, len(json_array)):
             block = json_array[i]["test-event-source:test"]
-            pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0, "Missing key or incorrect value")
+            pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0,
+                          "Missing key or incorrect value")
