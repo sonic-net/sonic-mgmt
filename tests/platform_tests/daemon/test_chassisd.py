@@ -18,7 +18,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
-from collections import OrderedDict
 
 logger = logging.getLogger(__name__)
 
