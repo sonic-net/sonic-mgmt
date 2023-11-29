@@ -48,7 +48,7 @@ def do_init(duthost):
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
     """Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
-    
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events testing")
 
@@ -90,7 +90,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     # Publish first M events
     event_publish_tool(duthost, "first_part_ip_file")
 
-    event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost, 
+    event_thread = InterruptableThread(target=listen_for_events, args=(duthost, gnxi_path, ptfhost,
                                        "test-event-source:test", received_op_file, 30, N, N-1))
     event_thread.start()
 
