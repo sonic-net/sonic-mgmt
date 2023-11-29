@@ -203,7 +203,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     lpmode_show = duthost.command(cmd_sfp_show_lpmode)
     parsed_lpmode = parse_output(lpmode_show["stdout_lines"][2:])
     for intf in dev_conn:
-        if intf not in xcvr_skip_list[duthost.hostname]:
+        if intf not in xcvr_skip_list[duthost.hostname] and portmap[intf][0] not in not_supporting_lpm_physical_ports:
             assert intf in parsed_lpmode, "Interface is not in output of '{}'".format(cmd_sfp_show_lpmode)
             expected_lpmode = "off" if original_lpmode[intf].lower() == "on" else "on"
             assert parsed_lpmode[intf].lower() == expected_lpmode, \
