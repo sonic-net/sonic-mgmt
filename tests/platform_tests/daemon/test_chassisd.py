@@ -84,12 +84,11 @@ def collect_data(duthost):
         data = duthost.shell('sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout_lines']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
-    data_dict = {'keys': keys, 'data': dev_data}
-    return OrderedDict(sorted(data_dict.items()))
+    return {'keys': keys, 'data': dev_data}
 
 def wait_data(duthost, expected_key_count):
     class shared_scope:
-        data_after_restart = OrderedDict()
+        data_after_restart = {}
     def _collect_data():
         shared_scope.data_after_restart = collect_data(duthost)
         data_key_found = len(shared_scope.data_after_restart['data'])
