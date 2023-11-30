@@ -185,7 +185,7 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
             power_class_docker_cmd = asichost.get_docker_cmd(power_class_cmd, "database")
             power_class = duthost.command(power_class_docker_cmd)["stdout"]
 
-            if "QSFP" not in sfp_type or "Power Class 1" in power_class:
+            if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or "Power Class 1" in power_class:
                 logging.info("skip testing port {} which doesn't support LPM".format(intf))
                 not_supporting_lpm_physical_ports.add(phy_intf)
                 continue
