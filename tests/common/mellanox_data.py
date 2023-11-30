@@ -1,4 +1,6 @@
 
+import functools
+
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
                "ACS-MSN2010", "ACS-SN2201"]
 SPC2_HWSKUS = ["ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"]
@@ -901,3 +903,27 @@ def get_platform_data(dut):
 def get_chip_type(dut):
     platform_data = get_platform_data(dut)
     return platform_data.get("chip_type")
+
+
+def read_only_cache():
+    """Decorator to cache return value for a method/function once.
+       This decorator should be used for method/function when:
+       1. Executing the method/function takes time. e.g. reading sysfs.
+       2. The return value of this method/function never changes.
+    """
+    def decorator(method):
+        method.return_value = None
+
+        @functools.wraps(method)
+        def _impl(*args, **kwargs):
+            if not method.return_value:
+                method.return_value = method(*args, **kwargs)
+            return method.return_value
+        return _impl
+    return decorator
+
+
+@read_only_cache()
+def get_hw_management_version(duthost):
+    full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
+    return full_version[len('1.mlnx.'):]
