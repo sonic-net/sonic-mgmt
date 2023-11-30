@@ -97,9 +97,9 @@ class AIML_Config:
                   pytest.fail("{} failed ".format(getcmd))
               v_orig=rc['stdout']
               setattr(self, k, v_orig)
-              logging.info("key {} saving val {}".format(k, v_orig))
+              logging.info("for key '{}' saving value '{}'".format(k, v_orig))
               new_val=valdict[k]
-              setcmd="redis-cli -n 4 HSET '{}' {} {}".format(t, k, new_val)
+              setcmd="redis-cli -n 4 HSET '{}' {} '{}'".format(t, k, new_val)
               duthost.shell(setcmd) # first set return an error
               logging.info("executing {} ".format(setcmd))
               try:
@@ -109,21 +109,20 @@ class AIML_Config:
                   pytest.fail("{} failed error: {}".format(setcmd, rc['stdout']))
 
 
-  def __del__(self, duthost, aiml_special_cfg):
+  def reset_config(self, duthost, aiml_special_cfg):
       # reset the original config
-      for t, v in (aiml_special_cfg):
+      for t in (aiml_special_cfg):
           v = aiml_special_cfg[t]
-          if list(v):
-              for k in v:
-                  val = getattr(self, k)
-                  logging.info("for key {} retrieved val {}, setting".format(k, val))
-                  setcmd="redis-cli -n 4 HSET '{}' {} {}".format(t, k, val)
-                  logging.info("executing {} ".format(setcmd))
-                  try:
-                      rc = duthost.shell(setcmd)
-                      print_rc(setcmd, rc)
-                  except:
-                      pytest.fail("{} failed to set original value, error: {}".format(setcmd, rc['stdout']))
+          for k in v:
+              val = getattr(self, k)
+              logging.info("for key '{}' setting retrieved value '{}'".format(k, val))
+              setcmd="redis-cli -n 4 HSET '{}' {} '{}'".format(t, k, val)
+              logging.info("executing {} ".format(setcmd))
+              try:
+                  rc = duthost.shell(setcmd)
+                  print_rc(setcmd, rc)
+              except:
+                  pytest.fail("{} failed to set original value, error: {}".format(setcmd, rc['stdout']))
 
 
 @pytest.mark.parametrize("aiml_pid_sku", aiml_pid_sku)
@@ -134,4 +133,4 @@ def test_aiml_qos_config(duthosts, aiml_pid_sku, mmucommand):
             pytest.skip("Test is only supported for cisco-8000")
         obj = AIML_Config(duthost, aiml_special_cfg, mmucommand)
         run_mmu_config(duthost, aiml_pid_sku, mmucommand)
-    # post test run, verified in dut that the type/resource_type are LeafRouter/nil
+        obj.reset_config(duthost, aiml_special_cfg)
