@@ -535,6 +535,16 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                                        self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
+        for dut_i in self.test_port_ids:
+            for asic_i in self.test_port_ids[dut_i]:
+                for dst_port_id in self.test_port_ids[dut_i][asic_i]:
+                    dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
+                    dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+                    arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
+                                                   1, dst_port_ip['peer_addr'], '192.168.0.1',
+                                                   '00:00:00:00:00:00', None)
+                    send_packet(self, dst_port_id, arpreq_pkt)
+
         # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
         if self.test_port_ips:
             ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
@@ -3118,7 +3128,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
-        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
@@ -3144,7 +3154,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
         # Release port
-        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
 
         cnt = 0
         pkts = []

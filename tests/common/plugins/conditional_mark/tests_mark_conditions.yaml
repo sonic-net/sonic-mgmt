@@ -99,6 +99,12 @@ bgp/test_bgp_multipath_relax.py:
     conditions:
       - "'backend' in topo_name"
 
+bgp/test_bgp_queue.py:
+  skip:
+    reason: "Unsupported topology"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb."
@@ -402,7 +408,7 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-defaul
   skip:
     reason: "Skip everflow per interface IPv6 test on unsupported platforms"
     conditions:
-      - "asic_type in ['cisco-8000', 'marvell', 'mellanox']"
+      - "asic_type in ['cisco-8000', 'marvell', 'mellanox'] or (asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-swss/issues/2204)"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vlan_scenario]:
   skip:
@@ -645,21 +651,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
-
-#######################################
-#####     override_config_table   #####
-#######################################
-override_config_table/test_override_config_table.py:
-  skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
-    conditions:
-      - is_multi_asic == True
-
-override_config_table/test_override_config_table_masic.py:
-  skip:
-    reason: "Skip override-config-table-masic testing on single-asic platforms, test provided golden config format is not compatible with single-asics"
-    conditions:
-      - is_multi_asic == False
 
 #######################################
 #####           pc               #####
