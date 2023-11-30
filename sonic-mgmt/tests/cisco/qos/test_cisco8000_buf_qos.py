@@ -109,7 +109,7 @@ class AIML_Config:
                   pytest.fail("{} failed error: {}".format(setcmd, rc['stdout']))
 
 
-  def __del__(duthost, aiml_special_cfg):
+  def __del__(self, duthost, aiml_special_cfg):
       # reset the original config
       for t, v in (aiml_special_cfg):
           v = aiml_special_cfg[t]
