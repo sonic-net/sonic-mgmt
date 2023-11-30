@@ -227,6 +227,7 @@ class TestQosSai(QosSaiBase):
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile, dualtor_ports_for_duts
     ):
+        import pdb; pdb.set_trace()
         logger.info("asictype {}".format(get_src_dst_asic_and_duts['src_dut'].facts["asic_type"]))
         logger.info("config {}".format(dutConfig))
         logger.info("qosConfig {}".format(dutQosConfig))
