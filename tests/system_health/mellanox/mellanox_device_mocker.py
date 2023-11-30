@@ -1,12 +1,12 @@
 from ..device_mocker import DeviceMocker
-from tests.common.mellanox_data import get_platform_data
+from pkg_resources import parse_version
+from tests.common.mellanox_data import get_platform_data, get_hw_management_version
 from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
 
 class AsicData(object):
     TEMPERATURE_FILE = '/run/hw-management/thermal/asic'
-    THRESHOLD_FILE = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
 
     def __init__(self, mock_helper):
         self.helper = mock_helper
@@ -15,7 +15,11 @@ class AsicData(object):
         self.helper.mock_value(AsicData.TEMPERATURE_FILE, str(value))
 
     def get_asic_temperature_threshold(self):
-        value = self.helper.read_value(AsicData.THRESHOLD_FILE)
+        threshold_file = '/run/hw-management/thermal/asic_temp_emergency'
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+            threshold_file = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
+        value = self.helper.read_value(threshold_file)
         return int(value)
 
 
