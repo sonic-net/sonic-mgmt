@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
+from pkg_resources import parse_version
 
 logger = logging.getLogger(__name__)
 
@@ -412,6 +413,12 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             "docker_cmds":
                 add_asic_arg("{}", docker_cmds, num)}
     )
+
+    # /proc/sched_debug has been moved to debugfs starting with 5.13.0, and is
+    # currently collected only on the older kernel versions
+    if parse_version(duthost.kernel_version) < parse_version('5.13.0'):
+        cmds.copy_proc_files.append("/proc/sched_debug")
+
     if duthost.facts["asic_type"] == "broadcom":
         if duthost.facts.get("platform_asic") == "broadcom-dnx":
             asic_cmds = cmds.broadcom_cmd_bcmcmd_dnx

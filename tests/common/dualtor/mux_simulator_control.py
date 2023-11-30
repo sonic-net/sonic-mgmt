@@ -1,3 +1,4 @@
+import inspect
 import logging
 import pytest
 import time
@@ -5,6 +6,9 @@ import json
 import uuid
 
 import requests
+from requests.packages.urllib3.util import Retry
+from requests.adapters import HTTPAdapter
+from requests import Session
 
 from tests.common import utilities
 from tests.common.dualtor.dual_tor_common import cable_type                             # noqa F401
@@ -171,10 +175,21 @@ def _post(server_url, data):
         True if succeed. False otherwise
     """
     try:
+        session = Session()
+        if "allowed_methods" in inspect.getargspec(Retry).args:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          allowed_methods=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+        else:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          method_whitelist=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+
+        session.mount('http://', HTTPAdapter(max_retries=retry))
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-        resp = requests.post(server_url, json=data, headers=headers, timeout=10)
+        resp = session.post(server_url, json=data, headers=headers, timeout=10)
         logger.debug('Received response {}/{} with content {}'.format(resp.status_code, resp.reason, resp.text))
         return resp.status_code == 200
     except Exception as e:
