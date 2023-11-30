@@ -303,7 +303,7 @@ class TestSfpApi(PlatformApiTestBase):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
         ext_identifier = xcvr_info_dict["ext_identifier"]
-        if "QSFP" not in xcvr_type or "Power Class 1" in ext_identifier:
+        if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
         return True
 
