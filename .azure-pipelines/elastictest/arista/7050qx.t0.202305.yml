@@ -56,7 +56,7 @@ parameters:
 
   - name: UPGRADE_IMAGE_PARAM
     type: string
-    default: "--prev-url $(BJW_IMAGE_BRCM_ABOOT_201811) --docker-folder-size 3000M"
+    default: "--prev-url $(BJW_IMAGE_BRCM_ABOOT_201911)"
     displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH
