@@ -64,6 +64,7 @@ def run_mmu_config(duthost, raw_pid_sku, mmucommand):
             print_rc(json_cmd, rc)
         except:
             pytest.fail("{} for {} failed for pid/sku {}".format(json_cmd, mmucommand, pidpath))
+        duthost.shell("rm {}".format(output_file))
 
 
 @pytest.mark.parametrize("raw_pid_sku", pid_sku)
