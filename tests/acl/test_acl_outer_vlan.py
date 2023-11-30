@@ -546,6 +546,12 @@ class AclVlanOuterTest_Base(object):
         if stage == EGRESS:
             # Wait arp
             pytest_assert(wait_until(30, 1, 0, check_arp_status, duthost, dst_ip), "arp table is not updated")
+            # Learn MAC on leaf-fanout to avoid unknown unicast traffic
+            switch_arptable = duthost.switch_arptable()['ansible_facts']
+            mac = switch_arptable['arptable']['v4'][dst_ip]['macaddress']
+            mac_pkt = testutils.simple_tcp_packet(eth_src=mac)
+            for port in dst_port:
+                testutils.send(ptfadapter, port, mac_pkt)
 
         table_name = ACL_TABLE_NAME_TEMPLATE.format(stage, ip_version)
         try:
