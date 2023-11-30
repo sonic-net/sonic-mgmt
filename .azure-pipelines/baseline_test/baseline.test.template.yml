@@ -1,11 +1,3 @@
-variables:
-- group: SONiC-Elastictest
-- name: inventory
-  value: veos_vtb
-- name: testbed_file
-  value: vtestbed.yaml
-- group: GIT_SECRETS
-
 jobs:
 - job: t0_elastictest
   displayName: "kvmtest-t0 by Elastictest"
@@ -13,7 +5,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -32,7 +24,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -53,7 +45,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -72,7 +64,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -92,7 +84,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -113,7 +105,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -135,7 +127,7 @@ jobs:
   continueOnError: false
   pool: ubuntu-20.04
   strategy:
-    parallel: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
