@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 
 from tests.common.reboot import wait_for_startup, REBOOT_TYPE_POWEROFF
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
@@ -40,7 +39,7 @@ def teardown_module(duthosts, enum_supervisor_dut_hostname, conn_graph_facts, xc
     check_interfaces_and_services(duthost, interfaces, xcvr_skip_list, INTERFACE_WAIT_TIME)
 
 
-def _power_off_reboot_helper(kwargs):
+def _power_off_reboot_helper(kwargs, power_on_event=None):
     """
     @summary: used to parametrized test cases on power_off_delay
     @param kwargs: the delay time between turning off and on the PSU
@@ -48,16 +47,26 @@ def _power_off_reboot_helper(kwargs):
     pdu_ctrl = kwargs["pdu_ctrl"]
     all_outlets = kwargs["all_outlets"]
     power_on_seq = kwargs["power_on_seq"]
-    delay_time = kwargs["delay_time"]
-
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-    time.sleep(delay_time)
+
+    # Wait for wait_for_shutdown assertion finished.
+    power_on_event.wait()
+    logging.debug("Turning off all_outlets finished.")
+
+    # Check outlets status?
+    outlet_status = pdu_ctrl.get_outlet_status()
+    for outlet in outlet_status:
+        logging.debug("After turn off outlet, its status is {}".format(outlet))
+
     logging.info("Power on {}".format(power_on_seq))
     for outlet in power_on_seq:
         logging.debug("turning on {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
+
+    # Clean the flag to let next run still blocking power on action.
+    power_on_event.clear()
 
 
 def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
