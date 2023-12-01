@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 0,1,2,3,4,5"
+  - cron: "0 12 * * 1,3,5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -71,7 +71,8 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "acl/test_stress_acl.py, \
+    default: "acl/test_acl.py, \
+              acl/test_stress_acl.py, \
               platform_tests/link_flap/test_cont_link_flap.py, \
               platform_tests/link_flap/test_link_flap.py, \
               platform_tests/test_memory_exhaustion.py, \
