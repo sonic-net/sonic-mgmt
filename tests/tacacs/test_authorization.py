@@ -32,6 +32,22 @@ def ssh_connect_remote(remote_ip, remote_username, remote_password):
     return ssh
 
 
+def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
+    retry_count = 3
+    while retry_count > 0:
+        try:
+            return ssh_connect_remote(remote_ip, remote_username, remote_password)
+        except paramiko.ssh_exception.AuthenticationException as e:
+            logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
+
+            # get syslog for debug
+            recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
+            logger.debug("Target device syslog: {}".format(recent_syslog))
+
+        time.sleep(1)
+        retry_count -= 1
+
+
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
     try:
@@ -66,10 +82,11 @@ def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
 def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    with ssh_connect_remote(
+    with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_authorization_user'],
-        tacacs_creds['tacacs_authorization_user_passwd']
+        tacacs_creds['tacacs_authorization_user_passwd'],
+        duthost
     ) as ssh_client:
         yield ssh_client
 
@@ -78,10 +95,11 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds)
 def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    with ssh_connect_remote(
+    with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_rw_user'],
-        tacacs_creds['tacacs_rw_user_passwd']
+        tacacs_creds['tacacs_rw_user_passwd'],
+        duthost
     ) as ssh_client:
         yield ssh_client
 
