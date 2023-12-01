@@ -3,7 +3,7 @@ import sys
 import os
 import copy
 import json
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from collections import Counter
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.loganalytics import LogAnalyticsDataClient
@@ -27,8 +27,9 @@ tenant_id = os.getenv("ELASTICTEST_MSAL_TENANT_ID")
 
 def get_start_and_end_time():
     current_datetime = datetime.now()
-    start_day = end_day = current_datetime.day
     logger.info("Current datetime: {}, day: {}".format(current_datetime, current_datetime.day))
+    delt_start_day = 0
+    delt_end_day = 0
 
     timestamp_1 = time(0, 30, 0)
     timestamp_2 = time(4, 30, 0)
@@ -40,12 +41,12 @@ def get_start_and_end_time():
     if timestamp_1 <= current_datetime.time() < timestamp_2:        # 00:30 - 04:30, check 19:00 - 23:00
         start_hour = 19
         end_hour = 23
-        start_day -= 1
-        end_day -= 1
+        delt_start_day = 1
+        delt_end_day = 1
     elif timestamp_2 <= current_datetime.time() < timestamp_3:      # 04:30 - 08:30, check 23:00 - 03:00
         start_hour = 23
         end_hour = 3
-        start_day -= 1
+        delt_start_day = 1
     elif timestamp_3 <= current_datetime.time() < timestamp_4:      # 08:30 - 12:30, check 03:00 - 07:00
         start_hour = 3
         end_hour = 7
@@ -61,11 +62,11 @@ def get_start_and_end_time():
     elif time(0, 0, 0) <= current_datetime.time() < timestamp_1:    # 00:00 - 00:30, check 15:00 - 19:00
         start_hour = 15
         end_hour = 19
-        start_day -= 1
-        end_day -= 1
+        delt_start_day = 1
+        delt_end_day = 1
 
-    start_time = current_datetime.replace(day=start_day, hour=start_hour, minute=0, second=0, microsecond=0)
-    end_time = current_datetime.replace(day=end_day, hour=end_hour, minute=0, second=0, microsecond=0)
+    start_time = current_datetime.replace(hour=start_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_start_day)
+    end_time = current_datetime.replace(hour=end_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_end_day)
     return start_time, end_time
 
 
