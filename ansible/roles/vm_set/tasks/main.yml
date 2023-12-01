@@ -224,12 +224,25 @@
   register: vm_list_running
   become: true
 
-- name: Retrieve a list of the paused VMs
+- name: Print message if ansible version
+  debug:
+    msg: "ansible version is {{ ansible_version.full }}"
+
+- name: Retrieve a list of the paused VMs with vm_list_pause
+  virt: command=list_vms
+        uri=qemu:///system
+        state=pause
+  register: vm_list_pause
+  become: true
+  when: ansible_version.full is version_compare('2.13', '<')
+
+- name: Retrieve a list of the paused VMs with vm_list_paused
   virt: command=list_vms
         uri=qemu:///system
         state=paused
   register: vm_list_paused
   become: true
+  when: ansible_version.full is version_compare('2.13', '>=')
 
 - name: Require VMs as CEOS by default
   set_fact:
