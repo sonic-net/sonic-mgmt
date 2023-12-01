@@ -6,7 +6,7 @@ from tests.common.devices.ptf import PTFHost
 import pytest
 
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, \
+from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
@@ -128,9 +128,11 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    ssh_client = ssh_connect_remote(dutip,
-                                    tacacs_creds['tacacs_rw_user'],
-                                    tacacs_creds['tacacs_rw_user_passwd'])
+    ssh_client = ssh_connect_remote_retry(
+                    dutip,
+                    tacacs_creds['tacacs_rw_user'],
+                    tacacs_creds['tacacs_rw_user_passwd'],
+                    duthost)
     yield ssh_client
     ssh_client.close()
 
