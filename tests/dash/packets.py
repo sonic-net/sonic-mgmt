@@ -48,6 +48,7 @@ def inbound_vnet_packets(dash_config_info):
 
 
 def outbound_vnet_packets(dash_config_info, inner_extra_conf={}):
+    proto = None
     if "proto" in inner_extra_conf:
         proto = int(inner_extra_conf["proto"])
         del inner_extra_conf["proto"]
@@ -60,7 +61,7 @@ def outbound_vnet_packets(dash_config_info, inner_extra_conf={}):
         **inner_extra_conf
     )
 
-    if "proto" in inner_extra_conf:
+    if proto:
         inner_packet[scapy.IP].proto = proto
 
     vxlan_packet = testutils.simple_vxlan_packet(

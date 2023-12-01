@@ -3,41 +3,32 @@ import logging
 import pytest
 import ptf.testutils as testutils
 
-from constants import *  # noqa: F403
-import packets
-from dash_acl import acl_test_pkts  # noqa: F401
+from dash_acl import check_dataplane, acl_fields_test, acl_multi_stage_test  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('appliance'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.topology('dpu'),
 ]
 
 
 # flake8: noqa: F811
 def test_acl_fields(
         ptfadapter,
-        apply_vnet_configs,
-        acl_test_pkts,
-        skip_dataplane_checking,
-        asic_db_checker
+        acl_fields_test,
+        skip_dataplane_checking
         ):
     if skip_dataplane_checking:
         return
-    for pkt in acl_test_pkts:
-        logger.info("Testing packet: {}".format(pkt.get_description()))
-        _, vxlan_packet, expected_packet = packets.outbound_vnet_packets(pkt.dash_config_info,
-                                                                         pkt.inner_extra_conf)
-        testutils.send(ptfadapter,
-                       pkt.dash_config_info[LOCAL_PTF_INTF],
-                       vxlan_packet, 1)
-        if pkt.expected_receiving:
-            testutils.verify_packets_any(ptfadapter,
-                                         expected_packet,
-                                         ports=pkt.dash_config_info[REMOTE_PTF_INTF])
-        else:
-            testutils.verify_no_packet_any(ptfadapter,
-                                           expected_packet,
-                                           ports=pkt.dash_config_info[REMOTE_PTF_INTF])
-        time.sleep(1)
+    check_dataplane(ptfadapter, acl_fields_test)
+
+
+# # flake8: noqa: F811
+# def test_acl_multi_stage(
+#         ptfadapter,
+#         acl_multi_stage_test,
+#         skip_dataplane_checking
+#         ):
+#     if skip_dataplane_checking:
+#         return
+#     check_dataplane(ptfadapter, acl_multi_stage_test)
