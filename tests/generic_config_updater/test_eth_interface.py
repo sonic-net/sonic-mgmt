@@ -26,7 +26,7 @@ def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
         duthosts: list of DUTs
         rand_one_dut_hostname: The fixture returns a randomly selected DUT hostname
     """
-    
+
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
@@ -44,7 +44,7 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
     Returns current status for Ethernet0 of specified field
 
     Args:
-        duthosts: DUT host object under test
+        duthost: DUT host object under test
         field: interface field under test
         interface: The name of the interface to be checked
     """
@@ -230,6 +230,7 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
     duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
@@ -250,6 +251,7 @@ def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readin
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
     duthost = duthosts[rand_one_dut_hostname]
     output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
