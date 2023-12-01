@@ -193,7 +193,7 @@ function start_vms
   shift
   echo "Starting VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile -e VM_num="$vm_num" -e vm_type="$vm_type" testbed_start_VMs.yml \
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
@@ -209,7 +209,7 @@ function stop_vms
   shift
   echo "Stopping VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile -e vm_type="$vm_type" testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" $@
 }
 
 function start_topo_vms
@@ -226,7 +226,7 @@ function start_topo_vms
 
   echo "Starting VMs for testbed '${testbed_name}' on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_start_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
@@ -244,7 +244,7 @@ function stop_topo_vms
 
   echo "Stopping VMs for testbed '${testbed_name}' on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_stop_VMs.yml --vault-password-file="${passwd}" -l "${server}" \
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
@@ -268,7 +268,7 @@ function add_topo
       ansible_options+=" -e eos_batch_size=1"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
@@ -276,7 +276,7 @@ function add_topo
         $ansible_options $@
 
   if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-    python3 -m ansible playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+    $ANSIBLE_PLAYBOOK_CMD fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
   fi
 
   # Delete the obsoleted arp entry for the PTF IP
@@ -313,7 +313,7 @@ function remove_topo
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
       -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
       -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
       -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
@@ -343,7 +343,7 @@ function connect_topo
 
   read_file ${testbed_name}
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_connect_topo.yml \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_connect_topo.yml \
                      --vault-password-file="${passwd}" --limit "$server" \
                      -e duts_name="$duts" \
                      -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
@@ -351,7 +351,7 @@ function connect_topo
                      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
                      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
 
-  python3 -m ansible playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  $ANSIBLE_PLAYBOOK_CMD fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
   echo Done
 }
@@ -366,12 +366,12 @@ function renumber_topo
 
   read_file ${testbed_name}
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
 
-  python3 -m ansible playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  $ANSIBLE_PLAYBOOK_CMD fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
 
   echo Done
 }
@@ -387,7 +387,7 @@ function restart_ptf
 
   echo "Restart ptf ptf_${vm_set_name} for testbed '${testbed_name}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" $@
@@ -413,7 +413,7 @@ function refresh_dut
       ansible_options+=" -e eos_batch_size=1"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
@@ -429,7 +429,7 @@ function connect_vms
 
   read_file $1
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_connect_vms.yml --vault-password-file="$2" -l "$server" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_connect_vms.yml --vault-password-file="$2" -l "$server" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
 
   echo Done
 }
@@ -440,7 +440,7 @@ function disconnect_vms
 
   read_file $1
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_disconnect_vms.yml --vault-password-file="$2" -l "$server" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_disconnect_vms.yml --vault-password-file="$2" -l "$server" -e duts_name="$duts" -e VM_base="$vm_base" -e topo="$topo" -e vm_set_name="$vm_set_name"
 
   echo Done
 }
@@ -456,7 +456,7 @@ function announce_routes
 
   read_file $testbed_name
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_announce_routes.yml --vault-password-file="$passfile" \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_announce_routes.yml --vault-password-file="$passfile" \
       -l "$server" -e vm_set_name="$vm_set_name" -e topo="$topo" -e ptf_ip="$ptf_ip" $@
 
   echo done
@@ -475,7 +475,7 @@ function generate_minigraph
 
   read_file $testbed_name
 
-  python3 -m ansible playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
 
   echo Done
 }
@@ -493,7 +493,7 @@ function deploy_minigraph
 
   read_file $testbed_name
 
-  python3 -m ansible playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
 
   echo Done
 }
@@ -511,7 +511,7 @@ function test_minigraph
 
   read_file $testbed_name
 
-  python3 -m ansible playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
 
   echo Done
 }
@@ -529,7 +529,7 @@ function config_y_cable
 
   read_file $testbed_name
 
-  python3 -m ansible playbook -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inventory" config_y_cable.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile $@
 
   echo Done
 }
@@ -550,7 +550,7 @@ function set_l2_mode
     exit 1
   fi
 
-  python3 -m ansible playbook -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inv_name" testbed_set_l2_mode.yml --vault-password-file="$passfile" -l "$duts" $@
 }
 
 function config_vm
@@ -559,7 +559,7 @@ function config_vm
 
   read_file $1
 
-  python3 -m ansible playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  $ANSIBLE_PLAYBOOK_CMD -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }
@@ -574,7 +574,7 @@ function start_k8s_vms
 
   echo "Starting Kubernetes VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_start_k8s_VMs.yml --vault-password-file="${passwd}" -e k8s="true" -l "${server}" $@
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_start_k8s_VMs.yml --vault-password-file="${passwd}" -e k8s="true" -l "${server}" $@
 }
 
 function setup_k8s_vms
@@ -585,7 +585,7 @@ function setup_k8s_vms
 
   echo "Setting up Kubernetes VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_setup_k8s_master.yml -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}"
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_setup_k8s_master.yml -e servernumber="${servernumber}" -e k8s="true" -e msetnumber="${msetnumber}"
 }
 
 function stop_k8s_vms
@@ -598,7 +598,7 @@ function stop_k8s_vms
 
   echo "Stopping Kubernetes VMs on server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile testbed_stop_k8s_VMs.yml --vault-password-file="${passwd}" -l "${server}" -e k8s="true" $@
 }
 
 function cleanup_vmhost
@@ -609,7 +609,7 @@ function cleanup_vmhost
   shift
   echo "Cleaning vm_host server '${server}'"
 
-  ANSIBLE_SCP_IF_SSH=y python3 -m ansible playbook -i $vmfile -e VM_num="$vm_num" testbed_cleanup.yml \
+  ANSIBLE_SCP_IF_SSH=y $ANSIBLE_PLAYBOOK_CMD -i $vmfile -e VM_num="$vm_num" testbed_cleanup.yml \
       --vault-password-file="${passwd}" -l "${server}" $@
 }
 
@@ -624,7 +624,7 @@ function install_image
 
   echo "Upgrading image on '$testbed_name'"
 
-  python3 -m ansible playbook upgrade_sonic.yml -i "$inventory" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e upgrade_type=sonic -e image_url="$image_url"
+  $ANSIBLE_PLAYBOOK_CMD upgrade_sonic.yml -i "$inventory" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e upgrade_type=sonic -e image_url="$image_url"
 
   echo Done
 }
@@ -640,7 +640,7 @@ function collect_show_tech
 
   echo "Collect show techsupport result on testbed '$testbed_name'"
 
-  python3 -m ansible playbook -i "$inventory" collect_show_tech.yml --vault-password-file="$passfile" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+  $ANSIBLE_PLAYBOOK_CMD -i "$inventory" collect_show_tech.yml --vault-password-file="$passfile" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
 
   echo Done
 
@@ -749,6 +749,23 @@ vm_type=ceos
 vm_num=0
 msetnumber=1
 sonic_vm_dir=""
+
+set +e
+# Run the Python command with Ansible and capture the return value
+python3 -m ansible config --version > /dev/null 2>&1
+
+# Check the return value
+if [ $? -eq 0 ]; then
+    # Set environment variable when return value is 0
+    export ANSIBLE_PLAYBOOK_CMD="python3 -m ansible playbook"
+else
+    # Set environment variable when return value is not 0
+    export ANSIBLE_PLAYBOOK_CMD="ansible-playbook"
+fi
+set -e
+
+# Display the selected Ansible playbook command
+echo "ANSIBLE_PLAYBOOK_CMD is set to: $ANSIBLE_PLAYBOOK_CMD"
 
 while getopts "t:m:k:n:s:d:" OPTION; do
     case $OPTION in
