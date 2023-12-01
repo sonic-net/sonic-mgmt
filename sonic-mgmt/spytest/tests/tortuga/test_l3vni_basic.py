@@ -26,90 +26,7 @@ def box_service_func_hooks(request):
 #    D4 = Spine1   #
 #                  #
 ####################
-'''
-vtysh
-configure terminal
-router bgp 65100
-bgp router-id 10.200.200.200
-no bgp ebgp-requires-policy
-no bgp default ipv4-unicast
-neighbor SERVICE peer-group
-neighbor SERVICE remote-as internal
-neighbor SERVICE update-source Loopback0
-neighbor 10.200.200.201 peer-group SERVICE
-neighbor 10.200.200.202 peer-group SERVICE
-neighbor TRANSIT peer-group
-neighbor TRANSIT bfd
-neighbor TRANSIT remote-as internal
-neighbor Ethernet16 interface peer-group TRANSIT
-neighbor Ethernet32 interface peer-group TRANSIT
-address-family ipv4 unicast
-redistribute connected
-neighbor TRANSIT activate
-exit
-address-family l2vpn evpn
-neighbor SERVICE activate
-advertise-all-vni
-advertise ipv4 unicast
-exit
-exit
-vrf Vrf01
-vni 1000
-exit
-router bgp 65100 vrf Vrf01
-address-family ipv4 unicast
-redistribute connected
-exit-address-family
-address-family l2vpn evpn
-advertise ipv4 unicast
-exit-address-family
-exit
-exit
-exit
-'''
 
-
-'''
-vtysh
-configure terminal
-router bgp 65100
-bgp router-id 10.200.200.201
-no bgp ebgp-requires-policy
-no bgp default ipv4-unicast
-neighbor SERVICE peer-group
-neighbor SERVICE remote-as internal
-neighbor SERVICE update-source Loopback0
-neighbor 10.200.200.200 peer-group SERVICE
-neighbor 10.200.200.202 peer-group SERVICE
-neighbor TRANSIT peer-group
-neighbor TRANSIT bfd
-neighbor TRANSIT remote-as internal
-neighbor Ethernet16 interface peer-group TRANSIT
-neighbor Ethernet32 interface peer-group TRANSIT
-address-family ipv4 unicast
-redistribute connected
-neighbor TRANSIT activate
-exit
-address-family l2vpn evpn
-neighbor SERVICE activate
-advertise-all-vni
-advertise ipv4 unicast
-exit
-exit
-vrf Vrf01
-vni 1000
-exit-vrf
-router bgp 65100 vrf Vrf01
-address-family ipv4 unicast
-redistribute connected
-exit-address-family
-address-family l2vpn evpn
-advertise ipv4 unicast
-exit-address-family
-exit
-exit
-exit
-'''
 def test_l3vni_two_neighbors():
 
     vars = st.get_testbed_vars()
@@ -170,4 +87,5 @@ def test_l3vni_two_neighbors():
     '''
     commands = leaf1_cfg.splitlines()
     st.config(leaf1, commands)
-    
+
+    st.report_pass("test_case_passed")
