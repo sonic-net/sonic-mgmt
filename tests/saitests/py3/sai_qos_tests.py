@@ -1158,8 +1158,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             margin = 2
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -1879,8 +1880,9 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         )
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         step_id = 1
         step_desc = 'disable TX for dst_port_id, dst_port_2_id, dst_port_3_id'
@@ -2336,8 +2338,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             self.dst_client, self.asic_type, port_list['dst'][self.dst_port_id])
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         # Pause egress of dut xmit port
         self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
@@ -3214,8 +3217,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             margin = 2
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -3671,8 +3675,10 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
+
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
         dst_pg_cntrs_base = sai_thrift_read_pg_counters(self.dst_client, port_list['dst'][dst_port_id])
@@ -3919,8 +3925,9 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             margin = 0
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -4268,8 +4275,9 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             'pkts_num_margin') else 8
 
         # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        if 'pkts_num_egr_mem' in list(self.test_params.keys()):
-            pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
+        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
+        if pkts_num_egr_mem is not None:
+            pkts_num_egr_mem = int(pkts_num_egr_mem)
 
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
