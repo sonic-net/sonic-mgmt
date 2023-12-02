@@ -749,7 +749,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             port_results, queue_results = sai_thrift_read_port_counters(self.dst_client, asic_type, sai_dst_port_id)
 
             print(list(map(operator.sub, queue_results,
-                  queue_results_base)), file=sys.stderr)
+                           queue_results_base)), file=sys.stderr)
             # dual_tor_scenario: represents whether the device is deployed into a dual ToR scenario
             # dual_tor: represents whether the source and
             #           destination ports are configured with additional lossless queues
@@ -890,7 +890,7 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(queue_results_base, file=sys.stderr)
                 print(queue_results, file=sys.stderr)
                 print(list(map(operator.sub, queue_results,
-                      queue_results_base)), file=sys.stderr)
+                               queue_results_base)), file=sys.stderr)
                 for i in range(0, QUEUE_NUM):
                     if i == queue:
                         assert (
@@ -3980,18 +3980,11 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         recv_counters_base, _ = sai_thrift_read_port_counters(self.src_client, asic_type, port_list['src'][src_port_id])
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, asic_type, port_list['dst'][dst_port_id])
 
-<<<<<<< HEAD
         # For TH3/cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         if 'pkts_num_egr_mem' in list(self.test_params.keys()):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
         else:
             pkts_num_egr_mem = None
-=======
-        # For TH3, some packets stay in egress memory and doesn't show up in shared buffer or leakout
-        pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
-        if pkts_num_egr_mem is not None:
-            pkts_num_egr_mem = int(pkts_num_egr_mem)
->>>>>>> 202305
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pg_cntrs_base = sai_thrift_read_pg_counters(self.src_client, port_list['src'][src_port_id])
