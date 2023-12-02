@@ -1,3 +1,4 @@
+import inspect
 import logging
 import pytest
 import time
@@ -175,11 +176,16 @@ def _post(server_url, data):
     """
     try:
         session = Session()
-        session.mount('http://', HTTPAdapter(max_retries=Retry(
-            total=3, connect=3, backoff_factor=1,
-            allowed_methods=frozenset(['GET', 'POST']),
-            status_forcelist=[x for x in requests.status_codes._codes if x != 200]
-        )))
+        if "allowed_methods" in inspect.getargspec(Retry).args:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          allowed_methods=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+        else:
+            retry = Retry(total=3, connect=3, backoff_factor=1,
+                          method_whitelist=frozenset(['GET', 'POST']),
+                          status_forcelist=[x for x in requests.status_codes._codes if x != 200])
+
+        session.mount('http://', HTTPAdapter(max_retries=retry))
         server_url = '{}?reqId={}'.format(server_url, uuid.uuid4())  # Add query string param reqId for debugging
         logger.debug('POST {} with {}'.format(server_url, data))
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
@@ -683,6 +689,10 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
 
 
 @pytest.fixture
