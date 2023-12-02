@@ -191,7 +191,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
         num_of_pkts = 0
         while (num_of_pkts < packets_per_port):
             attempts = 0
-            while (attempts < 20):
+            while (attempts <= 20):
                 ip_Addr = next(IP_ADDR)
                 pkt_args = {
                     'ip_ecn': ecn,
@@ -229,7 +229,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                     break
                 else:
                     attempts += 1
-                    if attempts > 20:
+                    if attempts == 20:
                         # We exceeded the number of attempts to get a
                         # packet for this particular dest port. This
                         # means the packets are going to a different port
@@ -238,6 +238,7 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl, pk
                         print("Warn: The packets are not going to the dst_port_id.")
                         all_pkts[src_tuple[0]].append((
                             pkt, masked_exp_pkt, actual_dst_id))
+                        num_of_pkts += 1
 
     return all_pkts
 
@@ -731,9 +732,9 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     # Verify dscp flag
                     try:
                         if (recv_pkt.payload.tos == tos and
-                                recv_pkt.payload.src == src_port_ip and
-                                recv_pkt.payload.dst == dst_port_ip and
-                                recv_pkt.payload.ttl == exp_ttl and
+                            recv_pkt.payload.src == src_port_ip and
+                            recv_pkt.payload.dst == dst_port_ip and
+                            recv_pkt.payload.ttl == exp_ttl and
                                 recv_pkt.payload.id == exp_ip_id):
                             dscp_received = True
                             print("dscp: %d, total received: %d" %
@@ -867,18 +868,17 @@ class Dot1pToQueueMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # header to determine the valid fields for receive validation
                     # purpose. With a q-in-q packet, we are sure that the next layer of
                     # header in either switching behavior case is still a vlan tag
-                    pkt = simple_qinq_tcp_packet(
-                        pktlen=64,
-                        eth_dst=router_mac if router_mac != '' else dst_port_mac,
-                        eth_src=src_port_mac,
-                        dl_vlan_outer=vlan_id,
-                        dl_vlan_pcp_outer=dot1p,
-                        vlan_vid=vlan_id,
-                        vlan_pcp=dot1p,
-                        ip_src=src_port_ip,
-                        ip_dst=dst_port_ip,
-                        ip_tos=tos,
-                        ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
+                    pkt = simple_qinq_tcp_packet(pktlen=64,
+                                                 eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                                 eth_src=src_port_mac,
+                                                 dl_vlan_outer=vlan_id,
+                                                 dl_vlan_pcp_outer=dot1p,
+                                                 vlan_vid=vlan_id,
+                                                 vlan_pcp=dot1p,
+                                                 ip_src=src_port_ip,
+                                                 ip_dst=dst_port_ip,
+                                                 ip_tos=tos,
+                                                 ip_ttl=exp_ttl + 1 if router_mac != '' else exp_ttl)
                     send_packet(self, src_port_id, pkt, 1)
                     print("dot1p: %d, calling send_packet" %
                           (dot1p), file=sys.stderr)
