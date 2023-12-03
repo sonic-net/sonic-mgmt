@@ -12,7 +12,7 @@ from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
+from tests.common.helpers.crm import get_used_percent, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
@@ -1199,8 +1199,8 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     if is_cisco_device(duthost):
         # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
         # Hence, the available counter may not increase as per initial value.
-        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= -5, \
-        "Counter 'crm_stats_fdb_entry_available' was not incremented")
+        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= -5,
+                      "Counter 'crm_stats_fdb_entry_available' was not incremented")
     else:
         # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
         # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
