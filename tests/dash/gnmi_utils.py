@@ -72,8 +72,6 @@ IP      = %s
 
 def generate_gnmi_cert(localhost, duthost):
     """
-    Generate CA certificate, server certificate and client certificate
-
     Args:
         localhost: fixture for localhost
         duthost: fixture for duthost
@@ -82,7 +80,6 @@ def generate_gnmi_cert(localhost, duthost):
     """
     env = GNMIEnvironment(duthost)
     localhost.shell("mkdir "+env.work_dir, module_ignore_errors=True)
-    # Create Root key
     local_command = "openssl genrsa -out %s 2048" % (env.work_dir+env.gnmi_ca_key)
     localhost.shell(local_command)
 
