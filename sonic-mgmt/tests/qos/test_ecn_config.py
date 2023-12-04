@@ -47,8 +47,20 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
     @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
     """
     duthost = duthosts[rand_one_dut_hostname] 
-		if not is_cisco_device(duthost):
-		 pytest.skip("Skipping as not a Cisco device")
+    if not is_cisco_device(duthost):
+     pytest.skip("Skipping as not a Cisco device")
+    else:  
+        result = duthost.command("show platform npu rx cgm_global -d")
+        traceback_found = "Traceback" in result["stdout"]
+        assert not traceback_found, "Traceback found in show platform npu rx"
+        assert result["stdout"], "No output for show platform npu rx CLI"
+        json_str = result["stdout"].strip()
+        try:
+          data = json.loads(json_str)
+        except Exception as e:
+          logging.info("JSon load error: {}".format(e))
+        if not data or 'hbm_usage' in data:  
+            pytest.skip("Skipping as a HBM based device")
 
     asic_facts = get_asic_facts(duthost)
     asic_namespace_string = ""
@@ -79,12 +91,12 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
             logging.info("Checking Port: {}".format(port))
             result = duthost.command(show_command.format(port, pg_to_test))
             traceback_found = "Traceback" in result["stdout"]
-            assert not traceback_found, "Traceback found in show platform npu voq for UP Port"
-            assert result["stdout"], "No output for this CLI"
+            assert not traceback_found, "Traceback found in show platform npu voq for Port"
+            assert result["stdout"], "No output for show platform npu voq CLI"
             json_str = result["stdout"].strip()
             try:
               data = json.loads(json_str)
-            except json.JSONDecodeError as e:
+            except Exception as e:
               logging.info("JSon load error: {}".format(e))
               continue
             voq_mark_data=None
