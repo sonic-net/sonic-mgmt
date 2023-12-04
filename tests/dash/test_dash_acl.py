@@ -23,12 +23,12 @@ def test_acl_fields(
     check_dataplane(ptfadapter, acl_fields_test)
 
 
-# # flake8: noqa: F811
-# def test_acl_multi_stage(
-#         ptfadapter,
-#         acl_multi_stage_test,
-#         skip_dataplane_checking
-#         ):
-#     if skip_dataplane_checking:
-#         return
-#     check_dataplane(ptfadapter, acl_multi_stage_test)
+# flake8: noqa: F811
+def test_acl_multi_stage(
+        ptfadapter,
+        acl_multi_stage_test,
+        skip_dataplane_checking
+        ):
+    if skip_dataplane_checking:
+        return
+    check_dataplane(ptfadapter, acl_multi_stage_test)

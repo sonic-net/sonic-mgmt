@@ -533,9 +533,9 @@ def acl_multi_stage_test(duthost, apply_vnet_configs, ptfhost, dash_config_info)
     group_2 = AclGroup(duthost, ptfhost, STAGE_2_ACL_GROUP, dash_config_info[ENI])
     test = AclMultiStageTest(duthost, ptfhost, dash_config_info)
 
+    test.config()
     group_1.bind(1)
     group_2.bind(2)
-    test.config()
 
     yield test
 
