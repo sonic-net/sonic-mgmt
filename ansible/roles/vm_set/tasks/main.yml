@@ -229,11 +229,11 @@
   register: vm_list_running
   become: true
 
-- name: set vm_state_string according to ansible version
+- name: Set vm_state_string according to ansible version
   set_fact:
     vm_state_string: "{{ 'paused' if ansible_version.full is version_compare('2.13', '>=') else 'pause' }}"
 
-- name: Print message if ansible version
+- name: Print ansible version and vm_state_string
   debug:
     msg: "ansible version is {{ ansible_version.full }} and vm_state_string is {{ vm_state_string }}"
 
