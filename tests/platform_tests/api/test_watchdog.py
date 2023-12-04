@@ -37,10 +37,14 @@ class TestWatchdogApi(PlatformApiTestBase):
     ''' Hardware watchdog platform API test cases '''
 
     @pytest.fixture(scope='function', autouse=True)
-    def watchdog_not_running(self, platform_api_conn):
+    def watchdog_not_running(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):
         ''' Fixture that automatically runs on each test case and
         verifies that watchdog is not running before the test begins
         and disables it after the test ends'''
+
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0':
+            duthost.shell("watchdogutil disarm")
 
         assert not watchdog.is_armed(platform_api_conn)
 
@@ -48,6 +52,8 @@ class TestWatchdogApi(PlatformApiTestBase):
             yield
         finally:
             watchdog.disarm(platform_api_conn)
+            if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0':
+                duthost.shell("systemctl start cpu_wdt.service")
 
     @pytest.fixture(scope='module')
     def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname):
