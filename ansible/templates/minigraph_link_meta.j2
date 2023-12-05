@@ -46,8 +46,8 @@
             </a:Properties>
             <a:Key>{{ vms[index] }}:{{ vm_intfs[if_index] }};{{ inventory_hostname }}:{{ port_alias[dut_intfs[if_index]] }}</a:Key>
         </a:LinkMetadata>
-{% endif %} 
-{% endfor %}    
+{% endif %}
+{% endfor %}
 {% endfor %}
     </Link>
   </LinkMetadataDeclaration>
