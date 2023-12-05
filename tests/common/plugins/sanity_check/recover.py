@@ -24,13 +24,16 @@ def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
         reboot_type = REBOOT_TYPE_COLD
 
     if reboot_with_running_golden_config:
-        logging.info("Reboot DUT with the running golden config")
-        dut.copy(
-            src="/etc/sonic/running_golden_config.json",
-            dest="/etc/sonic/config_db.json",
-            remote_src=True,
-            force=True
-        )
+        gold_config_path = "/etc/sonic/running_golden_config.json"
+        gold_config_stats = dut.stat(path=gold_config_path)
+        if gold_config_stats["stat"]["exists"]:
+            logging.info("Reboot DUT with the running golden config")
+            dut.copy(
+                src=gold_config_path,
+                dest="/etc/sonic/config_db.json",
+                remote_src=True,
+                force=True
+            )
 
     reboot(dut, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True)
 
