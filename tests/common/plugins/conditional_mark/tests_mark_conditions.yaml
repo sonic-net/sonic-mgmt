@@ -417,7 +417,7 @@ ecmp/test_ecmp_sai_value.py:
       - "topo_type not in ['t1']"
       - "asic_type not in ['broadcom']"
       - "release not in ['202305']"
-      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 10"
+      - "release in ['202305'] and build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 10"
 
 ecmp/test_fgnhg.py:
   skip:
