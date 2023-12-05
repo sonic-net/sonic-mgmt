@@ -410,6 +410,16 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
 
+ecmp/test_ecmp_sai_value.py:
+  skip:
+    reason: "Only support Broadcom T1 topology with 20230531.10 or later image"
+    conditions:
+      - "topo_type not in ['t1']"
+      - "asic_type not in ['broadcom']"
+      - "branch in ['internal-202305']"
+      - "release in ['202305']"
+      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 10"
+
 ecmp/test_fgnhg.py:
   skip:
     conditions_logical_operator: or
