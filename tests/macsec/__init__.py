@@ -101,15 +101,9 @@ class MacsecPlugin(object):
         return __startup_macsec
 
     @pytest.fixture(scope="session")
-    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
         def __shutdown_macsec():
             profile = macsec_profile
-            cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
-
-    @pytest.fixture(scope="session")
-    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
-         def __shutdown_macsec():
-             profile = macsec_profile
             topo_name = tbinfo['topo']['name']
             yield
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'], topo_name)
