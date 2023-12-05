@@ -44,6 +44,11 @@ parameters:
     type: string
     default: "platform_tests/test_auto_negotiation.py"
     displayName: "Skip Scripts"
+  
+  # Test timeout
+  - name: NIGHTLY_TEST_TIMEOUT
+    type: number
+    default: 2880
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -53,3 +58,4 @@ stages:
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
       SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: ${{ parameters.NIGHTLY_TEST_TIMEOUT }}
