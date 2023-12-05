@@ -1,5 +1,5 @@
 """
-Tests for verifying the configuration on the DUT 
+Tests for verifying the configuration on the DUT
 to match the expected WRED probability configuration
 """
 import logging
@@ -9,152 +9,159 @@ import json
 
 
 pytestmark = [
-  pytest.mark.disable_loganalyzer,
-  pytest.mark.topology('any')
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.topology('any')
 ]
 
+
 def get_asic_facts(duthost):
-  asic_ports_dict = {}
+    asic_ports_dict = {}
 
-  def get_ports_with_status(config_facts):
-    status_dict = {}
-    for p, v in config_facts['PORT'].items():
-      status = v.get('admin_status', None)
-      if status not in status_dict.keys():
-          status_dict[status] = []
-      status_dict[status].append(p)
-    return status_dict
+    def get_ports_with_status(config_facts):
+        status_dict = {}
+        for p, v in config_facts['PORT'].items():
+            status = v.get('admin_status', None)
+            if status not in status_dict.keys():
+                status_dict[status] = []
+            status_dict[status].append(p)
+        return status_dict
 
-  if duthost.is_multi_asic:
-    for asic in duthost.frontend_asics:
-      asic_cfg_facts = asic.config_facts(host=duthost.hostname, source="running", namespace=asic.namespace)['ansible_facts']
-      asic_ports_dict[asic.namespace] = get_ports_with_status(asic_cfg_facts)
-  else:
-    cfg_facts = duthost.get_running_config_facts()
-    asic_ports_dict['asic0'] = get_ports_with_status(cfg_facts)
-
-  return asic_ports_dict
-
-def verify_command_result(result, cmd):  
-  # Raise an AssertionError if "Traceback" is found
-  assert result["stdout"], "No output for {}".format(cmd)
-
-  # Check if "cisco sdk-debug enable" is present in result["stdout"]
-  dshell_disabled = "cisco sdk-debug enable" in result["stdout"]
-  # Raise an AssertionError if "cisco sdk-debug enable" is found
-  assert not dshell_disabled, "debug shell server is not running for command: {}".format(cmd)
-
-  # Check if "Traceback" is present in result["stdout"]
-  traceback_found = "Traceback" in result["stdout"]
-  # Raise an AssertionError if "Traceback" is found
-  assert not traceback_found, "Traceback found in {}".format(cmd)
-
-@pytest.mark.parametrize("pg_to_test", [3, 4])        
-def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, request):
-  """
-  @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
-  """
-  duthost = duthosts[rand_one_dut_hostname] 
-  if not is_cisco_device(duthost):
-    pytest.skip("Skipping as not a Cisco device")
-
-  cmd = "show platform npu rx cgm_global -d"  
-  result = duthost.command(cmd)
-  verify_command_result(result, cmd)
-
-  json_str = result["stdout"].strip()
-  data = None
-  try:
-    data = json.loads(json_str)
-  except Exception as e:
-    logging.info("JSon load error: {}".format(e))
-  if not data or 'hbm_usage' in data:  
-    pytest.skip("Skipping as a HBM based device")
-
-  asic_facts = get_asic_facts(duthost)
-  asic_namespace_string = ""
-  asics = []
-
-  asics = list(asic_facts.keys()) if duthost.is_multi_asic else ['']
-
-  for asic in asics:
-    if not asic:
-      asic_namespace_string = ''
-      asic = 'asic0'
+    if duthost.is_multi_asic:
+        for asic in duthost.frontend_asics:
+            asic_cfg_facts = asic.config_facts(
+                        host=duthost.hostname,
+                        source="running",
+                        namespace=asic.namespace
+                    )['ansible_facts']
+            asic_ports_dict[asic.namespace] = get_ports_with_status(asic_cfg_facts)
     else:
-      asic_namespace_string = " -n " + str(asic)
+        cfg_facts = duthost.get_running_config_facts()
+        asic_ports_dict['asic0'] = get_ports_with_status(cfg_facts)
 
-    up_ports = None
+    return asic_ports_dict
 
-    if 'up' in asic_facts[asic].keys():
-      up_ports = asic_facts[asic]['up']
 
-    down_ports = None
-    if None in asic_facts[asic].keys():
-      down_ports = asic_facts[asic][None]
+def verify_command_result(result, cmd):
+    # Raise an AssertionError if "Traceback" is found
+    assert result["stdout"], "No output for {}".format(cmd)
 
-    #Combine both Up and Down
-    all_ports = up_ports + down_ports    
+    # Check if "cisco sdk-debug enable" is present in result["stdout"]
+    dshell_disabled = "cisco sdk-debug enable" in result["stdout"]
+    # Raise an AssertionError if "cisco sdk-debug enable" is found
+    assert not dshell_disabled, "debug shell server is not running for command: {}".format(cmd)
 
-    show_command = "sudo show platform npu voq cgm_profile -i {} -t {}{} -d"
+    # Check if "Traceback" is present in result["stdout"]
+    traceback_found = "Traceback" in result["stdout"]
+    # Raise an AssertionError if "Traceback" is found
+    assert not traceback_found, "Traceback found in {}".format(cmd)
 
-    for port in all_ports:
-      logging.info("Checking Port: {}".format(port))
-      cmd = show_command.format(port, pg_to_test, asic_namespace_string)
-      result = duthost.command(cmd)
-      verify_command_result(result, cmd)
 
-      json_str = result["stdout"].strip()
-      try:
+@pytest.mark.parametrize("pg_to_test", [3, 4])
+def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, request):
+    """
+    @summary: Verify output of `show platform npu voq cgm_profile with wred_profile drop probability`
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if not is_cisco_device(duthost):
+        pytest.skip("Skipping as not a Cisco device")
+
+    cmd = "show platform npu rx cgm_global -d"
+    result = duthost.command(cmd)
+    verify_command_result(result, cmd)
+
+    json_str = result["stdout"].strip()
+    data = None
+    try:
         data = json.loads(json_str)
-      except Exception as e:
+    except Exception as e:
         logging.info("JSon load error: {}".format(e))
-        continue
-      voq_mark_data = None
-      if "voq_mark_prob_g" in data:
-        voq_mark_data=data["voq_mark_prob_g"]
-        if voq_mark_data:
-          sms_quant_len=len(voq_mark_data)
-          voq_quant_len=len(voq_mark_data[0])
-          age_qaunt_len=len(voq_mark_data[0][1])
-              
-      voq_drop_data = None
-      if "voq_drop_prob_g" in data:
-        voq_drop_data=data["voq_drop_prob_g"]
-        if not voq_mark_data and voq_drop_data:
-          sms_quant_len=len(voq_drop_data)
-          voq_quant_len=len(voq_drop_data[0])
-          age_qaunt_len=len(voq_drop_data[0][1])
+    if not data or 'hbm_usage' in data:
+        pytest.skip("Skipping as a HBM based device")
 
-      if voq_mark_data:
-        for g_idx in range(sms_quant_len):
-          for voq_idx in range(voq_quant_len):
-            for age_idx in range(age_qaunt_len):
-              rounded_actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
-              if age_idx == 0:
-                mark_level = 0
-              elif (voq_idx >= 1 and age_idx == 1):
-                mark_level = 1
-              elif (voq_idx >= 1 and age_idx == 2):
-                mark_level = 2
-              elif (voq_idx >= 1 and age_idx >= 3):
-                mark_level = 3
-              else:
-                mark_level = 0
-              expected_actual_value = round(data["wm_prob"][mark_level], 2)
-              assert (
-                  rounded_actual_value == expected_actual_value
-              ), '''
-                  Marking Probability not as expected at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
-                 '''.format(g_idx,voq_idx,age_idx,expected_actual_value, rounded_actual_value)
+    asic_facts = get_asic_facts(duthost)
+    asic_namespace_string = ""
+    asics = []
 
-      ''' Verify drop is 7 for last quant'''
-      if voq_drop_data:
-        for g_idx in range(sms_quant_len):
-          for age_idx in range(age_qaunt_len):
-            actual_value = voq_drop_data[g_idx][voq_quant_len-1][age_idx]
-            assert (
-                actual_value == 7
-            ), '''
-                Drop Probability not 100% at SMS/VoQ/Age region {}/{}/{} Expected: 7 Actual: {}
-               '''.format(g_idx,voq_quant_len-1,age_idx,actual_value)
+    asics = list(asic_facts.keys()) if duthost.is_multi_asic else ['']
+
+    for asic in asics:
+        if not asic:
+            asic_namespace_string = ''
+            asic = 'asic0'
+        else:
+            asic_namespace_string = " -n " + str(asic)
+
+        up_ports = None
+        if 'up' in asic_facts[asic].keys():
+            up_ports = asic_facts[asic]['up']
+
+        down_ports = None
+        if None in asic_facts[asic].keys():
+            down_ports = asic_facts[asic][None]
+
+        # Combine both Up and Down
+        all_ports = up_ports + down_ports
+
+        show_command = "sudo show platform npu voq cgm_profile -i {} -t {}{} -d"
+
+        for port in all_ports:
+            logging.info("Checking Port: {}".format(port))
+            cmd = show_command.format(port, pg_to_test, asic_namespace_string)
+            result = duthost.command(cmd)
+            verify_command_result(result, cmd)
+
+            json_str = result["stdout"].strip()
+            try:
+                data = json.loads(json_str)
+            except Exception as e:
+                logging.info("JSon load error: {}".format(e))
+                continue
+            voq_mark_data = None
+            if "voq_mark_prob_g" in data:
+                voq_mark_data = data["voq_mark_prob_g"]
+                if voq_mark_data:
+                    sms_quant_len = len(voq_mark_data)
+                    voq_quant_len = len(voq_mark_data[0])
+                    age_qaunt_len = len(voq_mark_data[0][1])
+
+            voq_drop_data = None
+            if "voq_drop_prob_g" in data:
+                voq_drop_data = data["voq_drop_prob_g"]
+                if not voq_mark_data and voq_drop_data:
+                    sms_quant_len = len(voq_drop_data)
+                    voq_quant_len = len(voq_drop_data[0])
+                    age_qaunt_len = len(voq_drop_data[0][1])
+
+            if voq_mark_data:
+                for g_idx in range(sms_quant_len):
+                    for voq_idx in range(voq_quant_len):
+                        for age_idx in range(age_qaunt_len):
+                            rounded_actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
+                            if age_idx == 0:
+                                mark_level = 0
+                            elif (voq_idx >= 1 and age_idx == 1):
+                                mark_level = 1
+                            elif (voq_idx >= 1 and age_idx == 2):
+                                mark_level = 2
+                            elif (voq_idx >= 1 and age_idx >= 3):
+                                mark_level = 3
+                            else:
+                                mark_level = 0
+                            expected_actual_value = round(data["wm_prob"][mark_level], 2)
+                            assert (
+                                    rounded_actual_value == expected_actual_value
+                            ), '''
+                                    Marking Probability not as expected at SMS/VoQ/Age region {}/{}/{}
+                                                                               Expected: {} Actual: {}
+                                 '''.format(g_idx, voq_idx, age_idx, expected_actual_value, rounded_actual_value)
+
+            ''' Verify drop is 7 for last quant'''
+            if voq_drop_data:
+                for g_idx in range(sms_quant_len):
+                    for age_idx in range(age_qaunt_len):
+                        actual_value = voq_drop_data[g_idx][voq_quant_len-1][age_idx]
+                        assert (
+                                actual_value == 7
+                        ), '''
+                                Drop Probability not 100% at SMS/VoQ/Age region {}/{}/{} Expected: 7 Actual: {}
+                             '''.format(g_idx, voq_quant_len-1, age_idx, actual_value)
