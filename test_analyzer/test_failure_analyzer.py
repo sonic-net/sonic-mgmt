@@ -203,7 +203,7 @@ class KustoConnector(object):
         query_str = '''
             IncidentsSnapshotV2()
             | where OwningTeamName == "CLOUDNET\\\\SONiCNightlyTest"
-            | where Title contains "[Failed_Case]"
+            | where Title contains "[SONiC_Nightly][Failed_Case]"
             | where Status == "ACTIVE"
             | where IsPurged == false
             | project IncidentId, Title, SourceCreateDate, ModifiedDate, Status
