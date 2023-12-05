@@ -128,7 +128,7 @@ class MacsecPlugin(object):
         if not nbrhosts:
             topo_name = tbinfo['topo']['name']
             pytest.skip("None of neighbors on topology {}".format(topo_name))
-        
+
         ctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts)
         logger.info("Controlled links {}".format(ctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in ctrl_nbr_names}
@@ -140,7 +140,7 @@ class MacsecPlugin(object):
         for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
-        
+
         logger.info("Uncontrolled links {}".format(unctrl_nbr_names))
         nbrhosts = {name: nbrhosts[name] for name in unctrl_nbr_names}
         return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)

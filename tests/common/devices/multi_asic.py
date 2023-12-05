@@ -179,7 +179,7 @@ class MultiAsicSonicHost(object):
             state = self.shell(cmd)['stdout'].strip()
             return state == 'ok'
         except Exception as e:
-            logger.error('Failed to get macsec status for interface "{}", exception: {}'.format(interface_name, repr(e)))
+            logger.error('Failed to get macsec status for interface {} exception: {}'.format(interface_name, repr(e)))
             return False
 
     def get_frontend_asic_ids(self):

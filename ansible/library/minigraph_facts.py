@@ -625,6 +625,7 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
 
     return port_alias_to_name_map
 
+
 def parse_linkmeta(meta, hname):
     link = meta.find(str(QName(ns, "Link")))
     macsec_neighbors = []
@@ -646,6 +647,7 @@ def parse_linkmeta(meta, hname):
             # Cannot find a matching hname, something went wrong
             continue
     return macsec_enabled_ports, macsec_neighbors
+
 
 def parse_xml(filename, hostname, asic_name=None):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
