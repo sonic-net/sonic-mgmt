@@ -1071,7 +1071,6 @@ snmp/test_snmp_link_local.py:
     reason: "SNMP over link local IPv6 not supported in all scenarios."
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/pull/10244/files
-      - "is_multi_asic==False"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
