@@ -13,7 +13,7 @@ from . import constants
 logger = logging.getLogger(__name__)
 
 
-def reboot_dut(dut, localhost, cmd):
+def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
     logging.info('Reboot DUT to recover')
 
     if 'warm' in cmd:
@@ -22,6 +22,15 @@ def reboot_dut(dut, localhost, cmd):
         reboot_type = REBOOT_TYPE_FAST
     else:
         reboot_type = REBOOT_TYPE_COLD
+
+    if reboot_with_running_golden_config:
+        logging.info("Reboot DUT with the running golden config")
+        dut.copy(
+            src="/etc/sonic/running_golden_config.json",
+            dest="/etc/sonic/config_db.json",
+            remote_src=True,
+            force=True
+        )
 
     reboot(dut, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True)
 
@@ -164,7 +173,7 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
             config_reload(dut, config_source='running_golden_config',
                           safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         elif method["reboot"]:
-            reboot_dut(dut, localhost, method["cmd"])
+            reboot_dut(dut, localhost, method["cmd"], reboot_with_running_golden_config=True)
         else:
             _recover_with_command(dut, method['cmd'], wait_time)
 
