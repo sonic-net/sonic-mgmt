@@ -49,7 +49,7 @@ class MacsecPlugin(object):
             metafunc.parametrize('macsec_profile',
                                  [self.macsec_profiles[x] for x in profiles],
                                  ids=profiles,
-                                 scope="module")
+                                 scope="session")
 
     def get_ctrl_nbr_names(self, macsec_duthost, nbrhosts):
         return NotImplementedError()
@@ -72,7 +72,7 @@ class MacsecPlugin(object):
             disable_macsec_feature(macsec_duthost, macsec_nbrhosts)
         return __stop_macsec_service
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="session")
     def macsec_feature(self, start_macsec_service, stop_macsec_service):
         start_macsec_service()
         yield
@@ -95,20 +95,27 @@ class MacsecPlugin(object):
             setup_macsec_configuration(macsec_duthost, ctrl_links,
                                         profile['name'], profile['priority'], profile['cipher_suite'],
                                         profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                        profile['send_sci'], profile['rekey_period'],
-                                        topo_name)
+                                        profile['send_sci'], profile['rekey_period'], topo_name)
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
         return __startup_macsec
 
-    @pytest.fixture(scope="module")
-    def shutdown_macsec(self, duthost, ctrl_links, macsec_profile):
+    @pytest.fixture(scope="session")
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
         def __shutdown_macsec():
             profile = macsec_profile
             cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+
+    @pytest.fixture(scope="session")
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+         def __shutdown_macsec():
+             profile = macsec_profile
+            topo_name = tbinfo['topo']['name']
+            yield
+            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'], topo_name)
         return __shutdown_macsec
 
-    @pytest.fixture(scope="module", autouse=True)
+    @pytest.fixture(scope="session", autouse=True)
     def macsec_setup(self, startup_macsec, shutdown_macsec, macsec_feature):
         '''
             setup macsec links
@@ -117,7 +124,7 @@ class MacsecPlugin(object):
         yield
         shutdown_macsec()
 
-    @pytest.fixture(scope="module")
+    @pytest.fixture(scope="session")
     def macsec_nbrhosts(self, ctrl_links):
         return {nbr["name"]: nbr for nbr in list(ctrl_links.values())}
 

@@ -161,7 +161,7 @@ def disable_macsec_feature(duthost, macsec_nbrhosts):
     global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
 
 
-def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
+def cleanup_macsec_configuration(duthost, ctrl_links, profile_name, topo):
     devices = set()
     if duthost.facts["asic_type"] == "vs":
         devices.add(duthost)
@@ -178,6 +178,9 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     # the profile is removed from the DB in all namespaces.
     submit_async_task(delete_macsec_profile, (duthost, None, profile_name))
 
+    #Save config 
+    duthost.command("sudo config save -y")
+   
     # Delete the macsec profile in neighbors
     for d in devices:
         submit_async_task(delete_macsec_profile, (d, None, profile_name))
@@ -218,6 +221,9 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name))
     wait_all_complete(timeout=180)
 
+    #Save config 
+    duthost.command("sudo config save -y")
+   
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
         wait_until(20, 3, 0,

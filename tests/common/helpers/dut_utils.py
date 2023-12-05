@@ -46,6 +46,12 @@ def is_macsec_capable_node(inv_files, hostname):
         return True
     return False
 
+def is_macsec_capable_node(inv_files, hostname):
+    dut_vars = get_host_visible_vars(inv_files, hostname)
+    if dut_vars and 'macsec_card' in dut_vars and dut_vars['macsec_card'] == True:
+        return True
+    return False
+
 def is_container_running(duthost, container_name):
     """Decides whether the container is running or not
     @param duthost: Host DUT.
