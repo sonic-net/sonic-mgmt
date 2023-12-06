@@ -91,11 +91,10 @@ class MacsecPlugin(object):
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
 
-            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
             setup_macsec_configuration(macsec_duthost, ctrl_links,
-                                        profile['name'], profile['priority'], profile['cipher_suite'],
-                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
-                                        profile['send_sci'], profile['rekey_period'], topo_name)
+                                       profile['name'], profile['priority'], profile['cipher_suite'],
+                                       profile['primary_cak'], profile['primary_ckn'], profile['policy'],
+                                       profile['send_sci'], profile['rekey_period'], topo_name)
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
         return __startup_macsec
