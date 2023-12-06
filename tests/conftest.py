@@ -371,7 +371,7 @@ def mg_facts(duthost):
 
 
 @pytest.fixture(scope="session")
-def macsec_duthost(duthosts, tb_info):
+def macsec_duthost(duthosts, tbinfo):
     # get the first macsec capable node
     macsec_dut = None
     if 't2' in tbinfo['topo']['name']:
