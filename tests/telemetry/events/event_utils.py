@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
-
+PUBLISHED = 1
 
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
@@ -62,8 +62,13 @@ def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
     duthost.copy(src=ip_file, dest=dest)
 
 
-def event_publish_tool(duthost, json_file):
-    ret = duthost.shell("python ~/events_publish_tool.py -f ~/{}".format(json_file))
+def event_publish_tool(duthost, json_file='', count=1):
+    cmd = "python ~/events_publish_tool.py"
+    if json_file == '':
+        cmd += " -c {}".format(count)
+    else:
+        cmd += " -f ~/{}".format(json_file)
+    ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
 
 
@@ -82,7 +87,7 @@ def restart_eventd(duthost):
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")
-    pytest_assert(wait_until(300, 10, 0, verify_published_counter_increase, duthost, 0, 2),
+    pytest_assert(wait_until(300, 10, 0, verify_counter_increase, duthost, 0, 2, PUBLISHED),
                   "events_monit_test has not published")
 
 
@@ -101,7 +106,7 @@ def read_event_counters(duthost):
     return stats
 
 
-def verify_published_counter_increase(duthost, stat, increase):
-    current_stat = read_event_counters(duthost)
-    current_published_stat = current_stat[1]
-    return current_published_stat >= stat + increase
+def verify_counter_increase(duthost, current_value, increase, stat):
+    current_counters = read_event_counters(duthost)
+    current_stat_counter = current_counters[stat]
+    return current_stat_counter >= current_value + increase

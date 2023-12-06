@@ -9,7 +9,7 @@ from telemetry_utils import skip_201911_and_older
 from events.event_utils import create_ip_file
 from events.event_utils import event_publish_tool, verify_received_output
 from events.event_utils import reset_event_counters, read_event_counters
-from events.event_utils import verify_published_counter_increase, restart_eventd
+from events.event_utils import verify_counter_increase, restart_eventd
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = "logs/telemetry"
 DATA_DIR = os.path.join(BASE_DIR, "files")
+MISSED_TO_CACHE = 0
+PUBLISHED = 1
 
 
 def validate_yang(duthost, op_file="", yang_file=""):
@@ -75,7 +77,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     skip_201911_and_older(duthost)
     reset_event_counters(duthost)
     restart_eventd(duthost)
-    current_published_stat = read_event_counters(duthost)[1]
+    current_published_counter = read_event_counters(duthost)[1]
 
     M = 20
     N = 30
@@ -100,4 +102,27 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     # Verify received output
     verify_received_output(received_op_file, N)
 
-    verify_published_counter_increase(duthost, current_published_stat, N)
+    verify_counter_increase(duthost, current_published_counter, N, PUBLISHED)
+
+
+@pytest.mark.disable_loganalyzer
+def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+    """ Published events till cache overflow, stats should read events missed_to_cache"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    logger.info("Start events cache overflow testing")
+
+    skip_201911_and_older(duthost)
+    reset_event_counters(duthost)
+    restart_eventd(duthost)
+
+    current_missed_to_cache_counter = read_event_counters(duthost)[0]
+
+    """Max cache default configuration size is defined as 100 MB (100 * 1024 * 1024) bytes
+    and each event is around 150 bytes,such that max cache would hold ~700,000 events.
+    event_publish_tool if no input file provided will post X test bgp events twice,
+    for shutdown and startup, hence why we pick 351,000 such that 702,000 events get published
+    in order to get cache overflow"""
+
+    event_publish_tool(duthost, "", 351000)
+
+    verify_counter_increase(duthost, current_missed_to_cache_counter, 2000, MISSED_TO_CACHE) 
