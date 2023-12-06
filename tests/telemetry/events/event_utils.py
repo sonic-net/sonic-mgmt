@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 
+
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
     duthost.shell("cp -f /etc/monit/monitrc ~/")
@@ -81,7 +82,8 @@ def restart_eventd(duthost):
     duthost.shell("systemctl reset-failed eventd")
     duthost.service(name="eventd", state="restarted")
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")
-    pytest_assert(wait_until(300, 10, 0, verify_published_counter_increase, duthost, 0, 2), "events_monit_test has not published")
+    pytest_assert(wait_until(300, 10, 0, verify_published_counter_increase, duthost, 0, 2), 
+                  "events_monit_test has not published")
 
 
 def reset_event_counters(duthost):
