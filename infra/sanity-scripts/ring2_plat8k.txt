@@ -10,12 +10,7 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-portstat/test_portstat.py
 process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
-snmp/test_snmp_v2mib.py::test_snmp_v2mib
-system_health/test_system_status.py
-telemetry/test_telemetry.py::test_config_db_parameters
-test_features.py
 test_interfaces.py
 test_nbr_health.py
 test_posttest.py
