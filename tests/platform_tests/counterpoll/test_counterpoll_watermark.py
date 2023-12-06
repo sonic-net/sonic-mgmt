@@ -205,6 +205,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
 
 
 def verify_all_counterpoll_status(duthost, expected):
+    # Need to sleep 60 seconds to wait for config DB to be ready
+    time.sleep(60)
     verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, expected)
 
 
