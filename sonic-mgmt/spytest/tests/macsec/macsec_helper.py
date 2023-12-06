@@ -165,6 +165,21 @@ def restart_container(dut, container_name, asic):
     st.log("result for docker restart {} is {}".format(cmd, result))
     st.wait(300)
 
+def process_status(dut, container_name, asic, prs_name):
+    cmd = "sudo docker exec {}{} supervisorctl status {}".format(container_name, asic,prs_name)
+    output = st.config(dut, cmd)
+    if re.search("\S+\s+RUNNING", output):
+        st.log("the process {} is running in the container {}".format(prs_name, container_name))
+        return True
+    else:
+        st.log("the process {} is not running in the container {}".format(prs_name, container_name))
+        return False
+
+def crash_process(dut, container_name, asic, prs_name):
+    cmd = "sudo docker exec -i {}{} pkill -9 {}".format(container_name, asic, prs_name)
+    result = st.config(dut, cmd)
+    st.log("result for process restart {} is {}".format(cmd, result))
+    st.wait(300)
 
 def config_portchannel():
     var_def()
