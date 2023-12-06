@@ -3336,13 +3336,11 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
     neighbor_ip = kwargs.get('neighbor_ip', None)
-    neighbor_intfs = kwargs.get('neighbor_intfs', [])
     ebgp_multihop = kwargs.get('ebgp_multihop', None)
     update_src = kwargs.get('update_src', None)
     update_src_intf = kwargs.get('update_src_intf', None)
     connect = kwargs.get('connect', None)
     ebgp_req_policy = kwargs.get('ebgp_req_policy', False)
-    bfd = kwargs.get('bfd', False)
     st.log("Creating BGP peer-group ..")
     cmd = ''
     config = kwargs.get('config', 'yes')
@@ -3403,11 +3401,6 @@ def create_bgp_peergroup(dut, local_asn, peer_grp_name, remote_asn, keep_alive=6
             cmd = cmd + 'neighbor {} update-source {}\n'.format(peer_grp_name, update_src_intf)
         if neighbor_ip is not None:
             cmd = cmd + 'neighbor {} peer-group {}\n'.format(neighbor_ip, peer_grp_name)
-        if bfd is True:
-            cmd = cmd + 'neighbor {} bfd\n'.format(neighbor_ip)
-        for neighbor_intf in neighbor_intfs:
-            cmd = cmd + 'neighbor {} interface peer-group {}\n'.format(neighbor_intf, peer_grp_name)
-        st.log("************************ create_bgp_peergroup {} ******************".format(cmd))
         st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
@@ -3893,7 +3886,6 @@ def config_bgp_multi_neigh_use_peergroup(dut, **kwargs):
     cli_type = get_cfg_cli_type(dut, **kwargs)
     ebgp_req_policy = kwargs.get('ebgp_req_policy', False)
 
-    st.log('************** cli_type {}, kwargs {}'.format(cli_type, kwargs))
     if 'local_asn' not in kwargs or 'peer_grp_name' not in kwargs or 'remote_asn' not in kwargs \
             or 'neigh_ip_list' not in kwargs:
         st.error("Mandatory parameters are missing.")
@@ -4343,7 +4335,6 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
     route_map = kwargs.get('route_map')
-    peer_group = kwargs.get('peer_group', None)
 
     if cli_type in get_supported_ui_type_list():
         family = mode_type
@@ -4390,8 +4381,6 @@ def config_address_family_redistribute(dut, local_asn, mode_type, mode, value, c
             cmd = cmd + "\n {} redistribute {} route-map {}".format(cfgmode, value, route_map)
         else:
             cmd = cmd + "\n {} redistribute {}".format(cfgmode, value)
-        if peer_group:
-            cmd = cmd + "\n neighbor {} activate".format(peer_group)
         st.config(dut, cmd, type='vtysh', skip_error_check=skip_error_check)
         return True
     elif cli_type == "klish":
@@ -4528,7 +4517,6 @@ def config_bgp(dut, **kwargs):
     """
     cli_type = get_cfg_cli_type(dut, **kwargs)
     st.log('Configure BGP')
-    st.log('****************** {} **************'.format(kwargs))
     config = kwargs.get('config', "yes")
     vrf_name = kwargs.get('vrf_name', "default")
     router_id = kwargs.get('router_id', '')
@@ -4779,7 +4767,6 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'peergroup':
                 my_cmd += '{} neighbor {} remote-as {}\n'.format(config_cmd, peergroup, remote_as)
                 if config_cmd == '':
-                    st.log("Configuring interface peer group {} / {} / {}".format(config_cmd, interface, neighbor))
                     if interface:
                         my_cmd += 'neighbor {} interface peer-group {}\n'.format(neighbor, peergroup)
                     else:
@@ -4787,7 +4774,6 @@ def config_bgp(dut, **kwargs):
                 if config_cmd == 'no':
                     my_cmd += '{} neighbor {} peer-group\n'.format(config_cmd, peergroup)
             elif type1 == 'bfd':
-                st.log("****************************** got bfd {} ********************".format(peergroup))
                 if peergroup:
                     my_cmd += '{} neighbor {} bfd\n'.format(config_cmd, peergroup)
                 elif interface != '' and interface is not None:
