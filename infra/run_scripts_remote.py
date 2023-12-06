@@ -355,10 +355,11 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
 
     #send additional test files to sim
     ftp_client=ssh.open_sftp()
-    for additional_test in additional_tests.split(","):
-        additional_test = additional_test.strip()
-        print(f"uploading additional testcase {additional_test} to sonic-mgmt from '../sonic-mgmt/tests/{additional_test}' to '{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}'")
-        ftp_client.put(f"../sonic-mgmt/tests/{additional_test}",f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}")
+    if additional_tests:
+        for additional_test in additional_tests.split(","):
+            additional_test = additional_test.strip()
+            print(f"uploading additional testcase {additional_test} to sonic-mgmt from '../sonic-mgmt/tests/{additional_test}' to '{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}'")
+            ftp_client.put(f"../sonic-mgmt/tests/{additional_test}",f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}")
 
     print("determine sonic_test_dir from docker_mgmt_container name")
 

@@ -5,7 +5,7 @@ simulation:
     hours: 30
     partition: regression
     cluster: rch-slurm-m1
-          
+
 devices:
   docker_ptf:
     platform: linux
@@ -29,13 +29,13 @@ devices:
     linux_username: "cisco"
     linux_password: "cisco123"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
-    onie-install: http://172.27.147.152/IMAGES/6018/sonic-cisco-8000.bin
+    onie-install: http://172.27.147.152/IMAGES/7371/sonic-cisco-8000.bin
     linecard_types: [matilda64]
 
   sonic_mgmt :
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    image : /globalnobackup3/sonic/ubuntu1804_mgt.qcow2
     linux_username: 'vxr'
     linux_password : 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'
@@ -112,4 +112,4 @@ connections:
     backplane:
       ports:
       - veos[1..4].Ethernet9
-      - docker_ptf.backplane  
+      - docker_ptf.backplane
