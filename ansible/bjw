@@ -56,9 +56,17 @@ all:
           ansible_host: 10.150.23.68
         bjw7-9:
           ansible_host: 10.150.23.69
+        bjw14-1:
+          ansible_host: 10.150.23.70
 
     pdu:
       hosts:
+        bjw-pdu-126-130:
+          ansible_host: 10.150.126.130
+          protocol: snmp
+        bjw-pdu-126-131:
+          ansible_host: 10.150.126.131
+          protocol: snmp
         bjw-pdu-126-132:
           ansible_host: 10.150.126.132
           protocol: snmp
@@ -141,18 +149,33 @@ fanout:
     bjw-can-7215-13:
       ansible_host: 10.150.22.132
       os: sonic
-    bjw-can-3800-2:
-      ansible_host: 10.150.22.136
+    bjw-can-z9332f-5:
+      ansible_host: 10.150.22.141
       os: sonic
-    bjw-can-4600c-2:
-      ansible_host: 10.150.22.138
+    bjw-can-z9332f-6:
+      ansible_host: 10.150.22.142
       os: sonic
-    bjw-can-2700-4:
-      ansible_host: 10.150.22.140
+    bjw-can-z9332f-7:
+      ansible_host: 10.150.22.143
       os: sonic
     bjw-slx-can-1:
       ansible_host: 10.150.22.104
       os: sonic
+    bjw-can-7260-1:
+      ansible_host: 10.150.22.147
+      # serial: JPA2311P515  # record on physical device, DO NOT MODIFY THIS VALUE.
+    bjw-can-7260-2:
+      ansible_host: 10.150.22.148
+      # serial: JPA2312P0FV  # record on physical device, DO NOT MODIFY THIS VALUE.
+    bjw-can-7260-3:
+      ansible_host: 10.150.22.149
+      # serial: JPA2311P511  # record on physical device, DO NOT MODIFY THIS VALUE.
+    bjw-can-7260-4:
+      ansible_host: 10.150.22.150
+      # serial: JPA22392925  # record on physical device, DO NOT MODIFY THIS VALUE.
+    bjw-can-7260-5:
+      ansible_host: 10.150.22.151
+      # serial: FGN230403RD  # record on physical device, DO NOT MODIFY THIS VALUE.
 
 sonic:
   vars:
@@ -169,6 +192,8 @@ sonic:
     sonic_cisco_8102:
     sonic_mlnx_sn3800:
     sonic_mlnx_sn4600c:
+    sonic_nokia_sup:
+    sonic_nokia_lc_400G:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -444,6 +469,9 @@ sonic_mlnx_sn2700:
         "0x2a": "128"
         "0x2b": "Mellanox"
         "0xfe": "0x55EBE5E5"
+    bjw-can-2700-4:
+      ansible_host: 10.150.22.140
+      # todo
 
 sonic_nokia_7215:
   vars:
@@ -511,7 +539,7 @@ sonic_e1031:
   hosts:
     bjw-can-e1031-1:
       ansible_host: 10.150.22.125
-      model: R0882-F4111-01
+      model: R0882-F4081-01
       serial: R0882B2F160615GD000006
       base_mac: 00:E0:EC:E9:A0:2C
       syseeprom_info:
@@ -576,6 +604,9 @@ sonic_mlnx_sn3800:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0xC12E2792"
+    bjw-can-3800-2:
+      ansible_host: 10.150.22.136
+      # todo
 
 sonic_mlnx_sn4600c:
   vars:
@@ -598,6 +629,106 @@ sonic_mlnx_sn4600c:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x4D23FBB2"
+    bjw-can-4600c-2:
+      ansible_host: 10.150.22.138
+      # todo
+
+sonic_nokia_sup:
+  vars:
+    HwSku:  Nokia-IXR7250E-SUP-10
+    sonic_hwsku:  Nokia-IXR7250E-SUP-10
+    sonic_hw_platform:  x86_64-nokia_ixr7250e_sup-r0
+    slot_num: slot0
+    num_asics: 16
+    num_fabric_asics: 16
+    switchids: [300,301,302,303,304,305,306,307,308,309,310,311,312,313,314,315]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+  hosts:
+    bjw-can-7250-sup-1:
+      ansible_host: 10.150.22.144
+      hwsku: Nokia-IXR7250E-SUP-10
+      model: '3HE16996AARA01'
+      serial: NS225262106
+      base_mac: 9C:E0:41:D0:01:FC
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-SUP-10"
+        "0x22": "3HE16996AARA01"
+        "0x23": "NS225262106"
+        "0x24": "9C:E0:41:D0:01:FC"
+        "0x25": "01042023"
+        "0x26": "56"
+        "0x2A": "5"
+        "0xFE": "0xD37D218D"
+      skip_modules:
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
+      asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+
+sonic_nokia_lc_400G:
+  vars:
+    max_cores: 48
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    bjw-can-7250-lc1-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot1
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: 19688-0038
+      base_mac:  40:7C:7D:BB:26:0B
+      ansible_host: 10.150.22.145
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0038"
+        "0x24": "40:7C:7D:BB:26:0B"
+        "0x26": "56"
+        "0x2A": "2"
+        "0xFE": "0x7412F0DE"
+    bjw-can-7250-lc2-1:
+      hwsku: Nokia-IXR7250E-36x400G
+      sonic_hwsku: Nokia-IXR7250E-36x400G
+      sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
+      slot_num: slot2
+      switchids: [6,8]
+      voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
+      voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
+      loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
+      loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::8/128]
+      serial: 19688-0041
+      base_mac:  40:7C:7D:BB:26:1D
+      ansible_host: 10.150.22.146
+      model: '3HE12578AARA01'
+      syseeprom_info:
+        "0x21": "Nokia-IXR7250E-36x400G"
+        "0x22": "3HE12578AARA01"
+        "0x23": "19688-0041"
+        "0x24": "40:7C:7D:BB:26:1D"
 
 server:
   hosts:
@@ -642,3 +773,10 @@ mgmt:
     bjw-can-7215-10:
       ansible_host: 10.150.22.10
       os: sonic
+    bjw-can-4kts-1:
+      ansible_host: 10.150.22.12
+    bjw-can-e1031-2:
+      ansible_host: 10.150.22.13
+      os: sonic
+      # serial: R0882F2B010212BY200002  # record on physical device, DO NOT MODIFY THIS VALUE.
+      # serial of C0: C1010NNN053202BY200006  # record on physical device, DO NOT MODIFY THIS VALUE.
