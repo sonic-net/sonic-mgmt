@@ -1428,9 +1428,8 @@ def is_tunnel_qos_remap_enabled(duthost):
     Check whether tunnel_qos_remap is enabled or not
     """
     try:
-        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'',
-                                                module_ignore_errors=True)["stdout_lines"][0]
-    except (IndexError, NameError):
+        tunnel_qos_remap_status = duthost.shell('sonic-cfggen -d -v \'SYSTEM_DEFAULTS.tunnel_qos_remap.status\'', module_ignore_errors=True)["stdout_lines"][0].decode("utf-8")
+    except IndexError:
         return False
     return "enabled" == tunnel_qos_remap_status
 
