@@ -50,3 +50,53 @@ def test_platform_undertemp_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     result = duthost.command("sudo docker exec pmon rm /tmp/SSD_Temp")
     logging.info(result)
 
+
+def test_platform_overvolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Inject an overvolt fault and check the alarm"`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
+    logging.info(sname)
+
+    cmd = "sudo docker exec pmon sh -c 'echo 100000 > /tmp/{}'".format(sname)
+    result = duthost.command(cmd)
+    logging.info(result)
+
+    time.sleep(60)
+
+    cmd = "show platform voltage | grep {}".format(sname)
+    result = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    logging.info(result)
+    assert "True" in str(result), "Voltage over threshold warning not detected"
+
+    cmd = "sudo docker exec pmon rm /tmp/{}".format(sname)
+    result = duthost.command(cmd)
+    logging.info(result)
+
+
+def test_platform_undervolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Inject an undervolt fault and check the alarm"`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
+    logging.info(sname)
+
+    cmd = "sudo docker exec pmon sh -c 'echo 0 > /tmp/{}'".format(sname)
+    result = duthost.command(cmd)
+    logging.info(result)
+
+    time.sleep(60)
+
+    cmd = "show platform voltage | grep {}".format(sname)
+    result = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    logging.info(result)
+    assert "True" in str(result), "Voltage under threshold warning not detected"
+
+    cmd = "sudo docker exec pmon rm /tmp/{}".format(sname)
+    result = duthost.command(cmd)
+    logging.info(result)
+
