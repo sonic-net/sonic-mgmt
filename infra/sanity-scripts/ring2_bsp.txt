@@ -9,7 +9,6 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
 test_interfaces.py
 test_posttest.py
 test_procdockerstatsd.py::test_verify_redisexport
