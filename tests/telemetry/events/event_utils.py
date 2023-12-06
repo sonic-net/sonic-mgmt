@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
+EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
@@ -74,3 +75,31 @@ def verify_received_output(received_file, N):
             block = json_array[i]["test-event-source:test"]
             pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0,
                           "Missing key or incorrect value")
+
+
+def restart_eventd(duthost):
+    duthost.shell("systemctl reset-failed eventd")
+    duthost.service(name="eventd", state="restarted")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")
+    pytest_assert(wait_until(300, 10, 0, verify_published_counter_increase, duthost, 0, 2), "events_monit_test has not published")
+
+
+def reset_event_counters(duthost):
+    for key in EVENT_COUNTER_KEYS:
+        cmd = "sonic-db-cli COUNTERS_DB HSET COUNTERS_EVENTS:{} value 0".format(key)
+        duthost.shell(cmd, module_ignore_errors=True)
+
+
+def read_event_counters(duthost):
+    stats = []
+    for key in EVENT_COUNTER_KEYS:
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_EVENTS:{} value".format(key)
+        output = duthost.shell(cmd)['stdout']
+        stats.append(int(output))
+    return stats
+
+
+def verify_published_counter_increase(duthost, stat, increase):
+    current_stat = read_event_counters(duthost)
+    current_published_stat = current_stat[1]
+    return current_published_stat >= stat + increase

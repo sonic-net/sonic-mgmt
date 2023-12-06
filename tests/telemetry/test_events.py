@@ -8,6 +8,8 @@ from telemetry_utils import listen_for_events
 from telemetry_utils import skip_201911_and_older
 from events.event_utils import create_ip_file
 from events.event_utils import event_publish_tool, verify_received_output
+from events.event_utils import reset_event_counters, read_event_counters
+from events.event_utils import verify_published_counter_increase, restart_eventd
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -55,16 +57,9 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
     skip_201911_and_older(duthost)
     do_init(duthost)
 
-    # Test eventd heartbeat event first
-
-    file = "eventd_events.py"
-    module = __import__(file[:len(file)-3])
-    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
-
-    # Test rest of events
-
+    # Load all events test code and run
     for file in os.listdir(EVENTS_TESTS_PATH):
-        if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
+        if file.endswith("_events.py"):
             module = __import__(file[:len(file)-3])
             module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, validate_yang)
             logger.info("Completed test file: {}".format(os.path.join(EVENTS_TESTS_PATH, file)))
@@ -78,6 +73,9 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
     logger.info("Start events cache testing")
 
     skip_201911_and_older(duthost)
+    reset_event_counters(duthost)
+    restart_eventd(duthost)
+    current_published_stat = read_event_counters(duthost)[1]
 
     M = 20
     N = 30
@@ -101,3 +99,5 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
 
     # Verify received output
     verify_received_output(received_op_file, N)
+
+    verify_published_counter_increase(duthost, current_published_stat, N)
