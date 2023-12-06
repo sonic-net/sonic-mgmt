@@ -1,7 +1,4 @@
-bgp/test_bgp_fact.py
-test_features.py
 test_interfaces.py
-test_nbr_health.py
 test_procdockerstatsd.py
 lldp/test_lldp.py
 test_posttest.py

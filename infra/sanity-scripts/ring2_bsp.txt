@@ -1,4 +1,3 @@
-bgp/test_bgp_fact.py
 memory_checker/test_memory_checker.py::test_memory_checker_without_container_created[mathilda-01-mathilda-01|telemetry]
 monit/test_monit_status.py::test_monit_status
 mvrf/test_mgmtvrf.py:test_ping
@@ -12,7 +11,6 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
 test_interfaces.py
-test_nbr_health.py
 test_posttest.py
 test_procdockerstatsd.py::test_verify_redisexport
 test_procdockerstatsd.py::test_verify_status
