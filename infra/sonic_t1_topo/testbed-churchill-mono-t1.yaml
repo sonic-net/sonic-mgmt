@@ -93,7 +93,7 @@ testbed:
     ptf_image_name: docker-ptf-churchill-mono
     ptf_ip: 192.168.122.66/24
     ptf_ipv6: fc0b::1/64
-    ptf: docker-ptf 
+    ptf: docker-ptf
     server: server_1
     topo: t1
     vm_base: VM0100
@@ -114,196 +114,196 @@ topology:
   churchill-mono-01:
     interfaces:
       Ethernet0:
-        Bandwidth: 40000
-        EndDevice: VM0100
-        EndPort: Ethernet1
-        VlanID: 1681
-        VlanMode: Access
-      Ethernet1:
-        Bandwidth: 40000
-        EndDevice: VM0101
-        EndPort: Ethernet1
-        VlanID: 1682
-        VlanMode: Access
-      Ethernet10:
-        Bandwidth: 40000
-        EndDevice: VM0110
-        EndPort: Ethernet1
-        VlanID: 1691
-        VlanMode: Access
-      Ethernet11:
-        Bandwidth: 40000
-        EndDevice: VM0111
-        EndPort: Ethernet1
-        VlanID: 1692
-        VlanMode: Access
-      Ethernet12:
-        Bandwidth: 40000
-        EndDevice: VM0112
-        EndPort: Ethernet1
-        VlanID: 1693
-        VlanMode: Access
-      Ethernet13:
-        Bandwidth: 40000
-        EndDevice: VM0113
-        EndPort: Ethernet1
-        VlanID: 1694
-        VlanMode: Access
-      Ethernet14:
-        Bandwidth: 40000
-        EndDevice: VM0114
-        EndPort: Ethernet1
-        VlanID: 1695
-        VlanMode: Access
-      Ethernet15:
-        Bandwidth: 40000
-        EndDevice: VM0115
-        EndPort: Ethernet1
-        VlanID: 1696
-        VlanMode: Access
-      Ethernet16:
-        Bandwidth: 40000
-        EndDevice: VM0116
-        EndPort: Ethernet1
-        VlanID: 1697
-        VlanMode: Access
-      Ethernet17:
-        Bandwidth: 40000
-        EndDevice: VM0117
-        EndPort: Ethernet1
-        VlanID: 1698
-        VlanMode: Access
-      Ethernet18:
-        Bandwidth: 40000
-        EndDevice: VM0118
-        EndPort: Ethernet1
-        VlanID: 1699
-        VlanMode: Access
-      Ethernet19:
-        Bandwidth: 40000
-        EndDevice: VM0119
-        EndPort: Ethernet1
-        VlanID: 1700
-        VlanMode: Access
-      Ethernet2:
-        Bandwidth: 40000
-        EndDevice: VM0102
-        EndPort: Ethernet1
-        VlanID: 1683
-        VlanMode: Access
-      Ethernet20:
-        Bandwidth: 40000
-        EndDevice: VM0120
-        EndPort: Ethernet1
-        VlanID: 1701
-        VlanMode: Access
-      Ethernet21:
-        Bandwidth: 40000
-        EndDevice: VM0121
-        EndPort: Ethernet1
-        VlanID: 1702
-        VlanMode: Access
-      Ethernet22:
-        Bandwidth: 40000
-        EndDevice: VM0122
-        EndPort: Ethernet1
-        VlanID: 1703
-        VlanMode: Access
-      Ethernet23:
-        Bandwidth: 40000
-        EndDevice: VM0123
-        EndPort: Ethernet1
-        VlanID: 1704
-        VlanMode: Access
-      Ethernet24:
-        Bandwidth: 40000
-        EndDevice: VM0124
-        EndPort: Ethernet1
-        VlanID: 1705
-        VlanMode: Access
-      Ethernet25:
-        Bandwidth: 40000
-        EndDevice: VM0125
-        EndPort: Ethernet1
-        VlanID: 1706
-        VlanMode: Access
-      Ethernet26:
-        Bandwidth: 40000
-        EndDevice: VM0126
-        EndPort: Ethernet1
-        VlanID: 1707
-        VlanMode: Access
-      Ethernet27:
-        Bandwidth: 40000
-        EndDevice: VM0127
-        EndPort: Ethernet1
-        VlanID: 1708
-        VlanMode: Access
-      Ethernet28:
-        Bandwidth: 40000
-        EndDevice: VM0128
-        EndPort: Ethernet1
-        VlanID: 1709
-        VlanMode: Access
-      Ethernet29:
-        Bandwidth: 40000
-        EndDevice: VM0129
-        EndPort: Ethernet1
-        VlanID: 1710
-        VlanMode: Access
-      Ethernet3:
-        Bandwidth: 40000
-        EndDevice: VM0103
-        EndPort: Ethernet1
-        VlanID: 1684
-        VlanMode: Access
-      Ethernet30:
-        Bandwidth: 40000
-        EndDevice: VM0130
-        EndPort: Ethernet1
-        VlanID: 1711
-        VlanMode: Access
-      Ethernet31:
-        Bandwidth: 40000
-        EndDevice: VM0131
-        EndPort: Ethernet1
-        VlanID: 1712
-        VlanMode: Access
-      Ethernet4:
-        Bandwidth: 40000
-        EndDevice: VM0104
-        EndPort: Ethernet1
-        VlanID: 1685
-        VlanMode: Access
-      Ethernet5:
-        Bandwidth: 40000
-        EndDevice: VM0105
-        EndPort: Ethernet1
-        VlanID: 1686
-        VlanMode: Access
-      Ethernet6:
-        Bandwidth: 40000
-        EndDevice: VM0106
-        EndPort: Ethernet1
-        VlanID: 1687
-        VlanMode: Access
-      Ethernet7:
-        Bandwidth: 40000
-        EndDevice: VM0107
-        EndPort: Ethernet1
-        VlanID: 1688
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/0
+        VlanID: 2000
         VlanMode: Access
       Ethernet8:
-        Bandwidth: 40000
-        EndDevice: VM0108
-        EndPort: Ethernet1
-        VlanID: 1689
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/1
+        VlanID: 2001
         VlanMode: Access
-      Ethernet9:
-        Bandwidth: 40000
-        EndDevice: VM0109
-        EndPort: Ethernet1
-        VlanID: 1690
+      Ethernet16:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/2
+        VlanID: 2002
+        VlanMode: Access
+      Ethernet24:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/3
+        VlanID: 2003
+        VlanMode: Access
+      Ethernet32:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/4
+        VlanID: 2004
+        VlanMode: Access
+      Ethernet40:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/5
+        VlanID: 2005
+        VlanMode: Access
+      Ethernet48:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/6
+        VlanID: 2006
+        VlanMode: Access
+      Ethernet56:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/7
+        VlanID: 2007
+        VlanMode: Access
+      Ethernet64:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/8
+        VlanID: 2008
+        VlanMode: Access
+      Ethernet72:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/9
+        VlanID: 2009
+        VlanMode: Access
+      Ethernet80:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/10
+        VlanID: 2010
+        VlanMode: Access
+      Ethernet88:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/11
+        VlanID: 2011
+        VlanMode: Access
+      Ethernet96:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/12
+        VlanID: 2012
+        VlanMode: Access
+      Ethernet104:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/13
+        VlanID: 2013
+        VlanMode: Access
+      Ethernet112:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/14
+        VlanID: 2014
+        VlanMode: Access
+      Ethernet120:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/15
+        VlanID: 2015
+        VlanMode: Access
+      Ethernet128:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/16
+        VlanID: 2016
+        VlanMode: Access
+      Ethernet136:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/17
+        VlanID: 2017
+        VlanMode: Access
+      Ethernet144:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/18
+        VlanID: 2018
+        VlanMode: Access
+      Ethernet152:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/19
+        VlanID: 2019
+        VlanMode: Access
+      Ethernet160:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/20
+        VlanID: 2020
+        VlanMode: Access
+      Ethernet168:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/21
+        VlanID: 2021
+        VlanMode: Access
+      Ethernet176:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/22
+        VlanID: 2022
+        VlanMode: Access
+      Ethernet184:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/23
+        VlanID: 2023
+        VlanMode: Access
+      Ethernet192:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/24
+        VlanID: 2024
+        VlanMode: Access
+      Ethernet200:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/25
+        VlanID: 2025
+        VlanMode: Access
+      Ethernet208:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/26
+        VlanID: 2026
+        VlanMode: Access
+      Ethernet216:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/27
+        VlanID: 2027
+        VlanMode: Access
+      Ethernet224:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/28
+        VlanID: 2028
+        VlanMode: Access
+      Ethernet232:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/29
+        VlanID: 2029
+        VlanMode: Access
+      Ethernet240:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/30
+        VlanID: 2030
+        VlanMode: Access
+      Ethernet248:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/31
+        VlanID: 2031
         VlanMode: Access
 veos:
   cd_image_filename: Aboot-veos-serial-8.0.0.iso

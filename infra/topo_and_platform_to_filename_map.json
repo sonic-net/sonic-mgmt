@@ -1,4 +1,7 @@
 {
+    "t0-t1": {
+        "mth32": "../pyvxr_yaml_files/tortuga_spytest_4D_linux.yaml"
+    },
     "t2-min": {
         "sfd": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
     },

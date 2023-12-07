@@ -319,7 +319,7 @@ def __tgen_bgp_config(cvg_api,
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
-        lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+        c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
         lp.ethernet.name = "lag_Ethernet %s" % i
         lp.ethernet.mac = "00:10:01:00:00:%s" % m
         config.devices.device(name='Topology %d' % i)
@@ -776,7 +776,7 @@ def get_RIB_IN_capacity(cvg_api,
                 m = '0'+hex(i).split('0x')[1]
             else:
                 m = hex(i).split('0x')[1]
-            lp.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
+            c_lag.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
             lp.ethernet.name = "lag_Ethernet %s" % i
             lp.ethernet.mac = "00:10:01:00:00:%s" % m
             config.devices.device(name='Topology %d' % i)

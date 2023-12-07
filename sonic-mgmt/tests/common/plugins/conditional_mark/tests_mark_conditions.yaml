@@ -1267,6 +1267,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_vnet_route_leak.py:
+  skip:
+    reason: "Test skipped due to issue #8374"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
 vxlan/test_vnet_vxlan.py:
   skip:
     reason: "1. Enable tests only for: mellanox, barefoot

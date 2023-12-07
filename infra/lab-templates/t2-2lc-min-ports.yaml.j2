@@ -19,7 +19,7 @@ all:
     ptf:
       hosts:
         docker-ptf:
-          ansible_host: 192.168.122.5
+          ansible_host: {{ vxr_ports['docker_ptf']['xr_mgmt_ip'] }}
           ansible_ssh_user: root
           ansible_ssh_pass: root
 

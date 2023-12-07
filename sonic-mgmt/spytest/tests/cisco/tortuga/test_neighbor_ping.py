@@ -50,8 +50,8 @@ def test_ping_neighbor ():
             else:
                 st.log("Ping4 LLDP Failed, please check the connectivity",dut)
                 st.error("Ipv4 Ping LLDP Failed",dut)
-                st.report_fail("Ping4 LLP failed",dut)
-            st.report_pass("IPV4 Ping test_case_passed",dut)
+                st.report_fail("test_case_failed",dut)
+            st.report_pass("test_case_passed",dut)
 
             # Ping IPV6 Neighbor  
         for ipv6 in ipv6_nei:
@@ -63,8 +63,8 @@ def test_ping_neighbor ():
             else:
                 st.log("Ping6 LLDP Failed, please check the connectivity",dut)
                 st.error("Ipv6 Ping LLDP Failed",dut)
-                st.report_fail("Ping4 LLP failed",dut)
-            st.report_pass("IPV6 Ping test_case_passed",dut)       
+                st.report_fail("test_case_failed",dut)
+            st.report_pass("test_case_passed",dut)       
 
 
 def test_box_eth_setting():
@@ -78,5 +78,5 @@ def test_box_eth_setting():
             st.log("ifconfig contain 192",dut)
         else:
             st.error("Failed ifconfig eth0",dut)
-            st.report_fail("eth0 doesn't has 192",dut)
+            st.report_fail("test_case_failed",dut)
         st.report_pass("test_case_passed",dut)
