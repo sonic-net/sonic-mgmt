@@ -27,6 +27,7 @@ def test_platform_overtemp_fault(duthosts, enum_rand_one_per_hwsku_hostname):
 
     result = duthost.shell("show platform temperature | grep SSD_Temp", module_ignore_errors=True)['stdout_lines']
     logging.info(result)
+
     assert "True" in str(result), "Temperature over threshold warning not detected"
 
     result = duthost.command("sudo docker exec pmon rm /tmp/SSD_Temp")
@@ -45,7 +46,8 @@ def test_platform_undertemp_fault(duthosts, enum_rand_one_per_hwsku_hostname):
 
     result = duthost.shell("show platform temperature | grep SSD_Temp", module_ignore_errors=True)['stdout_lines']
     logging.info(result)
-    assert "True" in str(result), "Temperature over threshold warning not detected"
+
+    assert "True" in str(result), "Temperature under threshold warning not detected"
 
     result = duthost.command("sudo docker exec pmon rm /tmp/SSD_Temp")
     logging.info(result)
@@ -57,8 +59,12 @@ def test_platform_overvolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    #Find the first voltage sensor 
     sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
     logging.info(sname)
+
+    if not sname:
+        pytest.skip("Voltage sensor not found")
 
     cmd = "sudo docker exec pmon sh -c 'echo 100000 > /tmp/{}'".format(sname)
     result = duthost.command(cmd)
@@ -69,6 +75,7 @@ def test_platform_overvolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     cmd = "show platform voltage | grep {}".format(sname)
     result = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     logging.info(result)
+
     assert "True" in str(result), "Voltage over threshold warning not detected"
 
     cmd = "sudo docker exec pmon rm /tmp/{}".format(sname)
@@ -82,8 +89,12 @@ def test_platform_undervolt_fault(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    #Find the first voltage sensor 
     sname = duthost.shell("sed -n '/voltage_sensors/,/name/ s/.*name.*: *//p ' /opt/cisco/etc/thermal_zone.yaml")['stdout']
     logging.info(sname)
+
+    if not sname:
+        pytest.skip("Voltage sensor not found")
 
     cmd = "sudo docker exec pmon sh -c 'echo 0 > /tmp/{}'".format(sname)
     result = duthost.command(cmd)
