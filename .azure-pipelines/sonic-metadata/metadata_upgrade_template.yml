@@ -113,6 +113,7 @@ stages:
           print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
     - script: |
+        set -ex
         python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48
         echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       env:
