@@ -153,7 +153,7 @@ class LogAnalyzer:
 
     def save_matching_errors(self, result_log_errors):
         """
-        save all the log errors in a file on the player
+        save all the log errors in a file on the player.
         :param result_log_errors: list of all the errors we found in the log - result["match_messages"].values()
         """
         if result_log_errors:
