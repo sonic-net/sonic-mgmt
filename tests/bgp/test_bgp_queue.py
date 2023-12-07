@@ -34,7 +34,7 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     clear_queue_counters(asichost)
     time.sleep(10)
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     arp_dict = {}
     ndp_dict = {}
