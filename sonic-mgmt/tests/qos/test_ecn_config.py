@@ -17,18 +17,18 @@ def enable_serviceability_cli(duthost):
     show_command = "sudo show platform npu voq cgm_profile -i Ethernet0 -t 0"
     err_msg = "debug shell server for asic 0 is not running"
     output = duthost.command(show_command)['stdout']
-    if output.find(err_msg) == -1:
+    if err_msg not in output:
         return
     duthost.command("config platform cisco sdk-debug enable")
     time.sleep(20)
     output = duthost.command(show_command)['stdout']
-    if output.find(err_msg) == -1:
+    if err_msg not in output:
         return
     time.sleep(300)
     output = duthost.command(show_command)['stdout']
-    if output.find(err_msg) != -1:
+    if err_msg in output:
         pytest.fail(
-            "This test failed since serviceabitliy CLI is not available")
+            "This test failed since serviceability CLI is not available")
 
 
 def get_asic_type(duthost):
@@ -54,8 +54,8 @@ def test_verify_wred_drop_config(duthosts, rand_one_dut_hostname, request):
     show_command = "sudo show platform npu voq cgm_profile -i {} -t {} -d"
     port = "Ethernet0"
     tc = 0
-    
-    # Set larger thresholds for pacific since lossy eviction\
+
+    # Set larger thresholds for pacific since lossy eviction to HBM
     drop_probability = 5
     asic_type = get_asic_type(duthost)
     if asic_type == "pacific":
