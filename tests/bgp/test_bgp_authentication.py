@@ -20,11 +20,11 @@ mismatch_pass = "badpassword"
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index, request):
+def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
     # verify neighbors are type sonic
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
