@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms64-t0-s6100-1, vms7-t0-s6100-4"
+    default: "vms64-t0-s6100-1, vms3-t0-s6100"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
