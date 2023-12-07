@@ -6,10 +6,9 @@ import base64
 import re
 import subprocess
 
+logging.basicConfig(level=logging.DEBUG)
+
 logger = logging.getLogger()
-
-ALLURE_REPORT_URL = "allure_report_url"
-
 
 def get_time_stamp_str():
     """
@@ -22,9 +21,12 @@ def get_time_stamp_str():
 
 
 class AllureServer:
-    def __init__(self, allure_server_ip, allure_server_port, allure_report_dir, project_id=None):
+    def __init__(self, allure_server_host, allure_report_dir, allure_server_port=None, project_id=None):
         self.allure_report_dir = allure_report_dir
-        self.base_url = "http://{}:{}/allure-docker-service".format(allure_server_ip, allure_server_port)
+        if allure_server_port:
+            self.base_url = "http://{}:{}/allure-docker-service".format(allure_server_host, allure_server_port)
+        else:
+            self.base_url = "http://{}/allure-docker-service".format(allure_server_host)
         self.project_id = str(project_id) if project_id else get_time_stamp_str()
         self.http_headers = {"Content-type": "application/json"}
 
@@ -107,6 +109,7 @@ class AllureServer:
         This method would generate the report on the remote allure server and display the report URL in the log
         """
         logger.info("Generating report on allure server")
+        time.sleep(30)
         params = {"project_id": self.project_id}
         url = self.base_url + "/generate-report"
         response = requests.get(url, params=params, headers=self.http_headers)
@@ -128,6 +131,7 @@ class AllureServer:
         """
         This method would clean results for project on the remote allure server
         """
+        time.sleep(30)
         url = self.base_url + "/clean-results"
         params = {"project_id": self.project_id}
         response = requests.get(url, params=params, headers=self.http_headers)
