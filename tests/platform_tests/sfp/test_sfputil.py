@@ -65,10 +65,9 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
 
     logging.info("Check output of '{}'".format(cmd_sfp_error_status))
-    sfp_error_status = duthost.command(cmd_sfp_error_status)
-    for line in sfp_error_status["stdout_lines"][2:]:
-        if "Not implemented" in line:
-            pytest.skip("Skip test as error status isn't supported")
+    sfp_error_status = duthost.command(cmd_sfp_error_status, module_ignore_errors=True)
+    if "NOT implemented" in sfp_error_status['stdout']:
+        pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
