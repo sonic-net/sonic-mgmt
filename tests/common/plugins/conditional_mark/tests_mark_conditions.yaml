@@ -459,8 +459,9 @@ generic_config_updater:
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "M0 and Mx don't support ecn config update"
+    conditions_logical_operator: 'OR'
     conditions:
-      - "branch in ['internal-202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
+      - "release in ['202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged 
       - "topo_type in ['m0', 'mx']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
@@ -492,15 +493,16 @@ generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33
 generic_config_updater/test_incremental_qos.py::test_incremental_qos_config_updates:
   skip:
     reason: "This test was not run on this hwsku type currently"
+    conditions_logical_operator: 'OR'
     conditions:
-      - "branch in ['internal-202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
+      - "release in ['202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
       - "not any(i in hwsku for i in ['2700', 'Arista-7170-64C', 'montara', 'newport'])"
 
 generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic_th_config_updates:
   skip:
     reason: "This test behavior to be modified in 202205"
     conditions:
-      - "branch in ['internal-202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
+      - "release in ['202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
 
 generic_config_updater:
   skip:
@@ -512,14 +514,15 @@ generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test behavior to be modified in 202205"
     conditions:
-      - "branch in ['internal-202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
+      - "release in ['202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
 
 generic_config_updater/test_pfcwd_status.py:
   skip:
     reason: "PFC watchdog is not supported on M0/Mx topology"
+    conditions_logical_operator: 'OR'
     conditions:
-      - "branch in ['internal-202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
       - "topo_type in ['m0', 'mx']"
+      - "release in ['202205']" #TODO- remove this when sonic-mgmt PR 10836 is merged
 
 #######################################
 #####           http              #####
