@@ -125,4 +125,4 @@ def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfho
 
     event_publish_tool(duthost, "", 351000)
 
-    verify_counter_increase(duthost, current_missed_to_cache_counter, 2000, MISSED_TO_CACHE) 
+    verify_counter_increase(duthost, current_missed_to_cache_counter, 2000, MISSED_TO_CACHE)
