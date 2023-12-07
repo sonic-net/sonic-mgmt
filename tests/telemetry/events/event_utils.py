@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
 PUBLISHED = 1
 
+
 def backup_monit_config(duthost):
     logger.info("Backing up monit config files")
     duthost.shell("cp -f /etc/monit/monitrc ~/")
