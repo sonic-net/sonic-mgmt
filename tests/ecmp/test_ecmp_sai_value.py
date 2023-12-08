@@ -6,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import get_host_visible_vars
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
+from tests.common.utilities import wait_until
 
 
 logger = logging.getLogger(__name__)
@@ -80,12 +81,24 @@ def parse_ecmp_offset(outputs):
     return extracted_values
 
 
+def check_syncd_is_running(duthost):
+    """
+    Check if syncd container is running
+    """
+    output = duthost.shell("docker ps | grep syncd")["stdout"]
+    if "syncd" in output:
+        return True
+    else:
+        return False
+
+
 def check_hash_seed_value(duthost, asic_name, topo_type):
     """
     Check the value of HASH_SEED
     t0: HASH_SEED is set to 0
     t1: HASH_SEED is set to 0xa
     """
+    pytest_assert(wait_until(300, 20, 0, check_syncd_is_running, duthost), "syncd is not running!")
     if asic_name == "td2":
         seed_cmd_input = seed_cmd_td2
     elif asic_name == "td3":
@@ -107,17 +120,22 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type):
     TH/TH2: the count of 0xa is 67
     TD2: the count of 0xa is 33
     """
+    pytest_assert(wait_until(300, 20, check_syncd_is_running, duthost), "syncd is not running!")
     output = duthost.shell(offset_cmd, module_ignore_errors=True)['stdout']
     offset_list = parse_ecmp_offset(output)
-    count_0xa = offset_list.count('0xa')
     if topo_type == "t0":
-        count_0xa = offset_list.count('0')
-        pytest_assert(count_0xa == 392, "the count of 0 OFFSET_ECMP is not correct.")
-    elif topo_type == "t1":
-        if asic_name == "td2":
-            pytest_assert(count_0xa >= 33, "the count of 0xa OFFSET_ECMP is not correct.")
+        offset_count = offset_list.count('0')
+        if asic_name == "td3":
+            # For TD3, RTAG7_PORT_BASED_HASH.ipipe0[1]: <OFFSET_ECMP=2,>
+            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct.")
         else:
-            pytest_assert(count_0xa >= 67, "the count of 0xa OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct.")
+    elif topo_type == "t1":
+        offset_count = offset_list.count('0xa')
+        if asic_name == "td2":
+            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct.")
+        else:
+            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct.")
     else:
         pytest.fail("Unsupported topology type: {}".format(topo_type))
 
