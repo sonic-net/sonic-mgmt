@@ -124,7 +124,8 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
                     voq_quant_len = len(voq_mark_data[0])
                     age_quant_len = len(voq_mark_data[0][1])
             else:
-                logging.info("Marking data unavailable for Port {} PG {}. Please check if PFC is enabled")
+                logging.info("Marking data unavailable for Port {} PG {}."
+                             " Please check if PFC is enabled".format(port, pg_to_test))
                 continue
 
             voq_drop_data = None
