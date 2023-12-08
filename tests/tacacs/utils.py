@@ -71,9 +71,12 @@ def setup_local_user(duthost, tacacs_creds):
 
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
-    
-    # check tacacs_server_ip reachable fro debug test issue
-    duthost.shell("ping {} -c 2".format(tacacs_server_ip))
+
+    # UT should failed when set reachable TACACS server with this setup_tacacs_client
+    ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip))['stdout']
+    logger.info("TACACS server ping result: {}".format(ping_result))
+    if "100% packet loss" in ping_result:
+        pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
 
     # configure tacacs client
     default_tacacs_servers = []
