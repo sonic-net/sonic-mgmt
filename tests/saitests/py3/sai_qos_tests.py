@@ -2720,6 +2720,13 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         assert (len(sidx_dscp_pg_tuples) >= self.pgs_num)
         print(sidx_dscp_pg_tuples, file=sys.stderr)
         sys.stderr.flush()
+        # Collect destination ports that may be in a lag
+        pkt_dst_mac = self.router_mac if self.router_mac != '' else self.dst_port_mac
+        dst_port_ids = []
+        for i in range(len(self.src_port_ids)):
+            dst_port_ids.append(get_rx_port(self, 0, self.src_port_ids[i], pkt_dst_mac,
+                                            self.dst_port_ip, self.src_port_ips[i]))
+
 
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
@@ -2733,7 +2740,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             pkts_num_egr_mem = int(self.test_params['pkts_num_egr_mem'])
 
         # Pause egress of dut xmit port
-        self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+        # Disable all dst ports
+        uniq_dst_ports = list(set(dst_port_ids))
+        self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, uniq_dst_ports)
 
         try:
             # send packets to leak out
@@ -2841,10 +2850,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     .format(pkt_cnt, sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 if pkt_cnt == 10:
-                    sys.exit("Too many pkts needed to trigger pfc: %d" %
-                             (pkt_cnt))
-                assert (recv_counters[sidx_dscp_pg_tuples[i][2]] >
-                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
+                    self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
+                    sys.exit("Too many pkts needed to trigger pfc: %d" %(pkt_cnt))
+                assert(recv_counters[sidx_dscp_pg_tuples[i][2]] >
+                       recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
@@ -2990,7 +2999,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
         finally:
-            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
 
 
 class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
