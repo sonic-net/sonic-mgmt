@@ -120,7 +120,7 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type):
     TH/TH2: the count of 0xa is 67
     TD2: the count of 0xa is 33
     """
-    pytest_assert(wait_until(300, 20, check_syncd_is_running, duthost), "syncd is not running!")
+    pytest_assert(wait_until(300, 20, 0, check_syncd_is_running, duthost), "syncd is not running!")
     output = duthost.shell(offset_cmd, module_ignore_errors=True)['stdout']
     offset_list = parse_ecmp_offset(output)
     if topo_type == "t0":
