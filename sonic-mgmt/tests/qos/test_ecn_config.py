@@ -42,7 +42,7 @@ def get_asic_facts(duthost):
 
 
 def verify_command_result(result, cmd):
-    # Raise an AssertionError if "Traceback" is found
+    # Raise an AssertionError if "stdout" is empty
     assert result["stdout"], "No output for {}".format(cmd)
 
     # Check if "cisco sdk-debug enable" is present in result["stdout"]
@@ -122,7 +122,10 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
                 if voq_mark_data:
                     sms_quant_len = len(voq_mark_data)
                     voq_quant_len = len(voq_mark_data[0])
-                    age_qaunt_len = len(voq_mark_data[0][1])
+                    age_quant_len = len(voq_mark_data[0][1])
+            else:
+                logging.info("Marking data unavailable for Port {} PG {}. Please check if PFC is enabled")
+                continue
 
             voq_drop_data = None
             if "voq_drop_prob_g" in data:
@@ -130,13 +133,13 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
                 if not voq_mark_data and voq_drop_data:
                     sms_quant_len = len(voq_drop_data)
                     voq_quant_len = len(voq_drop_data[0])
-                    age_qaunt_len = len(voq_drop_data[0][1])
+                    age_quant_len = len(voq_drop_data[0][1])
 
             if voq_mark_data:
                 for g_idx in range(sms_quant_len):
                     for voq_idx in range(voq_quant_len):
-                        for age_idx in range(age_qaunt_len):
-                            rounded_actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
+                        for age_idx in range(age_quant_len):
+                            actual_value = round(voq_mark_data[g_idx][voq_idx][age_idx], 2)
                             if age_idx == 0:
                                 mark_level = 0
                             elif (voq_idx >= 1 and age_idx == 1):
@@ -147,21 +150,26 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
                                 mark_level = 3
                             else:
                                 mark_level = 0
-                            expected_actual_value = round(data["wm_prob"][mark_level], 2)
+                            expected_value = round(data["wm_prob"][mark_level], 2)
                             assert (
-                                    rounded_actual_value == expected_actual_value
+                                    actual_value == expected_value
                             ), '''
-                                    Marking Probability not as expected at SMS/VoQ/Age region {}/{}/{}
-                                                                               Expected: {} Actual: {}
-                                 '''.format(g_idx, voq_idx, age_idx, expected_actual_value, rounded_actual_value)
+                                    Marking Probability not as expected for Port {} PG {}
+                                    at SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                 '''.format(port, pg_to_test, g_idx, voq_idx,
+                                            age_idx, expected_value, actual_value)
 
-            ''' Verify drop is 7 for last quant'''
+            ''' Verify drop is 7 for last quant only'''
             if voq_drop_data:
                 for g_idx in range(sms_quant_len):
-                    for age_idx in range(age_qaunt_len):
-                        actual_value = voq_drop_data[g_idx][voq_quant_len-1][age_idx]
-                        assert (
-                                actual_value == 7
-                        ), '''
-                                Drop Probability not 100% at SMS/VoQ/Age region {}/{}/{} Expected: 7 Actual: {}
-                             '''.format(g_idx, voq_quant_len-1, age_idx, actual_value)
+                    for voq_idx in range(voq_quant_len):
+                        for age_idx in range(age_quant_len):
+                            actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
+                            expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
+                            assert (
+                                    actual_value == expected_value
+                            ), '''
+                                    Drop Probability not as expected for Port {} PG {} at
+                                    SMS/VoQ/Age region {}/{}/{} Expected: {} Actual: {}
+                                 '''.format(port, pg_to_test, g_idx, voq_idx,
+                                            age_idx, expected_value, actual_value)
