@@ -2296,10 +2296,10 @@
   comment: Beijing Lab
 
 - conf-name: testbed-bjw-can-a7280cr3-1
-  group-name: bjw13-2
+  group-name: bjw13-3
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: bjw13-2
+  ptf: bjw13-3
   ptf_ip: 10.150.23.71/23
   ptf_ipv6:
   server: server_bjw_13

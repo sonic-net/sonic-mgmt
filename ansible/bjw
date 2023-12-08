@@ -58,7 +58,7 @@ all:
           ansible_host: 10.150.23.69
         bjw14-1:
           ansible_host: 10.150.23.70
-        bjw13-2:
+        bjw13-3:
           ansible_host: 10.150.23.71
 
     pdu:
