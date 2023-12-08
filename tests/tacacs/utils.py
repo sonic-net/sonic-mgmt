@@ -324,7 +324,7 @@ def get_auditd_config_reload_timestamp(duthost):
     return res["stdout_lines"][-1]
 
 
-def change_and_wait_aaa_config_update(duthost, commands, last_timestamp, timeout=10):
+def change_and_wait_aaa_config_update(duthost, commands, last_timestamp=None, timeout=10):
     if not last_timestamp:
         last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
