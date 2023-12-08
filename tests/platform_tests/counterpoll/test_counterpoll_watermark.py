@@ -106,6 +106,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
             config_reload(duthost)
         elif 'reboot' in config_apply_method:
             reboot(duthost, localhost)
+    # Sleep for 60 seconds to wait for config DB to be ready or else the next step will cause testcase failure
+    time.sleep(60)
     # verify all counterpolls are disabled after reload or reboot
     with allure.step("Verifying output of {} on {} after {} ..."
                      .format(CounterpollConstants.COUNTERPOLL_SHOW, duthost.hostname, config_apply_method)):
