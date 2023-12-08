@@ -324,12 +324,11 @@ def get_auditd_config_reload_timestamp(duthost):
     return res["stdout_lines"][-1]
 
 
-def change_and_wait_aaa_config_update(duthost, commands, last_timestamp=None, timeout=10):
+def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
     if not last_timestamp:
         last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
-    for command in commands:
-        duthost.shell(command)
+    duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
