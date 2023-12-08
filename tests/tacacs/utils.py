@@ -71,6 +71,9 @@ def setup_local_user(duthost, tacacs_creds):
 
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
+    
+    # check tacacs_server_ip reachable fro debug test issue
+    duthost.shell("ping {} -c 2".format(tacacs_server_ip))
 
     # configure tacacs client
     default_tacacs_servers = []
@@ -318,9 +321,12 @@ def get_auditd_config_reload_timestamp(duthost):
     return res["stdout_lines"][-1]
 
 
-def change_and_wait_aaa_config_update(duthost, command, timeout=10):
-    last_timestamp = get_auditd_config_reload_timestamp(duthost)
-    duthost.shell(command)
+def change_and_wait_aaa_config_update(duthost, commands, last_timestamp, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
+    for command in commands:
+        duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
     # Wait auditd reload config finish
