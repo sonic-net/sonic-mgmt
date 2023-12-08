@@ -174,7 +174,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     http_ready = True
     # Increasing the range to 10 - seen it slower on HW TB -- cisco change.
     for i in range(0, 10):
-        http_ready = wait_tcp_connection(localhost, ptfip, port_num[i])
+        http_ready = wait_tcp_connection(localhost, ptfip, port_num[i], timeout_s=60)
         if not http_ready:
             break
 
