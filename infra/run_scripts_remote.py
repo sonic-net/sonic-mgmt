@@ -331,7 +331,6 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     print("Script file: {}, drop version: {}, log_dir {}, sonic-test directory: {}, docker-mgmt container name: '{}', create-allure-report: {}".format(script_file, drop_version, log_dir, sonic_test_dir, docker_mgmt_container, create_allure_report))
     print("Upload Sanity Script file")
 
-    print("determine sonic_test_dir from docker_mgmt_container name")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -344,19 +343,25 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     out = stdout.read().decode("ascii").strip()
 
     print(f"resp for docker inspect is {out}")
-
     tmp_sonic_test_dir = ""
     for s in out.split("/"):
         if s == "sonic-test":
             break
         tmp_sonic_test_dir = s
-    
 
-    sys.stdout.flush()
-
-    
+    sys.stdout.flush()    
     print("sonic-test dir is: ", tmp_sonic_test_dir)
     sonic_test_dir = tmp_sonic_test_dir
+
+    #send additional test files to sim
+    ftp_client=ssh.open_sftp()
+    if additional_tests:
+        for additional_test in additional_tests.split(","):
+            additional_test = additional_test.strip()
+            print(f"uploading additional testcase {additional_test} to sonic-mgmt from '../sonic-mgmt/tests/{additional_test}' to '{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}'")
+            ftp_client.put(f"../sonic-mgmt/tests/{additional_test}",f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}")
+
+    print("determine sonic_test_dir from docker_mgmt_container name")
 
 
     uploaded_script_files = upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)

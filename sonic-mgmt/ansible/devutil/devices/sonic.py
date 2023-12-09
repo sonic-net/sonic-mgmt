@@ -182,6 +182,7 @@ def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
 
         sonichosts.command("config bgp startup all", module_attrs={"become": True})
         sonichosts.command("config save -y", module_attrs={"become": True})
+        logger.info("Run reduce_and_add_sonic_images to cleanup disk")
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             module_attrs={"become": True}

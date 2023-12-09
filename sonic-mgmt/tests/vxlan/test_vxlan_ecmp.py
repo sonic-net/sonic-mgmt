@@ -1028,9 +1028,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc9 on tc8.
         '''
-        if self.vxlan_test_setup[encap_type].get('tc8_dest', None):
-            return
-
         Logger.info("Pick a vnet for testing.")
         vnet = list(self.vxlan_test_setup[encap_type]['vnet_vni_map'].keys())[0]
 
@@ -1069,8 +1066,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc10 on tc9
         '''
-        if self.vxlan_test_setup[encap_type].get('tc9_dest', None):
-            return
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
@@ -1131,8 +1126,6 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         '''
             Function to handle dependency of tc9.2 on tc9
         '''
-        if self.vxlan_test_setup[encap_type].get('tc9_dest', None):
-            return
         self.setup_route2_single_endpoint(encap_type)
 
         Logger.info("Choose a vnet for testing.")
@@ -1144,6 +1137,12 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         tc9_new_dest1 = self.vxlan_test_setup[encap_type]['tc8_dest']
         old_nh = \
             self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1][0]
+
+        tc9_new_nh = ecmp_utils.get_ip_address(
+            af=ecmp_utils.get_outer_layer_version(encap_type),
+            netid=NEXTHOP_PREFIX)
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'][vnet][tc9_new_dest1] = \
+            [tc9_new_nh]
 
         nh1 = None
         nh2 = None
@@ -1264,15 +1263,15 @@ class Test_VxLAN_NHG_Modify(Test_VxLAN):
         # perform cleanup by removing all the routes added by this test class.
         # reset to add only the routes added in the setup phase.
         ecmp_utils.set_routes_in_dut(
-            self.setup['duthost'],
-            self.setup[encap_type]['dest_to_nh_map'],
+            self.vxlan_test_setup['duthost'],
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'],
             ecmp_utils.get_payload_version(encap_type),
             "DEL")
 
-        self.setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
+        self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = copy.deepcopy(self.vxlan_test_setup[encap_type]['dest_to_nh_map_orignal']) # noqa F821
         ecmp_utils.set_routes_in_dut(
-            self.setup['duthost'],
-            self.setup[encap_type]['dest_to_nh_map'],
+            self.vxlan_test_setup['duthost'],
+            self.vxlan_test_setup[encap_type]['dest_to_nh_map'],
             ecmp_utils.get_payload_version(encap_type),
             "SET")
 

@@ -239,26 +239,35 @@ class ThriftInterface(BaseTest):
         else:
             sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)
 
+    def get_dut_port(self, ptf_port):
+        for port_group in interface_to_front_mapping.keys():
+            if str(ptf_port) in interface_to_front_mapping[port_group].keys():
+                dut_port = interface_to_front_mapping[port_group][str(ptf_port)]
+                return dut_port
+        return None
+
     def disable_mellanox_egress_data_plane(self, ptf_port_list):
-        self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(ptf_port_list)
+        dut_port_list = []
+        for ptf_port in ptf_port_list:
+            dut_port = self.get_dut_port(ptf_port)
+            dut_port_list.append(dut_port)
+        self.original_dut_port_queue_scheduler_map = self.get_queue_scheduler_name(dut_port_list)
         block_data_plane_scheduler_name = 'scheduler.block_data_plane'
         cmd_set_block_data_plane_scheduler = \
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{block_data_plane_scheduler_name}" "type" DWRR "weight" 15 "pir" 1'
 
         self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
                              cmd_set_block_data_plane_scheduler)
-        for ptf_port in ptf_port_list:
-            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+        for dut_port in dut_port_list:
             for q in DATA_PLANE_QUEUE_LIST:
                 cmd_block_q = \
                     f" sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{q}' scheduler {block_data_plane_scheduler_name}"
                 self.exec_cmd_on_dut(
                     self.server, self.test_params['dut_username'], self.test_params['dut_password'], cmd_block_q)
 
-    def get_queue_scheduler_name(self, ptf_port_list):
+    def get_queue_scheduler_name(self, dut_port_list):
         dut_port_queue_scheduler_map = {}
-        for ptf_port in ptf_port_list:
-            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+        for dut_port in dut_port_list:
             dut_port_queue_scheduler_map[dut_port] = {}
             for q in DATA_PLANE_QUEUE_LIST:
                 cmd_get_q_scheduler_name = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{q}' scheduler"
@@ -271,7 +280,7 @@ class ThriftInterface(BaseTest):
 
     def enable_mellanox_egress_data_plane(self, ptf_port_list):
         for ptf_port in ptf_port_list:
-            dut_port = interface_to_front_mapping['dst'][str(ptf_port)]
+            dut_port = self.get_dut_port(ptf_port)
             for q in DATA_PLANE_QUEUE_LIST:
                 scheduler_name = self.original_dut_port_queue_scheduler_map[dut_port][q] if \
                     self.original_dut_port_queue_scheduler_map else DEFAULT_QUEUE_SCHEDULER_CONFIG[q]

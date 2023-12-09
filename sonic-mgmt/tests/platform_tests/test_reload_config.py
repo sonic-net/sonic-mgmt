@@ -121,7 +121,10 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
            plt_reboot_ctrl_overwrite=False)
 
     # Check if all database containers have started
-    wait_until(60, 1, 0, check_database_status, duthost)
+    # Some device after reboot may take some longer time to have database container started up
+    # we must give it a little longer or else it may falsely fail the test.
+    wait_until(360, 1, 0, check_database_status, duthost)
+
     # Check if interfaces-config.service is exited
     wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
 

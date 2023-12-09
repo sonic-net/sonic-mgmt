@@ -1,0 +1,54 @@
+simulation:
+  slurm_flags:
+    hours: 120
+
+devices:
+
+  SD1: &sonic_router
+    platform: spitfire_f
+    os_type: sonic
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    xr_config: |
+        snmp-server community public RO
+        ssh server vrf default
+        ssh server netconf vrf default
+        netconf-yang agent ssh
+    onie-install: http://172.29.93.10/sonic-images/sonic-cisco-8000.bin
+    linecard_types: [matilda32]
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+       <<: *sonic_router
+
+  SD4:
+       <<: *sonic_router
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet[0..3]
+      - SD3.Ethernet[0..3]
+    hub1:
+      - SD1.Ethernet[4..7]
+      - SD4.Ethernet[0..3]
+    hub2:
+      - SD2.Ethernet[0..3]
+      - SD3.Ethernet[4..7]
+    hub3:
+      - SD2.Ethernet[4..7]
+      - SD4.Ethernet[4..7]

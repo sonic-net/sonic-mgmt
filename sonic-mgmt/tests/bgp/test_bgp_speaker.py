@@ -174,7 +174,7 @@ def common_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, localhost, t
     http_ready = True
     # Increasing the range to 10 - seen it slower on HW TB -- cisco change.
     for i in range(0, 10):
-        http_ready = wait_tcp_connection(localhost, ptfip, port_num[i])
+        http_ready = wait_tcp_connection(localhost, ptfip, port_num[i], timeout_s=60)
         if not http_ready:
             break
 
@@ -338,7 +338,8 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                            "asic_type": asic_type,
                            "test_balancing": False},
                    log_file="/tmp/bgp_speaker_test.FibTest.log",
-                   socket_recv_size=16384)
+                   socket_recv_size=16384,
+                   is_python3=True)
 
     logger.info("Withdraw routes")
     withdraw_route(ptfip, lo_addr, prefix, nexthop_ips[1].ip, port_num[0])
