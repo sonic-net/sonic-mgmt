@@ -11,7 +11,7 @@ SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS
 
 PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
-    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_out2']
+    ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out2']
 ]
 SWITCH_MODELS = {
     "x86_64-nvidia_sn5600-r0": {
@@ -28,7 +28,7 @@ SWITCH_MODELS = {
         "psus": {
             "number": 2,
             "hot_swappable": True,
-            "capabilities": PSU_CAPABILITIES[0]
+            "capabilities": PSU_CAPABILITIES[1]
         },
         "cpu_pack": {
             "number": 1
