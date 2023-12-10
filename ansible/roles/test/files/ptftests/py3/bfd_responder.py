@@ -27,9 +27,9 @@ class BFD_Responder(BaseTest):
         self.dut_mac = self.test_params['dut_mac']
         self.dut_loop_ips = self.test_params['dut_loop_ips']
         for ipaddr in self.dut_loop_ips:
-            if isinstance(ip_address(ipaddr.decode()), IPv4Address):
+            if isinstance(ip_address(ipaddr), IPv4Address):
                 self.dut_loop_ipv4 = ipaddr
-            if isinstance(ip_address(ipaddr.decode()), IPv6Address):
+            if isinstance(ip_address(ipaddr), IPv6Address):
                 self.dut_loop_ipv6 = ipaddr
         self.monitor_file = self.test_params['monitor_file']
 
@@ -94,7 +94,7 @@ class BFD_Responder(BaseTest):
                 self.sessions[ip_dst] = {}
 
             if bfd_state == 3:
-                count = send_packet(self, result.port, str(session["pkt"]))
+                count = send_packet(self, result.port, session["pkt"])
                 if count == 0:
                     raise RuntimeError(
                         "send_packet failed args:port_number{}, "
@@ -130,12 +130,12 @@ class BFD_Responder(BaseTest):
                 ip_dst,
                 bfd_remote_disc,
                 2)
-            count = send_packet(self, session['intf'], str(bfd_pkt_init))
+            count = send_packet(self, session['intf'], bfd_pkt_init)
             if count == 0:
                 raise RuntimeError(
                     "send_packet failed args:port_number{}, "
                     "dp_tuple:{}".format(port_number, str(bfd_pkt_init)))
-            bfd_pkt_init.payload.payload.payload.load.sta = 3
+            bfd_pkt_init.payload.payload.payload.sta = 3
             session["pkt"] = bfd_pkt_init
             self.sessions[ip_dst] = session
 
@@ -146,7 +146,7 @@ class BFD_Responder(BaseTest):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
-        bfdpkt = BFD(ether.payload.payload.payload.load)
+        bfdpkt = BFD(bytes(ether.payload.payload.payload))
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
         return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
@@ -161,12 +161,12 @@ class BFD_Responder(BaseTest):
                          bfd_remote_disc,
                          bfd_state):
         ethpart = scapy.Ether(data)
-        bfdpart = BFD(ethpart.payload.payload.payload.load)
+        bfdpart = BFD(bytes(ethpart.payload.payload.payload))
         bfdpart.my_discriminator = my_discriminator
         bfdpart.your_discriminator = bfd_remote_disc
         bfdpart.sta = bfd_state
 
-        ethpart.payload.payload.payload.load = bfdpart
+        ethpart.payload.payload.payload = bfdpart
         ethpart.src = mac_dst
         ethpart.dst = mac_src
         ethpart.payload.src = ip_dst
