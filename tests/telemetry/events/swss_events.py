@@ -2,6 +2,9 @@
 
 import logging
 import time
+import random
+import re
+random.seed(10)
 
 from run_events_test import run_test
 
@@ -31,8 +34,12 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 def shutdown_interface(duthost):
     logger.info("Shutting down interface")
     interfaces = duthost.get_interfaces_status()
-    if_state_test_port = next((interface for interface, status in interfaces.items()
-                               if status["oper"] == "up" and status["admin"] == "up"), None)
+    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    interface_list = []
+    for interface, status in interfaces.items():
+        if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
+            interface_list.append(interface)
+    if_state_test_port = random.choice(interface_list)
     assert if_state_test_port is not None, "Unable to find valid interface for test"
 
     ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
@@ -45,8 +52,12 @@ def shutdown_interface(duthost):
 def generate_pfc_storm(duthost):
     logger.info("Generating pfc storm")
     interfaces = duthost.get_interfaces_status()
-    PFC_STORM_TEST_PORT = next((interface for interface, status in interfaces.items()
-                               if status["oper"] == "up" and status["admin"] == "up"), None)
+    pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
+    interface_list = []
+    for interface, status in interfaces.items():
+        if pattern.match(interface) and status["oper"] == "up" and status["admin"] == "up":
+            interface_list.append(interface)
+    PFC_STORM_TEST_PORT = random.choice(interface_list)
     assert PFC_STORM_TEST_PORT is not None, "Unable to find valid interface for test"
 
     queue_oid = duthost.get_queue_oid(PFC_STORM_TEST_PORT, PFC_STORM_TEST_QUEUE)
