@@ -15,6 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -66,15 +67,15 @@ class IPRoutes:
                     ip_nhop_str += "nexthop via {} ".format(ip)
 
                 ip_cmd = "{} {}".format(ip_route, ip_nhop_str)
-                fn.write(ip_cmd + "\n")
+                fn.write(ip_cmd+ "\n")
 
         fn.close()
         # copy file to DUT and run it on DUT
-        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
+        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
-            "IP add failed on duthost:{}".format(self.filename)
+           "IP add failed on duthost:{}".format(self.filename)
         )
 
     def delete_routes(self):
@@ -88,12 +89,12 @@ class IPRoutes:
                 fn.write(ip_route + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
+        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
             os.remove(self.filename)
-        except:  # noqa: E722
+        except:
             pass
 
 
@@ -115,13 +116,14 @@ class Arp:
 
         # create a list of IP-MAC bindings
         for i in range(11, count + 11):
-            moff1 = "{0:x}".format(i // 255)
+            moff1 = "{0:x}".format(i / 255)
             moff2 = "{0:x}".format(i % 255)
 
             self.ip_mac_list.append(IP_MAC(
                 "{}".format(ip + i),
                 "{}:{}:{}".format(mac, moff1.zfill(2), moff2.zfill(2))
             ))
+
 
     def arps_add(self):
         """
@@ -142,7 +144,7 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
+        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
@@ -161,12 +163,12 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode="0755")
+        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
             os.remove(self.filename)
-        except:  # noqa: E722
+        except:
             pass
 
     def clean_up(self):
@@ -178,7 +180,7 @@ class Arp:
         logger.info("IF ADDR DEL {}".format(ip_iface))
         try:
             self.asic.command(ip_iface)
-        except:  # noqa: E722
+        except:
             pass
 
 
@@ -187,15 +189,13 @@ def get_crm_info(duthost, asic):
     get CRM info
     """
     get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
-                       " crm_stats_nexthop_group_used"
-                       " crm_stats_nexthop_group_available"
-                       " crm_stats_nexthop_group_member_used"
-                       " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
-    pytest_assert(wait_until(25, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) >= 2)),
-                  get_group_stats)
+        " crm_stats_nexthop_group_used"
+        " crm_stats_nexthop_group_available"
+        " crm_stats_nexthop_group_member_used"
+        " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
 
     result = duthost.command(get_group_stats)
-    pytest_assert(result["rc"] == 0 or len(result["stdout_lines"]) < 2, get_group_stats)
+    pytest_assert(result["rc"] == 0, get_group_stats)
 
     crm_info = {
         "used_nhop_grp": int(result["stdout_lines"][0]),
@@ -229,7 +229,7 @@ def combinations(iterable, r):
     indices = list(range(r))
     yield tuple(pool[i] for i in indices)
     while True:
-        for i in reversed(list(range(r))):
+        for i in reversed(range(r)):
             if indices[i] != i + n - r:
                 break
         else:
@@ -313,7 +313,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
-def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
+def test_nhop_group_member_count(duthost, tbinfo):
     """
     Test next hop group resource count. Steps:
     - Add test IP address to an active IP interface
@@ -324,12 +324,15 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     - clean up
     - Verify no errors and crash
     """
-    if loganalyzer:
-        for analyzer in list(loganalyzer.values()):
-            analyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
         default_max_nhop_paths = 2
+
+        if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+            default_max_nhop_paths = 8
+        elif duthost.facts["platform"] in ['x86_64-88_lc0_36fh_mo-r0', 'x86_64-88_lc0_36fh_m-r0', 
+                'x86_64-88_lc0_36fh-r0', 'x86_64-88_lc0_36fh_o-r0']:
+            default_max_nhop_paths = 32
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
@@ -354,12 +357,12 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     # find out MAX NHOP group count supported on the platform
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
-    switch_capability = dict(list(zip(it, it)))
+    switch_capability = dict(zip(it, it))
     max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
-    max_nhop = nhop_group_limit if max_nhop is None else int(max_nhop)
+    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
 
     # find out an active IP port
-    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
@@ -372,16 +375,14 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     arplist.arps_add()
 
     # indices
-    indices = list(range(arp_count))
+    indices = range(arp_count)
     ip_indices = combinations(indices, default_max_nhop_paths)
     ip_prefix = ipaddr.IPAddress("192.168.0.0")
-
     crm_before = get_crm_info(duthost, asic)
 
     # increase CRM polling time
     asic.command("crm config polling interval {}".format(polling_interval))
-
-    if is_cisco_device(duthost):
+    if is_cisco_device(duthost) or is_innovium_device(duthost):
         # Waiting for ARP routes to be synced and programmed
         time.sleep(sleep_time_sync_before)
         crm_stat = get_crm_info(duthost, asic)
@@ -391,17 +392,29 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
-    elif is_innovium_device(duthost):
-        crm_stat = get_crm_info(duthost, asic)
-        nhop_group_count = crm_stat["available_nhop_grp"]
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
 
+    # initialize log analyzer
+    marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
+    marker = loganalyzer.init()
+    loganalyzer.load_common_config()
+    loganalyzer.expect_regex = []
+    loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
+
+
+    # list of all IPs available to generate a nexthop group
+    ip_list = arplist.ip_mac_list
+
+
+
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
+
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
     try:
-        for i, indx_list in zip(list(range(nhop_group_count)), ip_indices):
+        for i, indx_list in zip(range(nhop_group_count), ip_indices):
             # get a list of unique group of next hop IPs
             ips = [arplist.ip_mac_list[x].ip for x in indx_list]
 
@@ -421,6 +434,9 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         asic.command(
             "crm config polling interval {}".format(crm_before["polling"])
         )
+
+    # check for any errors or crash
+    #RAJ loganalyzer.analyze(marker)
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
@@ -455,23 +471,22 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
     it = iter(result)
-    switch_capability = dict(list(zip(it, it)))
+    switch_capability = dict(zip(it, it))
 
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"])
 
     it = iter(result)
-    switch_table = dict(list(zip(it, it)))
+    switch_table = dict(zip(it, it))
 
     order_ecmp_capability = switch_capability.get("ORDERED_ECMP_CAPABLE")
     order_ecmp_configured = switch_table.get("ordered_ecmp")
-    pytest_assert(order_ecmp_capability == order_ecmp_configured,
-                  "Order Ecmp Feature configured and capability not same")
+    pytest_assert(order_ecmp_capability == order_ecmp_configured, "Order Ecmp Feature configured and capability not same")
 
     if order_ecmp_configured == "false":
         pytest.skip("Order ECMP is not configured so skipping the test-case")
 
     # Check Gather facts IP Interface is active one
-    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
 
@@ -488,7 +503,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     recvd_pkt_result = defaultdict(set)
 
-    rtr_mac = asic.get_router_mac()
+    rtr_mac= asic.get_router_mac()
 
     def built_and_send_tcp_ip_packet():
         for flow_count in range(50):
@@ -747,7 +762,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     dutAsic = None
     for asic, nexthop_map in list(SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP.items()):
         vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
-        if vendorAsic in list(hostvars.keys()) and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+        if vendorAsic in hostvars.keys() and mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
             dutAsic = asic
             break
     # Vendor need to update SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP . To do this we need to run the test case 1st
@@ -760,90 +775,149 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                       "Flow {} is not picking expected Neighbor".format(flow_count))
 
 
-def test_nhop_group_interface_flap(duthost, tbinfo, ptfadapter, gather_facts,
-                                   enum_rand_one_frontend_asic_index, fanouthosts):
+def test_nhop_member_max_threshold(duthost, tbinfo):
     """
-    Test for packet drop when route is added with ECMP and all ECMP member's
-    interfaces are down. Use kernel flag 'arp_evict_nocarrier' to disable ARP
-    eviction from the kernel when the interface goes down.
-    Kernel flag is used to easily recreate the scenario of ECMP with no
-    Nexthop members. Without this kernel flag, static route addition fails when
-    Nexthop ARP entries are not resolved.
+    Test next hop group resource count. Steps:
+    - Set default_max_nhop_paths to 8 or 32, based on cisco platform Q100 or Q200, to maximize member usage
+    - Add test IP address to an active IP interface
+    - Add static ARPs
+    - Create unique next hop groups
+    - Add IP route and nexthop
+    - check CRM resource
+    - clean up
+    - Verify no errors and crash
     """
-    asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    # Set of parameters for Cisco-8000 devices
+    if is_cisco_device(duthost):
+        default_max_nhop_paths = 2
 
-    # Check Gather facts IP Interface is active one
+        if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+            default_max_nhop_paths = 8
+        elif duthost.facts["platform"] in ['x86_64-88_lc0_36fh_mo-r0', 'x86_64-88_lc0_36fh_m-r0', 
+                'x86_64-88_lc0_36fh-r0', 'x86_64-88_lc0_36fh_o-r0']:
+            default_max_nhop_paths = 32
+        polling_interval = 1
+        sleep_time = 380
+        sleep_time_sync_before = 120
+    elif is_innovium_device(duthost):
+        default_max_nhop_paths = 3
+        polling_interval = 10
+        sleep_time = 120
+    elif is_mellanox_device(duthost) and get_chip_type(duthost) == 'spectrum1':
+        default_max_nhop_paths = 8
+        polling_interval = 10
+        sleep_time = 120
+    else:
+        default_max_nhop_paths = 32
+        polling_interval = 10
+        sleep_time = 120
+    nhop_group_limit = 1024
+    # program more than the advertised limit
+    extra_nhops = 10
+
+    asic = duthost.asic_instance()
+
+    # find out MAX NHOP group count supported on the platform
+    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
+    it = iter(result)
+    switch_capability = dict(zip(it, it))
+    max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
+    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
+
+    # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
-    pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
+    eth_if = ip_ifaces[0]
 
     # Generate ARP entries
-    arp_count = 2
-    logger.debug("ARP interface: %s", gather_facts['src_router_intf_name'])
-    for i in range(0, len(gather_facts['src_port'])):
-        logger.debug("Src port: %s, src port index: %d", gather_facts['src_port'][i], gather_facts['src_port_ids'][i])
+    if is_cisco_device(duthost):
+        arp_count = 257
+    else:
+        arp_count = 40
+    arplist = Arp(duthost, asic, arp_count, eth_if)
+    arplist.arps_add()
 
-    arplist = Arp(duthost, asic, arp_count, gather_facts['src_router_intf_name'])
-    neighbor_mac = [neighbor[1].lower() for neighbor in arplist.ip_mac_list]
-    ip_route = "192.168.100.50"
-    ip_prefix = ip_route + "/32"
-    ip_ttl = 64
+    # indices
+    indices = range(arp_count)
+    ip_indices = combinations(indices, default_max_nhop_paths)
+    ip_prefix = ipaddr.IPAddress("192.168.0.0")
+    crm_before = get_crm_info(duthost, asic)
 
-    arp_noevict_cmd = "echo 0 > /proc/sys/net/ipv4/conf/%s/arp_evict_nocarrier"
-    arp_evict_cmd = "echo 1 > /proc/sys/net/ipv4/conf/%s/arp_evict_nocarrier"
+    # increase CRM polling time
+    asic.command("crm config polling interval {}".format(polling_interval))
+    if is_cisco_device(duthost) or is_innovium_device(duthost):
+        # Waiting for ARP routes to be synced and programmed
+        time.sleep(sleep_time_sync_before)
+        crm_stat = get_crm_info(duthost, asic)
+        nhop_group_count = crm_stat["available_nhop_grp"]
+        nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+        nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
+        nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+        nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+    else:
+        nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
+
+    # initialize log analyzer
+    marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
+    marker = loganalyzer.init()
+    loganalyzer.load_common_config()
+    loganalyzer.expect_regex = []
+    loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
+
+
+    # list of all IPs available to generate a nexthop group
+    ip_list = arplist.ip_mac_list
+
+
+
+    logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
 
     # create nexthop group
     nhop = IPRoutes(duthost, asic)
-
     try:
-        rtr_mac = asic.get_router_mac()
-        arplist.arps_add()
-        ips = [arplist.ip_mac_list[x].ip for x in range(arp_count)]
-        # add IP route
-        nhop.ip_nhops = []
+        for i, indx_list in zip(range(nhop_group_count), ip_indices):
+            # get a list of unique group of next hop IPs
+            ips = [arplist.ip_mac_list[x].ip for x in indx_list]
 
-        # Enable kernel flag to not evict ARP entries when the interface goes down
-        # and shut the fanout switch ports.
-        duthost.shell(arp_noevict_cmd % gather_facts['src_router_intf_name'])
-        for i in range(0, len(gather_facts['src_port'])):
-            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
-                                                            gather_facts['src_port'][i])
-            logger.debug("Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.shutdown(fanout_port)
-        nhop.add_ip_route(ip_prefix, ips)
+            ip_route = "{}/31".format(ip_prefix + (2*i))
+
+            # add IP route with the next hop group created
+            nhop.add_ip_route(ip_route, ips)
 
         nhop.program_routes()
         # wait for routes to be synced and programmed
-        pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, 1)
-        pkt_count = 1
-
-        logger.debug("Sending packet on %s", gather_facts['dst_port'][0])
-        testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
-        testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=gather_facts['src_port_ids'])
-
-        result = duthost.shell("portstat")
-        logger.info("portstats: %s", result['stdout'])
-
-        for i in range(0, len(gather_facts['src_port'])):
-            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
-                                                            gather_facts['src_port'][i])
-            logger.debug("No Shut fanout sw: %s, port: %s", fanout, fanout_port)
-            fanout.no_shutdown(fanout_port)
-        time.sleep(10)
-        duthost.shell("portstat -c")
-        ptfadapter.dataplane.flush()
-        testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
-        (_, recv_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                         ports=gather_facts['src_port_ids'])
-        # Make sure routing is done
-        pytest_assert(scapy.Ether(recv_pkt).ttl == (ip_ttl - 1), "Routed Packet TTL not decremented")
-        pytest_assert(scapy.Ether(recv_pkt).src == rtr_mac, "Routed Packet Source Mac is not router MAC")
-        pytest_assert(scapy.Ether(recv_pkt).dst.lower() in neighbor_mac,
-                      "Routed Packet Destination Mac not valid neighbor entry")
-        result = duthost.shell("portstat")
-        logger.info("portstats: %s", result['stdout'])
+        time.sleep(sleep_time)
+        crm_after = get_crm_info(duthost, asic)
 
     finally:
-        duthost.shell(arp_evict_cmd % gather_facts['src_router_intf_name'])
         nhop.delete_routes()
         arplist.clean_up()
+        asic.command(
+            "crm config polling interval {}".format(crm_before["polling"])
+        )
+
+    # check for any errors or crash
+    #RAJ loganalyzer.analyze(marker)
+
+    # verify the test used up all the NHOP group resources
+    # skip this check on Mellanox as ASIC resources are shared
+    if is_cisco_device(duthost):
+        pytest_assert(
+            crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
+            "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+                crm_before["available_nhop_grp"]
+
+            )
+        )
+    elif is_mellanox_device(duthost):
+        logger.info("skip this check on Mellanox as ASIC resources are shared")
+    else:
+        pytest_assert(
+            crm_after["available_nhop_grp"] == 0,
+            "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
+                crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
+            )
+        )
