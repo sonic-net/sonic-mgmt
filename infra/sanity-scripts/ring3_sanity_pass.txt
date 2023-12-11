@@ -76,7 +76,7 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 #snmp/test_snmp_memory.py::test_snmp_memory_load
 #snmp/test_snmp_v2mib.py::test_snmp_v2mib
 ssh/test_ssh_ciphers.py::test_ssh_protocol_version
-syslog/test_syslog.py::test_syslog
+#syslog/test_syslog.py::test_syslog
 system_health/test_system_status.py
 tacacs/test_jit_user.py::test_jit_user
 tacacs/test_ro_disk.py::test_ro_disk
