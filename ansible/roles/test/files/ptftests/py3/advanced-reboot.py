@@ -1778,16 +1778,15 @@ class ReloadTest(BaseTest):
 
     def start_sniffer(self, pcap_path, tcpdump_filter, timeout):
         """
-        Star tcpdump sniffer on all data interfaces
+        Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
-            process = multiprocessing.Process(
-                target=self.start_dump_process,
-                kwargs={'iface': iface, 'pcap_path': pcap_path, 'tcpdump_filter': tcpdump_filter})
-            process.start()
+            iface_pcap_path = '{}_{}'.format(pcap_path, iface)
+            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
 
         time_start = time.time()
@@ -1798,19 +1797,27 @@ class ReloadTest(BaseTest):
                 break
             time_start = curr_time
 
-        self.log("Going to kill all tcpdump processes by SIGINT")
-        subprocess.call(['killall', '-s', 'SIGINT', 'tcpdump'])
-        time.sleep(10)
-        self.log("Killed all tcpdump processes by SIGINT")
+        self.log("Going to kill all tcpdump processes by SIGTERM")
+        for process in processes_list:
+            process.terminate()
 
-    def start_dump_process(self, iface, pcap_path, tcpdump_filter):
-        """
-        Start tcpdump on specific interface and save data to pcap file
-        """
-        iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-        cmd = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
-        self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
-        subprocess.call(cmd)
+        for process in processes_list:
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} terminated".format(process.args))
+
+        for process in processes_list:
+            if process.returncode is not None:
+                continue
+            self.log("Killing tcpdump process {}".format(process.args))
+            process.kill()
+            process.wait(timeout=5)
+            # Return code here could be 0, so we need to explicitly check for None
+            if process.returncode is not None:
+                self.log("Tcpdump process {} killed".format(process.args))
+
+        self.log("Killed all tcpdump processes")
 
     def create_single_pcap(self, pcap_path):
         """

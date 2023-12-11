@@ -15,6 +15,9 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
 
+# Create the waiting power on event
+power_on_event = threading.Event()
+
 # SSH defines
 SONIC_SSH_PORT = 22
 SONIC_SSH_REGEX = 'OpenSSH_[\\w\\.]+ Debian'
@@ -174,7 +177,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
     def execute_reboot_helper():
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
-        return reboot_helper(reboot_kwargs)
+        return reboot_helper(reboot_kwargs, power_on_event)
 
     dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
@@ -185,7 +188,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
     else:
-        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
+        assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
     return [reboot_res, dut_datetime]
 
@@ -233,6 +236,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+
+    # Release event to proceed poweron for PDU.
+    power_on_event.set()
+
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
