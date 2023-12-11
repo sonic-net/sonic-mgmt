@@ -702,13 +702,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
-platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
-  xfail:
-    strict: True
-    reason: "Image issue on 7050qx platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050_qx32s']"
-
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
