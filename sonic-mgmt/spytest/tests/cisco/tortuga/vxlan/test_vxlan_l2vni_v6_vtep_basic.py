@@ -73,6 +73,7 @@ def setup_node(node, config, type=''):
         st.config(node, config, type=type, skip_error_check=False, conf=True)
     else:
         st.config(node, config, skip_error_check=False, conf=True)
+    st.wait(2)
 
 @pytest.mark.system_box
 @pytest.mark.community
@@ -92,14 +93,10 @@ def test_v6_vtep_basic():
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             setup_node(nodes[node], config['sonic'], '')
-            if 'host' not in node:
-                setup_node(nodes[node], config['bgp'], 'vtysh')
+            st.wait(10)
+            setup_node(nodes[node], config['bgp'], 'vtysh')
+            st.wait(10)
 
     # Test1-3 : Verify Vtep State for L0 and L1
     leaf_nodes = [nodes['leaf0'], nodes['leaf1']]
     verify_vtep_state(leaf_nodes)
-
-    # Configurations Clean up
-    for dut in dut_list:
-        st.clear_config(dut)
-        st.wait(20)
