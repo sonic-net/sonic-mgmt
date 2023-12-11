@@ -10,7 +10,6 @@ test_pretest.py::test_stop_pfcwd
 test_procdockerstatsd.py::test_verify_redisexport
 test_features.py
 test_interfaces.py
-#test_nbr_health.py
 monit/test_monit_status.py::test_monit_status
 platform_tests/api/test_chassis.py::TestChassisApi::test_components
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_eeprom
@@ -21,7 +20,6 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_reboot_cause
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_thermal_manager
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_watchdog
-#platform_tests/api/test_chassis.py::TestChassisApi::test_is_replaceable
 platform_tests/api/test_chassis.py::TestChassisApi::test_sfps
 platform_tests/api/test_chassis.py::TestChassisApi::test_status_led
 platform_tests/api/test_chassis.py::TestChassisApi::test_thermals
@@ -32,9 +30,7 @@ platform_tests/api/test_component.py::TestComponentApi::test_get_position_in_par
 platform_tests/api/test_component.py::TestComponentApi::test_get_presence
 platform_tests/api/test_component.py::TestComponentApi::test_get_serial
 platform_tests/api/test_component.py::TestComponentApi::test_get_status
-#platform_tests/api/test_component.py::TestComponentApi::test_install_firmware
 platform_tests/api/test_component.py::TestComponentApi::test_is_replaceable
-#platform_tests/api/test_component.py::TestComponentApi::test_update_firmware
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_name
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_presence
@@ -48,14 +44,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage
 platform_tests/api/test_sfp.py::TestSfpApi::test_is_replaceable
-#platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode
-#platform_tests/api/test_sfp.py::TestSfpApi::test_reset
-#platform_tests/api/test_sfp.py::TestSfpApi::test_thermals
-#platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_threshold
-#platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold
-#platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_threshold
-#platform_tests/api/test_thermal.py::TestThermalApi::test_get_name
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_position_in_parent
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_presence
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
@@ -70,13 +59,7 @@ platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
-#platform_tests/test_sim_reboot.py
-#process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes
-#scp/test_scp_copy.py::test_scp_copy
-#snmp/test_snmp_memory.py::test_snmp_memory_load
-#snmp/test_snmp_v2mib.py::test_snmp_v2mib
 ssh/test_ssh_ciphers.py::test_ssh_protocol_version
-#syslog/test_syslog.py::test_syslog
 system_health/test_system_status.py
 tacacs/test_jit_user.py::test_jit_user
 tacacs/test_ro_disk.py::test_ro_disk
@@ -89,7 +72,5 @@ snmp/test_snmp_lldp.py::test_snmp_lldp
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_thermal_info
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_transceiver_info
 snmp/test_snmp_interfaces.py::test_snmp_interfaces
-#snmp/test_snmp_interfaces.py::test_snmp_mgmt_interface
-#snmp/test_snmp_pfc_counters.py::test_snmp_pfc_counters
 snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
