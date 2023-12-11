@@ -2,6 +2,7 @@
 Tests for verifying the configuration on the DUT
 to match the expected WRED probability configuration
 """
+
 import logging
 import pytest
 from tests.common.cisco_data import is_cisco_device
