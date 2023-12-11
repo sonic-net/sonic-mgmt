@@ -39,9 +39,9 @@ class GNMIEnvironment(object):
         return False
 
     def generate_telemetry_config(self, duthost):
-        cmd = "docker images | grep -w sonic-telemety"
+        cmd = "docker images | grep -w sonic-telemetry"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemety"
+            cmd = "docker ps | grep -w telemetry"
             if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
                 self.gnmi_config_table = "TELEMETRY"
                 self.gnmi_container = "telemetry"
