@@ -15,7 +15,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -314,7 +313,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
-def test_nhop_group_member_count(duthost, tbinfo):
+def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
     - Add test IP address to an active IP interface
@@ -325,6 +324,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
     - clean up
     - Verify no errors and crash
     """
+    if loganalyzer:
+        for analyzer in list(loganalyzer.values()):
+            analyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
         default_max_nhop_paths = 2
@@ -394,13 +396,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
-    # initialize log analyzer
-    marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
-    marker = loganalyzer.init()
-    loganalyzer.load_common_config()
-    loganalyzer.expect_regex = []
-    loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
 
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
     # create nexthop group
@@ -426,9 +421,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
         asic.command(
             "crm config polling interval {}".format(crm_before["polling"])
         )
-
-    # check for any errors or crash
-    loganalyzer.analyze(marker)
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
