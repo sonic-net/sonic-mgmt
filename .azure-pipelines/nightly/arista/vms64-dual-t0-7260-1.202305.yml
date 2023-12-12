@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "00 16 * * 0,1,2,3,5"
+  - cron: "08 4 * * 0,1,2,3"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vmsvc1-dual-t0-7050-1
+    default: vms64-dual-t0-7260-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -45,7 +45,7 @@ parameters:
 
   - name: AGENT_POOL
     type: string
-    default: nightly-svc
+    default: nightly
     displayName: "Agent pool"
 
 stages:
