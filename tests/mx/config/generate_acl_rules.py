@@ -90,8 +90,6 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
             if ip_protocol in IP_PROTOCOL_MAP:
                 ip_protocol = IP_PROTOCOL_MAP[ip_protocol]
             ip_cfg["protocol"] = str(ip_protocol)
-        else:
-            ip_cfg["protocol"] = "0"  # NDM requires protocol set to 0 if not specified
         rule["ip"] = {"config": ip_cfg}
     if interfaces:
         rule["input_interface"] = {"interface_ref": {"config": {"interface": ",".join(interfaces)}}}
@@ -161,6 +159,11 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
         if ip2me.type != IP2ME_TYPE_IP_INTF:  # P2P IP not needed in northbound
             acl_entries["{:04d}_IP2ME".format(sequence_id)] = acl_entry(sequence_id, ACL_ACTION_ACCEPT, dst_ip=format(ip2me.addr))
             sequence_id += 5
+
+    # Allow DHCP packets from BMC to Mx
+    sequence_id = 501
+    acl_entries["{:04d}_ALLOW_DHCP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, src_ip="0.0.0.0/32", dst_ip="255.255.255.255/32", ip_protocol=IP_PROTOCOL_UDP, l4_dst_port=67)
 
     # IN_PORTS = BMC, DST_IP = BMC => DROP
     sequence_id = 1001
@@ -296,6 +299,11 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
     sequence_id = 9002
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
+
+    # Allow DHCPv6 packets from BMC to Mx
+    sequence_id = 9003
+    acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, dst_ip="ff02::1:2/128", ip_protocol=IP_PROTOCOL_UDP)
 
     # All other ipv6 packets => DROP
     # (Prevent BMC send package to upstream)

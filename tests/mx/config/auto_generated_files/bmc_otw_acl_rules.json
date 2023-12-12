@@ -16,8 +16,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "10.1.0.32/32",
-                                        "protocol": "0"
+                                        "destination-ip-address": "10.1.0.32/32"
                                     }
                                 }
                             },
@@ -32,8 +31,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.62/32",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.62/32"
                                     }
                                 }
                             },
@@ -48,8 +46,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.126/32",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.126/32"
                                     }
                                 }
                             },
@@ -64,8 +61,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.182/32",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.182/32"
                                     }
                                 }
                             },
@@ -80,8 +76,29 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.201/32",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.201/32"
+                                    }
+                                }
+                            },
+                            "0501_ALLOW_DHCP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 501
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "255.255.255.255/32",
+                                        "protocol": "17",
+                                        "source-ip-address": "0.0.0.0/32"
+                                    }
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": 67
                                     }
                                 }
                             },
@@ -103,8 +120,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.0/25",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.0/25"
                                     }
                                 }
                             },
@@ -126,8 +142,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.128/26",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.128/26"
                                     }
                                 }
                             },
@@ -142,7 +157,6 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "protocol": "0",
                                         "source-ip-address": "172.17.0.200/30"
                                     }
                                 }
@@ -158,8 +172,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "172.17.0.200/30",
-                                        "protocol": "0"
+                                        "destination-ip-address": "172.17.0.200/30"
                                     }
                                 }
                             },
@@ -195,8 +208,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc00:1::32/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc00:1::32/128"
                                     }
                                 }
                             },
@@ -211,8 +223,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::220:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::220:0:abcd/128"
                                     }
                                 }
                             },
@@ -227,8 +238,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::221:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::221:0:abcd/128"
                                     }
                                 }
                             },
@@ -243,8 +253,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::222:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::222:0:abcd/128"
                                     }
                                 }
                             },
@@ -290,6 +299,22 @@
                                     }
                                 }
                             },
+                            "9003_ALLOW_DHCPv6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9003
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "ff02::1:2/128",
+                                        "protocol": "17"
+                                    }
+                                }
+                            },
                             "9990_DROP_ALL": {
                                 "actions": {
                                     "config": {
@@ -322,8 +347,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc00:1::32/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc00:1::32/128"
                                     }
                                 }
                             },
@@ -338,8 +362,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::220:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::220:0:abcd/128"
                                     }
                                 }
                             },
@@ -354,8 +377,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::221:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::221:0:abcd/128"
                                     }
                                 }
                             },
@@ -370,8 +392,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc02::222:0:abcd/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc02::222:0:abcd/128"
                                     }
                                 }
                             },
@@ -386,8 +407,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc00::81/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc00::81/128"
                                     }
                                 }
                             },
@@ -402,8 +422,7 @@
                                 },
                                 "ip": {
                                     "config": {
-                                        "destination-ip-address": "fc00::85/128",
-                                        "protocol": "0"
+                                        "destination-ip-address": "fc00::85/128"
                                     }
                                 }
                             },
