@@ -1242,7 +1242,7 @@ str-7260cx3-acs-2,Ethernet56,str-7060cx-32s-15,Ethernet7/1,100000,1763,Access
 str-7260cx3-acs-2,Ethernet60,str-7060cx-32s-15,Ethernet8/1,100000,1764,Access
 str-7260cx3-acs-2,Ethernet64,str-7060cx-32s-15,Ethernet9/1,100000,1765,Access
 str-7260cx3-acs-2,Ethernet68,str-7060cx-32s-15,Ethernet10/1,100000,1766,Access
-str-7260cx3-acs-2,Ethernet72,str-7060cx-32s-15,Ethernet11/1,100000,1767,Access
+str-7260cx3-acs-2,Ethernet72,str-7060cx-32s-15,Ethernet30/1,100000,1767,Access
 str-7260cx3-acs-2,Ethernet76,str-7060cx-32s-15,Ethernet12/1,100000,1768,Access
 str-7260cx3-acs-2,Ethernet80,str-7060cx-32s-15,Ethernet13/1,50000,1769,Access
 str-7260cx3-acs-2,Ethernet82,str-7060cx-32s-15,Ethernet13/3,50000,1770,Access
