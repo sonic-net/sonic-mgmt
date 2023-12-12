@@ -85,7 +85,7 @@ def reset_factory(duthost, localhost, flag=""):
 
         date_time_str = duthost.command("date")[duthost[0].hostname]["stdout"]
         logging.info("date: {}".format(date_time_str))
-        reset_factory_start_time = datetime.strptime(date_time_str.split(" ", 1)[1], '%d %b %Y %H:%M:%S %p %Z')
+        reset_factory_start_time = datetime.strptime(date_time_str.split(" ", 1)[1], '%b %d %H:%M:%S %Z %Y')
         logging.info("Reset factory start time: " + str(reset_factory_start_time))
 
         logging.info("Execute reset factory, the dut will reboot")
