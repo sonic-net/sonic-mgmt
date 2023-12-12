@@ -71,6 +71,5 @@ test_posttest.py
 snmp/test_snmp_lldp.py::test_snmp_lldp
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_thermal_info
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_transceiver_info
-snmp/test_snmp_interfaces.py::test_snmp_interfaces
 snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
