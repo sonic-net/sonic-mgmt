@@ -96,14 +96,13 @@ def check_config_bcm_file(duthost, topo_type):
     """
     Read the config bcm file and check if sai_hash_seed_config_hash_offset_enable is set
     """
-    ls_command = "docker exec syncd ls -al /etc/sai.d/ | grep config.bcm"
+    ls_command = "docker exec syncd cat /etc/sai.d/sai.profile | grep SAI_INIT_CONFIG_FILE"
     ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
     # Check if the file exists
     if ls_output:
-        file_name = ls_output.split()[-1]
+        file_name = ls_output.split("=")[-1]
         logging.info("Config bcm file found:{}".format(file_name))
-        cat_command = "docker exec syncd cat /etc/sai.d/{} | grep sai_hash_seed_config_hash_offset_enable".format(
-            file_name)
+        cat_command = "docker exec syncd cat {} | grep sai_hash_seed_config_hash_offset_enable".format(file_name)
         cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
         if cat_output:
             value = cat_output.split("=")[-1]
@@ -195,7 +194,7 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     if parameter == "common":
         check_hash_seed_value(duthost, asic_name, topo_type)
     elif parameter == "restart_syncd":
-        duthost.command("docker restart syncd", module_ignore_errors=True)
+        duthost.command("sudo systemctl restart syncd", module_ignore_errors=True)
         logging.info("Wait until all critical services are fully started")
         wait_critical_processes(duthost)
         check_hash_seed_value(duthost, asic_name, topo_type)
@@ -241,7 +240,7 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     if parameter == "common":
         check_ecmp_offset_value(duthost, asic_name, topo_type)
     elif parameter == "restart_syncd":
-        duthost.command("docker restart syncd", module_ignore_errors=True)
+        duthost.command("sudo systemctl restart syncd", module_ignore_errors=True)
         logging.info("Wait until all critical services are fully started")
         wait_critical_processes(duthost)
         check_ecmp_offset_value(duthost, asic_name, topo_type)
