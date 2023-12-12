@@ -92,6 +92,32 @@ def check_syncd_is_running(duthost):
         return False
 
 
+def check_config_bcm_file(duthost, topo_type):
+    """
+    Read the config bcm file and check if sai_hash_seed_config_hash_offset_enable is set
+    """
+    ls_command = "docker exec syncd ls -al /etc/sai.d/ | grep config.bcm"
+    ls_output = duthost.shell(ls_command, module_ignore_errors=True)['stdout']
+    # Check if the file exists
+    if ls_output:
+        file_name = ls_output.split()[-1]
+        logging.info("Config bcm file found:{}".format(file_name))
+        cat_command = "docker exec syncd cat /etc/sai.d/{} | grep sai_hash_seed_config_hash_offset_enable".format(
+            file_name)
+        cat_output = duthost.shell(cat_command, module_ignore_errors=True)['stdout']
+        if cat_output:
+            value = cat_output.split("=")[-1]
+            logging.info("sai_hash_seed_config_hash_offset_enable={}".format(value))
+        else:
+            logging.info("sai_hash_seed_config_hash_offset_enable not found in the file.")
+        if topo_type == "t0":
+            pytest_assert(not cat_output, "sai_hash_seed_config_hash_offset_enable should not set for T0")
+        if topo_type == "t1":
+            pytest_assert(cat_output and value == "1", "sai_hash_seed_config_hash_offset_enable is not set to 1")
+    else:
+        pytest.fail("Config bcm file not found.")
+
+
 def check_hash_seed_value(duthost, asic_name, topo_type):
     """
     Check the value of HASH_SEED
@@ -99,6 +125,7 @@ def check_hash_seed_value(duthost, asic_name, topo_type):
     t1: HASH_SEED is set to 0xa
     """
     pytest_assert(wait_until(300, 20, 0, check_syncd_is_running, duthost), "syncd is not running!")
+    check_config_bcm_file(duthost, topo_type)
     if asic_name == "td2":
         seed_cmd_input = seed_cmd_td2
     elif asic_name == "td3":
