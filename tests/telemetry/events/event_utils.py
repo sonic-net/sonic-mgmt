@@ -61,14 +61,15 @@ def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
             f.write(json_string + '\n')
     dest = "~/" + json_file
     duthost.copy(src=ip_file, dest=dest)
+    duthost.shell("docker cp {} eventd:/".format(dest))
 
 
 def event_publish_tool(duthost, json_file='', count=1):
-    cmd = "python ~/events_publish_tool.py"
+    cmd = "docker exec eventd python /usr/bin/events_publish_tool.py"
     if json_file == '':
         cmd += " -c {}".format(count)
     else:
-        cmd += " -f ~/{}".format(json_file)
+        cmd += " -f /{}".format(json_file)
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
 

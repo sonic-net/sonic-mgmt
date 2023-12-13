@@ -44,9 +44,6 @@ def do_init(duthost):
 
     duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
-    duthost.shell("docker cp eventd:/usr/bin/events_publish_tool.py ~/")
-    duthost.shell("chmod +x ~/events_publish_tool.py")
-
 
 @pytest.mark.disable_loganalyzer
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path):
