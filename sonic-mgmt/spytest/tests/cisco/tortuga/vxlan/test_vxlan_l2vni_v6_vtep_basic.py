@@ -15,7 +15,7 @@ import apis.system.box_services as boxserv_obj
 ##
 ##
 
-V6_VTEP_CONFIG_FILE = 'vxlan_l2vni_v6_vtep_configs.yaml'
+V6_VTEP_CONFIG_FILE = 'vxlan_v6_vtep_configs.yaml'
 
 pytest.fixture(scope="module", autouse=True)
 def box_service_module_hooks(request):
@@ -30,7 +30,7 @@ def box_service_func_hooks(request):
     yield
 
 
-def verify_vtep_state (_dut_list):
+def verify_vtep_state(_dut_list):
     '''
     root@sonic:/home/cisco# show vxlan remotevtep
     +---------------------+--------------------+-------------------+--------------+
@@ -39,6 +39,7 @@ def verify_vtep_state (_dut_list):
     | fd27::22d:b87f:214b | fd27::280:10f1:25f | EVPN              | oper_up      |
     +---------------------+--------------------+-------------------+--------------+
     Total count : 1
+
     '''
     for _dut in _dut_list:
         output = st.config(_dut, "show vxlan remotevtep | grep oper_up")
@@ -75,6 +76,13 @@ def setup_node(node, config, type=''):
         st.config(node, config, skip_error_check=False, conf=True)
     st.wait(2)
 
+def cleanup_node(node, config, type=''):
+    if type:
+        st.config(node, config, type=type, skip_error_check=False, conf=True)
+    else:
+        st.config(node, config, skip_error_check=False, conf=True)
+    st.wait(2)
+
 @pytest.mark.system_box
 @pytest.mark.community
 @pytest.mark.community_pass
@@ -97,6 +105,7 @@ def test_v6_vtep_basic():
             setup_node(nodes[node], config['bgp'], 'vtysh')
             st.wait(10)
 
+    st.wait(30)
     # Test1-3 : Verify Vtep State for L0 and L1
     leaf_nodes = [nodes['leaf0'], nodes['leaf1']]
     verify_vtep_state(leaf_nodes)

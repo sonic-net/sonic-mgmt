@@ -2,10 +2,13 @@ spine0:
     sonic: |
       sudo config interface ipv6 enable use-link-local-only Ethernet0
       sudo config interface ipv6 enable use-link-local-only Ethernet16
-      config loopback add Loopback27
-      config interface ip add Loopback27 fd27::2cb:8b5a:196/128
-      config interface startup Loopback27
-
+      sudo config interface startup Ethernet0
+      sudo config interface startup Ethernet16
+      sudo config loopback add Loopback27
+      sleep 2
+      sudo config interface ip add Loopback27 fd27::2cb:8b5a:196/128
+      sleep 2
+      sudo config interface startup Loopback27
     bgp: |
       router bgp 2363070545
       no bgp ebgp-requires-policy
@@ -24,6 +27,9 @@ spine0:
       neighbor fd27::22d:b87f:214b peer-group OVERLAY
       neighbor fd27::280:10f1:25f peer-group OVERLAY
       neighbor Ethernet0 interface peer-group TRANSIT
+      neighbor Ethernet4 interface peer-group TRANSIT
+      neighbor Ethernet8 interface peer-group TRANSIT
+      neighbor Ethernet12 interface peer-group TRANSIT
       neighbor Ethernet16 interface peer-group TRANSIT
       address-family ipv4 unicast
       redistribute connected
@@ -38,25 +44,41 @@ spine0:
       advertise-all-vni
       advertise ipv4 unicast
       exit-address-family
-      end
       exit
+      ip prefix-list PL_LoopbackV6 seq 5 permit fd27::2cb:8b5a:196/128
+      route-map RM_SET_SRC permit 10
+      set src fd27::2cb:8b5a:196
+      exit
+      ip nht resolve-via-default
+      ip protocol bgp route-map RM_SET_SRC
+      end
+    clean_config: |
+      sudo config interface ipv6 disable use-link-local-only Ethernet0
+      sudo config interface ipv6 disable use-link-local-only Ethernet16
+      sudo config interface shutdown Ethernet0
+      sudo config interface shutdown Ethernet16
+      sudo config interface ip del Loopback27 fd27::2cb:8b5a:196/128
+      sudo config loopback del Loopback27
 
 leaf0:
     sonic: |
-      sudo config interface startup Ethernet0
-      sudo config interface startup Ethernet8
-      sudo config interface startup Ethernet16
       sudo config interface ipv6 enable use-link-local-only Ethernet0
       sudo config interface ipv6 disable use-link-local-only Ethernet8
       sudo config interface ipv6 enable use-link-local-only Ethernet16
+      sudo config interface startup Ethernet0
+      sudo config interface startup Ethernet8
+      sudo config interface startup Ethernet16
       sudo config loopback add Loopback27
+      sleep 2
       sudo config interface ip add Loopback27 fd27::280:10f1:25f/128
-      sudo config vlan add 2
-      sudo config vlan member add -u 2 Ethernet8
+      sleep 2
       sudo config vxlan add Vtep fd27::280:10f1:25f
+      sleep 2
       sudo config vxlan evpn_nvo add NVO Vtep
-      sudo config vxlan map add Vtep 2 2727
-
+      sudo config vlan add 100
+      sudo config vlan member add -u 100 Ethernet8
+      sudo config vxlan map add Vtep 100 2727
+      sudo config interface startup Ethernet8
     bgp: |
       router bgp 2363073663
       no bgp ebgp-requires-policy
@@ -75,6 +97,8 @@ leaf0:
       neighbor fd27::22d:b87f:214b peer-group OVERLAY
       neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
       neighbor Ethernet0 interface peer-group TRANSIT
+      neighbor Ethernet4 interface peer-group TRANSIT
+      neighbor Ethernet12 interface peer-group TRANSIT
       neighbor Ethernet16 interface peer-group TRANSIT
       address-family ipv4 unicast
       redistribute connected
@@ -89,25 +113,48 @@ leaf0:
       advertise-all-vni
       advertise ipv4 unicast
       exit-address-family
-      end
       exit
+      ip prefix-list PL_LoopbackV6 seq 5 permit fd27::280:10f1:25f/128
+      route-map RM_SET_SRC permit 10
+      set src fd27::280:10f1:25f
+      exit
+      ip nht resolve-via-default
+      ip protocol bgp route-map RM_SET_SRC
+      end
+    clean_config: |
+      sudo config interface ipv6 disable use-link-local-only Ethernet0
+      sudo config interface ipv6 disable use-link-local-only Ethernet8
+      sudo config interface ipv6 disable use-link-local-only Ethernet16
+      sudo config vxlan map del Vtep 100 2727
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del Vtep
+      sudo config vlan member del 100 Ethernet8
+      sudo config vlan del 100
+      sudo config loopback del Loopback27
+      sudo config interface ip del Loopback27 fd27::280:10f1:25f/128
+      sudo config interface shutdown Ethernet0
+      sudo config interface shutdown Ethernet8
+      sudo config interface shutdown Ethernet16
 
 leaf1:
     sonic: |
-      sudo config interface startup Ethernet0
-      sudo config interface startup Ethernet8
-      sudo config interface startup Ethernet16
       sudo config interface ipv6 enable use-link-local-only Ethernet0
       sudo config interface ipv6 disable use-link-local-only Ethernet8
       sudo config interface ipv6 enable use-link-local-only Ethernet16
+      sudo config interface startup Ethernet0
+      sudo config interface startup Ethernet8
+      sudo config interface startup Ethernet16
       sudo config loopback add Loopback27
+      sleep 2
       sudo config interface ip add Loopback27 fd27::22d:b87f:214b/128
-      sudo config vlan add 2
-      sudo config vlan member add -u 2 Ethernet8
+      sleep 2
       sudo config vxlan add Vtep fd27::22d:b87f:214b
+      sleep 2
       sudo config vxlan evpn_nvo add NVO Vtep
-      sudo config vxlan map add Vtep 2 2727
-
+      sudo config vlan add 100
+      sudo config vlan member add -u 100 Ethernet8
+      sudo config vxlan map add Vtep 100 2727
+      sudo config interface startup Ethernet8
     bgp: |
       router bgp 2363033449
       no bgp ebgp-requires-policy
@@ -126,6 +173,8 @@ leaf1:
       neighbor fd27::280:10f1:25f peer-group OVERLAY
       neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
       neighbor Ethernet0 interface peer-group TRANSIT
+      neighbor Ethernet4 interface peer-group TRANSIT
+      neighbor Ethernet12 interface peer-group TRANSIT
       neighbor Ethernet16 interface peer-group TRANSIT
       address-family ipv4 unicast
       redistribute connected
@@ -140,5 +189,25 @@ leaf1:
       advertise-all-vni
       advertise ipv4 unicast
       exit-address-family
-      end
       exit
+      ip prefix-list PL_LoopbackV6 seq 5 permit fd27::22d:b87f:214b/128
+      route-map RM_SET_SRC permit 10
+      set src fd27::22d:b87f:214b
+      exit
+      ip nht resolve-via-default
+      ip protocol bgp route-map RM_SET_SRC
+      end
+    clean_config: |
+      sudo config interface ipv6 disable use-link-local-only Ethernet0
+      sudo config interface ipv6 disable use-link-local-only Ethernet8
+      sudo config interface ipv6 disable use-link-local-only Ethernet16
+      sudo config vxlan map del Vtep 100 2727
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del Vtep
+      sudo config vlan member del 100 Ethernet8
+      sudo config vlan del 100
+      sudo config loopback del Loopback27
+      sudo config interface ip del Loopback27 fd27::22d:b87f:214b/128
+      sudo config interface shutdown Ethernet0
+      sudo config interface shutdown Ethernet8
+      sudo config interface shutdown Ethernet16
