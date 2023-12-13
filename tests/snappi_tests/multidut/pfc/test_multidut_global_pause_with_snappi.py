@@ -44,6 +44,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     Returns:
         N/A
     """
+
     pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
