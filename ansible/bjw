@@ -475,7 +475,21 @@ sonic_mlnx_sn2700:
         "0xfe": "0x55EBE5E5"
     bjw-can-2700-4:
       ansible_host: 10.150.22.140
-      # todo
+      model: MSN2700-CS2ROS
+      serial: MT2301T007UT
+      base_mac: 9C:05:91:57:B3:00
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2ROS"
+        "0x23": "MT2301T007UT"
+        "0x24": "9C:05:91:57:B3:00"
+        "0x25": "01/07/2023 23:41:29"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0xDEDDCD3F"
 
 sonic_nokia_7215:
   vars:
