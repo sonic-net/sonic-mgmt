@@ -136,8 +136,8 @@ def test_verify_wred_drop_config(duthosts, rand_one_dut_hostname, request):
         # Check WRED drop probabilities for SMS
         voq_thresholds = data["bq_list"]
         voq_drop_data = None
-        if "voq_drop_prob_g" in data:
-            voq_drop_data = data["voq_drop_prob_g"][0]
+        if "voq_drop_probability_g" in data:
+            voq_drop_data = data["voq_drop_probability_g"][0]
         assert (voq_drop_data), "drop probability is not set"
 
         min_threshold_found = False
