@@ -4,7 +4,6 @@ bjw-can-7060-fanout-1,10.150.22.30/23,Arista-7060CX-32S,FanoutLeaf,,
 bjw-can-z9332f-1,10.150.22.108/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-2,10.150.22.120/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-3,10.150.22.126/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
-bjw-can-z9332f-4,10.150.22.127/23,DellEMC-Z9332f-C32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-5,10.150.22.141/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-6,10.150.22.142/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 bjw-can-z9332f-7,10.150.22.143/23,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
@@ -28,6 +27,7 @@ bjw-can-7260-3,10.150.22.149/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-4,10.150.22.150/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-5,10.150.22.151/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-7260-6,10.150.22.152/23,Arista-7260CX3,FanoutLeaf,,
+bjw-can-7260-7,10.150.22.127/23,Arista-7260CX3,FanoutLeaf,,
 bjw-can-serv-1,10.150.22.222/23,TestServ,Server,,
 bjw-can-serv-2,10.150.22.223/23,TestServ,Server,,
 bjw-can-serv-3,10.150.22.224/23,TestServ,Server,,

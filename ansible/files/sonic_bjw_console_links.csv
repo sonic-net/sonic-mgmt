@@ -31,7 +31,7 @@ bjw-can-7215-10,32,bjw-can-720dt-4,ssh,admin,9600
 bjw-can-7215-10,33,bjw-can-7215-8,ssh,admin,9600
 bjw-can-7215-10,34,bjw-can-720dt-3,ssh,admin,9600
 bjw-can-7215-10,42,bjw-can-z9332f-3,ssh,admin,115200
-bjw-can-7215-10,43,bjw-can-z9332f-4,ssh,admin,115200
+bjw-can-7215-10,43,bjw-can-7260-7,ssh,admin,9600
 bjw-can-7215-10,44,bjw-can-8102-1,ssh,admin,9600
 bjw-can-7215-10,45,bjw-can-7050qx-3,ssh,admin,9600
 bjw-can-7215-10,46,bjw-can-z9332f-2,ssh,admin,115200

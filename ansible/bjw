@@ -109,9 +109,6 @@ fanout:
     bjw-can-z9332f-3:
       ansible_host: 10.150.22.126
       os: sonic
-    bjw-can-z9332f-4:
-      ansible_host: 10.150.22.127
-      os: sonic
     bjw-slx-can-4:
       ansible_host: 10.150.22.107
       os: sonic
@@ -180,6 +177,8 @@ fanout:
       # serial: FGN230403RD  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-6:
       ansible_host: 10.150.22.152
+    bjw-can-7260-7:
+      ansible_host: 10.150.22.127
 
 sonic:
   vars:
