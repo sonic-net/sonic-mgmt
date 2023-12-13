@@ -458,6 +458,8 @@ def main():
         dut_name = 'churchill-mono-01'
     elif device_type == 'm64-zz-2':
         dut_name = 'm64-zz-2'
+    elif device_type == 'mth-t0-64':
+        dut_name = 'mth-t0-64'
     elif device_type == 'sfd':
         dut_name = 'sfd'
     else:
