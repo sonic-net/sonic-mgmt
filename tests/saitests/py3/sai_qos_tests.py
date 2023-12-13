@@ -2727,7 +2727,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             dst_port_ids.append(get_rx_port(self, 0, self.src_port_ids[i], pkt_dst_mac,
                                             self.dst_port_ip, self.src_port_ips[i]))
 
-
         # get a snapshot of counter values at recv and transmit ports
         # queue_counters value is not of our interest here
         recv_counters_bases = [sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])[
@@ -2851,7 +2850,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                 if pkt_cnt == 10:
                     self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
-                    sys.exit("Too many pkts needed to trigger pfc: %d" %(pkt_cnt))
+                    sys.exit("Too many pkts needed to trigger pfc: %d" % (pkt_cnt))
                 assert(recv_counters[sidx_dscp_pg_tuples[i][2]] >
                        recv_counters_bases[sidx_dscp_pg_tuples[i][0]][sidx_dscp_pg_tuples[i][2]])
                 print("%d packets for sid: %d, pg: %d to trigger pfc" % (
