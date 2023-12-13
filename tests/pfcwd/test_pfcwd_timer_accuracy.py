@@ -171,7 +171,7 @@ class TestPfcwdAllTimer(object):
             storm_start_time_ms = time.time() * 1000
             self.storm_handle.start_storm()
             logger.info("Wait for PFC storm detected marker to appear in logs")
-            time.sleep(5)
+            time.sleep(16)
             stormed = is_pfcwd_port_stormed(self.dut, self.test_port)
             if stormed:
                 break
