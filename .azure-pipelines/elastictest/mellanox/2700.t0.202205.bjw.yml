@@ -49,7 +49,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_MLNX_202205)
+    default: $(BJW_IMAGE_MLNX_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -80,7 +80,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202205)"
+    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_MLNX_202305)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -96,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 2700.t0.202205.bjw.NightlyTest_by_Elastictest
+    displayName: 2700.t0.202305.bjw.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
