@@ -182,7 +182,7 @@ steps:
 
       python ./.azure-pipelines/baseline_test_plan.py  create \
       --test-plan-num ${{ parameters.TEST_PLAN_NUM }} \
-      --parameters "\
+      --parameters '\
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
@@ -204,8 +204,8 @@ steps:
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
       --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
-      --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
-      --affinity='${{ parameters.AFFINITY }}' \
+      --specific-param="${{ parameters.SPECIFIC_PARAM }}" \
+      --affinity="${{ parameters.AFFINITY }}" \
       --build-reason ${{ parameters.BUILD_REASON }} \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
@@ -214,7 +214,7 @@ steps:
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
       --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
-      "
+      '
 
       TEST_PLAN_ID_LIST=`cat new_test_plan_id.txt`
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
