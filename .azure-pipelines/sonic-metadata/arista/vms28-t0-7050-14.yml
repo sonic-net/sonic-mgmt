@@ -64,13 +64,13 @@ parameters:
 
 - name: TO_IMAGE_LIST
   type: string
-  default: http://10.201.148.43/share/dev/sarcot/202305-csp-12301679-work-around/sonic-aboot-broadcom-485d4a733-sarcot_202305-csp-12301679-work-around.0-485d4a733.swi
+  default: latest
   displayName: "All target image numbers (space separated)"
 
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: custom
+  default: $(IMAGE_BRCM_ABOOT_202305)
   values:
   - $(IMAGE_BRCM_ABOOT_201811)
   - $(IMAGE_BRCM_ABOOT_201911)
