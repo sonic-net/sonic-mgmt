@@ -180,8 +180,7 @@ steps:
 
       rm -f new_test_plan_id.txt
 
-      python ./.azure-pipelines/baseline_test_plan.py 
-      --action-type create \
+      python ./.azure-pipelines/baseline_test_plan.py  create \
       --test-plan-num ${{ parameters.TEST_PLAN_NUM }} \
       --parameters "\
       -t ${{ parameters.TOPOLOGY }} \
