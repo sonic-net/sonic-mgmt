@@ -12,12 +12,12 @@ resources:
       endpoint: sonic-net
 
 schedules:
-  - cron: "0 4 * * 1,3"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
+#  - cron: "0 4 * * 1,3"
+#    displayName: Nightly Scheduler
+#    branches:
+#      include:
+#        - internal
+#    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms7-t0-dx010-4"
+    default: ""
     displayName: "Testbed Name"
 
   # ============ Upgrade parameters ============

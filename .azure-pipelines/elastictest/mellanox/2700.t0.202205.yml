@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms11-2-t0, vms21-t0-2700, vms2-4-t0-2700"
+    default: "vms21-t0-2700, vms2-4-t0-2700"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER

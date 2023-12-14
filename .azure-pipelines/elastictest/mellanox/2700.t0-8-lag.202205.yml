@@ -4,12 +4,12 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal
-    always: true
+#  - cron: "0 4 * * 0,2,4"
+#    displayName: Nightly Scheduler
+#    branches:
+#      include:
+#        - internal
+#    always: true
 
 resources:
   repositories:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms12-t0-8-lag-2700"
+    default: ""
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
