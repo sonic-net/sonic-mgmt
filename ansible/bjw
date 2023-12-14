@@ -58,6 +58,8 @@ all:
           ansible_host: 10.150.23.69
         bjw14-1:
           ansible_host: 10.150.23.70
+        bjw13-3:
+          ansible_host: 10.150.23.71
 
     pdu:
       hosts:
@@ -106,9 +108,6 @@ fanout:
       os: sonic
     bjw-can-z9332f-3:
       ansible_host: 10.150.22.126
-      os: sonic
-    bjw-can-z9332f-4:
-      ansible_host: 10.150.22.127
       os: sonic
     bjw-slx-can-4:
       ansible_host: 10.150.22.107
@@ -176,6 +175,10 @@ fanout:
     bjw-can-7260-5:
       ansible_host: 10.150.22.151
       # serial: FGN230403RD  # record on physical device, DO NOT MODIFY THIS VALUE.
+    bjw-can-7260-6:
+      ansible_host: 10.150.22.152
+    bjw-can-7260-7:
+      ansible_host: 10.150.22.127
 
 sonic:
   vars:
@@ -194,6 +197,7 @@ sonic:
     sonic_mlnx_sn4600c:
     sonic_nokia_sup:
     sonic_nokia_lc_400G:
+    sonic_arista_a7280cr3_c40:
 
 sonic_arista_7050qx_32s_q32:
   vars:
@@ -471,7 +475,21 @@ sonic_mlnx_sn2700:
         "0xfe": "0x55EBE5E5"
     bjw-can-2700-4:
       ansible_host: 10.150.22.140
-      # todo
+      model: MSN2700-CS2ROS
+      serial: MT2301T007UT
+      base_mac: 9C:05:91:57:B3:00
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2ROS"
+        "0x23": "MT2301T007UT"
+        "0x24": "9C:05:91:57:B3:00"
+        "0x25": "01/07/2023 23:41:29"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2a": "128"
+        "0x2b": "Mellanox"
+        "0xfe": "0xDEDDCD3F"
 
 sonic_nokia_7215:
   vars:
@@ -729,6 +747,29 @@ sonic_nokia_lc_400G:
         "0x22": "3HE12578AARA01"
         "0x23": "19688-0041"
         "0x24": "40:7C:7D:BB:26:1D"
+
+sonic_arista_a7280cr3_c40:
+  hosts:
+    bjw-can-a7280cr3-1:
+      ansible_host: 10.150.22.153
+      hwsku: Arista-7280CR3-C40
+      model: DCS-7280CR3MK-32D4S
+      serial: JPA2318P0L5
+      base_mac: fc:59:c0:98:22:14
+      syseeprom_info:
+        "0x21": "DCS-7280CR3MK-32D4S"
+        "0x22": "ASY0542812B0"
+        "0x23": "JPA2318P0L5"
+        "0x24": "fc:59:c0:98:22:14"
+        "0x25": "20200101000000"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7280cr3k_32p4"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal9-9.0.1-11845100"
+        "0x2F": "JPE19362918"
+  vars:
+    iface_speed: 100000
 
 server:
   hosts:
