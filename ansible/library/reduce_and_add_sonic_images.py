@@ -285,9 +285,11 @@ def main():
         if not new_image_url:
             reduce_installed_sonic_images(module)
             free_up_disk_space(module, disk_used_pcent)
+            # make sure 6100 can do cold reboot
+            work_around_for_reboot(module)
         else:
             results["current_stage"] = "start"
-
+            # make sure 6100 can do cold reboot to upgrade image
             work_around_for_reboot(module)
             work_around_for_slow_disks(module)
             reduce_installed_sonic_images(module)
@@ -299,6 +301,8 @@ def main():
 
             install_new_sonic_image(module, new_image_url, save_as)
             results["current_stage"] = "complete"
+            # after image installation, workaround is lost, we have to enable cold reboot again
+            work_around_for_reboot(module)
     except Exception:
         err = str(sys.exc_info())
         module.fail_json(msg="Exception raised during image upgrade", results=results, err=err)
