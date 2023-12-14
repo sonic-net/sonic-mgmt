@@ -145,7 +145,7 @@ def test_bgp_peer_group_password(setup):
 
     # mismatch peer group passwords
     cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
-          -c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
+          -c "end"'.format(setup['asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
                            setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
@@ -167,7 +167,7 @@ def test_bgp_peer_group_password(setup):
 
     # turn off peer group passwords on DUT
     cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}"'\
-        '-c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
+        '-c "end"'.format(setup['asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
                           setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
@@ -255,7 +255,7 @@ def test_bgp_neighbor_password(setup):
 
     # remove password configs
     cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c \
-        "no neighbor {} password {}" -c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'],
+        "no neighbor {} password {}" -c "end"'.format(setup['asic_index'], setup['dut_asn'],
                                                       setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'],
                                                       mismatch_pass)
 
