@@ -657,6 +657,15 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
+#######         link_flap         #####
+#######################################
+link_flap/test_cont_link_flap.py:
+  xfail:
+    reason: "system could be not reaching stable status while BGP converged"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/10955
+
+#######################################
 #####           macsec            #####
 #######################################
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
