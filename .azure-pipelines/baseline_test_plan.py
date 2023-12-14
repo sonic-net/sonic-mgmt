@@ -1,8 +1,8 @@
 import argparse
 import os
 
-TEST_PLAN_SCRIPT = ".azure-pipelines\test_plan.py"
-TEST_PLAN_ID_TXT = "new_test_plan_id.txt"
+TEST_PLAN_SCRIPT = "test_plan.py"
+TEST_PLAN_ID_TXT = "../new_test_plan_id.txt"
 
 def get_test_plan_list_id(current_path):
     current_path = os.path.dirname(os.path.realpath(__file__))
@@ -52,8 +52,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.action == "create":
         for test_plan_id in range(args.test_plan_num):
-            os.system("python {} create -o new_test_plan_id.txt {}"
-                      .format(test_plan_script_path, args.parameters))
+            os.system("python {} create {}".format(test_plan_script_path, args.parameters))
     elif args.action == "poll":
         test_plan_id_list = get_test_plan_list_id(current_path)
         for test_plan_id in test_plan_id_list:
