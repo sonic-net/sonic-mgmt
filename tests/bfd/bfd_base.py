@@ -3,7 +3,9 @@ import random
 import pytest, re, time
 import logging
 logger = logging.getLogger(__name__)
-
+from tests.common.config_reload import config_reload
+from tests.platform_tests.cli import util
+from tests.common.plugins.sanity_check.checks import _parse_bfd_output
 
 class BfdBase:
     def list_to_dict(self, sample_list):
@@ -39,7 +41,28 @@ class BfdBase:
                     logger.info("Prefix")
                     logger.info(prefix)
                     return prefix
-    
+
+    def modify_all_bfd_sessions(self, dut, flag):
+        # Extracting asic count
+        cmd = "show platform summary"
+        logging.info("Verifying output of '{}' on '{}'...".format(cmd, dut.hostname))
+        summary_output_lines = dut.command(cmd)["stdout_lines"]
+        summary_dict = util.parse_colon_speparated_lines(summary_output_lines)
+        asic_count = int(summary_dict['ASIC Count'])
+        
+        # Creating bfd.json, bfd0.json, bfd1.json, bfd2.json ...
+        for i in range(asic_count):
+            file_name = "config_db{}.json".format(i)
+            dut.shell("cp /etc/sonic/{} /etc/sonic/{}.bak".format(file_name,file_name))
+            if flag == "false":
+                command = """sed -i 's/"bfd": "true"/"bfd": "false"/' {}""".format("/etc/sonic/" + file_name)
+            elif flag == "true":
+                command = """sed -i 's/"bfd": "false"/"bfd": "true"/' {}""".format("/etc/sonic/" + file_name)
+            dut.shell(command)
+
+        
+     
+
     def extract_backend_portchannels(self, dut):
         output = dut.show_and_parse('show int port -d all')
         port_channel_dict = {}
@@ -123,7 +146,25 @@ class BfdBase:
         else:                
             entry = self.list_to_dict(bfd_peer_output)
             return entry['State']
-    
+        
+    def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
+        # Expected BFD states: Up, Down, No BFD sessions found
+        peer_count = []
+        peers = {}
+        bfd_cmd = "ip netns exec asic{} show bfd sum"
+        result = True
+        bfd_peer_output = dut.shell(bfd_cmd.format(dut_asic))["stdout"].encode("utf-8").strip().split("\n")
+        if any(keyword in bfd_peer_output[0] for keyword in ("Total number of BFD sessions: 0", "No BFD sessions found")):
+            return result
+        else:
+            bfd_output = _parse_bfd_output(bfd_peer_output)
+            for peer in bfd_output:
+                if not bfd_output[peer]['State'] == expected_bfd_state:
+                    peer_count.append(peer)
+        if len(peer_count) > 0:
+            result = False
+        return result
+
     def verify_bfd_state(self, dut, dut_nexthops, dut_asic, expected_bfd_state):
         logger.info("Verifying BFD state on {} ".format(dut))
         for nexthop in dut_nexthops:
