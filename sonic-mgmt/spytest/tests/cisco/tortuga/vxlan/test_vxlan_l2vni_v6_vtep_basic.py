@@ -17,6 +17,11 @@ import apis.system.box_services as boxserv_obj
 
 V6_VTEP_CONFIG_FILE = 'vxlan_v6_vtep_configs.yaml'
 
+SPINE0_VTEP_IP = 'fd27::2cb:8b5a:196'
+SPINE1_VTEP_IP = 'fd27::234:377f:6b3'
+LEAF0_VTEP_IP  = 'fd27::280:10f1:25f'
+LEAF1_VTEP_IP  = 'fd27::22d:b87f:214b'
+
 pytest.fixture(scope="module", autouse=True)
 def box_service_module_hooks(request):
     global vars
@@ -30,7 +35,7 @@ def box_service_func_hooks(request):
     yield
 
 
-def verify_vtep_state(_dut_list):
+def verify_vtep_state(dut, expected_sip, expected_dip):
     '''
     root@sonic:/home/cisco# show vxlan remotevtep
     +---------------------+--------------------+-------------------+--------------+
@@ -41,32 +46,40 @@ def verify_vtep_state(_dut_list):
     Total count : 1
 
     '''
-    for _dut in _dut_list:
-        output = st.config(_dut, "show vxlan remotevtep | grep oper_up")
-        st.wait(2)
-        st.log(output,_dut)
+    output = st.show(dut, "show vxlan remotevtep")
+    output_parsed = st.parse_show(dut, "show vxlan remotevtep", output, "show_vxlan_remotevtep.tmpl")
 
+    for vtep in output_parsed:
         # Test 1: Verify if the State is UP - oper_up
-        if "EVPN" in str(output.encode('ascii','ignore')):
-            st.log("EVPN State oper_up UP", _dut)
+        if vtep['tun_status'] == 'oper_up':
+            st.log("Tunnel State oper_up UP", dut)
         else:
-            st.log("EVPN State Error: NOT oper_up",_dut)
-            st.error("EVPN State Error: NOT oper_up",_dut)
-            st.report_fail("test_case_failed",_dut)
-        st.report_pass("Tunnel State Check : test_case_passed", _dut)
+            st.log("Tunnel State Error: NOT oper_up",dut)
+            st.error("Tunnel State Error: NOT oper_up",dut)
+            st.report_fail("test_case_failed",dut)
 
-        # Test 2: Verify if the Total Count is 1
-        output = st.config(_dut, "show vxlan remotevtep | grep 'Total count :'")
-        st.wait(2)
-        st.log(output,_dut)
-
-        #remote_vtep_count = int(re.search(r'Total count : (\d+)', str(output.encode('ascii','ignore'))).group(1))
-        if '1' in str(output.encode('ascii','ignore')):
-            st.log("All remote VTEPs detected", _dut)
+        # Test 2: Verify SIP and DIP
+        if vtep['src_vtep'] == expected_sip:
+            st.log("Source vtep validated", dut)
         else:
-            st.error("All remote VTEPs have not been discovered. Discovered 1 VTEPs", _dut)
-            st.report_fail("test_case_failed",_dut)
-        st.report_pass("Tunnel Count Check : test_case_passed", _dut)
+            st.log("Source vtep expected {} found {} ".format(expected_sip, vtep['src_vtep']), dut)
+            st.error("Source vtep expected {} found {} ".format(expected_sip, vtep['src_vtep']), dut)
+            st.report_fail("test_case_failed",dut)
+
+        if vtep['dst_vtep'] == expected_dip:
+            st.log("Destination vtep validated", dut)
+        else:
+            st.log("Destination vtep expected {} found {} ".format(expected_dip, vtep['dst_vtep']), dut)
+            st.error("Destination vtep expected {} found {} ".format(expected_dip, vtep['dst_vtep']), dut)
+            st.report_fail("test_case_failed",dut)
+
+        # Test 3: Verify if the Total Count is 1
+        if vtep['total_count'] == 1:
+            st.log("All remote VTEPs detected", dut)
+        else:
+            st.log("All remote VTEPs have not been discovered. Discovered {} VTEPs".format(vtep['total_count']), dut)
+            st.error("All remote VTEPs have not been discovered. Discovered {} VTEPs".format(vtep['total_count']), dut)
+            st.report_fail("test_case_failed",dut)
 
 
 def setup_node(node, config, type=''):
@@ -87,8 +100,8 @@ def cleanup_node(node, config, type=''):
 @pytest.mark.community
 @pytest.mark.community_pass
 def test_v6_vtep_basic():
-
     vars   = st.get_testbed_vars()
+
     nodes = {}
     nodes['leaf0']  = vars.D1
     nodes['leaf1']  = vars.D2
@@ -106,6 +119,8 @@ def test_v6_vtep_basic():
             st.wait(10)
 
     st.wait(30)
-    # Test1-3 : Verify Vtep State for L0 and L1
-    leaf_nodes = [nodes['leaf0'], nodes['leaf1']]
-    verify_vtep_state(leaf_nodes)
+    verify_vtep_state(nodes['leaf0'], LEAF0_VTEP_IP, LEAF1_VTEP_IP)
+    st.report_pass("VTEP check on LEAF0 passed", dut)
+
+    verify_vtep_state(nodes['leaf1'], LEAF1_VTEP_IP, LEAF0_VTEP_IP)
+    st.report_pass("VTEP check on LEAF1 passed", dut)
