@@ -55,14 +55,17 @@ if __name__ == "__main__":
         required=False,
         help="Parameters of test plan."
     )
+    parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
 
     args = parser.parse_args()
     if args.action == "create":
         for test_plan_id in range(args.test_plan_num):
+            print("python {} create {}".format(test_plan_script_path, args.parameters))
             os.system("python {} create {}".format(test_plan_script_path, args.parameters))
     elif args.action == "poll":
         test_plan_id_list = get_test_plan_list_id(current_path)
         for test_plan_id in test_plan_id_list:
+            print("python {} poll -i {} {}".format(test_plan_script_path, test_plan_id, args.parameters))
             os.system("python {} poll -i {} {}".format(test_plan_script_path, test_plan_id, args.parameters))
     elif args.action == "cancel":
         test_plan_id_list = get_test_plan_list_id(current_path)

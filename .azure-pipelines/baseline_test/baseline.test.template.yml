@@ -12,7 +12,7 @@ jobs:
       MAX_WORKER: $(T0_INSTANCE_NUM)
       KVM_IMAGE_BRANCH: "master"
       MGMT_BRANCH: "master"
-      BUILD_REASON: "BaselineTest"
+      BUILD_REASON: "OnlyForTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
       TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -32,7 +32,7 @@ jobs:
       DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
       KVM_IMAGE_BRANCH: "master"
       MGMT_BRANCH: "master"
-      BUILD_REASON: "BaselineTest"
+      BUILD_REASON: "OnlyForTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
       TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -50,7 +50,7 @@ jobs:
       MAX_WORKER: $(T1_LAG_INSTANCE_NUM)
       KVM_IMAGE_BRANCH: "master"
       MGMT_BRANCH: "master"
-      BUILD_REASON: "BaselineTest"
+      BUILD_REASON: "OnlyForTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
       TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -69,7 +69,7 @@ jobs:
         COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
         KVM_IMAGE_BRANCH: "master"
         MGMT_BRANCH: "master"
-        BUILD_REASON: "BaselineTest"
+        BUILD_REASON: "OnlyForTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -89,7 +89,7 @@ jobs:
         NUM_ASIC: 4
         KVM_IMAGE_BRANCH: "master"
         MGMT_BRANCH: "master"
-        BUILD_REASON: "BaselineTest"
+        BUILD_REASON: "OnlyForTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -110,7 +110,7 @@ jobs:
         VM_TYPE: vsonic
         KVM_IMAGE_BRANCH: "master"
         MGMT_BRANCH: "master"
-        BUILD_REASON: "BaselineTest"
+        BUILD_REASON: "OnlyForTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
@@ -128,7 +128,7 @@ jobs:
         MAX_WORKER: $(T0_SONIC_INSTANCE_NUM)
         KVM_IMAGE_BRANCH: "master"
         MGMT_BRANCH: "master"
-        BUILD_REASON: "BaselineTest"
+        BUILD_REASON: "OnlyForTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
         TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
