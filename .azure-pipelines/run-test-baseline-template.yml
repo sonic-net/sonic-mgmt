@@ -182,7 +182,7 @@ steps:
 
       python ./.azure-pipelines/baseline_test_plan.py create \
       --test-plan-num ${{ parameters.TEST_PLAN_NUM }} \
-      --parameters \
+      --parameters "\
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
@@ -213,7 +213,8 @@ steps:
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
-      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60))
+      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
+      "
 
       TEST_PLAN_ID_LIST=`cat new_test_plan_id.txt`
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
