@@ -266,20 +266,6 @@ exit 0
     log("Done workaround for S6100 reboot")
 
 
-def work_around_for_reboot(module):
-    # work around reboot for s6100
-    # Replace /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check
-    # Ignore any pre check and just return 0
-    _, out, _   = exec_command(module, cmd="show platform summary", ignore_error=True)
-    if 'Force10-S6100' in out:
-        exec_command(module, cmd="sudo mv /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check /usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check_bak", ignore_error=True)
-        file_content = '''#!/bin/bash
-exit 0
-'''
-        with open("/usr/share/sonic/device/x86_64-dell_s6100_c2538-r0/platform_reboot_pre_check", 'w') as out_file:
-            out_file.write(file_content)
-
-
 def disable_logs_in_ram(module):
     """ Disable logs in ram as we need to collect logs after reboot """
     platforms = ['x86_64-mlnx_msn2700-r0']
