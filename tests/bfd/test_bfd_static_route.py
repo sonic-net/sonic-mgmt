@@ -7,18 +7,59 @@ from tests.common.config_reload import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot
 
-
 pytestmark = [
     pytest.mark.topology('t2')
 ]
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+    
 class TestBfdStaticRoute(BfdBase):
     test_case_status = True
     total_iterations = 100
 
+    @pytest.fixture(autouse = True, scope="class")
+    def modify_bfd_sessions(self, duthosts, bfd_base_instance):
+        """
+        	1. Gather all front end nodes
+	        2. Modify BFD state to required state & issue config reload.
+	        3. Wait for Critical processes
+	        4. Gather all ASICs for each dut
+	        5. Calls find_bfd_peers_with_given_state using wait_until
+                    a. Runs ip netns exec asic{} show bfd sum
+                    b. If expected state is "Total number of BFD sessions: 0" and it is in result, output is True
+                    c. If expected state is "Up" and no. of down peers is 0, output is True
+                    d. If expected state is "Down" and no. of up peers is 0, output is True
+        """
+        try:
+            duts = duthosts.frontend_nodes
+            for dut in duts:
+                bfd_base_instance.modify_all_bfd_sessions(dut, "false")
+            for dut in duts:
+                # config reload
+                #config_reload(dut)
+                wait_critical_processes(dut)
+            # Verification that all BFD sessions are deleted
+            for dut in duts:
+                asics = [asic.split("asic")[1] for asic in dut.get_asic_namespace_list()]
+                for asic in asics:
+                    assert wait_until(300, 10, 0, lambda: bfd_base_instance.find_bfd_peers_with_given_state(dut, asic, "No BFD sessions found"))
+
+            yield
+
+        finally:
+            duts = duthosts.frontend_nodes
+            for dut in duts:
+                bfd_base_instance.modify_all_bfd_sessions(dut, "true")
+            for dut in duts:
+                config_reload(dut)
+                wait_critical_processes(dut)
+            # Verification that all BFD sessions are added
+            for dut in duts:
+                asics = [asic.split("asic")[1] for asic in dut.get_asic_namespace_list()]
+                for asic in asics:
+                    assert wait_until(300, 10, 0, lambda: bfd_base_instance.find_bfd_peers_with_given_state(dut, asic, "Up"))
+    
     def test_bfd_with_lc_reboot_ipv4(self, localhost, duthost, request, duthosts, tbinfo, get_src_dst_asic_and_duts, bfd_base_instance, bfd_cleanup_db):
-        
         version = "ipv4"
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -45,6 +86,19 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+        
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -61,6 +115,12 @@ class TestBfdStaticRoute(BfdBase):
 
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -140,6 +200,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -156,6 +222,12 @@ class TestBfdStaticRoute(BfdBase):
 
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -466,6 +538,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -484,6 +562,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -571,6 +655,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -589,6 +679,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -833,6 +929,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -849,6 +951,12 @@ class TestBfdStaticRoute(BfdBase):
 
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -942,6 +1050,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -960,6 +1074,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -997,6 +1117,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -1015,6 +1141,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -1063,6 +1195,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -1081,6 +1219,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source & destination dut
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -1113,6 +1257,12 @@ class TestBfdStaticRoute(BfdBase):
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -1129,6 +1279,12 @@ class TestBfdStaticRoute(BfdBase):
 
         # Waiting for all processes on Source dut
         wait_critical_processes(src_dut)
+
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
@@ -1177,6 +1333,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
@@ -1196,7 +1358,12 @@ class TestBfdStaticRoute(BfdBase):
         wait_critical_processes(src_dut)
         wait_critical_processes(dst_dut)
 
+        check_bgp = request.getfixturevalue("check_bgp")
+        results = check_bgp()
+        failed = [result for result in results if "failed" in result and result["failed"]]
+        if failed:
+            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
+
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "No BFD sessions found"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "No BFD sessions found"))
-    
