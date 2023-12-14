@@ -166,7 +166,12 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
                             "arp_ping": "", "lacp_session_max_wait": ""}
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
         if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
+            # Filter out None values and then fine the maximum
+            filtered_lacp_sessions_waittime = [value for value in lacp_sessions_waittime.values() if value is not None]
+            if filtered_lacp_sessions_waittime:
+                max_lacp_session_wait = max(filtered_lacp_sessions_waittime)
+            else:
+                max_lacp_session_wait = None
             analyze_result.get(
                 "controlplane", controlplane_summary).update(
                     {"lacp_session_max_wait": max_lacp_session_wait})
@@ -273,7 +278,10 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                     state_times = get_state_times(
                         timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
-                break
+                if "PORT_READY" not in state_name:
+                    # If PORT_READY, don't break out of the for-loop here, because we want to
+                    # try to match the other regex as well
+                    break
     # Calculate time that services took to stop/start
     for _, timings in list(service_restart_times.items()):
         timestamps = timings["timestamp"]
@@ -393,13 +401,16 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(
-                key, {}).get(pattern, {}).get("Start count", 0)
+            if pattern == 'PORT_READY':
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start-changes-only count", 0)
+            else:
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start count", 0)
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
-                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
+            if observed_start_count != expected_count:
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
@@ -445,9 +456,13 @@ def advanceboot_loganalyzer(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_name = request.node.name
-    if "warm" in test_name:
+    if "upgrade_path" in test_name:
+        reboot_type_source = request.config.getoption("--upgrade_type")
+    else:
+        reboot_type_source = test_name
+    if "warm" in reboot_type_source:
         reboot_type = "warm"
-    elif "fast" in test_name:
+    elif "fast" in reboot_type_source:
         reboot_type = "fast"
     else:
         reboot_type = "unknown"

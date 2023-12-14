@@ -25,6 +25,7 @@ PAM_PASSWORD_CONF = "/etc/pam.d/common-password"
 USERNAME_STRONG = 'user_strong_test'
 USERNAME_SIMPLE_0 = 'user_simple_0_test'
 USERNAME_SIMPLE_1 = 'user_simple_1_test'
+USERNAME_SIMPLE_2 = 'user_simple_2_test'
 USERNAME_ONE_POLICY = 'user_one_policy_test'
 USERNAME_AGE = 'user_test'
 USERNAME_HISTORY = 'user_history_test'

@@ -20,7 +20,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
                              port=SERVER_PORT,
                              state='started',
                              delay=1,
-                             timeout=5,
+                             timeout=10,
                              module_ignore_errors=True)
     if res['failed'] is True:
 
@@ -54,7 +54,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker exec -i pmon supervisorctl reread')
         duthost.command('docker exec -i pmon supervisorctl update')
 
-        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=5)
+        res = localhost.wait_for(host=dut_ip, port=SERVER_PORT, state='started', delay=1, timeout=10)
         assert res['failed'] is False
 
 

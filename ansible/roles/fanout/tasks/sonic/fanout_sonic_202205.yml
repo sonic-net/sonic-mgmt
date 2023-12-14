@@ -27,8 +27,21 @@
       register: teamd_container
 
     - name: disable feature teamd and remove container
-      shell: "config feature state teamd disabled && sleep 10 && docker rm teamd"
-      become: true
+      block:
+        - name: disable feature teamd
+          shell: config feature state teamd disabled
+          become: true
+        - name: ensure teamd container is stopped
+          docker_container:
+            name: teamd
+            state: stopped
+          become: true
+          ignore_errors: yes
+        - name: remove teamd container
+          docker_container:
+            name: teamd
+            state: absent
+          become: true
       when: teamd_container.stdout != ""
 
 - name: SONiC update config db

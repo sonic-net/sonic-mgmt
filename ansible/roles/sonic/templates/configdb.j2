@@ -77,7 +77,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv4'].split('/')[0] }}",
-            "name": "exabgp_v4",
+            "name": "exabgp",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -87,7 +87,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "{{ host['bp_interface']['ipv6'].split('/')[0] | lower }}",
-            "name": "exabgp_v6",
+            "name": "exabgp",
             "nhopself": "0",
             "rrclient": "0"
         }
@@ -100,6 +100,11 @@
                 "hwsku": "SONiC-VM",
                 "mgmt_addr": "{{ hostvars[dut_name]['ansible_host'] }}",
                 "type": "TorRouter"
+        },
+        "exabgp": {
+                "hwsku": "exabgp",
+                "mgmt_addr": "{{ ptf_ip }}",
+                "type": "SpineRouter"
         }
 {% endfor %}
     },

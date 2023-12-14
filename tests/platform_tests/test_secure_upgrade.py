@@ -38,7 +38,7 @@ def keep_same_version_installed(duthost):
     pytest_assert(len(results) > 0, "Current image is empty!")
     current_version = results[0]
     yield
-    duthost.shell("sudo sonic-installer set-default {}", format(current_version))
+    duthost.shell("sudo sonic-installer set-default {}".format(current_version))
 
 
 @pytest.fixture(scope='session')
@@ -55,6 +55,11 @@ def test_non_secure_boot_upgrade_failure(duthost, non_secure_image_path, tbinfo)
     """
     @summary: This test case validates non successful upgrade of a given non secure image
     """
+    secure_boot_image = duthost.command("sonic-cfggen  -y /etc/sonic/sonic_version.yml -v secure_boot_image")['stdout']
+
+    if secure_boot_image != 'yes':
+        pytest.skip("Current Image is not secured so skipping")
+
     # install non secure image
     logger.info("install non secure image - expect fail, image path = {}".format(non_secure_image_path))
     result = "image install failure"  # because we expect fail
