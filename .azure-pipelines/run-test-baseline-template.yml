@@ -139,8 +139,8 @@ parameters:
     default: ""
 
   - name: TEST_PLAN_NUM
-    type: number
-    default: 1
+    type: string
+    default: "1"
 
 
 steps:
