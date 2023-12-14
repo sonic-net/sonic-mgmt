@@ -25,6 +25,7 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname, bfd_base_ins
                     "Orch CPU utilization {} > orch cpu threshold {} before starting the test"
                     .format(dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                             orch_cpu_threshold))
+
     yield
     orch_cpu_threshold = 10
     # Orchagent CPU should consume < orch_cpu_threshold at last.
