@@ -29,57 +29,36 @@ if __name__ == "__main__":
     )
 
     parser_create = subparsers.add_parser("create", help="Create new test plan.")
-    if parser_create:
-        parser_create.add_argument(
-            "--test-plan-num",
-            type=int,
-            dest="test_plan_num",
-            nargs="?",
-            const="",
-            default="",
-            required=False,
-            help="Test plan num to be created."
-        )
-        parser_create.add_argument(
-            "--parameters",
-            type=str,
-            dest="parameters",
-            required=False,
-            help="Parameters of test plan."
-        )
-
-        args = parser.parse_args()
-        for test_plan_id in range(args.test_plan_num):
-            os.system("python {} create -o new_test_plan_id_{}.txt {}"
-                      .format(test_plan_script_path, test_plan_id, args.parameters))
-
-
+    parser_create.add_argument(
+        "--test-plan-num",
+        type=int,
+        dest="test_plan_num",
+        nargs="?",
+        const="",
+        default="",
+        required=False,
+        help="Test plan num to be created."
+    )
+    parser_create.add_argument(
+        "--parameters",
+        type=str,
+        dest="parameters",
+        required=False,
+        help="Parameters of test plan."
+    )
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
-    if parser_poll:
-        parser_poll.add_argument(
-            "--parameters",
-            type=str,
-            dest="parameters",
-            required=False,
-            help="Parameters of test plan."
-        )
+    parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
 
-        args = parser.parse_args()
+    args = parser.parse_args()
+    if args.action == "create":
+        for test_plan_id in range(args.test_plan_num):
+            os.system("python {} create -o new_test_plan_id.txt {}"
+                      .format(test_plan_script_path, args.parameters))
+    elif args.action == "poll":
         test_plan_id_list = get_test_plan_list_id(current_path)
         for test_plan_id in test_plan_id_list:
             os.system("python {} poll -i {} {}".format(test_plan_script_path, test_plan_id, args.parameters))
-
-    parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
-    if parser_cancel:
-        parser_cancel.add_argument(
-            "--parameters",
-            type=str,
-            dest="parameters",
-            required=False,
-            help="Parameters of test plan."
-        )
-
-        args = parser.parse_args()
+    elif args.action == "cancel":
         test_plan_id_list = get_test_plan_list_id(current_path)
         for test_plan_id in test_plan_id_list:
             os.system("python {} cancel -i {} {}".format(test_plan_script_path, test_plan_id, args.parameters))
