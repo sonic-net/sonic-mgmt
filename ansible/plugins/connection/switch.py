@@ -250,7 +250,7 @@ class Connection(ConnectionBase):
             self._display.vvv('> %s' % (cmd), host=self.host)
             client.sendline(cmd)
             client.expect(prompts)
-            before = self._remove_unprintable(client.before.decode())
+            before = self._remove_unprintable(client.before.decode('utf-8'))
             stdout += before
             self._display.vvv('< %s' % (before), host=self.host)
 

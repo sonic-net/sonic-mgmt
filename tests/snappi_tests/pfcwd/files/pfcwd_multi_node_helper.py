@@ -131,6 +131,7 @@ def run_pfcwd_multi_node_test(api,
 
     """ Retrieve ASIC information for DUT """
     asic_type = duthost.facts['asic_type']
+    rx_tx_tol_thrhlds = [0.0001, 0.0002]  # Maintain a 0.01% and 0.02% deviation between tx and rx frames
 
     __verify_results(rows=flow_stats,
                      speed_gbps=speed_gbps,
@@ -143,7 +144,8 @@ def run_pfcwd_multi_node_test(api,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
                      pause_port_id=port_id,
-                     tolerance=TOLERANCE_THRESHOLD,
+                     rx_deviation=TOLERANCE_THRESHOLD,
+                     rx_tx_deviations=rx_tx_tol_thrhlds,
                      asic_type=asic_type)
 
 
@@ -562,7 +564,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      trigger_pfcwd,
                      pause_port_id,
-                     tolerance,
+                     rx_deviation,
+                     rx_tx_deviations,
                      asic_type):
     """
     Verify if we get expected experiment results
@@ -579,7 +582,8 @@ def __verify_results(rows,
         test_flow_pause (bool): if test flows are expected to be paused
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pause_port_id (int): ID of the port to send PFC pause frames
-        tolerance (float): maximum allowable deviation
+        rx_deviation (float): maximum allowable deviation for rx_frames relative to theoretical value
+        rx_tx_deviations (list of floats): maximum allowable % deviation for rx_frames relative to tx_frames
         asic_type (str): asic_type information for DUT
 
     Returns:
@@ -606,9 +610,8 @@ def __verify_results(rows,
 
             exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
-            deviation = (rx_frames - exp_bg_flow_rx_pkts) / \
-                float(exp_bg_flow_rx_pkts)
-            pytest_assert(abs(deviation) < tolerance,
+            deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
+            pytest_assert(abs(deviation) < rx_deviation,
                           '{} should receive {} packets (actual {})'.
                           format(flow_name, exp_bg_flow_rx_pkts, rx_frames))
 
@@ -640,12 +643,12 @@ def __verify_results(rows,
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))
 
             else:
-                """ Otherwise, the test flow is not impacted by PFC storm """
-                pytest_assert(tx_frames == rx_frames,
-                              '{} should not have any dropped packet'.format(flow_name))
+                for dev_pct in rx_tx_deviations:
+                    """ Otherwise, the test flow is not impacted by PFC storm """
+                    pytest_assert(abs(tx_frames - rx_frames)/float(tx_frames) < dev_pct,
+                                  '{} should be within {} percent deviation'.format(flow_name, dev_pct*100))
 
-                deviation = (rx_frames - exp_test_flow_rx_pkts) / \
-                    float(exp_test_flow_rx_pkts)
-                pytest_assert(abs(deviation) < tolerance,
+                deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
+                pytest_assert(abs(deviation) < rx_deviation,
                               '{} should receive {} packets (actual {})'.
                               format(flow_name, exp_test_flow_rx_pkts, rx_frames))

@@ -10,8 +10,10 @@ def is_scmd(delay_factor):
 
 
 def get_delay_factor(current):
-    try: factor = float(os.getenv("SPYTEST_NETMIKO_DELAY_FACTOR", "1"))
-    except Exception: factor = 1.0
+    try:
+        factor = float(os.getenv("SPYTEST_NETMIKO_DELAY_FACTOR", "1"))
+    except Exception:
+        factor = 1.0
     return current * factor
 
 

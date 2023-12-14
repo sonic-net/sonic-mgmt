@@ -15,6 +15,8 @@ from spytest.ftrace import print_ftrace, ftrace_reset
 from spytest.ftrace import ftrace_prefix
 
 import utilities.common as utils
+from utilities.cache import init_cache
+from utilities.profile import init_profile
 
 
 def _banner():
@@ -115,6 +117,10 @@ def _parse_args(pre_parse=False):
 
     args, unknown = _parse_args_early(pre_parse)
 
+    # initialize cache and profiling libs
+    init_cache()
+    init_profile()
+
     # parse the bucket options
     argsdict = vars(args)
     if argsdict["tclist_bucket"]:
@@ -193,6 +199,10 @@ def _parse_args(pre_parse=False):
     for name, value in args.env.items():
         print_ftrace("setting environment {} = {}".format(name, value))
         os.environ[name] = value
+
+    # initialize cache and profiling libs again
+    init_cache()
+    init_profile()
 
     if args.exclude_devices:
         os.environ["SPYTEST_TESTBED_EXCLUDE_DEVICES"] = args.exclude_devices
