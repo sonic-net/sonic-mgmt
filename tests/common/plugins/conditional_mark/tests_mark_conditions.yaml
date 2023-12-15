@@ -508,13 +508,6 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
 
-generic_config_updater/test_eth_interface.py::test_replace_fec:
-  skip:
-    reason: 'replace_fec ethernet test depends on StateDB values. GCU needs to be updated to consider StateDB'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8600
-
-
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
     reason: "Skip asym pfc on unsupported platforms"
