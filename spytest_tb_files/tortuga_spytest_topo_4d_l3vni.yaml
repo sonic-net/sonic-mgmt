@@ -42,23 +42,11 @@ topology:
     SD1:
         interfaces:
             Ethernet0: {EndDevice: SD3, EndPort: Ethernet0, params: def_link}
-            Ethernet4: {EndDevice: SD3, EndPort: Ethernet4, params: def_link}
-            Ethernet8: {EndDevice: SD3, EndPort: Ethernet8, params: def_link}
-            Ethernet12: {EndDevice: SD3, EndPort: Ethernet12, params: def_link}
-            Ethernet16: {EndDevice: SD4, EndPort: Ethernet0, params: def_link}
-            Ethernet20: {EndDevice: SD4, EndPort: Ethernet4, params: def_link}
-            Ethernet24: {EndDevice: SD4, EndPort: Ethernet8, params: def_link}
-            Ethernet28: {EndDevice: SD4, EndPort: Ethernet12, params: def_link}
+            Ethernet12: {EndDevice: SD4, EndPort: Ethernet0, params: def_link}
     SD2:
         interfaces:
-            Ethernet0: {EndDevice: SD3, EndPort: Ethernet16, params: def_link}
-            Ethernet4: {EndDevice: SD3, EndPort: Ethernet20, params: def_link}
-            Ethernet8: {EndDevice: SD3, EndPort: Ethernet24, params: def_link}
-            Ethernet12: {EndDevice: SD3, EndPort: Ethernet28, params: def_link}
-            Ethernet16: {EndDevice: SD4, EndPort: Ethernet16, params: def_link}
-            Ethernet20: {EndDevice: SD4, EndPort: Ethernet20, params: def_link}
-            Ethernet24: {EndDevice: SD4, EndPort: Ethernet24, params: def_link}
-            Ethernet28: {EndDevice: SD4, EndPort: Ethernet28, params: def_link}
+            Ethernet0: {EndDevice: SD4, EndPort: Ethernet8, params: def_link}
+            Ethernet12: {EndDevice: SD3, EndPort: Ethernet8, params: def_link}
     SD3:
         interfaces:
     SD4:

@@ -3934,8 +3934,8 @@ def config_bgp_multi_neigh_use_peergroup(dut, **kwargs):
     config_router_bgp_mode(dut, kwargs['local_asn'], vrf=vrf, ebgp_req_policy=ebgp_req_policy, cli_type=cli_type)
     if cli_type == 'vtysh':
         command = "no bgp default ipv4-unicast \n"
-        command += "no bgp ebgp-requires-policy \n"
-        command += "no bgp network import-check \n"
+	command += "no bgp ebgp-requires-policy \n"
+	command += "no bgp network import-check \n"
         command += "neighbor {} peer-group \n".format(kwargs['peer_grp_name'])
         command += "neighbor {} remote-as {} \n".format(kwargs['peer_grp_name'], kwargs['remote_asn'])
         if 'keep_alive' in kwargs and 'hold' in kwargs:
