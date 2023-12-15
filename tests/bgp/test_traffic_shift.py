@@ -295,6 +295,7 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
 
     return all_diffs_in_host_aspath
 
+
 def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
     device_lo_addr_prefix_set = set()
@@ -323,17 +324,17 @@ def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver
         nbr_prefix_ipv6_subnet_len_set = set()
         for prefix, received_community in list(routes.items()):
             if 4 == ip_ver:
-               nbr_prefix_set.add(prefix)
+                nbr_prefix_set.add(prefix)
             else:
                 nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
                 nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
             nbr_prefix_community_set.add(received_community)
         if nbr_prefix_set != device_lo_addr_prefix_set:
-                logger.warn("missing loopback address or some other routes present on neighbor")
-                return False
+            logger.warn("missing loopback address or some other routes present on neighbor")
+            return False
         if 6 == ip_ver and device_ipv6_lo_addr_subnet_len_set != nbr_prefix_ipv6_subnet_len_set:
-                logger.warn("ipv6 subnet is not /64 for loopback")
-                return False
+            logger.warn("ipv6 subnet is not /64 for loopback")
+            return False
         if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
             if nbr_prefix_community_set != device_traffic_shift_community_set:
                 logger.warn("traffic shift away community not present on neighbor")
