@@ -41,6 +41,14 @@ parameters:
     default: "vms64-t1-7260-14"
     displayName: "Testbed Name"
 
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "2"
+
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_ABOOT_PUBLIC)
@@ -109,8 +117,10 @@ stages:
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
