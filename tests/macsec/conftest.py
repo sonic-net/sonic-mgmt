@@ -17,46 +17,46 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_macsec)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def profile_name(macsec_profile):
     return macsec_profile['name']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def default_priority(macsec_profile):
     return macsec_profile['priority']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def cipher_suite(macsec_profile):
     return macsec_profile['cipher_suite']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def primary_ckn(macsec_profile):
     return macsec_profile['primary_ckn']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def primary_cak(macsec_profile):
     return macsec_profile['primary_cak']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def policy(macsec_profile):
     return macsec_profile['policy']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def send_sci(macsec_profile):
     return macsec_profile['send_sci']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def rekey_period(macsec_profile):
     return macsec_profile['rekey_period']
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def wait_mka_establish(duthost, ctrl_links, policy, cipher_suite, send_sci):
     assert wait_until(300, 6, 12, check_appl_db, duthost, ctrl_links, policy, cipher_suite, send_sci)
