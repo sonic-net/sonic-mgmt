@@ -57,7 +57,7 @@ class MacsecPlugin(object):
     def downstream_neighbor(self,tbinfo, neighbor):
         return NotImplementedError()
 
-    def upstream_neighbor(self,tb_info, neighbor):
+    def upstream_neighbor(self,tbinfo, neighbor):
         return NotImplementedError()
 
     @pytest.fixture(scope="module")
@@ -164,7 +164,7 @@ class MacsecPlugin(object):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
-            if self.upstream_neighbor(tb_info, neighbor):
+            if self.upstream_neighbor(tbinfo, neighbor):
                 for item in mg_facts["minigraph_bgp"]:
                     if item["name"] == neighbor["name"]:
                         if isinstance(ip_address(item["addr"]), IPv4Address):
@@ -226,12 +226,12 @@ class MacsecPluginT0(MacsecPlugin):
         ctrl_nbr_names = natsort.natsorted(nbrhosts.keys())[:2]
         return ctrl_nbr_names
 
-    def downstream_neighbor(self,tb_info, neighbor):
+    def downstream_neighbor(self,tbinfo, neighbor):
         if (tbinfo["topo"]["type"] == "t0" and "Server" in neighbor["name"]):
             return True
         return False
 
-    def upstream_neighbor(self,tb_info, neighbor):
+    def upstream_neighbor(self,tbinfo, neighbor):
         if (tbinfo["topo"]["type"] == "t0" and "T1" in neighbor["name"]):
             return True
         return False
@@ -250,12 +250,12 @@ class MacsecPluginT2(MacsecPlugin):
         ctrl_nbr_names = mg_facts['macsec_neighbors']
         return ctrl_nbr_names
 
-    def downstream_neighbor(self,tb_info, neighbor):
+    def downstream_neighbor(self,tbinfo, neighbor):
         if ("t2" in tbinfo["topo"]["type"] and "T1" in neighbor["name"]):
             return True
         return False
 
-    def upstream_neighbor(self,tb_info, neighbor):
+    def upstream_neighbor(self,tbinfo, neighbor):
         if ("t2" in tbinfo["topo"]["type"] and "T3" in neighbor["name"]):
             return True
         return False
