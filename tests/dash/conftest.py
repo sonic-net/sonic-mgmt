@@ -5,7 +5,7 @@ from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 
@@ -95,8 +95,6 @@ def get_intf_from_ip(local_ip, config_facts):
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
-    if request.param == "with-underlay-route":
-        pytest.skip("Underlay route not supported yet")
     return request.param == "with-underlay-route"
 
 
@@ -114,6 +112,8 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
+        ACL_GROUP: "group1",
+        ACL_STAGE: 5
     }
     loopback_intf_ip = ip_interface(list(list(config_facts["LOOPBACK_INTERFACE"].values())[0].keys())[0])
     dash_info[LOOPBACK_IP] = str(loopback_intf_ip.ip)

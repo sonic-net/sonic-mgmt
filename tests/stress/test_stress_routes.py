@@ -14,7 +14,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx')
 ]
 
 
@@ -61,7 +61,7 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
         announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
-    sleep_to_wait(CRM_POLLING_INTERVAL * 100)
+    sleep_to_wait(CRM_POLLING_INTERVAL * 120)
 
     ipv4_route_used_after = get_crm_resources(duthost, "ipv4_route", "used")
     ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")
