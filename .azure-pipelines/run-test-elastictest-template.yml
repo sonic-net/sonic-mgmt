@@ -214,7 +214,7 @@ steps:
       --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
       '
 
-      TEST_PLAN_ID_LIST=`cat new_test_plan_id.txt`
+      TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo "Created test plan $TEST_PLAN_ID"
