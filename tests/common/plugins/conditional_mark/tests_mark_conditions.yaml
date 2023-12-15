@@ -412,13 +412,12 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
 
 ecmp/test_ecmp_sai_value.py:
   skip:
-    reason: "Only support Broadcom T1/T0 topology with 20230531.11 or later image"
+    reason: "Only support Broadcom T1/T0 topology with 20230531.12 or later image"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
       - "release in ['201911', '202012', '202205', '202211']"
-      - "release in ['202305'] and build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 12"
 
 ecmp/test_fgnhg.py:
   skip:
