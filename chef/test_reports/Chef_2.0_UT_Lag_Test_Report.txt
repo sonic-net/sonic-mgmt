@@ -1,0 +1,64 @@
+Test Case ID: 1
+Test Case: Port Channel Creation
+Purpose: To verify that Port Channel creation can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Lag resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Lag config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Port Channel as mentioned in the "sonic.json" role should be created successfully on the SONiC switch.
+Observed Result:
+Observed that Port Channel as mentioned in the "sonic.json" role is created successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 2
+Test Case: Port Channel Creation with additional options
+Purpose: To verify that Port Channel creation with additional options like min-links and fallback can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Lag resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Lag config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Port Channel with additional options as mentioned in the "sonic.json" role should be created successfully on the SONiC switch.
+Observed Result:
+Observed that Port Channel with additional options as mentioned in the "sonic.json" role is created successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 3
+Test Case: Addition of ports in the Port Channel
+Purpose: To verify that ports are added in the Port Channel via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Lag resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Lag config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Addition of ports as in the Port Channel as mentioned in the "sonic.json" role should be performed successfully on the SONiC switch.
+Observed Result:
+Observed that addition of ports in the Port Channel as mentioned in the "sonic.json" role is performed successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 4
+Test Case: Deletion of ports from the Port Channel
+Purpose: To verify that ports are deleted from the Port Channel via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Lag resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Lag config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Deletion of ports from the Port Channel as mentioned in the "sonic.json" role should be performed successfully on the SONiC switch.
+Observed Result:
+Observed that deletion of ports from the Port Channel as mentioned in the "sonic.json" role is performed successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 5
+Test Case: Port Channel Deletion
+Purpose: To verify that Port Channel deletion can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where Lag resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the Lag config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+Port Channel as mentioned in the "sonic.json" role should be deleted successfully on the SONiC switch.
+Observed Result:
+Observed that Port Channel as mentioned in the "sonic.json" role is deleted successfully on the SONiC switch.
+Result: PASS

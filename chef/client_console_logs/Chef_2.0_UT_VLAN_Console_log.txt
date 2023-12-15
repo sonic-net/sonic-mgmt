@@ -1,0 +1,102 @@
+root@sonic:~# show vlan brief
++-----------+--------------+------------+----------------+-----------------------+
+|   VLAN ID | IP Address   | Ports      | Port Tagging   | DHCP Helper Address   |
++===========+==============+============+================+=======================+
+|       300 |              | Ethernet8  | tagged         |                       |
+|           |              | Ethernet12 | tagged         |                       |
++-----------+--------------+------------+----------------+-----------------------+
+|       400 |              | Ethernet8  | untagged       |                       |
+|           |              | Ethernet12 | untagged       |                       |
++-----------+--------------+------------+----------------+-----------------------+
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# chef-client
+[2019-05-22T10:19:55+00:00] INFO: Forking chef instance to converge...
+Starting Chef Client, version 12.14.60
+[2019-05-22T10:19:55+00:00] INFO: *** Chef 12.14.60 ***
+[2019-05-22T10:19:55+00:00] INFO: Platform: x86_64-linux-gnu
+[2019-05-22T10:19:55+00:00] INFO: Chef-client pid: 8948
+[2019-05-22T10:20:07+00:00] INFO: Run List is [recipe[sonic::vlan], role[sonic]]
+[2019-05-22T10:20:07+00:00] INFO: Run List expands to [sonic::vlan]
+[2019-05-22T10:20:07+00:00] INFO: Starting Chef Run for sonic
+[2019-05-22T10:20:07+00:00] INFO: Running start handlers
+[2019-05-22T10:20:07+00:00] INFO: Start handlers complete.
+[2019-05-22T10:20:08+00:00] INFO: HTTP Request Returned 404 Object Not Found: 
+resolving cookbooks for run list: ["sonic::vlan"]
+[2019-05-22T10:20:09+00:00] INFO: Loading cookbooks [sonic@0.1.0]
+Synchronizing Cookbooks:
+[2019-05-22T10:20:10+00:00] INFO: Storing updated cookbooks/sonic/resources/vlan.rb in the cache.
+[2019-05-22T10:20:10+00:00] INFO: Storing updated cookbooks/sonic/recipes/vlan.rb in the cache.
+[2019-05-22T10:20:10+00:00] INFO: Storing updated cookbooks/sonic/providers/vlan.rb in the cache.
+[2019-05-22T10:20:10+00:00] INFO: Storing updated cookbooks/sonic/recipes/default.rb in the cache.
+[2019-05-22T10:20:11+00:00] INFO: Storing updated cookbooks/sonic/attributes/default.rb in the cache.
+[2019-05-22T10:20:11+00:00] INFO: Storing updated cookbooks/sonic/CHANGELOG.md in the cache.
+[2019-05-22T10:20:11+00:00] INFO: Storing updated cookbooks/sonic/metadata.rb in the cache.
+[2019-05-22T10:20:11+00:00] INFO: Storing updated cookbooks/sonic/README.md in the cache.
+[2019-05-22T10:20:11+00:00] INFO: Storing updated cookbooks/sonic/metadata.json in the cache.
+  - sonic (0.1.0)
+Installing Cookbook Gems:
+Compiling Cookbooks...
+[2019-05-22T10:20:11+00:00] INFO: My hostname is sonic
+[2019-05-22T10:20:11+00:00] INFO: My provider is sonic_vlan
+[2019-05-22T10:20:11+00:00] INFO: Processing vlan VLAN 100
+[2019-05-22T10:20:11+00:00] INFO: Processing vlan VLAN 200
+[2019-05-22T10:20:11+00:00] INFO: Processing vlan VLAN 300
+[2019-05-22T10:20:11+00:00] INFO: Processing vlan VLAN 400
+Converging 4 resources
+Recipe: sonic::vlan
+  * sonic_vlan[VLAN 100] action create[2019-05-22T10:20:11+00:00] INFO: Processing sonic_vlan[VLAN 100] action create (sonic::vlan line 50)
+
+    - create VLAN '100'
+  * sonic_vlan[VLAN 100] action add_participation[2019-05-22T10:20:11+00:00] INFO: Processing sonic_vlan[VLAN 100] action add_participation (sonic::vlan line 50)
+[2019-05-22T10:20:11+00:00] INFO: Tagging mode 'untagged'
+
+    - add ports 'Ethernet0, Ethernet4' to VLAN '100'
+  * sonic_vlan[VLAN 200] action create[2019-05-22T10:20:11+00:00] INFO: Processing sonic_vlan[VLAN 200] action create (sonic::vlan line 50)
+
+    - create VLAN '200'
+  * sonic_vlan[VLAN 200] action add_participation[2019-05-22T10:20:11+00:00] INFO: Processing sonic_vlan[VLAN 200] action add_participation (sonic::vlan line 50)
+[2019-05-22T10:20:12+00:00] INFO: Tagging mode 'tagged'
+
+    - add ports 'Ethernet0, Ethernet4' to VLAN '200'
+  * sonic_vlan[VLAN 300] action del_participation[2019-05-22T10:20:12+00:00] INFO: Processing sonic_vlan[VLAN 300] action del_participation (sonic::vlan line 42)
+
+    - delete ports 'Ethernet8, Ethernet12' from VLAN '300'
+  * sonic_vlan[VLAN 400] action del_participation[2019-05-22T10:20:12+00:00] INFO: Processing sonic_vlan[VLAN 400] action del_participation (sonic::vlan line 34)
+
+    - delete ports 'Ethernet8, Ethernet12' from VLAN '400'
+  * sonic_vlan[VLAN 400] action delete[2019-05-22T10:20:13+00:00] INFO: Processing sonic_vlan[VLAN 400] action delete (sonic::vlan line 34)
+
+    - delete VLAN '400'
+[2019-05-22T10:20:17+00:00] INFO: Chef Run complete in 9.366988045 seconds
+
+Running handlers:
+[2019-05-22T10:20:17+00:00] INFO: Running report handlers
+Running handlers complete
+[2019-05-22T10:20:17+00:00] INFO: Report handlers complete
+
+Deprecated features used!
+  Using an LWRP provider by its name (SonicVlan) directly is no longer supported in Chef 12 and will be removed.  Use Chef::ProviderResolver.new(node, resource, action) instead. at 3 locations:
+    - /var/cache/chef/cookbooks/sonic/recipes/vlan.rb:51:in `block (2 levels) in from_file'
+    - /var/cache/chef/cookbooks/sonic/recipes/vlan.rb:43:in `block (2 levels) in from_file'
+    - /var/cache/chef/cookbooks/sonic/recipes/vlan.rb:35:in `block (2 levels) in from_file'
+  An attempt was made to change tagging_mode from "tagged" to nil by calling tagging_mode(nil). In Chef 12, this does a get rather than a set. In Chef 13, this will change to set the value to nil. at 1 location:
+    - /var/cache/chef/cookbooks/sonic/recipes/vlan.rb:53:in `block (2 levels) in from_file'
+
+Chef Client finished, 7/7 resources updated in 21 seconds
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show vlan brief
++-----------+--------------+-----------+----------------+-----------------------+
+|   VLAN ID | IP Address   | Ports     | Port Tagging   | DHCP Helper Address   |
++===========+==============+===========+================+=======================+
+|       100 |              | Ethernet0 | untagged       |                       |
+|           |              | Ethernet4 | untagged       |                       |
++-----------+--------------+-----------+----------------+-----------------------+
+|       200 |              | Ethernet0 | tagged         |                       |
+|           |              | Ethernet4 | tagged         |                       |
++-----------+--------------+-----------+----------------+-----------------------+
+|       300 |              |           |                |                       |
++-----------+--------------+-----------+----------------+-----------------------+
+root@sonic:~#
