@@ -108,7 +108,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
-    pktgen_param = pktgen_param.split("\n")[0].encode('ascii')
+    pktgen_param = pktgen_param.split("\n")[0]
     pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000,
                   "Mismatch between number of packets intended to be generated and number of packets generated")
 
