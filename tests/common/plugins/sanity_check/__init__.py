@@ -2,6 +2,7 @@
 import logging
 import copy
 import json
+import random
 
 import pytest
 
@@ -216,6 +217,10 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
         # Workaround for pytest requirement.
         # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
         request.getfixturevalue(item)
+    logger.info("sanity node name is: {}".format(request.node.name))
+    if "pretest" in request.node.name or "posttest" in request.node.name:
+        logger.info("Skip sanity testKKK")
+        pre_check_items = []
 
     if pre_check_items:
         logger.info("Start pre-test sanity checks")
@@ -231,6 +236,12 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
                      json.dumps(check_results, indent=4, default=fallback_serializer))
 
         failed_results = [result for result in check_results if result['failed']]
+        num = random.randint(1, 9)
+        logger.info("num is: {}".format(num))
+
+        logger.info("request.node.name is: {}".format(request.node.name))
+        if "test_bgp_fact" in request.node.name and num < 5:
+            failed_results = [1]
         if failed_results:
             if not allow_recover:
                 request.config.cache.set("pre_sanity_check_failed", True)

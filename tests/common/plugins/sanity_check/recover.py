@@ -183,6 +183,9 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
 
 def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recover_method):
     logger.warning("Try to recover %s using method %s" % (dut.hostname, recover_method))
+    return
+    if recover_method == "config_reload" and config_force_option_supported(dut):
+        recover_method = "config_reload_f"
 
     method = constants.RECOVER_METHODS[recover_method]
     wait_time = method['recover_wait']
