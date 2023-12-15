@@ -138,6 +138,9 @@ parameters:
     type: string
     default: ""
 
+  - name: TEST_PLAN_NUM
+    type: string
+    default: "1"
 
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
@@ -175,7 +178,9 @@ steps:
 
       rm -f new_test_plan_id.txt
 
-      python ./.azure-pipelines/test_plan.py create \
+      python ./.azure-pipelines/handle_test_plan.py  create \
+      --test-plan-num ${{ parameters.TEST_PLAN_NUM }} \
+      --parameters '\
       -t ${{ parameters.TOPOLOGY }} \
       -o new_test_plan_id.txt \
       --min-worker ${{ parameters.MIN_WORKER }} \
@@ -197,8 +202,8 @@ steps:
       --features "${{ parameters.FEATURES }}" \
       --scripts-exclude "${{ parameters.SCRIPTS_EXCLUDE }}" \
       --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
-      --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
-      --affinity='${{ parameters.AFFINITY }}' \
+      --specific-param="${{ parameters.SPECIFIC_PARAM }}" \
+      --affinity="${{ parameters.AFFINITY }}" \
       --build-reason ${{ parameters.BUILD_REASON }} \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
@@ -206,18 +211,20 @@ steps:
       --retry-times ${{ parameters.RETRY_TIMES }} \
       --dump-kvm-if-fail ${{ parameters.DUMP_KVM_IF_FAIL }} \
       --requester "${{ parameters.REQUESTER }}" \
-      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60))
+      --max-execute-seconds $((${{ parameters.MAX_RUN_TEST_MINUTES }} * 60)) \
+      '
 
-      TEST_PLAN_ID=`cat new_test_plan_id.txt`
+      TEST_PLAN_ID_LIST=`cat new_test_plan_id.txt`
+      for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+      do
+          echo "Created test plan $TEST_PLAN_ID"
+          echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+          echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
+          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          echo -e "\033[33mfor detailed test plan progress \033[0m"
+          echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
+      done
 
-      echo "Created test plan $TEST_PLAN_ID"
-
-      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
-      echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-      echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
-      echo -e "\033[33mfor detailed test plan progress \033[0m"
-
-      echo "##vso[task.setvariable variable=TEST_PLAN_ID]$TEST_PLAN_ID"
     displayName: "Trigger test"
 
   - script: |
@@ -226,12 +233,15 @@ steps:
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-      echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+      do
+          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      done
       echo -e "\033[33mfor detailed test plan progress \033[0m"
 
       # When "LOCK_TESTBED" finish, it changes into "PREPARE_TESTBED"
-      echo "##[group][test_plan.py] poll LOCK_TESTBED status"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
+      echo "##[group][handle_test_plan.py] poll LOCK_TESTBED status"
+      python ./.azure-pipelines/handle_test_plan.py poll --parameters "--expected-state LOCK_TESTBED"
       echo "##[endgroup]"
     displayName: "Lock testbed"
 
@@ -242,12 +252,15 @@ steps:
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-      echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+      do
+          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      done
       echo -e "\033[33mfor detailed test plan progress \033[0m"
 
       # When "PREPARE_TESTBED" finish, it changes into "EXECUTING"
-      echo "##[group][test_plan.py] poll PREPARE_TESTBED status"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
+      echo "##[group][handle_test_plan.py] poll PREPARE_TESTBED status"
+      python ./.azure-pipelines/handle_test_plan.py poll --parameters "--expected-state PREPARE_TESTBED"
       echo "##[endgroup]"
     displayName: "Prepare testbed"
 
@@ -257,12 +270,15 @@ steps:
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-      echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+      do
+          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+      done
       echo -e "\033[33mfor detailed test plan progress \033[0m"
 
       # When "EXECUTING" finish, it changes into "KVMDUMP", "FAILED", "CANCELLED" or "FINISHED"
-      echo "##[group][test_plan.py] poll EXECUTING status"
-      python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
+      echo "##[group][handle_test_plan.py] poll EXECUTING status"
+      python ./.azure-pipelines/handle_test_plan.py poll --parameters "--expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}"
       echo "##[endgroup]"
     displayName: "Run test"
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
@@ -274,12 +290,15 @@ steps:
 
           echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
-          echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
+          do
+              echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
+          done
           echo -e "\033[33mfor detailed test plan progress \033[0m"
 
           # When "KVMDUMP" finish, it changes into "FAILED", "CANCELLED" or "FINISHED"
-          echo "##[group][test_plan.py] poll KVMDUMP status"
-          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
+          echo "##[group][handle_test_plan.py] poll KVMDUMP status"
+          python ./.azure-pipelines/handle_test_plan.py poll --parameters "--expected-state KVMDUMP"
           echo "##[endgroup]"
         condition: succeededOrFailed()
         displayName: "KVM dump"
@@ -287,6 +306,6 @@ steps:
   - script: |
       set -e
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
-      python ./.azure-pipelines/test_plan.py cancel -i "$(TEST_PLAN_ID)"
+      python ./.azure-pipelines/handle_test_plan.py cancel
     condition: always()
     displayName: "Finalize running test plan"
