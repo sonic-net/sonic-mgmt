@@ -39,6 +39,30 @@ def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
+def is_valid_fec_state_db(duthost, value):
+    read_supported_fecs_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_fecs'.format("Ethernet0")
+    supported_fecs_str = duthost.shell(read_supported_fecs_cli)['stdout']
+    if supported_fecs_str:
+        if supported_fecs_str != 'N/A':
+            supported_fecs_list = [element.strip() for element in supported_fecs_str.split(',')]
+        else:
+            supported_fecs_list = []
+    else:
+        supported_fecs_list = ['rs', 'fc', 'none']
+    if value.strip() not in supported_fecs_list:
+        return False
+    return True
+
+
+def is_valid_speed_state_db(duthost, value):
+    read_supported_speeds_cli = 'sonic-db-cli STATE_DB hget "PORT_TABLE|{}" supported_speeds'.format("Ethernet0")
+    supported_speeds_str = duthost.shell(read_supported_speeds_cli)['stdout']
+    supported_speeds = [int(s) for s in supported_speeds_str.split(',') if s]
+    if supported_speeds and int(value) not in supported_speeds:
+        return False
+    return True
+
+
 def check_interface_status(duthost, field, interface='Ethernet0'):
     """
     Returns current status for Ethernet0 of specified field
@@ -96,15 +120,19 @@ def get_port_speeds_for_test(duthost):
         duthost: DUT host object
     """
     speeds_to_test = []
-    invalid_speed = ("20a", False)
+    invalid_speed_yang = ("20a", False)
     if duthost.get_facts()['asic_type'] == 'vs':
         valid_speeds = ['20000', '40000']
+        invalid_speed_state_db = ('1999', False)
     else:
         valid_speeds = duthost.get_supported_speeds('Ethernet0')
+        if valid_speeds:
+            invalid_speed_state_db = (str(int(valid_speeds[0]) - 1), False)
     pytest_assert(valid_speeds, "Failed to get any valid port speed to test.")
     valid_speeds_to_test = random.sample(valid_speeds, 2 if len(valid_speeds) >= 2 else len(valid_speeds))
     speeds_to_test = [(speed, True) for speed in valid_speeds_to_test]
-    speeds_to_test.append(invalid_speed)
+    speeds_to_test.append(invalid_speed_yang)
+    speeds_to_test.append(invalid_speed_state_db)
     return speeds_to_test
 
 
@@ -222,10 +250,13 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        current_status_fec = check_interface_status(duthost, "FEC")
-        pytest_assert(current_status_fec == fec,
-                      "Failed to properly configure interface FEC to requested value {}".format(fec))
+        if is_valid_fec_state_db(duthost, fec):
+            expect_op_success(duthost, output)
+            current_status_fec = check_interface_status(duthost, "FEC")
+            pytest_assert(current_status_fec == fec,
+                          "Failed to properly configure interface FEC to requested value {}".format(fec))
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -306,7 +337,7 @@ def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            if is_valid:
+            if is_valid and is_valid_speed_state_db(duthost, speed):
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
                 current_status_speed = current_status_speed.replace("M", "")
