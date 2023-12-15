@@ -11,7 +11,7 @@ from collections import defaultdict
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
@@ -26,6 +26,18 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def check_running_condition(tbinfo, duthost):
+    asic = duthost.asic_instance()
+    get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
+                       " crm_stats_nexthop_group_used"
+                       " crm_stats_nexthop_group_available"
+                       " crm_stats_nexthop_group_member_used"
+                       " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
+    pytest_require(wait_until(360, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) > 0)),
+                   "After DUT reload in previous case, wait up to 6 min for CRM stats to init", True)
 
 
 class IPRoutes:
