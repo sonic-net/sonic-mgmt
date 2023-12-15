@@ -145,9 +145,9 @@ parameters:
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
-          # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download handle_test_plan.py, test_plan.py and pr_test_scripts.yaml
           set -ex
-
+          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/handle_test_plan.py" -o ./.azure-pipelines/handle_test_plan.py
           curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
         displayName: "Download test plan script"
       - script: |
@@ -166,8 +166,9 @@ steps:
   - ${{ else }}:
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
-              # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+              # Else, sonic-mgmt repo, if not master branch, need to download handle_test_plan.py and test_plan.py
               set -ex
+              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/handle_test_plan.py" -o ./.azure-pipelines/handle_test_plan.py
               curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
             displayName: "Download test plan script"
 
