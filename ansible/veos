@@ -6579,6 +6579,54 @@ vms_bjw_13:
       ansible_host: 172.16.199.58
     VM74031:
       ansible_host: 172.16.199.59
+    VM74032:
+      ansible_host: 172.16.199.60
+    VM74033:
+      ansible_host: 172.16.199.61
+    VM74034:
+      ansible_host: 172.16.199.62
+    VM74035:
+      ansible_host: 172.16.199.63
+    VM74036:
+      ansible_host: 172.16.199.64
+    VM74037:
+      ansible_host: 172.16.199.65
+    VM74038:
+      ansible_host: 172.16.199.66
+    VM74039:
+      ansible_host: 172.16.199.67
+    VM74040:
+      ansible_host: 172.16.199.68
+    VM74041:
+      ansible_host: 172.16.199.69
+    VM74042:
+      ansible_host: 172.16.199.70
+    VM74043:
+      ansible_host: 172.16.199.71
+    VM74044:
+      ansible_host: 172.16.199.72
+    VM74045:
+      ansible_host: 172.16.199.73
+    VM74046:
+      ansible_host: 172.16.199.74
+    VM74047:
+      ansible_host: 172.16.199.75
+    VM74048:
+      ansible_host: 172.16.199.76
+    VM74049:
+      ansible_host: 172.16.199.77
+    VM74050:
+      ansible_host: 172.16.199.78
+    VM74051:
+      ansible_host: 172.16.199.79
+    VM74052:
+      ansible_host: 172.16.199.80
+    VM74053:
+      ansible_host: 172.16.199.81
+    VM74054:
+      ansible_host: 172.16.199.82
+    VM74055:
+      ansible_host: 172.16.199.83
 
 vms_bjw_14:
   hosts:
