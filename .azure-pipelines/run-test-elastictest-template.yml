@@ -216,10 +216,10 @@ steps:
       '
 
       TEST_PLAN_ID_LIST=( $(cat new_test_plan_id.txt) )
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
           echo "Created test plan $TEST_PLAN_ID"
-          echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
           echo -e -n "\033[33mPlease visit Elastictest page \033[0m"
           echo -n "$(FRONTEND_URL)/scheduler/testplan/$TEST_PLAN_ID "
           echo -e "\033[33mfor detailed test plan progress \033[0m"
