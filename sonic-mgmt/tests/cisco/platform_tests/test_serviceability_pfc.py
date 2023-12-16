@@ -19,6 +19,35 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+chosen_duthost = None
+
+@pytest.fixture(autouse=True)
+def run_around_tests(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: ensure that dshell_client is running
+    """
+    global chosen_duthost
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    chosen_duthost = duthost
+    if duthost.is_multi_asic:
+        asics = [asic.remove("asic") for asic in list(asic_facts.keys())]
+    else:
+        asics = ['']
+    for asic in asics:
+        if not check_process_status(duthost, "dshell_client", "RUNNING", "syncd"+asic):
+            result = duthost.command("docker exec -i syncd%s supervisorctl start dshell_client"%(asic))
+        assert check_process_status(duthost, "dshell_client", "RUNNING", "syncd"+asic), "Failed to enable dshell_client"
+
+def check_process_status(duthost, process, status="RUNNING", container="syncd"):
+    """
+    @summary: verify status of a process is RUNNING, STOPPED or EXITED
+    """
+    try:
+        running_processes = duthost.command("docker exec -i %s supervisorctl status %s" % (container, process))["stdout"]
+    except:
+        running_processes = ""
+    return status in running_processes
+
 def get_asic_facts(duthost):
     asic_ports_dict = {}
 
@@ -49,7 +78,8 @@ def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, reques
     """
     @summary: Verify output of `show platform npu tx`
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    global chosen_duthost
+    duthost = chosen_duthost
     asic_facts = get_asic_facts(duthost)
     asic_namespace_string = ""
     asics = []
@@ -98,12 +128,12 @@ def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, reques
                     assert not traceback_found, "Traceback found in show platform npu tx for DOWN Port"
                     assert result["stdout"], "No output for this CLI"
 
-def test_show_platform_npu_rx(duthosts, enum_rand_one_per_hwsku_hostname, request):
+def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request):
     """
     @summary: Verify output of `show platform npu rx`
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
+    global chosen_duthost
+    duthost = chosen_duthost
     asic_facts = get_asic_facts(duthost)
     asic_namespace_string = ""
     asics = []
@@ -157,8 +187,8 @@ def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, reque
     """
     @summary: Verify output of `show platform npu voq`
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
+    global chosen_duthost
+    duthost = chosen_duthost
     asic_facts = get_asic_facts(duthost)
     asic_namespace_string = ""
     asics = []
@@ -216,7 +246,8 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
     """
     @summary: Verify output of `show platform npu global`
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    global chosen_duthost
+    duthost = chosen_duthost
     result = duthost.command("sudo show platform npu global")
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
