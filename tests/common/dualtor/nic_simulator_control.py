@@ -30,7 +30,9 @@ __all__ = [
     "TrafficDirection",
     "ForwardingState",
     "toggle_active_active_simulator_ports",
-    "stop_nic_grpc_server"
+    "stop_nic_grpc_server",
+    "simulator_server_down_active_active",
+    "nic_simulator_flap_counter"
 ]
 
 logger = logging.getLogger(__name__)
@@ -89,7 +91,7 @@ def nic_simulator_info(request, tbinfo):
 
     server = tbinfo["server"]
     vmset_name = tbinfo["group-name"]
-    inv_files = request.config.option.ansible_inventory
+    inv_files = utilities.get_inventory_files(request)
     ip = tbinfo["netns_mgmt_ip"].split("/")[0]
     _port_map = utilities.get_group_visible_vars(inv_files, server).get('nic_simulator_grpc_port')
     port = _port_map[tbinfo['conf-name']]
@@ -267,9 +269,13 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
     def _call_set_drop_nic_simulator(nic_addresses, portids, directions, recover=False):
         drop_requests = []
         for portid, direction in zip(portids, directions):
+            if not isinstance(portid, list):
+                portid = [portid]
+            if not isinstance(direction, list):
+                direction = [direction]
             drop_request = nic_simulator_grpc_service_pb2.DropRequest(
-                portid=[portid],
-                direction=[direction],
+                portid=portid,
+                direction=direction,
                 recover=recover
             )
             drop_requests.append(drop_request)
@@ -385,3 +391,57 @@ def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator
     yield _stop_nic_grpc_server
 
     restart_nic_simulator()
+
+
+@pytest.fixture
+def simulator_server_down_active_active(active_active_ports, set_drop_active_active):       # noqa F811
+    """Simulate server down scenario for active-active mux ports."""
+
+    def _simulate_server_down(interface_name):
+        if interface_name not in active_active_ports:
+            raise ValueError("%s is not a valid active-active mux port" % interface_name)
+        portids = [[ActiveActivePortID.UPPER_TOR, ActiveActivePortID.LOWER_TOR]]
+        # set upstream drop for both upper and lower ToR
+        set_drop_active_active(
+            [interface_name],
+            portids,
+            [[TrafficDirection.UPSTREAM, TrafficDirection.UPSTREAM]]
+        )
+        # set downstream drop for both upper and lower ToR
+        set_drop_active_active(
+            [interface_name],
+            portids,
+            [[TrafficDirection.DOWNSTREAM, TrafficDirection.DOWNSTREAM]]
+        )
+
+    return _simulate_server_down
+
+
+@pytest.fixture
+def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
+    """Return a helper function to retrieve flap counter for active-active ports."""
+
+    def _call_query_flap_counter_nic_simulator(nic_addresses):
+        request = nic_simulator_grpc_mgmt_service_pb2.ListOfFlapCounterRequest(
+            nic_addresses=list(nic_addresses),
+            flap_counter_requests=[
+                nic_simulator_grpc_service_pb2.FlapCounterRequest(portid=[0, 1]) for _ in nic_addresses
+            ]
+        )
+        client_stub = nic_simulator_client()
+        response = call_grpc(client_stub.QueryFlapCounter, args=(request,))
+        logging.debug("Query flap counter response:\n%s", response)
+        return response
+
+    def _get_nic_simulator_flap_counter(mux_ports):
+        """Get the flap counter for mux ports."""
+        nic_addresses = []
+        for mux_port in mux_ports:
+            nic_address = mux_config[mux_port]["SERVER"]["soc_ipv4"].split("/")[0]
+            nic_addresses.append(nic_address)
+
+        response = _call_query_flap_counter_nic_simulator(nic_addresses)
+        flap_counter_replies = response.flap_counter_replies
+        return [dict(zip(_.portid, _.flaps)) for _ in flap_counter_replies]
+
+    return _get_nic_simulator_flap_counter

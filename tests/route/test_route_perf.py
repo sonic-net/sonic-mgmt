@@ -22,7 +22,49 @@ logger = logging.getLogger(__name__)
 
 ROUTE_TABLE_NAME = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY"
 DEFAULT_NUM_ROUTES = 10000
-DEAFULT_M0_MX_NUM_ROUTES = 500
+
+route_scale_per_role = {
+    "m0": {
+        "ipv4": 500,
+        "ipv6": 500
+    },
+    "mx": {
+        "ipv4": 500,
+        "ipv6": 500
+    },
+    "t0": {
+        "ipv4": 40000,
+        "ipv6": 8000
+    },
+    "t1": {
+        "ipv4": 40000,
+        "ipv6": 8000
+    }
+}
+
+
+def get_route_scale_per_role(tbinfo, ip_version):
+    topo_name = tbinfo["topo"]["name"].split('-', 1)[0]
+    logger.info("Test topology: {}".format(topo_name))
+    if topo_name in route_scale_per_role:
+        set_num_routes = route_scale_per_role[topo_name][ip_version]
+    else:
+        set_num_routes = DEFAULT_NUM_ROUTES
+    return set_num_routes
+
+
+@pytest.fixture
+def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
+    if tbinfo["topo"]["type"] in ["m0", "mx"]:
+        return
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.facts["asic_type"]
+
+    if (asic == "broadcom"):
+        alpm_enable = duthost.command('bcmcmd "conf show l3_alpm_enable"')["stdout_lines"][2].strip()
+        logger.info("Checking config: {}".format(alpm_enable))
+        pytest_assert(alpm_enable == "l3_alpm_enable=2", "l3_alpm_enable is not set for route scaling")
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +80,11 @@ def ignore_expected_loganalyzer_exceptions(
         duthost: DUT fixture
         loganalyzer: Loganalyzer utility fixture
     """
-    ignoreRegex = [".*ERR route_check.py:.*", ".*ERR.* 'routeCheck' status failed.*"]
+    ignoreRegex = [
+        ".*ERR route_check.py:.*",
+        ".*ERR.* 'routeCheck' status failed.*",
+        ".*Process \'orchagent\' is stuck in namespace \'host\'.*"
+        ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
@@ -276,19 +322,19 @@ def test_perf_add_remove_routes(
     ptfadapter,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
+    check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
-    if set_num_routes is None:
-        topo_name = tbinfo["topo"]["name"]
-        if topo_name in ["m0", "mx"]:
-            set_num_routes = DEAFULT_M0_MX_NUM_ROUTES
-        else:
-            set_num_routes = DEFAULT_NUM_ROUTES
+    if max_scale and set_num_routes is not None:
+        raise Exception("--max_scale and --num_routes are mutually exclusive")
+    elif not max_scale and set_num_routes is None:
+        set_num_routes = get_route_scale_per_role(tbinfo, "ipv{}".format(ip_versions))
 
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
@@ -310,7 +356,10 @@ def test_perf_add_remove_routes(
         ),
     )
 
-    num_routes = min(avail_routes_count, set_num_routes)
+    if (max_scale):
+        num_routes = avail_routes_count
+    else:
+        num_routes = min(avail_routes_count, set_num_routes)
     logger.info(
         "IP route utilization before test start: Used: {}, Available: {}, Test count: {}".format(
             used_routes_count, avail_routes_count, num_routes
@@ -365,7 +414,7 @@ def test_perf_add_remove_routes(
 
         # Traffic verification with 10 random routes
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        port_indices = mg_facts["minigraph_port_indices"]
+        port_indices = mg_facts["minigraph_ptf_indices"]
         nexthop_intf = str_intf_nexthop["ifname"].split(",")
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
@@ -450,7 +499,7 @@ def send_and_verify_traffic(
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
     logger.info(
-        "Sending packet from src port - {} , expecting to recieve on any port".format(
+        "Sending packet from src port - {} , expecting to receive on any port".format(
             ptf_src_port
         )
     )

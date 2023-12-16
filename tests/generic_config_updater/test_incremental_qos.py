@@ -10,6 +10,8 @@ from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
                                                   expect_res_success, expect_op_failure         # noqa F401
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
+from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -209,30 +211,45 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
     )
 
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_when_buffer_is_dynamic_model(duthost):
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    if buffer_model == 'dynamic':
+        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
+
+
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff",
                                             "ingress_lossless_pool/size", "egress_lossy_pool/size"])
-@pytest.mark.parametrize("operation", ["add", "replace", "remove"])
-def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, operation):
+@pytest.mark.parametrize("op", ["add", "replace", "remove"])
+def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
-                .format(tmpfile, configdb_field, operation))
+                .format(tmpfile, configdb_field, op))
 
-    if operation == "remove":
+    field_value = duthost.shell('sonic-db-cli CONFIG_DB hget "BUFFER_POOL|{}" {}'
+                                .format(configdb_field.split("/")[0], configdb_field.split("/")[1]))['stdout']
+    if op == "remove":
+        if is_mellanox_device(duthost):
+            pytest.skip("Skip remove test, because the mellanox device doesn't support removing qos config fields")
         value = ""
     else:
         value = calculate_field_value(duthost, tbinfo, configdb_field)
-    logger.info("value to be added to json patch: {} operation: {} field: {}".format(value, operation, configdb_field))
+    logger.info("value to be added to json patch: {} operation: {} field: {}".format(value, op, configdb_field))
 
     json_patch = [
         {
-            "op": "{}".format(operation),
+            "op": "{}".format(op),
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, configdb_field, value)
+        if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
+            expect_op_success(duthost, output)
+            ensure_application_of_updated_config(duthost, configdb_field, value)
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)

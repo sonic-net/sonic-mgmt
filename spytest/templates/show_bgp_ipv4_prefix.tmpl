@@ -13,10 +13,11 @@ Value VALID (\w+)
 Value EXTERNAL ([-()\d\w\s]+)
 Value BEST ([-()\d\w\s]+)
 Value COMMUNITY (.*?)
+Value SUBTYPE (\d+)
 
 
 Start
-  ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}\/${PREFIXMASKLEN}$$
+  ^\s*BGP\s*routing\s*table\s*entry\s*for\s*${PREFIXIP}\/${PREFIXMASKLEN}.*$$
   ^\s*Paths\:\s*\(${NOOFPATHS}\s*available,\s*(best\s*\#(\d+),\s*table\s*default\))|(no best path\))$$
   ^\s*Advertised\s*to\s*non\s*peer-group\s*peers\:$$
   ^\s*${PEERIP}$$
@@ -24,6 +25,6 @@ Start
   ^\s*${peernhtip1}\s*(\(\w+\))*\s*from\s*${peernhtip2}\s*\(${peerrtrid}\)$$
   ^\s*Origin\s*${ORIGIN}(,\s*metric\s*${METRIC}){0,1}(,\s*localpref\s*${LOCALPREF}){0,1},\s*${VALID},\s*${EXTERNAL}(,\s*${BEST}){0,1}$$
   ^\s*Community:\s*${COMMUNITY}\s*$$
-  ^\s*Last update:\s*(.*)$$ -> Record
+  ^\s*(SubType:\s*${SUBTYPE}\s+)*Last update:\s*(.*)$$ -> Record
 
 EOF

@@ -166,9 +166,9 @@ def test_pmon_syseepromd_stop_and_start_status(check_daemon_status, duthosts,
 
     data_after_restart = wait_data(duthost)
     pytest_assert(
-        data_after_restart == data_before_restart,
+        data_after_restart['data'] == data_before_restart['data'],
         'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'
-        .format(data_after_restart, data_before_restart))
+        .format(data_after_restart['data'], data_before_restart['data']))
 
 
 def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts,
@@ -199,9 +199,9 @@ def test_pmon_syseepromd_term_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
     pytest_assert(
-        data_after_restart == data_before_restart,
+        data_after_restart['data'] == data_before_restart['data'],
         'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'
-        .format(data_after_restart, data_before_restart))
+        .format(data_after_restart['data'], data_before_restart['data']))
 
 
 def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts,
@@ -232,6 +232,6 @@ def test_pmon_syseepromd_kill_and_start_status(check_daemon_status, duthosts,
                   .format(daemon_name, pre_daemon_pid, post_daemon_pid))
     data_after_restart = wait_data(duthost)
     pytest_assert(
-        data_after_restart == data_before_restart,
+        data_after_restart['data'] == data_before_restart['data'],
         'DB data present before and after restart does not match, data_after_restart {}, data_before_restart {}'
-        .format(data_after_restart, data_before_restart))
+        .format(data_after_restart['data'], data_before_restart['data']))

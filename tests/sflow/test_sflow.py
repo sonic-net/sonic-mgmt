@@ -474,7 +474,7 @@ class TestAgentId():
         # Verify  whether the samples are received with previously configured agent ip
         partial_ptf_runner(
             polling_int=20,
-            agent_id=var['lo_ip'],
+            agent_id=var['mgmt_ip'],
             active_collectors="['collector0','collector1']")
 
     def testAddAgent(self, duthost, partial_ptf_runner):

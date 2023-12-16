@@ -1,15 +1,16 @@
 import logging
 import time
 from tests.common.devices.ptf import PTFHost
-import binascii
 
 
 import pytest
 
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, \
-        per_command_check_skip_versions, remove_all_tacacs_server
-from .utils import stop_tacacs_server, start_tacacs_server
+from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
+        remove_all_tacacs_server
+from .utils import stop_tacacs_server, start_tacacs_server, \
+        check_server_received, per_command_accounting_skip_versions, \
+        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -123,47 +124,15 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
     pytest_assert(len(logs) == 0, "Expected to find no accounting logs but found: {}".format(logs))
 
 
-def check_server_received(ptfhost, data):
-    """
-        Check if tacacs server received the data.
-    """
-    hex = binascii.hexlify(data.encode('ascii'))
-    hex_string = hex.decode()
-
-    """
-      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
-            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
-                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
-                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
-                In above log, the 'data[140] = 0xf8' is received data.
-
-            2. Following sed command will extract the received data from tac_plus.log:
-                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
-
-            3. Following set command will join all received data to hex string:
-                    sed ':a; N; $!ba; s/\\n//g'
-
-            4. Then the grep command will check if the received hex data containes expected hex string.
-                    grep '{0}'".format(hex_string)
-
-      Also suppress following Flake8 error/warning:
-            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
-            E501 : Line too long. Following sed command difficult to split to multiple line.
-    """
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
-    res = ptfhost.shell(sed_command)
-    logger.info(sed_command)
-    logger.info(res["stdout_lines"])
-    pytest_assert(len(res["stdout_lines"]) > 0)
-
-
 @pytest.fixture
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    ssh_client = ssh_connect_remote(dutip,
-                                    tacacs_creds['tacacs_rw_user'],
-                                    tacacs_creds['tacacs_rw_user_passwd'])
+    ssh_client = ssh_connect_remote_retry(
+                    dutip,
+                    tacacs_creds['tacacs_rw_user'],
+                    tacacs_creds['tacacs_rw_user_passwd'],
+                    duthost)
     yield ssh_client
     ssh_client.close()
 
@@ -176,7 +145,7 @@ def check_image_version(duthost):
     Returns:
         None.
     """
-    skip_release(duthost, per_command_check_skip_versions)
+    skip_release(duthost, per_command_accounting_skip_versions)
 
 
 def test_accounting_tacacs_only(
@@ -187,7 +156,7 @@ def test_accounting_tacacs_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -204,9 +173,10 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
                                                     check_tacacs,
-                                                    rw_user_client):
+                                                    rw_user_client,
+                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     """
@@ -253,7 +223,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    duthost.shell("sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -276,7 +246,7 @@ def test_accounting_local_only(
                             check_tacacs,
                             rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo config aaa accounting local")
+    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting local")
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -296,7 +266,7 @@ def test_accounting_tacacs_and_local(
                                     check_tacacs,
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     ssh_run_command(rw_user_client, "grep")
@@ -315,9 +285,10 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
                                                         check_tacacs,
-                                                        rw_user_client):
+                                                        rw_user_client,
+                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell('sudo config aaa accounting "tacacs+ local"')
+    change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
     # Shutdown tacacs server
@@ -348,9 +319,10 @@ def test_send_remote_address(
     """
         Verify TACACS+ send remote address to server.
     """
-    exit_code, stdout, stderr = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
+    exit_code, stdout_stream, stderr_stream = ssh_run_command(rw_user_client, "echo $SSH_CONNECTION")
     pytest_assert(exit_code == 0)
 
     # Remote address is first part of SSH_CONNECTION: '10.250.0.1 47462 10.250.0.101 22'
+    stdout = stdout_stream.readlines()
     remote_address = stdout[0].split(" ")[0]
     check_server_received(ptfhost, remote_address)

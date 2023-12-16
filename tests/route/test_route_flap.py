@@ -11,6 +11,7 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -27,7 +28,7 @@ LOOP_TIMES_LEVEL_MAP = {
     'diagnose': 50
 }
 
-WAIT_EXPECTED_PACKET_TIMEOUT = 5
+WAIT_EXPECTED_PACKET_TIMEOUT = 15
 EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
 WITHDRAW = 'withdraw'
@@ -61,6 +62,8 @@ def announce_default_routes(localhost, tbinfo):
 
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
+    if topo_name not in ['t0', 'm0', 'mx']:
+        return
     logger.info(
         "withdraw and announce default ipv4 and ipv6 routes for {}".format(topo_name))
     localhost.announce_routes(
@@ -109,10 +112,19 @@ def get_ptf_send_ports(duthost, tbinfo, dev_port):
 
 
 def check_route(duthost, route, dev_port, operation):
-    out = json.loads(duthost.shell(
-        'vtysh -c "show ip route {} json"'.format(route), verbose=False)['stdout'])
-    result = [nexthop['interfaceName']
-              for nexthop in out[route][0]['nexthops']]
+    result = []
+    if duthost.is_multi_asic:
+        cmd = ' -c "show ip route {} json"'.format(route)
+        for asichost in duthost.frontend_asics:
+            out = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            nexthops = out[route][0]['nexthops']
+            routes_per_asic = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
+            result.extend(routes_per_asic)
+    else:
+        cmd = 'vtysh -c "show ip route {} json"'.format(route)
+        out = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
+        nexthops = out[route][0]['nexthops']
+        result = [hop['interfaceName'] for hop in nexthops if 'interfaceName' in hop.keys()]
     if operation == WITHDRAW:
         pytest_assert(dev_port not in result,
                       "Route {} was not withdraw {}".format(route, result))
@@ -152,10 +164,36 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
         ptfadapter, masked_exp_pkt, ptf_recv_ports, timeout=WAIT_EXPECTED_PACKET_TIMEOUT)
 
 
-def get_ip_route_info(duthost):
-    output = json.loads(duthost.shell(
-        'vtysh -c "show ip bgp ipv4 json"', verbose=False)['stdout'])
-    return output['routes']
+def filter_routes(iproute_info, route_prefix_len):
+    # Note that here iproute_info is a list of one dictionary
+    filtered_iproutes = {}
+    for route_prefix in iproute_info:
+        if "/{}".format(route_prefix_len) not in route_prefix:
+            continue
+        # multi-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
+        for route_per_prefix in iproute_info[route_prefix]:
+            route_type = route_per_prefix.get('pathFrom', 'external')
+            if route_type == 'internal':
+                continue
+            # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
+            multipath = route_per_prefix.get('multipath', False)
+            if not multipath:
+                continue
+            filtered_iproutes[route_prefix] = iproute_info[route_prefix]
+    return filtered_iproutes
+
+
+def get_filtered_iproute_info(duthost, route_prefix_len):
+    dev = {}
+    if duthost.is_multi_asic:
+        cmd = " -c 'show ip bgp ipv4 json'"
+        for asic in duthost.frontend_asics:
+            output = json.loads(asic.run_vtysh(cmd)['stdout'])
+            dev.update(filter_routes(output['routes'], route_prefix_len))
+    else:
+        output = json.loads(duthost.shell('vtysh -c "show ip bgp ipv4 json"', verbose=False)['stdout'])
+        dev = filter_routes(output['routes'], route_prefix_len)
+    return dev
 
 
 def get_exabgp_port(duthost, tbinfo, dev_port):
@@ -171,13 +209,90 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
-def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
-                    get_function_conpleteness_level, announce_default_routes):
+def get_internal_interfaces(duthost):
+    """
+    This function returns internal interfaces for any
+    multi-asic dut, including voq/packet chassis
+    """
+    internal_intfs = []
+
+    # First check for packet chassis, or any dut that has PORTCHANNEL_MEMBER in config db
+    pcs = duthost.get_portchannel_member()
+    for pc in pcs:
+        """
+        For packet chassis, 'pcs' looks like:
+        ["PortChannel101|Ethernet104", "PortChannel01|Ethernet-BPxx",...]
+        """
+        if 'IB' in pc or 'BP' in pc:
+            internal_intfs.append(pc)
+
+    # Then check for voq chassis: get voq inband interface for later filtering
+    voq_inband_interfaces = duthost.get_voq_inband_interfaces()
+    internal_intfs.append([voq_inband_interfaces])
+
+    return internal_intfs
+
+
+def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
+    dev_port = None
+    route_to_ping = None
+    # Get internal interfaces for later filtering
+    internal_intfs = get_internal_interfaces(duthost)
+    for dst_prefix in dst_prefix_set:
+        if dev_port:
+            break
+        route_to_ping = dst_prefix.route
+        cmd = ' -c "show ip route {} json"'.format(route_to_ping)
+        if duthost.is_multi_asic:
+            for asic in duthost.frontend_asics:
+                if dev_port:
+                    break
+                dev = json.loads(asic.run_vtysh(cmd)['stdout'])
+                for per_hop in dev[route_to_ping][0]['nexthops']:
+                    if 'interfaceName' not in per_hop.keys():
+                        continue
+                    if 'ip' not in per_hop.keys():
+                        continue
+                    if per_hop['interfaceName'] in internal_intfs:
+                        continue
+                    port = per_hop['interfaceName']
+                    neigh = duthost.shell("show ip int | grep -w {}".format(port), module_ignore_errors=True)['stdout']
+                    if neigh == '':
+                        logger.info("{} is still internal interface, skipping".format(port))
+                    else:
+                        dev_port = port
+                    break
+        else:
+            dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            for per_hop in dev[route_to_ping][0]['nexthops']:
+                if 'interfaceName' not in per_hop.keys():
+                    continue
+                # For chassis, even single-asic linecard could have internal interface
+                if per_hop['interfaceName'] in internal_intfs:
+                    continue
+                if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
+                    continue
+                dev_port = per_hop['interfaceName']
+                break
+    pytest_assert(dev_port, "dev_port not exist")
+    return dev_port, route_to_ping
+
+
+def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
+                    get_function_conpleteness_level, announce_default_routes,
+                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
+    ignoreRegex = [
+        ".*ERR.*\"missed_FRR_routes\".*"
+    ]
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="stress_routes_helper")
+    loganalyzer.ignore_regex.extend(ignoreRegex)
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
@@ -199,27 +314,26 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
     else:
         vlan_mac = dut_mac
 
-    # get dst_prefix_list and aspath
-    routes = namedtuple('routes', ['route', 'aspath'])
-    iproute_info = get_ip_route_info(duthost)
-    dst_prefix_list = []
+    # get dst_prefix_set and aspath
     route_prefix_len = get_route_prefix_len(tbinfo, common_config)
-    for route_prefix in iproute_info:
-        if "/{}".format(route_prefix_len) in route_prefix:
-            # Use only multipath routes, othervise there will be announced new routes to T0 neigbours on t1 topo
-            multipath = iproute_info[route_prefix][0].get('multipath', False)
-            if multipath:
-                out = iproute_info[route_prefix][0].get('path').split(' ')
-                aspath = out[1:]
-                entry = routes(route_prefix, ' '.join(aspath))
-                dst_prefix_list.append(entry)
+    routes = namedtuple('routes', ['route', 'aspath'])
+    filtered_iproute_info = get_filtered_iproute_info(duthost, route_prefix_len)
+    if not filtered_iproute_info:
+        pytest.skip("Skip this test for current topo.\
+                    At least 1 multipath route coming from ebgp is needed!")
 
-    route_to_ping = dst_prefix_list[0].route
-    dev = json.loads(duthost.shell(
-        'vtysh -c "show ip route {} json"'.format(route_to_ping))['stdout'])
-    dev_port = dev[route_to_ping][0]['nexthops'][0]['interfaceName']
+    dst_prefix_set = set()
+    for route_prefix in filtered_iproute_info:
+        # multi-asics can have more than 1 routes in iproute_info[route_prefix], even single-asics have only 1
+        for route_per_prefix in filtered_iproute_info[route_prefix]:
+            out = route_per_prefix.get('path').split(' ')
+            aspath = out[1:]
+            entry = routes(route_prefix, ' '.join(aspath))
+            dst_prefix_set.add(entry)
+    pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
 
-    route_nums = len(dst_prefix_list)
+    dev_port, route_to_ping = get_dev_port_and_route(duthost, asichost, dst_prefix_set)
+    route_nums = len(dst_prefix_set)
     logger.info("route_nums = %d" % route_nums)
 
     # choose one ptf port to send msg
@@ -236,12 +350,19 @@ def test_route_flap(duthost, tbinfo, ptfhost, ptfadapter,
 
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
 
+    # accommadate for t2 chassis which could have 30k~50k routes
+    def switch(x):
+        return {
+            't2': 1000,
+            't1': 100,
+        }.get(x, 10)
+    divisor = switch(tbinfo["topo"]["name"])
     while loop_times > 0:
         logger.info("Round %s" % loop_times)
         route_index = 1
-        while route_index < route_nums/10:
-            dst_prefix = dst_prefix_list[route_index].route
-            aspath = dst_prefix_list[route_index].aspath
+        while route_index < route_nums/divisor:
+            dst_prefix = list(dst_prefix_set)[route_index].route
+            aspath = list(dst_prefix_set)[route_index].aspath
 
             # test link status
             send_recv_ping_packet(

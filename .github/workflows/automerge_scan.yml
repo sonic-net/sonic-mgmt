@@ -1,0 +1,73 @@
+name: AutoMergeScan
+on:
+  schedule:
+    - cron: '31 */2 * * *'
+  workflow_dispatch:
+
+jobs:
+  automerge_scan:
+    if: github.repository_owner == 'sonic-net'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Debug
+      env:
+        TOKEN: ${{ secrets.TOKEN }}
+      run: |
+        set -e
+
+        echo ${TOKEN} | gh auth login --with-token
+        gh pr list -R sonic-net/sonic-mgmt -A mssonicbld --json additions,assignees,author,baseRefName,body,changedFiles,closed,closedAt,comments,commits,createdAt,deletions,files,headRefName,headRepository,headRepositoryOwner,id,isCrossRepository,isDraft,labels,latestReviews,maintainerCanModify,mergeCommit,mergeStateStatus,mergeable,mergedAt,mergedBy,milestone,number,potentialMergeCommit,projectCards,reactionGroups,reviewDecision,reviewRequests,reviews,state,statusCheckRollup,title,updatedAt,url > prs.log
+        cat prs.log | jq
+    - name: Main
+      run: |
+        set -e
+
+        count=$(cat prs.log | jq 'length')
+        for ((i=0;i<$count;i++))
+        do
+          url=$(cat prs.log | jq -r ".[$i].url")
+          created_at=$(cat prs.log | jq -r ".[$i].createdAt")
+          echo PR: $(($i+1))/$count, URL: $url, createdAt: $created_at, now: $(date -u +"%FT%TZ")
+          [[ "$url" == "" ]] && continue
+          [[ $created_at > $(date --date "1 hour ago" -u +"%FT%TZ") ]] && continue
+          # only check automerge PR.
+          cat prs.log | jq -r ".[$i].labels[].name" | grep automerge || continue
+
+          checks=$(cat prs.log | jq ".[$i].statusCheckRollup")
+          checks_count=$(echo $checks | jq 'length')
+          echo Checks count: $checks_count
+          for ((j=0;j<$checks_count;j++))
+          do
+            check=$(echo $checks | jq ".[$j]")
+            state=$(echo $check | jq -r '.state')
+            conclusion=$(echo $check | jq -r '.conclusion')
+            name=$(echo $check | jq -r '.name')
+
+            # EasyCLA success flag:  state=SUCCESS
+            # Others success flag:   conclusion in SUCCESS,NEUTRAL
+            # Ignore Azure.sonic-mgmt stage check result. It may be set continueOnError
+            echo "$name" | grep "Azure.sonic-mgmt (" && continue
+            # rerun Azure.sonic-mgmt per day
+            if [[ "$name" == "Azure.sonic-mgmt" ]] && [[ "$conclusion" == "FAILURE" ]];then
+              completedAt=$(echo $check | jq -r '.completedAt')
+              [[ "$completedAt" < $(date --date "2 hour ago" -u +"%FT%TZ") ]] && [[ $(date -u +"%T") < "02:00:00" ]] && gh pr comment $url --body "/azp run Azure.sonic-mgmt"
+            fi
+            # Ignore Semgrep, it has issues.
+            [[ "$name" == "Semgrep" ]] && continue
+            if [[ "$state" == "SUCCESS" ]];then
+              # check pass
+              continue
+            elif [[ "$conclusion" == "SUCCESS" ]] || [[ "$conclusion" == "NEUTRAL" ]];then
+              # check pass
+              continue
+            else
+              echo "$url Check failed!!!"
+              echo $check | jq
+              continue 2
+            fi
+          done
+          # merge the PR
+          echo ========Merging  PR========
+          gh pr merge --rebase --admin -R sonic-net/sonic-mgmt $url || true
+          echo ========Finished PR========
+        done

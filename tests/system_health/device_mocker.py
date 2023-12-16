@@ -29,6 +29,9 @@ class DeviceMocker:
     def mock_psu_voltage(self, good):
         return False, None
 
+    def mock_fan_direction(self, good):
+        return False, None
+
 
 @pytest.fixture
 def device_mocker_factory():
@@ -51,7 +54,7 @@ def device_mocker_factory():
             mocker_object = MellanoxDeviceMocker(dut)
             mockers.append(mocker_object)
         else:
-            pytest.skip("No mocker defined for this platform %s")
+            pytest.skip("No mocker defined for this platform {}".format(asic))
         return mocker_object
 
     yield _create_mocker

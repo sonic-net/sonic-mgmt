@@ -1,12 +1,12 @@
 from ..device_mocker import DeviceMocker
-from tests.common.mellanox_data import get_platform_data
+from pkg_resources import parse_version
+from tests.common.mellanox_data import get_platform_data, get_hw_management_version
 from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
 
 class AsicData(object):
     TEMPERATURE_FILE = '/run/hw-management/thermal/asic'
-    THRESHOLD_FILE = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
 
     def __init__(self, mock_helper):
         self.helper = mock_helper
@@ -15,7 +15,11 @@ class AsicData(object):
         self.helper.mock_value(AsicData.TEMPERATURE_FILE, str(value))
 
     def get_asic_temperature_threshold(self):
-        value = self.helper.read_value(AsicData.THRESHOLD_FILE)
+        threshold_file = '/run/hw-management/thermal/asic_temp_emergency'
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+            threshold_file = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
+        value = self.helper.read_value(threshold_file)
         return int(value)
 
 
@@ -111,6 +115,11 @@ class MellanoxDeviceMocker(DeviceMocker):
         return True
 
     def mock_psu_presence(self, status):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
         self.psu_data.mock_presence(1 if status else 0)
         return True, self.psu_data.name
 
@@ -119,6 +128,11 @@ class MellanoxDeviceMocker(DeviceMocker):
         return True, self.psu_data.name
 
     def mock_psu_temperature(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        always_present = not platform_data['psus']['hot_swappable']
+        if always_present:
+            return False, None
+
         threshold = self.psu_data.get_psu_temperature_threshold()
         if good:
             value = threshold - 1000
@@ -130,3 +144,14 @@ class MellanoxDeviceMocker(DeviceMocker):
     def mock_psu_voltage(self, good):
         # Not Supported for now
         return False, None
+
+    def mock_fan_direction(self, good):
+        platform_data = get_platform_data(self.mock_helper.dut)
+        drawer_num = platform_data['fans']['number']
+        if drawer_num < 2:
+            return False, None
+
+        fan_name = self.fan_drawer_data.mock_fan_direction_status(good, drawer_num)
+        if not fan_name:
+            return False, None
+        return True, fan_name
