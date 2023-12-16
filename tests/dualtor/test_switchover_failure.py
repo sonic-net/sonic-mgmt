@@ -8,37 +8,14 @@ from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
     toggle_all_simulator_ports_to_rand_unselected_tor,
 )
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology("dualtor")]
 
-ORCHAGENT = "orchagent"
-SYNCD = "syncd"
-SWSS = "swss"
-
 SERVER_IPV4 = "192.168.0.100"
-
-process_control_cmd = "docker exec -i {} bash -c 'kill -s {} `pgrep {}`'"
-
-
-def control_process(duthost, process, pause):
-    """
-    Pause or resume a process on the DUT (either orchagent or syncd)
-    """
-    if pause:
-        signal = "SIGSTOP"
-    else:
-        signal = "SIGCONT"
-
-    if process == ORCHAGENT:
-        container = SWSS
-    elif process == SYNCD:
-        container = SYNCD
-
-    cmd = process_control_cmd.format(container, signal, process)
-    duthost.shell(cmd)
 
 
 @pytest.fixture
@@ -99,7 +76,7 @@ def ip_pkt(common_setup_teardown):
 
 @pytest.fixture(params=["ipv4", "ipv6"])
 def common_setup_teardown(
-    request, rand_selected_dut, rand_unselected_dut, config_facts
+    request, rand_selected_dut, rand_unselected_dut, config_facts, tbinfo
 ):
     cmds = ["sonic-clear arp", "sonic-clear ndp", "sonic-clear fdb all"]
     rand_selected_dut.shell_cmds(cmds=cmds)
@@ -135,7 +112,7 @@ def common_setup_teardown(
     test_facts["server_ip"] = str(max_ip + 1)
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(
-        rand_selected_dut.hostname
+        tbinfo
     )
     test_facts["intf1"], test_facts["intf2"] = (
         list(mux_cable_config.keys())[0],
@@ -161,12 +138,13 @@ def common_setup_teardown(
 
     # if the test failed, assume linkmgrd/swss are stuck in a bad state and require a restart
     if not hasattr(request.node, "rep_call") or request.node.rep_call.failed:
+        logger.warning("Test failed, restarting swss")
         rand_selected_dut.restart_service("swss")
         wait_until(60, 5, 0, rand_selected_dut.critical_services_fully_started)
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "swss")
         wait_until(60, 5, 0, rand_selected_dut.critical_processes_running, "mux")
         verify_tor_states(
-            rand_unselected_dut, rand_selected_dut, "healthy", verify_db_timeout=60
+            rand_unselected_dut, rand_selected_dut, "unhealthy", verify_db_timeout=60
         )
 
 
@@ -187,17 +165,17 @@ def test_mac_move_during_switchover(
 
     # Pause syncd and trigger a switchover. Since syncd is paused, orchagent will hang (if the bug is present)
     # which allows us to pause orchagent mid-switchover
-    control_process(rand_selected_dut, SYNCD, pause=True)
+    rand_selected_dut.control_process("syncd", pause=True)
     rand_selected_dut.shell(
         "config mux mode active {}".format(common_setup_teardown["intf1"])
     )
-    control_process(rand_selected_dut, ORCHAGENT, pause=True)
+    rand_selected_dut.control_process("orchagent", pause=True)
 
     # Unpause syncd to process the MAC move
-    control_process(rand_selected_dut, SYNCD, pause=False)
+    rand_selected_dut.control_process("syncd", pause=False)
     testutils.send(ptfadapter, common_setup_teardown["ptf_intf2"], ip_pkt)
 
-    control_process(rand_selected_dut, ORCHAGENT, pause=False)
+    rand_selected_dut.control_process("orchagent", pause=False)
 
     verify_tor_states(
         rand_selected_dut,
