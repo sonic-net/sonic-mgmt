@@ -161,7 +161,7 @@ def disable_macsec_feature(duthost, macsec_nbrhosts):
     global_cmd(duthost, macsec_nbrhosts, "sudo config feature state macsec disabled")
 
 
-def cleanup_macsec_configuration(duthost, ctrl_links, profile_name, topo):
+def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     devices = set()
     if duthost.facts["asic_type"] == "vs":
         devices.add(duthost)

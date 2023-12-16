@@ -100,12 +100,11 @@ class MacsecPlugin(object):
         return __startup_macsec
 
     @pytest.fixture(scope="module")
-    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
         def __shutdown_macsec():
             profile = macsec_profile
-            topo_name = tbinfo['topo']['name']
             yield
-            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'], topo_name)
+            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
     @pytest.fixture(scope="module", autouse=True)
@@ -180,7 +179,7 @@ class MacsecPlugin(object):
                     "local_ipv4_addr": local_ipv4_addr,
                     "peer_ipv4_addr": peer_ipv4_addr,
                     "port": port,
-                    "host": nbrhosts[neighbor["name"]]["host"]
+                    "host": macsec_nbrhosts[neighbor["name"]]["host"]
                 }
         self.find_links(macsec_duthost, tbinfo, filter)
         return links
