@@ -530,8 +530,8 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     def _check_mux_status_helper():
         run_result.clear()
         duts_parsed_mux_status.clear()
-        err_msg_from_mux_status.clear()
-        dut_wrong_mux_status_ports.clear()
+        err_msg_from_mux_status[:] = []
+        dut_wrong_mux_status_ports[:] = []
         run_result.update(
             **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
         )

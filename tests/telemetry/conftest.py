@@ -1,5 +1,7 @@
 import logging
 import pytest
+import os
+import sys
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
@@ -7,6 +9,11 @@ from tests.common.utilities import wait_until, wait_tcp_connection
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
 
+EVENTS_TESTS_PATH = "./telemetry/events"
+sys.path.append(EVENTS_TESTS_PATH)
+
+BASE_DIR = "logs/telemetry"
+DATA_DIR = os.path.join(BASE_DIR, "files")
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +43,11 @@ def verify_telemetry_dockerimage(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     docker_out_list = []
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    docker_out = duthost.shell('docker images docker-sonic-gnmi', module_ignore_errors=False)['stdout_lines']
+    docker_out = duthost.shell('docker images', module_ignore_errors=False)['stdout_lines']
     docker_out_list = get_list_stdout(docker_out)
-    matching = [s for s in docker_out_list if b"docker-sonic-gnmi" in s]
+    matching = [s for s in docker_out_list if b"docker-sonic-gnmi" in s or b"docker-sonic-telemetry" in s]
     if not (len(matching) > 0):
-        pytest.skip("docker-sonic-gnmi is not part of the image")
+        pytest.skip("docker-sonic-gnmi and docker-sonic-telemetry are not part of the image")
 
 
 def check_gnmi_config(duthost):
@@ -120,3 +127,30 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
     restore_telemetry_forpyclient(duthost, default_client_auth)
     if not has_gnmi_config:
         delete_gnmi_config(duthost)
+
+
+def do_init(duthost):
+    for i in [BASE_DIR, DATA_DIR]:
+        try:
+            os.mkdir(i)
+        except OSError as e:
+            logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
+
+        duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
+
+
+@pytest.fixture(scope="module")
+def test_eventd_healthy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
+    """
+    @summary: Test eventd heartbeat before testing all testcases
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    do_init(duthost)
+
+    module = __import__("eventd_events")
+
+    module.test_event(duthost, gnxi_path, ptfhost, DATA_DIR, None)
+
+    logger.info("Completed test file: {}".format("eventd_events test completed."))
