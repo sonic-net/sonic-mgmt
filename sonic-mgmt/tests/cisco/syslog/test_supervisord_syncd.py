@@ -103,5 +103,5 @@ def test_syslog_rate_limit(rand_selected_dut):
     config_reload(rand_selected_dut)
 
     # database does not support syslog rate limit configuration persist
-    verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])
+    verify_container_rate_limit(rand_selected_dut, skip_container_list)
     verify_host_rate_limit(rand_selected_dut)
