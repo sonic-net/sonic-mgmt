@@ -426,12 +426,13 @@ ecmp/test_ecmp_sai_value.py:
 ecmp/test_fgnhg.py:
   skip:
     conditions_logical_operator: or
-    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped"
+    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped; Skip on issue 7755"
     conditions:
       - "branch in ['201811', '201911']"
       - "platform in ['x86_64-mlnx_msn2700-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7755
 
 #######################################
 #####         everflow            #####
