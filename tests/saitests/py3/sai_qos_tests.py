@@ -4957,7 +4957,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy = (packet_length + cell_size - 1) // cell_size
 
-        pkt_s = get_multiple_flows(
+        if 'cisco-8000' in asic_type:
+            pkt_s = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
@@ -4969,8 +4970,17 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt = pkt_s[0]
-        dst_port_id = pkt_s[2]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
+        else:
+            src_port_mac = self.dataplane.get_mac(0, src_port_id)
+            pkt = simple_tcp_packet(pktlen=packet_length,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
