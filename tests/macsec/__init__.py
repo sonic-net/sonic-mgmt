@@ -144,7 +144,7 @@ class MacsecPlugin(object):
         return self.find_links_from_nbr(macsec_duthost, tbinfo, nbrhosts)
 
     @pytest.fixture(scope="module")
-    def downstream_links(self, macsec_duthost, tbinfo, macsec_nbrhosts):
+    def downstream_links(self, macsec_duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
@@ -159,7 +159,7 @@ class MacsecPlugin(object):
         return links
 
     @pytest.fixture(scope="module")
-    def upstream_links(self, macsec_duthost, tbinfo, macsec_nbrhosts):
+    def upstream_links(self, macsec_duthost, tbinfo, nbrhosts):
         links = collections.defaultdict(dict)
 
         def filter(interface, neighbor, mg_facts, tbinfo):
@@ -179,7 +179,7 @@ class MacsecPlugin(object):
                     "local_ipv4_addr": local_ipv4_addr,
                     "peer_ipv4_addr": peer_ipv4_addr,
                     "port": port,
-                    "host": macsec_nbrhosts[neighbor["name"]]["host"]
+                    "host": nbrhosts[neighbor["name"]]["host"]
                 }
         self.find_links(macsec_duthost, tbinfo, filter)
         return links
