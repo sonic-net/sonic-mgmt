@@ -48,8 +48,6 @@ def setup_thresholds(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     is_chassis = duthost.get_facts().get("modular_chassis")
     cpu_threshold = 70 if is_chassis else 50
-    num_cpu = int(duthost.command('nproc --all')['stdout_lines'][0])
-    cpu_threshold = cpu_threshold * num_cpu
     return cpu_threshold
 
 
@@ -83,9 +81,12 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
-    cpu_before = duthost.shell("show processes cpu | awk '{print $9}'")["stdout_lines"]
-    pytest_assert(cpu_before > cpu_threshold, "Cpu util was above threshold {} for atleast 1 process \
-            before sending pktgen traffic".format(cpu_threshold))
+    cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    for entry in cpu_before:
+        pytest_assert(
+            float(entry) < cpu_threshold,
+            "Cpu util was above threshold {} for atleast 1 process"
+            " before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
@@ -107,7 +108,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
-    pktgen_param = pktgen_param.split("\n")[0].encode('ascii')
+    pktgen_param = pktgen_param.split("\n")[0]
     pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000,
                   "Mismatch between number of packets intended to be generated and number of packets generated")
 
@@ -118,9 +119,12 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
 
     # Check CPU util after sending traffic
-    cpu_after = duthost.shell("show processes cpu | awk '{print $9}'")["stdout_lines"]
-    pytest_assert(cpu_after > cpu_threshold, "Cpu util was above threshold {} for atleast 1 process after \
-            sending pktgen traffic".format(cpu_threshold))
+    cpu_after = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    for entry in cpu_after:
+        pytest_assert(
+            float(entry) < cpu_threshold,
+            "Cpu util was above threshold {} for atleast 1 process"
+            " after sending pktgen traffic".format(cpu_threshold))
 
     # Check number of new core/crash files
     core_files_new = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
