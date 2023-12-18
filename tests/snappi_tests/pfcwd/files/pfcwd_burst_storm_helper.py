@@ -12,6 +12,7 @@ from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
 logger = logging.getLogger(__name__)
 
+
 PAUSE_FLOW_PREFIX = "Pause Storm"
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 DATA_FLOW_PREFIX = "Data Flow"
@@ -23,13 +24,15 @@ SNAPPI_POLL_DELAY_SEC = 2
 
 def run_pfcwd_burst_storm_test(api,
                                testbed_config,
-                               port_config_list,
+                               port_config_list,  # noqa F811
                                conn_data,
                                fanout_data,
                                duthost,
                                dut_port,
                                prio_list,
-                               prio_dscp_map):
+                               prio_dscp_map,
+                               pause_pps,
+                               traffic_rate):
     """
     Test PFC watchdog under bursty PFC storms
 
@@ -69,9 +72,9 @@ def run_pfcwd_burst_storm_test(api,
         host_ans=duthost, intf=dut_port) / 1000.0
 
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
-    data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
-    pause_flow_dur_sec = poll_interval_sec * 0.5
-    pause_flow_gap_sec = burst_cycle_sec - pause_flow_dur_sec
+    data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS * 4)
+    pause_flow_dur_sec = poll_interval_sec * 10
+    pause_flow_gap_sec = 0
 
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
     fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
@@ -93,18 +96,35 @@ def run_pfcwd_burst_storm_test(api,
                       warm_up_traffic_dur_sec, data_flow_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
-                  prio_dscp_map=prio_dscp_map)
+                  prio_dscp_map=prio_dscp_map,
+                  pause_pps=pause_pps,
+                  traffic_rate=traffic_rate)
 
     flows = testbed_config.flows
 
     all_flow_names = [flow.name for flow in flows]
-    exp_dur_sec = BURST_EVENTS * poll_interval_sec + 1
+    exp_dur_sec = BURST_EVENTS * 5 * poll_interval_sec + 1
+    duthost.shell("config pfcwd start 400")
+    duthost.shell("sonic-clear counter")
 
-    flow_stats = __run_traffic(api=api,
-                               config=testbed_config,
-                               all_flow_names=all_flow_names,
-                               exp_dur_sec=exp_dur_sec)
+    flow_stats = __run_traffic(
+        api=api,
+        config=testbed_config,
+        all_flow_names=all_flow_names,
+        exp_dur_sec=exp_dur_sec,
+        total_time=exp_dur_sec+200)
 
+    logger.info(
+        "burst_cycle_sec={}, data_flow_dur_sec={}, "
+        "pause_flow_dur_sec={}, pause_flow_gap_sec={}".format(
+            burst_cycle_sec,
+            data_flow_dur_sec,
+            pause_flow_dur_sec,
+            pause_flow_gap_sec))
+    duthost.shell("pg-drop -c show")
+    duthost.shell("show queue counters")
+    duthost.shell("show pfcwd stat")
+    duthost.shell("show interface count")
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX)
@@ -122,7 +142,9 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec_list,
                   data_pkt_size,
                   prio_list,
-                  prio_dscp_map):
+                  prio_dscp_map,
+                  pause_pps,
+                  traffic_rate):
     """
     Generate flow configurations
 
@@ -168,7 +190,7 @@ def __gen_traffic(testbed_config,
         rx_mac = tx_port_config.gateway_mac
 
     """ Generate long-lived data flows, one for each priority """
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = traffic_rate / len(prio_list)
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
 
@@ -206,10 +228,12 @@ def __gen_traffic(testbed_config,
             data_flow.metrics.loss = True
 
     """ Generate a series of PFC storms """
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pause_pps = int(2 / pause_dur)
+    if not pause_pps:
+        speed_str = testbed_config.layer1[0].speed
+        speed_gbps = int(speed_str.split('_')[1])
+        pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+        pause_pps = int(2 / pause_dur)
+
     pause_pkt_cnt = pause_pps * pause_flow_dur_sec
 
     for id in range(pause_flow_count):
@@ -254,7 +278,7 @@ def __gen_traffic(testbed_config,
         pause_flow.metrics.loss = True
 
 
-def __run_traffic(api, config, all_flow_names, exp_dur_sec):
+def __run_traffic(api, config, all_flow_names, exp_dur_sec, total_time):
     """
     Run traffic and dump per-flow statistics
 
@@ -280,7 +304,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = total_time
 
     while attempts < max_attempts:
         request = api.metrics_request()
@@ -300,6 +324,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
                   "Flows do not stop in {} seconds".format(max_attempts))
 
     """ Dump per-flow statistics """
+    time.sleep(3)
     request = api.metrics_request()
     request.flow.flow_names = all_flow_names
     rows = api.get_metrics(request).flow_metrics
