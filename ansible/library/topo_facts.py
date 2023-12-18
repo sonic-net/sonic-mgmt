@@ -285,7 +285,7 @@ class ParseTestbedTopoinfo():
             vm_topo_config['dut_type'] = topo_definition['configuration_properties']['common']['dut_type']
             vm_topo_config['dut_asn'] = dut_asn
 
-        if ('t1' in topo_name) and (hwsku == 'Cisco-8111-O64'):
+        if hwsku == 'Cisco-8111-O64':
             vm_topo_config['dut_type'] = "BackEndLeafRouter"
 
         for slot, asic_definition in slot_definition.items():
