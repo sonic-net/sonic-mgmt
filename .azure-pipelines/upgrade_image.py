@@ -11,7 +11,6 @@ image may has been updated by people for debugging purpose. Upgrade to a previou
 target image is clean.
 """
 import argparse
-import json
 import logging
 import os
 import requests
