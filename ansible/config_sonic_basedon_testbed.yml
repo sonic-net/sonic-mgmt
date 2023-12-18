@@ -210,7 +210,7 @@
   - name: enable Compute-AI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "('t1' in topo) and (hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
 
   - name: set default vm file path
     set_fact:
