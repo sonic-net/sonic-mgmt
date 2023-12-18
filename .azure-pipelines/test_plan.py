@@ -887,10 +887,8 @@ if __name__ == "__main__":
                 if not specific_param:
                     specific_param = parsed_specific_param
 
-            if not args.test_plan_num:
-                test_plan_num = 1
-            for num in range(test_plan_num):
-                if test_plan_num > 1:
+            for num in range(args.test_plan_num):
+                if args.test_plan_num > 1:
                     test_plan_name = "{}_{}".format(test_plan_name, num + 1)
 
                 tp.create(
