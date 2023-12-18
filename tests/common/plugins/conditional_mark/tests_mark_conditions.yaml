@@ -846,6 +846,12 @@ platform_tests/daemon/test_chassisd.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
+platform_tests/daemon/test_syseepromd.py::test_pmon_syseepromd_kill_and_start_status:
+  skip:
+    reason: "Skip based at community issue https://github.com/sonic-net/sonic-mgmt/issues/11087"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11087"
+
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
     reason: "Deprecated as Mellanox do not use ethtool in release 202305 or higher"
