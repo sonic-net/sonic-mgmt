@@ -27,8 +27,8 @@ def config_node(node, config, type=''):
         st.config(node, config, skip_error_check=False, conf=True)
 
 def report_fail(dut, msg=''):
-    st.log('Invalid path found in leaf0' , dut)
-    st.error('Invalid path found in leaf0' , dut)
+    st.log(msg, dut)
+    st.error(msg, dut)
     st.report_fail('test_case_failed', dut)
 
 ####################
