@@ -1993,7 +1993,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkt_dst_mac2 = def_vlan_mac
             pkt_dst_mac3 = def_vlan_mac
 
-        pkt_s = get_multiple_flows(
+        if platform_asic == "cisco-8000":
+            pkt_s = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -2005,11 +2006,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt = pkt_s[0]
-        dst_port_id = pkt_s[2]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
 
-        # create packet
-        pkt2_s = get_multiple_flows(
+            # create packet
+            pkt2_s = get_multiple_flows(
                 self,
                 pkt_dst_mac2,
                 dst_port_2_id,
@@ -2021,11 +2022,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt2 = pkt2_s[0]
-        dst_port_2_id = pkt2_s[2]
+            pkt2 = pkt2_s[0]
+            dst_port_2_id = pkt2_s[2]
 
-        # create packet
-        pkt3_s = get_multiple_flows(
+            # create packet
+            pkt3_s = get_multiple_flows(
                 self,
                 pkt_dst_mac3,
                 dst_port_3_id,
@@ -2038,8 +2039,46 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
 
-        pkt3 = pkt3_s[0]
-        dst_port_3_id = pkt3_s[2]
+            pkt3 = pkt3_s[0]
+            dst_port_3_id = pkt3_s[2]
+        else:
+            src_port_mac = self.dataplane.get_mac(0, src_port_id)
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
+            dst_port_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
+            )
+            pkt2 = construct_ip_pkt(packet_length,
+                                    pkt_dst_mac,
+                                    src_port_mac,
+                                    src_port_ip,
+                                    dst_port_2_ip,
+                                    dscp,
+                                    src_port_vlan,
+                                    ecn=ecn,
+                                    ttl=ttl)
+            dst_port_2_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
+            )
+            pkt3 = construct_ip_pkt(packet_length,
+                                    pkt_dst_mac3,
+                                    src_port_mac,
+                                    src_port_ip,
+                                    dst_port_3_ip,
+                                    dscp,
+                                    src_port_vlan,
+                                    ecn=ecn,
+                                    ttl=ttl)
+            dst_port_3_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+            )
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
@@ -4551,7 +4590,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt_s = get_multiple_flows(
+        if 'cisco-8000' in asic_type:
+            pkt_s = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
@@ -4563,8 +4603,17 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt = pkt_s[0]
-        dst_port_id = pkt_s[2]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
+        else:
+            src_port_mac = self.dataplane.get_mac(0, src_port_id)
+            pkt = simple_tcp_packet(pktlen=packet_length,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress
