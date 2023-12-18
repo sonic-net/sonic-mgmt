@@ -11,7 +11,6 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -280,19 +279,19 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
 
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes,
-                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, loganalyzer):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR.*\"missed_FRR_routes\".*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
-    ignoreRegex = [
-        ".*ERR.*\"missed_FRR_routes\".*"
-    ]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="stress_routes_helper")
-    loganalyzer.ignore_regex.extend(ignoreRegex)
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
