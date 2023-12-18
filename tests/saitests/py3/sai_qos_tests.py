@@ -575,8 +575,8 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
                                                        1, dst_port_ip['peer_addr'], '192.168.0.1',
                                                        '00:00:00:00:00:00', None)
-                        send_packet(self, dst_port_id, arpreq_pkt
-           
+                        send_packet(self, dst_port_id, arpreq_pkt)
+                        
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
             if self.test_port_ips:
                 ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
