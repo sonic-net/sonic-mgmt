@@ -281,6 +281,8 @@ def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, 
     # key is dev name, value is list for configured VLAN member.
     for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
+        if 'VLAN_INTERFACE' not in cfg_facts:
+            break
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
             # address could be IPV6 and IPV4, only need IPV4 here
             if addr and valid_ipv4(addr.split('/')[0]):
@@ -386,6 +388,11 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
         return
 
     duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    # Skip l2 mode
+    if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
+        yield
+        return
     # --------------------- Setup -----------------------
     try:
         create_checkpoint(duthost, SETUP_ENV_CP)

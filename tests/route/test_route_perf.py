@@ -80,7 +80,11 @@ def ignore_expected_loganalyzer_exceptions(
         duthost: DUT fixture
         loganalyzer: Loganalyzer utility fixture
     """
-    ignoreRegex = [".*ERR route_check.py:.*", ".*ERR.* 'routeCheck' status failed.*"]
+    ignoreRegex = [
+        ".*ERR route_check.py:.*",
+        ".*ERR.* 'routeCheck' status failed.*",
+        ".*Process \'orchagent\' is stuck in namespace \'host\'.*"
+        ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
@@ -410,7 +414,7 @@ def test_perf_add_remove_routes(
 
         # Traffic verification with 10 random routes
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-        port_indices = mg_facts["minigraph_port_indices"]
+        port_indices = mg_facts["minigraph_ptf_indices"]
         nexthop_intf = str_intf_nexthop["ifname"].split(",")
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
@@ -495,7 +499,7 @@ def send_and_verify_traffic(
         exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
 
     logger.info(
-        "Sending packet from src port - {} , expecting to recieve on any port".format(
+        "Sending packet from src port - {} , expecting to receive on any port".format(
             ptf_src_port
         )
     )

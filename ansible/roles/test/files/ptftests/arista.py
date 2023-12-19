@@ -6,6 +6,8 @@ import re
 import paramiko
 import pickle
 import ast
+import six
+import _strptime  # noqa F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
 from collections import defaultdict
@@ -104,7 +106,7 @@ class Arista(host_device.HostDevice):
                 continue
 
             try:
-                input_buffer += self.shell.recv(16384)
+                input_buffer += six.ensure_str(self.shell.recv(16384))
             except Exception as err:
                 msg = 'Receive ssh command result error: cmd={} msg={} type={}'.format(
                     cmd, err, type(err))
@@ -148,10 +150,7 @@ class Arista(host_device.HostDevice):
             'interfaces']['Port-Channel1']['lastStatusChangeTimestamp']
         samples[cur_time] = sample
 
-        # TODO: Disabling v6_routing_ok check due to IPv6 FRR issue. Re-add v6_routing_ok once either:
-        # * https://github.com/FRRouting/frr/issues/13587 is fixed and the fix gets merged into SONiC, or
-        # * https://github.com/sonic-net/sonic-buildimage/pull/12853 is reverted
-        while not (quit_enabled and v4_routing_ok):
+        while not (quit_enabled and v4_routing_ok and v6_routing_ok):
             cmd = None
             # quit command was received, we don't process next commands
             # but wait for v4_routing_ok and v6_routing_ok
@@ -245,12 +244,12 @@ class Arista(host_device.HostDevice):
         self.disconnect()
 
         # save data for troubleshooting
-        with open("/tmp/%s.data.pickle" % self.ip, "w") as fp:
+        with open("/tmp/%s.data.pickle" % self.ip, "wb") as fp:
             pickle.dump(data, fp)
 
         # save debug data for troubleshooting
         if self.DEBUG:
-            with open("/tmp/%s.raw.pickle" % self.ip, "w") as fp:
+            with open("/tmp/%s.raw.pickle" % self.ip, "wb") as fp:
                 pickle.dump(debug_data, fp)
             with open("/tmp/%s.logging" % self.ip, "w") as fp:
                 fp.write("\n".join(log_lines))
@@ -262,8 +261,8 @@ class Arista(host_device.HostDevice):
             data, "lacp",         "LACP session")
         cli_data['bgp_v4'] = self.check_series_status(
             data, "bgp_route_v4", "BGP v4 routes")
-        # TODO: same as above for v6_routing_ok
-        cli_data['bgp_v6'] = (1, 0)
+        cli_data['bgp_v6'] = self.check_series_status(
+            data, "bgp_route_v6", "BGP v6 routes")
         cli_data['po'] = self.check_change_time(
             samples, "po_changetime", "PortChannel interface")
 
@@ -369,7 +368,7 @@ class Arista(host_device.HostDevice):
 
         for neig_ip in result_bgp.keys():
             key = "BGP IPv6 was down (times)" if ':' in neig_ip else "BGP IPv4 was down (times)"
-            result[key] = map(itemgetter(1), result_bgp[neig_ip]).count("Idle")
+            result[key] = list(map(itemgetter(1), result_bgp[neig_ip])).count("Idle")
 
         if initial_time_if != -1:
             po_name = [ifname for ifname in result_if.keys()
@@ -377,8 +376,8 @@ class Arista(host_device.HostDevice):
             result['PortChannel was down (seconds)'] = result_if[po_name][-1][0] - \
                 result_if[po_name][0][0]
             for if_name in sorted(result_if.keys()):
-                result['Interface %s was down (times)' % if_name] = map(
-                    itemgetter(1), result_if[if_name]).count("down")
+                result['Interface %s was down (times)' % if_name] = list(map(
+                    itemgetter(1), result_if[if_name])).count("down")
 
             bgp_po_offset = (initial_time_if - initial_time_bgp if initial_time_if >
                              initial_time_bgp else initial_time_bgp - initial_time_if).seconds
@@ -394,7 +393,7 @@ class Arista(host_device.HostDevice):
         return result
 
     def parse_lacp(self, output):
-        return output.find('Bundled') != -1
+        return six.ensure_str(output).find('Bundled') != -1
 
     def parse_bgp_neighbor_once(self, output):
         is_gr_ipv4_enabled = False
@@ -677,7 +676,10 @@ class Arista(host_device.HostDevice):
         return self.fails, lag_state
 
     def verify_neigh_lag_no_flap(self):
-        flap_cnt = sys.maxint
+        if six.PY2:
+            flap_cnt = sys.maxint
+        else:
+            flap_cnt = sys.maxsize
         output = self.do_cmd('show interfaces Po1 | json')
         if 'Invalid' not in output:
             data = '\n'.join(output.split('\r\n')[1:-1])

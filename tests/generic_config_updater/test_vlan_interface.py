@@ -60,11 +60,11 @@ def get_vlan_info(intf):
 
 
 @pytest.fixture()
-def vlan_info(duthost, tbinfo):
+def vlan_info(rand_selected_dut, tbinfo):
     """
     Fixture of getting ipv4/ipv6 vlan info
     Args:
-        duthost: DUT host
+        rand_selected_dut: rand DUT host
         tbinfo: fixture provides information about testbed
     Return:
         Name and prefix of ipv4/ipv6 vlans
@@ -80,7 +80,7 @@ def vlan_info(duthost, tbinfo):
             }
         }
     """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     vlan_intf = mg_facts['minigraph_vlan_interfaces']
     vlan_v4_info = None
     vlan_v6_info = None

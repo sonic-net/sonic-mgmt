@@ -13,6 +13,7 @@ from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from tests.common.dualtor.mux_simulator_control import _probe_mux_ports
+from tests.common.fixtures.duthost_utils import check_bgp_router_id
 
 logger = logging.getLogger(__name__)
 SYSTEM_STABILIZE_MAX_TIME = 300
@@ -146,7 +147,7 @@ def check_interfaces(duthosts):
 
 
 @pytest.fixture(scope="module")
-def check_bgp(duthosts):
+def check_bgp(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "bgp"}
 
     def _check(*args, **kwargs):
@@ -229,6 +230,12 @@ def check_bgp(duthosts):
                             check_result[a_result]['down_neighbors'], a_result, dut.hostname))
         else:
             logger.info('No BGP neighbors are down on %s' % dut.hostname)
+
+        mgFacts = dut.get_extended_minigraph_facts(tbinfo)
+        if dut.num_asics() == 1 and tbinfo['topo']['type'] != 't2' and \
+           not wait_until(timeout, interval, 0, check_bgp_router_id, dut, mgFacts):
+            check_result['failed'] = True
+            logger.info("Failed to verify BGP router identifier is Loopback0 address on %s" % dut.hostname)
 
         logger.info("Done checking bgp status on %s" % dut.hostname)
         results[dut.hostname] = check_result
@@ -520,6 +527,19 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
         err_msg_from_mux_status.append("")
         return True
 
+    def _check_mux_status_helper():
+        run_result.clear()
+        duts_parsed_mux_status.clear()
+        err_msg_from_mux_status[:] = []
+        dut_wrong_mux_status_ports[:] = []
+        run_result.update(
+            **parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+        )
+        duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
+        duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
+        return (all(result['failed'] is False for result in run_result.values()) and
+                _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor))
+
     dut_upper_tor = duthosts[0]
     dut_lower_tor = duthosts[1]
 
@@ -556,21 +576,21 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
     dut_wrong_mux_status_ports = []
 
     init_result = {"failed": False, "check_item": "check_mux_simulator"}
-    run_result = parallel_run(_verify_show_mux_status, (), kwargs, duthosts, timeout=600, init_result=init_result)
+    run_result = {}
+
+    check_success = _check_mux_status_helper()
 
     for result in run_result.values():
         if result['failed'] is True:
             err_msg = result["error_msg"][-1]
             return False, err_msg, {}
 
-    duts_parsed_mux_status[dut_upper_tor.hostname] = run_result[dut_upper_tor.hostname]["parsed_mux_status"]
-    duts_parsed_mux_status[dut_lower_tor.hostname] = run_result[dut_lower_tor.hostname]["parsed_mux_status"]
-
-    if not _verify_inconsistent_mux_status(duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
-        if len(dut_wrong_mux_status_ports) != 0:
+    if not check_success:
+        if len(dut_wrong_mux_status_ports) == 0:
+            # NOTE: Let's probe here to see if those inconsistent mux ports could be
+            # restored before using the recovery method.
             _probe_mux_ports(duthosts, dut_wrong_mux_status_ports)
-        if not wait_until(30, 5, 0, _verify_inconsistent_mux_status,
-                          duts_parsed_mux_status, dut_upper_tor, dut_lower_tor):
+        if not wait_until(60, 10, 0, _check_mux_status_helper):
             if err_msg_from_mux_status:
                 err_msg = err_msg_from_mux_status[-1]
             else:
