@@ -7,6 +7,7 @@ from pkg_resources import parse_version
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import InterruptableThread
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
+
 logger = logging.getLogger(__name__)
 
 METHOD_GET = "get"
@@ -87,14 +88,13 @@ def parse_gnmi_output(gnmi_output, match_no, find_data):
     gnmi_str = gnmi_str.replace(' ', '')
     if find_data != "":
         result = fetch_json_ptf_output(ON_CHANGE_REGEX, gnmi_str, match_no)
-        return find_data in result
+        return find_data in result[match_no]
 
 
 def fetch_json_ptf_output(regex, output, match_no):
     match = re.findall(regex, output)
     assert len(match) > match_no, "Not able to parse json from output"
-    event_str = match[match_no]
-    return event_str
+    return match[:match_no+1]
 
 
 def listen_for_event(ptfhost, cmd, results):
@@ -103,9 +103,10 @@ def listen_for_event(ptfhost, cmd, results):
     results[0] = ret["stdout"]
 
 
-def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout):
+def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, thread_timeout, update_count=1,
+                      match_number=0):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              submode=SUBMODE_ONCHANGE, update_count=1, xpath="all[heartbeat=2]",
+                              submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
                               target="EVENTS", filter_event_regex=filter_event_regex)
     results = [""]
     event_thread = InterruptableThread(target=listen_for_event, args=(ptfhost, cmd, results,))
@@ -114,12 +115,16 @@ def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, 
     assert results[0] != "", "No output from PTF docker, thread timed out after {} seconds".format(thread_timeout)
     # regex logic and then to write to file
     result = results[0]
-    event_str = fetch_json_ptf_output(EVENT_REGEX, result, 0)
-    event_str = event_str.replace('\\', '')
-    event_json = json.loads(event_str)
+    event_strs = fetch_json_ptf_output(EVENT_REGEX, result, match_number)
     with open(op_file, "w") as f:
         f.write("[\n")
-        json.dump(event_json, f, indent=4)
+        for i in range(0, len(event_strs)):
+            str = event_strs[i]
+            event_str = str.replace('\\', '')
+            event_json = json.loads(event_str)
+            json.dump(event_json, f, indent=4)
+            if i < match_number:
+                f.write(",")
         f.write("\n]")
         f.close()
 
