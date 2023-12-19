@@ -3,7 +3,6 @@ import time
 import yaml
 import pytest
 from spytest import st
-import apis.routing.bgp as bgpapi
 
 pytest.fixture(scope='module', autouse=True)
 def box_service_module_hooks(request):
