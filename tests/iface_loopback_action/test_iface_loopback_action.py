@@ -1,7 +1,6 @@
 import pytest
 import logging
 import random
-import time
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -12,7 +11,7 @@ from .iface_loopback_action_helper import verify_traffic
 from .iface_loopback_action_helper import config_loopback_action
 from .iface_loopback_action_helper import clear_rif_counter
 from .iface_loopback_action_helper import verify_interface_loopback_action
-from .iface_loopback_action_helper import verify_rif_tx_err_count
+from .iface_loopback_action_helper import verify_rif_tx_err_count, is_rif_counters_ready
 from .iface_loopback_action_helper import shutdown_rif_interfaces, startup_rif_interfaces
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
@@ -103,10 +102,10 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
             reboot(duthost, localhost, reboot_type)
             pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should be fully started!")
-        # Wait 180s for the rif counter to initialize
-        time.sleep(180)
         pytest_assert(wait_until(60, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+        # Wait for the rif counter to initialize
+        wait_until(180, 10, 0, is_rif_counters_ready, duthost)
     with allure.step("Verify the loopback action is correct after config reload"):
         with allure.step("Check the looback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, action_list)
