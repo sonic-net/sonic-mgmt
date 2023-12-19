@@ -91,7 +91,7 @@ class MacsecPlugin(object):
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
             if 't2' not in topo_name:
-                cleanup_macsec_configuration(duthost, ctrl_links, profile['name'])
+                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
             setup_macsec_configuration(macsec_duthost, ctrl_links,
                                        profile['name'], profile['priority'], profile['cipher_suite'],
                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
