@@ -33,19 +33,19 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def golden_config_exists_on_dut(duthosts, enum_rand_one_per_hwsku_hostname):
-    return file_exists_on_dut(duthosts[enum_rand_one_per_hwsku_hostname], GOLDEN_CONFIG)
+def golden_config_exists_on_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    return file_exists_on_dut(duthosts[enum_rand_one_per_hwsku_frontend_hostname], GOLDEN_CONFIG)
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_hwsku_hostname):
+def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup/teardown
     Args:
         duthost: DUT.
         golden_config_exists_on_dut: Check if golden config exists on DUT.
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
@@ -169,10 +169,10 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname):
     """Test Golden Config override during load minigraph
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if duthost.is_multi_asic:
         pytest.skip("Skip override-config-table testing on multi-asic platforms,\
                     test provided golden config format is not compatible with multi-asics")

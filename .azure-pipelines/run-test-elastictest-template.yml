@@ -91,6 +91,10 @@ parameters:
     type: string
     default: "[]"
 
+  - name: BUILD_REASON
+    type: string
+    default: ""
+
   - name: REPO_NAME
     type: string
     default: ""
@@ -195,6 +199,7 @@ steps:
       --features-exclude "${{ parameters.FEATURES_EXCLUDE }}" \
       --specific-param='${{ parameters.SPECIFIC_PARAM }}' \
       --affinity='${{ parameters.AFFINITY }}' \
+      --build-reason ${{ parameters.BUILD_REASON }} \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
