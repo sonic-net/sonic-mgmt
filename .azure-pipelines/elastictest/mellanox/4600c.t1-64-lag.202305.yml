@@ -106,7 +106,7 @@ stages:
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
-    - template: ../../run-test-scheduler-template.yml
+    - template: ../../run-test-nightly-elastictest-template.yml
       parameters:
         TOPOLOGY: t1-64-lag
         MIN_WORKER: 1
