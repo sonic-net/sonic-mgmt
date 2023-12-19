@@ -1,9 +1,15 @@
 import logging
+import os
+import json
+import re
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
+
+EVENT_COUNTER_KEYS = ["missed_to_cache", "published"]
+PUBLISHED = 1
 
 
 def backup_monit_config(duthost):
@@ -45,3 +51,64 @@ def restart_monit(duthost):
 def check_monit_running(duthost):
     monit_services_status = duthost.get_monit_services_status()
     return monit_services_status
+
+
+def create_ip_file(duthost, data_dir, json_file, start_idx, end_idx):
+    ip_file = os.path.join(data_dir, json_file)
+    with open(ip_file, "w") as f:
+        for i in range(start_idx, end_idx + 1):
+            json_string = f'{{"test-event-source:test": {{"test_key": "test_val_{i}"}}}}'
+            f.write(json_string + '\n')
+    dest = "~/" + json_file
+    duthost.copy(src=ip_file, dest=dest)
+    duthost.shell("docker cp {} eventd:/".format(dest))
+
+
+def event_publish_tool(duthost, json_file='', count=1):
+    cmd = "docker exec eventd python /usr/bin/events_publish_tool.py"
+    if json_file == '':
+        cmd += " -c {}".format(count)
+    else:
+        cmd += " -f /{}".format(json_file)
+    ret = duthost.shell(cmd)
+    assert ret["rc"] == 0, "Unable to publish events via events_publish_tool.py"
+
+
+def verify_received_output(received_file, N):
+    key = "test_key"
+    with open(received_file, 'r') as file:
+        json_array = json.load(file)
+        pytest_assert(len(json_array) == N, "Expected {} events, but found {}".format(N, len(json_array)))
+        for i in range(0, len(json_array)):
+            block = json_array[i]["test-event-source:test"]
+            pytest_assert(key in block and len(re.findall('test_val_{}'.format(i + 1), block[key])) > 0,
+                          "Missing key or incorrect value")
+
+
+def restart_eventd(duthost):
+    duthost.shell("systemctl reset-failed eventd")
+    duthost.service(name="eventd", state="restarted")
+    pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "eventd"), "eventd not started")
+    pytest_assert(wait_until(300, 10, 0, verify_counter_increase, duthost, 0, 2, PUBLISHED),
+                  "events_monit_test has not published")
+
+
+def reset_event_counters(duthost):
+    for key in EVENT_COUNTER_KEYS:
+        cmd = "sonic-db-cli COUNTERS_DB HSET COUNTERS_EVENTS:{} value 0".format(key)
+        duthost.shell(cmd, module_ignore_errors=True)
+
+
+def read_event_counters(duthost):
+    stats = []
+    for key in EVENT_COUNTER_KEYS:
+        cmd = "sonic-db-cli COUNTERS_DB HGET COUNTERS_EVENTS:{} value".format(key)
+        output = duthost.shell(cmd)['stdout']
+        stats.append(int(output))
+    return stats
+
+
+def verify_counter_increase(duthost, current_value, increase, stat):
+    current_counters = read_event_counters(duthost)
+    current_stat_counter = current_counters[stat]
+    return current_stat_counter >= current_value + increase
