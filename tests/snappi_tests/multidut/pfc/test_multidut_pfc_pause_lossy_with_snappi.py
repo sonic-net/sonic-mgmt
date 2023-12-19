@@ -27,8 +27,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                                      duthosts,
                                      line_card_choice,
                                      linecard_configuration_set,
-                                     get_multidut_snappi_ports  # noqa: F811
-                                     ):
+                                     get_multidut_snappi_ports):  # noqa: F811
     """
     Test if PFC will impact a single lossy priority
 
@@ -47,7 +46,7 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
 
-    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+    if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
@@ -124,7 +123,7 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
 
-    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+    if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
@@ -205,7 +204,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
 
-    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+    if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
@@ -296,7 +295,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
 
-    if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
+    if (len(linecard_configuration_set[line_card_choice]['hostname']) >= 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
     elif (len(linecard_configuration_set[line_card_choice]['hostname']) == 1):
