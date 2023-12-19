@@ -571,7 +571,22 @@ sonic_mlnx_100:
         "0xFE": "0xFBA1E964"
     str-msn2700-22:
       ansible_host: 10.64.247.236
-      hwsku: Mellanox-SN2700
+      hwsku: Mellanox-SN2700      
+      model: MSN2700-CS2FO
+      serial: MT2028X35360
+      base_mac: 1C:34:DA:EB:BC:80
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2FO"
+        "0x23": "MT2028X35360"
+        "0x24": "1C:34:DA:EB:BC:80"
+        "0x25": "07/23/2020 06:19:45"
+        "0x26": "17"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2019.08-5.2.0016-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0x4DA03DB4"
   vars:
     iface_speed: 100000
 
