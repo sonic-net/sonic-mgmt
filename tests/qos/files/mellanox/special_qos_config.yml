@@ -1,0 +1,37 @@
+# Special qos config
+#
+qos_params:
+    spc4:
+        profile:
+            pkts_num_leak_out: 1
+            xoff_1:
+                packet_size: 600
+            xoff_2:
+                packet_size: 600
+            xoff_3:
+                packet_size: 600
+            xoff_4:
+                packet_size: 600
+            wm_pg_headroom:
+                packet_size: 600
+            wm_q_shared_lossless:
+                packet_size: 600
+            hdrm_pool_size:
+                packet_size: 600
+        xon_1:
+            packet_size: 600
+        xon_2:
+            packet_size: 600
+        xon_3:
+            packet_size: 600
+        xon_4:
+            packet_size: 600
+        lossy_queue_1:
+            packet_size: 600
+        wm_pg_shared_lossless:
+            packet_size: 600
+            pkts_num_margin: 7
+        wm_pg_shared_lossy:
+            packet_size: 600
+        wm_q_shared_lossy:
+            packet_size: 600

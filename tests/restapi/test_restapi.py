@@ -605,7 +605,8 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     r = restapi.patch_config_vrouter_vrf_id_routes(
         construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-
+    # Wait 2 seconds for routes to be syncd
+    time.sleep(2)
     # Verify routes
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(
@@ -642,7 +643,8 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     r = restapi.patch_config_vrouter_vrf_id_routes(
         construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-
+    # Wait 2 seconds for routes to be syncd
+    time.sleep(2)
     # Verify routes
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(

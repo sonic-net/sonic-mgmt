@@ -3,6 +3,7 @@ from spytest.ordyaml import OrderedYaml
 
 root = os.path.join(os.path.dirname(__file__), '..', "datastore")
 
+
 class DataMap(object):
 
     def __init__(self, name, version=None):
@@ -49,4 +50,3 @@ class DataMap(object):
         if version != "default":
             self._load(self.dmap[version], version)
         return self.dmap[version]
-

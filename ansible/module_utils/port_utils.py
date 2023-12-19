@@ -19,7 +19,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
     port_alias_to_name_map = {}
     port_alias_asic_map = {}
     port_name_to_index_map = {}
-    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["8800-LC-48H-O", "88-LC0-36FH-MO"]
+    HWSKU_WITH_PORT_INDEX_FROM_PORT_CONFIG = ["Cisco-88-LC0-36FH-M-O36",
+                                              "Cisco-88-LC0-36FH-O36",
+                                              "Cisco-8800-LC-48H-C48"]
     try:
         from sonic_py_common import multi_asic
         from ansible.module_utils.multi_asic_utils import load_db_config
@@ -101,6 +103,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 or hwsku == "Arista-7050CX3-32S-C32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 4)
+        elif hwsku == "Arista-7060DX5-64S":
+            for i in range(1, 65):
+                port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
         elif hwsku == "Mellanox-SN2700-D40C8S8":
             # 10G ports
             s10G_ports = range(0, 4) + range(8, 12)
@@ -238,10 +243,10 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Cisco-8102-C64":
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku == "Cisco-8101-T32":
+        elif hwsku in ["Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8111-C32", "Cisco-8111-O32"]:
             for i in range(0, 32):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
-        elif hwsku == "Cisco-8101-C48T8":
+        elif hwsku in ["Cisco-8101-C48T8", "Cisco-8101-O8C48"]:
             for i in range(0, 24, 2):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
                 port_alias_to_name_map["etp%d" % (i+1)] = "Ethernet%d" % ((i+1) * 4)
@@ -250,13 +255,26 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(0, 24, 2):
                 port_alias_to_name_map["etp%d" % (i+32)] = "Ethernet%d" % ((i+40) * 4)
                 port_alias_to_name_map["etp%d" % (i+33)] = "Ethernet%d" % ((i+41) * 4)
-        elif hwsku == "Cisco-8101-C64":
+        elif hwsku in ["Cisco-8101-C64", "Cisco-8111-O64"]:
             for i in range(0, 64):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku in ["8800-LC-48H-O"]:
+        elif hwsku == "Cisco-8101-O8C48":
+            for i in range(0, 12):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
+            for i in range(12, 20):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
+            for i in range(20, 32):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
+        elif hwsku == "Cisco-8101-C64":
+            for i in range(0, 32):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % (i * 4 * 2)
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % ((i * 4 * 2) + 4)
+        elif hwsku in ["Cisco-8800-LC-48H-C48"]:
             for i in range(0, 48, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 4)
-        elif hwsku in ["88-LC0-36FH-MO"]:
+        elif hwsku in ["Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36"]:
             for i in range(0, 36, 1):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % (i * 8)
         elif hwsku in ["msft_multi_asic_vs"]:

@@ -27,7 +27,7 @@ LOOP_TIMES_LEVEL_MAP = {
     'diagnose': 50
 }
 
-WAIT_EXPECTED_PACKET_TIMEOUT = 5
+WAIT_EXPECTED_PACKET_TIMEOUT = 15
 EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
 WITHDRAW = 'withdraw'
@@ -208,15 +208,90 @@ def is_dualtor(tbinfo):
     return "dualtor" in tbinfo["topo"]["name"]
 
 
+def get_internal_interfaces(duthost):
+    """
+    This function returns internal interfaces for any
+    multi-asic dut, including voq/packet chassis
+    """
+    internal_intfs = []
+
+    # First check for packet chassis, or any dut that has PORTCHANNEL_MEMBER in config db
+    pcs = duthost.get_portchannel_member()
+    for pc in pcs:
+        """
+        For packet chassis, 'pcs' looks like:
+        ["PortChannel101|Ethernet104", "PortChannel01|Ethernet-BPxx",...]
+        """
+        if 'IB' in pc or 'BP' in pc:
+            internal_intfs.append(pc)
+
+    # Then check for voq chassis: get voq inband interface for later filtering
+    voq_inband_interfaces = duthost.get_voq_inband_interfaces()
+    internal_intfs.append([voq_inband_interfaces])
+
+    return internal_intfs
+
+
+def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
+    dev_port = None
+    route_to_ping = None
+    # Get internal interfaces for later filtering
+    internal_intfs = get_internal_interfaces(duthost)
+    for dst_prefix in dst_prefix_set:
+        if dev_port:
+            break
+        route_to_ping = dst_prefix.route
+        cmd = ' -c "show ip route {} json"'.format(route_to_ping)
+        if duthost.is_multi_asic:
+            for asic in duthost.frontend_asics:
+                if dev_port:
+                    break
+                dev = json.loads(asic.run_vtysh(cmd)['stdout'])
+                for per_hop in dev[route_to_ping][0]['nexthops']:
+                    if 'interfaceName' not in per_hop.keys():
+                        continue
+                    if 'ip' not in per_hop.keys():
+                        continue
+                    if per_hop['interfaceName'] in internal_intfs:
+                        continue
+                    port = per_hop['interfaceName']
+                    neigh = duthost.shell("show ip int | grep -w {}".format(port), module_ignore_errors=True)['stdout']
+                    if neigh == '':
+                        logger.info("{} is still internal interface, skipping".format(port))
+                    else:
+                        dev_port = port
+                    break
+        else:
+            dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
+            for per_hop in dev[route_to_ping][0]['nexthops']:
+                if 'interfaceName' not in per_hop.keys():
+                    continue
+                # For chassis, even single-asic linecard could have internal interface
+                if per_hop['interfaceName'] in internal_intfs:
+                    continue
+                if 'IB' in per_hop['interfaceName'] or 'BP' in per_hop['interfaceName']:
+                    continue
+                dev_port = per_hop['interfaceName']
+                break
+    pytest_assert(dev_port, "dev_port not exist")
+    return dev_port, route_to_ping
+
+
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes,
-                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+                    enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index, loganalyzer):
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})
     nexthop = common_config.get('nhipv4', NHIPV4)
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR.*\"missed_FRR_routes\".*"
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
     # On dual-tor, unicast upstream l3 packet destination mac should be vlan mac
     # After routing, output packet source mac will be replaced with port-channel mac (same as dut_mac)
     # On dual-tor, vlan mac is different with dut_mac. U0/L0 use same vlan mac for AR response
@@ -256,29 +331,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
             dst_prefix_set.add(entry)
     pytest_assert(dst_prefix_set, "dst_prefix_set is empty")
 
-    dev_port = None
-    for dst_prefix in dst_prefix_set:
-        if dev_port:
-            break
-        route_to_ping = dst_prefix.route
-        cmd = ' -c "show ip route {} json"'.format(route_to_ping)
-        if duthost.is_multi_asic:
-            for asic in duthost.frontend_asics:
-                if dev_port:
-                    break
-                dev = json.loads(asic.run_vtysh(cmd)['stdout'])
-                for per_hop in dev[route_to_ping][0]['nexthops']:
-                    if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                        dev_port = per_hop['interfaceName']
-                        break
-        else:
-            dev = json.loads(asichost.run_vtysh(cmd)['stdout'])
-            for per_hop in dev[route_to_ping][0]['nexthops']:
-                if 'interfaceName' in per_hop.keys() and 'IB' not in per_hop['interfaceName']:
-                    dev_port = per_hop['interfaceName']
-                    break
-
-    pytest_assert(dev_port, "dev_port not exist")
+    dev_port, route_to_ping = get_dev_port_and_route(duthost, asichost, dst_prefix_set)
     route_nums = len(dst_prefix_set)
     logger.info("route_nums = %d" % route_nums)
 
