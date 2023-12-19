@@ -42,7 +42,11 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 def trigger_mem_threshold_exceeded_alert(duthost):
     logger.info("Invoking memory checker with low threshold")
-    duthost.shell("/usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
+    cmd = "docker images | grep -w sonic-gnmi"
+    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
+        duthost.shell("/usr/bin/memory_checker gnmi 100", module_ignore_errors=True)
+    else:
+        duthost.shell("/usr/bin/memory_checker telemetry 100", module_ignore_errors=True)
 
 
 def trigger_kernel_event(duthost):
