@@ -462,7 +462,7 @@ class TestSfpApi(PlatformApiTestBase):
                     if info_dict["type_abbrv_name"] == "QSFP-DD":
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if 'ZR' in info_dict["media_interface_code"]:
-                            if 'INPHI CORP' in info_dict['manufacturer']:
+                            if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
                                 continue
