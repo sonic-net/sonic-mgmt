@@ -128,7 +128,7 @@ Verify functionality of ACL Tag configuration where Tag updated.
 - teardown
     - Remove Rule.
     - Remove Tag.
- 
+
 ### Test case \#6 - ACL Tag Remove IP Address
 
 #### Test objective
