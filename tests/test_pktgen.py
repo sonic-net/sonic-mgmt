@@ -84,9 +84,9 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
     for entry in cpu_before:
         pytest_assert(
-            float(entry) < cpu_threshold,
+            float(entry) > cpu_threshold,
             "Cpu util was above threshold {} for atleast 1 process"
-            " before sending pktgen traffic".format(cpu_threshold))
+            "before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
