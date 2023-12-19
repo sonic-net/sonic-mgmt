@@ -240,7 +240,7 @@ steps:
       echo "##[group][test_plan.py] poll LOCK_TESTBED status"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py poll -i TEST_PLAN_ID "--expected-state LOCK_TESTBED"
+          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" "--expected-state LOCK_TESTBED"
       done
       echo "##[endgroup]"
 
@@ -263,7 +263,7 @@ steps:
       echo "##[group][test_plan.py] poll PREPARE_TESTBED status"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py poll -i TEST_PLAN_ID --expected-state PREPARE_TESTBED
+          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state PREPARE_TESTBED
       done
       echo "##[endgroup]"
     displayName: "Prepare testbed"
@@ -284,7 +284,7 @@ steps:
       echo "##[group][test_plan.py] poll EXECUTING status"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py poll -i TEST_PLAN_ID --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
+          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state EXECUTING --expected-result ${{ parameters.EXPECTED_RESULT }}
       done
       echo "##[endgroup]"
     displayName: "Run test"
@@ -307,7 +307,7 @@ steps:
           echo "##[group][test_plan.py] poll KVMDUMP status"
           for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
           do
-              python ./.azure-pipelines/test_plan.py poll -i TEST_PLAN_ID --expected-state KVMDUMP
+              python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state KVMDUMP
           done
           echo "##[endgroup]"
         condition: succeededOrFailed()
@@ -318,7 +318,7 @@ steps:
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py cancel -i TEST_PLAN_ID
+          python ./.azure-pipelines/test_plan.py cancel -i "$(TEST_PLAN_ID)"
       done
     condition: always()
     displayName: "Finalize running test plan"

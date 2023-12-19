@@ -5,6 +5,7 @@ import ast
 import json
 import os
 import sys
+import copy
 import time
 from datetime import datetime, timedelta
 
@@ -865,7 +866,7 @@ if __name__ == "__main__":
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
-            test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
+            test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
                     repo=repo,
                     reason=reason,
@@ -888,6 +889,7 @@ if __name__ == "__main__":
                     specific_param = parsed_specific_param
 
             for num in range(args.test_plan_num):
+                test_plan_name = copy.copy(test_plan_prefix)
                 if args.test_plan_num > 1:
                     test_plan_name = "{}_{}".format(test_plan_name, num + 1)
 
