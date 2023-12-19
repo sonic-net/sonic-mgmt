@@ -178,9 +178,6 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     # the profile is removed from the DB in all namespaces.
     submit_async_task(delete_macsec_profile, (duthost, None, profile_name))
 
-    # Save config
-    duthost.command("sudo config save -y")
-
     # Delete the macsec profile in neighbors
     for d in devices:
         submit_async_task(delete_macsec_profile, (d, None, profile_name))
@@ -220,9 +217,6 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
         submit_async_task(enable_macsec_port, (duthost, dut_port, profile_name))
         submit_async_task(enable_macsec_port, (nbr["host"], nbr["port"], profile_name))
     wait_all_complete(timeout=180)
-
-    # Save config
-    duthost.command("sudo config save -y")
 
     # 3. Wait for interface's macsec ready
     for dut_port, nbr in list(ctrl_links.items()):
