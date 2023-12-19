@@ -196,6 +196,9 @@ r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, err
 # NTPsec logs a message with ERR in it at NOTICE level when exiting gracefully, ignore it
 r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
 
+# Race condition while removing a vlan member, no functionality impact
+r, ". *ERR swss#orchagent: :- update: FdbOrch MOVE notification: Failed to get port by bridge port ID.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/7895
 # https://github.com/Azure/sonic-sairedis/issues/582
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed getting attrib SAI_BRIDGE_PORT_ATTR_ISOLATION_GROUP"
