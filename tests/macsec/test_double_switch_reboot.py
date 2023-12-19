@@ -49,8 +49,8 @@ def reboot_nbr(nbrhost):
 
 
 @pytest.fixture(scope='module')
-def setup(request, tbinfo, duthosts, rand_one_dut_hostname, nbrhosts):
-    duthost = duthosts[rand_one_dut_hostname]
+def setup(request, tbinfo, duthosts, enum_frontend_dut_hostname, nbrhosts):
+    duthost = duthosts[enum_frontend_dut_hostname]
     tor1 = duthost.shell("show lldp table")['stdout'].split("\n")[5].split()[1]
     nbrhost = nbrhosts[tor1]["host"]
 
