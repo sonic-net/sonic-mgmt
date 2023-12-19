@@ -169,6 +169,11 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         # Skip dhcp_relay check if dhcp_server is enabled
         if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
 
 

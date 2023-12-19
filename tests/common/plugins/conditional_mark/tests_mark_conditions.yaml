@@ -246,15 +246,19 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
-    reason: "Not supported on backend , broadcom before 202012 release and innovium"
+    conditions_logical_operator: or
+    reason: "Not supported on backend , broadcom before 202012 release and innovium, Arista 7260CX3 in 202305"
     conditions:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
+      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium"
+    conditions_logical_operator: or
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium, Arista 7260CX3 in 202305"
     conditions:
       - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
+      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -410,15 +414,25 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
 
+ecmp/test_ecmp_sai_value.py:
+  skip:
+    reason: "Only support Broadcom T1/T0 topology with 20230531.12 or later image"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+      - "asic_type not in ['broadcom']"
+      - "release in ['201911', '202012', '202205', '202211']"
+
 ecmp/test_fgnhg.py:
   skip:
     conditions_logical_operator: or
-    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped"
+    reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped; Skip on issue 7755"
     conditions:
       - "branch in ['201811', '201911']"
       - "platform in ['x86_64-mlnx_msn2700-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/7755
 
 #######################################
 #####         everflow            #####
@@ -503,13 +517,6 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
-
-generic_config_updater/test_eth_interface.py::test_replace_fec:
-  skip:
-    reason: 'replace_fec ethernet test depends on StateDB values. GCU needs to be updated to consider StateDB'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8600
-
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -653,6 +660,15 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2']"
 
 #######################################
+#######         link_flap         #####
+#######################################
+link_flap/test_cont_link_flap.py:
+  xfail:
+    reason: "system could be not reaching stable status while BGP converged"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/10955
+
+#######################################
 #####           macsec            #####
 #######################################
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
@@ -709,21 +725,6 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
   xfail:
     strict: True
     reason: "Known NTP bug"
-
-#######################################
-#####     override_config_table   #####
-#######################################
-override_config_table/test_override_config_table.py:
-  skip:
-    reason: "Skip override-config-table testing on multi-asic platforms, test provided golden config format is not compatible with multi-asics"
-    conditions:
-      - is_multi_asic == True
-
-override_config_table/test_override_config_table_masic.py:
-  skip:
-    reason: "Skip override-config-table-masic testing on single-asic platforms, test provided golden config format is not compatible with single-asics"
-    conditions:
-      - is_multi_asic == False
 
 #######################################
 #####           pc               #####
@@ -1010,6 +1011,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_l
     conditions:
       - "platform in ['x86_64-arista_7050cx3_32s']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
+  skip:
+    reason: "All Port Watermark test is verified only on Cisco Platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
   skip:
     reason: "Shared reservation size test is not supported."
@@ -1198,6 +1205,15 @@ telemetry/test_telemetry.py:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
 #######################################
+#####         pktgen              #####
+#######################################
+test_pktgen.py:
+   skip:
+     reason: "Currently only supported in cisco-8000"
+     conditions:
+        - "asic_type not in ['cisco-8000']"
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
@@ -1248,6 +1264,12 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_vnet_route_leak.py:
+  skip:
+    reason: "Test skipped due to issue #8374"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
 vxlan/test_vnet_vxlan.py:
   skip:
     reason: "1. Enable tests only for: mellanox, barefoot
@@ -1256,6 +1278,12 @@ vxlan/test_vnet_vxlan.py:
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
+vxlan/test_vxlan_crm.py:
+  skip:
+    reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0'])"
 
 vxlan/test_vxlan_ecmp.py:
   skip:

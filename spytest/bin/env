@@ -26,7 +26,10 @@ else
   export SCID_PYTHON_BIN=$SCID/tools/ActivPython/current/bin
 fi
 
-export SCID_TGEN_PATH=$SCID/tgen
+if [ -z "$SCID_TGEN_PATH=" ]; then
+  export SCID_TGEN_PATH=$SCID/tgen
+fi
+
 if [ -z "$SPYTEST_PYTHON" -o -n "$SPYTEST_PYTHON_VERSION" ]; then
   if [ -f $SCID_PYTHON_BIN/python$SPYTEST_PYTHON_VERSION ]; then
     export SPYTEST_PYTHON=$SCID_PYTHON_BIN/python$SPYTEST_PYTHON_VERSION
