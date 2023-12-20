@@ -90,7 +90,8 @@ class MacsecPlugin(object):
                     # will drop it for macsec kernel module does not correctly handle it.
                     pytest.skip(
                         "macsec on dut vsonic, neighbor eos, send_sci false")
-
+            if 't2' not in topo_name:
+                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
             setup_macsec_configuration(macsec_duthost, ctrl_links,
                                        profile['name'], profile['priority'], profile['cipher_suite'],
                                        profile['primary_cak'], profile['primary_ckn'], profile['policy'],
@@ -134,7 +135,7 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="module")
     def unctrl_links(self, macsec_duthost, tbinfo, nbrhosts, ctrl_links):
-        unctrl_nbr_names = self.get_ctrl_nbr_names(macsec_duthost, nbrhosts)
+        unctrl_nbr_names = set(nbrhosts.keys())
         for _, nbr in ctrl_links.items():
             if nbr["name"] in unctrl_nbr_names:
                 unctrl_nbr_names.remove(nbr["name"])
