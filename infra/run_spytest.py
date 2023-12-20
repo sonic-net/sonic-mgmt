@@ -94,6 +94,30 @@ def send_topo_file_to_vxr():
     client.connect(ports_config['sonic_mgmt']['HostAgent'], ports_config['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=client.open_sftp()
     ftp_client.put(TOPO_FILE_PATH,'sonic-test/sonic-mgmt/spytest/topo')
+    ftp_client.close()
+    client.close()
+
+    return 0, ""
+
+def send_test_files_to_vxr(script_file):
+    print("Sending test files to vxr")
+    ports_config = get_ports_config()
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ports_config['sonic_mgmt']['HostAgent'], ports_config['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+
+    ftp_client=client.open_sftp()
+    ftp_client.put(f"../sonic-mgmt/spytest/{script_file}", f"sonic-test/sonic-mgmt/spytest/{script_file}")
+    with open(f"../sonic-mgmt/spytest/{script_file}", 'r') as f:
+        for line in f.readlines():
+            if "+file:" in line:
+                _, test_file = line.split(":")
+                test_file = test_file.strip()
+                ftp_client.put(f"../sonic-mgmt/spytest/tests/{test_file}", f"sonic-test/sonic-mgmt/spytest/tests/{test_file}")
+
+    ftp_client.close()
+    client.close()
 
     return 0, ""
 
@@ -104,7 +128,7 @@ def exec_command_raise_error(client, cmd):
         print(f"Encountered error while executing '{cmd}', stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
         raise Exception(stdout.channel.recv_exit_status(), stderr.readlines())
 
-def configure_vxr(tar_ball):
+def configure_vxr(tar_ball, script_file):
     print("Starting step: configure_vxr")
     ports_config = get_ports_config()
 
@@ -130,6 +154,10 @@ def configure_vxr(tar_ball):
     if rc != 0:
         return rc, msg
     rc, msg = send_topo_file_to_vxr()
+    if rc != 0:
+        return rc, msg
+    
+    rc,msg = send_test_files_to_vxr(script_file)
     if rc != 0:
         return rc, msg
     
@@ -290,7 +318,7 @@ def main():
         print(f"error at start_vxr! msg: {msg}")
         sys.exit(rc)
 
-    rc, msg = configure_vxr(tar_ball)
+    rc, msg = configure_vxr(tar_ball, script_file)
     if rc != 0:
         print(f"error at configure_vxr! msg: {msg}")
         sys.exit(rc)

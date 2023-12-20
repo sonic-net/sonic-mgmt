@@ -53,6 +53,7 @@ main_file = "group_vars/vm_host/main.yml"
 vmHostCreds_file = "group_vars/vm_host/creds.yml"
 labLinks_file = "files/sonic_lab_links.csv"
 testbed_file = "testbed.yaml"
+testbed_csv_file = "testbed.csv"
 devices_file = "files/sonic_lab_devices.csv"
 eosCred_file = "group_vars/eos/creds.yml"
 fanoutSecrets_file = "group_vars/fanout/secrets.yml"
@@ -73,6 +74,7 @@ backupList.append(main_file)
 backupList.append(vmHostCreds_file)
 backupList.append(labLinks_file)
 backupList.append(testbed_file)
+backupList.append(testbed_csv_file)
 backupList.append(devices_file)
 backupList.append(eosCred_file)
 backupList.append(fanoutSecrets_file)
@@ -297,6 +299,66 @@ def makeTestbed(data, outfile):
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.yaml")
+
+def makeTestbedYaml(data, outfile):
+    topology = data
+    csv_file = outfile
+    result = dict()
+    resultList = list()
+
+    for group, groupDetails in topology.items():
+        confName = group
+        groupName = groupDetails.get("group-name")
+        topo = groupDetails.get("topo")
+        ptf_image_name = groupDetails.get("ptf_image_name")
+        ptf_ip = groupDetails.get("ptf_ip")
+        ptf_ipv6 = groupDetails.get("ptf_ipv6")
+        server = groupDetails.get("server")
+        vm_base = groupDetails.get("vm_base")
+        dut = groupDetails.get("dut")
+        ptf = groupDetails.get("ptf")
+        comment = groupDetails.get("comment")
+
+        # catch empty types
+        if not groupName:
+            groupName = ""
+        if not topo:
+            topo = ""
+        if not ptf_image_name:
+            ptf_image_name = ""
+        if not ptf_ip:
+            ptf_ip = ""
+        if not ptf_ipv6:
+            ptf_ipv6 = ""
+        if not server:
+            server = ""
+        if not vm_base:
+            vm_base = ""
+        if not dut:
+            dut = ""
+        if not ptf:
+            ptf = ""
+        if not comment:
+            comment = ""
+        if dut is not list():
+            dut = [dut]
+
+        result.update({'conf-name': confName,
+                       'group-name': groupName,
+                       "topo": topo,
+                       "ptf_image_name": ptf_image_name,
+                       "ptf": ptf,
+                       "ptf_ip": ptf_ip,
+                       "ptf_ipv6": ptf_ipv6,
+                       "server": server,
+                       "vm_base": vm_base,
+                       "dut": dut,
+                       "inv_name": 'lab',
+                       "auto_recover": 'True',
+                       "comment": comment})
+        resultList.append(result)
+        with open(outfile, "w") as toWrite:
+            yaml.dump(resultList, stream=toWrite, default_flow_style=False, sort_keys=False)
 
 
 """
@@ -997,7 +1059,7 @@ def main():
     # Load Data
     print("LOADING PROCESS STARTED")
     print("LOADING: " + args.i)
-    doc = yaml.load(open(args.i, 'r'))
+    doc = yaml.load(open(args.i, 'r'), Loader=yaml.FullLoader)
     # dictionary contains information about devices
     devices = dict()
     generateDictionary(doc, devices, "devices")             # load devices
@@ -1037,7 +1099,8 @@ def main():
     makeSonicLabDevices(devices, args.basedir + devices_file)
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
     # Generate testbed.yaml (TESTBED)
-    makeTestbed(testbed, args.basedir + testbed_file)
+    makeTestbed(testbed, args.basedir + testbed_csv_file)
+    makeTestbedYaml(testbed, args.basedir + testbed_file)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)
     # Generate vm_host\creds.yml (CREDS)
     makeVMHostCreds(veos, args.basedir + vmHostCreds_file)

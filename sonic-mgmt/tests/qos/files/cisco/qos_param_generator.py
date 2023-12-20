@@ -16,6 +16,9 @@ class QosParamCisco(object):
         self.portSpeedCableLength = portSpeedCableLength
         if self.portSpeedCableLength not in self.qos_params:
             self.qos_params[self.portSpeedCableLength] = {}
+        if "pkts_num_leak_out" not in self.qos_params[self.portSpeedCableLength]:
+            # Provide a global default of 0 if not specified
+            self.qos_params[self.portSpeedCableLength]["pkts_num_leak_out"] = 0
         self.ingress_pool_size = None
         self.ingress_pool_headroom = None
         if "ingress_lossless_pool" in self.bufferConfig["BUFFER_POOL"]:
@@ -32,12 +35,17 @@ class QosParamCisco(object):
         lossless_prof_name = "pg_lossless_{}_profile".format(self.portSpeedCableLength)
         lossless_prof = self.bufferConfig["BUFFER_PROFILE"][lossless_prof_name]
         # Init device parameters
-        # TODO: topo-t2 and gr support
-        asic_params = {"gb": (6144000,)}
+        # TODO: topo-t2 support
+        # Per-asic variable description:
+        # 0: Max queue depth in bytes
+        # 1: Flow control configuration on this device, either 'separate' or 'shared'.
+        # 2: Number of packets margin for the quantized queue watermark tests.
+        asic_params = {"gb": (6144000, "separate", 3072),
+                       "gr": (24576000, "shared", 18000)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
             # Asic dependent parameters
-            self.max_depth, = asic_params[dutAsic]
+            self.max_depth, self.flow_config, self.q_wmk_margin = asic_params[dutAsic]
             # Calculate intermediate variables
             max_drop = self.max_depth * (1 - 0.0748125)
             max_pause = int(max_drop - int(lossless_prof["xoff"]))
@@ -48,11 +56,20 @@ class QosParamCisco(object):
                 attempted_pause = int(lossless_prof["static_th"])
             else:
                 assert False, "Lossless profile had no dynamic_th or static_th: {}".format(lossless_prof)
-            self.pause_thr = min(attempted_pause, max_pause) + 8 * self.buffer_size
-            self.drop_thr = self.pause_thr + int(lossless_prof["xoff"]) + (12 * self.buffer_size)
+            pre_pad_pause = min(attempted_pause, max_pause)
+            if dutAsic == "gr":
+                refined_pause_thr = self.gr_get_hw_thr_buffs(pre_pad_pause // self.buffer_size) * self.buffer_size
+                self.log("GR pre-pad pause threshold changed from {} to {}".format(pre_pad_pause, refined_pause_thr))
+                pre_pad_pause = refined_pause_thr
+            pre_pad_drop = pre_pad_pause + int(lossless_prof["xoff"])
+            # Tune thresholds with padding for precise testing
+            self.pause_thr = pre_pad_pause + (8 * self.buffer_size)
+            self.drop_thr = pre_pad_drop + (12 * self.buffer_size)
             self.log("Max pause thr bytes:       {}".format(max_pause))
             self.log("Attempted pause thr bytes: {}".format(attempted_pause))
+            self.log("Pre-pad pause thr bytes:   {}".format(pre_pad_pause))
             self.log("Pause thr bytes:           {}".format(self.pause_thr))
+            self.log("Pre-pad drop thr bytes:    {}".format(pre_pad_drop))
             self.log("Drop thr bytes:            {}".format(self.drop_thr))
 
     def run(self):
@@ -76,6 +93,32 @@ class QosParamCisco(object):
         self.__define_q_watermark_all_ports()
         self.__define_pg_drop()
         return self.qos_params
+
+    def gr_get_mantissa_exp(self, thr):
+        assert thr >= 0, "Expected non-negative threshold, not {}".format(thr)
+        found = False
+        exp = 1
+        mantissa = 0
+        reduced_thr = thr >> 4
+        further_reduced_thr = thr >> 5
+        for i in range(32):
+            ith_bit = 1 << i
+            if further_reduced_thr < ith_bit <= reduced_thr:
+                mantissa = thr // ith_bit
+                exp = i
+                found = True
+                break
+        if found:
+            return mantissa, exp
+        return None, None
+
+    def gr_get_hw_thr_buffs(self, thr):
+        ''' thr must be in units of buffers '''
+        mantissa, exp = self.gr_get_mantissa_exp(thr)
+        if mantissa is None or exp is None:
+            raise Exception("Failed to convert thr {}".format(thr))
+        hw_thr = mantissa * (2 ** exp)
+        return hw_thr
 
     def log(self, msg):
         logger.info("{}{}".format(self.LOG_PREFIX, msg))
@@ -248,14 +291,13 @@ class QosParamCisco(object):
             self.write_params("wm_buf_pool_lossy", lossy_params)
 
     def __define_q_shared_watermark(self):
-        margin = 3072
         if self.should_autogen(["wm_q_shared_lossless"]):
             lossless_params = {"dscp": 3,
                                "ecn": 1,
                                "queue": 3,
                                "pkts_num_fill_min": 0,
                                "pkts_num_trig_ingr_drp": self.drop_thr // self.buffer_size,
-                               "pkts_num_margin": margin,
+                               "pkts_num_margin": self.q_wmk_margin,
                                "cell_size": self.buffer_size}
             self.write_params("wm_q_shared_lossless", lossless_params)
         if self.should_autogen(["wm_q_shared_lossy"]):
@@ -264,7 +306,7 @@ class QosParamCisco(object):
                             "queue": 0,
                             "pkts_num_fill_min": 0,
                             "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
-                            "pkts_num_margin": margin,
+                            "pkts_num_margin": self.q_wmk_margin,
                             "cell_size": self.buffer_size}
             self.write_params("wm_q_shared_lossy", lossy_params)
 
@@ -273,7 +315,7 @@ class QosParamCisco(object):
             params = {"dscp": 8,
                       "ecn": 1,
                       "pg": 0,
-                      "flow_config": "separate",
+                      "flow_config": self.flow_config,
                       "pkts_num_trig_egr_drp": self.max_depth // self.buffer_size,
                       "pkts_num_margin": 4,
                       "packet_size": 64,
@@ -333,7 +375,7 @@ class QosParamCisco(object):
         if self.should_autogen(["wm_q_wm_all_ports"]):
             params = {"ecn": 1,
                       "pkt_count": self.max_depth // self.buffer_size // packet_buffs,
-                      "pkts_num_margin": 1024,
+                      "pkts_num_margin": self.q_wmk_margin,
                       "cell_size": self.buffer_size,
                       "packet_size": packet_size}
             self.write_params("wm_q_wm_all_ports", params)

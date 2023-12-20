@@ -1,6 +1,6 @@
 # Modules
-+file:tortuga/test_neighbor_ping.py
-+file:tortuga/vxlan/test_l3vni_basic.py
++file:cisco/tortuga/test_neighbor_ping.py
++file:cisco/tortuga/vxlan/test_l3vni_basic.py
 
 #Runtime Arguments
 +args:--device-feature-group master
