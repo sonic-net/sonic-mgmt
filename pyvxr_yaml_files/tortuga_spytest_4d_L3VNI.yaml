@@ -1,0 +1,126 @@
+simulation:
+  slurm_flags:
+        hours: 120
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  staggered_boot_delay: 60
+devices:
+  leaf0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    vxr_sim_config:
+      shelf:
+        Configspine1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.7/npl
+        Configspine1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/thgowda/sonic-test/sim/sonic-buildimage-cisco.202205.dsf-p2/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+    - Ethernet0
+    - Ethernet4
+    - Ethernet8
+    - Ethernet12
+    - Ethernet16
+    xr_port_redir:
+    - 22
+    console_ports: [62101]
+  leaf1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    vxr_sim_config:
+      shelf:
+        Configspine1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.7/npl
+        Configspine1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/thgowda/sonic-test/sim/sonic-buildimage-cisco.202205.dsf-p2/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+    - Ethernet0
+    - Ethernet4
+    - Ethernet8
+    - Ethernet12
+    - Ethernet16
+    xr_port_redir:
+    - 22
+    console_ports: [62102]
+  spine0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    vxr_sim_config:
+      shelf:
+        Configspine1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.7/npl
+        Configspine1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/thgowda/sonic-test/sim/sonic-buildimage-cisco.202205.dsf-p2/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+    - Ethernet0
+    - Ethernet4
+    - Ethernet8
+    - Ethernet12
+    - Ethernet16
+    xr_port_redir:
+    - 22
+    console_ports: [62103]
+  spine1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    vxr_sim_config:
+      shelf:
+        Configspine1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.7/npl
+        Configspine1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/thgowda/sonic-test/sim/sonic-buildimage-cisco.202205.dsf-p2/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+    - Ethernet0
+    - Ethernet4
+    - Ethernet8
+    - Ethernet12
+    - Ethernet16
+    xr_port_redir:
+    - 22
+    console_ports: [62104]
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    spine0_leaf0_conn1:
+    - spine0.Ethernet0
+    - leaf0.Ethernet0
+    spine0_leaf1_conn1:
+    - spine0.Ethernet8
+    - leaf1.Ethernet12
+    spine1_leaf0_conn1:
+    - spine1.Ethernet0
+    - leaf0.Ethernet12
+    spine1_leaf1_conn1:
+    - spine1.Ethernet8
+    - leaf1.Ethernet0
