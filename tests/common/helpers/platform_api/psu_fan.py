@@ -67,8 +67,12 @@ def get_target_speed(conn, psu_idx, fan_idx):
     return psu_fan_api(conn, psu_idx, fan_idx, 'get_target_speed')
 
 
-def get_speed_tolerance(conn, psu_idx, fan_idx):
-    return psu_fan_api(conn, psu_idx, fan_idx, 'get_speed_tolerance')
+def is_under_speed(conn, psu_idx, fan_idx):
+    return psu_fan_api(conn, psu_idx, fan_idx, 'is_under_speed')
+
+
+def is_over_speed(conn, psu_idx, fan_idx):
+    return psu_fan_api(conn, psu_idx, fan_idx, 'is_over_speed')
 
 
 def set_speed(conn, psu_idx, fan_idx, speed):
