@@ -2,8 +2,11 @@
 ### playbook to deploy the mcx switch
 ### Use this playbook to deploy the console configurations of mcx switch in SONiC testbed
 ################################################################################################
+- name: Get inventory name
+  set_fact: inv_name={{ inventory_file.split("/")[-1] }}
+
 - name: Gathering lab graph facts about the device
-  conn_graph_facts: host={{ inventory_hostname }}
+  conn_graph_facts: hosts={{ groups[inv_name] }} ignore_errors=True
   delegate_to: localhost
   tags: always
 
