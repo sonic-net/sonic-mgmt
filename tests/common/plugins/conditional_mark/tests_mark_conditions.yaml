@@ -577,10 +577,8 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Not working on non-mellanox platform. Test does not support dualtor topology."
-    conditions_logical_operator: "OR"
+    reason: "Test does not support dualtor topology."
     conditions:
-      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/7704"
       - "'dualtor' in topo_name"
 
 #######################################
