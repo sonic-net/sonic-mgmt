@@ -242,6 +242,7 @@ class AnsibleHostsBase(object):
             "forks": 6,
             "connection": "smart",
             "verbosity": 2,
+            "timeout": 30,
             "become_method": "sudo"
         }
         if options:
