@@ -13,7 +13,7 @@ import base64
 from allure_server import AllureServer
 import paramiko
 
-ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR = '10.22.183.173', 5050, '/tmp/allure_results'
+ALLURE_SERVER_HOST, ALLURE_DIR = 'sonic-ci-vip-lnx.cisco.com', '/tmp/allure_results'
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -62,7 +62,7 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
 # Generate allure report using data in ALLURE_DIR
 def generate_allure_report(build_id, current_result_file):
     try:
-        allure_server_obj = AllureServer(ALLURE_SERVER_IP, ALLURE_SERVER_PORT, ALLURE_DIR, build_id)
+        allure_server_obj = AllureServer(ALLURE_SERVER_HOST, ALLURE_DIR, project_id=build_id)
         report_url = allure_server_obj.generate_allure_report()
         print("Allure report generated, url is: ", report_url)
         current_result_file.write("Allure report generated, url is: {}\n".format(report_url))

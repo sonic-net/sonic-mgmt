@@ -14,7 +14,7 @@ from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
 
 VXR_PORTS_FILENAME = "vxr_ports.yaml"
-TOPO_FILE_PATH = "../spytest_tb_files/tortuga_spytest_topo_4d.yaml"
+TOPO_FILE_PATH = "../spytest_tb_files/tortuga_spytest_topo_4d_single_link.yaml"
 RESULT_FOLDER_PATH = "/home/vxr/sonic-test/sonic-mgmt/spytest/spytest_results"
 test_start_time = ""
 

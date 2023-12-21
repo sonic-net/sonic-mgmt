@@ -1,13 +1,14 @@
 diff --git a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-index 0324cba..b57bafc 100644
+index 7b84bdfe9e..be1b15ab3e 100644
 --- a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
 +++ b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-@@ -57,6 +57,9 @@ r, ".* ERR syncd#syncd:.*updateSupportedBufferPoolCounters: BUFFER_POOL_WATERMAR
- r, ".* ERR syncd#syncd:.*SAI_API_HOSTIF: src/sai_trap.cpp:.*: Invalid trap event code 45.*"
+@@ -61,6 +61,10 @@ r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
+ 
  r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
  
 +# Sim related - Cisco
 +r, ".* ERR pmon#pcied.*: PCIe device status check : FAILED.*"
++r, ".* ERR pmon#CCmisApi.*: PCIe device status check : FAILED.*"
 +
  # White list below messages found on KVM for now. Need to address them later.
  r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
