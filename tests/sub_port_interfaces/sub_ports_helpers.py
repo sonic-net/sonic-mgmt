@@ -286,7 +286,7 @@ def generate_and_verify_decap_traffic(duthost, ptfadapter, src_port, dst_port, i
 
     # Build expected packet
     inner_packet = pkt[packet.IP].payload[packet.IP].copy()
-    exp_pkt = Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) / Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
+    exp_pkt = scapyall.Ether(src=router_mac, dst=ptfadapter.dataplane.get_mac(0, dst_port_number)) / scapyall.Dot1Q(vlan=int(dst_port.split('.')[1])) / inner_packet
     exp_pkt['IP'].ttl -= 1
 
     update_dut_arp_table(duthost, ip_dst)
