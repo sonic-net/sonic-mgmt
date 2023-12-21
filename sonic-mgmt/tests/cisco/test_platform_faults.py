@@ -9,8 +9,6 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.sanity_check(skip_sanity=True),
-    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
