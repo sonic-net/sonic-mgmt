@@ -175,6 +175,7 @@ all:
           - mc0
           - mx
           - dpu
+          - dpu-1
 
 vm_host_1:
   hosts:
