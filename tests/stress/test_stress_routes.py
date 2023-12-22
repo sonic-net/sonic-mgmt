@@ -68,12 +68,12 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
         announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name)
         loop_times -= 1
 
-    sleep_to_wait(CRM_POLLING_INTERVAL * 120)
+    def routesRestored():
+        ipv4_route_used_after = get_crm_resources(duthost, "ipv4_route", "used")
+        ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")
 
-    ipv4_route_used_after = get_crm_resources(duthost, "ipv4_route", "used")
-    ipv6_route_used_after = get_crm_resources(duthost, "ipv6_route", "used")
+        return (abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS and
+                abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS )
 
-    pytest_assert(abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                  "ipv4 route used after is not equal to it used before")
-    pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                  "ipv6 route used after is not equal to it used before")
+    pytest_assert(wait_until(10*60, CRM_POLLING_INTERVAL, 0, routesRestored),
+                  "ipv4/ipv6 route used after is not equal to it used before")
