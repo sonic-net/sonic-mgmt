@@ -617,7 +617,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f',
                         47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
 
-     th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+    td2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                         2: 'c0:ff:ee:00:00:11',
                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
                         5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
@@ -644,7 +644,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                         2: 'c0:ff:ee:00:00:11',
                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
                         5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
@@ -671,7 +671,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-    th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+    th2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                         2: 'c0:ff:ee:00:00:11',
                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
                         5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
