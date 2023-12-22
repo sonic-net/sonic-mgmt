@@ -5,6 +5,7 @@ Tests for the `counterpoll queue/watermark/pg-drop ...` commands in SONiC
 import allure
 import logging
 import random
+import time
 import pytest
 
 from tests.common.config_reload import config_reload
