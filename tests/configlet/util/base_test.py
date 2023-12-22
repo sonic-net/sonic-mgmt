@@ -83,18 +83,18 @@ def init(duthost):
     if not os.path.exists(base_dir):
         os.system("mkdir -p {}".format(base_dir))
 
-    for i in [data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir,
-              patch_add_t0_dir, patch_rm_t0_dir, files_dir]:
-        os.mkdir(i)
+    for i in [ data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir,
+            patch_add_t0_dir, patch_rm_t0_dir, files_dir ]:
+        if not os.path.exists(i):
+            os.mkdir(i)
 
-    init_data["files_dir"] = files_dir
+    init_data["files_dir"] = files_dir 
     init_data["data_dir"] = data_dir
     init_data["orig_db_dir"] = orig_db_dir
     init_data["switch_name"] = duthost.hostname
 
     init_data["version"] = duthost.os_version
     log_debug("Created data_dir={} version={}".format(data_dir, init_data["version"]))
-
 
 def backup_minigraph(duthost):
     ret = duthost.stat(path="/etc/sonic/orig/minigraph.xml.addRack.orig")
