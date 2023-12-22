@@ -155,7 +155,10 @@ def check_ports_up(duthost, dut_ports, expect_speed=None):
         if expect_speed:
             int_status = show_interface_output['int_status']
             for dut_port in dut_ports:
-                actual_speed = int_status[dut_port]['speed'][:-1] + '000'
+                if int_status[dut_port]['speed'][-1] == 'G':
+                    actual_speed = int_status[dut_port]['speed'][:-1] + '000'
+                else:
+                    actual_speed = int_status[dut_port]['speed'][:-1]
                 if actual_speed != expect_speed:
                     return False
         return True
@@ -217,7 +220,10 @@ def test_auto_negotiation_advertised_speeds_all(enum_dut_portname_module_fixture
     int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
     common_supported_speeds = enum_dut_portname_module_fixture['speeds']
     highest_speed = max([int(p) for p in common_supported_speeds])
-    actual_speed = int(int_status[dut_port]['speed'][:-1] + '000')
+    if int_status[dut_port]['speed'][-1] == 'G':
+        actual_speed = int(int_status[dut_port]['speed'][:-1] + '000')
+    else:
+        actual_speed = int(int_status[dut_port]['speed'][:-1])
     pytest_assert(actual_speed == highest_speed, 'Actual speed is not the highest speed')
 
 
