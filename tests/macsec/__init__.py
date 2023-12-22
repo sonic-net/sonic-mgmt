@@ -104,7 +104,6 @@ class MacsecPlugin(object):
     def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
         def __shutdown_macsec():
             profile = macsec_profile
-            yield
             cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
