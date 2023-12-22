@@ -1022,6 +1022,15 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
       - "asic_type not in ['cisco-8000']"
 
 #######################################
+#####      reset_factory          #####
+#######################################
+reset_factory/test_reset_factory.py:
+  skip:
+    reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed."
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11103
+
+#######################################
 #####         restapi             #####
 #######################################
 restapi/test_restapi.py:
