@@ -240,7 +240,7 @@ steps:
       echo "##[group][test_plan.py] poll LOCK_TESTBED status"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
       do
-          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" "--expected-state LOCK_TESTBED"
+          python ./.azure-pipelines/test_plan.py poll -i "$(TEST_PLAN_ID)" --expected-state LOCK_TESTBED
       done
       echo "##[endgroup]"
 
