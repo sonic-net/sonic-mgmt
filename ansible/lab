@@ -47,6 +47,12 @@ all:
           ansible_host: 10.250.0.100
           ansible_ssh_user: root
           ansible_ssh_pass: root
+    trex:
+      hosts:
+        trex1-1:
+          ansible_host: 10.251.0.204
+          ansible_ssh_user: admin5
+          ansible_ssh_pass: admin
 
 sonic_sn2700_40:
   vars:
