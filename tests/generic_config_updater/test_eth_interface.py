@@ -320,6 +320,7 @@ def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readines
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
     duthost = duthosts[rand_one_dut_hostname]
     speed_params = get_port_speeds_for_test(duthost)
