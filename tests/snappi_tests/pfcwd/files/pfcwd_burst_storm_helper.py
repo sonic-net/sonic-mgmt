@@ -32,7 +32,9 @@ def run_pfcwd_burst_storm_test(api,
                                prio_list,
                                prio_dscp_map,
                                pause_pps,
-                               traffic_rate):
+                               traffic_rate,
+                               pause_flow_dur_sec,
+                               iterations):
     """
     Test PFC watchdog under bursty PFC storms
 
@@ -71,10 +73,11 @@ def run_pfcwd_burst_storm_test(api,
     restore_time_sec = get_pfcwd_restore_time(
         host_ans=duthost, intf=dut_port) / 1000.0
 
-    burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
+    burst_cycle_sec = 2 * (poll_interval_sec + detect_time_sec + restore_time_sec + 0.1)
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS * 4)
-    pause_flow_dur_sec = poll_interval_sec * 10
-    pause_flow_gap_sec = 0
+    if not pause_flow_dur_sec:
+        pause_flow_dur_sec = poll_interval_sec * 0.5
+    pause_flow_gap_sec = burst_cycle_sec - pause_flow_dur_sec
 
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
     fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
@@ -106,13 +109,15 @@ def run_pfcwd_burst_storm_test(api,
     exp_dur_sec = BURST_EVENTS * 5 * poll_interval_sec + 1
     duthost.shell("config pfcwd start 400")
     duthost.shell("sonic-clear counter")
+    duthost.shell("sonic-clear queuecounters")
 
     flow_stats = __run_traffic(
         api=api,
         config=testbed_config,
         all_flow_names=all_flow_names,
         exp_dur_sec=exp_dur_sec,
-        total_time=exp_dur_sec+200)
+        total_time=exp_dur_sec+200,
+        iterations=iterations)
 
     logger.info(
         "burst_cycle_sec={}, data_flow_dur_sec={}, "
@@ -125,6 +130,16 @@ def run_pfcwd_burst_storm_test(api,
     duthost.shell("show queue counters")
     duthost.shell("show pfcwd stat")
     duthost.shell("show interface count")
+    f_string = "{:<10}|{:<30}|{:<6}|{:<6}\n"
+    full_output = "\n" + f_string.format("Iteration", "Flow Name", "TX", "RX") + "-"*52
+    for iteration in range(iterations):
+        full_output += "\n"
+        for row in flow_stats[iteration]:
+            full_output += f_string.format(
+                iteration, row.name, row.frames_tx, row.frames_rx)
+        full_output += "-"*52
+    logger.info(full_output)
+
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX)
@@ -278,7 +293,7 @@ def __gen_traffic(testbed_config,
         pause_flow.metrics.loss = True
 
 
-def __run_traffic(api, config, all_flow_names, exp_dur_sec, total_time):
+def __run_traffic(api, config, all_flow_names, exp_dur_sec, total_time, iterations):
     """
     Run traffic and dump per-flow statistics
 
@@ -287,6 +302,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, total_time):
         config (obj): experiment config (testbed config + flow config)
         all_flow_names (list): list of names of all the flows
         exp_dur_sec (float): experiment duration in second
+        iterations (int): Number of times to do the test
 
     Returns:
         per-flow statistics (list)
@@ -296,45 +312,47 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec, total_time):
     logger.info('Wait for Arp to Resolve ...')
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
-    logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    stat_rows = []
+    for iteration in range(iterations):
+        logger.info('Starting transmit on all flows ...')
+        ts = api.transmit_state()
+        ts.state = ts.START
+        api.set_transmit_state(ts)
 
-    time.sleep(exp_dur_sec)
+        time.sleep(exp_dur_sec)
 
-    attempts = 0
-    max_attempts = total_time
+        attempts = 0
+        max_attempts = total_time
 
-    while attempts < max_attempts:
+        while attempts < max_attempts:
+            request = api.metrics_request()
+            request.flow.flow_names = all_flow_names
+            rows = api.get_metrics(request).flow_metrics
+            """ If all the flows have stopped """
+            transmit_states = [row.transmit for row in rows]
+            if len(rows) == len(all_flow_names) and\
+               list(set(transmit_states)) == ['stopped']:
+                time.sleep(SNAPPI_POLL_DELAY_SEC)
+                break
+            else:
+                time.sleep(1)
+                attempts += 1
+
+        pytest_assert(attempts < max_attempts,
+                      "Flows do not stop in {} seconds".format(max_attempts))
+
+        """ Dump per-flow statistics """
+        time.sleep(3)
         request = api.metrics_request()
         request.flow.flow_names = all_flow_names
-        rows = api.get_metrics(request).flow_metrics
-        """ If all the flows have stopped """
-        transmit_states = [row.transmit for row in rows]
-        if len(rows) == len(all_flow_names) and\
-           list(set(transmit_states)) == ['stopped']:
-            time.sleep(SNAPPI_POLL_DELAY_SEC)
-            break
-        else:
-            time.sleep(1)
-            attempts += 1
+        stat_rows.append(api.get_metrics(request).flow_metrics)
 
-    pytest_assert(attempts < max_attempts,
-                  "Flows do not stop in {} seconds".format(max_attempts))
+        logger.info('Stop transmit on all flows ...')
+        ts = api.transmit_state()
+        ts.state = ts.STOP
+        api.set_transmit_state(ts)
 
-    """ Dump per-flow statistics """
-    time.sleep(3)
-    request = api.metrics_request()
-    request.flow.flow_names = all_flow_names
-    rows = api.get_metrics(request).flow_metrics
-
-    logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
-
-    return rows
+    return stat_rows
 
 
 def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
