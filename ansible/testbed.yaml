@@ -1920,3 +1920,18 @@
   inv_name: str
   auto_recover: 'True'
   comment: dev
+
+- conf-name: vms66-t0-4700-1
+  group-name: vms66-3
+  topo: t0-56-o8v48
+  ptf_image_name: docker-ptf
+  ptf: vms66-3
+  ptf_ip: 10.64.247.76/23
+  ptf_ipv6:
+  server: server_66
+  vm_base: VM66073
+  dut:
+    - str3-msn4700-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: bingwang
