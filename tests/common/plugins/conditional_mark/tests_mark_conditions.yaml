@@ -1313,7 +1313,7 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 #####           static_dns        #####
 #######################################
 dns/static_dns/test_static_dns.py::test_static_dns_basic:
-  skip:
+  xfail:
     reason: "1. Failed to compare DNS address
              2. Failed to teardown with Loganalyzer"
     conditions:
