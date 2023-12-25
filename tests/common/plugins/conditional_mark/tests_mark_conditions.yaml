@@ -1135,6 +1135,16 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
+#####           static_dns        #####
+#######################################
+dns/static_dns/test_static_dns.py::test_static_dns_basic:
+  xfail:
+    reason: "1. Failed to compare DNS address
+             2. Failed to teardown with Loganalyzer"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/17611
+
+#######################################
 #####     sub_port_interfaces     #####
 #######################################
 sub_port_interfaces:
@@ -1308,13 +1318,3 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
-
-#######################################
-#####           static_dns        #####
-#######################################
-dns/static_dns/test_static_dns.py::test_static_dns_basic:
-  xfail:
-    reason: "1. Failed to compare DNS address
-             2. Failed to teardown with Loganalyzer"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/17611
