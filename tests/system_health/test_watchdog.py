@@ -35,7 +35,7 @@ def pause_orchagent(duthost):
 
         # skip UT because orchagent pause failed
         pytest.skip("Orchagent does not paused.")
-    
+
     duthost.shell(r"sudo truncate -s 0 /var/log/syslog", module_ignore_errors=True)
 
     yield
