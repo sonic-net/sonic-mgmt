@@ -755,6 +755,10 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
     conditions:
       - "asic_type in ['broadcom', 'mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7293
+  skip:
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11007
 
 #######################################
 ####  test_memory_exhaustion.py   #####
