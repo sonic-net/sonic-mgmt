@@ -51,6 +51,13 @@ def restore_rate_limit(rand_selected_dut):
     Args:
         rand_selected_dut (object): DUT host object
     """
+    output = rand_selected_dut.command('config syslog --help')['stdout']
+    manually_enable_feature = False
+    if 'rate-limit-feature' in output:
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        rand_selected_dut.command('config syslog rate-limit-feature enable')
+        manually_enable_feature = True
     container_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container')
     host_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
 
@@ -63,6 +70,8 @@ def restore_rate_limit(rand_selected_dut):
     rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(
         host_data[0]['burst'], host_data[0]['interval']))
     rand_selected_dut.command('config save -y')
+    if manually_enable_feature:
+        rand_selected_dut.command('config syslog rate-limit-feature disable')
 
 
 @pytest.mark.disable_loganalyzer
