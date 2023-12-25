@@ -108,7 +108,7 @@ def get_pg_lossless_profiles(duthost):
 
 
 @pytest.mark.parametrize("operation", ["replace"])
-def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation):
+def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model):
     pg_lossless_profiles = get_pg_lossless_profiles(duthost)
     pytest_require(pg_lossless_profiles, "DUT has no pg_lossless buffer profiles")
     new_dynamic_th = "2"
@@ -116,10 +116,10 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation):
 
     for pg_lossless_profile in pg_lossless_profiles:
         individual_patch = {
-                    "op": "{}".format(operation),
-                    "path": "/BUFFER_PROFILE/{}/dynamic_th".format(pg_lossless_profile),
-                    "value": new_dynamic_th
-                }
+            "op": "{}".format(operation),
+            "path": "/BUFFER_PROFILE/{}/dynamic_th".format(pg_lossless_profile),
+            "value": new_dynamic_th
+        }
         json_patch.append(individual_patch)
 
     tmpfile = generate_tmpfile(duthost)
