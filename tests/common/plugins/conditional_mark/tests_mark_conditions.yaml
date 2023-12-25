@@ -277,6 +277,16 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
+#####           static_dns        #####
+#######################################
+dns/static_dns/test_static_dns.py::test_static_dns_basic:
+  xfail:
+    reason: "1. Failed to compare DNS address
+             2. Failed to teardown with Loganalyzer"
+    conditions:
+      - https://github.com/sonic-net/sonic-buildimage/issues/17611
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -1133,16 +1143,6 @@ ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
-
-#######################################
-#####           static_dns        #####
-#######################################
-dns/static_dns/test_static_dns.py::test_static_dns_basic:
-  xfail:
-    reason: "1. Failed to compare DNS address
-             2. Failed to teardown with Loganalyzer"
-    conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/17611
 
 #######################################
 #####     sub_port_interfaces     #####
