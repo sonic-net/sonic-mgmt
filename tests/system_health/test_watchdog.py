@@ -18,12 +18,24 @@ SLEEP_TIME = 10
 def pause_orchagent(duthost):
     # find orchagent pid
     pid = duthost.shell(
-                    r"pgrep orchagent",
+                    r"pgrep -u root orchagent",
                     module_ignore_errors=True)['stdout']
     logger.info('Get orchagent pid: {}'.format(pid))
 
     # pause orchagent and clear syslog
     duthost.shell(r"sudo kill -STOP {}".format(pid), module_ignore_errors=True)
+
+    # validate orchagent paused, the stat colum should be Tl:
+    # root         124  0.3  1.6 596616 63600 pts/0    Tl   02:33   0:06 /usr/bin/orchagent
+    result = check_process_status(duthost, "'Tl.*/usr/bin/orchagent''")
+    if not result:
+        # collect log for investigation not paused reason
+        duthost.shell(r"sudo ps -auxww", module_ignore_errors=True)
+        duthost.shell(r"sudo cat /var/log/syslog | grep orchagent", module_ignore_errors=True)
+
+        # skip UT because orchagent pause failed
+        pytest.skip("Orchagent does not paused.")
+    
     duthost.shell(r"sudo truncate -s 0 /var/log/syslog", module_ignore_errors=True)
 
     yield
