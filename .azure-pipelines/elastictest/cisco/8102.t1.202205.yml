@@ -3,6 +3,14 @@ name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev
 trigger: none
 pr: none
 
+schedules:
+  - cron: "0 9 * * 5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
 resources:
   repositories:
     - repository: sonic-mgmt
@@ -37,7 +45,7 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "2"
+    default: "3"
 
   - name: IMAGE_URL
     type: string
@@ -78,7 +86,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2880
+    default: 3600
 
 stages:
 - stage: Test
