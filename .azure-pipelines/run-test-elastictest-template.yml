@@ -140,7 +140,7 @@ parameters:
 
   - name: TEST_PLAN_NUM
     type: string
-    default: "1"
+    default: ""
 
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
