@@ -11,6 +11,14 @@ schedules:
         - master
     always: true
 
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: xwjiang-ms/sonic-mgmt
+      ref: use_1_agent_to_run_multiple_testplans
+      endpoint: xwjiang-ms
+
 stages:
 - stage: Pre_test
   variables:
