@@ -17,7 +17,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory
+from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory # noqa E402
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell(dut_console, dutip, image_url):
+def posix_shell_onie(dut_console, dutip, image_url):
     oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = 0
     # install_image_flag = False
@@ -125,6 +125,7 @@ def posix_shell(dut_console, dutip, image_url):
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
+
 def posix_shell_aboot(dut_console, dutip, image_url):
     oldtty = termios.tcgetattr(sys.stdin)
     install_image_flag = True
@@ -177,7 +178,8 @@ def posix_shell_aboot(dut_console, dutip, image_url):
                                 if "ETA" in x:
                                     break
 
-                            dut_console.remote_conn.send("echo 'SWI=flash:{}' > boot-config".format(image_url.split("/")[-1]))
+                            dut_console.remote_conn.send("echo 'SWI=flash:{}' > boot-config"
+                                                         .format(image_url.split("/")[-1]))
                             dut_console.remote_conn.send("\n")
 
                             dut_console.remote_conn.send("reboot")

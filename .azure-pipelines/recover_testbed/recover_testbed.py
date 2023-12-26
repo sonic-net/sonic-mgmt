@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from common import do_power_cycle, check_sonic_installer, posix_shell_aboot
+from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -30,12 +30,17 @@ If console fails, do power cycle
 """
 
 
-def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url):
+def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku):
     try:
         dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
-        posix_shell_aboot(dut_console, sonic_ip, image_url)
+        if hwsku == "Arista":
+            posix_shell_aboot(dut_console, sonic_ip, image_url)
+        elif hwsku == "Cisco":
+            pass
+        else:
+            posix_shell_onie(dut_console, sonic_ip, image_url)
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, sonic_ip)
     except Exception as e:
@@ -43,7 +48,7 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
         return
 
 
-def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url):
+def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
     # flag: need_to_recover
     for sonichost in sonichosts:
         sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
@@ -61,11 +66,11 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url):
                     return
                 except Exception as e:  # Exception
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
-                    recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url)
+                    recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
 
             elif dut_ssh == 1:  # RC_SOCKET_TIMEOUT
                 # Do power cycle
-                recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url)
+                recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
             else:
                 logger.info("Authentication failed. Passwords are incorrect.")
                 return
@@ -104,7 +109,7 @@ def main(args):
         filepath=os.path.join(ansible_path, "files")
     )["ansible_facts"]
 
-    recover_testbed(sonichosts, conn_graph_facts, localhost, args.image)
+    recover_testbed(sonichosts, conn_graph_facts, localhost, args.image, args.hwsku)
 
 
 if __name__ == "__main__":
@@ -165,6 +170,14 @@ if __name__ == "__main__":
         dest="image",
         required=True,
         help="The image url"
+    )
+
+    parser.add_argument(
+        "-h", "--hwsku",
+        type=str,
+        dest="hwsku",
+        required=True,
+        help="Hwsku of DUT"
     )
 
     args = parser.parse_args()
