@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 9 * * 0,2,4,6"
+  - cron: "0 9 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms21-t1-8102-01, testbed-bjw-can-8102-1"
+    default: "vms28-t1-8102-02"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -49,12 +49,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202305)
+    default: $(IMAGE_CISCO_ABOOT_202205)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: dev/internal-202305/cisco-nightly
+    default: internal-202205
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -80,7 +80,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202205)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -96,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8102.t1.202305.NightlyTest_by_Elastictest
+    displayName: 8102.t1.202205.2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
