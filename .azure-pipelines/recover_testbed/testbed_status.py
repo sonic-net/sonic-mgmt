@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 ADD_MANAGEMENT_IP = "sudo ip addr add {}/23 brd {} dev eth0"
 ADD_DEFAULT_IP_ROUTE = "sudo ip route add default via {}"
-# add /etc/network/interfaces -- ip, mask, gw
+# TODO: Add mgmt ip into file /etc/network/interfaces -- ip, mask, gw
 
 
 def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, dutip):

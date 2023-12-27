@@ -133,9 +133,6 @@ def duthost_ssh(sonichost):
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(sonic_ip, username=sonic_username, password=password,
                         allow_agent=False, look_for_keys=False, timeout=10)
-            _stdin, _stdout, _stderr = ssh.exec_command('show version')
-            prompt = ssh.invoke_shell()
-            logging.info("YT test prompt {}".format(prompt.recv(1000).decode()))
             ssh.close()
             return sonic_username, password, sonic_ip
         except AuthenticationException:

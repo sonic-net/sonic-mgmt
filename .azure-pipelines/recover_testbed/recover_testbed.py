@@ -35,11 +35,14 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
         dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
-        if hwsku == "Arista":
+
+        type = hwsku.split('-')[0].lower()
+
+        if type in ["arista"]:
             posix_shell_aboot(dut_console, sonic_ip, image_url)
-        elif hwsku == "Cisco":
+        elif type in ["Cisco"]:
             pass
-        else:
+        elif type in ["mellanox", "nexus", "acs"]:
             posix_shell_onie(dut_console, sonic_ip, image_url)
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, sonic_ip)
@@ -49,10 +52,10 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
 
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
-    # flag: need_to_recover
     for sonichost in sonichosts:
         sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
-        while True:  # for i in range(3)
+        need_to_recover = False
+        for i in range(3):
             dut_ssh = duthost_ssh(sonichost)
 
             if type(dut_ssh) == tuple:
@@ -63,17 +66,21 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
 
                 try:
                     check_sonic_installer(sonichost, sonic_username, sonic_password, sonic_ip, image_url)
-                    return
-                except Exception as e:  # Exception
+                    break
+                # TODO: specify which Exception it is
+                except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
-                    recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
-
-            elif dut_ssh == 1:  # RC_SOCKET_TIMEOUT
+                    need_to_recover = True
+            # TODO: Define the return message like RC_SOCKET_TIMEOUT in common file
+            elif dut_ssh == 1:
                 # Do power cycle
-                recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
+                need_to_recover = True
             else:
                 logger.info("Authentication failed. Passwords are incorrect.")
                 return
+
+            if need_to_recover:
+                recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
 
 
 def validate_args(args):
@@ -173,7 +180,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-h", "--hwsku",
+        "--hwsku",
         type=str,
         dest="hwsku",
         required=True,

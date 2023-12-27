@@ -26,10 +26,6 @@ ADD_DEFAULT_IP_ROUTE = "ip route add default via {}"
 INSTALL_SONIC_IMAGE = "onie-nos-install {}"   # noqa E501
 
 
-def redeploy_testbed(sonichost, testbed_name):
-    logging.info("YT test redeploy testbed")
-
-
 def get_pdu_managers(sonichosts, conn_graph_facts):
     """Get PDU managers for all the devices to be upgraded.
 
@@ -57,7 +53,6 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
 def posix_shell_onie(dut_console, dutip, image_url):
     oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = 0
-    # install_image_flag = False
     gw_ip = list(ipaddress.ip_interface("{}/23".format(dutip)).network.hosts())[0]
     try:
         tty.setraw(sys.stdin.fileno())
@@ -89,6 +84,7 @@ def posix_shell_onie(dut_console, dutip, image_url):
                         enter_onie_flag += 1
 
                     if "ONIE: Starting ONIE Service Discovery" in x:
+                        # TODO: Define a function to send command here
                         for i in range(5):
                             dut_console.remote_conn.send('onie-discovery-stop\n')
                             dut_console.remote_conn.send("\n")
@@ -101,11 +97,11 @@ def posix_shell_onie(dut_console, dutip, image_url):
 
                             dut_console.remote_conn.send(INSTALL_SONIC_IMAGE.format(image_url))
                             dut_console.remote_conn.send("\n")
-                            # why sleep
+                            # We will wait some time to connect to image server
                             time.sleep(60)
                             x = dut_console.remote_conn.recv(1024)
                             x = x.decode('ISO-8859-9')
-                            # sample output
+                            # TODO: Give a sample output here
                             if "ETA" in x:
                                 break
 
@@ -147,12 +143,15 @@ def posix_shell_aboot(dut_console, dutip, image_url):
                     x = x.decode('ISO-8859-9')
 
                     if install_image_flag:
+                        # TODO: We can not exactly determine the string in buffer,
+                        # TODO: in the future, maybe we will gather the buffer and then process them
                         # "Press Control-C now to enter Aboot shell"
                         if "Press" in x:
                             dut_console.remote_conn.send("\x03")
                             continue
 
                         if "Aboot" in x and "#" in x:
+                            # TODO: Define a function to send command here
                             dut_console.remote_conn.send("ifconfig ma1 {} netmask 255.255.254.0".format(dutip))
                             dut_console.remote_conn.send("\n")
 
@@ -218,12 +217,12 @@ def do_power_cycle(sonichost, conn_graph_facts, localhost):
 
 
 def check_sonic_installer(sonichost, sonic_username, sonic_password, sonic_ip, image_url):
-    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'.format(sonic_username, sonic_ip))  # noqa E501
+    client = pexpect.spawn('ssh {}@{} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+                           .format(sonic_username, sonic_ip))
     client.expect("admin@{}'s password:".format(sonic_ip))
     client.sendline(sonic_password)
     client.expect(["admin@sonic", "admin@{}".format(sonichost.hostname)])
-    client.sendline("sudo sonic-installer install {}".format(image_url))    # noqa E501
+    client.sendline("sudo sonic-installer install {}"
+                    .format(image_url))
     client.expect("New image will be installed")
     client.close()
-    # client.sendline("y")
-    # client.expect("Downloading image...")
