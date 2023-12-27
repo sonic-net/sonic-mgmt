@@ -4,8 +4,6 @@ jobs:
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -17,14 +15,13 @@ jobs:
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: t0_2vlans_elastictest
   displayName: "kvmtest-t0-2vlans by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -38,14 +35,13 @@ jobs:
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: t1_lag_elastictest
   displayName: "kvmtest-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
   - template: ../run-test-elastictest-template.yml
     parameters:
@@ -57,14 +53,13 @@ jobs:
       BUILD_REASON: "BaselineTest"
       RETRY_TIMES: "0"
       STOP_ON_FAILURE: "False"
+      TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: dualtor_elastictest
   displayName: "kvmtest-dualtor-t0 by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -77,14 +72,13 @@ jobs:
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: multi_asic_elastictest
   displayName: "kvmtest-multi-asic-t1-lag by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -98,14 +92,13 @@ jobs:
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: sonic_t0_elastictest
   displayName: "kvmtest-t0-sonic by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -120,14 +113,13 @@ jobs:
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
 
 - job: dpu_elastictest
   displayName: "kvmtest-dpu by Elastictest"
   timeoutInMinutes: 240
   continueOnError: false
   pool: ubuntu-20.04
-  strategy:
-    parallel: $[ variables['BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM'] ]
   steps:
     - template: ../run-test-elastictest-template.yml
       parameters:
@@ -139,3 +131,4 @@ jobs:
         BUILD_REASON: "BaselineTest"
         RETRY_TIMES: "0"
         STOP_ON_FAILURE: "False"
+        TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
