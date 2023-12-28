@@ -30,7 +30,7 @@ If console fails, do power cycle
 """
 
 
-def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku):
+def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku):
     try:
         dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
 
@@ -39,15 +39,15 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
         type = hwsku.split('-')[0].lower()
 
         if type in ["arista"]:
-            posix_shell_aboot(dut_console, sonic_ip, image_url)
+            posix_shell_aboot(dut_console, mgmt_ip, image_url)
         # elif type in ["Cisco"]:
         #     return
         elif type in ["mellanox", "nexus", "acs"]:
-            posix_shell_onie(dut_console, sonic_ip, image_url)
+            posix_shell_onie(dut_console, mgmt_ip, image_url)
         else:
             return
 
-        dut_lose_management_ip(sonichost, conn_graph_facts, localhost, sonic_ip)
+        dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
         logger.info(e)
         return
@@ -55,7 +55,7 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
     for sonichost in sonichosts:
-        sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
+        # sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
         need_to_recover = False
         for i in range(3):
             dut_ssh = duthost_ssh(sonichost)
@@ -81,8 +81,10 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 logger.info("Authentication failed. Passwords are incorrect.")
                 return
 
+            # Get dut ip with network mask
+            mgmt_ip = conn_graph_facts["device_info"][sonichost.hostname]["ManagementIp"]
             if need_to_recover:
-                recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_url, hwsku)
+                recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)
 
 
 def validate_args(args):

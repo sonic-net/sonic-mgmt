@@ -21,10 +21,6 @@ from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory 
 
 logger = logging.getLogger(__name__)
 
-ADD_MANAGEMENT_IP = "ifconfig eth0 {} netmask 255.255.254.0"
-ADD_DEFAULT_IP_ROUTE = "ip route add default via {}"
-INSTALL_SONIC_IMAGE = "onie-nos-install {}"   # noqa E501
-
 
 def get_pdu_managers(sonichosts, conn_graph_facts):
     """Get PDU managers for all the devices to be upgraded.
@@ -50,10 +46,10 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, dutip, image_url):
+def posix_shell_onie(dut_console, mgmt_ip, image_url):
     oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = 0
-    gw_ip = list(ipaddress.ip_interface("{}/23".format(dutip)).network.hosts())[0]
+    gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     try:
         tty.setraw(sys.stdin.fileno())
         tty.setcbreak(sys.stdin.fileno())
@@ -89,13 +85,14 @@ def posix_shell_onie(dut_console, dutip, image_url):
                             dut_console.remote_conn.send('onie-discovery-stop\n')
                             dut_console.remote_conn.send("\n")
 
-                            dut_console.remote_conn.send(ADD_MANAGEMENT_IP.format(dutip))
+                            dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
+                                                         ipaddress.ip_interface(mgmt_ip).with_netmask))
                             dut_console.remote_conn.send("\n")
 
-                            dut_console.remote_conn.send(ADD_DEFAULT_IP_ROUTE.format(gw_ip))
+                            dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
                             dut_console.remote_conn.send("\n")
 
-                            dut_console.remote_conn.send(INSTALL_SONIC_IMAGE.format(image_url))
+                            dut_console.remote_conn.send("onie-nos-install {}".format(image_url))
                             dut_console.remote_conn.send("\n")
                             # We will wait some time to connect to image server
                             time.sleep(60)
@@ -122,10 +119,10 @@ def posix_shell_onie(dut_console, dutip, image_url):
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
 
-def posix_shell_aboot(dut_console, dutip, image_url):
+def posix_shell_aboot(dut_console, mgmt_ip, image_url):
     oldtty = termios.tcgetattr(sys.stdin)
     install_image_flag = True
-    gw_ip = list(ipaddress.ip_interface("{}/23".format(dutip)).network.hosts())[0]
+    gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     try:
         tty.setraw(sys.stdin.fileno())
         tty.setcbreak(sys.stdin.fileno())
@@ -152,7 +149,8 @@ def posix_shell_aboot(dut_console, dutip, image_url):
 
                         if "Aboot" in x and "#" in x:
                             # TODO: Define a function to send command here
-                            dut_console.remote_conn.send("ifconfig ma1 {} netmask 255.255.254.0".format(dutip))
+                            dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
+                                                         ipaddress.ip_interface(mgmt_ip).with_netmask))
                             dut_console.remote_conn.send("\n")
 
                             time.sleep(1)
