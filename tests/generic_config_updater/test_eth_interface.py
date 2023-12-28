@@ -121,9 +121,9 @@ def get_port_speeds_for_test(duthost):
     """
     speeds_to_test = []
     invalid_speed_yang = ("20a", False)
+    invalid_speed_state_db = None
     if duthost.get_facts()['asic_type'] == 'vs':
         valid_speeds = ['20000', '40000']
-        invalid_speed_state_db = None  # StateDB in vs has no speed restrictions, so set as empty
     else:
         valid_speeds = duthost.get_supported_speeds('Ethernet0')
         if valid_speeds:
