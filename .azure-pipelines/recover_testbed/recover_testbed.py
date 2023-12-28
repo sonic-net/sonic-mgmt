@@ -40,10 +40,12 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, sonic_ip, image_
 
         if type in ["arista"]:
             posix_shell_aboot(dut_console, sonic_ip, image_url)
-        elif type in ["Cisco"]:
-            pass
+        # elif type in ["Cisco"]:
+        #     return
         elif type in ["mellanox", "nexus", "acs"]:
             posix_shell_onie(dut_console, sonic_ip, image_url)
+        else:
+            return
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, sonic_ip)
     except Exception as e:
