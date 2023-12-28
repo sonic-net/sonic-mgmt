@@ -139,6 +139,7 @@ all:
           - t0-56
           - t0-56-po2vlan
           - t0-56-d48c8
+          - t0-56-o8v48
           - t0-52
           - ptf32
           - ptf64
@@ -3565,6 +3566,22 @@ vms_66:
       ansible_host: 172.16.138.81
     VM66072:
       ansible_host: 172.16.138.82
+    VM66073:
+      ansible_host: 172.16.138.83
+    VM66074:
+      ansible_host: 172.16.138.84
+    VM66075:
+      ansible_host: 172.16.138.85
+    VM66076:
+      ansible_host: 172.16.138.86
+    VM66077:
+      ansible_host: 172.16.138.87
+    VM66078:
+      ansible_host: 172.16.138.88
+    VM66079:
+      ansible_host: 172.16.138.89
+    VM66080:
+      ansible_host: 172.16.138.90
 
 vms_67:
   hosts:
