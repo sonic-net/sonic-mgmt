@@ -86,7 +86,7 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url):
                             dut_console.remote_conn.send("\n")
 
                             dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
-                                                         ipaddress.ip_interface(mgmt_ip).with_netmask))
+                                                         ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                             dut_console.remote_conn.send("\n")
 
                             dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
@@ -150,7 +150,7 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                         if "Aboot" in x and "#" in x:
                             # TODO: Define a function to send command here
                             dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
-                                                         ipaddress.ip_interface(mgmt_ip).with_netmask))
+                                                         ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                             dut_console.remote_conn.send("\n")
 
                             time.sleep(1)
