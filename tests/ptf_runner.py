@@ -8,7 +8,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def ptf_collect(host, log_file, result):
+def ptf_collect(host, log_file, skip_pcap=False):
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
@@ -18,8 +18,7 @@ def ptf_collect(host, log_file, result):
     filename_log = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.log'
     host.fetch(src=log_file, dest=filename_log, flat=True, fail_on_missing=False)
     allure.attach.file(filename_log, 'ptf_log: ' + filename_log, allure.attachment_type.TEXT)
-    if result["rc"] == 0:
-        # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
+    if skip_pcap:
         return
     pcap_file = filename_prefix + '.pcap'
     output = host.shell("[ -f {} ] && echo exist || echo null".format(pcap_file))['stdout']
@@ -91,7 +90,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     try:
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
         if log_file:
-            ptf_collect(host, log_file, result)
+            # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
+            ptf_collect(host, log_file, result is not None and result.get("rc", -1) == 0)
         if result:
             allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:
@@ -99,7 +99,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                 return result
     except Exception:
         if log_file:
-            ptf_collect(host, log_file, result)
+            ptf_collect(host, log_file)
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
