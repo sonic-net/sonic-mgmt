@@ -144,7 +144,8 @@ def download_new_sonic_image(module, new_image_url, save_as):
 
     free_disk_size = get_disk_free_size(module, "/")
     total, avail = get_memory_sizes(module)
-    log("After downloaded sonic image, latest free disk size: {}, memory total {} available {}".format(free_disk_size, total, avail))
+    log("After downloaded sonic image, latest free disk size: {}, "
+        "memory total {} available {}".format(free_disk_size, total, avail))
 
     if path.exists(save_as):
         log("Checking downloaded image version")
@@ -157,7 +158,12 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
     log("install new sonic image")
 
     log("Clean-up previous downloads first")
-    exec_command(module, cmd="rm -f {}".format("/host/downloaded-sonic-image"), msg="clean up previously downloaded image", ignore_error=True)
+    exec_command(
+        module,
+        cmd="rm -f {}".format("/host/downloaded-sonic-image"),
+        msg="clean up previously downloaded image",
+        ignore_error=True
+    )
 
     if not save_as:
         avail = get_disk_free_size(module, "/host")
@@ -165,10 +171,16 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
 
     free_disk_size = get_disk_free_size(module, "/")
     total, avail = get_memory_sizes(module)
-    log("Before install sonic image, latest free disk size: {}, memory total {} available {}".format(free_disk_size, total, avail))
+    log("Before install sonic image, free disk {}, memory total {} available {}".format(free_disk_size, total, avail))
     if avail < 1024 or free_disk_size < required_space:
         log("free memory or disk space size is not enough to install a new image")
-        module.fail_json(msg="Image installation failed: rc=%d, out=%s, err=%s" % (-1, "free memory or disk space size is not enough to install a new image", ""))
+        module.fail_json(
+            msg="Image installation failed: rc=%d, out=%s, err=%s" % (
+                -1,
+                "free memory or disk space size is not enough to install a new image",
+                ""
+            )
+        )
         return
 
     if save_as.startswith("/tmp/tmpfs"):
