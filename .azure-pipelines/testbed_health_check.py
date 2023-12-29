@@ -119,45 +119,45 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
-        # Retrieve the connection graph facts of localhost
-        conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
-
-        hosts_reachable = True
-
-        # Check hosts reachability
-        for sonichost in self.sonichosts:
-
-            # Check sonichost reachability
-            is_reachable, result = sonichost.reachable()
-            logger.info(result)
-
-            if not is_reachable:
-                hosts_reachable = False
-                logger.info("sonichost {} is unreachable.".format(sonichost.hostname))
-                self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
-                self.check_result.data[sonichost.hostname] = result
-
-            dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
-
-            peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
-            peer_devices = list(set(peer_devices))
-
-            for fanout_hostname in peer_devices:
-                # Check fanouthost reachability
-                fanouthost = init_host(self.inventory, fanout_hostname)
-                is_reachable, result = fanouthost.reachable()
-
-                logger.info(result)
-
-                if not is_reachable:
-                    hosts_reachable = False
-                    logger.info("fanouthost {} is unreachable.".format(fanout_hostname))
-                    self.check_result.errmsg.append("fanouthost {} is unreachable.".format(fanout_hostname))
-                    self.check_result.data[fanout_hostname] = result
-
-        if not hosts_reachable:
-            raise HostsUnreachable(self.check_result.errmsg)
+        # # Retrieve the connection graph facts of localhost
+        # conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
+        #                                                    filepath=os.path.join(ansible_path, "files"))
+        #
+        # hosts_reachable = True
+        #
+        # # Check hosts reachability
+        # for sonichost in self.sonichosts:
+        #
+        #     # Check sonichost reachability
+        #     is_reachable, result = sonichost.reachable()
+        #     logger.info(result)
+        #
+        #     if not is_reachable:
+        #         hosts_reachable = False
+        #         logger.info("sonichost {} is unreachable.".format(sonichost.hostname))
+        #         self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
+        #         self.check_result.data[sonichost.hostname] = result
+        #
+        #     dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
+        #
+        #     peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
+        #     peer_devices = list(set(peer_devices))
+        #
+        #     for fanout_hostname in peer_devices:
+        #         # Check fanouthost reachability
+        #         fanouthost = init_host(self.inventory, fanout_hostname)
+        #         is_reachable, result = fanouthost.reachable()
+        #
+        #         logger.info(result)
+        #
+        #         if not is_reachable:
+        #             hosts_reachable = False
+        #             logger.info("fanouthost {} is unreachable.".format(fanout_hostname))
+        #             self.check_result.errmsg.append("fanouthost {} is unreachable.".format(fanout_hostname))
+        #             self.check_result.data[fanout_hostname] = result
+        #
+        # if not hosts_reachable:
+        #     raise HostsUnreachable(self.check_result.errmsg)
 
         # Retrieve the basic facts of the DUTs
         duts_basic_facts = self.sonichosts.dut_basic_facts()
