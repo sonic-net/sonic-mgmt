@@ -248,19 +248,15 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
-    conditions_logical_operator: or
-    reason: "Not supported on backend , broadcom before 202012 release and innovium, Arista 7260CX3 in 202305"
+    reason: "Not supported on backend , broadcom before 202012 release and innovium, x86_64-8111_32eh_o-r0 platform"
     conditions:
-      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
-      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
+      - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    conditions_logical_operator: or
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium, Arista 7260CX3 in 202305"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium, x86_64-8111_32eh_o-r0 platform"
     conditions:
-      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium']"
-      - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
+      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -586,6 +582,12 @@ iface_loopback_action/test_iface_loopback_action.py:
 #######################################
 #####      iface_namingmode       #####
 #######################################
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
+  skip:
+    reason: "x86_64-8111_32eh_o-r0 platform does not support TestConfigInterface"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
