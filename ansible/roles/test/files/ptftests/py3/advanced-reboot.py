@@ -230,6 +230,7 @@ class ReloadTest(BaseTest):
         self.nr_pc_pkts = 100
         self.nr_tests = 3
         self.reboot_delay = 10
+        self.control_plane_down_timeout = 600   # Wait up to 6 minutes for control plane down
         self.task_timeout = 300   # Wait up to 5 minutes for tasks to complete
         self.max_nr_vl_pkts = 500  # FIXME: should be 1000.
         # But ptf is not fast enough + swss is slow for FDB and ARP entries insertions
@@ -1014,8 +1015,8 @@ class ReloadTest(BaseTest):
 
     def wait_until_control_plane_down(self):
         self.log("Wait until Control plane is down")
-        self.timeout(self.wait_until_cpu_port_down, self.task_timeout,
-                     "DUT hasn't shutdown in {} seconds".format(self.task_timeout))
+        self.timeout(self.wait_until_cpu_port_down, self.control_plane_down_timeout,
+                     "DUT hasn't shutdown in {} seconds".format(self.control_plane_down_timeout))
         if self.reboot_type == 'fast-reboot':
             self.light_probe = True
         else:
