@@ -404,7 +404,7 @@ class MockerHelper:
             return False
         else:
             return True
-        
+
     def has_thermal_updater(self):
         cmd = 'python3 -c "from sonic_platform import thermal_updater"'
         out = self.dut.shell(cmd, module_ignore_errors=True)
