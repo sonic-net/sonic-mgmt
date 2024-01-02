@@ -1038,7 +1038,7 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
             # if thermal updater is there, ASIC and module temperature are read from SDK sysfs.
             # There is no way to mock SDK sysfs because it is created by kernel (user space has
             # no permission to change it). So, we just ignore it for checking.
-            self.excluded_entry_pattern = re.compile("ASIC|(xSFP module \d+ Temp)")
+            self.excluded_entry_pattern = re.compile(r"ASIC|(xSFP module \d+ Temp)")
         else:
             self.excluded_entry_pattern = None
 
