@@ -133,7 +133,7 @@ class QosParamBroadcom(object):
             log_fn = log_funcs.get(level.lower(), logging.info)
             log_fn(message)
 
-    def load_arguments(self, filename='qos_param_generator_arguments.json.vms2-t1-7260-7'):
+    def load_arguments(self, filename='qos_param_generator_arguments.json'):
         try:
             with open(filename, 'r') as file:
                 self.arguments = json.load(file)
@@ -147,7 +147,7 @@ class QosParamBroadcom(object):
             if self.dev_mode:
                 # in dev_mode: run this script without sonic-mgmt environment
                 # load device info from the file as necessary input
-                with open('qos_param_generator_asic_info.rec.vms2-t1-7260-7', "r") as fp:
+                with open('qos_param_generator_asic_info.rec', "r") as fp:
                     input_text = fp.read()  # Read the entire file content
                 message = section(input_text, command)
             else:
@@ -321,20 +321,48 @@ class QosParamBroadcom(object):
         #      'ifname': 'Ethernet2',
         #      'tag': 'keeprxtag'
         #    },
+        self.cfg['knet_netif_map'] = {}
+        retry_cnt = 0
+        retry_max = 20
+        # run "knetctrl netif show" multiple times to make sure there is no unknown port in the output
+        while retry_cnt < retry_max:
+            incomplete = False
+            rc, out = self.collect_device_info("bcmcmd 'knetctrl netif show'")
+            if rc:
+                self.msg('Read knet netif port map, output {}'.format(out), level='debug')
+                for line in out.splitlines():
+                    line = line.strip()
+                    maps = line.split()
+                    if len(maps) == 8:
+                        ifid = int(maps[2][:-1])
+                        ifname = maps[3].split('=')[-1]
+                        tp = maps[4].split('=')[-1]
+                        vlan = int(maps[5].split('=')[-1])
+                        bcmport = maps[6].split('=')[-1]
+                        tag = maps[7]
+                        if self.cfg['knet_netif_map'].get(ifname, None) is None:
+                            self.cfg['knet_netif_map'].setdefault(ifname, {}).update(
+                                {'ifid': ifid, 'bcmport': bcmport, 'type': tp, 'vlan': vlan, 'tag': tag})
+                        elif 'unknown' not in bcmport:
+                            self.cfg['knet_netif_map'][ifname]['bcmport'] = bcmport
+                        if 'unknown' in self.cfg['knet_netif_map'][ifname]['bcmport']:
+                            incomplete = True
+            if not incomplete:
+                break
+            retry_cnt += 1
+
+        if retry_cnt >= retry_max:
+            self.msg('There have unknown port in the output of "knetctrl netif show" after {} times'.format(retry_cnt))
+            return False
+
         self.cfg['knet_port_map'] = {}
-        rc, out = self.collect_device_info("bcmcmd 'knetctrl netif show'")
-        if rc:
-            self.msg('Read knet netif port map, output {}'.format(out), level='debug')
-            for line in out.splitlines():
-                line = line.strip()
-                maps = line.split()
-                if len(maps) == 8:
-                    self.cfg['knet_port_map'].setdefault(maps[6].split('=')[-1], {}).update(
-                        {'ifid':   int(maps[2][:-1]),
-                         'ifname': maps[3].split('=')[-1],
-                         'type':   maps[4].split('=')[-1],
-                         'vlan':   int(maps[5].split('=')[-1]),
-                         'tag':    maps[7]})
+        for ifname, entry in self.cfg['knet_netif_map'].items():
+            self.cfg['knet_port_map'].setdefault(entry['bcmport'], {}).update(
+                {'ifid': entry['ifid'],
+                 'ifname': ifname,
+                 'type': entry['type'],
+                 'vlan': entry['vlan'],
+                 'tag': entry['tag']})
 
         # parse output of command "show int st | grep Eth"
         # schema of parse result is as below:
@@ -477,9 +505,12 @@ class QosParamBroadcom(object):
                     self.cfg['dscp_from_tc_map'][profile_name].setdefault(tc, set()).add(dscp)
 
         self.msg('Parsed device config {}'.format(self.cfg))
+        return True
 
     def run(self):
-        self.parse_device_config()
+        if not self.parse_device_config():
+            self.msg('Failed to parse device config, use original qos_params')
+            return self.qos_params
         self.prepare_default_parameters()
         self.calculate_parameters()
         self.msg('Calculation of qos_params {}'.format(self.qos_params))
