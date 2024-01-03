@@ -20,13 +20,25 @@ def pause_orchagent(duthost):
     retry = 3
     while True:
         retry -= 1
-        # find orchagent pid
-        pid = duthost.shell(
-                        r"pgrep -u root orchagent",
-                        module_ignore_errors=True)['stdout']
+        # find orchagent pid: https://www.man7.org/linux/man-pages/man1/pidof.1.html
+        pid_result = duthost.shell(
+                        r"pidof orchagent",
+                        module_ignore_errors=True)
+
+        rc = pid_result['rc']
+        if rc == 1:
+            logger.info('Get orchagent pid failed: {}'.format(pid_result))
+
+            if retry <= 0:
+                # break UT because orchagent pause failed
+                pytest.fail("Can't pause Orchagent by pid.")
+            else:
+                continue
+
+        pid = pid_result['stdout']
         logger.info('Get orchagent pid: {}'.format(pid))
 
-        # pause orchagent and clear syslog
+        # pause orchagent
         duthost.shell(r"sudo kill -STOP {}".format(pid), module_ignore_errors=True)
 
         # validate orchagent paused, the stat colum should be Tl:
