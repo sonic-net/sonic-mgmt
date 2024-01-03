@@ -196,7 +196,7 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
                                cipher_suite, primary_cak, primary_ckn, policy, send_sci, rekey_period, topo):
     i = 0
     for dut_port, nbr in ctrl_links.items():
-        submit_async_task(set_macsec_profile(duthost, dut_port, profile_name, default_priority,
+        submit_async_task(set_macsec_profile, (duthost, dut_port, profile_name, default_priority,
                           cipher_suite, primary_cak, primary_ckn, policy,
                           send_sci, rekey_period))
         # for t2 topo the port is enabled from minigraph
