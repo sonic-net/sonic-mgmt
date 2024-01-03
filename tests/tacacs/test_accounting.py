@@ -223,7 +223,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
 
     # when tacacs config change multiple time in short time
     # auditd service may been request reload during reloading
-    # when this happen, auditd will ignore request and only reload onec
+    # when this happen, auditd will ignore request and only reload once
     last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
     duthost.shell("sudo config tacacs timeout 1")
