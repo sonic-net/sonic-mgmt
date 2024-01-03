@@ -370,7 +370,7 @@ ecmp/inner_hashing/test_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -381,7 +381,7 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -392,7 +392,7 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -403,7 +403,7 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
     reason: "PBH introduced in 202111 and skip this test on Mellanox 2700 platform. Test does not support dualtor topology."
     conditions:
       - "branch in ['201811', '201911', '202012', '202106']"
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
@@ -424,7 +424,7 @@ ecmp/test_fgnhg.py:
     reason: "The test case only runs on Mellanox T0 platform running 202012 or above; Mellanox 2700 platform is skipped; Skip on issue 7755"
     conditions:
       - "branch in ['201811', '201911']"
-      - "platform in ['x86_64-mlnx_msn2700-r0']"
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - https://github.com/sonic-net/sonic-mgmt/issues/7755
@@ -1293,13 +1293,13 @@ vxlan/test_vxlan_crm.py:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 #######################################
 #####           wan_lacp          #####
