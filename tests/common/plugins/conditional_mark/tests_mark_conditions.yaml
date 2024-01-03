@@ -53,10 +53,11 @@ arp/test_unknown_mac.py:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now."
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Warm reboot is not required for SN3800"
+    conditions_logical_operator: OR
     conditions:
-      - "'dualtor' in topo_name"
-      - https://github.com/sonic-net/sonic-buildimage/issues/16502
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+      - "platform in ['x86_64-mlnx_msn3800-r0']"
   xfail:
     reason: "Warm reboot has a known issue on 202305 branch"
     conditions:
@@ -374,6 +375,17 @@ dut_console:
 #######################################
 #####             ecmp            #####
 #######################################
+ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
+  xfail:
+    reason: "case failed waiting for fix"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/6558
+  skip:
+    reason: "The test case only runs on Mellanox T0"
+    conditions:
+      - "topo_type not in ['t0'] or asic_type not in ['mellanox']"
+
 ecmp/inner_hashing/test_inner_hashing.py:
   skip:
     conditions_logical_operator: or
@@ -417,17 +429,6 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
       - "'dualtor' in topo_name"
-
-ecmp/inner_hashing/test_fgnhg_inner_hashing_internal.py:
-  xfail:
-    reason: "case failed waiting for fix"
-    conditions:
-      - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn4600c-r0']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6558
-  skip:
-    reason: "The test case only runs on Mellanox T0"
-    conditions:
-      - "topo_type not in ['t0'] or asic_type not in ['mellanox']"
 
 ecmp/test_ecmp_sai_value.py:
   skip:
@@ -826,9 +827,11 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2."
+     reason: "Warm Reboot is not supported in T2. Warm Reboot is not required for SN3800"
+     conditions_logical_operator: OR
      conditions:
         - "'t2' in topo_name"
+        - "platform in ['x86_64-mlnx_msn3800-r0']"
    xfail:
      reason: "Warm Reboot is not supported in dualtor and has a known issue on 202305 branch"
      conditions:
@@ -884,22 +887,31 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
       - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
       - https://github.com/sonic-net/sonic-mgmt/issues/6218
 
+platform_tests/test_advanced_reboot.py:
+  skip:
+    reason: "Warm/fast reboot is not required for SN3800"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn3800-r0']"
 
 platform_tests/test_auto_negotiation.py:
   skip:
     reason: "auto negotiation test highly depends on test enviroments, file issue to track and skip for now"
     conditions: https://github.com/sonic-net/sonic-mgmt/issues/5447
 
+platform_tests/test_cont_warm_reboot.py:
+  skip:
+    reason: "Warm reboot is not required for SN3800"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn3800-r0']"
+  xfail:
+    reason: "warm reboot has a known issue on 202305 branch"
+    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Force10-S6100', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q44', 'Arista-7260CX3-D108C8'] and release in ['202305']"
+
 platform_tests/test_service_warm_restart.py:
   skip:
     reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
     conditions:
       - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
-
-platform_tests/test_cont_warm_reboot.py:
-  xfail:
-    reason: "warm reboot has a known issue on 202305 branch"
-    conditions: "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32', 'Force10-S6100', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q44', 'Arista-7260CX3-D108C8'] and release in ['202305']"
 
 #######################################
 #####           qos               #####
