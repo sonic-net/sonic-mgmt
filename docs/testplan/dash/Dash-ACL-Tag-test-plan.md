@@ -77,7 +77,22 @@ Verify functionality of ACL Tag, where Rule contains 2 Tags.
     - Remove Rule.
     - Remove Tags.
 
-### Test case \#3 - ACL Tag Order
+### Test case \#3 - ACL Tag Not Exists
+
+#### Test objective
+
+Verify traffic where a Rule is created with a Tag, but the tag is not created.
+
+#### Test steps
+
+- setup
+    - Only create a Rule with a Tag. Don't create the Tag.
+- validation
+    - Send packet, which should be dropped as the rule doesn't have an existing tag.
+- teardown
+    - Remove Rule.
+
+### Test case \#4 - ACL Tag Order
 
 #### Test objective
 
@@ -94,7 +109,7 @@ Verify functionality of ACL Tag configuration where Rule created before Tag.
     - Remove Tag.
     - Remove Rule.
 
-### Test case \#4 - ACL Multi Tag Order
+### Test case \#5 - ACL Multi Tag Order
 
 #### Test objective
 
@@ -111,7 +126,7 @@ Verify functionality of ACL Tag configuration where Rule created before Tags.
     - Remove Tags.
     - Remove Rule.
 
-### Test case \#5 - ACL Tag Update
+### Test case \#6 - ACL Tag Update
 
 #### Test objective
 
@@ -129,7 +144,7 @@ Verify functionality of ACL Tag configuration where Tag updated.
     - Remove Rule.
     - Remove Tag.
 
-### Test case \#6 - ACL Tag Remove IP Address
+### Test case \#7 - ACL Tag Remove IP Address
 
 #### Test objective
 
@@ -148,7 +163,7 @@ Verify functionality of ACL Tag configuration where an IP address is removed fro
     - Remove Rule.
     - Remove Tag.
 
-### Test case \#7 - ACL Tags Scale
+### Test case \#8 - ACL Tags Scale
 
 #### Test objective
 
