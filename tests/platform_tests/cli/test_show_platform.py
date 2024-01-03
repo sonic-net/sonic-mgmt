@@ -96,6 +96,21 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
                                                                                            duthost.hostname))
 
 
+def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
+    """
+    @summary: Verify device's serial no with output of `sudo decode-syseeprom -s`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "sudo decode-syseeprom -s"
+    get_serial_no_cmd = duthost.command(cmd)
+    logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
+    get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
+    expected_serial_no = dut_vars['serial']
+    pytest_assert(get_serial_no_output == expected_serial_no,
+                  "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
+                  format(expected_serial_no, get_serial_no_output, duthost.hostname))
+
+
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
     """
     @summary: Verify output of `show platform syseeprom`
