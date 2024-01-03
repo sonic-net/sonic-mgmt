@@ -453,29 +453,30 @@ sonic_arista_40:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal4-4.1.1-13522936"
         "0x2F": "JPE20255843"
-        "0xFE": 3735928559      
+        "0xFE": 3735928559
   vars:
     iface_speed: 40000
 
 sonic_mlnx_40:
   hosts:
     str-msn2700-01:
+      hwsku: Mellanox-SN2700-A1
       ansible_host: 10.3.147.188
-      model: MSN2700-CS2FO
-      serial: MT2020T04272
-      base_mac: 1c:34:da:a1:a4:80
+      model: MSN2700-CS2R2OS
+      serial: MT2338XZ03WL
+      base_mac: FC:6A:1C:49:4F:00
       syseeprom_info:
-        "0x21": "MSN2700"
-        "0x22": "MSN2700-CS2FO"
-        "0x23": "MT2020T04272"
-        "0x24": "1C:34:DA:A1:A4:80"
-        "0x25": "05/16/2020 20:41:32"
-        "0x26": "17"
-        "0x28": "x86_64-mlnx_msn2700-r0"
-        "0x29": "2019.08-5.2.0016-9600"
+        "0x21": "MSN2700-A1"
+        "0x22": "MSN2700-CS2R2OS"
+        "0x23": "MT2338XZ03WL"
+        "0x24": "FC:6A:1C:49:4F:00"
+        "0x25": "09/29/2023 01:49:21"
+        "0x26": "19"
+        "0x28": "x86_64-mlnx_msn2700a1-r0"
+        "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "128"
         "0x2B": "Mellanox"
-        "0xFE": "0x0BF1DB70"
+        "0xFE": "0x2D371972"
     str-msn2700-02:
       ansible_host: 10.3.147.45
       ansible_hostv6: 2a01:111:e210:3000::14
