@@ -117,6 +117,11 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
+@pytest.fixture(scope="module")
+def config_facts(rand_selected_dut):
+    return rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+
+
 def pytest_configure(config):
 
     config.addinivalue_line(

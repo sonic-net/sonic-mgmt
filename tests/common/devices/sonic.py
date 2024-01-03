@@ -27,6 +27,11 @@ from tests.common import constants
 
 logger = logging.getLogger(__name__)
 
+PROCESS_TO_CONTAINER_MAP = {
+    "orchagent": "swss",
+    "syncd": "syncd"
+}
+
 
 class SonicHost(AnsibleHostBase):
     """
@@ -620,6 +625,14 @@ class SonicHost(AnsibleHostBase):
 
         return group_process_results
 
+    def critical_processes_running(self, service):
+        """
+        @summary: Check whether critical processes are running for a service
+
+        @param service: Name of the SONiC service
+        """
+        return self.critical_process_status(service)['status']
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -730,6 +743,23 @@ class SonicHost(AnsibleHostBase):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
+
+    def control_process(self, process, pause, namespace=''):
+        """
+        Pause or unpause a process on the DUT by sending SIGSTOP or SIGCONT
+        """
+        process_control_cmd = "docker exec -i {}{} bash -c 'kill -s {} `pgrep {}`'"
+        if pause:
+            signal = "SIGSTOP"
+        else:
+            signal = "SIGCONT"
+
+        container = PROCESS_TO_CONTAINER_MAP.get(process, None)
+        if not container:
+            logger.error("Unknown process {}".format(process))
+            return
+        cmd = process_control_cmd.format(container, namespace, signal, process)
+        self.shell(cmd)
 
     def get_crm_resources_for_masic(self, namespace=DEFAULT_NAMESPACE):
         """
