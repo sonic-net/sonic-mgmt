@@ -22,7 +22,6 @@ CLEANUP_CMDS = [
                 "echo 'rem_device_all' > /proc/net/pktgen/kpktgend_0"
 ]
 
-
 PKTGEN_CMDS = [
                 "echo 'add_device {}' > /proc/net/pktgen/kpktgend_0",
                 "echo 'count 15000' > /proc/net/pktgen/{}",
@@ -37,6 +36,7 @@ PKTGEN_CMDS = [
                 "echo 'udp_dst_max 5001' > /proc/net/pktgen/{}",
                 ]
 
+CPU_CMD = "show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'"
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -81,11 +81,11 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
-    cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'")["stdout_lines"]
+    cpu_before = duthost.shell(CPU_CMD)["stdout_lines"]
     for entry in cpu_before:
         pytest_assert(
             float(entry) < cpu_threshold,
-            "Cpu util was above threshold {} for atleast 1 process"
+            "Cpu util was above threshold {} for pktgen process"
             " before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
@@ -119,11 +119,11 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
 
     # Check CPU util after sending traffic
-    cpu_after = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'")["stdout_lines"]
+    cpu_after = duthost.shell(CPU_CMD)["stdout_lines"]
     for entry in cpu_after:
         pytest_assert(
             float(entry) < cpu_threshold,
-            "Cpu util was above threshold {} for atleast 1 process"
+            "Cpu util was above threshold {} for pktgen process"
             " after sending pktgen traffic".format(cpu_threshold))
 
     # Check number of new core/crash files
