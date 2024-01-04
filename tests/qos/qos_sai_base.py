@@ -1642,9 +1642,17 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        # This is not needed in T2.
+        if "t2" in dutTestParams["topo"]:
+            yield
+            return
+
         self.populate_arp_entries(
             get_src_dst_asic_and_duts, ptfhost, dutTestParams,
             dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
+
+        yield
+        return
 
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
@@ -2207,11 +2215,6 @@ class QosSaiBase(QosBase):
         """
         dut_asic = get_src_dst_asic_and_duts['src_asic']
 
-        # This is not needed in T2.
-        if "t2" in dutTestParams["topo"]:
-            yield
-            return
-
         dut_asic.command('sonic-clear fdb all')
         dut_asic.command('sonic-clear arp')
 
@@ -2238,5 +2241,3 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
-        yield
-        return

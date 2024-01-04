@@ -156,19 +156,20 @@ class TestQosSai(QosSaiBase):
             original_speed = dut_int_status[dut_dst_port]["speed"].replace("G", "000")
 
             if int(target_speed) < int(original_speed):
-                dut_port_list = [dut_dst_port]
                 fanout_port_list = []
 
                 def _get_dut_change_speed_port_list():
                     src_mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
                     portchannels = src_mgFacts["minigraph_portchannels"]
+                    dut_port_list = [dut_dst_port]
                     for po, po_info in portchannels.items():
                         if dut_dst_port in po_info['members']:
                             dut_port_list = po_info['members']
                             break
                     logger.info("dut port list :{}".format(dut_port_list))
+                    return dut_port_list
 
-                def _get_fanout_and_fanout_change_speed_port_list():
+                def _get_fanout_and_fanout_change_speed_port_list(dut_port_list):
                     for dut_port, fanout, fanout_port in list_dut_fanout_connections(duthost, fanouthosts):
                         if dut_port in dut_port_list:
                             fanout_port_list.append(fanout_port)
@@ -176,7 +177,7 @@ class TestQosSai(QosSaiBase):
                     logger.info("fanout port list :{}".format(fanout_port_list))
                     return fanout_host
 
-                def _update_target_speed(fanout_host, target_speed):
+                def _update_target_speed(fanout_host, target_speed, dut_port_list):
                     logger.info("Get one speed that is smaller or equal than target speed")
                     all_dut_speeds = duthost.get_supported_speeds(dut_port_list[0])
                     all_fanout_speeds = fanout_host.get_supported_speeds(fanout_port_list[0])
@@ -190,7 +191,7 @@ class TestQosSai(QosSaiBase):
                     logger.info("Updated target_speed is {}".format(target_speed))
                     return target_speed
 
-                def _set_speed_and_populate_arp(fanout_host, speed):
+                def _set_speed_and_populate_arp(fanout_host, speed, dut_port_list):
                     for dut_port in dut_port_list:
                         logger.info('DUT: Set {} speed to {}'.format(dut_port, speed))
                         duthost.shell("sudo config interface speed {} {}".format(dut_port, speed))
@@ -204,20 +205,20 @@ class TestQosSai(QosSaiBase):
                         get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig,
                         releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
 
-                _get_dut_change_speed_port_list()
-                fanout_host = _get_fanout_and_fanout_change_speed_port_list()
-                target_speed = _update_target_speed(fanout_host, target_speed)
+                dut_port_list = _get_dut_change_speed_port_list()
+                fanout_host = _get_fanout_and_fanout_change_speed_port_list(dut_port_list)
+                target_speed = _update_target_speed(fanout_host, target_speed, dut_port_list)
 
                 if int(target_speed) < int(original_speed):
                     logger.info("Change speed to {}".format(target_speed))
                     is_change_sport_speed = True
-                    _set_speed_and_populate_arp(fanout_host, target_speed)
+                    _set_speed_and_populate_arp(fanout_host, target_speed, dut_port_list)
 
         yield
 
         if is_change_sport_speed:
             logger.info("Restore speed to {}".format(original_speed))
-            _set_speed_and_populate_arp(fanout_host, original_speed)
+            _set_speed_and_populate_arp(fanout_host, original_speed, dut_port_list)
 
     def replaceNonExistentPortId(self, availablePortIds, portIds):
         '''
