@@ -1183,6 +1183,12 @@ syslog/test_syslog.py:
       - "branch in ['internal-202012']"
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 33"
 
+syslog/test_syslog_rate_limit.py:
+  xfail:
+    reason: "Testcase xfail, raised issue to track"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11181
+
 syslog/test_syslog_source_ip.py:
   skip:
     reason: "Testcase consistent failed, raised issue to track"
