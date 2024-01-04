@@ -92,7 +92,7 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup
 
 
 @pytest.mark.disable_loganalyzer
-def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, 
+def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
                                gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
