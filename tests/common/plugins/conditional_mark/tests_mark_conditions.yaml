@@ -963,6 +963,18 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_active is not support on broadcom platform yet"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7260CX3-C64', 'Arista-7260CX3-D108C8', 'Force10-S6100']"
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_standby is not support on broadcom platform yet"
+    conditions:
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7260CX3-C64', 'Arista-7260CX3-D108C8', 'Force10-S6100']"
+
 #######################################
 #####         restapi             #####
 #######################################
