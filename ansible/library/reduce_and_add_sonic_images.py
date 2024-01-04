@@ -66,14 +66,23 @@ def get_memory_sizes(module):
     """
     _, out, _ = exec_command(module, cmd="free -m", msg="checking memory total/free sizes")
     lines = out.split('\n')
-    if len(lines) < 2:
-        return -1, -1
 
-    fields = lines[1].split()
-    if len(fields) < 3:
-        return -1, -1
+    for line in lines:
+        if line.startswith("Mem:"):
+            fields = line.split()
+            if len(fields) < 3:
+                return -1, -1
+            else:
+                total_mem, avail_mem = int(fields[1]), int(fields[-1])
+        elif line.startswith("Swap:"):
+            fields = line.split()
+            if len(fields) < 3:
+                return -1, -1
+            else:
+                total_swap, avail_swap = int(fields[1]), int(fields[-1])
 
-    total, avail = int(fields[1]), int(fields[-1])
+    total = total_mem + total_swap
+    avail = avail_mem + avail_swap
     return total, avail
 
 
