@@ -37,7 +37,7 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             continue
         if isinstance(ipaddr, ipaddress.IPv6Address):
             # SNMP over IPv6 not supported in single-asic
-            if not duthost.is_multi_asic:
+            if not duthost.is_multi_asic or "internal" not in duthost.os_version:
                 skip_release(duthost, ["202211", "202205", "202305"])
         result = get_snmp_output(loip, duthost, nbr, creds_all_duts)
         assert result is not None, 'No result from snmpget'
