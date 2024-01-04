@@ -81,7 +81,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
-    cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    cpu_before = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'")["stdout_lines"]
     for entry in cpu_before:
         pytest_assert(
             float(entry) < cpu_threshold,
@@ -119,7 +119,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
 
     # Check CPU util after sending traffic
-    cpu_after = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | awk '{print $9}'")["stdout_lines"]
+    cpu_after = duthost.shell("show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'")["stdout_lines"]
     for entry in cpu_after:
         pytest_assert(
             float(entry) < cpu_threshold,
