@@ -30,6 +30,14 @@ DUAL_TOR_MODE = 'dual'
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def check_dhcp_server_enabled(duthost):
+    feature_status_output = duthost.show_and_parse("show feature status")
+    for feature in feature_status_output:
+        if feature["feature"] == "dhcp_server" and feature["state"] == "enabled":
+            pytest.skip("DHCPv4 relay is not supported when dhcp_server is enabled")
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     """Ignore expected failures logs during test execution."""
