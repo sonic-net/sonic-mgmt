@@ -38,6 +38,7 @@ PKTGEN_CMDS = [
 
 CPU_CMD = "show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'"
 
+
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return list(mg_facts["minigraph_ports"].keys())
