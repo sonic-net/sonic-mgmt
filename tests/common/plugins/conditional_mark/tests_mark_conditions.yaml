@@ -18,6 +18,12 @@ acl/null_route/test_null_route_helper.py:
     conditions:
       - "'dualtor' in topo_name"
 
+acl/test_acl.py:
+  xfail:
+    reason: "ACL test is not supported on mellanox platform with dualtor topology "
+    conditions:
+      - "asic_type in ['mellanox'] and 'dualtor' in topo_name"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -250,9 +256,11 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium, x86_64-8111_32eh_o-r0 platform"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release and innovium, x86_64-8111_32eh_o-r0 platform. Skip on mellanox dualtor setups for github issue #9646"
+    conditions_logical_operator: or
     conditions:
       - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['innovium'] or platform in ['x86_64-8111_32eh_o-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9646 and 'dualtor' in topo_name and asic_type in ['mellanox']"
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -282,6 +290,13 @@ drop_packets:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor/test_ipinip.py::test_encap_with_mirror_session:
+  xfail:
+     reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
+     conditions:
+       - https://github.com/sonic-net/sonic-mgmt/issues/8577
+       - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
 dualtor/test_orch_stress.py:
   skip:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
@@ -351,6 +366,59 @@ dualtor/test_standby_tor_upstream_mux_toggle.py:
     reason: "This testcase is designed for single tor testbed with mock dualtor config."
     conditions:
       - "(topo_type not in ['t0']) or ('dualtor' in topo_name)"
+
+dualtor/test_tor_ecn.py::test_dscp_to_queue_during_encap_on_standby:
+  xfail:
+     reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
+     conditions:
+       - https://github.com/sonic-net/sonic-mgmt/issues/8577
+       - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
+  xfail:
+     reason: "Testcase ignored on dualtor-aa topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/8577"
+     conditions:
+       - https://github.com/sonic-net/sonic-mgmt/issues/8577
+       - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
+  xfail:
+    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16085 and asic_type in ['mellanox']"
+
+dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_link_up_downstream_standby[active-active]:
+  xfail:
+    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16161"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/16161 and asic_type in ['mellanox']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_downstream_active:
+  xfail:
+    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8272
+      - "asic_type in ['mellanox']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_downstream_active_soc:
+  xfail:
+    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8272
+      - "asic_type in ['mellanox']"
+
+dualtor_io/test_link_failure.py::test_active_link_down_downstream_standby:
+  xfail:
+    reason: "Testcase ignored on Nvidia platforms due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/8272"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8272
+      - "asic_type in ['mellanox']"
+
+dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream[active-active]:
+  xfail:
+    reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/15964"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/15964 and asic_type in ['mellanox']"
 
 #######################################
 #####         dut_console         #####
@@ -1127,6 +1195,12 @@ span:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+span/test_port_mirroring.py:
+  xfail:
+    reason: "Testcase ignored on dualtor topology and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9647"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9647 and 'dualtor' in topo_name and asic_type in ['mellanox']"
+
 #######################################
 #####             ssh             #####
 #######################################
@@ -1240,9 +1314,11 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform"
+    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
+    conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox']"
 
 #######################################
 #####             voq             #####
