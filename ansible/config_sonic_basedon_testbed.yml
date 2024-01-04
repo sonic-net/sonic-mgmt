@@ -201,7 +201,16 @@
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
-    when: "('leafrouter' == (vm_topo_config['dut_type'] | lower)) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
+    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
+
+  - name: gather hwsku that supports Compute-AI deployment
+    set_fact:
+      hwsku_list_compute_ai: "['Cisco-8111-O64']"
+
+  - name: enable Compute-AI deployment
+    set_fact:
+      enable_compute_ai_deployment: true
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
 
   - name: set default vm file path
     set_fact:
