@@ -744,21 +744,26 @@ class SonicHost(AnsibleHostBase):
 
         return service_critical_process
 
-    def control_process(self, process, pause, namespace=''):
+    def control_process(self, process, pause=True, namespace='', signal=''):
         """
-        Pause or unpause a process on the DUT by sending SIGSTOP or SIGCONT
+        Send a signal to a process on the DUT
         """
         process_control_cmd = "docker exec -i {}{} bash -c 'kill -s {} `pgrep {}`'"
-        if pause:
-            signal = "SIGSTOP"
+        if signal:
+            proc_signal = signal
+        elif pause:
+            proc_signal = "SIGSTOP"
+        elif not pause:
+            proc_signal = "SIGCONT"
         else:
-            signal = "SIGCONT"
+            logger.error("Must specify either `pause` or a specific signal")
+            return
 
         container = PROCESS_TO_CONTAINER_MAP.get(process, None)
         if not container:
             logger.error("Unknown process {}".format(process))
             return
-        cmd = process_control_cmd.format(container, namespace, signal, process)
+        cmd = process_control_cmd.format(container, namespace, proc_signal, process)
         self.shell(cmd)
 
     def get_crm_resources_for_masic(self, namespace=DEFAULT_NAMESPACE):
