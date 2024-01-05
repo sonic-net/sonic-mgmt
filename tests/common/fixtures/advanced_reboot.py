@@ -825,11 +825,11 @@ class AdvancedReboot:
         logger.info("warmbootFlag: " + warmbootFlag)
         return warmbootFlag != 'true'
 
-    def tearDown(self):
+    def verifyDeviceState(self):
         """
-        Tears down test case. It also verifies that config_db.json exists.
+        Verify that the device is in a good state after the reboot operation. It
+        also verifies that config_db.json exists.
         """
-        logger.info('Running test tear down')
         if 'warm-reboot' in self.rebootType:
             if not wait_until(300, 10, 0, self.__checkWarmbootFlag, self.duthost):
                 logger.info('Setting warm-reboot system flag to false')
@@ -842,11 +842,18 @@ class AdvancedReboot:
         result = self.duthost.shell('stat /etc/sonic/config_db.json')
         assert len(result['stderr_lines']) == 0, '/etc/sonic/config_db.json is missing'
 
-        self.__runScript(['remove_ip.sh'], self.ptfhost)
-
         if self.postRebootCheckScript:
             logger.info('Run the post reboot check script')
             self.__runScript([self.postRebootCheckScript], self.duthost)
+
+    def tearDown(self):
+        """
+        Tears down test case. It also verifies that config_db.json exists.
+        """
+        logger.info('Running test tear down')
+        self.verifyDeviceState()
+
+        self.__runScript(['remove_ip.sh'], self.ptfhost)
 
         if self.rebootType != 'service-warm-restart' and not self.stayInTargetImage:
             self.__restorePrevImage()
