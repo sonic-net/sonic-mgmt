@@ -315,7 +315,10 @@ def pdu_action_on_dut(host, attrs, action):
                 'output_watts': 0,
         })
         status['power_on'] = status['power_on'] or outlet['outlet_on']
-        status['output_watts'] = status['output_watts'] + int(outlet['output_watts'])
+        if 'output_watts' not in outlet:
+            status['output_watts'] = 'N/A'
+        else:
+            status['output_watts'] = status['output_watts'] + int(outlet.get('output_watts', 0))
         psu_status[psu_name] = status
     ret['PSU status'] = psu_status
 
