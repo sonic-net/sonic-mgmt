@@ -107,6 +107,7 @@ def session(new_params):
         ('ip route add 0.0.0.0/0 via %s table default' %
          str(new_params['mgmt_gw']), [r'#']),
         ('ip route', [r'#']),
+        ('arping -c 2 -U -P -I eth0 %s' % str(new_params['mgmt_ip']).split("/")[0], [r'#']),
         ('echo %s:%s | chpasswd' %
          (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ])

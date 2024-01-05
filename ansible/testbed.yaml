@@ -37,6 +37,7 @@
   ptf: ptf-unknown
   ptf_ip: 10.255.0.178/24
   ptf_ipv6:
+  ptf_extra_mgmt_ip: []
   server: server_1
   vm_base: VM0100
   dut:

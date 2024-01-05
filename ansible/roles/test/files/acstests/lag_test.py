@@ -97,6 +97,7 @@ class LacpTimingTest(BaseTest, RouterUtility):
         # Verify two LACP packets.
         (rcv_device, rcv_port, rcv_pkt, last_pkt_time) = self.dataplane.poll(
             port_number=self.exp_iface, timeout=self.timeout, exp_pkt=masked_exp_pkt)
+        self.assertTrue(rcv_pkt is not None, "Failed to receive initial LACP packet\n")
         last_pkt_time = round(float(last_pkt_time), 2)
 
         for i in range(0, self.interval_count):

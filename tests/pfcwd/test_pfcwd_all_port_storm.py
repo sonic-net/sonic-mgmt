@@ -7,10 +7,9 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -157,7 +156,10 @@ class TestPfcwdAllPortStorm(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         storm_hndle = storm_test_setup_restore
         logger.info("--- Testing if PFC storm is detected on all ports ---")
-        self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_DETECT_RE], syslog_marker="all_port_storm",
+        self.run_test(duthost,
+                      storm_hndle,
+                      expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
+                      syslog_marker="all_port_storm",
                       action="storm")
 
         logger.info("--- Testing if PFC storm is restored on all ports ---")
