@@ -1028,9 +1028,8 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    # LACP packets are mapped to queue0 and tcp syn packets for BGP to queue4
-                    # CPU sends LACP/LLDP/BGP control pkts to queue7
-                    # So for those queues the count could be more
+                    # In DNX, ip2me packets trapped to cpu mapped to TC 1 -> PG 0 and
+                    # all other control packets trapped to cpu mapped to TC 4 -> PG 4.
                     if i == pg:
                         if i == 0 or i == 4 or i == 7:
                             assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
