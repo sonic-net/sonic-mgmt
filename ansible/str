@@ -304,14 +304,14 @@ sonic_dell64_40:
     str-s6100-acs-1:
       ansible_host: 10.3.147.243
       model: 06N1J1
-      serial: DB7RG02
-      base_mac: D8:9E:F3:BC:9D:A0
+      serial: DF9TG02
+      base_mac: D8:9E:F3:D1:CB:E0
       syseeprom_info:
         "0x21": "S6100-ON"
         "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES0082S0020"
-        "0x24": "D8:9E:F3:BC:9D:A0"
-        "0x25": "03/02/2018 15:53:03"
+        "0x23": "CN06N1J1CES008340044"
+        "0x24": "D8:9E:F3:D1:CB:E0"
+        "0x25": "03/07/2018 08:56:47"
         "0x26": "1"
         "0x27": "A04"
         "0x28": "x86_64-dell_s6100_c2538-r0"
@@ -321,8 +321,8 @@ sonic_dell64_40:
         "0x2C": "CN"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "DB7RG02"
-        "0xFE": "0x6261CCC2"
+        "0x2F": "DF9TG02"
+        "0xFE": "0x4B04FF49"
     str-s6100-acs-2:
       ansible_host: 10.64.247.225
       model: 06N1J1
