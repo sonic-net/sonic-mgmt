@@ -520,20 +520,6 @@ class QosParamBroadcom(object):
         # Workaround: to continue the QoS SAI test without qos parameter of particular speed and cable length,
         # use the most similar speed cable length for qos sai test
         # until developer share the correct qos parameter for particular speed and cable length
-        def compare_speed_cable_len(a, b):
-            # (speed, len)
-            if a[0] < b[0]:
-                return -1
-            elif a[0] > b[0]:
-                return 1
-            else:
-                if a[1] < b[1]:
-                    return -1
-                elif a[1] > b[1]:
-                    return 1
-                else:
-                    return 0
-
         speed_cable_len = self.speed_cable_len.split('_')
         speed = int(speed_cable_len[0])
         length = int(speed_cable_len[1][:-1])
@@ -550,7 +536,7 @@ class QosParamBroadcom(object):
                 must_profile))
             return None
 
-        speed_length_list.sort(cmp=compare_speed_cable_len)
+        speed_length_list.sort(key=lambda x: (x[0], x[1]))
         this_index = speed_length_list.index((speed, length))
         ref_index = this_index + 1 if this_index + 1 < len(speed_length_list) else this_index - 1
         ref_speed_len = '{}_{}m'.format(speed_length_list[ref_index][0], speed_length_list[ref_index][1])
