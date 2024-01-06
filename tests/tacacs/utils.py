@@ -72,6 +72,12 @@ def setup_local_user(duthost, tacacs_creds):
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
 
+    # UT should failed when set reachable TACACS server with this setup_tacacs_client
+    ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip))['stdout']
+    logger.info("TACACS server ping result: {}".format(ping_result))
+    if "100% packet loss" in ping_result:
+        pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
+
     # configure tacacs client
     default_tacacs_servers = []
     duthost.shell("sudo config tacacs passkey %s" % tacacs_creds[duthost.hostname]['tacacs_passkey'])
@@ -318,8 +324,10 @@ def get_auditd_config_reload_timestamp(duthost):
     return res["stdout_lines"][-1]
 
 
-def change_and_wait_aaa_config_update(duthost, command, timeout=10):
-    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
     duthost.shell(command)
 
     # After AAA config update, hostcfgd will modify config file and notify auditd reload config
