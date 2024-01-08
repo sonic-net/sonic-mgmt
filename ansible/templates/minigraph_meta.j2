@@ -206,6 +206,12 @@
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
 {% endif %}
+{% if macsec_card is defined and macsec_card == True and 't2' in topo %}
+    <a:DeviceProperty>
+      <a:Name>MacSecProfile</a:Name>
+      <a:Value>PrimaryKey="MACSEC_PROFILE" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>
+    </a:DeviceProperty>
+{% endif %}
         </a:Properties>
       </a:DeviceMetadata>
 {% endfor %}
