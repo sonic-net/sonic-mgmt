@@ -399,6 +399,8 @@ class LabGraph(object):
             if device is None and not ignore_error:
                 msg = "Cannot find device {}, check if it is in {}".format(hostname, self.csv_files["devices"])
                 return (False, msg)
+            if device is None:
+                continue
             device_info[hostname] = device
             device_conn[hostname] = self.graph_facts["links"].get(hostname, {})
 
