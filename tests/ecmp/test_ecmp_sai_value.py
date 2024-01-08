@@ -152,15 +152,23 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
         offset_count = offset_list.count('0')
         if asic_name == "td3":
             # For TD3, RTAG7_PORT_BASED_HASH.ipipe0[1]: <OFFSET_ECMP=2,>
-            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(391, offset_count))
+        elif hwsku in ["Arista-7050-QX-32S", "Arista-7050QX32S-Q32"]:
+            # For TD2, 7050qx, the total number of ports are 362
+            pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(362, offset_count))
         else:
-            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(392, offset_count))
     elif topo_type == "t1":
         offset_count = offset_list.count('0xa')
         if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32"]:
-            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct. \
+                          Expected >= 33, but got {}.".format(offset_count))
         else:
-            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct. \
+                          Expected >= 67, but got {}.".format(offset_count))
     else:
         pytest.fail("Unsupported topology type: {}".format(topo_type))
 
