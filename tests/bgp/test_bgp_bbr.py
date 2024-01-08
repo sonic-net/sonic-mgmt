@@ -19,6 +19,8 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
+from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 
 pytestmark = [
@@ -59,6 +61,54 @@ def bbr_default_state(setup):
     return setup['bbr_default_state']
 
 
+def add_bbr_config_to_running_config(duthost, status):
+    logger.info('Add BGP_BBR config to running config')
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/BGP_BBR",
+            "value": {
+                "all": {
+                    "status": "{}".format(status)
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+    
+    time.sleep(3)
+
+
+def config_bbr_by_gcu(duthost, status):
+    logger.info('Config BGP_BBR by GCU cmd')
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/BGP_BBR/all/status",
+            "value": "{}".format(status)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+    
+    time.sleep(3)
+
+
 def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
     duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace if namespace else ''))
@@ -75,22 +125,27 @@ def disable_bbr(duthost, namespace):
 def restore_bbr_default_state(duthosts, setup, rand_one_dut_hostname, bbr_default_state):
     yield
     duthost = duthosts[rand_one_dut_hostname]
+    config_bbr_by_gcu(duthost, bbr_default_state)
+    '''
     if bbr_default_state == 'enabled':
         enable_bbr(duthost, setup['tor1_namespace'])
     else:
         disable_bbr(duthost, setup['tor1_namespace'])
+    '''
 
 
 @pytest.fixture
 def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    disable_bbr(duthost, setup['tor1_namespace'])
+    config_bbr_by_gcu(duthost, "disabled")
+    # disable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture
 def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    enable_bbr(duthost, setup['tor1_namespace'])
+    config_bbr_by_gcu(duthost, "enabled")
+    # enable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture(scope='module')
@@ -108,6 +163,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         if not bbr_enabled:
             pytest.skip('BGP BBR is not enabled')
         bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
+        add_bbr_config_to_running_config(duthost, bbr_default_state)
     except KeyError:
         pytest.skip('No BBR configuration in {}, BBR is not supported.'.format(CONSTANTS_FILE))
 
