@@ -103,6 +103,9 @@ class ThriftInterface(BaseTest):
                     continue
                 interface_front_pair = line.split("@")
                 interface_to_front_mapping['src'][interface_front_pair[0]] = interface_front_pair[1].strip()
+                # src = dst on single ASIC device.
+                # Copy the src to dst cause some function will read this key
+                interface_to_front_mapping['dst'] = interface_to_front_mapping['src']
             f.close()
         else:
             exit("No ptf interface<-> switch front port mapping, please specify as parameter or in external file")
@@ -178,9 +181,10 @@ class ThriftInterface(BaseTest):
 
         return stdOut, stdErr, retValue
 
-    def sai_thrift_port_tx_enable(self, client, asic_type, port_list, target='dst', last_port=True):
+    def sai_thrift_port_tx_enable(
+            self, client, asic_type, port_list, target='dst', last_port=True, enable_port_by_unblock_queue=True):
         count = 0
-        if asic_type == 'mellanox':
+        if asic_type == 'mellanox' and enable_port_by_unblock_queue:
             self.enable_mellanox_egress_data_plane(port_list)
         else:
             sai_thrift_port_tx_enable(client, asic_type, port_list, target=target)
@@ -206,7 +210,7 @@ class ThriftInterface(BaseTest):
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0,\
                 "enable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
-    def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst'):
+    def sai_thrift_port_tx_disable(self, client, asic_type, port_list, target='dst', disable_port_by_block_queue=True):
         count = 0
         if self.platform_asic and self.platform_asic == "broadcom-dnx":
             # need to enable watchdog on the source asic using cint script
@@ -230,7 +234,7 @@ class ThriftInterface(BaseTest):
             assert 'Success rv = 0' in stdOut[1] if stdOut else retValue == 0, \
                 "disable wd failed '{}' on asic '{}' on '{}'".format(cmd, self.src_asic_index, self.src_server_ip)
 
-        if asic_type == 'mellanox':
+        if asic_type == 'mellanox' and disable_port_by_block_queue:
             self.disable_mellanox_egress_data_plane(port_list)
         else:
             sai_thrift_port_tx_disable(client, asic_type, port_list, target=target)

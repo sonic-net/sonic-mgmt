@@ -22,7 +22,19 @@ class SnappiTestParams():
                                              then pcap is on the tgen egress port
             base_flow_config (dict): base flow configuration
             test_tx_frames (list): number of test frames transmitted for priorities to test ex. [2000, 3000]
-                for priorities 3 and 4
+                for ex. priorities 3 and 4
+            gen_background_traffic (bool): whether or not to generate background traffic (default: True)
+            pause_flow_params (dict): pause frame parameters
+                Params:
+                    pause_frame_size (int): pause frame size in bytes (default: 64)
+                    pause_frame_rate (int): pause frame rate in frames per second
+                                            (default: pause dur to block link fully)
+                    pause_flow_dur (int): pause flow duration in seconds (default: -5 to signal continuous mode)
+                    pause_flow_delay (int): pause flow delay in seconds (default: 0)
+                    link_blockage_threshold (int): link blockage threshold in number of overlaps per pause dur
+                                                   (default: 2)
+            poll_device_runtime (bool): whether or not to poll the device for stats when traffic is running
+                                        (default: False)
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -33,3 +45,6 @@ class SnappiTestParams():
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.test_tx_frames = 0
+        self.gen_background_traffic = True
+        self.pause_flow_params = None
+        self.poll_device_runtime = True

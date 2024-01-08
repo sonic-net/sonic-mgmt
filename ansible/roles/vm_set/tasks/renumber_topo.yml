@@ -27,18 +27,18 @@
       nic_simulator_action: stop
     when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
-  - name: Stop exabgp processes
-    include_tasks: announce_routes.yml
-    vars:
-      exabgp_action: stop
-    when:
-      - topo != 'fullmesh'
-      - not 'ptf' in topo
-
   - name: Stop PTF portchannel service
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: stop
+
+  - name: Kill exabgp and ptf_nn_agent processes in PTF container
+    ptf_control:
+      ctn_name: "ptf_{{ vm_set_name }}"
+      command: kill
+    when:
+      - topo != 'fullmesh'
+      - not 'ptf' in topo
 
   - name: Get infos of ptf container
     docker_container_info:
@@ -57,6 +57,25 @@
       ls /proc/{{ ptf_docker_info.container.State.Pid }}/net/vlan/ >> /tmp/ptf_network_{{ vm_set_name }}.log
       echo "-----------------------------" >> /tmp/ptf_network_{{ vm_set_name }}.log
     when: ptf_docker_info.exists
+
+  - name: Get dut ports
+    include_tasks: get_dut_port.yml
+    loop: "{{ duts_name.split(',') }}"
+    loop_control:
+      loop_var: dut_name
+
+  - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "unbind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+    become: yes
 
   - name: Stop ptf container ptf_{{ vm_set_name }}
     docker_container:
@@ -110,12 +129,6 @@
   - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
     become: yes
-
-  - name: Get dut ports
-    include_tasks: get_dut_port.yml
-    loop: "{{ duts_name.split(',') }}"
-    loop_control:
-      loop_var: dut_name
 
   - name: Create vlan ports for dut
     include_tasks: create_dut_port.yml
