@@ -166,7 +166,7 @@ def test_downstream_ecmp_nexthops(
                                        tbinfo, nexthop_interfaces)
 
         ### Sequentially set four mux states to standby
-        nexthop_interfaces_copy = nexthop_interfaces.copy()
+        nexthop_interfaces_copy = list(interface_to_server.keys())
         for index, interface in enumerate(nexthop_interfaces):
             logging.info("Simulate {} mux state change to Standby".format(nexthop_servers[index]))
             set_mux_state(rand_selected_dut, tbinfo, 'standby', [interface], toggle_all_simulator_ports)
