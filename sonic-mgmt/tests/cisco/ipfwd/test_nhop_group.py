@@ -388,6 +388,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
         nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+        if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+            nhop_group_count = 1024 - crm_stat["used_nhop_grp"]
+
         nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
