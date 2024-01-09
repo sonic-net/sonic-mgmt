@@ -83,7 +83,7 @@ def add_bbr_config_to_running_config(duthost, status):
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
-    
+
     time.sleep(3)
 
 
@@ -105,7 +105,7 @@ def config_bbr_by_gcu(duthost, status):
         expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
-    
+
     time.sleep(3)
 
 
