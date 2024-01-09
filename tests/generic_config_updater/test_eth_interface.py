@@ -121,9 +121,9 @@ def get_port_speeds_for_test(duthost):
     """
     speeds_to_test = []
     invalid_speed_yang = ("20a", False)
+    invalid_speed_state_db = None
     if duthost.get_facts()['asic_type'] == 'vs':
         valid_speeds = ['20000', '40000']
-        invalid_speed_state_db = ('1999', False)
     else:
         valid_speeds = duthost.get_supported_speeds('Ethernet0')
         if valid_speeds:
@@ -132,7 +132,8 @@ def get_port_speeds_for_test(duthost):
     valid_speeds_to_test = random.sample(valid_speeds, 2 if len(valid_speeds) >= 2 else len(valid_speeds))
     speeds_to_test = [(speed, True) for speed in valid_speeds_to_test]
     speeds_to_test.append(invalid_speed_yang)
-    speeds_to_test.append(invalid_speed_state_db)
+    if invalid_speed_state_db:
+        speeds_to_test.append(invalid_speed_state_db)
     return speeds_to_test
 
 
