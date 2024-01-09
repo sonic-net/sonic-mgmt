@@ -154,7 +154,7 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
             # For TD3, RTAG7_PORT_BASED_HASH.ipipe0[1]: <OFFSET_ECMP=2,>
             pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected {}, but got {}.".format(391, offset_count))
-        elif hwsku in ["Arista-7050-QX-32S", "Arista-7050QX32S-Q32"]:
+        elif asic_name == "td2":
             # For TD2, 7050qx, the total number of ports are 362
             pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected {}, but got {}.".format(362, offset_count))
