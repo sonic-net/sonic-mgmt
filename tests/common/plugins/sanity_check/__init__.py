@@ -240,7 +240,9 @@ def sanity_check(localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
         logger.info("num is: {}".format(num))
 
         logger.info("request.node.name is: {}".format(request.node.name))
-        if "test_bgp_fact" in request.node.name and num < 5:
+        # if "test_bgp_fact" in request.node.name and num < 5:
+        #     failed_results = [1]
+        if num < 5:
             failed_results = [1]
         if failed_results:
             if not allow_recover:
