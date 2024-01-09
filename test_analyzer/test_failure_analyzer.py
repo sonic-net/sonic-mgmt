@@ -46,8 +46,8 @@ PARENT_ID1 = "13410203"
 PARENT_ID2 = "16726166"
 ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
 ICM_NUMBER_THRESHOLD = 9
-INCLUDED_BRANCH = ["20201231", "20220531", "20230531", "master", "internal", ]
-RELEASE_BRANCH = ['20201231', '20220531', '20230531']
+
+RELEASE_BRANCH = ['20201231', '20220531', '20230531', '20231105']
 
 TOKEN = os.environ.get('AZURE_DEVOPS_MSAZURE_TOKEN')
 if not TOKEN:
@@ -243,7 +243,7 @@ class KustoConnector(object):
             let ExcludeTopoList = dynamic({});
             let ExcludeAsicList = dynamic({});
             let SummaryWhileList = dynamic({});
-            FlatTestReportViewV5
+            TestReportUnionData
             | where PipeStatus == 'FINISHED'
             | where TestbedName != ''
             | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -254,7 +254,7 @@ class KustoConnector(object):
             | where not(TopologyType has_any(ExcludeTopoList))
             | where not(AsicType has_any(ExcludeAsicList))
             | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-            | join kind = inner (FlatTestReportViewV5
+            | join kind = inner (TestReportUnionData
             | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
             | where Result in (ResultFilterList)
             | where Summary !in (SummaryWhileList)
@@ -296,7 +296,7 @@ class KustoConnector(object):
         let ExcludeHwSkuList = dynamic({});
         let ExcludeTopoList = dynamic({});
         let ExcludeAsicList = dynamic({});
-        FlatTestReportViewV5
+        TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -308,7 +308,7 @@ class KustoConnector(object):
         | where not(AsicType has_any(ExcludeAsicList))
         | where Summary contains "test setup failure"
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (FlatTestReportViewV5
+        | join kind = inner (TestReportUnionData
             | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
             | where Result in (ResultFilterList)
             | where Summary contains "test setup failure"
@@ -348,7 +348,7 @@ class KustoConnector(object):
         let ExcludeHwSkuList = dynamic({});
         let ExcludeTopoList = dynamic({});
         let ExcludeAsicList = dynamic({});
-        FlatTestReportViewV5
+        TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -361,7 +361,7 @@ class KustoConnector(object):
         | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
         | extend FullCaseName = strcat(ModulePath,".",opTestCase)
         | summarize arg_max(RunDate, *) by opTestCase, OSVersion, ModulePath, TestbedName, Result
-        | join kind = inner (FlatTestReportViewV5
+        | join kind = inner (TestReportUnionData
             | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({}) and OSVersion has_any(ProdQualOSList)
             | where Result in (ResultFilterList)
             | where Summary !contains "test setup failure"
@@ -398,7 +398,7 @@ class KustoConnector(object):
         let ExcludeHwSkuList = dynamic({});
         let ExcludeTopoList = dynamic({});
         let ExcludeAsicList = dynamic({});
-        FlatTestReportViewV5
+        TestReportUnionData
         | where PipeStatus == 'FINISHED'
         | where TestbedName != ''
         | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -439,7 +439,7 @@ class KustoConnector(object):
                 let ExcludeHwSkuList = dynamic({});
                 let ExcludeTopoList = dynamic({});
                 let ExcludeAsicList = dynamic({});
-                FlatTestReportViewV5
+                TestReportUnionData
                 | where PipeStatus == 'FINISHED'
                 | where TestbedName != ''
                 | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -469,7 +469,7 @@ class KustoConnector(object):
                 let ExcludeHwSkuList = dynamic({});
                 let ExcludeTopoList = dynamic({});
                 let ExcludeAsicList = dynamic({});
-                FlatTestReportViewV5
+                TestReportUnionData
                 | where PipeStatus == 'FINISHED'
                 | where TestbedName != ''
                 | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
@@ -547,7 +547,7 @@ class BasicAnalyzer(object):
         logger.info(
             "====== initiate target parent relationships into memory list ======")
         # self.init_parent_relations2list([PARENT_ID1, PARENT_ID2])
-        self.collect_sonic_nightly_ado()
+        # self.collect_sonic_nightly_ado()
         logger.info(
             "Found {} work items for sonic-nightly.".format(len(self.child_standby_list)))
 
@@ -641,6 +641,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         self.icm_20201231_limit = self.config_info['icm_limitation']['icm_20201231_limit']
         self.icm_20220531_limit = self.config_info['icm_limitation']['icm_20220531_limit']
         self.icm_20230531_limit = self.config_info['icm_limitation']['icm_20230531_limit']
+        self.icm_202311_limit = self.config_info['icm_limitation']['icm_202311_limit']
         self.icm_master_limit = self.config_info['icm_limitation']['icm_master_limit']
         self.icm_internal_limit = self.config_info['icm_limitation']['icm_internal_limit']
         self.max_icm_count_per_module = self.config_info['icm_limitation']['max_icm_count_per_module']
@@ -756,7 +757,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         # For platform_test, we aggregate branches, don't trigger same IcM for different branches
                         if 'platform_tests' in icm['module_path']:
                             icm_branch = icm['branch']
-                            for branch_name in INCLUDED_BRANCH:
+                            for branch_name in self.config_info["branch"]["included_branch"]:
                                 replaced_title = icm['subject'].replace(
                                     icm_branch, branch_name)
                                 if icm_title in ICM_PREFIX + replaced_title:
@@ -837,6 +838,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         count_202012 = 0
         count_202205 = 0
         count_202305 = 0
+        count_202311 = 0
         count_master = 0
         count_internal = 0
 
@@ -852,6 +854,8 @@ class GeneralAnalyzer(BasicAnalyzer):
             self.icm_20220531_limit))
         logger.info("limit the number of 20230531 cases to {}".format(
             self.icm_20230531_limit))
+        logger.info("limit the number of 202311 cases to {}".format(
+            self.icm_202311_limit))
         logger.info("limit the number of master cases to {}".format(
             self.icm_master_limit))
         logger.info("limit the number of internal cases to {}".format(
@@ -894,7 +898,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     # For platform_test, we aggregate branches, don't trigger same IcM for different branches
                     if 'platform_tests' in candidator['module_path']:
                         icm_branch = candidator['branch']
-                        for branch_name in INCLUDED_BRANCH:
+                        for branch_name in self.config_info["branch"]["included_branch"]:
                             replaced_title = candidator['subject'].replace(
                                 icm_branch, branch_name)
                             # If the uploading IcM title is the lower than the one in final_icm_list, don't trigger IcM
@@ -981,11 +985,19 @@ class GeneralAnalyzer(BasicAnalyzer):
                             continue
                         else:
                             count_internal += 1
+                    elif "202311" in candidator_branch:
+                        if count_202311 >= self.icm_202311_limit:
+                            logger.info("Reach the limit of 202311 case: {}, ignore this IcM {}".format(
+                                self.icm_202311_limit, candidator['subject']))
+                            candidator['trigger_icm'] = False
+                            continue
+                        else:
+                            count_202311 += 1
                     logger.info("Add branch {} type {} : {} to final_icm_list".format(
                         candidator_branch, failure_type, candidator['subject']))
                     final_icm_list.append(candidator)
-        logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, master {}, internal {}".format(
-            count_platform_test, count_202012, count_202205, count_202305, count_master, count_internal))
+        logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, 202311 {}, master {}, internal {}".format(
+            count_platform_test, count_202012, count_202205, count_202305, count_202311, count_master, count_internal))
 
         return error_final_icm_list, final_icm_list, duplicated_icm_list
 
@@ -998,17 +1010,20 @@ class GeneralAnalyzer(BasicAnalyzer):
         icm_202012 = []
         icm_202205 = []
         icm_202305 = []
+        icm_202311 = []
         icm_internal = []
         icm_master = []
 
         # Split the icm list into four temp list based on branch
         for icm in icm_list:
-            if icm['branch'] == '202012':
+            if icm['branch'] == '20201231':
                 icm_202012.append(icm)
-            elif icm['branch'] == '202205':
+            elif icm['branch'] == '20220531':
                 icm_202205.append(icm)
-            elif icm['branch'] == '202305':
+            elif icm['branch'] == '20230531':
                 icm_202305.append(icm)
+            elif '202311' in icm['branch']:
+                icm_202311.append(icm)
             elif icm['branch'] == 'master':
                 icm_master.append(icm)
             else:
@@ -1016,11 +1031,12 @@ class GeneralAnalyzer(BasicAnalyzer):
         logger.info("There are {} IcMs in 202012 branch".format(len(icm_202012)))
         logger.info("There are {} IcMs in 202205 branch".format(len(icm_202205)))
         logger.info("There are {} IcMs in 202305 branch".format(len(icm_202305)))
+        logger.info("There are {} IcMs in 202311 branch".format(len(icm_202311)))
         logger.info("There are {} IcMs in master branch".format(len(icm_master)))
         logger.info("There are {} IcMs in internal branch".format(len(icm_internal)))
 
         # Get upload times
-        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
+        upload_times = math.ceil(max(len(icm_202012), len(icm_202205), len(icm_202305), len(icm_202311), len(icm_master), len(icm_internal)) / ICM_NUMBER_THRESHOLD)
 
         # Every branch can upload up to ICM_NUMBER_THRESHOLD IcMs
         for i in range(upload_times):
@@ -1032,6 +1048,8 @@ class GeneralAnalyzer(BasicAnalyzer):
                     temp_icm_list.append(icm_202205.pop(0))
                 if len(icm_202305) > 0:
                     temp_icm_list.append(icm_202305.pop(0))
+                if len(icm_202311) > 0:
+                    temp_icm_list.append(icm_202311.pop(0))
                 if len(icm_master) > 0:
                     temp_icm_list.append(icm_master.pop(0))
                 if len(icm_internal) > 0:
@@ -1424,7 +1442,7 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         # hwsku_topo_results = self.calculate_combined_success_rate(case_branch_df, 'hwsku_topo')
 
-        if branch in RELEASE_BRANCH:
+        if branch in self.config_info["branch"]["released_branch"]:
             # branch_df = case_branch_df[case_branch_df['BranchName'] == branch]
             # latest_osversion = branch_df['OSVersion'].max()
             # branch_df = branch_df[branch_df['OSVersion'] == latest_osversion]
@@ -1444,7 +1462,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             # hwsku_topo_results["latest_failure_hwsku_topo"] = latest_row['HardwareSku'] + \
             # "_" + latest_row['TopologyType']
             os_results["latest_failure_os_version"] = latest_row['OSVersion']
-            if branch in RELEASE_BRANCH:
+            if branch in self.config_info["branch"]["released_branch"]:
                 hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
                     "_" + latest_row['OSVersion']
             latest_failure_timestamp_ori = latest_row['UploadTimestamp']
@@ -1471,7 +1489,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         history_testcases[test_case_branch]['per_asic_info'] = asic_results
         history_testcases[test_case_branch]['per_hwsku_info'] = hwsku_results
         # history_testcases[test_case_branch]['per_hwsku_topo_info'] = hwsku_topo_results
-        if branch in RELEASE_BRANCH:
+        if branch in self.config_info["branch"]["released_branch"]:
             history_testcases[test_case_branch]['per_hwsku_osversion_info'] = hwsku_osversion_results
         history_testcases[test_case_branch]['per_os_version_info'] = os_results
 
@@ -1625,7 +1643,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         kusto_row_data['per_testbed_info'] = history_testcases[case_name_branch]['per_testbed_info']
         kusto_row_data['per_asic_info'] = history_testcases[case_name_branch]['per_asic_info']
         kusto_row_data['per_hwsku_info'] = history_testcases[case_name_branch]['per_hwsku_info']
-        if branch in RELEASE_BRANCH:
+        if branch in self.config_info["branch"]["released_branch"]:
             kusto_row_data['per_hwsku_osversion_info'] = history_testcases[case_name_branch]['per_hwsku_osversion_info']
         kusto_row_data['per_os_version_info'] = history_testcases[case_name_branch]['per_os_version_info']
         kusto_row_data['failure_level_info']['latest_failure_timestamp'] = history_testcases[case_name_branch]['latest_failure_timestamp'] if 'latest_failure_timestamp' in history_testcases[case_name_branch] else 'NO_FAILURE_TIMESTAMP'
@@ -1633,7 +1651,7 @@ class GeneralAnalyzer(BasicAnalyzer):
 
         kusto_row_data['failure_level_info']['total_success_rate_' +
                                              branch] = history_testcases[case_name_branch]['total_success_rate']
-        for branch_name in INCLUDED_BRANCH:
+        for branch_name in self.config_info["branch"]["included_branch"]:
             if branch_name != branch:
                 case_branch_df = history_case_df[history_case_df['BranchName']
                                                  == branch_name]
@@ -1687,7 +1705,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             keywords = [case_name]
             keywords.extend(kusto_row_data['module_path'].split("."))
             tag = ''
-            if branch in RELEASE_BRANCH:
+            if branch in self.config_info["branch"]["released_branch"]:
                 consistent_failure_os_version = kusto_row_data[
                     'per_os_version_info']["consistent_failure_os_version"]
                 if consistent_failure_os_version and len(consistent_failure_os_version) > 0:
@@ -1882,7 +1900,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     case_name_branch, len(kusto_table)))
                 return kusto_table
             # Step 5. Check hwsku_osversion level for release branches
-            if branch in RELEASE_BRANCH:
+            if branch in self.config_info["branch"]["released_branch"]:
                 # per_hwsku_osversion_info = history_testcases[case_name_branch]["per_hwsku_osversion_info"]
                 branch_df = history_case_branch_df[history_case_branch_df['BranchName'] == branch]
                 latest_osversion = branch_df['OSVersion'].max()
@@ -1933,7 +1951,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     case_name_branch, len(kusto_table)))
                 return kusto_table
             # # Step 6. Check hwsku_topo level for release branches
-            # if branch in RELEASE_BRANCH:
+            # if branch in self.config_info["branch"]["released_branch"]:
             #     per_hwsku_topo_info = history_testcases[case_name_branch]["per_hwsku_topo_info"]
 
             #     for hwsku_topo_pass_rate in per_hwsku_topo_info["success_rate"]:
@@ -2171,7 +2189,7 @@ def main(icm_limit, excluded_testbed_keywords, excluded_testbed_keywords_setup_e
     logger.info(json.dumps(excluse_failure_dict, indent=4))
 
     # Since master pipelines run less, add master into release branch for surfacing more failures
-    branches_wanted = RELEASE_BRANCH + ['master']
+    branches_wanted = RELEASE_BRANCH
     branches_wanted_dict = {}
     for branch in branches_wanted:
         branches_wanted_dict['branch'] = branch
