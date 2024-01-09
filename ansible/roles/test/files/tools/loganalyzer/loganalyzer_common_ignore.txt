@@ -221,3 +221,6 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch
 
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
 r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/25833053
+r, ".* ERR dualtor_neighbor_check.py: .*"
