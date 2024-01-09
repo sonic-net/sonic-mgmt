@@ -6,6 +6,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 """
 import logging
 
+import time
 import pytest
 import re
 
@@ -120,6 +121,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     reboot(duthost, localhost, reboot_type="cold", wait=5,
            plt_reboot_ctrl_overwrite=False)
 
+    time.sleep(180)
     # Check if all database containers have started
     # Some device after reboot may take some longer time to have database container started up
     # we must give it a little longer or else it may falsely fail the test.
