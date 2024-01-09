@@ -46,9 +46,9 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, mgmt_ip, image_url):
+def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
     oldtty = termios.tcgetattr(sys.stdin)
-    enter_onie_flag = 0
+    enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     try:
         tty.setraw(sys.stdin.fileno())
@@ -66,20 +66,27 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url):
 
                     x = x.decode('ISO-8859-9')
 
-                    if "GNU GRUB" in x:
-                        enter_onie_flag += 1
-                        continue
+                    if is_nexus:
+                        if "loader" in x and ">" in x:
+                            dut_console.remote_conn.send('reboot')
+                            dut_console.remote_conn.send("\n")
+                            continue
 
-                    if "SONiC-OS-" in x and enter_onie_flag == 1:
+                    # if "GNU GRUB" in x:
+                    #     enter_onie_flag += 1
+                    #     continue
+
+                    if "SONiC-OS-" in x and enter_onie_flag:
                         # Send arrow key "down" here.
                         dut_console.remote_conn.send(b'\x1b[B')
                         continue
 
                     if "*ONIE" in x and "Install OS" not in x:
                         dut_console.remote_conn.send("\n")
-                        enter_onie_flag += 1
+                        # enter_onie_flag += 1
+                        enter_onie_flag = False
 
-                    if "ONIE: Starting ONIE Service Discovery" in x:
+                    if "Discovery" in x:
                         # TODO: Define a function to send command here
                         for i in range(5):
                             dut_console.remote_conn.send('onie-discovery-stop\n')
