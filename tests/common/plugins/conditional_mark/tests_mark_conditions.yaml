@@ -53,9 +53,9 @@ arp/test_stress_arp.py:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000','innovium']"
 
 arp/test_wr_arp.py:
   skip:
