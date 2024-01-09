@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 2 * * 5"
+  - cron: "0 2 * * 1"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -24,6 +24,7 @@ variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
 
+
 parameters:
   - name: AGENT_POOL
     type: string
@@ -37,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms24-t0-7260-2, vms7-t0-7260-2"
+    default: "vms64-t0-s6100-1, vms3-t0-s6100"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -50,8 +51,13 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202311)
+    default: $(IMAGE_BRCM_202311)
     displayName: "Image URL"
+
+  - name: UPGRADE_IMAGE_PARAM
+    type: string
+    default: "--always-power-cycle=True"
+    displayName: "Upgrade image parameter"
 
   - name: MGMT_BRANCH
     type: string
@@ -76,7 +82,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "pfc_asym, span, sub_port_interfaces, metadata-scripts"
+    default: "pfc_asym, span, sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
@@ -97,7 +103,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 7260cx3.t0.202311.NightlyTest_by_Elastictest
+    displayName: 6100.t0.202311.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -113,5 +119,6 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}

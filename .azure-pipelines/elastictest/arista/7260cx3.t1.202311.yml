@@ -48,7 +48,7 @@ parameters:
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202311
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
