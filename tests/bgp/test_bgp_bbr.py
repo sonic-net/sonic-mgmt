@@ -233,7 +233,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         'bbr_route_v6_dual_dut_asn': bbr_route_v6_dual_dut_asn
     }
 
-    if tor1_namespace == DEFAULT_NAMESPACE:
+    if not setup_info['tor1_namespace']:
         logger.info('non multi-asic environment, add bbr config to running config using gcu cmd')
         add_bbr_config_to_running_config(duthost, bbr_default_state)
 
