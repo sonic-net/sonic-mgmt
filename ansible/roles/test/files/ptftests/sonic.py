@@ -69,8 +69,8 @@ class Sonic(host_device.HostDevice):
                 # Therefore, fully read stdout first before trying to read
                 # stderr. This assumes there's plenty of data on stdout to read,
                 # but not much on stderr.
-                stdoutOutput = six.ensure_str(stdout.read())
-                stderrOutput = six.ensure_str(stderr.read()).strip()
+                stdoutOutput = stdout.read()
+                stderrOutput = stderr.read()
                 if len(stderrOutput) > 0:
                     self.log("Output on stderr from command '{}': '{}'".format(cmd, stderrOutput))
                 return stdoutOutput
