@@ -53,9 +53,9 @@ arp/test_stress_arp.py:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000','innovium']"
 
 arp/test_wr_arp.py:
   skip:
@@ -606,12 +606,6 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     reason: "Skip asym pfc on unsupported platforms"
     conditions:
       - "asic_type in ['cisco-8000']"
-
-generic_config_updater/test_eth_interface.py::test_update_speed:
-  skip:
-    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
