@@ -72,8 +72,10 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
         # v['name'] is  alias for example Ethernet1/1
         if v['name'] in alias_port_name_map:
             intf = alias_port_name_map[v['name']]
-            if intf in q_interfaces and 'queues' not in v:
-                pytest.fail("port %s does not have queue counters" % v['name'])
+
+            # Expect all interfaces to have queue counters
+            assert 'queues' in v, "Port {} does not have queue counters".format(intf)
+
             # Check if queue index in QUEUE table in config_db
             # is present in SNMP result
             if intf in q_interfaces:
@@ -86,12 +88,11 @@ def test_snmp_queues(duthosts, enum_rand_one_per_hwsku_hostname, localhost, cred
                                      SNMP result for interface %s" % (snmp_q_idx, v['name']))
             # compare number of unicast queues in CLI to the number of queue indexes in
             # SNMP result
-            if 'queues' in v:
-                if port_name_to_ns[intf]:
-                    show_cli = 'show queue counters -n {} {} | grep "UC" | wc -l'.format(port_name_to_ns[intf], intf)
-                else:
-                    show_cli = 'show queue counters {} | grep "UC" | wc -l'.format(intf)
-                result = duthost.shell(show_cli)
-                assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']),\
-                       "Port {} does not have expected number of queue \
-                       indexes in SNMP result".format(intf)
+            if port_name_to_ns[intf]:
+                show_cli = 'show queue counters -n {} {} | grep "UC" | wc -l'.format(port_name_to_ns[intf], intf)
+            else:
+                show_cli = 'show queue counters {} | grep "UC" | wc -l'.format(intf)
+            result = duthost.shell(show_cli)
+            assert len(v['queues'][direction_type].keys()) == int(result[u'stdout']),\
+                   "Port {} does not have expected number of queue \
+                   indexes in SNMP result".format(intf)
