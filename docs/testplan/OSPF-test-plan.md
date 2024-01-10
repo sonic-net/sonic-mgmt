@@ -25,7 +25,8 @@ The test assumes all standard topology configurations, such as BGP neighborship,
 The test is targeting a running SONIC system with fully functioning configuration.
 The purpose of the test is functional testing of OSPF on a SONIC system, testing OSPF neighborship status and dynamic routing changes in the event of a link failure.
 
-NOTE: OSPF Routing tests will run on all **Tier 0** and **Tier 1** topologies where neighboring devices are SONiC devices.
+### Testbed
+The test is avilable for all variations of **Tier 0** and **Tier 1** topologies available in the **sonic-mgmt** repository where the neighboring devices are SONiC devices.
 
 ### Related DUT CLI Commands
 Existing BGP routing functionality is disabled using the following command inside the configure terminal of SONiC FRR (vtysh) mode.
@@ -33,7 +34,7 @@ Existing BGP routing functionality is disabled using the following command insid
     sonic(config)# no router bgp
 
 OSPF configurations are be made using the following commands inside the configure terminal of SONiC FRR (vtysh) mode.
-    
+
     #Enter OSPF configuration mode
     sonic(config)# router ospf
 
@@ -46,13 +47,22 @@ OSPF configurations are be made using the following commands inside the configur
 The test assumes all standard configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that the neighboring devices are of SONiC type.
 
 ### Testbed Setup
-The test is avilable for all variations of **Tier 0** and **Tier 1** topologies available in the **sonic-mgmt** repository where the neighboring devices are SONiC devices.
 
 #### Tier 0 (t0)
 ![Variation t0](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/img/testbed-t0.png?raw=true)
 
+- The DUT has 32 ports.
+- Requires 4 VMs.
+- The first 28 ports are connected to PTF docker simulating servers.
+- The last 4 ports are connected to 4 VMs simulating T1 devices. The connection to each of the upstream T1 is configured as a port-channel with single link.
+
 #### Tier 1 (t1)
 ![Variation t1](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/img/testbed-t1.png?raw=true)
+
+- The DUT has 32 ports.
+- Requires 32 VMs.
+- 16 of the ports are connected to 16 VMs simulating upstream T2 neighbors. The connections to upstream T2s are single link without port channel configured.
+- 16 of the ports are connected to another 16 VMs simulating downstream T0 neighbors. No port-channel is configured for the links between DUT and T0 neighbors.
 
 ## Test Cases
 ### Test Case \#0 - Test Neighborship Status
