@@ -135,13 +135,10 @@ def disable_bbr(duthost, namespace):
 def restore_bbr_default_state(duthosts, setup, rand_one_dut_hostname, bbr_default_state):
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    if setup['tor1_namespace'] != DEFAULT_NAMESPACE:
-        if bbr_default_state == 'enabled':
-            enable_bbr(duthost, setup['tor1_namespace'])
-        else:
-            disable_bbr(duthost, setup['tor1_namespace'])
+    if bbr_default_state == 'enabled':
+        enable_bbr(duthost, setup['tor1_namespace'])
     else:
-        config_bbr_by_gcu(duthost, bbr_default_state)
+        disable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture
