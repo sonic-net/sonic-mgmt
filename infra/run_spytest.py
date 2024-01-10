@@ -72,8 +72,6 @@ def update_topo_file():
 
 
     for device in topo_file["devices"].keys():
-        if "SD" not in device:
-            continue
         topo_file["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
         topo_file["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
 
@@ -109,12 +107,12 @@ def send_test_files_to_vxr(script_file):
 
     ftp_client=client.open_sftp()
     ftp_client.put(f"../sonic-mgmt/spytest/{script_file}", f"sonic-test/sonic-mgmt/spytest/{script_file}")
-    with open(f"../sonic-mgmt/spytest/{script_file}", 'r') as f:
-        for line in f.readlines():
-            if "+file:" in line:
-                _, test_file = line.split(":")
-                test_file = test_file.strip()
-                ftp_client.put(f"../sonic-mgmt/spytest/tests/{test_file}", f"sonic-test/sonic-mgmt/spytest/tests/{test_file}")
+
+
+    for root, subdirs, files in os.walk("../sonic-mgmt/spytest/tests"):
+        exec_command_raise_error(client, f"mkdir -p sonic-test/sonic-mgmt/{root}")
+        for file in files:
+            ftp_client.put(f"{root}/{file}", f"sonic-test/sonic-mgmt/{root}/{file}")
 
     ftp_client.close()
     client.close()
@@ -127,6 +125,8 @@ def exec_command_raise_error(client, cmd):
     if stdout.channel.recv_exit_status() != 0:
         print(f"Encountered error while executing '{cmd}', stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
         raise Exception(stdout.channel.recv_exit_status(), stderr.readlines())
+
+    return stdin, stdout, stderr
 
 def configure_vxr(tar_ball, script_file):
     print("Starting step: configure_vxr")
