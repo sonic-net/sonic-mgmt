@@ -277,3 +277,44 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     pytest_assert(ls_ending_out == ls_starting_out,
                   "Console devices have changed: expected console devices: {}, got: {}"
                   .format(", ".join(sorted(ls_starting_out)), ", ".join(sorted(ls_ending_out))))
+
+
+def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
+                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
+    """
+    @summary: This test case is to perform check fsck will be repairing
+      the file system if it was in corruption state.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "sudo blkid --label SONiC-OS"
+    disk = duthost.command(cmd)["stdout"].replace('\x00', '')
+    logging.info("Checking '{}' file system state on '{}' by '{}'".
+                 format(disk, duthost.hostname, cmd))
+
+    cmd = "sudo tune2fs -l {} | grep 'Filesystem state:'".format(disk)
+    state = duthost.shell(cmd, module_ignore_errors=True,
+                          verbose=True)["stdout_lines"].split(":", 1)[1].strip()
+
+    if "errors" not in state:
+        # Make the filesystem "dirty" (not clean)
+        duthost.shell("dd if={} of=superblock bs=1 count=2048".format(disk))
+        duthost.shell("printf '\x02' | dd of=superblock bs=1 seek=1082 count=1 conv=notrunc &> /dev/null")
+        duthost.shell("dd of={} if=superblock bs=1 count=2048".format(disk))
+
+        state = duthost.shell(cmd, module_ignore_errors=True,
+                              verbose=True)["stdout_lines"].split(":", 1)[1].strip()
+
+        pytest_assert("errors" in state,
+                      "Expecting the file system:{} changed to 'not clean with errors'"
+                      .format(disk))
+
+    # Call reboot to run fsck for repair file system.
+    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
+
+    state = duthost.shell(cmd, module_ignore_errors=True,
+                          verbose=True)["stdout_lines"].split(":", 1)[1].strip()
+
+    pytest_assert("errors" not in state,
+                  "Expecting the file system:{} has been repaired by fsck script."
+                  .format(disk))
