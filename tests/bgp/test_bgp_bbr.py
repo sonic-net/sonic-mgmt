@@ -111,41 +111,49 @@ def config_bbr_by_gcu(duthost, status):
 
 def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Enable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "enabled")
 
 
 def disable_bbr(duthost, namespace):
     logger.info('Disable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w'.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Disable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "disabled")
 
 
 @pytest.fixture
 def restore_bbr_default_state(duthosts, setup, rand_one_dut_hostname, bbr_default_state):
     yield
     duthost = duthosts[rand_one_dut_hostname]
-    config_bbr_by_gcu(duthost, bbr_default_state)
-    '''
-    if bbr_default_state == 'enabled':
-        enable_bbr(duthost, setup['tor1_namespace'])
+    if setup['tor1_namespace'] != DEFAULT_NAMESPACE:
+        if bbr_default_state == 'enabled':
+            enable_bbr(duthost, setup['tor1_namespace'])
+        else:
+            disable_bbr(duthost, setup['tor1_namespace'])
     else:
-        disable_bbr(duthost, setup['tor1_namespace'])
-    '''
+        config_bbr_by_gcu(duthost, bbr_default_state)
 
 
 @pytest.fixture
 def config_bbr_disabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    config_bbr_by_gcu(duthost, "disabled")
-    # disable_bbr(duthost, setup['tor1_namespace'])
+    disable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture
 def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_default_state):
     duthost = duthosts[rand_one_dut_hostname]
-    config_bbr_by_gcu(duthost, "enabled")
-    # enable_bbr(duthost, setup['tor1_namespace'])
+    enable_bbr(duthost, setup['tor1_namespace'])
 
 
 @pytest.fixture(scope='module')
@@ -163,7 +171,6 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         if not bbr_enabled:
             pytest.skip('BGP BBR is not enabled')
         bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
-        add_bbr_config_to_running_config(duthost, bbr_default_state)
     except KeyError:
         pytest.skip('No BBR configuration in {}, BBR is not supported.'.format(CONSTANTS_FILE))
 
@@ -228,6 +235,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         'bbr_route_dual_dut_asn': bbr_route_dual_dut_asn,
         'bbr_route_v6_dual_dut_asn': bbr_route_v6_dual_dut_asn
     }
+
+    if tor1_namespace == DEFAULT_NAMESPACE:
+        logger.info('non multi-asic environment, add bbr config to running config using gcu cmd')
+        add_bbr_config_to_running_config(duthost, bbr_default_state)
 
     logger.info('setup_info: {}'.format(json.dumps(setup_info, indent=2)))
 
