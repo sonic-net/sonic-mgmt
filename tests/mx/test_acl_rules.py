@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import copy
+import ipaddress
 import json
 import logging
 import os
@@ -8,6 +9,7 @@ import pytest
 import random
 import re
 import sys
+import time
 import yaml
 
 from functools import reduce
@@ -17,6 +19,7 @@ from ptf.mask import Mask
 import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F401
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
 from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
@@ -651,9 +654,10 @@ class BmcOtwAclRulesBase:
                 gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_NORTHBOUND_V6], bmc_northbound_v6_dynamic_rules.keys())
                 gcu_remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6], bmc_southbound_v6_dynamic_rules.keys())
 
-    def test_bmc_otw_req_5_v4(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
+    def test_bmc_otw_req_5_v4_mx2bmc(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
         """
         Request 5: Mx allows inter-access between the directly connected BMC and itself.
+        TEST 1: Verify Mx can send ICMP packet to BMC
         """
         ptf_idx_to_port_name, _, _ = mx_common_setup_teardown
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
@@ -667,9 +671,10 @@ class BmcOtwAclRulesBase:
             duthost.shell(cmd)
             testutils.verify_packet(ptfadapter, exp_pkt, rand_bmc.ptf_port_id, timeout=10)
 
-    def test_bmc_otw_req_5_v6(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
+    def test_bmc_otw_req_5_v6_mx2bmc(self, duthost, ptfadapter, mx_common_setup_teardown, setup_teardown):
         """
         Request 5: Mx allows inter-access between the directly connected BMC and itself.
+        TEST 1: Verify Mx can send ICMPv6 packet to BMC
         """
         ptf_idx_to_port_name, _, _ = mx_common_setup_teardown
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
@@ -738,6 +743,28 @@ class BmcOtwAclRulesBase:
                     rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
                     send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
                     send_and_verify_traffic_v6(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+
+    def test_bmc_otw_ip2me_bgpv6(self, duthost, setup_teardown):
+        """
+        Potential Request 1: BGPv6 between Mx and M0 should be allowed by static ACL rules
+        Apply static ACL rules on Mx, then restart BGP. Verify BGPv6 session can be established.
+        """
+        # Shutdown BGPv6 neighbors
+        bgp_neigh = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
+        neigh_v6 = [neigh_ip for neigh_ip in bgp_neigh.keys() if ipaddress.ip_address(neigh_ip).version == 6]
+        if len(neigh_v6) == 0:
+            pytest.skip("No BGPv6 neighbor")
+        for neigh_ip in neigh_v6:
+            duthost.command("config bgp shutdown neigh {}".format(neigh_ip))
+        duthost.command("sonic-clear arp")
+        duthost.command("sonic-clear ndp")
+        # Startup BGPv6 neighbors
+        for neigh_ip in neigh_v6:
+            duthost.command("config bgp startup neigh {}".format(neigh_ip))
+        time.sleep(10)  # wait for BGPv6 session to be established
+        bgp_neigh = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
+        for neigh_ip, neigh_fact in bgp_neigh.items():
+            pytest_assert(neigh_fact['state'].lower() == 'established', "BGPv6 session with {} is not established".format(neigh_ip))
 
 
 class TestBmcOtwStaticAclRules(BmcOtwAclRulesBase):
