@@ -54,7 +54,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_strea
 
 
 @pytest.mark.disable_loganalyzer
-def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, gnxi_path):
     """Create expected o/p file of events with N events. Call event-publisher tool to publish M events (M<N). Publish
     remainder of events. Verify o/p file that N events were received"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -92,7 +92,8 @@ def test_events_cache(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_
 
 
 @pytest.mark.disable_loganalyzer
-def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+def test_events_cache_overflow(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry,
+                               gnxi_path):
     """ Published events till cache overflow, stats should read events missed_to_cache"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info("Start events cache overflow testing")
