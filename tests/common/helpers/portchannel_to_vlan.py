@@ -13,6 +13,7 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig      
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table
 from tests.common.checkpoint import create_checkpoint, rollback
+from tests.common.utilities import check_skip_release
 
 
 # TODO: Remove this once we no longer support Python 2
@@ -381,11 +382,27 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
-               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table):  # noqa F811
+               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
 
     if "dualtor" in tbinfo["topo"]["name"]:
         yield
         return
+
+    """
+    The test set can't run on testbeds connected to sonic leaf-fanout,
+    Tagged packet will be dropped by sonic leaf-fanout because dot1q-tunnel is not supported.
+    Hence we skip the test on testbeds running sonic leaf-fanout
+    """
+    for fanouthost in list(fanouthosts.values()):
+        if fanouthost.get_fanout_os() == 'sonic':
+            # Skips this test if the SONiC image installed on fanout is < 202205
+            is_skip, _ = check_skip_release(fanouthost, ["201811", "201911", "202012", "202106", "202111"])
+            if is_skip:
+                pytest.skip("OS Version of fanout is older than 202205, unsupported")
+            asic_type = fanouthost.facts['asic_type']
+            platform = fanouthost.facts["platform"]
+            if not (asic_type in ["broadcom"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
+                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
