@@ -586,7 +586,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_eth_interface_admin_change:
   skip:
-    reason: 'Skipping test on 7260 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
+    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8']"
       - https://github.com/sonic-net/sonic-mgmt/issues/11237
