@@ -1,8 +1,10 @@
 name: PostCherryPick
 on:
-  pull_request_target:
+   pull_request_target:
+    types:
+      - closed
     branches:
-    - testingworkflows
+      - '20*'
 
 jobs:
   post_cherry_pick:
