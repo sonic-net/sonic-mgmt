@@ -1,14 +1,12 @@
 name: PostCherryPick
 on:
   pull_request_target:
-    types:
-    - closed
     branches:
-    - '20*'
+    - testingworkflows
 
 jobs:
   post_cherry_pick:
-    if: github.repository_owner == 'sonic-net' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'automerge') && github.event.pull_request.head.user.login == 'mssonicbld' && startsWith(github.event.pull_request.title, '[action]')
+    if: github.repository_owner == 'athaarnaqvi' && github.event.pull_request.merged == true)
     runs-on: ubuntu-latest
     steps:
     - name: Debug
@@ -30,8 +28,15 @@ jobs:
         base_ref=$(echo $GITHUB_CONTEXT | jq -r ".base_ref")
         echo ${TOKEN} | gh auth login --with-token
         title=$(echo $GITHUB_CONTEXT | jq -r ".event.pull_request.title")
-        origin_pr_id=$(echo $title | grep -Eo "\[action\] \[PR:[0-9]*\]" | grep -Eo "[0-9]*")
+        origin_pr_id=$(echo $title |capture("\\[action\\] \\[PR:(?<pr_id>[0-9]*)\\]").pr_id')
+  
+        # Add label
+        if [[ "$origin_pr_id" == "" ]];then
+          echo "original PR not found."
+          exit 1
+        fi
         origin_pr_url=$(echo $pr_url | sed "s/$pr_id/$origin_pr_id/")
+
         echo =============================
         echo pr_url:        $pr_url
         echo pr_id:         $pr_id
@@ -40,10 +45,6 @@ jobs:
         echo origin_pr_id:  $origin_pr_id
         echo origin_pr_url: $origin_pr_url
         echo =============================
-        # Add label
-        if [[ "$origin_pr_id" == "" ]];then
-          echo "original PR didn't found."
-          exit 1
-        fi
+        
         gh pr edit $origin_pr_url --add-label "Included in ${base_ref} branch"
         gh pr edit $origin_pr_url --remove-label "Created PR to ${base_ref} branch"
