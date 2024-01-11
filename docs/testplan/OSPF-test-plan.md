@@ -3,6 +3,7 @@
 
 - [Overview](#overview)
     - [Scope](#scope)
+    - [Testbed](#testbed)
     - [Related DUT CLI Commands](#related-dut-cli-commands)
 - [Test Structure](#test-structure)
     - [Setup Configuration](#setup-configuration)
@@ -18,22 +19,22 @@
         - [Test Steps](#test-steps-1)
 
 ## Overview
-The purpose of this test is to verify the functionality of OSPF routing sessions on a SONIC switch DUT. This test aims to cover the routing functionality of both OSPF and OSPFv3.
-The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that neighboring devices are all SONiC devices.
+The purpose of this test is to verify the functionality of OSPF routing sessions on a SONiC switch DUT. This test aims to cover the routing functionality of both OSPF and OSPFv3.
+The test assumes any default routing configurations (BGP or OSPF) to be pre-configured in the DUT and neighboring systems. It is assumed that neighboring devices are of SONiC or Arista EOS/vEOS/cEOS type.
 
 ### Scope
-The test is targeting a running SONIC system with fully functioning configuration.
-The purpose of the test is functional testing of OSPF on a SONIC system, testing OSPF neighborship status and dynamic routing changes in the event of a link failure.
+The test is targeting a running SONiC system with any default routing configuration (BGP or OSPF).
+The purpose of the test is functional testing of OSPF on a SONiC system, testing OSPF neighborship status and dynamic routing changes in the event of a link failure and a newly learnt route.
 
 ### Testbed
-The test is avilable for all variations of **Tier 0** and **Tier 1** topologies available in the **sonic-mgmt** repository where the neighboring devices are SONiC devices.
+The test is available for all variations of **Tier 0** and **Tier 1** topologies available in the **sonic-mgmt** repository comprising a single DUT and where the neighboring devices are of SONiC or Arista EOS/vEOS/cEOS type.
 
 ### Related DUT CLI Commands
 Existing BGP routing functionality is disabled using the following command inside the configure terminal of SONiC FRR (vtysh) mode.
 
     sonic(config)# no router bgp
 
-OSPF configurations are be made using the following commands inside the configure terminal of SONiC FRR (vtysh) mode.
+OSPF configurations are made using the following commands inside the configure terminal of SONiC FRR (vtysh) mode.
 
     #Enter OSPF configuration mode
     sonic(config)# router ospf
@@ -44,7 +45,7 @@ OSPF configurations are be made using the following commands inside the configur
 
 ## Test Structure
 ### Setup Configuration
-The test assumes all standard configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that the neighboring devices are of SONiC type.
+The test assumes any default routing configurations (BGP or OSPF) to be pre-configured in the DUT and neighboring systems. It is assumed that neighboring devices are SONiC or Arista EOS/vEOS/cEOS devices.
 
 ### Testbed Setup
 
@@ -70,16 +71,21 @@ The test assumes all standard configurations, such as BGP neighborship, are pre-
 Verify whether OSPF neighbors are successfully created and appear with active status.
 
 #### Test Steps
-1. Establish OSPF sessions and neighbors
-2. Verify OSPF neighbors are successfully established with active status
-5. Clear OSPF session configurations ***[CLEANUP]***
+1. Clear existing default routing configurations (if non-OSPF configurations)
+2. Establish OSPF sessions and neighbors
+3. Verify OSPF neighbors are successfully established with active status
+4. Verify OSPF routes received are the same as previously configured routes (eg. BGP)
+5. Restore original routing configurations (if non-OSPF configurations) ***[CLEANUP]***
 
 ### Test Case \#1 - Test Dynamic Routing Change
 #### Test Objective
-Verify whether OSPF routes are dynamically adjusted in the case of link failure.
+Verify whether OSPF routes are dynamically adjusted in the case of link failure and a newly learnt route.
 
 #### Test Steps
-1. Establish OSPF sessions and neighbors
-2. Simuate link failure
-4. Verify OSPF route has changed in reposnse to link failure
-5. Clear OSPF session configurations ***[CLEANUP]***
+1. Clear existing default routing configurations (if non-OSPF configurations)
+2. Establish OSPF sessions and neighbors
+3. Simulate one link failure
+4. Verify whether the OSPF route has changed in response to link failure
+5. Simulate a newly learnt OSPF route in a neighbor device (via PTF)
+6. Verify if the newly learnt OSPF route is received by the DUT
+7. Restore original routing configurations (if non-OSPF configurations) ***[CLEANUP]***
