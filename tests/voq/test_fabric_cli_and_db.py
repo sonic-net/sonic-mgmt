@@ -1,7 +1,12 @@
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 import logging
 import random
 logger = logging.getLogger(__name__)
+# This test only runs on t2 systems.
+pytestmark = [
+    pytest.mark.topology('t2')
+]
 
 # There are 12 asic on Supervisor now.
 # Initialize the reference data dictionary for sup.
