@@ -6,15 +6,14 @@ on:
   push:
     branches:
       - 'master'
-      - '202[0-9][0-9][0-9]'
   pull_request_target:
     branches:
       - 'master'
-      - '202[0-9][0-9][0-9]'
+      - 'testingworkflows'
 
 jobs:
   analyze:
-    if: github.repository_owner == 'sonic-net'
+    if: github.repository_owner == 'athaarnaqvi'
     name: Analyze
     runs-on: ubuntu-latest
     permissions:
