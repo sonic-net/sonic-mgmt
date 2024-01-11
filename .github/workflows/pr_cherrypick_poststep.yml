@@ -6,7 +6,7 @@ on:
 
 jobs:
   post_cherry_pick:
-    if: github.repository_owner == 'athaarnaqvi' && github.event.pull_request.merged == true)
+    if: github.repository_owner == 'athaarnaqvi' && github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'automerge')  && startsWith(github.event.pull_request.title, '[action]')
     runs-on: ubuntu-latest
     steps:
     - name: Debug
