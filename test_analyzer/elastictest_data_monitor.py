@@ -108,10 +108,7 @@ def get_test_plans_from_kusto(client_kusto, start_time, end_time):
 def compare_test_plans(client_kusto, client_loganalytics, start_time, end_time):
     test_plans_log_analytics, duplicate_plan_log_analytics = get_test_plans_from_log_analytics(client_loganalytics, start_time, end_time)
     test_plans_kusto, duplicate_plan_kusto = get_test_plans_from_kusto(client_kusto, start_time, end_time)
-
-    count_log_analytics = Counter(test_plans_log_analytics)
-    count_kusto = Counter(test_plans_kusto)
-    missing_test_plan = [item for item, count in count_log_analytics.items() if count > count_kusto.get(item, 0)]
+    missing_test_plan = list(set(test_plans_log_analytics) - set(test_plans_kusto))
     more_test_plan = list(set(test_plans_kusto) - set(test_plans_log_analytics))
 
     available_test_plan = list(set(test_plans_log_analytics) & set(test_plans_kusto))
@@ -276,11 +273,11 @@ def find_duplicate_data(data_list):
 
 
 def get_diff_dict_list(log_analytic_data, kusto_data):
-    missing_data = copy.deepcopy(log_analytic_data)
+    missing_data = []
     more_data = []
     for item in log_analytic_data:
-        if item in kusto_data:
-            missing_data.remove(item)
+        if item not in kusto_data:
+            missing_data.append(item)
     for item in kusto_data:
         if item not in log_analytic_data:
             more_data.append(item)
