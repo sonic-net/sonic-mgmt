@@ -40,9 +40,9 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
         if type in ["arista"]:
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
-        # elif type in ["Cisco"]:
-        #     return
-        elif type in ["mellanox", "nexus", "acs"]:
+        elif type in ["nexus"]:
+            posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
+        elif type in ["mellanox", "cisco", "acs"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url)
         else:
             return
