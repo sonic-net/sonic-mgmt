@@ -12,7 +12,7 @@ from tests.route.utils import generate_intf_neigh, generate_route_file, prepare_
 
 
 pytestmark = [
-    pytest.mark.topology("any"),
+    pytest.mark.topology("t0", "m0"),
     pytest.mark.device_type('vs')
 ]
 
@@ -75,10 +75,10 @@ def interface_types(request):
 
 @pytest.fixture(autouse=True)
 def verify_expected_loganalyzer_logs(
-    enum_frontend_dut_hostname, loganalyzer
+    enum_rand_one_per_hwsku_frontend_hostname, loganalyzer
 ):
     """
-    Verify that expected failure messages are seen in logs during test execution.
+    Verify that expected failure messages are seen in logs during test execution
     Args:
         duthost: DUT fixture
         loganalyzer: Loganalyzer utility fixture
@@ -90,21 +90,22 @@ def verify_expected_loganalyzer_logs(
         ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
-        loganalyzer[enum_frontend_dut_hostname].expect_regex.extend(
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(
             expectRegex
         )
 
 
 @pytest.fixture(scope="module", autouse=True)
-def reload_dut(duthosts, enum_frontend_dut_hostname):
-    duthost = duthosts[enum_frontend_dut_hostname]
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     config_reload(duthost)
 
 
 @pytest.fixture
-def setup_routes(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, ip_versions, interface_types):
-    duthost = duthosts[enum_frontend_dut_hostname]
+def setup_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                 enum_rand_one_frontend_asic_index, ip_versions, interface_types):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     cfg_facts = get_cfg_facts(duthost)
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     prefixes = []
@@ -140,8 +141,9 @@ def setup_routes(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_as
     duthost.shell("rm {}".format(route_file_set))
 
 
-def test_duplicate_routes(duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, setup_routes):
-    duthost = duthosts[enum_frontend_dut_hostname]
+def test_duplicate_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                          enum_rand_one_frontend_asic_index, setup_routes):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     swss_cfg_file_set = setup_routes
 
     # Get orchagent pid before applying config

@@ -91,7 +91,8 @@ def prepare_dut(asichost, intf_neighs):
 def cleanup_dut(asichost, intf_neighs):
     for intf_neigh in intf_neighs:
         # Delete neighbor
-        cmd = "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
-        asichost.run_ip_neigh_cmd(cmd)
+        asichost.run_ip_neigh_cmd(
+            "del " + intf_neigh["neighbor"] + " dev " + intf_neigh["interface"]
+        )
         # remove interface
         asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
