@@ -211,18 +211,11 @@ def ensure_application_of_updated_config(duthost, configdb_field, value):
     )
 
 
-@pytest.fixture(scope='module', autouse=True)
-def skip_when_buffer_is_dynamic_model(duthost):
-    buffer_model = duthost.shell(
-        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
-    if buffer_model == 'dynamic':
-        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
-
-
 @pytest.mark.parametrize("configdb_field", ["ingress_lossless_pool/xoff",
                                             "ingress_lossless_pool/size", "egress_lossy_pool/size"])
 @pytest.mark.parametrize("op", ["add", "replace", "remove"])
-def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op):
+def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, configdb_field, op,
+                                        skip_when_buffer_is_dynamic_model):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, op))

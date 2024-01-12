@@ -13,25 +13,25 @@ configs:
     empty: {current: [], restore: []}
 
 devices:
-    SD1:
+    leaf0:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.18, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    SD2:
+    leaf1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.179, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    SD3:
+    spine0:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.40, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    SD4:
+    spine1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.52, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
@@ -39,15 +39,15 @@ devices:
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
 topology:
-    SD1:
+    leaf0:
         interfaces:
-            Ethernet0: {EndDevice: SD3, EndPort: Ethernet0, params: def_link}
-            Ethernet12: {EndDevice: SD4, EndPort: Ethernet0, params: def_link}
-    SD2:
+            Ethernet0: {EndDevice: spine0, EndPort: Ethernet0, params: def_link}
+            Ethernet12: {EndDevice: spine1, EndPort: Ethernet0, params: def_link}
+    leaf1:
         interfaces:
-            Ethernet0: {EndDevice: SD4, EndPort: Ethernet8, params: def_link}
-            Ethernet12: {EndDevice: SD3, EndPort: Ethernet8, params: def_link}
-    SD3:
+            Ethernet0: {EndDevice: spine1, EndPort: Ethernet8, params: def_link}
+            Ethernet12: {EndDevice: spine0, EndPort: Ethernet8, params: def_link}
+    spine0:
         interfaces:
-    SD4:
+    spine1:
         interfaces:
