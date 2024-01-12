@@ -41,6 +41,7 @@ EXCEED_MAX_ERR = r"Error: The maximum number \(3\) of nameservers exceeded"
 DUPLICATED_IP_ERR = r"Error: .* nameserver is already configured"
 
 
+@pytest.mark.disable_loganalyzer
 def test_static_dns_basic(request, duthost, localhost, mgmt_interfaces):
     """
     Basic test for the Static DNS
