@@ -689,6 +689,10 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
     logger.info('Set all muxcable to auto mode on all ToRs')
     duthosts.shell('config muxcable mode auto all')
+    # NOTE: If a fixture is executed after this one, and that fixture setup does a config
+    # save, the mux manual config will be kept in the config_db.json.
+    # So let's do a config save here.
+    duthosts.shell('config save -y')
 
 
 @pytest.fixture

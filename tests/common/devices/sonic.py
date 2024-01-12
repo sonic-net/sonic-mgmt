@@ -16,7 +16,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
-from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -26,6 +26,11 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
+
+PROCESS_TO_CONTAINER_MAP = {
+    "orchagent": "swss",
+    "syncd": "syncd"
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -410,6 +415,11 @@ class SonicHost(AnsibleHostBase):
         """
         return not self.is_supervisor_node()
 
+    def is_macsec_capable_node(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_macsec_capable_node(inv_files, self.hostname)
+
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
@@ -428,6 +438,14 @@ class SonicHost(AnsibleHostBase):
                 return False
         except Exception:
             return False
+
+    def get_running_containers(self):
+        """
+        Get the running containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
 
     def is_container_running(self, service):
         """
@@ -612,6 +630,14 @@ class SonicHost(AnsibleHostBase):
 
         return group_process_results
 
+    def critical_processes_running(self, service):
+        """
+        @summary: Check whether critical processes are running for a service
+
+        @param service: Name of the SONiC service
+        """
+        return self.critical_process_status(service)['status']
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -722,6 +748,28 @@ class SonicHost(AnsibleHostBase):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
+
+    def control_process(self, process, pause=True, namespace='', signal=''):
+        """
+        Send a signal to a process on the DUT
+        """
+        process_control_cmd = "docker exec -i {}{} bash -c 'kill -s {} `pgrep {}`'"
+        if signal:
+            proc_signal = signal
+        elif pause:
+            proc_signal = "SIGSTOP"
+        elif not pause:
+            proc_signal = "SIGCONT"
+        else:
+            logger.error("Must specify either `pause` or a specific signal")
+            return
+
+        container = PROCESS_TO_CONTAINER_MAP.get(process, None)
+        if not container:
+            logger.error("Unknown process {}".format(process))
+            return
+        cmd = process_control_cmd.format(container, namespace, proc_signal, process)
+        self.shell(cmd)
 
     def get_crm_resources_for_masic(self, namespace=DEFAULT_NAMESPACE):
         """
@@ -2251,6 +2299,22 @@ Totals               6450                 6449
                 self.command("config interface ip remove {} {}".format(port, ip))
         elif ip:
             self.command("config interface ip remove {} {}".format(port, ip))
+
+    def remove_ip_addr_from_port(self, port, ip):
+        """
+        Remove ip addr from the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip remove {} {}".format(port, ip))
+
+    def add_ip_addr_to_port(self, port, ip, gwaddr):
+        """
+        Add ip addr on the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
 
     def remove_vlan(self, vlan_id):
         """
