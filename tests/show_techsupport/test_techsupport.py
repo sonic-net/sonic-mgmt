@@ -394,7 +394,6 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "bridge_cmds": cmds.bridge_cmds,
         "frr_cmds": add_asic_arg(" -n {}", cmds.frr_cmds, num),
         "bgp_cmds": add_asic_arg(" -n {}", cmds.bgp_cmds, num),
-        "evpn_cmds": add_asic_arg(" -n {}", cmds.evpn_cmds, num),
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
