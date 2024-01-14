@@ -21,7 +21,7 @@ parser.add_argument("--dut-username", help = "username for the dut ", nargs='?',
 parser.add_argument("--dut-password", help = "password for the dut ", nargs='?', const='', default = 'cisco123', required=False)
 args = parser.parse_args()
 
-topology_file = TOPO_PLATFORM_FILE_DICT[args.topology][args.platform][1:]
+topology_file = TOPO_PLATFORM_FILE_DICT[args.topology][args.platform]["pyvxr_yaml_file"][1:]
 
 with open(SIM_CFG_FILE, "r") as fd:
     sim_cfg = yaml.safe_load(fd)

@@ -953,7 +953,7 @@ def main():
     #get topo_yaml from topo_type
     if not topo_yaml and topo_type in TOPO_PLATFORM_FILE_DICT:
         if device_type in TOPO_PLATFORM_FILE_DICT[topo_type]:
-            topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]
+            topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]["pyvxr_yaml_file"]
 
     ptf_intfcount = 32
 
