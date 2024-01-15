@@ -646,7 +646,7 @@ def test_fallback_to_local_authorization_with_config_reload(
     override_config = {
         "AAA": {
             "authentication": { "login": "tacacs+" },
-            "accounting": { "login": "tacacs+,local" ,
+            "accounting": { "login": "tacacs+,local" },
             "authorization": { "login": "tacacs+,local" }
         },
         "TACPLUS": {
@@ -656,7 +656,6 @@ def test_fallback_to_local_authorization_with_config_reload(
             tacacs_server_ip: { "priority": "60", "tcp_port": "49", "timeout": "2" }
         }
     }
-
     reload_minigraph_with_golden_config(duthost, override_config)
 
     # Shutdown tacacs server to simulate network unreachable because BGP shutdown
