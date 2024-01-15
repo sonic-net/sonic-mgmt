@@ -651,15 +651,15 @@ def test_fallback_to_local_authorization_with_config_reload(
     tacacs_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
     override_config = {
         "AAA": {
-            "authentication": { "login": "tacacs+" },
-            "accounting": { "login": "tacacs+,local" },
-            "authorization": { "login": "tacacs+,local" }
+            "authentication": {"login": "tacacs+"},
+            "accounting": {"login": "tacacs+,local"},
+            "authorization": {"login": "tacacs+,local"}
         },
         "TACPLUS": {
-            "global": { "auth_type": "login", "passkey": tacacs_passkey }
+            "global": {"auth_type": "login", "passkey": tacacs_passkey}
         },
         "TACPLUS_SERVER": {
-            tacacs_server_ip: { "priority": "60", "tcp_port": "49", "timeout": "2" }
+            tacacs_server_ip: {"priority": "60", "tcp_port": "49", "timeout": "2"}
         }
     }
     reload_minigraph_with_golden_config(duthost, override_config)
