@@ -222,11 +222,11 @@ def get_test_cases_from_log_analytics(client_loganalytics, test_plan):
         | where ResultDescription has "[test_case]"
         | project parse_json(tostring(split(ResultDescription, '>>>', 3)[0])), TimeGenerated
         | project TestPlanId=tostring(ResultDescription_0.TestPlanId), TestCase=tostring(ResultDescription_0.name), 
-        Attempt=tostring(ResultDescription_0.attempt), ModulePath=tostring(ResultDescription_0.classname), 
+        ModulePath=tostring(ResultDescription_0.classname), 
         StartTime=todatetime(ResultDescription_0.start), EndTime=todatetime(ResultDescription_0.end)
         | where TestPlanId == '{}'
         | extend StartTimeString = format_datetime(StartTime, 'yyyy-MM-dd HH:mm:ss.fffffff'), EndTimeString = format_datetime(EndTime, 'yyyy-MM-dd HH:mm:ss.fffffff')
-        | project TestCase, Attempt, ModulePath, StartTimeString, EndTimeString
+        | project TestCase, ModulePath, StartTimeString, EndTimeString
         '''.format(test_plan)
     test_case_query = QueryBody(query=query)
     query_result = client_loganalytics.query(workspace_id, test_case_query).as_dict()['tables'][0]['rows']
@@ -234,10 +234,9 @@ def get_test_cases_from_log_analytics(client_loganalytics, test_plan):
     for item in query_result:
         test_case = {
             'TestCase': item[0],
-            'Attempt': int(item[1]),
-            'ModulePath': item[2],
-            'StartTimeString': item[3],
-            'EndTimeString': item[4]
+            'ModulePath': item[1],
+            'StartTimeString': item[2],
+            'EndTimeString': item[3]
         }
         test_cases_log_analytics.append(test_case)
     duplicate_data = find_duplicate_data(test_cases_log_analytics)
@@ -249,7 +248,7 @@ def get_test_cases_from_kusto(client_kusto, test_plan):
         V2TestCases
         | where TestPlanId == '{}'
         | extend StartTimeString = format_datetime(StartTime, 'yyyy-MM-dd HH:mm:ss.fffffff'), EndTimeString = format_datetime(EndTime, 'yyyy-MM-dd HH:mm:ss.fffffff')
-        | project TestCase, Attempt, ModulePath, StartTimeString, EndTimeString
+        | project TestCase, ModulePath, StartTimeString, EndTimeString
         '''.format(test_plan)
     query_result = client_kusto.execute_query(DATABASE, query).primary_results[0].to_dict()['data']
     test_cases_kusto = query_result
