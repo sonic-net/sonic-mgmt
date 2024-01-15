@@ -669,7 +669,6 @@ def test_fallback_to_local_authorization_with_config_reload(
             }
         }
     }
-    logger.warning("override_config: {}".format(override_config))
     reload_minigraph_with_golden_config(duthost, override_config)
 
     # Shutdown tacacs server to simulate network unreachable because BGP shutdown
