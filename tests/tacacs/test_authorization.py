@@ -11,6 +11,7 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
+from tests.override_config_table.utilities import reload_minigraph_with_golden_config
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -624,3 +625,59 @@ def test_stop_request_next_server_after_reject(
     # Remove second server IP
     duthost.shell("sudo config tacacs delete %s" % tacacs_server_ipv6)
     duthost.shell("sudo config tacacs timeout 5")
+
+
+def test_fallback_to_local_authorization_with_config_reload(
+                                    ptfhost,
+                                    duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    tacacs_creds,
+                                    check_tacacs,
+                                    remote_user_client,
+                                    remote_rw_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    """
+        During load minigraph BGP service will shutdown and restart.
+        Verify still can run config save command with "tacacs+,local".
+    """
+    # Reload minigraph with override per-command authorization to "tacacs+,local"
+    tacacs_server_ip = ptfhost.mgmt_ip
+    tacacs_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    override_config = {
+        "AAA": {
+            "authentication": {
+            "login": "tacacs+"
+            },
+            "accounting": {
+            "login": "tacacs+,local"
+            },
+            "authorization": {
+            "login": "tacacs+,local"
+            }
+        },
+        "TACPLUS": {
+            "global": {
+            "auth_type": "login",
+            "passkey": tacacs_passkey
+            }
+        },
+        "TACPLUS_SERVER": {
+            tacacs_server_ip: {
+            "priority": "60",
+            "tcp_port": "49",
+            "timeout": "2"
+            }
+        }
+    }
+    logger.warning("override_config: {}".format(override_config))
+    reload_minigraph_with_golden_config(duthost, override_config)
+
+    # Shutdown tacacs server to simulate network unreachable because BGP shutdown
+    stop_tacacs_server(ptfhost)
+
+    # Test "sudo config save -y" can success after reload minigraph
+    exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y")
+    pytest_assert(exit_code == 0)
+
+    #  Cleanup UT.
+    start_tacacs_server(ptfhost)
