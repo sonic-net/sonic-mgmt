@@ -63,7 +63,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "autorestart/test_container_autorestart.py, platform_tests/link_flap/test_cont_link_flap.py"
+    default: "platform_tests/link_flap/test_cont_link_flap.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
