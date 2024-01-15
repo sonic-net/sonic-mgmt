@@ -293,15 +293,18 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
                         sequence_id += 5
 
     # Allow NDP between Mx and BMC
-    sequence_id = 9001
+    sequence_id = 9001  # icmp_type = 133: Router Solicitation
+    acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
+        acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=133, icmp_code=0)
+    sequence_id = 9002  # icmp_type = 135: Neighbor Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
-    sequence_id = 9002
+    sequence_id = 9003  # icmp_type = 136: Neighbor Advertisement
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
 
     # Allow DHCPv6 packets from BMC to Mx
-    sequence_id = 9003
+    sequence_id = 9011
     acl_entries["{:04d}_ALLOW_DHCPv6".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, dst_ip="ff02::1:2/128", ip_protocol=IP_PROTOCOL_UDP)
 
@@ -326,10 +329,10 @@ def gen_southbound_acl_entries_v6(rack_topo, hwsku):
         sequence_id += 5
 
     # Allow NDP between Mx and M0
-    sequence_id = 9001
+    sequence_id = 9001  # icmp_type = 135: Neighbor Solicitation
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=135, icmp_code=0)
-    sequence_id = 9002
+    sequence_id = 9002  # icmp_type = 136: Neighbor Advertisement
     acl_entries["{:04d}_ALLOW_NDP".format(sequence_id)] = \
         acl_entry(sequence_id, action=ACL_ACTION_ACCEPT, ip_protocol=IP_PROTOCOL_ICMPV6, icmp_type=136, icmp_code=0)
 

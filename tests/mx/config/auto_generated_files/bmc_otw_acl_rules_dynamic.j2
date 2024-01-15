@@ -272,7 +272,7 @@
                                 "icmp": {
                                     "config": {
                                         "code": 0,
-                                        "type": 135
+                                        "type": 133
                                     }
                                 },
                                 "ip": {
@@ -293,6 +293,27 @@
                                 "icmp": {
                                     "config": {
                                         "code": 0,
+                                        "type": 135
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9003_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9003
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
                                         "type": 136
                                     }
                                 },
@@ -302,14 +323,14 @@
                                     }
                                 }
                             },
-                            "9003_ALLOW_DHCPv6": {
+                            "9011_ALLOW_DHCPv6": {
                                 "actions": {
                                     "config": {
                                         "forwarding-action": "ACCEPT"
                                     }
                                 },
                                 "config": {
-                                    "sequence-id": 9003
+                                    "sequence-id": 9011
                                 },
                                 "ip": {
                                     "config": {
