@@ -11,7 +11,8 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
-from tests.override_config_table.utilities import reload_minigraph_with_golden_config
+from tests.override_config_table.utilities import backup_config, restore_config, \
+        reload_minigraph_with_golden_config
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -640,20 +641,25 @@ def test_fallback_to_local_authorization_with_config_reload(
         During load minigraph BGP service will shutdown and restart.
         Verify still can run config save command with "tacacs+,local".
     """
+    #  Backup config before load minigraph
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
+    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+
     # Reload minigraph with override per-command authorization to "tacacs+,local"
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
     override_config = {
         "AAA": {
-            "authentication": {"login": "tacacs+"},
-            "accounting": {"login": "tacacs+,local"},
-            "authorization": {"login": "tacacs+,local"}
+            "authentication": { "login": "tacacs+" },
+            "accounting": { "login": "tacacs+,local" },
+            "authorization": { "login": "tacacs+,local" }
         },
         "TACPLUS": {
-            "global": {"auth_type": "login", "passkey": tacacs_passkey}
+            "global": { "auth_type": "login", "passkey": tacacs_passkey }
         },
         "TACPLUS_SERVER": {
-            tacacs_server_ip: {"priority": "60", "tcp_port": "49", "timeout": "2"}
+            tacacs_server_ip: { "priority": "60", "tcp_port": "49", "timeout": "2" }
         }
     }
     reload_minigraph_with_golden_config(duthost, override_config)
@@ -667,3 +673,6 @@ def test_fallback_to_local_authorization_with_config_reload(
 
     #  Cleanup UT.
     start_tacacs_server(ptfhost)
+
+    #  Restore config after test finish
+    restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
