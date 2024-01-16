@@ -370,6 +370,7 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
     )
 
+
 def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fixture):
     """Verify port configuration across reboot
     """
