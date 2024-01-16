@@ -641,6 +641,11 @@ def test_fallback_to_local_authorization_with_config_reload(
         During load minigraph BGP service will shutdown and restart.
         Verify still can run config save command with "tacacs+,local".
     """
+    # Skip multi-asic because override_config format are different.
+    if duthost.is_multi_asic:
+        pytest.skip("Skip test_fallback_to_local_authorization_with_config_reload for multi-asic device")
+        
+
     #  Backup config before load minigraph
     CONFIG_DB = "/etc/sonic/config_db.json"
     CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
