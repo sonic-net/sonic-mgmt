@@ -376,11 +376,11 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
     dutname, portname = enum_speed_per_dutport_fixture['dutname'], enum_speed_per_dutport_fixture['port']
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
     new_speed = enum_speed_per_dutport_fixture['speed']
-    logging.info("Step1:set port speed to 40G")
-    for dut,port in zip([duthost,fanout],[dut_port,fanout_port]):
-        dut.set_speed(port,new_speed)
+    logging.info("Step1: set port speed to 40G")
+    for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
+        dut.set_speed(port, new_speed)
     logging.info("Step2: Perform config save and reload")
-    for dut,port in zip([duthost,fanout],[dut_port,fanout_port]):
+    for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
         dut.shell('sudo config save -y')
     config_reload(duthost, config_source="config_db", wait=120)
     logger.info('step3: Wait until the port status is up, expected speed: {}'.format(new_speed))
