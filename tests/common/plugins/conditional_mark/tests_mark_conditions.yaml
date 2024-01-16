@@ -288,6 +288,21 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
+#####         dhcp_relay        #####
+#######################################
+dhcp_relay/test_dhcp_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcpv6_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -592,6 +607,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_dhcp_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
@@ -600,6 +621,13 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
+
+generic_config_updater/test_eth_interface.py::test_eth_interface_admin_change:
+  skip:
+    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
+    conditions:
+      - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11237
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -1117,6 +1145,20 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions:
       - "asic_type not in ['cisco-8000']"
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_active is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_standby is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
 #######################################
 #####      reset_factory          #####

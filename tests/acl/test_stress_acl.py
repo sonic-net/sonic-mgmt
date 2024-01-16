@@ -1,6 +1,7 @@
 import logging
 import random
 import pytest
+import json
 import ptf.testutils as testutils
 from ptf import mask, packet
 from collections import defaultdict
@@ -33,6 +34,43 @@ LOG_EXPECT_ACL_TABLE_CREATE_RE = ".*Created ACL table.*"
 LOG_EXPECT_ACL_RULE_FAILED_RE = ".*Failed to create ACL rule.*"
 
 ACL_RULE_NUMS = 10
+
+
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(duthosts, rand_selected_dut):
+    """
+    Remove DATAACL to free TCAM resources.
+    The change is written to configdb as we don't want DATAACL recovered after reboot
+    """
+    TABLE_NAME_1 = "DATAACL"
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME_1))['stdout_lines']
+        data_acl_existing = False
+        for line in lines:
+            if TABLE_NAME_1 in line:
+                data_acl_existing = True
+                break
+
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME_1))
+            rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME_1))
+
+    if not data_acl_existing:
+        yield
+        return
+
+    yield
+    # Recover DATAACL
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    entry_json = json.loads(output)
+    if TABLE_NAME_1 in entry_json:
+        entry = entry_json[TABLE_NAME_1]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+            .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
+        logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
+        rand_selected_dut.shell(cmd_create_table)
 
 
 @pytest.fixture(scope='module')
