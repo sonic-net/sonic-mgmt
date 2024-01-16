@@ -1611,6 +1611,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
