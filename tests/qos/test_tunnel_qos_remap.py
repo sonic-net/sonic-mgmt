@@ -210,6 +210,9 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
     try:
         # Walk through all DSCP values
         for inner_dscp in range(0, 64):
+            # For Nvidia platforms, the inner dscp 2 and 6 are considered invalid use cases, skip the test
+            if 'mellanox' == rand_selected_dut.facts["asic_type"] and inner_dscp in [2, 6]:
+                continue
             outer_dscp = tunnel_qos_maps['inner_dscp_to_outer_dscp_map'][inner_dscp]
             _, exp_packet = build_testing_packet(src_ip=DUMMY_IP,
                                                  dst_ip=dualtor_meta['target_server_ip'],
