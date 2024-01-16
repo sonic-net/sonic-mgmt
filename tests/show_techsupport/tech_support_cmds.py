@@ -147,6 +147,7 @@ misc_show_cmds = [
     "show version",
     "show interface status -d all",
     "show interface transceiver presence",
+    "show interface transceiver lpmode",
     "show interface transceiver eeprom --dom",
     "show ip interface",
     "show interface counters",
