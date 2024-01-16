@@ -5,6 +5,7 @@ import ast
 import json
 import os
 import sys
+import copy
 import time
 from datetime import datetime, timedelta
 
@@ -306,8 +307,8 @@ class TestPlanManager(object):
 
         if output:
             print("Store new test plan id to file {}".format(output))
-            with open(output, "w") as f:
-                f.write(str(resp["data"]))
+            with open(output, "a") as f:
+                f.write(str(resp["data"]) + "\n")
 
         return resp["data"]
 
@@ -759,6 +760,16 @@ if __name__ == "__main__":
         required=False,
         help="Max execute seconds of the test plan."
     )
+    parser_create.add_argument(
+        "--test-plan-num",
+        type=int,
+        dest="test_plan_num",
+        nargs="?",
+        const=1,
+        default=1,
+        required=False,
+        help="Test plan num to be created."
+    )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
     parser_cancel = subparsers.add_parser("cancel", help="Cancel running test plan.")
@@ -855,7 +866,7 @@ if __name__ == "__main__":
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
-            test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
+            test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
                     repo=repo,
                     reason=reason,
@@ -877,41 +888,46 @@ if __name__ == "__main__":
                 if not specific_param:
                     specific_param = parsed_specific_param
 
-            tp.create(
-                args.topology,
-                test_plan_name=test_plan_name,
-                deploy_mg_extra_params=args.deploy_mg_extra_params,
-                kvm_build_id=args.kvm_build_id,
-                kvm_image_branch=args.kvm_image_branch,
-                min_worker=args.min_worker,
-                max_worker=args.max_worker,
-                pr_id=pr_id,
-                scripts=scripts,
-                features=args.features,
-                scripts_exclude=args.scripts_exclude,
-                features_exclude=args.features_exclude,
-                output=args.output,
-                source_repo=repo_name,
-                mgmt_branch=args.mgmt_branch,
-                common_extra_params=args.common_extra_params,
-                num_asic=args.num_asic,
-                specified_params=args.specified_params,
-                specific_param=specific_param,
-                affinity=args.affinity,
-                vm_type=args.vm_type,
-                testbed_name=args.testbed_name,
-                image_url=args.image_url,
-                upgrade_image_param=args.upgrade_image_param,
-                hwsku=args.hwsku,
-                test_plan_type=args.test_plan_type,
-                platform=args.platform,
-                stop_on_failure=args.stop_on_failure,
-                retry_times=args.retry_times,
-                dump_kvm_if_fail=args.dump_kvm_if_fail,
-                requester=args.requester,
-                max_execute_seconds=args.max_execute_seconds,
-                lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
-            )
+            for num in range(args.test_plan_num):
+                test_plan_name = copy.copy(test_plan_prefix)
+                if args.test_plan_num > 1:
+                    test_plan_name = "{}_{}".format(test_plan_name, num + 1)
+
+                tp.create(
+                    args.topology,
+                    test_plan_name=test_plan_name,
+                    deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    kvm_build_id=args.kvm_build_id,
+                    kvm_image_branch=args.kvm_image_branch,
+                    min_worker=args.min_worker,
+                    max_worker=args.max_worker,
+                    pr_id=pr_id,
+                    scripts=scripts,
+                    features=args.features,
+                    scripts_exclude=args.scripts_exclude,
+                    features_exclude=args.features_exclude,
+                    output=args.output,
+                    source_repo=repo_name,
+                    mgmt_branch=args.mgmt_branch,
+                    common_extra_params=args.common_extra_params,
+                    num_asic=args.num_asic,
+                    specified_params=args.specified_params,
+                    specific_param=specific_param,
+                    affinity=args.affinity,
+                    vm_type=args.vm_type,
+                    testbed_name=args.testbed_name,
+                    image_url=args.image_url,
+                    upgrade_image_param=args.upgrade_image_param,
+                    hwsku=args.hwsku,
+                    test_plan_type=args.test_plan_type,
+                    platform=args.platform,
+                    stop_on_failure=args.stop_on_failure,
+                    retry_times=args.retry_times,
+                    dump_kvm_if_fail=args.dump_kvm_if_fail,
+                    requester=args.requester,
+                    max_execute_seconds=args.max_execute_seconds,
+                    lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
