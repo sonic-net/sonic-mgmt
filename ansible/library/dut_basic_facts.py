@@ -56,8 +56,6 @@ def main():
                     results['release'] = '201911'
                 elif 'master' in results['build_version']:
                     results['release'] = 'master'
-                elif 'internal' in results['build_version']:
-                    results['release'] = 'internal'
                 else:
                     results['release'] = 'unknown'
 
