@@ -217,19 +217,6 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_fans_speed_tolerance(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                      localhost, platform_api_conn):
-
-        for i in range(self.num_fans):
-            speed_tolerance = fan.get_speed_tolerance(platform_api_conn, i)
-            if self.expect(speed_tolerance is not None, "Unable to retrieve Fan {} speed tolerance".format(i)):
-                if self.expect(isinstance(speed_tolerance, int),
-                               "Fan {} speed tolerance appears incorrect".format(i)):
-                    self.expect(speed_tolerance > 0 and speed_tolerance <= 100,
-                                "Fan {} speed tolerance {} reading does not make sense".format(i, speed_tolerance))
-
-        self.assert_expectations()
-
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
         fans_skipped = 0
@@ -252,13 +239,14 @@ class TestChassisFans(PlatformApiTestBase):
                 target_speed = random.randint(speed_minimum, speed_maximum)
 
             speed = fan.get_speed(platform_api_conn, i)
-            speed_tol = fan.get_speed_tolerance(platform_api_conn, i)
 
             speed_set = fan.set_speed(platform_api_conn, i, target_speed)       # noqa F841
-            time.sleep(5)
+            time.sleep(self.get_fan_facts(duthost, i, 5, "speed", "delay"))
 
             act_speed = fan.get_speed(platform_api_conn, i)
-            self.expect(abs(act_speed - target_speed) <= speed_tol,
+            under_speed = fan.is_under_speed(platform_api_conn, i)
+            over_speed = fan.is_over_speed(platform_api_conn, i)
+            self.expect(not under_speed and not over_speed,
                         "Fan {} speed change from {} to {} is not within tolerance, actual speed {}"
                         .format(i, speed, target_speed, act_speed))
 
