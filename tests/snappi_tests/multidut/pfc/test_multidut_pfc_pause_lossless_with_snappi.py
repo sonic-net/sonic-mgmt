@@ -176,7 +176,6 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
-@pytest.mark.parametrize('reboot_type', ['cold'])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # noqa: F811
@@ -264,7 +263,6 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
-@pytest.mark.parametrize('reboot_type', ['cold'])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noqa: F811
