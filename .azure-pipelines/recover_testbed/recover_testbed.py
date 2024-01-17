@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
+from constants import RC_SSH_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -74,7 +75,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
             # TODO: Define the return message like RC_SOCKET_TIMEOUT in common file
-            elif dut_ssh == 1:
+            elif dut_ssh == RC_SSH_FAILED:
                 # Do power cycle
                 need_to_recover = True
             else:
