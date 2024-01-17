@@ -37,13 +37,13 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
-        type = hwsku.split('-')[0].lower()
+        device_type = hwsku.split('-')[0].lower()
 
-        if type in ["arista"]:
+        if device_type in ["arista"]:
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
-        elif type in ["nexus"]:
+        elif device_type in ["nexus"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
-        elif type in ["mellanox", "cisco", "acs"]:
+        elif device_type in ["mellanox", "cisco", "acs"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url)
         else:
             return
