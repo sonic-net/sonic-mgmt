@@ -557,7 +557,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type and self.is_multi_asic :
+        if 't2' in self.testbed_type and self.is_multi_asic:
             stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
