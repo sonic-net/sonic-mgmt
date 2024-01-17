@@ -368,7 +368,7 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
 def test_conn_graph_valid(localhost):
 
     base_path = os.path.dirname(os.path.realpath(__file__))
-    invs_need_test = ["str", "str2", "str3", "bjw", "svcstr", "svcstr2"]
+    invs_need_test = ["str", "str2", "str3", "bjw", "strsvc", "strsvc2"]
 
     # graph_groups.yml file must exist and can be loaded
     graph_groups_file = os.path.join(base_path, "../ansible/files/graph_groups.yml")
@@ -384,7 +384,7 @@ def test_conn_graph_valid(localhost):
     # if graph_groups file doesn't contain invs_need_test, failed
     for inv_need_test in invs_need_test:
         if inv_need_test not in graph_groups:
-            pytest_fail("{} not in graph_groups.yml".format(inv_need_test))
+            pytest.fail("{} not in graph_groups.yml".format(inv_need_test))
 
     # Test connection graph if it can be loaded
     logger.info("Test connection graph for all of internal inventories: {}".format(invs_need_test))
