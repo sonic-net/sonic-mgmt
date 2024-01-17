@@ -8,6 +8,7 @@ import socket
 import time
 import pexpect
 import ipaddress
+from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, ONIE_START_TO_DISCOVERY, SONIC_PROMPT
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -70,21 +71,17 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
                         dut_console.remote_conn.send('reboot\n')
                         continue
 
-                    # if "GNU GRUB" in x:
-                    #     enter_onie_flag += 1
-                    #     continue
-
-                    if "-OS-" in x and enter_onie_flag is True:
+                    if OS_VERSION_IN_GRUB in x and enter_onie_flag is True:
                         # Send arrow key "down" here.
                         dut_console.remote_conn.send(b'\x1b[B')
                         continue
 
-                    if "*ONIE" in x and "Install OS" not in x:
+                    if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
                         dut_console.remote_conn.send("\n")
                         enter_onie_flag = False
 
                     # "ONIE: Starting ONIE Service Discovery"
-                    if "Discovery" in x:
+                    if ONIE_START_TO_DISCOVERY in x:
                         # TODO: Define a function to send command here
                         for i in range(5):
                             dut_console.remote_conn.send('onie-discovery-stop\n')
@@ -107,7 +104,7 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
                             if "ETA" in x:
                                 break
 
-                    if "sonic login:" in x:
+                    if SONIC_PROMPT in x:
                         dut_console.remote_conn.close()
 
                     sys.stdout.write(x)
