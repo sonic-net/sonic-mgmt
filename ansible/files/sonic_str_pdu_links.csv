@@ -34,8 +34,8 @@ pdu-112,31,str-e1031-acs-3,PSU3
 pdu-114,31,str-e1031-acs-3,PSU4
 pdu-102,26,str-msn2700-01,PSU1
 pdu-103,26,str-msn2700-01,PSU2
-pdu-99,22,str-msn2700-02,PSU1
-pdu-98,22,str-msn2700-02,PSU2
+pdu-102,36,str-msn2700-02,PSU1
+pdu-103,36,str-msn2700-02,PSU2
 pdu-99,2,str-msn2700-03,PSU1
 pdu-98,2,str-msn2700-03,PSU2
 pdu-99,17,str-msn2700-04,PSU1
@@ -129,8 +129,8 @@ pdu-97,17,str-7260-06,PSU1
 pdu-96,17,str-7260-06,PSU2
 pdu-102,19,str-7260-07,PSU1
 pdu-103,19,str-7260-07,PSU2
-pdu-99,19,str-7260-08,PSU1
-pdu-98,19,str-7260-08,PSU2
+pdu-102,35,str-7260-08,PSU1
+pdu-103,35,str-7260-08,PSU2
 pdu-102,5,str-7260-10,PSU1
 pdu-103,5,str-7260-10,PSU2
 pdu-97,12,str-7260-13,PSU1

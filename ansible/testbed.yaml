@@ -1906,6 +1906,21 @@
   auto_recover: 'True'
   comment: Beijing Lab
 
+- conf-name: vms1-t1-2700
+  group-name: vms1-2
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: vms1-2
+  ptf_ip: 10.64.246.57/23
+  ptf_ipv6: 2a01:111:e210:b000::8/64
+  server: server_1
+  vm_base: VM01024
+  dut:
+    - str-msn2700-02
+  inv_name: str
+  auto_recover: 'True'
+  comment: Jenkins
+
 - conf-name: vms1-t0-2700-1
   group-name: vms1-3
   topo: t0
