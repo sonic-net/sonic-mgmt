@@ -74,7 +74,6 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            # TODO: Define the return message like RC_SOCKET_TIMEOUT in common file
             elif dut_ssh == RC_SSH_FAILED:
                 # Do power cycle
                 need_to_recover = True
