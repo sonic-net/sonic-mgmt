@@ -388,6 +388,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
         crm_stat = get_crm_info(duthost, asic)
         nhop_group_count = crm_stat["available_nhop_grp"]
         nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+        if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+            nhop_group_count = 1024 - crm_stat["used_nhop_grp"]
+
         nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
         # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
         nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
@@ -459,6 +462,143 @@ def test_nhop_group_member_count(duthost, tbinfo):
             )
         )
 
+def test_nhop_group_max_1K_limit(duthost, tbinfo):
+    """
+    Test next hop group resource count. For specific Cisco platforms
+    Steps:
+    - Add test IP address to an active IP interface
+    - Add static ARPs
+    - Create unique 1K next hop groups
+    - Add IP route and nexthop
+    - check CRM resource
+    - clean up
+    - Create unique 1K + 1  next hop group
+    - check CRM resource, make sure it does not exceed 1K
+    - clean up
+    - Verify no errors and crash
+    """
+
+    # Test is applicable for Cisco platforms where 1K Nhop group limit is enabled 
+    if duthost.facts["platform"] not in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+        return
+
+    # Set of parameters for Cisco-8000 devices
+    default_max_nhop_paths = 2
+    polling_interval = 1
+    sleep_time = 200
+    sleep_time_sync_before = 120
+    nhop_group_limit = 1024
+
+    asic = duthost.asic_instance()
+
+    # find out MAX NHOP group count supported on the platform
+    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
+    it = iter(result)
+    switch_capability = dict(zip(it, it))
+    max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
+    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
+
+    # find out an active IP port
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    pytest_assert(len(ip_ifaces), "No IP interfaces found")
+    eth_if = ip_ifaces[0]
+
+    # Generate ARP entries
+    arp_count = 257
+    arplist = Arp(duthost, asic, arp_count, eth_if)
+    arplist.arps_add()
+
+    # indices
+    indices = range(arp_count)
+    ip_indices = combinations(indices, default_max_nhop_paths)
+    ip_prefix = ipaddr.IPAddress("192.168.0.0")
+    crm_before = get_crm_info(duthost, asic)
+
+    # increase CRM polling time
+    asic.command("crm config polling interval {}".format(polling_interval))
+    # Waiting for ARP routes to be synced and programmed
+    time.sleep(sleep_time_sync_before)
+    crm_stat = get_crm_info(duthost, asic)
+    nhop_group_count = crm_stat["available_nhop_grp"]
+    if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
+       nhop_group_count = 1024 - crm_stat["used_nhop_grp"]
+
+    nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+    # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
+    nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+    nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+
+    # list of all IPs available to generate a nexthop group
+    ip_list = arplist.ip_mac_list
+
+    logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
+
+    # create 1K nexthop group
+    nhop = IPRoutes(duthost, asic)
+    try:
+        for i, indx_list in zip(range(nhop_group_count), ip_indices):
+            # get a list of unique group of next hop IPs
+            ips = [arplist.ip_mac_list[x].ip for x in indx_list]
+
+            ip_route = "{}/31".format(ip_prefix + (2*i))
+
+            # add IP route with the next hop group created
+            nhop.add_ip_route(ip_route, ips)
+
+        nhop.program_routes()
+        # wait for routes to be synced and programmed
+        time.sleep(sleep_time)
+        crm_after = get_crm_info(duthost, asic)
+
+    finally:
+        nhop.delete_routes()
+        #arplist.clean_up()
+        asic.command(
+            "crm config polling interval {}".format(crm_before["polling"])
+        )
+
+    # verify the test used up all the NHOP group resources
+    pytest_assert(
+        crm_after["used_nhop_grp"] == 1024,
+        "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
+            crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+            crm_before["available_nhop_grp"]
+        )
+    )
+
+    time.sleep(sleep_time)
+    # Try creating 1K + 1  nexthop group, make sure it does not exceed 1K next hop group usage
+    nhop = IPRoutes(duthost, asic)
+    try:
+        for i, indx_list in zip(range(nhop_group_count + 1), ip_indices):
+            # get a list of unique group of next hop IPs
+            ips = [arplist.ip_mac_list[x].ip for x in indx_list]
+
+            ip_route = "{}/31".format(ip_prefix + (2*i))
+
+            # add IP route with the next hop group created
+            nhop.add_ip_route(ip_route, ips)
+
+        nhop.program_routes()
+        # wait for routes to be synced and programmed
+        time.sleep(sleep_time)
+        crm_after = get_crm_info(duthost, asic)
+
+    finally:
+        nhop.delete_routes()
+        arplist.clean_up()
+        asic.command(
+            "crm config polling interval {}".format(crm_before["polling"])
+        )
+
+    # verify the test used up all the NHOP group resources 1K 
+    pytest_assert(
+        crm_after["used_nhop_grp"] == 1024,
+        "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
+            crm_after["available_nhop_grp"], crm_after["used_nhop_grp"], nhop_group_count,
+            crm_before["available_nhop_grp"]
+        )
+    )
 
 def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_facts,
                                             enum_rand_one_frontend_asic_index, fanouthosts):

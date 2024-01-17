@@ -4,6 +4,7 @@ import allure
 
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,8 @@ pytestmark = [
 
 LOG_FOLDER = '/var/log'
 SMALL_VAR_LOG_PARTITION_SIZE = '100M'
+FAKE_IP = '10.20.30.40'
+FAKE_MAC = 'aa:bb:cc:dd:11:22'
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -228,3 +231,57 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     duthost = rand_selected_dut
     rotate_small_threshold = get_threshold_based_on_memory(duthost)
     validate_logrotate_function(duthost, rotate_small_threshold)
+
+
+def get_pending_entries(duthost, ignore_list=None):
+    # grep returns error code when there is no match, add 'true' so the ansible module doesn't fail
+    pending_entries = set(duthost.shell('sonic-db-cli APPL_DB keys "_*"')['stdout'].split())
+
+    if ignore_list:
+        for entry in ignore_list:
+            try:
+                pending_entries.remove(entry)
+            except ValueError:
+                continue
+    return list(pending_entries)
+
+
+def clear_pending_entries(duthost):
+    pending_entries = get_pending_entries(duthost)
+    if pending_entries:
+        # Publishing to any table channel should publish all pending entries in all tables
+        logger.info('Clearing pending entries in APPL_DB: {}'.format(pending_entries))
+        duthost.shell('sonic-db-cli APPL_DB publish "NEIGH_TABLE_CHANNEL" ""')
+
+
+@pytest.fixture
+def orch_logrotate_setup(rand_selected_dut):
+    clear_pending_entries(rand_selected_dut)
+    rand_selected_dut.shell('sudo ip neigh flush {}'.format(FAKE_IP))
+    target_port = rand_selected_dut.get_up_ip_ports()[0]
+
+    permanent_pending_entries = get_pending_entries(rand_selected_dut)
+
+    yield permanent_pending_entries, target_port
+
+    rand_selected_dut.shell('sudo ip neigh del {} dev {}'.format(FAKE_IP, target_port))
+    # Unpause orchagent in case the test gets interrupted
+    rand_selected_dut.control_process('orchagent', pause=False)
+    clear_pending_entries(rand_selected_dut)
+
+
+# Sometimes other activity on the DUT can flush the missed notification during the test,
+# leading to a false positive pass. Repeat the test multiple times to make sure that it's
+# not a false positive
+@pytest.mark.repeat(5)
+def test_orchagent_logrotate(orch_logrotate_setup, rand_selected_dut):
+    """
+    Tests for the issue where an orchagent logrotate can cause a missed APPL_DB notification
+    """
+    ignore_entries, target_port = orch_logrotate_setup
+    rand_selected_dut.control_process('orchagent', pause=True)
+    rand_selected_dut.control_process('orchagent', signal='SIGHUP')
+    rand_selected_dut.shell('sudo ip neigh add {} lladdr {} dev {}'.format(FAKE_IP, FAKE_MAC, target_port))
+    rand_selected_dut.control_process('orchagent', pause=False)
+    pending_entries = get_pending_entries(rand_selected_dut, ignore_list=ignore_entries)
+    pytest_assert(not pending_entries, "Found pending entries in APPL_DB: {}".format(pending_entries))

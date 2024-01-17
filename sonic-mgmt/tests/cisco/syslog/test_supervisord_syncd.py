@@ -17,13 +17,14 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+def check_for_syncd(duthost):
+    """
+    @summary: Checks every 30s if the syncd container is up - waits upto 7 minutes, returns false if still not running
+    """
+    container_output = duthost.command(r'docker ps --format \{\{.Names\}\}')["stdout"]
+    check_syncd = "syncd\n" in container_output or "\nsyncd" in container_output
+    attempt = 1
 
-def test_containercfgd(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Test if containercfgd is running in the syncd container
-    """
-    pattern = re.compile(r'syncd(\d+)')
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_multi_asic:
         pattern = re.compile(r'syncd(\d+)')
         container_output = duthost.command("docker ps -a | grep syncd")["stdout"].split("\n")
@@ -31,9 +32,44 @@ def test_containercfgd(duthosts, enum_rand_one_per_hwsku_hostname):
     else:
         containers = ["syncd"]
     for container in containers:
+        logging.info("Restarting syncd container ..")
         result = duthost.command("docker restart %s" % (container))
-        logging.info("Waiting for 120s, for all containers to be running")
-        time.sleep(120)
+
+    while not check_syncd and attempt <= 8:
+        logging.info("Waiting for 30s ...")
+        time.sleep(30)
+        logging.info("Checking again for syncd")
+        container_output = duthost.command(r'docker ps --format \{\{.Names\}\}')["stdout"]
+        check_syncd = "syncd\n" in container_output or "\nsyncd" in container_output
+        attempt += 1
+    return check_syncd
+
+def test_containercfgd(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Test if containercfgd is running in the syncd container
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    syncd_status = check_for_syncd(duthost)
+    assert syncd_status, "Syncd container not running after waiting 7 minutes"
+
+    pattern = re.compile(r'syncd(\d+)')
+    if duthost.is_multi_asic:
+        pattern = re.compile(r'syncd(\d+)')
+        container_output = duthost.command("docker ps -a | grep syncd")["stdout"].split("\n")
+        containers = ["syncd" + str(pattern.search(line).group(1)) for line in container_output]
+    else:
+        containers = ["syncd"]
+    for container in containers:
+        check = False
+        attempt = 1
+        while not check and attempt <= 2:
+            logging.info("Restarting syncd container ..")
+            result = duthost.command("docker restart %s" % (container))
+            time.sleep(120)
+            check = check_for_syncd(duthost)
+            attempt += 1
+        assert check, "Unable to start syncd, test cannot be run"
+        time.sleep(30)
         try:
             running_processes = duthost.command("docker exec -i syncd supervisorctl status containercfgd ")["stdout"]
         except:
@@ -46,6 +82,9 @@ def test_syslog_rate_limit(rand_selected_dut):
     """
     @summary: Test for syslog rate limit in the syncd container
     """
+    syncd_status = check_for_syncd(rand_selected_dut)
+    assert syncd_status, "Syncd container not running after waiting 7 minutes"
+
     # Copy tests/syslog/log_generator.py to DUT
     rand_selected_dut.copy(src=LOCAL_LOG_GENERATOR_FILE, dest=REMOTE_LOG_GENERATOR_FILE)
     skip_container_list = rand_selected_dut.command(r'docker ps --format \{\{.Names\}\}')["stdout_lines"]
@@ -64,5 +103,5 @@ def test_syslog_rate_limit(rand_selected_dut):
     config_reload(rand_selected_dut)
 
     # database does not support syslog rate limit configuration persist
-    verify_container_rate_limit(rand_selected_dut, ignore_containers=['database'])
+    verify_container_rate_limit(rand_selected_dut, skip_container_list)
     verify_host_rate_limit(rand_selected_dut)

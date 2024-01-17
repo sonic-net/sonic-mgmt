@@ -503,9 +503,17 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
         for t_idx, test_action in enumerate(testcase_actions):
             if 'warm-reboot' in test_action:
-                reboot(self.dut, localhost, reboot_type="warm")
+                reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
                 continue
 
+            # Need to wait some time after warm-reboot for the counters to be created
+            # if create_only_config_db_buffers is not enabled
+            if t_idx > 0 and test_action == 'detect' and testcase_actions[t_idx - 1] == "warm-reboot":
+                config_facts = duthost.get_running_config_facts()
+                if config_facts["DEVICE_METADATA"]['localhost'].get("create_only_config_db_buffers") != 'true':
+                    time.sleep(20)
+                    logger.info("Wait 20s before the first detect after the warm-reboot "
+                                "for the counters to be created")
             # one of the factors to decide if the storm needs to be started
             storm_restored = bitmask and (bitmask & 2)
             # if the action prior to the warm-reboot was a 'storm_defer', ensure that all the storms are

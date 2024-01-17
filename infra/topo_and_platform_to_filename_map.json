@@ -1,20 +1,39 @@
 {
-    "t0-t1": {
-        "mth32": "../pyvxr_yaml_files/tortuga_spytest_4D_linux.yaml"
+    "t0-t1-4d": {
+        "mth32": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_4d_single_link.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4d_single_link.yaml"
+        }
+    },
+    "t0-t1-5d": {
+        "mth32": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_stc.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_5d.yaml"
+        }
     },
     "t2-min": {
-        "sfd": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
+        "sfd": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
+        }
     },
     "t0": {
-        "churchill-mono": "../pyvxr_yaml_files/churchill_mono_sonic_t0_topo.yaml"
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/churchill_mono_sonic_t0_topo.yaml"
+        }
     },
     "t0-64": {
-        "mth64": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
+        "mth64": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml"
+        }
     },
     "t1": {
-        "churchill-mono": "../pyvxr_yaml_files/churchill_mono_sonic_t1_topo.yaml"
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/churchill_mono_sonic_t1_topo.yaml"
+        }
     },
     "t1-64-lag": {
-        "mth64": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+        "mth64": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
+        }
     }
 }
