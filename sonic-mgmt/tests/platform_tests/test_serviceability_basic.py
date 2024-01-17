@@ -73,6 +73,8 @@ def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
     result = duthost.command("sudo show platform npu ecmp")
     logging.info(result)
     traceback_found = "Traceback" in result["stdout"]
+    member_weight_found = "member weight" in result["stdout"]
+    assert member_weight_found, "member weight not found in show platform npu ecmp output"
     assert not traceback_found, "Traceback found in show platform npu ecmp output"
     assert result["stdout"], "No ouput for this CLI"
 
