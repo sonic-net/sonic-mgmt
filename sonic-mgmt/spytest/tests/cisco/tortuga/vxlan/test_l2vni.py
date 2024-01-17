@@ -1,9 +1,11 @@
+import os
+import yaml
 import pytest
 from spytest import st
 import apis.system.box_services as boxserv_obj
 
 ##
-## config based on : /auto/vxr1/sonic-images/jeflo/l2vni/
+## config: eBGP + ECMP
 ##  Topology : 2x Spine + 2 Leafs
 ##
 ##  SD1 -- Spine0  - D1
@@ -12,139 +14,10 @@ import apis.system.box_services as boxserv_obj
 ##  SD4 -- Leaf1   - D4
 ##
 
-config         = {     "SD1 sonic" : """sudo config ipv6 enable link-local
-                                        sudo config interface startup Ethernet0
-                                        sudo config interface startup Ethernet16""" 
-                        ,
-                        "SD1 vtysh" : """configure terminal
-                                        router bgp 65100
-                                        bgp router-id 10.200.200.10
-                                        no bgp ebgp-requires-policy
-                                        no bgp default ipv4-unicast
-                                        neighbor TRANSIT peer-group
-                                        neighbor TRANSIT remote-as internal
-                                        neighbor TRANSIT bfd
-                                        neighbor Ethernet0 interface peer-group TRANSIT
-                                        neighbor Ethernet16 interface peer-group TRANSIT
-                                        address-family ipv4 unicast
-                                        neighbor TRANSIT activate
-                                        neighbor TRANSIT route-reflector-client
-                                        exit
-                                        exit
-                                        exit
-                                        exit"""
-                        ,
-                        "SD2 sonic" : """sudo config ipv6 enable link-local
-                                        sudo config interface startup Ethernet0
-                                        sudo config interface startup Ethernet16""" 
-                        ,
-                        "SD2 vtysh" : """configure terminal
-                                        router bgp 65100
-                                        bgp router-id 10.200.200.11
-                                        no bgp ebgp-requires-policy
-                                        no bgp default ipv4-unicast
-                                        neighbor TRANSIT peer-group
-                                        neighbor TRANSIT remote-as internal
-                                        neighbor TRANSIT bfd
-                                        neighbor Ethernet0 interface peer-group TRANSIT
-                                        neighbor Ethernet4 interface peer-group TRANSIT
-                                        address-family ipv4 unicast
-                                        neighbor TRANSIT activate
-                                        neighbor TRANSIT route-reflector-client
-                                        exit
-                                        exit
-                                        exit
-                                        exit""" 
-                        ,
-                        "SD3 sonic" : """sudo config interface ipv6 enable use-link-local-only Ethernet0
-                                        sudo config interface ipv6 enable use-link-local-only Ethernet16
-                                        sudo config interface startup Ethernet0
-                                        sudo config interface startup Ethernet16
-                                        sudo config interface startup Ethernet32
-                                        sudo config loopback add Loopback0
-                                        sudo config interface ip add Loopback0 10.200.200.200/32
-                                        sudo config vlan add 2
-                                        sudo config vlan member add -u 2 Ethernet32
-                                        sudo config vxlan add VXLAN 10.200.200.200
-                                        sudo config vxlan evpn_nvo add NVO VXLAN
-                                        sudo config vxlan map add VXLAN 2 5002""" 
-                        ,
-                        "SD3 vtysh" : """configure terminal
-                                        router bgp 65100
-                                        bgp router-id 10.200.200.200
-                                        no bgp ebgp-requires-policy
-                                        no bgp default ipv4-unicast
-                                        neighbor SERVICE peer-group
-                                        neighbor SERVICE remote-as internal
-                                        neighbor SERVICE update-source Loopback0
-                                        neighbor 10.200.200.201 peer-group SERVICE
-                                        neighbor TRANSIT peer-group
-                                        neighbor TRANSIT bfd
-                                        neighbor TRANSIT remote-as internal
-                                        neighbor Ethernet0 interface peer-group TRANSIT
-                                        neighbor Ethernet16 interface peer-group TRANSIT
-                                        address-family ipv4 unicast
-                                        redistribute connected
-                                        neighbor TRANSIT activate
-                                        exit
-                                        address-family l2vpn evpn
-                                        neighbor SERVICE activate
-                                        advertise-all-vni
-                                        advertise ipv4 unicast
-                                        exit
-                                        exit
-                                        exit
-                                        exit"""
-                        ,
-                        "SD4 sonic" : """sudo config interface ipv6 enable use-link-local-only Ethernet0
-                                        sudo config interface ipv6 enable use-link-local-only Ethernet16
-                                        sudo config interface startup Ethernet0
-                                        sudo config interface startup Ethernet16
-                                        sudo config interface startup Ethernet32
-                                        sudo config loopback add Loopback0
-                                        sudo config interface ip add Loopback0 10.200.200.201/32
-                                        sudo config vlan add 2
-                                        sudo config vlan member add -u 2 Ethernet32
-                                        sudo config vxlan add VXLAN 10.200.200.201
-                                        sudo config vxlan evpn_nvo add NVO VXLAN
-                                        sudo config vxlan map add VXLAN 2 5002""" 
-                        ,
-                        "SD4 vtysh" : """configure terminal
-                                        router bgp 65100
-                                        bgp router-id 10.200.200.201
-                                        no bgp ebgp-requires-policy
-                                        no bgp default ipv4-unicast
-                                        neighbor SERVICE peer-group
-                                        neighbor SERVICE remote-as internal
-                                        neighbor SERVICE update-source Loopback0
-                                        neighbor 10.200.200.200 peer-group SERVICE
-                                        neighbor TRANSIT peer-group
-                                        neighbor TRANSIT bfd
-                                        neighbor TRANSIT remote-as internal
-                                        neighbor Ethernet0 interface peer-group TRANSIT
-                                        neighbor Ethernet16 interface peer-group TRANSIT
-                                        address-family ipv4 unicast
-                                        redistribute connected
-                                        neighbor TRANSIT activate
-                                        exit
-                                        address-family l2vpn evpn
-                                        neighbor SERVICE activate
-                                        advertise-all-vni
-                                        advertise ipv4 unicast
-                                        exit
-                                        exit
-                                        exit
-                                        exit"""
-                }
-
-
 pytest.fixture(scope="module", autouse=True)
 def box_service_module_hooks(request):
     global vars
     global dut_list
-    #vars = st.ensure_min_topology("D1T1:2")
-    #dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-    #vars = st.ensure_min_topology("D1", "D2", "D3", "D4")
     vars = st.ensure_min_topology("D1D3:4","D1D4:4","D2D3:4","D2D4:4")
     dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
     yield
@@ -153,111 +26,193 @@ def box_service_module_hooks(request):
 def box_service_func_hooks(request):
     yield
 
+CONFIGS_FILE = 'vxlan_l2vni_configs.yaml'
+LEAF0_VXLAN_IP = '10.200.200.200'
+LEAF1_VXLAN_IP = '10.200.200.201'
+
+def config_node(node, config, type=''):
+    if type:
+        st.config(node, config, type=type, skip_error_check=False, conf=True)
+    else:
+        st.config(node, config, skip_error_check=False, conf=True)
+
+def config_static(node, config_domain, add=True):
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    domain = ''
+    if config_domain == 'bgp':
+        domain = 'vtysh'
+
+    with open(dir_path + '/' + CONFIGS_FILE) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        if add:
+            config_node(nodes[node], config_list[node][config_domain]['config'], domain)
+        else:
+            config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
+
+
+def report_fail(dut, msg=''):
+    st.log(msg, dut)
+    st.error(msg, dut)
+    st.report_fail('test_case_failed', dut)
+
+
+####################
+@pytest.fixture()
+def setup_teardown_l2vni():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(dir_path + '/' + CONFIGS_FILE) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            config_static(node, 'sonic')
+            st.wait(2)
+            config_static(node, 'bgp')
+
+    # Make sure links are up by pinging, sometimes packet exchange doesn't happen on sim till pings are initiated
+    st.wait(5)
+    count = 5
+    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.201'), skip_tmpl=True, skip_error_check=True)
+    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.200'), skip_tmpl=True, skip_error_check=True)
+
+    yield 'setup_teardown_l2vni'
+
+    with open(dir_path + '/' + CONFIGS_FILE) as c:
+        config_list = yaml.load(c, Loader=yaml.FullLoader)
+        for node, config in config_list.items():
+            config_static(node, 'bgp', add=False)
+            st.wait(2)
+            config_static(node, 'sonic', add=False)
+
+
+def verify_vtep_state (nodes):
+    leaf0_vtep_ip = LEAF0_VXLAN_IP
+    leaf1_vtep_ip = LEAF1_VXLAN_IP
+
+    leaf0_output = st.show(nodes['leaf0'], "show vxlan remotevtep", skip_tmpl=True)
+
+    leaf0_parsed = st.parse_show(nodes['leaf0'], "show vxlan remotevtep",
+                                 leaf0_output, "show_vxlan_remote.tmpl")
+
+    leaf1_output = st.show(nodes['leaf1'], "show vxlan remotevtep", skip_tmpl=True)
+
+    leaf1_parsed = st.parse_show(nodes['leaf1'], "show vxlan remotevtep",
+                                 leaf1_output, "show_vxlan_remote.tmpl")
+
+    if len(leaf0_parsed) == 0:
+        report_fail(nodes['leaf0'], msg='No remote VTEP found in leaf0')
+
+    vtep_num = 0
+    for path in leaf0_parsed:
+        vtep_num += 1
+        if path['tun_src'] != 'EVPN':
+            report_fail(nodes['leaf0'], msg='Unexpected tunnel type {} in leaf0'.format(path['tun_type']))
+        if path['src_vtep'] != leaf0_vtep_ip:
+            report_fail(nodes['leaf0'], msg='No local vtep {} found in leaf0'.format(leaf0_vtep_ip))
+        if path['dst_vtep'] != leaf1_vtep_ip:
+            report_fail(nodes['leaf0'], msg='Unexpected vtep {} found in leaf0'.format(path['rem_vtep']))
+        if path['tun_status'] != 'oper_up':
+            report_fail(nodes['leaf0'], msg='Tunnel is not in up status in leaf0')
+    if vtep_num != 1:
+        report_fail(nodes['leaf0'], msg='Incorrect number of VTEPs found in leaf0')
+
+    if len(leaf1_parsed) == 0:
+        report_fail(nodes['leaf1'], msg='No remote VTEP found in leaf1')
+    vtep_num = 0
+    for path in leaf1_parsed:
+        vtep_num += 1
+        if path['tun_src'] != 'EVPN':
+            report_fail(nodes['leaf1'], msg='Unexpected tunnel type {} in leaf1'.format(path['tun_type']))
+        if path['src_vtep'] != leaf1_vtep_ip:
+            report_fail(nodes['leaf1'], msg='No local vtep {} found in leaf1'.format(leaf1_vtep_ip))
+        if path['dst_vtep'] != leaf0_vtep_ip:
+            report_fail(nodes['leaf1'], msg='Unexpected vtep {} found in leaf1'.format(path['rem_vtep']))
+        if path['tun_status'] != 'oper_up':
+            report_fail(nodes['leaf1'], msg='Tunnel is not in up status in leaf1')
+    if vtep_num != 1:
+        report_fail(nodes['leaf1'], msg='Incorrect number of VTEPs found in leaf1')
+
+def run_traffic_test (nodes):
+    # TBD:
+    # ping test
+    # traffic test
+    # BUM test
+    st.wait(1)
+    #report_fail(nodes['leaf0'], msg='Traffic test failed')
+
 @pytest.mark.system_box
 @pytest.mark.community
 @pytest.mark.community_pass
 
+def test_l2vni_vtep_setup (setup_teardown_l2vni):
+    vars = st.get_testbed_vars()
 
-def config_sonic(_dut):
-    global config
-    for sonic_config_line in config[_dut + " sonic"].splitlines():
-        st.config(_dut, sonic_config_line.strip(),skip_error_check=True)
-        st.wait(2)
-        
-def config_vtysh(_dut):
-    global config
-    for vty_config_line in config[_dut + " vtysh"].splitlines():
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
 
-        st.log(vty_config_line.strip(), _dut)
-        st.config(_dut, vty_config_line.strip(), type='vtysh',skip_error_check=True)
-        st.wait(2)
- 
-    output4=st.vtysh(_dut, "show running")
-    st.log(output4,_dut)
-   
-def verify_vtep_state (_dut_list):
-    
-    # Test 1: Verify if the State is UP - oper_up 
-    for _dut in _dut_list:
-        output = st.config(_dut, "show vxlan remotevtep | grep oper_up")
-        st.wait(2)
-        st.log(output,_dut)
+    st.wait(60)
 
-        if "EVPN" in str(output.encode('ascii','ignore')):
-            st.log("EVPN State oper_up UP", _dut)
-        else:
-            st.log("EVPN State Error: NOT oper_up",_dut)
-            st.error("EVPN State Error: NOT oper_up",_dut)
-            st.report_fail("test_case_failed",_dut)
-        st.report_pass("test_case_passed", _dut)   
-    
-    ## Test 2: verification vtep SIP-DIP Pair on leaf0 - D3
-    """
-    root@sonic:/home/cisco# show vxlan remotevtep
-    +----------------+----------------+-------------------+--------------+
-    | SIP            | DIP            | Creation Source   | OperStatus   |
-    +================+================+===================+==============+
-    | 10.200.200.200 | 10.200.200.201 | EVPN              | oper_up      |
-    +----------------+----------------+-------------------+--------------+
-    """
-    
-    _dut = _dut_list[0]
-    leaf0_output = st.config(_dut, "show vxlan remotevtep | grep oper_up")
-    st.wait(2)
-    
-    if  ".200 | 10." in str(leaf0_output.encode('ascii','ignore')):
-        st.log("Leaf0 SIP DIP Pair is matched", _dut)
-    else:
-        st.log("Leaf0 SIP DIP Pair is NOT matchedy",_dut)
-        st.error("Leaf0 SIP DIP Pair is NOT matched",_dut)
-        st.report_fail("test_case_failed",_dut)
-    st.report_pass("test_case_passed", _dut)
-    
-    # Test 3: Verify SIP and DIP Pair on Leaf1 D4
-    ## verification vtep on leaf1 - D4
-    """
-    root@sonic:/home/cisco# show vxlan remotevtep
-    +----------------+----------------+-------------------+--------------+
-    | SIP            | DIP            | Creation Source   | OperStatus   |
-    +================+================+===================+==============+
-    | 10.200.200.201 | 10.200.200.200 | EVPN              | oper_up      |
-    +----------------+----------------+-------------------+--------------+
-    Total count : 1
-    root@sonic:/home/cisco# 
-    """
-    
-    _dut = _dut_list[1] 
-    leaf1_output = st.config(_dut, "show vxlan remotevtep | grep oper_up")
-    st.wait(2)
-    
-    if  ".201 | 10" in str(leaf1_output.encode('ascii','ignore')):
-        st.log("Leaf1 SIP DIP Pair is matched", _dut)
-    else:
-        st.log("Leaf1 SIP DIP Pair is NOT matched",_dut)
-        st.error("Leaf1 SIP DIP Pair is NOT matched",_dut)
-        st.report_fail("test_case_failed",_dut)
-    st.report_pass("test_case_passed", _dut)  
-    
+    verify_vtep_state(nodes)
+    run_traffic_test(nodes)
 
-def test_vtep_cli ():
-    vars = st.get_testbed_vars()    
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
+    st.report_pass('test_case_passed', nodes['leaf0'])
+    st.report_pass('test_case_passed', nodes['leaf1'])
+    st.report_pass('test_case_passed', nodes['spine0'])
+    st.report_pass('test_case_passed', nodes['spine1'])
 
-    for dut in dut_list:
-        st.banner('Configure Sonic') 
-        config_sonic(dut)
-        st.wait(10)
-        st.banner('Configure Vtysh') 
-        config_vtysh(dut)
-        st.wait(10)
+
+def test_l2vni_vtep_delete_add (setup_teardown_l2vni):
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    st.wait(60)
+
+    verify_vtep_state(nodes)
+    run_traffic_test(nodes)
+
+    test_node = 'leaf0'
+    config_static(test_node, 'bgp', add=False)
+    config_static(test_node, 'sonic', add=False)
+    st.wait(10)
+    config_static(test_node, 'sonic', add=True)
+    config_static(test_node, 'bgp', add=True)
+    st.wait(10)
+
+    # Make sure links are up by pinging, sometimes packet exchange doesn't happen on sim till pings are initiated
+    count = 5
+    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.201'), skip_tmpl=True, skip_error_check=True)
+    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.200'), skip_tmpl=True, skip_error_check=True)
 
     st.wait(30)
 
-    # Test1: Verify Vtep State for L0 and L1
-    vtep_vars = [vars.D3, vars.D4]
-    verify_vtep_state (vtep_vars)
-    #for dut in dut_list:
-    #    st.banner('clear configs')
-    #    st.clear_config(dut)
-    #    st.wait(20)
- 
+    verify_vtep_state(nodes)
+    run_traffic_test(nodes)
+
+    st.report_pass('test_case_passed', nodes['leaf0'])
+    st.report_pass('test_case_passed', nodes['leaf1'])
+    st.report_pass('test_case_passed', nodes['spine0'])
+    st.report_pass('test_case_passed', nodes['spine1'])
