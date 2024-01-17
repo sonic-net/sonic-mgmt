@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 import paramiko
-import socket
 import glob
 import re
 import yaml
@@ -137,7 +136,8 @@ def duthost_ssh(sonichost):
             return sonic_username, password, sonic_ip
         except AuthenticationException:
             continue
-        except socket.timeout as e:
+        # Errors such like timeout, connection fails
+        except Exception as e:
             logger.info("Cannot access DUT {} via ssh, error: {}".format(sonichost.hostname, e))
             return RC_SOCKET_TIMEOUT
     return RC_PASSWORD_FAILED
