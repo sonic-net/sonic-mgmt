@@ -702,13 +702,6 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
-platform_tests/cli/test_show_platform.py::test_show_platform_ssdhealth:
-  xfail:
-    strict: True
-    reason: "Image issue on 7050qx platforms"
-    conditions:
-      - "platform in ['x86_64-arista_7050_qx32s']"
-
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
     reason: "Testcase consistently fails, raised issue to track"
@@ -767,10 +760,6 @@ platform_tests/mellanox/test_reboot_cause.py:
 ####    test_advanced_reboot      #####
 #######################################
 platform_tests/test_advanced_reboot.py:
-  xfail:
-    reason: "Xfail advanced reboot on TD3 due to known SAI issue in SAI 8.4+"
-    conditions:
-      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and release in ['202305', 'master']"
   skip:
     reason: "Unsupported platform"
     conditions_logical_operator: or
@@ -778,14 +767,22 @@ platform_tests/test_advanced_reboot.py:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
 
+platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
+  skip:
+    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11007
+
 #######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: "Unsupported release or platforms"
+    conditions_logical_operator: or
     conditions:
       - "(is_multi_asic==True and release in ['201911']) or (hwsku in ['Celestica-E1031-T48S4'])"
+      - "'dell_s6100' in platform"
 
 #######################################
 #####    test_platform_info.py    #####
