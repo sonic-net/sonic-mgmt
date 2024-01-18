@@ -32,9 +32,10 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from .qos_sai_base import QosSaiBase
@@ -1107,8 +1108,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            separated_dscp_to_tc_map_on_uplink
+            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1127,6 +1127,8 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        pytest_require(separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module),
+                       "Skip test because separated QoS map is not applied")
         if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
             pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
@@ -1930,19 +1932,18 @@ class TestQosSai(QosSaiBase):
         allTestPorts = []
         allTestPortIps = []
         testPortIps = dutConfig["testPortIps"]
-        if separated_dscp_to_tc_map_on_uplink:
+        all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
+        allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
+        allTestPortIps.extend([
+            x['peer_addr'] for x in
+            all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             # Remove the upstream ports from the test port list.
             allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
             allTestPortIps = [
                 testPortIps[get_src_dst_asic_and_duts['dst_dut_index']]
                 [get_src_dst_asic_and_duts['dst_asic_index']][port]['peer_addr']
                 for port in allTestPorts]
-        else:
-            all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
-            allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
-            allTestPortIps.extend([
-                x['peer_addr'] for x in
-                all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
         try:
             tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
             tc_to_dscp_map = {v: k for k, v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
@@ -1952,8 +1953,10 @@ class TestQosSai(QosSaiBase):
                 "and key AZURE to run this test.")
         dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map}
         if get_src_dst_asic_and_duts['single_asic_test']:
-            allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
-            allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
+            if dutConfig["testPorts"]["src_port_id"] in allTestPorts:
+                allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
+            if dutConfig["testPorts"]["src_port_ip"] in allTestPortIps:
+                allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
