@@ -76,6 +76,12 @@ def xcvr_skip_list(duthosts):
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
 
+        # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
+            sfp_list = ['Ethernet0', 'Ethernet1', 'Ethernet2', 'Ethernet3']
+            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
+            intf_skip_list[dut.hostname].extend(sfp_list)
+
     return intf_skip_list
 
 
@@ -278,7 +284,10 @@ def analyze_log_file(duthost, messages, result, offset_from_kexec):
                     state_times = get_state_times(
                         timestamp, state, service_restart_times)
                     service_restart_times.update(state_times)
-                break
+                if "PORT_READY" not in state_name:
+                    # If PORT_READY, don't break out of the for-loop here, because we want to
+                    # try to match the other regex as well
+                    break
     # Calculate time that services took to stop/start
     for _, timings in list(service_restart_times.items()):
         timestamps = timings["timestamp"]
@@ -398,13 +407,19 @@ def verify_mac_jumping(test_name, timing_data, verification_errors):
 def verify_required_events(duthost, event_counters, timing_data, verification_errors):
     for key in ["time_span", "offset_from_kexec"]:
         for pattern in REQUIRED_PATTERNS.get(key):
-            observed_start_count = timing_data.get(
-                key, {}).get(pattern, {}).get("Start count", 0)
+            if pattern == 'PORT_READY':
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start-changes-only count", 0)
+            else:
+                observed_start_count = timing_data.get(
+                    key, {}).get(pattern, {}).get("Start count", 0)
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            if (observed_start_count != expected_count and pattern != 'PORT_READY') or\
-                    (observed_start_count > expected_count and pattern == 'PORT_READY'):
+            # If we're checking PORT_READY, and there are 0 port state change messages captured instead of however many
+            # was expected, treat it as a success. Some platforms (Mellanox, Dell S6100) have 0, some platforms (Arista
+            #  050cx3) have however many ports are up.
+            if observed_start_count != expected_count and (pattern != 'PORT_READY' or observed_start_count != 0):
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
