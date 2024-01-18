@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import sys
+import ipaddress
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
 from constants import RC_SSH_FAILED
 
@@ -56,13 +57,26 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
     for sonichost in sonichosts:
-        # sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
+        # Get dut ip with network mask
+        mgmt_ip = conn_graph_facts["device_info"][sonichost.hostname]["ManagementIp"]
+
         need_to_recover = False
         for i in range(3):
             dut_ssh = duthost_ssh(sonichost)
 
             if type(dut_ssh) == tuple:
                 logger.info("SSH success.")
+
+                # Add ip info into /etc/network/interface
+                extra_vars = {
+                    'addr': mgmt_ip.split('/')[0],
+                    'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
+                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
+                }
+                sonichost.vm.extra_vars.update(extra_vars)
+                sonichost.template(src="../.azure-pipelines/recover_testbed/interfaces.j2",
+                                   dest="/etc/network/interface")
+
                 sonic_username = dut_ssh[0]
                 sonic_password = dut_ssh[1]
                 sonic_ip = dut_ssh[2]
@@ -81,8 +95,6 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 logger.info("Authentication failed. Passwords are incorrect.")
                 return
 
-            # Get dut ip with network mask
-            mgmt_ip = conn_graph_facts["device_info"][sonichost.hostname]["ManagementIp"]
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)
 
@@ -109,7 +121,8 @@ def main(args):
     logger.info("Initializing hosts")
     localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
     sonichosts = init_testbed_sonichosts(
-        args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
+        args.inventory, args.testbed_name, testbed_file=args.tbfile,
+        options={"verbosity": args.verbosity, "become": "True"}
     )
 
     if not localhost or not sonichosts:
