@@ -95,6 +95,9 @@ def test_eth_switch_monitor_midplane_fault(duthosts, enum_rand_one_per_hwsku_hos
     if CheckEnvironment.is_sim(duthost):
         pytest.skip("Not supported in SIM")
 
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
+
     result = duthost.command("ifconfig eth1-midplane down")
     logging.info(result)
 
@@ -118,6 +121,9 @@ def test_eth_switch_monitor_eth0_fault(duthosts, localhost, enum_rand_one_per_hw
     if CheckEnvironment.is_sim(duthost):
         pytest.skip("Not supported in SIM")
 
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
+
     result = duthost.command("ifconfig eth0 down")
     logging.info(result)
 
@@ -139,7 +145,7 @@ def test_eth_switch_inject_link_error(duthosts, localhost, enum_rand_one_per_hws
         pytest.skip("Not supported in SIM")
 
     if duthost.is_supervisor_node():
-        port = "28"
+        pytest.skip("Not supported on RP")
     else:
         port = "10"
 
