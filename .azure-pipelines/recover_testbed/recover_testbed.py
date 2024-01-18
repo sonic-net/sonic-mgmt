@@ -121,7 +121,8 @@ def main(args):
     logger.info("Initializing hosts")
     localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
     sonichosts = init_testbed_sonichosts(
-        args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
+        args.inventory, args.testbed_name, testbed_file=args.tbfile,
+        options={"verbosity": args.verbosity, "become": "True"}
     )
 
     if not localhost or not sonichosts:
