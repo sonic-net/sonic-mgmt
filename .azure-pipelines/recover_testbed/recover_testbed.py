@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
+from constants import RC_SSH_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -36,13 +37,13 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
-        type = hwsku.split('-')[0].lower()
+        device_type = hwsku.split('-')[0].lower()
 
-        if type in ["arista"]:
+        if device_type in ["arista"]:
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
-        # elif type in ["Cisco"]:
-        #     return
-        elif type in ["mellanox", "nexus", "acs"]:
+        elif device_type in ["nexus"]:
+            posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
+        elif device_type in ["mellanox", "cisco", "acs"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url)
         else:
             return
@@ -73,8 +74,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            # TODO: Define the return message like RC_SOCKET_TIMEOUT in common file
-            elif dut_ssh == 1:
+            elif dut_ssh == RC_SSH_FAILED:
                 # Do power cycle
                 need_to_recover = True
             else:
