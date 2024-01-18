@@ -1,0 +1,33 @@
+
+name: SyncConnGraph_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+stages:
+  - stage: SyncConnectionGraph
+    jobs:
+      - job: SyncConnectionGraph
+        timeoutInMinutes: 30
+        variables:
+          - group: GIT_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+
+          - task: Bash@3
+            displayName: Sync Connection Graph
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -x
+
+                cd .azure-pipelines/repo_mgmt
+                pip3 install -r requirements.txt
+
+                python3 sync_conn_graph.py
+            env:
+              MGMT_REPOSITOR_ID: $(MGMT_REPOSITOR_ID)
+              MSSONIC_USERNAME: $(MSSONIC_USERNAME)
+              MSSONIC_PUBLIC_TOKEN: $(MSSONIC_PUBLIC_TOKEN)
