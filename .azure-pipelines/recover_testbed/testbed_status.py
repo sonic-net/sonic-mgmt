@@ -12,7 +12,6 @@ def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip):
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     brd_ip = ipaddress.ip_interface(mgmt_ip).network.broadcast_address
     try:
-        # TODO: Add mgmt ip into file /etc/network/interfaces -- ip, mask, gw
         ret = dut_console.send_command("sudo ip addr add {} brd {} dev eth0".format(mgmt_ip, brd_ip))  # noqa F841
         dut_console.send_command("sudo ip route add default via {}".format(gw_ip))
     except Exception as e:
