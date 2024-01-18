@@ -9,7 +9,6 @@ from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
-from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py   # noqa F401
 from tests.common.config_reload import config_reload
 
