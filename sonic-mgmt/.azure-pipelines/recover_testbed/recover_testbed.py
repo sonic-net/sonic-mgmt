@@ -4,7 +4,9 @@ import argparse
 import logging
 import os
 import sys
+import ipaddress
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
+from constants import RC_SSH_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -36,13 +38,13 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
-        type = hwsku.split('-')[0].lower()
+        device_type = hwsku.split('-')[0].lower()
 
-        if type in ["arista"]:
+        if device_type in ["arista"]:
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
-        # elif type in ["Cisco"]:
-        #     return
-        elif type in ["mellanox", "nexus", "acs"]:
+        elif device_type in ["nexus"]:
+            posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
+        elif device_type in ["mellanox", "cisco", "acs"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url)
         else:
             return
@@ -55,13 +57,26 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
     for sonichost in sonichosts:
-        # sonic_username, sonic_password, sonic_ip = get_ssh_info(sonichost)
+        # Get dut ip with network mask
+        mgmt_ip = conn_graph_facts["device_info"][sonichost.hostname]["ManagementIp"]
+
         need_to_recover = False
         for i in range(3):
             dut_ssh = duthost_ssh(sonichost)
 
             if type(dut_ssh) == tuple:
                 logger.info("SSH success.")
+
+                # Add ip info into /etc/network/interface
+                extra_vars = {
+                    'addr': mgmt_ip.split('/')[0],
+                    'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
+                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
+                }
+                sonichost.vm.extra_vars.update(extra_vars)
+                sonichost.template(src="../.azure-pipelines/recover_testbed/interfaces.j2",
+                                   dest="/etc/network/interface")
+
                 sonic_username = dut_ssh[0]
                 sonic_password = dut_ssh[1]
                 sonic_ip = dut_ssh[2]
@@ -73,16 +88,13 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 except Exception as e:
                     logger.info("Exception caught while executing cmd. Error message: {}".format(e))
                     need_to_recover = True
-            # TODO: Define the return message like RC_SOCKET_TIMEOUT in common file
-            elif dut_ssh == 1:
+            elif dut_ssh == RC_SSH_FAILED:
                 # Do power cycle
                 need_to_recover = True
             else:
                 logger.info("Authentication failed. Passwords are incorrect.")
                 return
 
-            # Get dut ip with network mask
-            mgmt_ip = conn_graph_facts["device_info"][sonichost.hostname]["ManagementIp"]
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)
 
@@ -109,7 +121,8 @@ def main(args):
     logger.info("Initializing hosts")
     localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
     sonichosts = init_testbed_sonichosts(
-        args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
+        args.inventory, args.testbed_name, testbed_file=args.tbfile,
+        options={"verbosity": args.verbosity, "become": "True"}
     )
 
     if not localhost or not sonichosts:

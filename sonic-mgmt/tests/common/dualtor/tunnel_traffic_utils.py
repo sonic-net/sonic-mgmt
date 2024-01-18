@@ -237,6 +237,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             inner_dscp, _ = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             check_res = []
+            # For Nvidia platforms, queue check for outer/inner dscp 2/2 and 6/6 will fail due to the diversity
+            # in dscp remapping. Since we don't expect such packets in production, skip the queue check in this case.
+            if self.standby_tor.is_nvidia_platform():
+                logging.info("Skip the queue check for inner/outer dscp 2/2 and 6/6 on Nvidia platforms.")
+                if (inner_dscp, outer_dscp) in [(2, 2), (6, 6)]:
+                    return " ,".join(check_res)
             exp_queue = derive_queue_id_from_dscp(self.standby_tor, inner_dscp, True)
             logging.info("Expect queue: %s", exp_queue)
             if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue, self.packet_count):

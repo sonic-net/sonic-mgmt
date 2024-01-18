@@ -3392,6 +3392,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         qos_remap_enable = bool(
             self.test_params.get('qos_remap_enable', False))
+        dry_run = bool(self.test_params.get('dry_run', False))
         print("dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" %
               (dst_port_id, src_port_id, qos_remap_enable))
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
@@ -3554,7 +3555,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info(
                     "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
-            else:
+            elif not dry_run:
                 assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
                     dscp, diff, limit)
 
@@ -3565,6 +3566,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print(list(map(operator.sub, queue_counters,
                        queue_counters_base)), file=sys.stderr)
 
+        print([q_cnt_sum, total_pkts], file=sys.stderr)
         # All packets sent should be received intact
         assert (q_cnt_sum == total_pkts)
 

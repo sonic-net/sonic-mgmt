@@ -4,13 +4,13 @@ import logging
 import os
 import sys
 import paramiko
-import socket
 import glob
 import re
 import yaml
 import jinja2
 from tests.common.connections.console_host import ConsoleHost
 from paramiko.ssh_exception import AuthenticationException
+from constants import RC_SSH_FAILED, RC_PASSWORD_FAILED
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -21,10 +21,6 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 logger = logging.getLogger(__name__)
-
-RC_SSH_SUCCESS = 0
-RC_SOCKET_TIMEOUT = 1
-RC_PASSWORD_FAILED = 2
 
 
 def creds_on_dut(sonichost):
@@ -137,7 +133,8 @@ def duthost_ssh(sonichost):
             return sonic_username, password, sonic_ip
         except AuthenticationException:
             continue
-        except socket.timeout as e:
+        # Errors such like timeout, connection fails
+        except Exception as e:
             logger.info("Cannot access DUT {} via ssh, error: {}".format(sonichost.hostname, e))
-            return RC_SOCKET_TIMEOUT
+            return RC_SSH_FAILED
     return RC_PASSWORD_FAILED
