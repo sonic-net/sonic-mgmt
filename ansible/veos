@@ -6645,6 +6645,14 @@ vms_bjw_13:
       ansible_host: 172.16.199.82
     VM74055:
       ansible_host: 172.16.199.83
+    VM74056:
+      ansible_host: 172.16.199.84
+    VM74057:
+      ansible_host: 172.16.199.85
+    VM74058:
+      ansible_host: 172.16.199.86
+    VM74059:
+      ansible_host: 172.16.199.87
 
 vms_bjw_14:
   hosts:

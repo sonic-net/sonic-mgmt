@@ -62,6 +62,8 @@ all:
           ansible_host: 10.150.23.71
         bjw13-4:
           ansible_host: 10.150.23.72
+        bjw13-5:
+          ansible_host: 10.150.23.73
 
     pdu:
       hosts:
@@ -183,6 +185,8 @@ fanout:
       ansible_host: 10.150.22.127
     bjw-can-7260-9:
       ansible_host: 10.150.22.155
+    bjw-can-7260-10:
+      ansible_host: 10.150.22.156
 
 sonic:
   vars:
@@ -796,6 +800,24 @@ sonic_arista_7260cx3:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPA2250P2QM"
+    bjw-can-7260-11:
+      ansible_host: 10.150.22.157
+      hwsku: Arista-7260CX3-D108C8
+      model: DCS-7260CX3-64
+      serial: JPA22391787
+      base_mac: 38:38:a6:67:c7:b8
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250508B0"
+        "0x23": "JPA22391787"
+        "0x24": "38:38:a6:67:c7:b8"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA22391787"
   vars:
     iface_speed: 100000
 
