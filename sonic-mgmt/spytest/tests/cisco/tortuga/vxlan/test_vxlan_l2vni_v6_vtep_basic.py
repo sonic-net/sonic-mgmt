@@ -54,10 +54,11 @@ def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -137,10 +138,10 @@ def test_v6_vtep_basic(setup_and_teardown):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     # sleep for 40 seconds for BGP to converge
     st.wait(40)
