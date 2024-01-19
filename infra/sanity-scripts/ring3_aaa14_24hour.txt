@@ -1,0 +1,7 @@
+acl/test_acl.py
+ipfwd/test_nhop_group.py
+platform_tests/test_reboot.py
+platform_tests/test_reload_config.py
+platform_tests/api/test_chassis.py
+platform_tests/test_sequential_restart.py
+route/test_route_perf.py

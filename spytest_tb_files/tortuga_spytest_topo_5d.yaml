@@ -68,5 +68,9 @@ topology:
             Ethernet28: {EndDevice: SD4, EndPort: Ethernet28, params: def_link}
     SD3:
         interfaces:
+            Ethernet32: {EndDevice: stc-01, EndPort: 1/1, params: def_tg_link}
+
     SD4:
         interfaces:
+            Ethernet32: {EndDevice: stc-01, EndPort: 1/2, params: def_tg_link}
+

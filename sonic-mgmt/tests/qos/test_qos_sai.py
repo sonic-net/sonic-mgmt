@@ -38,6 +38,8 @@ from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_rem
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
+from tests.common.platform.device_utils import list_dut_fanout_connections
+from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa F401
@@ -63,7 +65,10 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
        attribute:1920 updating switch mac addr failed with error -2"""
     ignore_regex = [
-        ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*"
+        ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
+        # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
+        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
+        ".*configure.*command was failed.*times, disabling retry.*"
     ]
 
     if loganalyzer:
@@ -132,6 +137,88 @@ class TestQosSai(QosSaiBase):
     ]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
+
+    @pytest.fixture(scope='function')
+    def change_port_speed(
+            self, request, ptfhost, duthosts, dutTestParams, fanouthosts, dutConfig, tbinfo,
+            get_src_dst_asic_and_duts, releaseAllPorts, handleFdbAging, lower_tor_host):
+        """When port_target_speed is not None, change dut dst port speed and the corresponding port speed,
+           and then recover them.
+        """
+        target_speed = request.config.getoption("--port_target_speed")
+        is_change_sport_speed = False
+
+        if target_speed:
+            logger.info("target speed is {}".format(target_speed))
+            duthost = get_src_dst_asic_and_duts['src_dut']
+            dut_dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
+            dut_int_status = duthost.get_interfaces_status()
+            original_speed = dut_int_status[dut_dst_port]["speed"].replace("G", "000")
+
+            if int(target_speed) < int(original_speed):
+                fanout_port_list = []
+
+                def _get_dut_change_speed_port_list():
+                    src_mgFacts = duthost.get_extended_minigraph_facts(tbinfo)
+                    portchannels = src_mgFacts["minigraph_portchannels"]
+                    dut_port_list = [dut_dst_port]
+                    for po, po_info in portchannels.items():
+                        if dut_dst_port in po_info['members']:
+                            dut_port_list = po_info['members']
+                            break
+                    logger.info("dut port list :{}".format(dut_port_list))
+                    return dut_port_list
+
+                def _get_fanout_and_fanout_change_speed_port_list(dut_port_list):
+                    for dut_port, fanout, fanout_port in list_dut_fanout_connections(duthost, fanouthosts):
+                        if dut_port in dut_port_list:
+                            fanout_port_list.append(fanout_port)
+                            fanout_host = fanout
+                    logger.info("fanout port list :{}".format(fanout_port_list))
+                    return fanout_host
+
+                def _update_target_speed(fanout_host, target_speed, dut_port_list):
+                    logger.info("Get one speed that is smaller or equal than target speed")
+                    all_dut_speeds = duthost.get_supported_speeds(dut_port_list[0])
+                    all_fanout_speeds = fanout_host.get_supported_speeds(fanout_port_list[0])
+                    common_speeds = list(set(all_dut_speeds).intersection(set(all_fanout_speeds)))
+                    if target_speed not in common_speeds:
+                        min_speed = common_speeds[0]
+                        for speed in common_speeds:
+                            if int(min_speed) > int(speed):
+                                min_speed = speed
+                            target_speed = min_speed
+                    logger.info("Updated target_speed is {}".format(target_speed))
+                    return target_speed
+
+                def _set_speed_and_populate_arp(fanout_host, speed, dut_port_list):
+                    for dut_port in dut_port_list:
+                        logger.info('DUT: Set {} speed to {}'.format(dut_port, speed))
+                        duthost.shell("sudo config interface speed {} {}".format(dut_port, speed))
+                    for fanout_port in fanout_port_list:
+                        logger.info('Fanout: Set {} speed to {}'.format(fanout_host, speed))
+                        fanout_host.set_speed(fanout_port, speed)
+                    wait_until(60, 1, 0, duthost.links_status_up, dut_port_list)
+
+                    logger.info("populate arp, because change speed will cause port flap")
+                    self.populate_arp_entries(
+                        get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig,
+                        releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
+
+                dut_port_list = _get_dut_change_speed_port_list()
+                fanout_host = _get_fanout_and_fanout_change_speed_port_list(dut_port_list)
+                target_speed = _update_target_speed(fanout_host, target_speed, dut_port_list)
+
+                if int(target_speed) < int(original_speed):
+                    logger.info("Change speed to {}".format(target_speed))
+                    is_change_sport_speed = True
+                    _set_speed_and_populate_arp(fanout_host, target_speed, dut_port_list)
+
+        yield
+
+        if is_change_sport_speed:
+            logger.info("Restore speed to {}".format(original_speed))
+            _set_speed_and_populate_arp(fanout_host, original_speed, dut_port_list)
 
     def replaceNonExistentPortId(self, availablePortIds, portIds):
         '''
@@ -1381,7 +1468,7 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDwrr(
-        self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
+        self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed
     ):
         """
             Test QoS SAI DWRR
@@ -1444,6 +1531,18 @@ class TestQosSai(QosSaiBase):
         else:
             testParams["ecn"] = qosConfig["lossy_queue_1"]["ecn"]
 
+        # To overcome this case:
+        # When the previous test case just sends a large of packets only by one queue such as queue1,
+        # then Dwrr test might fail, because queue1 has got much chance to send packets before,
+        # so it will get less chance to send packets than expected.
+        # Therefore the first run is a dry run, and will not check Dwrr function.
+        # After the dry run, all tested queues can be scheduled so that all queues are at the same start.
+        testParams["dry_run"] = True
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
+        )
+
+        testParams["dry_run"] = False
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )

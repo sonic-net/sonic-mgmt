@@ -53,9 +53,9 @@ arp/test_stress_arp.py:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000','innovium']"
 
 arp/test_wr_arp.py:
   skip:
@@ -282,6 +282,21 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
+#####         dhcp_relay        #####
+#######################################
+dhcp_relay/test_dhcp_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcpv6_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -481,13 +496,19 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
 
 ecmp/test_ecmp_sai_value.py:
   skip:
-    reason: "Only support Broadcom T1/T0 topology with 20230531.12 or later image, 7050cx3 T1 doesn't enable this feature"
+    reason: "Only support Broadcom T1/T0 topology with 20230531 image, 7050cx3 T1 doesn't enable this feature"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t1', 't0']"
       - "asic_type not in ['broadcom']"
-      - "release in ['201911', '202012', '202205', '202211', 'master', 'internal']"
+      - "release in ['201911', '202012', '202205', '202211', 'master']"
+      - "'internal' in build_version"
       - "topo_type in ['t1'] and hwsku in ['Arista-7050CX3-32S-C32']"
+  xfail:
+    reason: "This feature is not supported in 202311 as the code was not merged into 202311"
+    conditions:
+      - "release in ['202311']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11310
 
 ecmp/test_fgnhg.py:
   skip:
@@ -575,6 +596,12 @@ generic_config_updater:
     conditions:
       - "'t2' in topo_name"
 
+generic_config_updater/test_dhcp_relay.py:
+  skip:
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    conditions:
+      - "platform in ['x86_64-8111_32eh_o-r0']"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
@@ -584,17 +611,18 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
 
+generic_config_updater/test_eth_interface.py::test_eth_interface_admin_change:
+  skip:
+    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
+    conditions:
+      - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11237
+
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
     reason: "Skip asym pfc on unsupported platforms"
     conditions:
       - "asic_type in ['cisco-8000']"
-
-generic_config_updater/test_eth_interface.py::test_update_speed:
-  skip:
-    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/8143
 
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
@@ -621,6 +649,7 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
 generic_config_updater/test_pfcwd_status.py:
   skip:
     reason: "This test is not run on this topo type or version currently"
+    conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
@@ -1100,6 +1129,20 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiSharedReservationSize:
     reason: "Shared reservation size test is not supported."
     conditions:
       - "asic_type not in ['cisco-8000']"
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_active is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_standby is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
 #######################################
 #####      reset_factory          #####

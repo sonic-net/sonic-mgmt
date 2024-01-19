@@ -13,23 +13,23 @@ qos_params:
                 pkts_num_margin: 1
             wrr:
                 ecn: 1
-                q0_num_of_pkts: 70
-                q1_num_of_pkts: 70
-                q2_num_of_pkts: 70
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
-                q5_num_of_pkts: 70
-                q6_num_of_pkts: 70
+                q0_num_of_pkts: 42
+                q1_num_of_pkts: 42
+                q2_num_of_pkts: 42
+                q3_num_of_pkts: 45
+                q4_num_of_pkts: 45
+                q5_num_of_pkts: 42
+                q6_num_of_pkts: 42
                 limit: 80
             wrr_chg:
                 ecn: 1
-                q0_num_of_pkts: 40
-                q1_num_of_pkts: 40
-                q2_num_of_pkts: 40
-                q3_num_of_pkts: 150
-                q4_num_of_pkts: 150
-                q5_num_of_pkts: 40
-                q6_num_of_pkts: 40
+                q0_num_of_pkts: 24
+                q1_num_of_pkts: 24
+                q2_num_of_pkts: 24
+                q3_num_of_pkts: 90
+                q4_num_of_pkts: 90
+                q5_num_of_pkts: 24
+                q6_num_of_pkts: 42
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30
@@ -137,23 +137,23 @@ qos_params:
                 pkts_num_leak_out: 0
                 wrr:
                     ecn: 1
-                    q0_num_of_pkts: 70
-                    q1_num_of_pkts: 70
-                    q2_num_of_pkts: 70
-                    q3_num_of_pkts: 75
-                    q4_num_of_pkts: 75
-                    q5_num_of_pkts: 70
-                    q6_num_of_pkts: 70
+                    q0_num_of_pkts: 42
+                    q1_num_of_pkts: 42
+                    q2_num_of_pkts: 42
+                    q3_num_of_pkts: 45
+                    q4_num_of_pkts: 45
+                    q5_num_of_pkts: 42
+                    q6_num_of_pkts: 42
                     limit: 80
                 wrr_chg:
                     ecn: 1
-                    q0_num_of_pkts: 40
-                    q1_num_of_pkts: 40
-                    q2_num_of_pkts: 40
-                    q3_num_of_pkts: 150
-                    q4_num_of_pkts: 150
-                    q5_num_of_pkts: 40
-                    q6_num_of_pkts: 40
+                    q0_num_of_pkts: 24
+                    q1_num_of_pkts: 24
+                    q2_num_of_pkts: 24
+                    q3_num_of_pkts: 90
+                    q4_num_of_pkts: 90
+                    q5_num_of_pkts: 24
+                    q6_num_of_pkts: 24
                     limit: 80
                     lossy_weight: 8
                     lossless_weight: 30
@@ -380,23 +380,23 @@ qos_params:
                 packet_size: 1350
             wrr:
                 ecn: 1
-                q0_num_of_pkts: 70
-                q1_num_of_pkts: 70
-                q2_num_of_pkts: 70
-                q3_num_of_pkts: 75
-                q4_num_of_pkts: 75
-                q5_num_of_pkts: 70
-                q6_num_of_pkts: 70
+                q0_num_of_pkts: 42
+                q1_num_of_pkts: 42
+                q2_num_of_pkts: 42
+                q3_num_of_pkts: 45
+                q4_num_of_pkts: 45
+                q5_num_of_pkts: 42
+                q6_num_of_pkts: 42
                 limit: 80
             wrr_chg:
                 ecn: 1
-                q0_num_of_pkts: 40
-                q1_num_of_pkts: 40
-                q2_num_of_pkts: 40
-                q3_num_of_pkts: 150
-                q4_num_of_pkts: 150
-                q5_num_of_pkts: 40
-                q6_num_of_pkts: 40
+                q0_num_of_pkts: 24
+                q1_num_of_pkts: 24
+                q2_num_of_pkts: 24
+                q3_num_of_pkts: 90
+                q4_num_of_pkts: 90
+                q5_num_of_pkts: 24
+                q6_num_of_pkts: 24
                 limit: 80
                 lossy_weight: 8
                 lossless_weight: 30

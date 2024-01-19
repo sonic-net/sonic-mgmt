@@ -40,6 +40,8 @@ def console_client_setup_teardown(duthost, conn_graph_facts, creds):
     pytest_assert(pass_config_test, "Fail due to failure in test_console_baud_rate_config.")
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_type = conn_graph_facts['device_console_link'][dut_hostname]["ConsolePort"]["type"]
     pytest_require(console_type == "ssh", "Unsupported console type: {}".format(console_type))
     pytest_require(is_sonic_console(conn_graph_facts, dut_hostname), "Unsupport non-sonic console swith.")
