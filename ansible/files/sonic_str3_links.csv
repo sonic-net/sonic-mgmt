@@ -1,4 +1,4 @@
-StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,Comment
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
 str3-7260cx3-acs-root03,Ethernet4/1,str3-acs-serv-61,enp59s0f1,100000,,Trunk
 str3-7260cx3-acs-root03,Ethernet1/1,str3-7260cx3-acs-fan-01,Ethernet64/1,100000,201-260,Trunk
 str3-7260cx3-acs-root03,Ethernet2/1,str3-7260cx3-acs-fan-02,Ethernet64/1,100000,261-320,Trunk
@@ -521,12 +521,12 @@ str3-8111-04,Ethernet48,str3-8101-fanout-12,Ethernet48,100000,2219,Access
 str3-8111-04,Ethernet52,str3-8101-fanout-12,Ethernet52,100000,2220,Access
 str3-8111-04,Ethernet56,str3-8101-fanout-12,Ethernet56,100000,2221,Access
 str3-8111-04,Ethernet60,str3-8101-fanout-12,Ethernet60,100000,2222,Access
-str3-8111-04,Ethernet64,str3-8101-fanout-12,Ethernet64,100000,2223,Access,https://aka.ms/cisco-fanout to see cisco fanout details
-str3-8111-04,Ethernet68,str3-8101-fanout-12,Ethernet68,100000,2224,Access,https://aka.ms/cisco-fanout to see cisco fanout details
+str3-8111-04,Ethernet64,str3-8101-fanout-12,Ethernet64,100000,2223,Access
+str3-8111-04,Ethernet68,str3-8101-fanout-12,Ethernet68,100000,2224,Access
 str3-8111-04,Ethernet72,str3-8101-fanout-12,Ethernet72,100000,2225,Access
 str3-8111-04,Ethernet76,str3-8101-fanout-12,Ethernet76,100000,2226,Access
-str3-8111-04,Ethernet80,str3-8101-fanout-12,Ethernet80,100000,2227,Access,https://aka.ms/cisco-fanout to see cisco fanout details
-str3-8111-04,Ethernet84,str3-8101-fanout-12,Ethernet84,100000,2228,Access,https://aka.ms/cisco-fanout to see cisco fanout details
+str3-8111-04,Ethernet80,str3-8101-fanout-12,Ethernet80,100000,2227,Access
+str3-8111-04,Ethernet84,str3-8101-fanout-12,Ethernet84,100000,2228,Access
 str3-8111-04,Ethernet88,str3-8101-fanout-12,Ethernet88,100000,2229,Access
 str3-8111-04,Ethernet92,str3-8101-fanout-12,Ethernet92,100000,2230,Access
 str3-8111-04,Ethernet96,str3-8101-fanout-12,Ethernet96,100000,2231,Access
@@ -585,12 +585,12 @@ str3-8111-05,Ethernet48,str3-8101-fanout-10,Ethernet48,100000,2037,Access
 str3-8111-05,Ethernet52,str3-8101-fanout-10,Ethernet52,100000,2038,Access
 str3-8111-05,Ethernet56,str3-8101-fanout-10,Ethernet56,100000,2039,Access
 str3-8111-05,Ethernet60,str3-8101-fanout-10,Ethernet60,100000,2040,Access
-str3-8111-05,Ethernet64,str3-8101-fanout-10,Ethernet64,100000,2041,Access,https://aka.ms/cisco-fanout to see cisco fanout details
-str3-8111-05,Ethernet68,str3-8101-fanout-10,Ethernet68,100000,2042,Access,https://aka.ms/cisco-fanout to see cisco fanout details
+str3-8111-05,Ethernet64,str3-8101-fanout-10,Ethernet64,100000,2041,Access
+str3-8111-05,Ethernet68,str3-8101-fanout-10,Ethernet68,100000,2042,Access
 str3-8111-05,Ethernet72,str3-8101-fanout-10,Ethernet72,100000,2043,Access
 str3-8111-05,Ethernet76,str3-8101-fanout-10,Ethernet76,100000,2044,Access
-str3-8111-05,Ethernet80,str3-8101-fanout-10,Ethernet80,100000,2045,Access,https://aka.ms/cisco-fanout to see cisco fanout details
-str3-8111-05,Ethernet84,str3-8101-fanout-10,Ethernet84,100000,2046,Access,https://aka.ms/cisco-fanout to see cisco fanout details
+str3-8111-05,Ethernet80,str3-8101-fanout-10,Ethernet80,100000,2045,Access
+str3-8111-05,Ethernet84,str3-8101-fanout-10,Ethernet84,100000,2046,Access
 str3-8111-05,Ethernet88,str3-8101-fanout-10,Ethernet88,100000,2047,Access
 str3-8111-05,Ethernet92,str3-8101-fanout-10,Ethernet92,100000,2048,Access
 str3-8111-05,Ethernet96,str3-8101-fanout-10,Ethernet96,100000,2049,Access
