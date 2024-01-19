@@ -1,3 +1,4 @@
+import copy
 import re
 import os
 import time
@@ -1111,7 +1112,7 @@ def get_redis_val(duthost, db, key):
         try:
             output = exec_command(duthost, ["redis-dump -d {} --pretty -k *{}*".format(db, key)])
             if output["rc"]:
-                raise Exception('Return code is {} not 0'.format(output_cli["rc"]))
+                raise Exception('Return code is {} not 0'.format(output["rc"]))
             redis_dict = json.loads(output['stdout'])
             for table in redis_dict:
                 if 'expireat' in redis_dict[table]:

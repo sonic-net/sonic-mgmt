@@ -474,7 +474,7 @@ class VMTopology(object):
         VMTopology.iface_up(ext_if)
 
         if VMTopology.intf_exists(tmp_int_if) and VMTopology.intf_not_exists(tmp_int_if, pid=self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, tmp_int_if))
+            VMTopology.cmd("ip link set dev %s netns %s " % (tmp_int_if, self.pid))
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, tmp_int_if, int_if))
 
         VMTopology.iface_up(int_if, pid=self.pid)
@@ -494,7 +494,7 @@ class VMTopology(object):
         VMTopology.iface_up(ext_if)
 
         if VMTopology.intf_exists(tmp_int_if) and VMTopology.intf_not_exists(tmp_int_if, netns=self.netns):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.netns, tmp_int_if))
+            VMTopology.cmd("ip link set dev %s netns %s" % (tmp_int_if, self.netns))
             VMTopology.cmd("ip netns exec %s ip link set dev %s name %s" % (self.netns, tmp_int_if, int_if))
 
         VMTopology.iface_up(int_if, netns=self.netns)
@@ -535,9 +535,9 @@ class VMTopology(object):
     def add_dut_if_to_docker(self, iface_name, dut_iface):
         logging.info("=== Add DUT interface %s to PTF docker as %s ===" % (dut_iface, iface_name))
         if VMTopology.intf_exists(dut_iface) \
-            and VMTopology.intf_not_exists(dut_iface, pid=self.pid) \
-            and VMTopology.intf_not_exists(iface_name, pid=self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, dut_iface))
+                and VMTopology.intf_not_exists(dut_iface, pid=self.pid) \
+                and VMTopology.intf_not_exists(iface_name, pid=self.pid):
+            VMTopology.cmd("ip link set dev %s netns %s" % (dut_iface, self.pid))
 
         if VMTopology.intf_exists(dut_iface, pid=self.pid) and VMTopology.intf_not_exists(iface_name, pid=self.pid):
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, dut_iface, iface_name))
@@ -553,7 +553,7 @@ class VMTopology(object):
         VMTopology.cmd("nsenter -t %s -n ip link set %s up" % (self.pid, vlan_sub_iface_name))
 
     def remove_dut_if_from_docker(self, iface_name, dut_iface):
-
+        logging.info("=== Restore docker interface %s as dut interface %s ===" % (iface_name, dut_iface))
         if self.pid is None:
             return
 
@@ -564,7 +564,8 @@ class VMTopology(object):
                 VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, iface_name, dut_iface))
 
         if VMTopology.intf_not_exists(dut_iface) and VMTopology.intf_exists(dut_iface, pid=self.pid):
-            VMTopology.cmd("nsenter -t %s -n ip link set netns 1 dev %s" % (self.pid, dut_iface))
+            VMTopology.cmd(
+                "nsenter -t %s -n ip link set dev %s netns 1" % (self.pid, dut_iface))
 
     def remove_dut_vlan_subif_from_docker(self, iface_name, vlan_separator, vlan_id):
         """Remove the vlan sub interface created for the ptf interface."""
@@ -573,7 +574,9 @@ class VMTopology(object):
 
         vlan_sub_iface_name = iface_name + vlan_separator + vlan_id
         if VMTopology.intf_exists(vlan_sub_iface_name, pid=self.pid):
-            VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_sub_iface_name))
+            VMTopology.iface_down(vlan_sub_iface_name, pid=self.pid)
+            VMTopology.cmd("nsenter -t %s -n ip link del %s" %
+                           (self.pid, vlan_sub_iface_name))
 
     def add_veth_if_to_docker(self, ext_if, int_if, create_vlan_subintf=False, **kwargs):
         """Create vethernet devices (ext_if, int_if) and put int_if into the ptf docker."""
@@ -618,14 +621,16 @@ class VMTopology(object):
         VMTopology.iface_up(ext_if)
 
         if VMTopology.intf_exists(t_int_if) \
-            and VMTopology.intf_not_exists(t_int_if, pid=self.pid) \
-            and VMTopology.intf_not_exists(int_if, pid=self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, t_int_if))
+                and VMTopology.intf_not_exists(t_int_if, pid=self.pid) \
+                and VMTopology.intf_not_exists(int_if, pid=self.pid):
+            VMTopology.cmd("ip link set dev %s netns %s" %
+                           (t_int_if, self.pid))
         if create_vlan_subintf \
-            and VMTopology.intf_exists(t_int_sub_if) \
-            and VMTopology.intf_not_exists(t_int_sub_if, pid=self.pid) \
-            and VMTopology.intf_not_exists(int_sub_if, pid=self.pid):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.pid, t_int_sub_if))
+                and VMTopology.intf_exists(t_int_sub_if) \
+                and VMTopology.intf_not_exists(t_int_sub_if, pid=self.pid) \
+                and VMTopology.intf_not_exists(int_sub_if, pid=self.pid):
+            VMTopology.cmd("ip link set dev %s netns %s" %
+                           (t_int_sub_if, self.pid))
 
         if VMTopology.intf_exists(t_int_if, pid=self.pid) and VMTopology.intf_not_exists(int_if, pid=self.pid):
             VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_if, int_if))
@@ -662,9 +667,10 @@ class VMTopology(object):
         VMTopology.iface_up(ext_if)
 
         if VMTopology.intf_exists(t_int_if) \
-            and VMTopology.intf_not_exists(t_int_if, netns=self.netns) \
-            and VMTopology.intf_not_exists(int_if, netns=self.netns):
-            VMTopology.cmd("ip link set netns %s dev %s" % (self.netns, t_int_if))
+                and VMTopology.intf_not_exists(t_int_if, netns=self.netns) \
+                and VMTopology.intf_not_exists(int_if, netns=self.netns):
+            VMTopology.cmd("ip link set dev %s netns %s" %
+                           (t_int_if, self.netns))
 
         if VMTopology.intf_exists(t_int_if, netns=self.netns) and VMTopology.intf_not_exists(int_if, netns=self.netns):
             VMTopology.cmd("ip netns exec %s ip link set dev %s name %s" % (self.netns, t_int_if, int_if))
@@ -749,6 +755,7 @@ class VMTopology(object):
             self.bind_vs_dut_ports(VS_CHASSIS_MIDPLANE_BRIDGE_NAME, self.topo['DUT']['vs_chassis']['midplane_port'])
 
     def unbind_fp_ports(self):
+        logging.info("=== unbind front panel ports ===")
         for attr in self.VMs.values():
             for vlan_num, vlan in enumerate(attr['vlans']):
                 br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
@@ -1091,6 +1098,7 @@ class VMTopology(object):
         """
         remove dut port from the ptf docker
         """
+        logging.info("=== Remove host ports ===")
         for i, intf in enumerate(self.host_interfaces):
             if self._is_multi_duts:
                 if isinstance(intf, list):
@@ -1110,6 +1118,45 @@ class VMTopology(object):
                     vlan_separator = self.topo.get("DUT", {}).get("sub_interface_separator", SUB_INTERFACE_SEPARATOR)
                     vlan_id = self.vlan_ids[str(intf)]
                     self.remove_dut_vlan_subif_from_docker(ptf_if, vlan_separator, vlan_id)
+
+    def remove_veth_if_from_docker(self, ext_if, int_if, tmp_name):
+        """
+        Remove veth interface from docker
+        """
+        logging.info("=== Cleanup port, int_if: %s, ext_if: %s, tmp_name: %s ===" % (ext_if, int_if, tmp_name))
+        if VMTopology.intf_exists(int_if, pid=self.pid):
+            # Name it back to temp name in PTF container to avoid potential conflicts
+            VMTopology.iface_down(int_if, pid=self.pid)
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, int_if, tmp_name))
+            # Set it to default namespace
+            VMTopology.cmd("nsenter -t %s -n ip link set dev %s netns 1" % (self.pid, tmp_name))
+
+        # Delete its peer in default namespace
+        if VMTopology.intf_exists(ext_if):
+            VMTopology.cmd("ip link delete dev %s" % ext_if)
+
+    def remove_ptf_mgmt_port(self):
+        ext_if = PTF_MGMT_IF_TEMPLATE % self.vm_set_name
+        tmp_name = MGMT_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(MGMT_PORT_NAME))
+        self.remove_veth_if_from_docker(ext_if, MGMT_PORT_NAME, tmp_name)
+
+    def remove_ptf_backplane_port(self):
+        ext_if = PTF_BP_IF_TEMPLATE % self.vm_set_name
+        tmp_name = BP_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(BP_PORT_NAME))
+        self.remove_veth_if_from_docker(ext_if, BP_PORT_NAME, tmp_name)
+
+    def remove_injected_fp_ports_from_docker(self):
+        for vm, vlans in self.injected_fp_ports.items():
+            for vlan in vlans:
+                (_, _, ptf_index) = VMTopology.parse_vm_vlan_port(vlan)
+                ext_if = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
+                int_if = PTF_FP_IFACE_TEMPLATE % ptf_index
+                properties = self.vm_properties.get(vm, {})
+                create_vlan_subintf = properties.get('device_type') in (
+                    BACKEND_TOR_TYPE, BACKEND_LEAF_TYPE)
+                if not create_vlan_subintf:
+                    tmp_name = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+                    self.remove_veth_if_from_docker(ext_if, int_if, tmp_name)
 
     @staticmethod
     def _generate_fingerprint(name, digit=6):
@@ -1667,9 +1714,13 @@ def main():
             if vms_exists:
                 net.unbind_vm_backplane()
                 net.unbind_fp_ports()
+                net.remove_injected_fp_ports_from_docker()
 
             if hostif_exists:
                 net.remove_host_ports()
+
+            net.remove_ptf_mgmt_port()
+            net.remove_ptf_backplane_port()
 
             if net.netns:
                 net.unbind_mgmt_port(NETNS_MGMT_IF_TEMPLATE % net.vm_set_name)
@@ -1730,6 +1781,7 @@ def main():
                 net.unbind_fp_ports()
                 net.add_injected_fp_ports_to_docker()
                 net.bind_fp_ports()
+                net.bind_vm_backplane()
                 net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
 
             if net.netns:

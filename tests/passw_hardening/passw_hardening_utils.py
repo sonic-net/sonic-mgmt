@@ -1,6 +1,7 @@
 import logging
 import os
 import difflib
+import operator
 from tests.common.helpers.assertions import pytest_assert
 
 CURR_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -104,7 +105,7 @@ def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):
     exp_show_policies = dict((k.replace('-', ' '), v) for k, v in passw_hardening_ob.policies.items())
 
     # ~~ test passw policies in show CLI ~~
-    cli_passw_policies_cmp = cmp(exp_show_policies, curr_show_policies)
+    cli_passw_policies_cmp = operator.eq(exp_show_policies, curr_show_policies)
     pytest_assert(cli_passw_policies_cmp == 0, "Fail: exp_show_policies='{}',not equal to curr_show_policies='{}'"
                   .format(exp_show_policies, curr_show_policies))
 

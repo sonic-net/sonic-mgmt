@@ -1,6 +1,7 @@
 import pytest
 import json
 import logging
+import re
 import time
 from datetime import datetime
 from tests.common.utilities import wait_until
@@ -232,13 +233,13 @@ def test_perf_add_remove_routes(tbinfo, duthosts, enum_rand_one_per_hwsku_fronte
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50 # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(asichost, NUM_NEIGHS, ip_versions)
-   
+
     route_tag = "ipv{}_route".format(ip_versions)
     used_routes_count = asichost.count_crm_resources("main_resources", route_tag, "used")
     avail_routes_count = asichost.count_crm_resources("main_resources", route_tag, "available")
     pytest_assert(avail_routes_count, "CRM main_resources data is not ready within adjusted CRM polling time {}s".\
             format(CRM_POLL_INTERVAL))
-    
+
     num_routes = min(avail_routes_count, set_num_routes)
     logger.info("IP route utilization before test start: Used: {}, Available: {}, Test count: {}"\
         .format(used_routes_count, avail_routes_count, num_routes))

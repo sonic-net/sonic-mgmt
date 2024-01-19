@@ -515,33 +515,75 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
         self.test_port_ids = self.test_params.get("testPortIds", None)
         self.test_port_ips = self.test_params.get("testPortIps", None)
+        self.src_dut_index = self.test_params['src_dut_index']
+        self.src_asic_index = self.test_params.get('src_asic_index', None)
+        self.dst_dut_index = self.test_params['dst_dut_index']
+        self.dst_asic_index = self.test_params.get('dst_asic_index', None)
+        self.testbed_type = self.test_params['testbed_type']
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-         # ARP Populate
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
-                                       1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
+        # ARP Populate
+        # Ping only  required for testports
+        if 't2' in self.testbed_type:
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_2_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_2_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.dst_asic_index, self.dst_port_3_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.dst_port_3_ip, self.dst_asic_index, self.dst_server_ip)
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                            self.src_asic_index, self.src_port_ip))
+            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                self.src_port_ip, self.src_asic_index, self.src_server_ip)
+        else:
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
+                                           1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
 
-        send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
-                                       1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
-        send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
-                                       self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
-        send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
-                                       self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
-        send_packet(self, self.dst_port_3_id, arpreq_pkt)
+            send_packet(self, self.src_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
+                                           1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
+            send_packet(self, self.dst_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
+                                           self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
+            send_packet(self, self.dst_port_2_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
+                                           self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
+            send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
-        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-        if self.test_port_ips:
-            ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
-            if ips:
-                cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
-                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
-                                     self.test_params['dut_password'], cmd)
+            for dut_i in self.test_port_ids:
+                for asic_i in self.test_port_ids[dut_i]:
+                    for dst_port_id in self.test_port_ids[dut_i][asic_i]:
+                        dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
+                        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+                        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
+                                                       1, dst_port_ip['peer_addr'], '192.168.0.1',
+                                                       '00:00:00:00:00:00', None)
+                        send_packet(self, dst_port_id, arpreq_pkt)
+                        
+            # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+            if self.test_port_ips:
+                ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
+                if ips:
+                    cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
+                    self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
+                                         self.test_params['dut_password'], cmd)
 
         time.sleep(8)
 
@@ -1136,7 +1178,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
-                    dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
+                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
                 assert lower_bounds <= pg_wm_inc <= upper_bounds
         finally:
             # Enable tx on dest port
@@ -2350,6 +2392,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         if not self.pkts_num_trig_pfc:
             self.pkts_num_trig_pfc_shp = self.test_params.get(
                 'pkts_num_trig_pfc_shp')
+        self.pkts_num_trig_pfc_multi = self.test_params.get('pkts_num_trig_pfc_multi', None)
         self.pkts_num_hdrm_full = self.test_params['pkts_num_hdrm_full']
         self.pkts_num_hdrm_partial = self.test_params['pkts_num_hdrm_partial']
         packet_size = self.test_params.get('packet_size')
@@ -2363,9 +2406,10 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             self.pkt_size_factor = 1
 
         if self.pkts_num_trig_pfc:
-            print(("pkts num: leak_out: %d, trig_pfc: %d, hdrm_full: %d, hdrm_partial: %d, pkt_size %d" % (
-                self.pkts_num_leak_out, self.pkts_num_trig_pfc, self.pkts_num_hdrm_full,
-                self.pkts_num_hdrm_partial, self.pkt_size)), file=sys.stderr)
+            print("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(
+                self.pkts_num_leak_out,
+                self.pkts_num_trig_pfc_multi if self.pkts_num_trig_pfc_multi else self.pkts_num_trig_pfc,
+                self.pkts_num_hdrm_full, self.pkts_num_hdrm_partial, self.pkt_size), file=sys.stderr)
         elif self.pkts_num_trig_pfc_shp:
             print(("pkts num: leak_out: {}, trig_pfc: {}, hdrm_full: {}, hdrm_partial: {}, pkt_size {}".format(
                 self.pkts_num_leak_out, self.pkts_num_trig_pfc_shp, self.pkts_num_hdrm_full,
@@ -2502,7 +2546,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                         ip_tos=tos,
                                         ip_ttl=ttl)
                 if self.pkts_num_trig_pfc:
-                    pkts_num_trig_pfc = self.pkts_num_trig_pfc
+                    pkts_num_trig_pfc = self.pkts_num_trig_pfc_multi[i] \
+                        if self.pkts_num_trig_pfc_multi else self.pkts_num_trig_pfc
                 else:
                     pkts_num_trig_pfc = self.pkts_num_trig_pfc_shp[i]
 
@@ -2682,7 +2727,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
-        time.sleep(5)
+        time.sleep(1)
         switch_init(self.clients)
 
          # Parse input parameters
@@ -2745,8 +2790,6 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 print("Corrected dst port from {} to {}".format(dst_port_id, real_dst_port_id), file=sys.stderr)
                 self.dst_port_ids[i] = real_dst_port_id
 
-        time.sleep(8)
-
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
@@ -2775,11 +2818,15 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         assert sum(self.pkt_counts) * cell_occupancy * \
                    self.cell_size >= self.shared_limit_bytes
 
-        # get a snapshot of counter values at recv and transmit ports
-        recv_counters_bases = [sai_thrift_read_port_counters(
-            self.src_client, self.asic_type, port_list['src'][sid])[0] for sid in self.src_port_ids]
-        xmit_counters_bases = [sai_thrift_read_port_counters(
-            self.dst_client, self.asic_type, port_list['dst'][sid])[0] for sid in self.dst_port_ids]
+        # get a snapshot of counter values at unique recv and transmit ports
+        uniq_srcs = set(self.src_port_ids)
+        uniq_dsts = set(self.dst_port_ids)
+        pg_drop_counters_bases = {port_id: sai_thrift_read_pg_drop_counters(
+            self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
+        recv_counters_bases = {port_id: sai_thrift_read_port_counters(
+            self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in uniq_srcs}
+        xmit_counters_bases = {port_id: sai_thrift_read_port_counters(
+            self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
 
         # Disable all dst ports
         uniq_dst_ports = list(set(self.dst_port_ids))
@@ -2814,11 +2861,11 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     print(
                         "Verifying XOFF hasn't been triggered yet on final iteration", file=sys.stderr)
                     sys.stderr.flush()
-                    time.sleep(8)
+                    time.sleep(4)
                     recv_counters = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[i][self.pg_cntr_indices[i]]
+                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
                     assert xoff_txd == 0, "XOFF triggered too early on final iteration, XOFF count is %d" % xoff_txd
 
                 # Send requested number of packets
@@ -2837,27 +2884,32 @@ class SharedResSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     print(
                         "Verifying XOFF has now been triggered on final iteration", file=sys.stderr)
                     sys.stderr.flush()
-                    time.sleep(8)
+                    time.sleep(4)
                     recv_counters = sai_thrift_read_port_counters(
                         self.src_client, self.asic_type, port_list['src'][src_port_id])[0]
                     xoff_txd = recv_counters[self.pg_cntr_indices[i]] - \
-                        recv_counters_bases[i][self.pg_cntr_indices[i]]
+                        recv_counters_bases[src_port_id][self.pg_cntr_indices[i]]
                     assert xoff_txd > 0, "Failed to trigger XOFF on final iteration"
 
             # Verify no ingress/egress drops for all ports
-            recv_counters_list = [sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])[
-                                                                0] for sid in self.src_port_ids]
-            xmit_counters_list = [sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][sid])[
-                                                                0] for sid in self.dst_port_ids]
-            for i in range(len(self.src_port_ids)):
-                for cntr in self.ingress_counters:
-                    drops = recv_counters_list[i][cntr] - \
-                        recv_counters_bases[i][cntr]
-                    assert drops == 0, "Detected %d ingress drops" % drops
+            pg_drop_counters = {port_id: sai_thrift_read_pg_drop_counters(
+                self.src_client, port_list['src'][port_id]) for port_id in uniq_srcs}
+            for src_port_id in uniq_srcs:
+                for pg in range(len(pg_drop_counters[src_port_id])):
+                    drops = pg_drop_counters[src_port_id][pg] - pg_drop_counters_bases[src_port_id][pg]
+                    if pg in [3, 4]:
+                        assert drops == 0, "Detected %d lossless drops on PG %d src port %d" % (drops, pg, src_port_id)
+                    elif drops > 0:
+                        # When memory is full, any new lossy background traffic is dropped.
+                        print("Observed lossy drops %d on PG %d src port %d, expected." %
+                              (drops, pg, src_port_id), file=sys.stderr)
+            xmit_counters_list = {port_id: sai_thrift_read_port_counters(
+                self.dst_client, self.asic_type, port_list['dst'][port_id])[0] for port_id in uniq_dsts}
+            for dst_port_id in uniq_dsts:
                 for cntr in self.egress_counters:
-                    drops = xmit_counters_list[i][cntr] - \
-                        xmit_counters_bases[i][cntr]
-                    assert drops == 0, "Detected %d egress drops" % drops
+                    drops = xmit_counters_list[dst_port_id][cntr] - \
+                        xmit_counters_bases[dst_port_id][cntr]
+                    assert drops == 0, "Detected %d egress drops on dst port id %d" % (drops, dst_port_id)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, uniq_dst_ports)
@@ -3108,7 +3160,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         )
         print("actual dst_port_id: {}".format(dst_port_id), file=sys.stderr)
 
-        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id], disable_port_by_block_queue=False)
 
         send_packet(self, src_port_id, pkt, pkts_num_leak_out)
 
@@ -3134,7 +3186,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             p.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 41943040)
 
         # Release port
-        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+        self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
 
         cnt = 0
         pkts = []
@@ -3425,6 +3477,24 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                                  ip_ecn=self.ecn,
                                  ip_ttl=self.ttl)
 
+    def _get_rx_port(self, src_port_id, pkt):
+        masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+        send_packet(self, src_port_id, pkt, 1)
+
+        result = self.dataplane.poll(
+            device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
+        if isinstance(result, self.dataplane.PollFailure):
+            self.fail("Expected packet was not received. Received on port:{} {}".format(
+                result.port, result.format()))
+
+        return result.port
+
     def runTest(self):
         print("dst_port_id: {}, src_port_id: {}".format(self.dst_port_id, self.src_port_id), file=sys.stderr)
         # get counter names to query
@@ -3433,6 +3503,18 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
         # craft first udp packet with unique udp_dport for traffic to go through different flows
         flow_1_udp = 2048
         pkt = self._build_testing_pkt(flow_1_udp)
+        self.dst_port_id = self._get_rx_port(self.src_port_id, pkt)
+
+        # find out udp ports which use the same dst port in port-channel
+        udp_ports = []
+        max_iters = 50
+        for i in range(max_iters):
+            flow_2_udp = flow_1_udp + (10 * i)
+            pkt2 = self._build_testing_pkt(flow_2_udp)
+            dst_port_id_2 = self._get_rx_port(self.src_port_id, pkt2)
+            if dst_port_id_2 == self.dst_port_id:
+                udp_ports.append(flow_2_udp)
+        print("Found udp_ports {}".format(udp_ports), file=sys.stderr)
 
         xmit_counters_base, _ = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                               port_list['dst'][self.dst_port_id])
@@ -3461,10 +3543,7 @@ class LossyQueueVoqTest(sai_base_test.ThriftInterfaceDataPlane):
                 assert diff > 0, "Failed to cause TX drop on port {}".format(self.dst_port_id)
             xmit_counters_base = xmit_counters
             # Find a separate flow that uses alternate queue
-            max_iters = 50
-            for i in range(max_iters):
-                 # Start out with i=0 to match flow_1 to confirm drop
-                flow_2_udp = flow_1_udp + (10 * i)
+            for flow_2_udp in udp_ports:
                 pkt2 = self._build_testing_pkt(flow_2_udp)
                 xmit_counters_base = xmit_counters
                 send_packet(self, self.src_port_id, pkt2, 1)

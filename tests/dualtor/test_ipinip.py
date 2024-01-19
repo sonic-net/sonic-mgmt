@@ -195,16 +195,21 @@ def setup_uplink(rand_selected_dut, tbinfo):
     # Update the LAG if it has more than one member
     pc_members = mg_facts['minigraph_portchannels'][up_portchannel]['members']
     if len(pc_members) > 1:
-        cmds = [
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel), # Update min_links
-            "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1]),         # Remove 1 portchannel member
-            "systemctl unmask teamd",                                                            # Unmask the service
-            "systemctl restart teamd"                                                            # Resart teamd
-        ]
+        # Update min_links
+        min_link_cmd = "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 1".format(up_portchannel)
+        rand_selected_dut.shell(min_link_cmd)
+        # Delete to min_links
+        cmds = "config portchannel member del {} {}".format(up_portchannel, pc_members[len(pc_members) - 1])
         rand_selected_dut.shell_cmds(cmds=cmds)
+        # Ensure delete to complete before restarting service
+        time.sleep(5)
+        # Unmask the service
+        rand_selected_dut.shell_cmds(cmds="systemctl unmask teamd")
+        # Restart teamd
+        rand_selected_dut.shell_cmds(cmds="systemctl restart teamd")
         _wait_portchannel_up(rand_selected_dut, up_portchannel)
     up_member = pc_members[0]
-    
+
     yield mg_facts['minigraph_ptf_indices'][up_member]
 
     # Startup the uplinks that were shutdown
@@ -247,7 +252,7 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, p
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session
-    Find more details in CSP CS00012263713. 
+    Find more details in CSP CS00012263713.
     """
     # Since we have only 1 uplink, the source port is also the dest port
     src_port_id = setup_mirror_session
@@ -263,4 +268,4 @@ def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface, p
     inner_packet[IP].ttl -= 1
     with tunnel_traffic_monitor(rand_selected_dut, inner_packet=inner_packet, check_items=()):
         testutils.send(ptfadapter, src_port_id, pkt_to_server)
-       
+

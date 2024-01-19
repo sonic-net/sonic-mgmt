@@ -288,6 +288,10 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         pc_ip_addr = str(pc_intf[pc]['peer_addr'])
 
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
+        lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
+        lag.protocol.lacp.actor_system_priority = 1
+        lag.protocol.lacp.actor_key = 1
+
         for i in range(len(phy_intfs)):
             phy_intf = phy_intfs[i]
 
@@ -300,11 +304,8 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             mac = __gen_mac(port_id)
 
             lp = lag.ports.port(port_name=config.ports[port_id].name)[-1]
-            lp.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
-            lp.protocol.lacp.actor_system_priority = 1
-            lp.protocol.lacp.actor_port_priority = 1
-            lp.protocol.lacp.actor_port_number = 1
-            lp.protocol.lacp.actor_key = 1
+            lp.lacp.actor_port_number = 1
+            lp.lacp.actor_port_priority = 1
 
             lp.ethernet.name = 'Ethernet Port {}'.format(port_id)
             lp.ethernet.mac = mac

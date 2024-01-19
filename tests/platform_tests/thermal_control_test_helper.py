@@ -305,7 +305,7 @@ def start_thermal_control_daemon(dut):
         dut.start_pmon_daemon(daemon_name)
         wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_running_status)
     running_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
-    assert running_daemon_status == expected_running_status, "Run command '{}' failed after starting of thermalctld on {}".format(start_pmon_daemon, dut.hostname)
+    assert running_daemon_status == expected_running_status, "Run command '{}' failed after starting of thermalctld on {}".format("start_pmon_daemon", dut.hostname)
     logging.info("thermalctld processes started successfully on {}".format(dut.hostname))
 
 def stop_thermal_control_daemon(dut):
@@ -314,9 +314,9 @@ def stop_thermal_control_daemon(dut):
         dut.stop_pmon_daemon(daemon_name)
         wait_until(10, 2, 0, check_expected_daemon_status, dut, expected_stopped_status)
     stopped_daemon_status, _ = dut.get_pmon_daemon_status(daemon_name)
-    assert stopped_daemon_status == expected_stopped_status, "Run command '{}' failed after stopping of thermalctld on {}".format(stop_pmon_daemon, dut.hostname)
+    assert stopped_daemon_status == expected_stopped_status, "Run command '{}' failed after stopping of thermalctld on {}".format("stop_pmon_daemon", dut.hostname)
     logging.info("thermalctld processes stopped successfully on {}".format(dut.hostname))
-                                                                
+
 class ThermalPolicyFileContext:
     """
     Context class to help replace thermal control policy file and restore it automatically.

@@ -61,14 +61,14 @@ def _power_off_reboot_helper(kwargs):
 
 
 def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, conn_graph_facts,
-                          xcvr_skip_list, pdu_controller, power_off_delay):
+                          xcvr_skip_list, get_pdu_controller, power_off_delay):
     """
     @summary: This test case is to perform reboot via powercycle and check platform status
     @param duthost: Fixture for DUT AnsibleHost object
     @param localhost: Fixture for interacting with localhost through ansible
     @param conn_graph_facts: Fixture parse and return lab connection graph
     @param xcvr_skip_list: list of DUT's interfaces for which transeiver checks are skipped
-    @param pdu_controller: The python object of psu controller
+    @param get_pdu_controller: The python object of psu controller
     @param power_off_delay: Pytest parameter. The delay between turning off and on the PSU
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
@@ -76,7 +76,7 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     if duthost.facts["asic_type"] in UNSUPPORTED_ASIC_TYPE:
         pytest.skip("Skipping test_power_off_reboot. Test unsupported on {} platform"
                     .format(duthost.facts["asic_type"]))
-    pdu_ctrl = pdu_controller
+    pdu_ctrl = get_pdu_controller(duthost)
     if pdu_ctrl is None:
         pytest.skip("No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
     is_chassis = duthost.get_facts().get("modular_chassis")

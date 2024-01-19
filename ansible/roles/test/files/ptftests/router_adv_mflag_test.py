@@ -1,5 +1,6 @@
 # Packet Test Framework imports
 import logging
+import os
 
 import ptf
 import ptf.testutils as testutils
@@ -155,7 +156,7 @@ class RadvUnSolicitedRATest(DataplaneBaseTest):
 
     def runTest(self):
         self.verify_periodic_router_advertisement_with_m_flag()
-        
+
 
 """
 @summary: This test validates the solicited router advertisement sent on the VLAN network of the ToR
@@ -232,7 +233,7 @@ class RadvSolicitedRATest(DataplaneBaseTest):
         logging.info("Received solicited RA from:%s on PTF eth%d having M=1",
                      self.downlink_vlan_ip6,
                      self.ptf_port_index)
-        
+
     def runTest(self):
         count = 5
         while count > 0:

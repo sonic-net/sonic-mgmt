@@ -13,7 +13,7 @@ from . import constants
 logger = logging.getLogger(__name__)
 
 
-def reboot_dut(dut, localhost, cmd):
+def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
     logging.info('Reboot DUT to recover')
 
     if 'warm' in cmd:
@@ -22,6 +22,18 @@ def reboot_dut(dut, localhost, cmd):
         reboot_type = REBOOT_TYPE_FAST
     else:
         reboot_type = REBOOT_TYPE_COLD
+
+    if reboot_with_running_golden_config:
+        gold_config_path = "/etc/sonic/running_golden_config.json"
+        gold_config_stats = dut.stat(path=gold_config_path)
+        if gold_config_stats["stat"]["exists"]:
+            logging.info("Reboot DUT with the running golden config")
+            dut.copy(
+                src=gold_config_path,
+                dest="/etc/sonic/config_db.json",
+                remote_src=True,
+                force=True
+            )
 
     reboot(dut, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True)
 
@@ -160,9 +172,9 @@ def adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
         method = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reload"]:
-            config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+            config_reload(dut, config_source='running_golden_config', safe_reload=True, check_intf_up_ports=True)
         elif method["reboot"]:
-            reboot_dut(dut, localhost, method["cmd"])
+            reboot_dut(dut, localhost, method["cmd"], reboot_with_running_golden_config=True)
         else:
             _recover_with_command(dut, method['cmd'], wait_time)
 
@@ -174,7 +186,7 @@ def recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, recove
     if method["adaptive"]:
         adaptive_recover(dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
     elif method["reload"]:
-        config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+        config_reload(dut, config_source='running_golden_config', safe_reload=True, check_intf_up_ports=True)
     elif method["reboot"]:
         reboot_dut(dut, localhost, method["cmd"])
     else:
