@@ -1,35 +1,33 @@
 # IPv4 Port Based DHCP Server Test Plan
 <!-- TOC -->
 
-- [IPv4 Port Based DHCP Server Test Plan](#ipv4-port-based-dhcp-server-test-plan)
-    - [Related Documents](#related-documents)
-    - [Overview](#overview)
-    - [Scope](#scope)
-        - [Test Scenario](#test-scenario)
-        - [Supported Topology](#supported-topology)
-    - [Test Case](#test-case)
-        - [Test Module #1 test_dhcp_server.py](#test-module-1-test_dhcp_serverpy)
-            - [Common setup](#common-setup)
-            - [Common teardown](#common-teardown)
-            - [test_dhcp_server_default](#test_dhcp_server_default)
-            - [test_dhcp_server_config_change](#test_dhcp_server_config_change)
-            - [test_dhcp_server_config_vlan_change](#test_dhcp_server_config_vlan_change)
-            - [test_dhcp_server_critical_process](#test_dhcp_server_critical_process)
-        - [Test Module #2 test_dhcp_server_multi_vlan.py](#test-module-2-test_dhcp_server_multi_vlanpy)
-            - [Common setup](#common-setup)
-            - [Common teardown](#common-teardown)
-            - [test_dhcp_server_multi_vlan](#test_dhcp_server_multi_vlan)
-        - [Test Module #3 test_dhcp_server_stress.py](#test-module-3-test_dhcp_server_stresspy)
-            - [Common setup](#common-setup)
-            - [Common teardown](#common-teardown)
-            - [test_dhcp_server_stress](#test_dhcp_server_stress)
-        - [Test Module #4 test_dhcp_server_smart_switch.py](#test-module-4-test_dhcp_server_smart_switchpy)
-            - [Common setup](#common-setup)
-            - [Common teardown](#common-teardown)
-            - [test_dhcp_server_smart_switch](#test_dhcp_server_smart_switch)
+   - [Related Documents](#related-documents)
+   - [Overview](#overview)
+   - [Scope](#scope)
+      - [Test Scenario](#test-scenario)
+      - [Supported Topology](#supported-topology)
+   - [Test Case](#test-case)
+      - [Test Module #1 test_dhcp_server.py](#test-module-1-test_dhcp_serverpy)
+         - [Common setup](#common-setup)
+         - [Common teardown](#common-teardown)
+         - [test_dhcp_server_default](#test_dhcp_server_default)
+         - [test_dhcp_server_config_change](#test_dhcp_server_config_change)
+         - [test_dhcp_server_config_vlan_change](#test_dhcp_server_config_vlan_change)
+         - [test_dhcp_server_critical_process](#test_dhcp_server_critical_process)
+      - [Test Module #2 test_dhcp_server_multi_vlan.py](#test-module-2-test_dhcp_server_multi_vlanpy)
+         - [Common setup](#common-setup)
+         - [Common teardown](#common-teardown)
+         - [test_dhcp_server_multi_vlan](#test_dhcp_server_multi_vlan)
+      - [Test Module #3 test_dhcp_server_stress.py](#test-module-3-test_dhcp_server_stresspy)
+         - [Common setup](#common-setup)
+         - [Common teardown](#common-teardown)
+         - [test_dhcp_server_stress](#test_dhcp_server_stress)
+      - [Test Module #4 test_dhcp_server_smart_switch.py](#test-module-4-test_dhcp_server_smart_switchpy)
+         - [Common setup](#common-setup)
+         - [Common teardown](#common-teardown)
+         - [test_dhcp_server_smart_switch](#test_dhcp_server_smart_switch)
 
 <!-- /TOC -->
-
 ## Related Documents
 
 | **Document Name** | **Link** |
@@ -37,13 +35,13 @@
 | IPv4 Port Based DHCP_SERVER in SONiC | [port_based_dhcp_server_high_level_design.md](https://github.com/sonic-net/SONiC/blob/master/doc/dhcp_server/port_based_dhcp_server_high_level_design.md)|
 |Smart Switch IP address assignment| [smart-switch-ip-address-assignment.md](https://github.com/sonic-net/SONiC/blob/master/doc/smart-switch/ip-address-assigment/smart-switch-ip-address-assignment.md)|
 
-## 1. Overview
+## Overview
 
 A DHCP Server is a server on network that can automatically provide and assign IP addresses, default gateways and other network parameters to client devices. Port based DHCP server is to assign IPs based on interface index.
 
-## 2. Scope
+## Scope
 
-### 2.1. Test Scenario
+### Test Scenario
 
 The tests will include:
 
@@ -55,11 +53,11 @@ The tests will include:
    2. Check whether dhcp_server container can reply DHCP reply packets as expected.
    3. Verify in multi-vlan scenario.
 
-### 2.2. Supported Topology
+### Supported Topology
 
 Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_serverpy) [#2](#test-module-2-test_dhcp_server_multi_vlanpy) [#3](#test-module-3-test_dhcp_server_stresspy)) are supported on mx topology, smart switch related test (test module [#4](#test-module-4-test_dhcp_server_smart_switchpy)) is supported on t1 topology.
 
-## 3. Test Case
+## Test Case
 
 ### Test Module #1 test_dhcp_server.py
 
