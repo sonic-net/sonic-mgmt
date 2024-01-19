@@ -1,8 +1,11 @@
 import time
 import re
+import logging
+import pytest
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 
+logger = logging.getLogger(__name__)
 GNMI_CONTAINER_NAME = ''
 GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
@@ -30,6 +33,9 @@ IP      = %s
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    # Stop proc-exit-listener at first
+    dut_command = "docker exec %s supervisorctl stop supervisor-proc-exit-listener" % (env.gnmi_container)
+    duthost.shell(dut_command)
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command)
     dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
@@ -40,6 +46,14 @@ def apply_cert_config(duthost):
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
+    dut_command = "sudo netstat -nap | grep %s" % env.gnmi_port
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    if "telemetry" not in output['stdout']:
+        logger.error("TCP port status: " + output['stdout'])
+        dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI log: " + output['stdout'])
+        pytest.fail("Failed to start gnmi server")
 
 
 def recover_cert_config(duthost):
@@ -53,6 +67,8 @@ def recover_cert_config(duthost):
     dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
     duthost.shell(dut_command)
     time.sleep(GNMI_SERVER_START_WAIT_TIME)
+    dut_command = "docker exec %s supervisorctl start supervisor-proc-exit-listener" % (env.gnmi_container)
+    duthost.shell(dut_command)
 
 
 def gnmi_capabilities(duthost, localhost):
@@ -63,6 +79,9 @@ def gnmi_capabilities(duthost, localhost):
     cmd += "-logtostderr -client_crt ./gnmiclient.crt -client_key ./gnmiclient.key -ca_crt ./gnmiCA.pem -capabilities"
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+        res = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI log: " + res['stdout'])
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -82,6 +101,9 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
         cmd += " -replace " + replace
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+        res = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI log: " + res['stdout'])
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -97,6 +119,9 @@ def gnmi_get(duthost, localhost, path_list):
         cmd += " -xpath " + path
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
+        res = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI log: " + res['stdout'])
         return -1, [output['stderr']]
     else:
         msg = output['stdout'].replace('\\', '')
