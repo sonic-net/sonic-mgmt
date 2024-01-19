@@ -1086,7 +1086,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_check_for_hbm_either_asic
+            skip_check_for_hbm_either_asic, dut_qos_maps_module
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1105,8 +1105,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        pytest_require(separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module),
-                       "Skip test because separated QoS map is not applied")
         if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
              pytest.skip("Lossy Queue Voq test is not supported")
         if not get_src_dst_asic_and_duts['single_asic_test']:
@@ -1121,7 +1119,7 @@ class TestQosSai(QosSaiBase):
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
-        if separated_dscp_to_tc_map_on_uplink:
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
@@ -1878,7 +1876,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps
+        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps_module
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -1913,7 +1911,7 @@ class TestQosSai(QosSaiBase):
         allTestPortIps.extend([
             x['peer_addr'] for x in
             all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
-        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
              # Remove the upstream ports from the test port list.
              allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
              allTestPortIps = [
