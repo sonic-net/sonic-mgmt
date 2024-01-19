@@ -1,0 +1,6 @@
+mgmt_bridge: <FIX ME>
+mgmt_prefixlen: <FIX ME>
+mgmt_gw: <FIX ME>
+mgmt_gw_v6: <FIX ME>
+vm_mgmt_gw: <FIX ME>
+external_port: <FIX ME>
