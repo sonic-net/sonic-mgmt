@@ -47,7 +47,7 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
+def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
     oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
@@ -70,6 +70,14 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
                     if is_nexus and "loader" in x and ">" in x:
                         dut_console.remote_conn.send('reboot\n')
                         continue
+
+                    if is_nokia and enter_onie_flag is True:
+                        if "stop autoboot" in x:
+                            dut_console.remote_conn.send('\n')
+                            continue
+                        if "Marvell" in x and ">" in x:
+                            dut_console.remote_conn.send('run onie_bootcmd\n')
+                            continue
 
                     if OS_VERSION_IN_GRUB in x and enter_onie_flag is True:
                         # Send arrow key "down" here.
