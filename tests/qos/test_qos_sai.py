@@ -2079,7 +2079,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, resetWatermark, _skip_watermark_multi_DUT,
-        skip_pacific_dst_asic, dut_qos_maps    # noqa F811
+        skip_pacific_dst_asic, dut_qos_maps_module    # noqa F811
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -2115,13 +2115,17 @@ class TestQosSai(QosSaiBase):
         allTestPortIps.extend([
             x['peer_addr'] for x in
             all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
-        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
+        src_port_id = dutConfig["testPorts"]["src_port_id"]
+        src_port_ip = dutConfig["testPorts"]["src_port_ip"]
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
             # Remove the upstream ports from the test port list.
             allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
             allTestPortIps = [
                 dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
                 [get_src_dst_asic_and_duts['dst_asic_index']][port]['peer_addr']
                 for port in allTestPorts]
+            src_port_ip = allTestPorts[0]
+            src_port_ip = allTestPortIps[0]
 
         try:
             tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
@@ -2143,8 +2147,8 @@ class TestQosSai(QosSaiBase):
             "ecn": qosConfig[queueProfile]["ecn"],
             "dst_port_ids": allTestPorts,
             "dst_port_ips": allTestPortIps,
-            "src_port_id": dutConfig["testPorts"]["src_port_id"],
-            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_id": src_port_id,
+            "src_port_ip": src_port_ip,
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkt_count": qosConfig[queueProfile]["pkt_count"],
