@@ -31,6 +31,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
@@ -1085,7 +1086,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_check_for_hbm_either_asic, separated_dscp_to_tc_map_on_uplink
+            skip_check_for_hbm_either_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1104,6 +1105,10 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        pytest_require(separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module),
+                       "Skip test because separated QoS map is not applied")
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+             pytest.skip("Lossy Queue Voq test is not supported")
         if not get_src_dst_asic_and_duts['single_asic_test']:
              pytest.skip("LossyQueueVoq: This test is skipped for now, will"
                  " be re-enabled for RH cards.")
@@ -1905,21 +1910,28 @@ class TestQosSai(QosSaiBase):
         allTestPortIps = []
         all_dst_info = dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
         allTestPorts.extend(list(all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].keys()))
-        allTestPortIps.extend([x['peer_addr'] for x in all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        allTestPortIps.extend([
+            x['peer_addr'] for x in
+            all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
+             # Remove the upstream ports from the test port list.
+             allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
+             allTestPortIps = [
+                 testPortIps[get_src_dst_asic_and_duts['dst_dut_index']]
+                 [get_src_dst_asic_and_duts['dst_asic_index']][port]['peer_addr']
+                 for port in allTestPorts]
+
         try:
             tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
             tc_to_dscp_map = {v: k for k,v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
         except KeyError:
             pytest.skip("Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP and key AZURE to run this test.")
         dscp_to_q_map = {tc_to_dscp_map[tc]:tc_to_q_map[tc] for tc in tc_to_dscp_map}
-        try:
-            allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
-            allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
-        except ValueError:
-            pass
-
-        # Remove the upstream ports from the test port list.
-        allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
+        if get_src_dst_asic_and_duts['single_asic_test']:
+            if dutConfig["testPorts"]["src_port_id"] in allTestPorts:
+                allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
+            if dutConfig["testPorts"]["src_port_ip"] in allTestPortIps:
+                allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
