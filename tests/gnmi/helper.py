@@ -49,6 +49,7 @@ def apply_cert_config(duthost):
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
     if "telemetry" not in output['stdout']:
+        # Dump tcp port status and gnmi log
         logger.error("TCP port status: " + output['stdout'])
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         output = duthost.shell(dut_command, module_ignore_errors=True)
@@ -79,6 +80,7 @@ def gnmi_capabilities(duthost, localhost):
     cmd += "-logtostderr -client_crt ./gnmiclient.crt -client_key ./gnmiclient.key -ca_crt ./gnmiCA.pem -capabilities"
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
         logger.error("GNMI log: " + res['stdout'])
@@ -101,6 +103,7 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
         cmd += " -replace " + replace
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
         logger.error("GNMI log: " + res['stdout'])
@@ -119,6 +122,7 @@ def gnmi_get(duthost, localhost, path_list):
         cmd += " -xpath " + path
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
+        # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
         logger.error("GNMI log: " + res['stdout'])
