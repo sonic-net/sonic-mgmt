@@ -33,6 +33,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
@@ -2114,6 +2115,14 @@ class TestQosSai(QosSaiBase):
         allTestPortIps.extend([
             x['peer_addr'] for x in
             all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
+            # Remove the upstream ports from the test port list.
+            allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
+            allTestPortIps = [
+                dutConfig['testPortIps'][get_src_dst_asic_and_duts['dst_dut_index']]
+                [get_src_dst_asic_and_duts['dst_asic_index']][port]['peer_addr']
+                for port in allTestPorts]
+
         try:
             tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
             tc_to_dscp_map = {v: k for k, v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
@@ -2123,8 +2132,10 @@ class TestQosSai(QosSaiBase):
                 "and key AZURE to run this test.")
         dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map}
         if get_src_dst_asic_and_duts['single_asic_test']:
-            allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
-            allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
+            if dutConfig["testPorts"]["src_port_id"] in allTestPorts:
+                allTestPorts.remove(dutConfig["testPorts"]["src_port_id"])
+            if dutConfig["testPorts"]["src_port_ip"] in allTestPortIps:
+                allTestPortIps.remove(dutConfig["testPorts"]["src_port_ip"])
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
