@@ -84,7 +84,7 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts):
                             # ignore the prefix, if the prefix nexthop is not a frontend port
                             if po_members[ifname].keys():
                                 if 'role' in ports[list(po_members[ifname].keys())[0]] and \
-+                                        ports[list(po_members[ifname].keys())[0]]['role'] == 'Int':
+                                        ports[list(po_members[ifname].keys())[0]]['role'] == 'Int':
                                     if len(oports) == 0:
                                         skip = True
                                 else:
