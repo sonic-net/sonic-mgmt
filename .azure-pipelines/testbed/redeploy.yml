@@ -67,6 +67,7 @@ parameters:
       - nightly
       - nightly-svc
       - nightly-bjw
+      - nightly-tk5
 
 stages:
   - stage: RedeployTopology

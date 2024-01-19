@@ -1951,6 +1951,441 @@
   auto_recover: 'True'
   comment: bingwang
 
+- conf-name: tbtk5-ptf32-s6000-9
+  group-name: tk5-3-0
+  topo: ptf32
+  ptf_image_name: docker-ptf
+  ptf: ptf3-0
+  ptf_ip: 10.212.65.50/24
+  ptf_ipv6: 2603:10e2:140:3000::190/122
+  server: server_tk5_3
+  vm_base:
+  dut:
+    - strtk5-s6000-09
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-9
+
+- conf-name: tbtk5-t0-8101-1
+  group-name: tk5-3-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf3-1
+  ptf_ip: 10.212.65.51/24
+  ptf_ipv6: 2603:10e2:140:3000::191/122
+  server: server_tk5_3
+  vm_base: VM53000
+  dut:
+    - strtk5-8101-01
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-8101-1
+
+- conf-name: tbtk5-t0-2700-3
+  group-name: tk5-3-2
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf3-2
+  ptf_ip: 10.212.65.52/24
+  ptf_ipv6: 2603:10e2:140:3000::192/122
+  server: server_tk5_3
+  vm_base: VM53004
+  dut:
+    - strtk5-msn2700-03
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-2700-3
+
+- conf-name: tbtk5-t0-s6000-6
+  group-name: tk5-3-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf3-3
+  ptf_ip: 10.212.65.53/24
+  ptf_ipv6: 2603:10e2:140:3000::193/122
+  server: server_tk5_3
+  vm_base: VM53008
+  dut:
+    - strtk5-s6000-06
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-6
+
+- conf-name: tbtk5-t0-e1031-3
+  group-name: tk5-3-4
+  topo: t0-52
+  ptf_image_name: docker-ptf
+  ptf: ptf3-4
+  ptf_ip: 10.212.65.54/24
+  ptf_ipv6: 2603:10e2:140:3000::194/122
+  server: server_tk5_3
+  vm_base: VM53012
+  dut:
+    - strtk5-e1031-acs-3
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-e1031-3
+
+- conf-name: tbtk5-t0-a7170-1
+  group-name: tk5-3-5
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf3-5
+  ptf_ip: 10.212.65.55/24
+  ptf_ipv6: 2603:10e2:140:3000::195/122
+  server: server_tk5_3
+  vm_base: VM53016
+  dut:
+    - strtk5-a7170-acs-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-a7170-1
+
+- conf-name: tbtk5-t0-s6100-4
+  group-name: tk5-3-6
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf3-6
+  ptf_ip: 10.212.65.56/24
+  ptf_ipv6: 2603:10e2:140:3000::196/122
+  server: server_tk5_3
+  vm_base: VM53020
+  dut:
+    - strtk5-s6100-acs-4
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6100-4
+
+- conf-name: tbtk5-t1-7260-7
+  group-name: tk5-3-7
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf3-7
+  ptf_ip: 10.212.65.57/24
+  ptf_ipv6: 2603:10e2:140:3000::197/122
+  server: server_tk5_3
+  vm_base: VM53024
+  dut:
+    - strtk5-7260-7
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-7260-7
+
+- conf-name: tbtk5-t1-n3164-2
+  group-name: tk5-3-8
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf3-8
+  ptf_ip: 10.212.65.58/24
+  ptf_ipv6: 2603:10e2:140:3000::198/122
+  server: server_tk5_3
+  vm_base: VM53048
+  dut:
+    - strtk5-n3164-acs-2
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-n3164-2
+
+- conf-name: tbtk5-t1-s6100-5
+  group-name: tk5-3-9
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf3-9
+  ptf_ip: 10.212.65.59/24
+  ptf_ipv6: 2603:10e2:140:3000::199/122
+  server: server_tk5_3
+  vm_base: VM53072
+  dut:
+    - strtk5-s6100-acs-5
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6100-5
+
+- conf-name: tbtk5-t0-8101-2
+  group-name: tk5-4-0
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf4-0
+  ptf_ip: 10.212.65.60/24
+  ptf_ipv6: 2603:10e2:140:3000::200/122
+  server: server_tk5_4
+  vm_base: VM54000
+  dut:
+    - strtk5-8101-02
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-8101-2
+
+- conf-name: tbtk5-t0-n3132-1
+  group-name: tk5-4-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf4-1
+  ptf_ip: 10.212.65.61/24
+  ptf_ipv6: 2603:10e2:140:3000::201/122
+  server: server_tk5_4
+  vm_base: VM54004
+  dut:
+    - strtk5-n3132-acs-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-n3132-1
+
+- conf-name: tbtk5-t0-n3132-3
+  group-name: tk5-4-2
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf4-2
+  ptf_ip: 10.212.65.62/24
+  ptf_ipv6: 2603:10e2:140:3000::202/122
+  server: server_tk5_4
+  vm_base: VM54008
+  dut:
+    - strtk5-n3132-acs-3
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-n3132-3
+
+- conf-name: tbtk5-t0-s6000-7
+  group-name: tk5-4-3
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf4-3
+  ptf_ip: 10.212.65.63/24
+  ptf_ipv6: 2603:10e2:140:3000::203/122
+  server: server_tk5_4
+  vm_base: VM54012
+  dut:
+    - strtk5-s6000-07
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-7
+
+- conf-name: tbtk5-t0-s6000-14
+  group-name: tk5-4-4
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf4-4
+  ptf_ip: 10.212.65.64/24
+  ptf_ipv6: 2603:10e2:140:3000::204/122
+  server: server_tk5_4
+  vm_base: VM54016
+  dut:
+    - strtk5-s6000-14
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-14
+
+- conf-name: tbtk5-t0-dx010-5
+  group-name: tk5-4-5
+  topo: t0-56-d48c8
+  ptf_image_name: docker-ptf
+  ptf: ptf4-5
+  ptf_ip: 10.212.65.65/24
+  ptf_ipv6: 2603:10e2:140:3000::205/122
+  server: server_tk5_4
+  vm_base: VM54020
+  dut:
+    - strtk5-dx010-acs-5
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-dx010-5
+
+- conf-name: tbtk5-t0-4600c-2
+  group-name: tk5-4-6
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf4-6
+  ptf_ip: 10.212.65.66/24
+  ptf_ipv6: 2603:10e2:140:3000::206/122
+  server: server_tk5_4
+  vm_base: VM54024
+  dut:
+    - strtk5-msn4600c-acs-02
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-4600c-2
+
+- conf-name: tbtk5-t0-2700-4
+  group-name: tk5-4-7
+  topo: t0-8-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf4-7
+  ptf_ip: 10.212.65.67/24
+  ptf_ipv6: 2603:10e2:140:3000::207/122
+  server: server_tk5_4
+  vm_base: VM54028
+  dut:
+    - strtk5-msn2700-04
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-2700-4
+
+- conf-name: tbtk5-t1-2700-2
+  group-name: tk5-4-8
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf4-8
+  ptf_ip: 10.212.65.68/24
+  ptf_ipv6: 2603:10e2:140:3000::208/122
+  server: server_tk5_4
+  vm_base: VM54036
+  dut:
+    - strtk5-msn2700-02
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-2700-2
+
+- conf-name: tbtk5-t1-n3132-2
+  group-name: tk5-4-9
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf4-9
+  ptf_ip: 10.212.65.69/24
+  ptf_ipv6: 2603:10e2:140:3000::209/122
+  server: server_tk5_4
+  vm_base: VM54060
+  dut:
+    - strtk5-n3132-acs-2
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-n3132-2
+
+- conf-name: tbtk5-t0-dx010-4
+  group-name: tk5-5-0
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf5-0
+  ptf_ip: 10.212.65.70/24
+  ptf_ipv6: 2603:10e2:140:3000::210/122
+  server: server_tk5_5
+  vm_base: VM55000
+  dut:
+    - strtk5-dx010-acs-4
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-dx010-4
+
+- conf-name: tbtk5-t0-2700-1
+  group-name: tk5-5-1
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf5-1
+  ptf_ip: 10.212.65.71/24
+  ptf_ipv6: 2603:10e2:140:3000::211/122
+  server: server_tk5_5
+  vm_base: VM55004
+  dut:
+    - strtk5-msn2700-01
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-2700-1
+
+- conf-name: tbtk5-t0-s6000-12
+  group-name: tk5-5-2
+  topo: t0
+  ptf_image_name: docker-ptf
+  ptf: ptf5-2
+  ptf_ip: 10.212.65.72/24
+  ptf_ipv6: 2603:10e2:140:3000::212/122
+  server: server_tk5_5
+  vm_base: VM55008
+  dut:
+    - strtk5-s6000-12
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-12
+
+- conf-name: tbtk5-t0-a7050-1
+  group-name: tk5-5-3
+  topo: t0-35
+  ptf_image_name: docker-ptf
+  ptf: ptf5-3
+  ptf_ip: 10.212.65.73/24
+  ptf_ipv6: 2603:10e2:140:3000::213/122
+  server: server_tk5_5
+  vm_base: VM55012
+  dut:
+    - strtk5-a7050-acs-1
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-a7050-1
+
+- conf-name: tbtk5-t0-s6100-2
+  group-name: tk5-5-4
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf5-4
+  ptf_ip: 10.212.65.74/24
+  ptf_ipv6: 2603:10e2:140:3000::214/122
+  server: server_tk5_5
+  vm_base: VM55016
+  dut:
+    - strtk5-s6100-acs-2
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6100-2
+
+- conf-name: tbtk5-t0-3800-1
+  group-name: tk5-5-5
+  topo: t0-64
+  ptf_image_name: docker-ptf
+  ptf: ptf5-5
+  ptf_ip: 10.212.65.75/24
+  ptf_ipv6: 2603:10e2:140:3000::215/122
+  server: server_tk5_5
+  vm_base: VM55020
+  dut:
+    - strtk5-sn3800-01
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-3800-1
+
+- conf-name: tbtk5-t1-2700-6
+  group-name: tk5-5-6
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf5-6
+  ptf_ip: 10.212.65.76/24
+  ptf_ipv6: 2603:10e2:140:3000::216/122
+  server: server_tk5_5
+  vm_base: VM55024
+  dut:
+    - strtk5-msn2700-06
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-2700-6
+
+- conf-name: tbtk5-t1-s6000-2
+  group-name: tk5-5-7
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf5-7
+  ptf_ip: 10.212.65.77/24
+  ptf_ipv6: 2603:10e2:140:3000::217/122
+  server: server_tk5_5
+  vm_base: VM55048
+  dut:
+    - strtk5-s6000-02
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-2
+
+- conf-name: tbtk5-t1-s6000-8
+  group-name: tk5-5-8
+  topo: t1-lag
+  ptf_image_name: docker-ptf
+  ptf: ptf5-8
+  ptf_ip: 10.212.65.78/24
+  ptf_ipv6: 2603:10e2:140:3000::218/122
+  server: server_tk5_5
+  vm_base: VM55072
+  dut:
+    - strtk5-s6000-08
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: tbtk5-s6000-8
+
 - conf-name: testbed-bjw-can-t0-7260-11
   group-name: bjw13-5
   topo: t0-116

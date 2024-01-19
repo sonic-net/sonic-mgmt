@@ -248,24 +248,6 @@ sonic:
 
 sonic_dell32_40:
   hosts:
-    str-s6000-on-2:
-      ansible_host: 10.3.147.142
-    str-s6000-on-6:
-      ansible_host: 10.3.147.172
-    str-s6000-acs-7:
-      ansible_host: 10.3.147.195
-    str-s6000-acs-8:
-      ansible_host: 10.3.147.197
-      ansible_hostv6: 2a01:111:e210:3000::11
-      model: 00NX1V
-      serial: 1QBRX42
-      base_mac: EC:F4:BB:FE:80:84
-    str-s6000-acs-9:
-      ansible_host: 10.3.147.235
-      ansible_hostv6: 2a01:111:e210:3000::13
-      model: 00NX1V
-      serial: FPBRX42
-      base_mac: EC:F4:BB:FE:80:7
     str-s6000-acs-10:
       ansible_host: 10.3.147.237
     str-s6000-acs-11:
@@ -273,28 +255,6 @@ sonic_dell32_40:
       model: 00NX1V
       serial: BQBRX42
       base_mac: EC:F4:BB:FE:80:9F
-    str-s6000-acs-12:
-      ansible_host: 10.3.147.252
-      model: 07VJDK
-      serial: DR0RX42
-      base_mac: EC:F4:BB:FE:88:0A
-      syseeprom_info:
-        "0x21": "S6000-ON"
-        "0x22": "07VJDK"
-        "0x23": "CN07VJDK282985710005"
-        "0x24": "EC:F4:BB:FE:88:0A"
-        "0x27": "A04"
-        "0x29": "3.20.1.3"
-        "0x2A": "129"
-        "0x2B": "FF"
-        "0x2D": "DELL"
-        "0x2F": "DR0RX42"
-        "0xFE": "0xD6DDB4A6"
-    str-s6000-acs-14:
-      ansible_host: 10.3.147.17
-      model: 0P19MV
-      serial: 8RTBY42
-      base_mac: F4:8E:38:16:BC:8B
   vars:
     hwsku: Force10-S6000
     iface_speed: 40000
@@ -323,93 +283,8 @@ sonic_dell64_40:
         "0x2E": "3.25.4.1"
         "0x2F": "DF9TG02"
         "0xFE": "0x4B04FF49"
-    str-s6100-acs-2:
-      ansible_host: 10.64.247.225
-      model: 06N1J1
-      serial: CXTSG02
-      base_mac: D8:9E:F3:B9:62:20
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES008230033"
-        "0x24": "D8:9E:F3:B9:62:20"
-        "0x25": "02/25/2018 15:32:49"
-        "0x26": "1"
-        "0x27": "A04"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "CXTSG02"
-        "0xFE": "0x4252C1B4"
-    str-s6100-acs-4:
-      ansible_host: 10.64.246.226
-      model: 06N1J1
-      serial: DG9SG02
-      base_mac: D8:9E:F3:D4:5A:E0
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES008350097"
-        "0x24": "D8:9E:F3:D4:5A:E0"
-        "0x25": "03/08/2018 15:24:50"
-        "0x26": "1"
-        "0x27": "A04"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "DG9SG02"
-        "0xFE": "0xB6382E97"
-    str-s6100-acs-5:
-      ansible_host: 10.64.246.66
-      model: 06N1J1
-      serial: DW2TG02
-      base_mac: D8:9E:F3:D8:72:E0
-      syseeprom_info:
-        "0x21": "S6100-ON"
-        "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES0083I0030"
-        "0x24": "D8:9E:F3:D8:72:E0"
-        "0x25": "03/19/2018 10:08:18"
-        "0x26": "1"
-        "0x27": "A04"
-        "0x28": "x86_64-dell_s6100_c2538-r0"
-        "0x29": "3.15.1.0"
-        "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
-        "0x2D": "DELL"
-        "0x2E": "3.25.4.1"
-        "0x2F": "DW2TG02"
-        "0xFE": "0xE8DE916C"
-      pdu_host: pdu-102
   vars:
     hwsku: Force10-S6100
-    iface_speed: 40000
-
-sonic_nexus_3132GX_40:
-  hosts:
-    str-n3132-acs-1:
-      ansible_host: 10.3.147.204
-  vars:
-    hwsku: Nexus-3132-GX-Q32
-    iface_speed: 40000
-
-sonic_nexus_3132GE_40:
-  hosts:
-    str-n3132-acs-2:
-      ansible_host: 10.3.147.247
-    str-n3132-acs-3:
-      ansible_host: 10.3.147.19
-  vars:
-    hwsku: Nexus-3132-GE-Q32
     iface_speed: 40000
 
 sonic_arista_40:
@@ -592,29 +467,6 @@ sonic_mlnx_100:
   vars:
     iface_speed: 100000
 
-sonic_mlnx_3800:
-  hosts:
-    str-sn3800-01:
-      ansible_host: 10.3.146.62
-      model: MSN3800-CS2RO
-      serial: MT1937X00614
-      base_mac: B8:59:9F:A9:60:00
-      syseeprom_info:
-        "0x21": "MSN3800"
-        "0x22": "MSN3800-CS2RO"
-        "0x23": "MT1937X00614"
-        "0x24": "B8:59:9F:A9:60:00"
-        "0x25": "09/09/2019 23:18:22"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn3800-r0"
-        "0x29": "2019.08-5.2.0016-9600"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0xB6BE3710"
-  vars:
-    hwsku: ACS-MSN3800
-    iface_speed: 100000
-
 sonic_arista64_100:
   hosts:
     str-7260cx3-acs-1:
@@ -654,27 +506,6 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "SSJ17432414"
-    str-a7170-acs-1:
-      ansible_host: 10.64.246.73
-      hwsku: Arista-7170-64C
-    str-7260cx3-acs-7:
-      ansible_host: 10.64.246.78
-      hwsku: Arista-7260CX3-C64
-      model: DCS-7260CX3-64
-      serial: SSJ17450492
-      base_mac: 74:83:ef:0a:c9:5c
-      syseeprom_info:
-        "0x21": "DCS-7260CX3-64"
-        "0x22": "ASY0250504C0"
-        "0x23": "SSJ17450492"
-        "0x24": "74:83:ef:0a:c9:5c"
-        "0x25": "2017/11/21 00:16:01"
-        "0x26": "01"
-        "0x27": "03.00"
-        "0x28": "x86_64-arista_7260cx3_64"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
-        "0x2F": "SSJ17450492"
   vars:
     iface_speed: 100000
 
@@ -774,27 +605,6 @@ sonic_e1031:
         "0x2E": "3.0.6"
         "0x2F": "LB"
         "0xFE": "0x86F7C95F"
-    str-e1031-acs-3:
-      ansible_host: 10.3.146.180
-      model: R0882-F4111-01
-      serial: R0882F2B039723BY000014
-      base_mac: 00:e0:ec:84:9c:6a
-      syseeprom_info:
-        "0x21": "E1031"
-        "0x23": "R0882F2B039723BY000014"
-        "0x24": "00:E0:EC:84:9C:6A"
-        "0x25": "07/23/2019 21:39:22"
-        "0x26": "3"
-        "0x27": "Celestica"
-        "0x28": "Rangeley_7"
-        "0x29": "2015.05.0.0.3"
-        "0x2A": "53"
-        "0x2B": "Celestica"
-        "0x2C": "CN"
-        "0x2D": "Celestica"
-        "0x2E": "3.0.6"
-        "0x2F": "LB"
-        "0xFE": "0x0B5CED74"
   vars:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
@@ -824,51 +634,6 @@ sonic_dx010_100:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0x41512DDB"
-    str-dx010-acs-4:
-      ansible_host: 10.64.246.98
-      model: R0872-F0020-02
-      serial: DX010B2F030A27BY200002
-      base_mac: 00:E0:EC:E7:71:0F
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0020-02"
-        "0x23": "DX010B2F030A27BY200002"
-        "0x24": "00:E0:EC:E7:71:0F"
-        "0x25": "11/03/2020 21:22:56"
-        "0x26": "3"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "THA"
-        "0x2D": "Celestica"
-        "0x2E": "1.0.5"
-        "0x2F": "LB"
-        "0xFE": "0xAAB39BDB"
-    str-dx010-acs-5:
-      ansible_host: 10.64.246.99
-      model: R0872-F0009-01
-      serial: DX010F2B118711MS100008
-      base_mac: 00:E0:EC:C2:AF:FD
-      hwsku: Celestica-DX010-D48C8
-      syseeprom_info:
-        "0x21": "DX010"
-        "0x22": "R0872-F0009-01"
-        "0x23": "DX010F2B118711MS100008"
-        "0x24": "00:E0:EC:C2:AF:FD"
-        "0x25": "07/19/2018 09:03:34"
-        "0x26": "11"
-        "0x27": "Seastone"
-        "0x28": "RANGELEY"
-        "0x29": "2014.08"
-        "0x2A": "131"
-        "0x2B": "CELESTICA"
-        "0x2C": "CHN"
-        "0x2D": "Celestica"
-        "0x2E": "1.1.1"
-        "0x2F": "LB"
-        "0xFE": "0xC22202E9"
   vars:
     hwsku: Celestica-DX010-C32
     iface_speed: 100000
@@ -880,44 +645,6 @@ sonic_agc7648:
   vars:
     hwsku: Delta-AGC7648
     iface_speed: 10000
-
-sonic_nexus_3164:
-  hosts:
-    str-n3164-acs-2:
-      ansible_host: 10.3.147.150
-      num_asics: 6
-      model: 73-16477-04
-      serial: FDO215109NN
-      base_mac: 00:be:75:3a:ef:50
-      frontend_asics: [0, 1, 2, 3]
-  vars:
-    hwsku: Nexus-3164
-    iface_speed: 40000
-    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
-    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
-
-sonic_mlnx_4600C:
-  vars:
-    hwsku: ACS-MSN4600C
-    iface_speed: 100000
-  hosts:
-    str-msn4600c-acs-02:
-      ansible_host: 10.3.146.175
-      model: MSN4600-CS2RO
-      serial: MT2115X26259
-      base_mac: 1C:34:DA:BB:90:00
-      syseeprom_info:
-        "0x21": "MSN4600C"
-        "0x22": "MSN4600-CS2RO"
-        "0x23": "MT2115X26259"
-        "0x24": "1C:34:DA:BB:90:00"
-        "0x25": "04/21/2021 21:34:27"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn4600C-r0"
-        "0x29": "2019.11-5.2.0020-9600"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0x35984B80"
 
 acs_ixia_dscp:
   hosts:
