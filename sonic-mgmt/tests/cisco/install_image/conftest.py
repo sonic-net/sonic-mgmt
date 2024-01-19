@@ -28,6 +28,13 @@ def pytest_addoption(parser):
         help="Location of image",
         required=True,
     )
+    
+    install_group.addoption(
+        "--enable_bfd",
+        action="store_true",
+        default=False,
+        help="Enabled bfd on all LCs",
+    )
 
     install_group.addoption(
         "--build_id",
