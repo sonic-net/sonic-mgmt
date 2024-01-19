@@ -1,13 +1,9 @@
 ---
-# Specify all public mappings below
-lab: lab_connection_graph.xml
-example_ixia: example_ixia_connection_graph.xml
-
-
-
 # Specify all internal mappings below
 str: starlab_connection_graph.xml
 str2: spytest_connection_graph.xml
 str3: str3_connection_graph.xml
 bjw: bjw_connection_graph.xml
 ixia: ixia_connection_graph.xml
+strsvc: svctest_connection_graph.xml
+strsvc2: svctest2_connection_graph.xml
