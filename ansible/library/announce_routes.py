@@ -147,9 +147,9 @@ def change_routes(action, ptf_ip, port, routes):
             messages.append(
                 "{} route {} next-hop {}".format(action, prefix, nexthop))
     wait_for_http(ptf_ip, port, timeout=60)
-    # nosemgrep-next-line
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
+    # nosemgrep-next-line
     r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
     if r.status_code != 200:
         raise Exception(
