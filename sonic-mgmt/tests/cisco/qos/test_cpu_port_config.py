@@ -60,7 +60,7 @@ def test_verify_cpu_port_config(duthosts, rand_one_dut_hostname, pg_to_test, req
     try:
         data = json.loads(json_str)
     except Exception as e:
-        pytest.fail("JSon load error: {}".format(e))
+        pytest.fail("JSON load error: {}".format(e))
 
     hbm_present = False
     if 'hbm_usage' in data:
@@ -90,7 +90,7 @@ def test_verify_cpu_port_config(duthosts, rand_one_dut_hostname, pg_to_test, req
         try:
             data = json.loads(json_str)
         except Exception as e:
-            pytest.fail("JSon load error: {}".format(e))
+            pytest.fail("JSON load error: {}".format(e))
 
         voq_drop_data = None
         if "voq_drop_prob_g" in data:
@@ -128,12 +128,13 @@ def test_verify_cpu_port_config(duthosts, rand_one_dut_hostname, pg_to_test, req
                                                     age_idx, expected_value, actual_value)
 
         ''' Verify drop is 7 for last quant only'''
+        DROP_PROB_100 = 7
         if voq_drop_data:
             for g_idx in range(sms_quant_len):
                 for voq_idx in range(voq_quant_len):
                     for age_idx in range(age_quant_len):
                         actual_value = voq_drop_data[g_idx][voq_idx][age_idx]
-                        expected_value = 7 if voq_idx == (voq_quant_len - 1) else 0
+                        expected_value = DROP_PROB_100 if voq_idx == (voq_quant_len - 1) else 0
                         assert (
                                 actual_value == expected_value
                         ), '''
