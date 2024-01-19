@@ -563,9 +563,8 @@ sensors_checks:
       - dps460-i2c-10-59/PSU-1(L) 220V Rail Pwr (in)/power1_alarm
       - dps460-i2c-10-59/PSU-1(L) 12V Rail Pwr (out)/power2_max_alarm
       - dps460-i2c-10-59/PSU-1(L) 220V Rail Curr (in)/curr1_max_alarm
-      - dps460-i2c-10-59/PSU-1(L) 220V Rail Curr (in)/curr1_crit_alarm
       - dps460-i2c-10-59/PSU-1(L) 12V Rail Curr (out)/curr2_max_alarm
-      - dps460-i2c-10-59/PSU-1(L) 12V Rail Curr (out)/curr2_crit_alarm
+      - dps460-i2c-10-59/PSU-1(L) 12V Rail Curr (out)/curr2_lcrit_alarm
 
       - pmbus-i2c-5-41/PMB-1 PSU 12V Rail (in)/in1_min_alarm
       - pmbus-i2c-5-41/PMB-1 PSU 12V Rail (in)/in1_max_alarm
@@ -592,9 +591,8 @@ sensors_checks:
       - dps460-i2c-10-58/PSU-2(R) 220V Rail Pwr (in)/power1_alarm
       - dps460-i2c-10-58/PSU-2(R) 12V Rail Pwr (out)/power2_max_alarm
       - dps460-i2c-10-58/PSU-2(R) 220V Rail Curr (in)/curr1_max_alarm
-      - dps460-i2c-10-58/PSU-2(R) 220V Rail Curr (in)/curr1_crit_alarm
       - dps460-i2c-10-58/PSU-2(R) 12V Rail Curr (out)/curr2_max_alarm
-      - dps460-i2c-10-58/PSU-2(R) 12V Rail Curr (out)/curr2_crit_alarm
+      - dps460-i2c-10-58/PSU-2(R) 12V Rail Curr (out)/curr2_lcrit_alarm
 
 
       temp:
