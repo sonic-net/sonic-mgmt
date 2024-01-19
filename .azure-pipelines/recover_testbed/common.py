@@ -96,6 +96,9 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                             dut_console.remote_conn.send('onie-discovery-stop\n')
                             dut_console.remote_conn.send("\n")
 
+                            if is_nokia:
+                                dut_console.remote_conn.send('umount /dev/sda2\n')
+
                             dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
                                                          ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                             dut_console.remote_conn.send("\n")
