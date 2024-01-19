@@ -77,6 +77,7 @@ leaf0:
         sudo config interface startup Ethernet8
         sudo config interface startup Ethernet12
         sudo config interface startup Ethernet16
+        sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet0
         sudo config interface ipv6 enable use-link-local-only Ethernet4
         sudo config interface ipv6 enable use-link-local-only Ethernet12
@@ -86,21 +87,23 @@ leaf0:
         sudo config vxlan add Vtep fd27::280:10f1:25f
         sudo config vxlan evpn_nvo add NVO Vtep
         sudo config vlan add 100
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config vlan member add -u 100 Ethernet8
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
+        sudo config vlan member add -u 100 Ethernet32
         sudo config vxlan map add Vtep 100 2727
       deconfig: |
         sudo config vxlan map del Vtep 100 2727
-        sudo config vlan member del 100 Ethernet8
+        sudo config vlan member del 100 Ethernet32
         sudo config vlan del 100
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del Vtep
         sudo config interface ip rem Loopback27 fd27::280:10f1:25f/128
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet12
         sudo config interface ipv6 disable use-link-local-only Ethernet8
         sudo config interface ipv6 disable use-link-local-only Ethernet4
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet32
         sudo config interface shutdown Ethernet16
         sudo config interface shutdown Ethernet12
         sudo config interface shutdown Ethernet8
@@ -156,30 +159,34 @@ leaf1:
         sudo config interface startup Ethernet8
         sudo config interface startup Ethernet12
         sudo config interface startup Ethernet16
+        sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet0
         sudo config interface ipv6 enable use-link-local-only Ethernet4
         sudo config interface ipv6 enable use-link-local-only Ethernet12
         sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet32
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 fd27::22d:b87f:214b/128
         sudo config vxlan add Vtep fd27::22d:b87f:214b
         sudo config vxlan evpn_nvo add NVO Vtep
         sudo config vlan add 100
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config vlan member add -u 100 Ethernet8
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
+        sudo config vlan member add -u 100 Ethernet32
         sudo config vxlan map add Vtep 100 2727
       deconfig: |
         sudo config vxlan map del Vtep 100 2727
-        sudo config vlan member del 100 Ethernet8
+        sudo config vlan member del 100 Ethernet32
         sudo config vlan del 100
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del Vtep
         sudo config interface ip rem Loopback27 fd27::22d:b87f:214b/128
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet12
         sudo config interface ipv6 disable use-link-local-only Ethernet8
         sudo config interface ipv6 disable use-link-local-only Ethernet4
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet32
         sudo config interface shutdown Ethernet16
         sudo config interface shutdown Ethernet12
         sudo config interface shutdown Ethernet8

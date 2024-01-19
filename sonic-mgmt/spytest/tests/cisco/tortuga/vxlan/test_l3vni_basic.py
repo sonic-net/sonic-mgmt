@@ -42,7 +42,8 @@ def report_fail(dut, msg=''):
 ####################################################################
 #                                                                  #
 #   leaf0.Ethernet0-11.11.11.2  ---- spine0.Ethernet0-11.11.11.1   #
-#   leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet8-11.11.12.1   #
+#   leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet28-11.11.12.1  #
+####leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet8-11.11.12.1 ###
 #                                                                  #
 ####################################################################
 
@@ -50,10 +51,10 @@ def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -73,10 +74,10 @@ def setup_teardown_l3vni():
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -103,10 +104,10 @@ def setup_teardown_l3vni():
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     for name, node in nodes.items():
         st.show(node, 'sudo config reload -fy', skip_tmpl=True, skip_error_check=True)
@@ -163,10 +164,10 @@ def test_l3vni_basic_config(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     leaf0_vlan_ip = '100.100.100.254/24'
     leaf1_vlan_ip = '100.100.101.254/24'
@@ -292,10 +293,10 @@ def test_l3vni_multiple_vni(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : ['Ethernet8'], 'vni' : '2000', 'dummy_vlan' : '200'},
              'Vrf03' : { 'vlan' : '3', 'members' : ['Ethernet20'], 'vni' : '3000', 'dummy_vlan' : '300' },
@@ -434,10 +435,10 @@ def test_l3vni_remove_add_bgp(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D1
-    nodes['leaf1'] = vars.D2
-    nodes['spine0'] = vars.D3
-    nodes['spine1'] = vars.D4
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
 
     leaf0_vlan_ip = '100.100.100.254/24'
     leaf1_vlan_ip = '100.100.101.254/24'

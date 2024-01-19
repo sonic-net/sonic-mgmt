@@ -1,5 +1,5 @@
 devices:
-  D1: &sonic_router
+  SD1: &sonic_router
     platform: spitfire_f
     os_type: sonic
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -17,16 +17,16 @@ devices:
            ConfigS1NpsuiteVer: 1.137.1
 
 
-  D2:
+  SD2:
       <<: *sonic_router
 
-  D3:
+  SD3:
       <<: *sonic_router
 
-  D4:
+  SD4:
       <<: *sonic_router
 
-  D5: 
+  SD5: 
       <<: *sonic_router
 
   spt:
@@ -66,26 +66,26 @@ devices:
 connections:
   hubs:
     hub0:
-      - D1.Ethernet[0..3]
-      - D3.Ethernet[0..3]
+      - SD1.Ethernet[0..3]
+      - SD3.Ethernet[0..3]
     hub1:
-      - D1.Ethernet[4..7]
-      - D4.Ethernet[0..3]
+      - SD1.Ethernet[4..7]
+      - SD4.Ethernet[0..3]
     hub2:
-      - D1.Ethernet[8..11]
-      - D5.Ethernet[0..3]
+      - SD1.Ethernet[8..11]
+      - SD5.Ethernet[0..3]
     hub3:
-      - D2.Ethernet[0..3]
-      - D3.Ethernet[4..7]
+      - SD2.Ethernet[0..3]
+      - SD3.Ethernet[4..7]
     hub4:
-      - D2.Ethernet[4..7]
-      - D4.Ethernet[4..7]
+      - SD2.Ethernet[4..7]
+      - SD4.Ethernet[4..7]
     hub5:
-      - D2.Ethernet[8..11]
-      - D5.Ethernet[4..7]
+      - SD2.Ethernet[8..11]
+      - SD5.Ethernet[4..7]
     hub6:
-      - D3.Ethernet12
+      - SD3.Ethernet8
       - spt.data0
     hub7:
-      - D4.Ethernet12
+      - SD4.Ethernet8
       - spt.data1
