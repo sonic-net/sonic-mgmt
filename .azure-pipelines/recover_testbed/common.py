@@ -8,7 +8,8 @@ import socket
 import time
 import pexpect
 import ipaddress
-from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, ONIE_START_TO_DISCOVERY, SONIC_PROMPT
+from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, \
+    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -72,7 +73,7 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                         continue
 
                     if is_nokia and enter_onie_flag is True:
-                        if "stop autoboot" in x:
+                        if MARVELL_ENTRY in x:
                             dut_console.remote_conn.send('\n')
                             continue
                         if "Marvell" in x and ">" in x:
