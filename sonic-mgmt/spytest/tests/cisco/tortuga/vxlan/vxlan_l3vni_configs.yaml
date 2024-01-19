@@ -10,13 +10,13 @@ spine0:
         sudo config interface ipv6 enable use-link-local-only Ethernet12
         sudo config interface ipv6 enable use-link-local-only Ethernet16
         sudo config interface ip add Ethernet0 11.11.11.1/24
-        sudo config interface ip add Ethernet8 11.11.12.1/24
+        sudo config interface ip add Ethernet28 11.11.12.1/24
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 10.200.200.210/32
         sudo config interface startup Loopback27
       deconfig: |
         sudo config interface ip rem Loopback27 10.200.200.210/32
-        sudo config interface ip rem Ethernet8 11.11.12.1/24
+        sudo config interface ip rem Ethernet28 11.11.12.1/24
         sudo config interface ip rem Ethernet0 11.11.11.1/24
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet12
@@ -44,8 +44,8 @@ spine0:
         neighbor 10.200.200.202 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet4 interface peer-group TRANSIT
-        neighbor Ethernet8 interface peer-group TRANSIT
         neighbor Ethernet12 interface peer-group TRANSIT
+        neighbor Ethernet28 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
