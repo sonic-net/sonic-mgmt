@@ -81,7 +81,6 @@ def test_eth_switch_monitor_midplane_fault(duthosts, enum_rand_one_per_hwsku_hos
     time.sleep(130)
 
     result = duthost.command("ifconfig eth1-midplane")
-    print(result)
     assert "UP" in str(result), "Ethernet switch service failed to recover eth1-midplane"
 
 
