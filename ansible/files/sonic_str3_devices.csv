@@ -110,3 +110,5 @@ str3-s6100-acs-6,10.3.147.141/23,Force10-S6100,DevSonic,,sonic
 str3-s6100-acs-7,10.3.147.171/23,Force10-S6100,DevSonic,,sonic
 str3-msn4700-02,10.3.147.137/23,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-02,10.3.147.138/23,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
+str3-msn4700-04,10.3.147.155/23,Mellanox-SN4700-O28,DevSonic,,sonic
+str3-msn4700-fanout-04,10.3.147.161/23,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic

@@ -56,3 +56,5 @@ console-178,17,str3-s6100-acs-6,ssh,admin
 console-178,16,str3-s6100-acs-7,ssh,admin
 console-194,11,str3-msn4700-02,ssh,admin
 console-194,32,str3-msn4700-fanout-02,ssh,admin
+console-182,21,str3-msn4700-04,ssh,admin
+console-182,22,str3-msn4700-fanout-04,ssh,admin

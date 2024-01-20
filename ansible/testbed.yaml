@@ -1951,6 +1951,21 @@
   auto_recover: 'True'
   comment: bingwang
 
+- conf-name: vms66-t1-4700-4
+  group-name: vms66-4
+  topo: t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: vms66-4
+  ptf_ip: 10.64.247.81/23
+  ptf_ipv6:
+  server: server_66
+  vm_base: VM66090
+  dut:
+    - str3-msn4700-04
+  inv_name: str3
+  auto_recover: 'True'
+  comment: paravind
+
 - conf-name: tbtk5-ptf32-s6000-9
   group-name: tk5-3-0
   topo: ptf32
