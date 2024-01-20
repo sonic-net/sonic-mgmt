@@ -60,6 +60,56 @@ def get_cpu_stats(dut):
     print(data)
     return data
 
+def enable_bfd_on_all_lcs(duthost):
+    # Backing up current minigraph file
+    duthost.shell("sudo cp /usr/local/lib/python3.9/dist-packages/minigraph.py /usr/local/lib/python3.9/dist-packages/backup_minigraph.py")
+    
+    # Moving a copy to tmp folder
+    duthost.shell("sudo cp /usr/local/lib/python3.9/dist-packages/minigraph.py /tmp")
+    
+    # Fetching that minigraph file
+    duthost.fetch(src="/tmp/minigraph.py", dest="/data/ansible")
+    
+    file_path = "/data/ansible/" + duthost.hostname + "/tmp/minigraph.py"
+
+    # Read the content of the file
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    # Find the line numbers containing the old code
+    start_line_number = None
+    end_line_number = None
+    for i, line in enumerate(lines):
+        if "if static_routes:" in line:
+            start_line_number = i
+        elif "results['STATIC_ROUTE'] = static_routes" in line:
+            end_line_number = i
+
+    # Check if both start and end lines are found
+    if start_line_number is not None and end_line_number is not None:
+        # Define the new code with proper indentation
+        new_code = """\
+        if static_routes:
+            # Enable static Route BFD by default for static route in chassis-packet
+            if switch_type == "chassis-packet":
+                for pfx, data in static_routes.items():
+                    data.update({"bfd": "true"})
+            results['STATIC_ROUTE'] = static_routes
+                        """
+        # Replace the old code with the new code
+        lines[start_line_number:end_line_number + 1] = new_code
+        # Write the updated content back to the file
+        with open(file_path, 'w') as file:
+            file.writelines(lines)
+    else:
+        # If the old code is not found, print a message
+        print("Old code not found in the file.")
+    
+    # Copying that minigraph file
+    duthost.copy(src=file_path, dest="/tmp/minigraph.py")
+
+    duthost.shell("sudo cp /tmp/minigraph.py /usr/local/lib/python3.9/dist-packages/")
+
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                                   interfaces_wait_time=MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
     """
@@ -127,6 +177,7 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
     tb_name = tbinfo['conf-name']
     image_loc = request.config.getoption("--image_loc")
     build_id = request.config.getoption("--build_id")
+    enable_bfd = request.config.getoption("--enable_bfd")
     initImage = dict()
     reload_res = dict()
     copy_res = dict()
@@ -277,6 +328,10 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
         localhost.shell("rm /data/ansible/deploy.log")
     except:
         pass
+    
+    if enable_bfd:
+        for duthost in duthosts.frontend_nodes:
+            enable_bfd_on_all_lcs(duthost)
 
     localhost.shell("cd ./../ansible; ./testbed-cli.sh -t testbed.csv deploy-mg {} lab group_vars/lab/secrets.yml > deploy.log".format(tb_name))
     time.sleep(500)

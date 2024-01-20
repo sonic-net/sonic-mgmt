@@ -71,7 +71,7 @@ class IPRoutes:
 
         fn.close()
         # copy file to DUT and run it on DUT
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode='0755')
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
@@ -89,7 +89,7 @@ class IPRoutes:
                 fn.write(ip_route + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode='0755')
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
@@ -144,7 +144,7 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode='0755')
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
@@ -163,7 +163,7 @@ class Arp:
                 fn.write(cmd + "\n")
 
         fn.close()
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode='0755')
         try:
             self.duthost.shell(self.filename)
             self.duthost.shell("rm {}".format(self.filename))
