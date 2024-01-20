@@ -57,6 +57,8 @@ def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
 
 def verify_traffic_shift(host, outputs, match_result):
     for asic_index in host.get_frontend_asic_ids():
+        if verify_traffic_shift_per_asic(host, outputs, TS_NO_NEIGHBORS, asic_index):
+            continue
         if not verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
             return "ERROR"
 
@@ -294,46 +296,59 @@ def check_and_log_routes_diff(duthost, neigh_hosts, orig_routes_on_all_nbrs, cur
     return all_diffs_in_host_aspath
 
 
-def verify_loopback_route_with_community(dut_host, neigh_hosts, ip_ver, community):
+def verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, ip_ver, community):
     logger.info("Verifying only loopback routes are announced to bgp neighbors")
-    mg_facts = dut_host.minigraph_facts(
-        host=dut_host.hostname)['ansible_facts']
-    for i in range(0, 2):
-        addr = mg_facts['minigraph_lo_interfaces'][i]['addr']
-        if ipaddress.IPNetwork(addr).version == 4:
-            lo_addr_v4 = ipaddress.IPNetwork(addr)
-        else:
-            # The IPv6 Loopback announced to neighbors is /64
-            lo_addr_v6 = ipaddress.IPNetwork(addr + "/64")
-    if 4 == ip_ver:
-        lo_addr = lo_addr_v4
-    else:
-        lo_addr = lo_addr_v6
-    routes_on_all_nbrs = parse_routes_on_neighbors(
-        dut_host, neigh_hosts, ip_ver)
+    device_lo_addr_prefix_set = set()
+    device_ipv6_lo_addr_subnet_len_set = set()
+    device_traffic_shift_community_set = set()
+    device_traffic_shift_community_set.add(community)
+    device_ipv6_lo_addr_subnet_len_set.add('64')
+    for dut_host in dut_hosts:
+        if dut_host.is_supervisor_node():
+            continue
+        mg_facts = dut_host.minigraph_facts(host=dut_host.hostname)['ansible_facts']
+        for i in range(0, 2):
+            addr = mg_facts['minigraph_lo_interfaces'][i]['addr']
+            if ipaddress.IPNetwork(addr).version == 4:
+                if 4 == ip_ver:
+                    device_lo_addr_prefix_set.add(addr + "/32")
+            else:
+                # The IPv6 Loopback announced to neighbors is /64
+                if 6 == ip_ver:
+                    device_lo_addr_prefix_set.add(ipaddress.IPv6Address(addr).exploded[:20])
+    routes_on_all_nbrs = parse_routes_on_neighbors(duthost, neigh_hosts, ip_ver)
     for hostname, routes in list(routes_on_all_nbrs.items()):
-        logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(
-            ip_ver, hostname))
+        logger.info("Verifying only loopback routes(ipv{}) are announced to {}".format(ip_ver, hostname))
+        nbr_prefix_set = set()
+        nbr_prefix_community_set = set()
+        nbr_prefix_ipv6_subnet_len_set = set()
         for prefix, received_community in list(routes.items()):
-            if ipaddress.IPNetwork(prefix) != lo_addr:
-                logger.warn("route for {} is found on {}, which is not in loopback address".format(
-                    prefix, hostname))
+            if 4 == ip_ver:
+                nbr_prefix_set.add(prefix)
+            else:
+                nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
+                nbr_prefix_ipv6_subnet_len_set.add(prefix.split('/')[1])
+            nbr_prefix_community_set.add(received_community)
+        if nbr_prefix_set != device_lo_addr_prefix_set:
+            logger.warn("missing loopback address or some other routes present on neighbor")
+            return False
+        if 6 == ip_ver and device_ipv6_lo_addr_subnet_len_set != nbr_prefix_ipv6_subnet_len_set:
+            logger.warn("ipv6 subnet is not /64 for loopback")
+            return False
+        if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
+            if nbr_prefix_community_set != device_traffic_shift_community_set:
+                logger.warn("traffic shift away community not present on neighbor")
                 return False
-            if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
-                if received_community != community:
-                    logger.warn("community for route {} is unexpected {}".format(
-                        prefix, received_community))
-                    return False
     return True
 
 
-def verify_only_loopback_routes_are_announced_to_neighs(dut_host, neigh_hosts, community):
+def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community):
     """
     Verify only loopback routes with certain community are announced to neighs in TSA
     """
-    return verify_loopback_route_with_community(dut_host, neigh_hosts, 4, community) and \
+    return verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, 4, community) and \
         verify_loopback_route_with_community(
-            dut_host, neigh_hosts, 6, community)
+            dut_hosts, duthost, neigh_hosts, 6, community)
 
 
 # API to check if the image has support for BGP_DEVICE_GLOBAL table in the configDB
@@ -372,7 +387,7 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
                                                                           traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
@@ -514,7 +529,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
                                                                           traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
@@ -577,7 +592,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
 
-        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthost, nbrhosts_to_dut,
+        pytest_assert(verify_only_loopback_routes_are_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut,
                                                                           traffic_shift_community),
                       "Failed to verify routes on nbr in TSA")
     finally:
