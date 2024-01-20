@@ -8,55 +8,35 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.cisco.common.utils import skip_if_sim
 
 
 pytestmark = [
     pytest.mark.topology('t2')
 ]
 
+RP_SWITCH_MGMT_PORT = '28'
+LC_SWITCH_ETH1_PORT = '10'
 
-class CheckEnvironment:
-    _is_sim = None
-
-    @staticmethod
-    def is_sim(duthost):
-        return False
-        if CheckEnvironment._is_sim is None:
-            result = duthost.shell("dmidecode | grep QEMU")['stdout']
-            if result:
-                CheckEnvironment._is_sim = True
-                logging.info("In simulation env")
-            else:
-                CheckEnvironment._is_sim = False
-                logging.info("In hardware env")
-        return CheckEnvironment._is_sim
-
-
-def test_eth_switch_monitor(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_monitor(duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
     @summary: Check ethswitch monitoring service
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
-
     result = duthost.command("systemctl status platform-ethswitch.service")
     logging.info(result)
 
-    assert "active (running)" in str(result), "Etherner switch monitor service is not running"
+    assert "active (running)" in str(result), "Ethernet switch monitor service is not running"
 
 
-def test_eth_switch_appDemo(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_appDemo(duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
     @summary: Check ethswitch appdemo process
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
 
     result = duthost.command("ps -C appDemo")
     logging.info(result)
@@ -64,20 +44,17 @@ def test_eth_switch_appDemo(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "appDemo" in str(result), "Appdemo process is not running"
 
 
-def test_eth_switch_cli(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_cli(duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
-    @summary: Inject an fault on midplane link and check the recovery"`
+    @summary: Check the ethernet switch CLI
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
-
     if duthost.is_supervisor_node():
-        port = "28"
+        port = RP_SWITCH_MGMT_PORT
     else:
-        port = "10"
+        port = LC_SWITCH_ETH1_PORT
 
     result = duthost.command("show platform eth-switch interfaces status ethernet 0/{}".format(port));
     logging.info(result)
@@ -85,15 +62,12 @@ def test_eth_switch_cli(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "Up" in str(result), "Failed to get link state in CLI"
 
 
-def test_eth_switch_monitor_midplane_fault(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_monitor_midplane_fault(duthosts, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
     @summary: Inject an fault on midplane link and check the recovery"`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
 
     if duthost.is_supervisor_node():
         pytest.skip("Not supported on RP")
@@ -111,15 +85,12 @@ def test_eth_switch_monitor_midplane_fault(duthosts, enum_rand_one_per_hwsku_hos
     assert "UP" in str(result), "Ethernet switch service failed to recover eth1-midplane"
 
 
-def test_eth_switch_monitor_eth0_fault(duthosts, localhost, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_monitor_eth0_fault(duthosts, localhost, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
     @summary: Inject an fault on eth0 link and check the recovery"`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
 
     if duthost.is_supervisor_node():
         pytest.skip("Not supported on RP")
@@ -134,20 +105,17 @@ def test_eth_switch_monitor_eth0_fault(duthosts, localhost, enum_rand_one_per_hw
     assert "UP" in str(result), "Ethernet switch service failed to recover eth0"
 
 
-def test_eth_switch_inject_link_error(duthosts, localhost, enum_rand_one_per_hwsku_hostname):
+def test_eth_switch_inject_link_error(duthosts, localhost, enum_rand_one_per_hwsku_hostname, skip_if_sim):
     """
-    @summary: Inject an fault on eth0 link and check the recovery"`
+    @summary: Inject link errors and check the recovery"`
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    if CheckEnvironment.is_sim(duthost):
-        pytest.skip("Not supported in SIM")
-
     if duthost.is_supervisor_node():
         pytest.skip("Not supported on RP")
     else:
-        port = "10"
+        port = LC_SWITCH_ETH1_PORT
 
     result = duthost.command("mkdir -p /tmp/rx_err_pkt_test_inject/0")
     logging.info(result)
