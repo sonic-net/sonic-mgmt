@@ -1,3 +1,5 @@
+import random
+
 import pytest
 
 pytestmark = [
@@ -8,7 +10,11 @@ pytestmark = [
 
 def test_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
-
+    num = random.randint(1, 9)
+    print("num is: {}".format(num))
+    assert False
+    if num < 8:
+        assert False
     duthost = duthosts[enum_frontend_dut_hostname]
 
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
