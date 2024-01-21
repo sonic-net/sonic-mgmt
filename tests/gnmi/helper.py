@@ -2,6 +2,7 @@ import time
 import re
 import logging
 import pytest
+from tests.common.utilities import wait_until
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 
@@ -33,11 +34,18 @@ IP      = %s
 
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    # Stop proc-exit-listener at first
-    dut_command = "docker exec %s supervisorctl stop supervisor-proc-exit-listener" % (env.gnmi_container)
-    duthost.shell(dut_command)
-    dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
-    duthost.shell(dut_command)
+    # Stop all running program
+    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    for line in output['stdout_lines']:
+        res = line.split()
+        if len(res) < 3:
+            continue
+        program = res[0]
+        status = res[1]
+        if status == "RUNNING":
+            dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, program)
+            duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s bash -c " % env.gnmi_container
@@ -57,19 +65,21 @@ def apply_cert_config(duthost):
         pytest.fail("Failed to start gnmi server")
 
 
-def recover_cert_config(duthost):
+def check_gnmi_status(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    output = duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
-    if 'RUNNING' in output:
-        return
-    dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
-    duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
-    duthost.shell(dut_command)
-    time.sleep(GNMI_SERVER_START_WAIT_TIME)
-    dut_command = "docker exec %s supervisorctl start supervisor-proc-exit-listener" % (env.gnmi_container)
-    duthost.shell(dut_command)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    return "RUNNING" in output['stdout']
+
+
+def recover_cert_config(duthost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    cmds = [
+        'systemctl reset-failed %s' % (env.gnmi_container),
+        'systemctl restart %s' % (env.gnmi_container)
+    ]
+    duthost.shell_cmds(cmds=cmds)
+    assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
 
 
 def gnmi_capabilities(duthost, localhost):
