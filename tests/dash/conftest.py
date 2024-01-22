@@ -99,7 +99,7 @@ def use_underlay_route(request):
 
 
 @pytest.fixture(scope="function")
-def dash_config_info(duthost, config_facts, minigraph_facts):
+def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
     dash_info = {
         ENI: "F4939FEFC47E",
         VM_VNI: 4321,
@@ -120,14 +120,26 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
     dash_info[DUT_MAC] = config_facts["DEVICE_METADATA"]["localhost"]["mac"]
 
     neigh_table = duthost.switch_arptable()['ansible_facts']['arptable']
+    topo = tbinfo["topo"]["name"]
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
-        # Pick the first two BGP neighbor IPs since these should already be learned on the DUT
+        # For dpu with 2 ports Pick the first two BGP neighbor IPs since these should already be learned on the DUT
+        # Take neigh 1 as local PA, take neigh 2 as remote PA
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
                 dash_info[LOCAL_PA_IP] = neigh_ip
                 intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                if topo == 'dpu-1' and REMOTE_PA_IP not in dash_info:
+                    # For dup with single one port, there is only one bgp neighbor. Also take the neigh 1 as local pa,
+                    # take neigh 2's IP and network as remote PA,
+                    # but the mac of remote PA will take the value of nigh 1,
+                    # and the remote ptf intf will take the value of neigh 1
+                    dash_info[REMOTE_PA_IP] = '10.0.2.2'
+                    dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
+                    dash_info[REMOTE_PTF_MAC] = dash_info[LOCAL_PTF_MAC]
+                    dash_info[REMOTE_PA_PREFIX] = "10.0.2.0/24"
+                    break
             elif REMOTE_PA_IP not in dash_info:
                 dash_info[REMOTE_PA_IP] = neigh_ip
                 intf, intf_ip = get_intf_from_ip(config['local_addr'], config_facts)
@@ -186,11 +198,14 @@ def apply_inbound_configs(dash_inbound_configs, apply_config):
 
 
 @pytest.fixture(scope="function")
-def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts):
+def dash_outbound_configs(dash_config_info, use_underlay_route, minigraph_facts, tbinfo):
     if use_underlay_route:
         dash_config_info[REMOTE_PA_IP] = u"30.30.30.30"
         dash_config_info[REMOTE_PA_PREFIX] = "30.30.30.30/32"
-        dash_config_info[REMOTE_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
+        if tbinfo["topo"]["name"] == "dpu-1":
+            dash_config_info[REMOTE_PTF_INTF] = [dash_config_info[REMOTE_PTF_INTF]]
+        else:
+            dash_config_info[REMOTE_PTF_INTF] = list(minigraph_facts["minigraph_ptf_indices"].values())
     else:
         dash_config_info[REMOTE_PTF_INTF] = [dash_config_info[REMOTE_PTF_INTF]]
 
