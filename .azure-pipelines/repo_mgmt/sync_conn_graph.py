@@ -4,6 +4,7 @@ import requests
 import json
 import sys
 import yaml
+import fnmatch
 import logging
 from requests.auth import HTTPBasicAuth
 from datetime import datetime
@@ -20,6 +21,8 @@ TARGET_BRANCH = ['internal-202012', 'internal-202205', 'internal-202305', 'inter
 ANSIBLE_INVENTORY_LIST = ['testbed.yaml', 'veos', 'wan_sonic_tb', 'wan_vtestbed.yaml']
 
 ANSIBLE_PATH = 'ansible/'
+TOPO_FILE_PATH = 'ansible/vars/'
+TOPO_FILE_PATTERN = "topo_*.yml"
 LAB_GRAPHFILE_PATH = 'ansible/files/'
 LAB_GRAPH_GROUPS_FILE = "graph_groups.yml"
 INV_MAPPING_FILE = "group_vars/all/inv_mapping.yml"
@@ -68,6 +71,12 @@ def remove_useless_remote_branches(repo, url_with_token):
 
 def get_graph_files(repo_path):
     graph_file_list = []
+
+    topo_file_path = os.path.join(repo_path, TOPO_FILE_PATH)
+    topo_file_list = [file for file in os.listdir(topo_file_path) if fnmatch.fnmatch(file, TOPO_FILE_PATTERN)]
+    for topo_yml_name in topo_file_list:
+        graph_file_list.append(os.path.join(TOPO_FILE_PATH, topo_yml_name))
+
     graph_group_file = os.path.join(repo_path, LAB_GRAPHFILE_PATH, LAB_GRAPH_GROUPS_FILE)
     with open(graph_group_file) as fd:
         graph_groups = yaml.safe_load(fd)
@@ -106,7 +115,7 @@ def create_graph_xml(repo_path, graph_groups):
             continue
         logger.info(f"Creating graph xml for {group}...")
         try:
-            os.system(f"python {create_graph_file_path} -i {group} -o {graph_xml}")
+            os.system(f"python2 {create_graph_file_path} -i {group} -o {graph_xml}")
         except Exception as e:
             logger.info(f"Failed to create graph xml for {group}. Error: {e}")
             continue
