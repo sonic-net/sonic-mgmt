@@ -32,6 +32,22 @@ def ssh_connect_remote(remote_ip, remote_username, remote_password):
     return ssh
 
 
+def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
+    retry_count = 3
+    while retry_count > 0:
+        try:
+            return ssh_connect_remote(remote_ip, remote_username, remote_password)
+        except paramiko.ssh_exception.AuthenticationException as e:
+            logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
+
+            # get syslog for debug
+            recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
+            logger.debug("Target device syslog: {}".format(recent_syslog))
+
+        time.sleep(1)
+        retry_count -= 1
+
+
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
     try:
@@ -66,10 +82,11 @@ def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
 def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    with ssh_connect_remote(
+    with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_authorization_user'],
-        tacacs_creds['tacacs_authorization_user_passwd']
+        tacacs_creds['tacacs_authorization_user_passwd'],
+        duthost
     ) as ssh_client:
         yield ssh_client
 
@@ -78,10 +95,11 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds)
 def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    with ssh_connect_remote(
+    with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_rw_user'],
-        tacacs_creds['tacacs_rw_user_passwd']
+        tacacs_creds['tacacs_rw_user_passwd'],
+        duthost
     ) as ssh_client:
         yield ssh_client
 
@@ -306,10 +324,10 @@ def test_authorization_tacacs_and_local(
     pytest_assert(exit_code == 1)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
-    # Verify TACACS+ user can run command not in server side whitelist, but have local permission.
+    # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 0)
-    check_ssh_output_any_of(stdout, ['root:x:0:0:root:/root:/bin/bash'])
+    pytest_assert(exit_code == 1)
+    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip

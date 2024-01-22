@@ -13,6 +13,7 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.parallel import parallel_run_threaded
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +26,21 @@ TEST_DIR = "/tmp/acstests/"
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*missed_ROUTE_TABLE_routes.*"])
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+                ]
+            )
 
     return
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(ptfhost):
+def common_setup_teardown(ptfhost, duthosts):
     logger.info("########### Setup for lag testing ###########")
 
     ptfhost.shell("mkdir -p {}".format(TEST_DIR))
@@ -48,6 +54,18 @@ def common_setup_teardown(ptfhost):
     yield ptfhost
 
     ptfhost.file(path=TEST_DIR, state="absent")
+    # NOTE: As test_lag always causes the route_check to fail and route_check
+    # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
+    # the test_lag will suffer from the monit alert, so let's config reload the
+    # device here to reduce any potential impact.
+    parallel_run_threaded(
+        target_functions=[
+            lambda duthost=_: config_reload(
+                duthost, config_source='running_golden_config'
+            ) for _ in duthosts
+        ],
+        timeout=300
+    )
 
 
 def is_vtestbed(duthost):

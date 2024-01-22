@@ -47,6 +47,7 @@ all:
           - m0-2vlan
           - mc0
           - mx
+          - dpu-1
       children:
         server_1:
         server_2:
