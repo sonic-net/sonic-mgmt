@@ -1827,6 +1827,21 @@
   auto_recover: 'True'
   comment: zitingguo
 
+- conf-name: vms68-t1-s6100-1
+  group-name: vms68-3
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms68-3
+  ptf_ip: 10.64.247.78/23
+  ptf_ipv6:
+  server: server_68
+  vm_base: VM68097
+  dut:
+    - str3-s6100-acs-8
+  inv_name: str3
+  auto_recover: 'True'
+  comment: zitingguo
+
 - conf-name: vms64-t1-7260-14
   group-name: vms64-5
   topo: t1-64-lag

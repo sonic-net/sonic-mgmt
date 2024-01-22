@@ -67,6 +67,8 @@ all:
           ansible_host: 10.64.247.51
         vms68-2:
           ansible_host: 10.64.246.37
+        vms68-3:
+          ansible_host: 10.64.247.78
 
     pdu:
       hosts:
@@ -157,6 +159,8 @@ fanout:
       ansible_host: 10.3.147.158
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.147.159
+    str3-7260cx3-acs-fan-11:
+      ansible_host: 10.3.146.203
     str3-7260qx-acs-fan-01:
       ansible_host: 10.3.147.76
     str3-7260qx-acs-fan-02:
@@ -1320,6 +1324,28 @@ sonic_dell64_40:
         "0x2E": "3.25.4.1"
         "0x2F": "DVWQG02"
         "0xFE": "0xA30214AA"
+    str3-s6100-acs-8:
+      ansible_host: 10.64.247.77
+      model: 0F6N2R
+      serial: 82XB9Z2
+      base_mac: 0C:29:EF:9D:5B:20
+      syseeprom_info:
+        "0x21": "S6100-ON"
+        "0x22": "0F6N2R"
+        "0x23": "TH0F6N2RCET0002R000Z"
+        "0x24": "0C:29:EF:9D:5B:20"
+        "0x25": "02/28/2020 13:36:59"
+        "0x26": "1"
+        "0x27": "A07"
+        "0x28": "x86_64-dell_s6100_c2538-r0"
+        "0x29": "3.15.1.0"
+        "0x2A": "384"
+        "0x2B": "CET00"
+        "0x2C": "TH"
+        "0x2D": "DELL"
+        "0x2E": "3.25.4.1"
+        "0x2F": "82XB9Z2"
+        "0xFE": "0x3B938EB1"
   vars:
     hwsku: Force10-S6100
     iface_speed: 40000

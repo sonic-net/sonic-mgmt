@@ -64,6 +64,8 @@ pdu-93,14,str3-7260cx3-acs-fan-09,PSU1
 pdu-94,16,str3-7260cx3-acs-fan-09,PSU2
 pdu-93,7,str3-7260cx3-acs-fan-10,PSU1
 pdu-94,7,str3-7260cx3-acs-fan-10,PSU2
+pdu-115,29,str3-7260cx3-acs-fan-11,PSU1
+pdu-115,30,str3-7260cx3-acs-fan-11,PSU2
 pdu-97,34,str3-7260qx-acs-fan-01,PSU1
 pdu-96,34,str3-7260qx-acs-fan-01,PSU2
 pdu-102,37,str3-7260qx-acs-fan-02,PSU1
@@ -136,3 +138,5 @@ pdu-115,26,str3-msn4700-02,PSU1
 pdu-116,26,str3-msn4700-02,PSU2
 pdu-115,25,str3-msn4700-fanout-02,PSU1
 pdu-116,25,str3-msn4700-fanout-02,PSU2
+pdu-115,27,str3-s6100-acs-8,PSU1
+pdu-115,28,str3-s6100-acs-8,PSU2

@@ -17,6 +17,7 @@ str3-7260cx3-acs-fan-07,10.3.146.86/23,Arista-7260CX3-C64,FanoutLeafSonic,,sonic
 str3-7260cx3-acs-fan-08,10.3.146.117/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-09,10.3.147.158/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260cx3-acs-fan-10,10.3.147.159/23,Arista-7260CX3,FanoutLeaf,,
+str3-7260cx3-acs-fan-11,10.3.146.203/23,Arista-7260CX3,FanoutLeaf,,
 str3-7260qx-acs-fan-01,10.3.147.76/23,Arista-7260QX-64,FanoutLeaf,,
 str3-7260qx-acs-fan-02,10.3.147.12/23,Arista-7260QX-64,FanoutLeaf,,
 str3-7260cx3-acs-fan-23,10.3.146.114/23,Arista-7260CX3,FanoutLeaf,,
@@ -112,3 +113,4 @@ str3-msn4700-02,10.3.147.137/23,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str3-msn4700-fanout-02,10.3.147.138/23,Mellanox-SN4700-O8V48,FanoutLeafSonic,,sonic
 str3-msn4700-04,10.3.147.155/23,Mellanox-SN4700-O28,DevSonic,,sonic
 str3-msn4700-fanout-04,10.3.147.161/23,Mellanox-SN4700-O28,FanoutLeafSonic,,sonic
+str3-s6100-acs-8,10.64.247.77/23,Force10-S6100,DevSonic,,sonic
