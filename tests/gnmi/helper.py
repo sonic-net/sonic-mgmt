@@ -58,10 +58,10 @@ def apply_cert_config(duthost):
     output = duthost.shell(dut_command, module_ignore_errors=True)
     if "telemetry" not in output['stdout']:
         # Dump tcp port status and gnmi log
-        logger.error("TCP port status: " + output['stdout'])
+        logger.info("TCP port status: " + output['stdout'])
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         output = duthost.shell(dut_command, module_ignore_errors=True)
-        logger.error("GNMI log: " + output['stdout'])
+        logger.info("GNMI log: " + output['stdout'])
         pytest.fail("Failed to start gnmi server")
 
 
@@ -93,7 +93,7 @@ def gnmi_capabilities(duthost, localhost):
         # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
-        logger.error("GNMI log: " + res['stdout'])
+        logger.info("GNMI log: " + res['stdout'])
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -116,7 +116,7 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
         # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
-        logger.error("GNMI log: " + res['stdout'])
+        logger.info("GNMI log: " + res['stdout'])
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -135,7 +135,7 @@ def gnmi_get(duthost, localhost, path_list):
         # Dump gnmi log
         dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
         res = duthost.shell(dut_command, module_ignore_errors=True)
-        logger.error("GNMI log: " + res['stdout'])
+        logger.info("GNMI log: " + res['stdout'])
         return -1, [output['stderr']]
     else:
         msg = output['stdout'].replace('\\', '')
