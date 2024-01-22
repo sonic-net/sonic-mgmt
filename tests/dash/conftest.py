@@ -140,10 +140,12 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
                     # and only the mac of neighbor 1 exists in the arp table.
                     # The remote ptf intf will take the value of neighbor 1
                     # because the packet to remote PA will be forwarded to the ptf port corresponding to neighbor 1.
-                    dash_info[REMOTE_PA_IP] = '10.0.2.2'
+                    fake_neighbor_2_ip = '10.0.2.2'
+                    fake_neighbor_2_prefix = "10.0.2.0/24"
+                    dash_info[REMOTE_PA_IP] = fake_neighbor_2_ip
                     dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
                     dash_info[REMOTE_PTF_MAC] = dash_info[LOCAL_PTF_MAC]
-                    dash_info[REMOTE_PA_PREFIX] = "10.0.2.0/24"
+                    dash_info[REMOTE_PA_PREFIX] = fake_neighbor_2_prefix
                     break
             elif REMOTE_PA_IP not in dash_info:
                 dash_info[REMOTE_PA_IP] = neigh_ip

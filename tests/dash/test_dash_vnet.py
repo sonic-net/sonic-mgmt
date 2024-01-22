@@ -17,7 +17,7 @@ pytestmark = [
 
 
 @pytest.fixture(scope="function", autouse=True)
-def acl_default_route(duthost, ptfhost, dash_config_info):
+def acl_default_rule(duthost, ptfhost, dash_config_info):
     hwsku = duthost.facts['hwsku']
     hwsku_list_with_default_acl_action_deny = ['Nvidia-9009d3b600CVAA-C1', 'Nvidia-9009d3b600SVAA-C1']
     if hwsku in hwsku_list_with_default_acl_action_deny:
