@@ -11,6 +11,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.utilities import wait_until
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
+from pkg_resources import parse_version
 
 logger = logging.getLogger(__name__)
 
@@ -318,12 +319,14 @@ def validate_dump_file_content(duthost, dump_folder_path):
     :param dump_folder_path: path to folder which has extracted dump file content
     :return: AssertionError in case of failure, else None
     """
-    sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
     dump = duthost.command("ls {}/dump/".format(dump_folder_path))["stdout_lines"]
     etc = duthost.command("ls {}/etc/".format(dump_folder_path))["stdout_lines"]
     log = duthost.command("ls {}/log/".format(dump_folder_path))["stdout_lines"]
 
-    assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+    # Check sai_sdk_dump only for mellanox platform
+    if duthost.facts['asic_type'] in ["mellanox"]:
+        sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
+        assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
@@ -394,11 +397,27 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         "nat_cmds": cmds.nat_cmds,
         "bfd_cmds": add_asic_arg(" -n {}", cmds.bfd_cmds, num),
         "redis_db_cmds": add_asic_arg("asic{} ", cmds.redis_db_cmds, num),
-        "docker_cmds":
-            add_asic_arg("{}", cmds.docker_cmds_201911 if '201911' in duthost.os_version else cmds.docker_cmds, num),
         "misc_show_cmds": add_asic_arg("asic{} ", cmds.misc_show_cmds, num),
         "misc_cmds": cmds.misc_cmds,
     }
+
+    if '201911' in duthost.os_version:
+        docker_cmds = cmds.docker_cmds_201911
+    elif duthost.facts['router_type'] == 'spinerouter':
+        docker_cmds = cmds.docker_cmds_t2
+    else:
+        docker_cmds = cmds.docker_cmds
+
+    cmds_to_check.update(
+        {
+            "docker_cmds":
+                add_asic_arg("{}", docker_cmds, num)}
+    )
+
+    # /proc/sched_debug has been moved to debugfs starting with 5.13.0, and is
+    # currently collected only on the older kernel versions
+    if parse_version(duthost.kernel_version) < parse_version('5.13.0'):
+        cmds.copy_proc_files.append("/proc/sched_debug")
 
     if duthost.facts["asic_type"] == "broadcom":
         if duthost.facts.get("platform_asic") == "broadcom-dnx":

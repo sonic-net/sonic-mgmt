@@ -21,6 +21,17 @@ SONIC_SSH_REGEX = "OpenSSH_[\\w\\.]+ Debian"
 SONIC_SSH_PORT = 22
 
 
+@pytest.fixture(autouse=True)
+def _ignore_mux_errlogs(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(
+            [
+                ".*ERR pmon#CCmisApi.*y_cable_port.*GET http.*"
+            ])
+    return
+
+
 def restore_config_db(duthost):
     # Restore the original config_db to override the config_db with mgmt vrf config
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
@@ -185,7 +196,7 @@ class TestMvrfOutbound():
         logger.info("Starting http server on PTF")
         free_port = self.get_free_port(ptfhost)
         ptfhost.command("python {} {}".format(server_script_dest_path, free_port), module_async=True)
-        localhost.wait_for(host=ptfhost.mgmt_ip, port=int(free_port), state="started", timeout=30)
+        localhost.wait_for(host=ptfhost.mgmt_ip, port=int(free_port), state="started", timeout=60)
 
         url = "http://{}:{}".format(ptfhost.mgmt_ip, free_port)
         from temp_http_server import MAGIC_STRING

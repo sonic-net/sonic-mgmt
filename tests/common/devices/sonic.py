@@ -16,7 +16,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
-from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -26,6 +26,11 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
+
+PROCESS_TO_CONTAINER_MAP = {
+    "orchagent": "swss",
+    "syncd": "syncd"
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -81,6 +86,12 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
         if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+        feature_status = self.get_feature_status()
+        # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
+        # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
+        gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
+        if gbsyncd_enabled and self.facts["asic_type"] != "vs":
+            self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
@@ -404,6 +415,11 @@ class SonicHost(AnsibleHostBase):
         """
         return not self.is_supervisor_node()
 
+    def is_macsec_capable_node(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_macsec_capable_node(inv_files, self.hostname)
+
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
@@ -422,6 +438,14 @@ class SonicHost(AnsibleHostBase):
                 return False
         except Exception:
             return False
+
+    def get_running_containers(self):
+        """
+        Get the running containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
 
     def is_container_running(self, service):
         """
@@ -444,6 +468,15 @@ class SonicHost(AnsibleHostBase):
             logging.info("container {} is not running".format(service))
 
         return len(status["stdout_lines"]) > 1
+
+    def is_host_service_running(self, service):
+        """
+        Check if the specified service is running or not
+        @param service: Service name
+        @return: True if specified service is running, else False
+        """
+        service_status = self.shell("sudo systemctl status {} | grep 'Active'".format(service))
+        return "active (running)" in service_status['stdout']
 
     def critical_services_status(self):
         # Initialize service status
@@ -479,8 +512,7 @@ class SonicHost(AnsibleHostBase):
                  and service type.
         """
         monit_services_status = {}
-
-        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=False)
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=True)
 
         exit_code = services_status_result["rc"]
         if exit_code != 0:
@@ -560,11 +592,11 @@ class SonicHost(AnsibleHostBase):
         # Get critical group and process definitions by running cmds in batch to save overhead
         cmds = []
         for service in self.critical_services:
-            cmd = "docker exec {} bash -c '[ -f /etc/supervisor/critical_processes ]" \
-                  " && cat /etc/supervisor/critical_processes'".format(service)
+            cmd = 'docker exec {} bash -c "[ -f /etc/supervisor/critical_processes ]' \
+                  ' && cat /etc/supervisor/critical_processes"'.format(service)
 
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -597,6 +629,14 @@ class SonicHost(AnsibleHostBase):
             group_process_results[service] = service_group_process
 
         return group_process_results
+
+    def critical_processes_running(self, service):
+        """
+        @summary: Check whether critical processes are running for a service
+
+        @param service: Name of the SONiC service
+        """
+        return self.critical_process_status(service)['status']
 
     def critical_process_status(self, service):
         """
@@ -644,7 +684,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -695,7 +735,7 @@ class SonicHost(AnsibleHostBase):
             # In this situation, service container status should be false
             # We can check status is valid or not
             # You can just add valid status str in this tuple if meet later
-            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF'):
+            if status not in ('RUNNING', 'EXITED', 'STOPPED', 'FATAL', 'BACKOFF', 'STARTING'):
                 service_critical_process['status'] = False
             # 2. Check status is not running
             elif status != 'RUNNING':
@@ -708,6 +748,28 @@ class SonicHost(AnsibleHostBase):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
+
+    def control_process(self, process, pause=True, namespace='', signal=''):
+        """
+        Send a signal to a process on the DUT
+        """
+        process_control_cmd = "docker exec -i {}{} bash -c 'kill -s {} `pgrep {}`'"
+        if signal:
+            proc_signal = signal
+        elif pause:
+            proc_signal = "SIGSTOP"
+        elif not pause:
+            proc_signal = "SIGCONT"
+        else:
+            logger.error("Must specify either `pause` or a specific signal")
+            return
+
+        container = PROCESS_TO_CONTAINER_MAP.get(process, None)
+        if not container:
+            logger.error("Unknown process {}".format(process))
+            return
+        cmd = process_control_cmd.format(container, namespace, proc_signal, process)
+        self.shell(cmd)
 
     def get_crm_resources_for_masic(self, namespace=DEFAULT_NAMESPACE):
         """
@@ -1267,6 +1329,10 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
         return True
 
+    def check_intf_link_state(self, interface_name):
+        intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
+        return intf_status[interface_name]['oper_state'] == 'up'
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1597,7 +1663,7 @@ Totals               6450                 6449
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host=self.hostname, namespace=namespace)['ansible_facts']
-        mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+        mg_facts['minigraph_ptf_indices'] = {}
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indices from
@@ -1645,7 +1711,7 @@ Totals               6450                 6449
         if ("Broadcom Limited Device b960" in output or
                 "Broadcom Limited Broadcom BCM56960" in output):
             asic = "th"
-        elif "Broadcom Limited Device b971" in output:
+        elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
                 "Broadcom Limited Broadcom BCM56850" in output):
@@ -1657,8 +1723,13 @@ Totals               6450                 6449
             asic = "th3"
         elif "Cisco Systems Inc Device a001" in output:
             asic = "gb"
+        elif "Mellanox Technologies" in output:
+            asic = "spc"
 
         return asic
+
+    def is_nvidia_platform(self):
+        return 'mellanox' == self.facts['asic_type']
 
     def _get_platform_asic(self, platform):
         platform_asic = os.path.join(
@@ -1812,10 +1883,11 @@ Totals               6450                 6449
                 else:
                     in_section = False
                     continue
-            # Output of 'crm show resources all' has 3 sections.
+            # Output of 'crm show resources all' has 3 sections(4 on DPU platform).
             #   section 1: resources usage
             #   section 2: ACL group
             #   section 3: ACL table
+            #   section 4: DASH(DPU) ACL rules
             if 1 in list(sections.keys()):
                 crm_facts['resources'] = {}
                 resources = self._parse_show(sections[1])
@@ -1830,6 +1902,9 @@ Totals               6450                 6449
 
             if 3 in list(sections.keys()):
                 crm_facts['acl_table'] = self._parse_show(sections[3])
+
+            if 4 in list(sections.keys()):
+                crm_facts['dash_acl_group'] = self._parse_show(sections[4])
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
@@ -1937,22 +2012,6 @@ Totals               6450                 6449
         )
 
         return "RUNNING" in service_status
-
-    def remove_ssh_tunnel_sai_rpc(self):
-        """
-        Removes any ssh tunnels if present created for syncd RPC communication
-
-        Returns:
-            None
-        """
-        try:
-            pid_list = self.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:9092"'
-            )["stdout_lines"]
-        except RunAnsibleModuleFail:
-            return
-        for pid in pid_list:
-            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def get_up_ip_ports(self):
         """
@@ -2191,6 +2250,13 @@ Totals               6450                 6449
                                              .format(acl_table_name, acl_rule_name, rule['packets count']))
         raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
 
+    def get_port_counters(self, in_json=True):
+        cli = "portstat"
+        if in_json:
+            cli += " -j"
+        res = self.shell(cli)['stdout']
+        return re.sub(r"Last cached time was.*\d+\n", "", res)
+
     def remove_acl_table(self, acl_table):
         """
         Remove acl table
@@ -2237,6 +2303,22 @@ Totals               6450                 6449
         elif ip:
             self.command("config interface ip remove {} {}".format(port, ip))
 
+    def remove_ip_addr_from_port(self, port, ip):
+        """
+        Remove ip addr from the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip remove {} {}".format(port, ip))
+
+    def add_ip_addr_to_port(self, port, ip, gwaddr):
+        """
+        Add ip addr on the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
+
     def remove_vlan(self, vlan_id):
         """
         Remove vlan
@@ -2275,7 +2357,7 @@ Totals               6450                 6449
     def links_status_down(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down
@@ -2291,7 +2373,7 @@ Totals               6450                 6449
     def links_status_up(self, ports):
         show_int_result = self.command("show interface status")
         for output_line in show_int_result['stdout_lines']:
-            output_port = output_line.split(' ')[0]
+            output_port = output_line.strip().split(' ')[0]
             # Only care about port that connect to current DUT
             if output_port in ports:
                 # Either oper or admin status 'down' means link down

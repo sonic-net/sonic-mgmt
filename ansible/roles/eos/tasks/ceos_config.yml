@@ -18,6 +18,13 @@
 - name: Set EOS backplane port name
   set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int - 1}}"
 
+- name: cleanup previous ceos mount dir
+  become: yes
+  file:
+    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
+    state: absent
+  delegate_to: "{{ VM_host[0] }}"
+
 - name: create directory for ceos config
   become: yes
   file:

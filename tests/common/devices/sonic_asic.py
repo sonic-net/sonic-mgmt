@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
@@ -19,6 +20,7 @@ class SonicAsic(object):
 
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
+    _RPC_PORT_FOR_SSH_TUNNEL = 9092
 
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
@@ -325,6 +327,9 @@ class SonicAsic(object):
 
         logger.debug(output)
 
+    def get_rpc_port_ssh_tunnel(self):
+        return self._RPC_PORT_FOR_SSH_TUNNEL + self.asic_index
+
     def remove_ssh_tunnel_sai_rpc(self):
         """
         Removes any ssh tunnels if present created for syncd RPC communication
@@ -334,7 +339,15 @@ class SonicAsic(object):
         """
         if not self.sonichost.is_multi_asic:
             return
-        return self.sonichost.remove_ssh_tunnel_sai_rpc()
+
+        try:
+            pid_list = self.sonichost.shell(
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:{}"'.format(self.get_rpc_port_ssh_tunnel())
+            )["stdout_lines"]
+        except RunAnsibleModuleFail:
+            return
+        for pid in pid_list:
+            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def create_ssh_tunnel_sai_rpc(self):
         """
@@ -363,7 +376,8 @@ class SonicAsic(object):
 
         self.sonichost.shell(
             ("ssh -o StrictHostKeyChecking=no -fN"
-             " -L *:9092:{}:9092 localhost").format(ns_docker_if_ipv4))
+             " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
+                                                self._RPC_PORT_FOR_SSH_TUNNEL))
 
     def command(self, cmdstr):
         """
@@ -514,6 +528,17 @@ class SonicAsic(object):
                                             pc=pc_name,
                                             intf=interface_name))
 
+    def get_portchannel_members(self, pc_name):
+        """
+        Get the running PortChannel members of the given PortChannel
+        """
+        cmd = "show interfaces portchannel"
+        ret = self.sonichost.show_and_parse(cmd)
+        for pc in ret:
+            if pc["team dev"] == pc_name:
+                return pc["ports"].split()
+        return []
+
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
         return self.sonichost.switch_arptable(*module_args, **complex_args)
@@ -524,7 +549,12 @@ class SonicAsic(object):
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
         ports = self.shell(cmd)["stdout_lines"][0]
-        if ports is not None and portname in ports:
+        # The variable 'ports' is a string in format below
+        # u"dict_keys(['Ethernet144', 'Ethernet152', 'Ethernet160', 'Ethernet280'])"
+        # doing a regex match for '<interface_name>'' to get the **exact** port.
+        # Without which a check like --> ('Ethernet16' in ports) returns true, because
+        # Ethernet16 matches as a substring to Ethernet160 which is present in 'ports'
+        if ports is not None and re.search(r"'{}'".format(portname), ports):
             return True
         return False
 
@@ -534,7 +564,16 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs = self.shell(cmd)["stdout_lines"][0]
+        # sonic-cfggen returns "'PORTCHANNEL' is undefined" error if no portchannels are defined in config
+        # Wrapping shell cmd in try block to account for that case
+        pcs = None
+        try:
+            pcs = self.shell(cmd)["stdout_lines"][0]
+        except RunAnsibleModuleFail as e:
+            if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
+                return False
+            else:
+                raise
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:

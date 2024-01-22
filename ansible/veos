@@ -15,6 +15,7 @@ all:
         topologies:
           - t1
           - t1-lag
+          - t1-28-lag
           - t1-56-lag
           - t1-64-lag
           - t1-64-lag-clet
@@ -43,8 +44,10 @@ all:
           - dualtor-mixed-56
           - dualtor-mixed-120
           - m0
+          - m0-2vlan
           - mc0
           - mx
+          - dpu-1
       children:
         server_1:
         server_2:

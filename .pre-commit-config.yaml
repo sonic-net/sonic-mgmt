@@ -15,6 +15,10 @@ repos:
     hooks:
     -   id: flake8
         args: ["--max-line-length=120"]
+        exclude: ^spytest/
+    -   id: flake8
+        files: ^spytest/.*
+        args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,E7,W5"]
 
 -   repo: https://github.com/sonic-net/sonic-mgmt
     rev: 1.0.0+pre_commit

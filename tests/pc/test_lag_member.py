@@ -3,12 +3,13 @@ import pytest
 import time
 import logging
 import ipaddress
+import json
 import sys
 from collections import Counter
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py   # noqa F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,8 @@ HWSKU_INTF_NUMBERS_DICT = {
 # To save time when debugging: if True, wouldn't run config_reload() in dut_teardown() and wouldn't recover acl table
 IS_DEBUG = False
 DEAFULT_NUMBER_OF_MEMBER_IN_LAG = 8
+DISABLE_ARP_REPLY = 8
+ENABLE_ARP_REPLY = 0
 
 
 def transfer_vlan_member(duthost, src_vlan_id, dst_vlan_id, member_name):
@@ -62,7 +65,7 @@ def transfer_vlan_member(duthost, src_vlan_id, dst_vlan_id, member_name):
     duthost.add_member_to_vlan(dst_vlan_id, member_name, False)
 
 
-def fast_dut_restore(duthost, dut_lag_map, src_vlan_id):
+def fast_dut_restore(duthost, dut_ports, src_vlan_id, vlan):
     """
     Restore DUT configuration by reverse operation of adding lag
     This function wouldn't recover acl table deleted in previous step!!!
@@ -73,19 +76,18 @@ def fast_dut_restore(duthost, dut_lag_map, src_vlan_id):
         src_vlan_id: src vlan id
     """
     # Del port channel member
-    for dut_lag_member in dut_lag_map[DUT_LAG_NAME]:
+    for dut_lag_member in dut_ports[ATTR_PORT_BEHIND_LAG].values():
         duthost.shell("config portchannel member del {} {}".format(DUT_LAG_NAME, dut_lag_member))
         duthost.add_member_to_vlan(src_vlan_id, dut_lag_member, False)
 
-    duthost.del_member_from_vlan(dut_lag_map["vlan"]["id"], DUT_LAG_NAME)
+    duthost.del_member_from_vlan(vlan["id"], DUT_LAG_NAME)
     duthost.shell("config portchannel del {}".format(DUT_LAG_NAME))
-    transfer_vlan_member(duthost, dut_lag_map["vlan"]["id"], src_vlan_id,
-                         dut_lag_map[ATTR_PORT_NOT_BEHIND_LAG]["port_name"])
-    duthost.remove_ip_from_port("Vlan{}".format(dut_lag_map["vlan"]["id"]), dut_lag_map["vlan"]["ip"])
-    duthost.shell("config vlan del {}".format(dut_lag_map["vlan"]["id"]))
+    transfer_vlan_member(duthost, vlan["id"], src_vlan_id, dut_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"])
+    duthost.remove_ip_from_port("Vlan{}".format(vlan["id"]), vlan["ip"])
+    duthost.shell("config vlan del {}".format(vlan["id"]))
 
 
-def dut_teardown(duthost, dut_lag_map, src_vlan_id):
+def dut_teardown(duthost, dut_ports, src_vlan_id, vlan):
     """
     Restore dut configuration
 
@@ -97,14 +99,23 @@ def dut_teardown(duthost, dut_lag_map, src_vlan_id):
     if IS_DEBUG:
         # To save time, try a fast restore first, wouldn't restore the acl table
         try:
-            fast_dut_restore(duthost, dut_lag_map, src_vlan_id)
+            fast_dut_restore(duthost, dut_ports, src_vlan_id, vlan)
         except Exception:
             config_reload(duthost)
     else:
         config_reload(duthost)
 
 
-def ptf_teardown(ptfhost, ptf_lag_map):
+def set_arp_reply(ptfhost, interface_list, value):
+    """
+    Disable / Enable arp reply per interface
+    """
+    for interface in interface_list:
+        ptfhost.shell("sysctl -w net.ipv4.conf.{}.arp_ignore={}".format(interface, value))
+    ptfhost.shell("sysctl -p")
+
+
+def ptf_teardown(ptfhost, ptf_ports):
     """
     Restore ptf configuration
 
@@ -112,16 +123,21 @@ def ptf_teardown(ptfhost, ptf_lag_map):
         ptfhost: PTF host object
         ptf_lag_map: imformation about lag in ptf
     """
+    # Restore linux arp response
+    set_arp_reply(ptfhost, [PTF_LAG_NAME, ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]], ENABLE_ARP_REPLY)
+
     ptfhost.set_dev_no_master(PTF_LAG_NAME)
 
-    for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+    port_name_list = ptf_ports[ATTR_PORT_BEHIND_LAG].values()
+    for ptf_lag_member in port_name_list:
         ptfhost.set_dev_no_master(ptf_lag_member)
         ptfhost.set_dev_up_or_down(ptf_lag_member, True)
 
     ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
-    ptfhost.shell("ip addr del {} dev {}".format(ptf_lag_map[ATTR_PORT_NOT_BEHIND_LAG]["ip"],
-                                                 ptf_lag_map[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
+    ptfhost.shell("ip addr del {} dev {}".format(ptf_ports["ip"][ATTR_PORT_NOT_BEHIND_LAG],
+                                                 ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]))
     ptfhost.ptf_nn_agent()
+    ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
 
 
 def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
@@ -143,7 +159,6 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
     # Create port channel
     duthost.shell("config portchannel add {}".format(DUT_LAG_NAME))
 
-    lag_port_list = []
     port_list_idx = 0
     port_list = list(dut_ports[ATTR_PORT_BEHIND_LAG].values())
     # Add ports to port channel
@@ -151,22 +166,17 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
         port_name = port_list[port_list_idx]
         duthost.del_member_from_vlan(src_vlan_id, port_name)
         duthost.shell("config portchannel member add {} {}".format(DUT_LAG_NAME, port_name))
-        lag_port_list.append(port_name)
         port_list_idx += 1
 
     duthost.shell("config vlan add {}".format(vlan["id"]))
     duthost.shell("config interface ip add Vlan{} {}".format(vlan["id"], vlan["ip"]))
     duthost.add_member_to_vlan(vlan["id"], DUT_LAG_NAME, False)
     transfer_vlan_member(duthost, src_vlan_id, vlan["id"], dut_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"])
-
-    lag_port_map = {}
-    lag_port_map[DUT_LAG_NAME] = lag_port_list
-    lag_port_map[ATTR_PORT_NOT_BEHIND_LAG] = dut_ports[ATTR_PORT_NOT_BEHIND_LAG]
-    lag_port_map["vlan"] = vlan
-    return lag_port_map
+    duthost.shell("sonic-clear fdb all")
+    duthost.shell("sonic-clear arp")
 
 
-def setup_ptf_lag(ptfhost, ptf_ports, vlan):
+def setup_ptf_lag(ptfhost, ptf_ports):
     """
     Setup ptf lag
 
@@ -178,37 +188,42 @@ def setup_ptf_lag(ptfhost, ptf_ports, vlan):
     Returns:
         information about ptf lag
     """
-    ip_splits = vlan["ip"].split("/")
-    vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
-    lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
-    port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
+    lag_ip = ptf_ports["ip"]["lag"]
+    port_not_behind_lag_ip = ptf_ports["ip"][ATTR_PORT_NOT_BEHIND_LAG]
     # Add lag
     ptfhost.create_lag(PTF_LAG_NAME, lag_ip, "802.3ad")
 
-    port_list = []
     # Add member to lag
     for _, port_name in list(ptf_ports[ATTR_PORT_BEHIND_LAG].items()):
         ptfhost.add_intf_to_lag(PTF_LAG_NAME, port_name)
-        port_list.append(port_name)
-
-    lag_port_map = {}
-    lag_port_map[PTF_LAG_NAME] = {
-        "port_list": port_list,
-        "ip": lag_ip
-    }
-    lag_port_map[ATTR_PORT_NOT_BEHIND_LAG] = ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]
-    lag_port_map[ATTR_PORT_NOT_BEHIND_LAG]["ip"] = port_not_behind_lag_ip
 
     ptfhost.startup_lag(PTF_LAG_NAME)
     ptfhost.add_ip_to_dev(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], port_not_behind_lag_ip)
     ptfhost.ptf_nn_agent()
+    setup_arp_responder(ptf_ports, ptfhost)
     # Wait for lag sync
     time.sleep(10)
 
-    return lag_port_map
+
+def setup_arp_responder(ptf_ports, ptfhost):
+    # Disable linux arp response on port, let arp_responder to response.
+    set_arp_reply(ptfhost, [PTF_LAG_NAME, ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]], DISABLE_ARP_REPLY)
+
+    arp_responder_conf = {}
+    arp_responder_conf[PTF_LAG_NAME] = [ptf_ports["ip"]["lag"].split("/")[0]]
+    arp_responder_conf[ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"]] = \
+        [ptf_ports["ip"]["port_not_behind_lag"].split("/")[0]]
+    with open("/tmp/from_t1.json", "w") as ar_config:
+        json.dump(arp_responder_conf, ar_config)
+    ptfhost.copy(src="/tmp/from_t1.json", dest="/tmp/from_t1.json")
+    ptfhost.host.options["variable_manager"].extra_vars.update({"arp_responder_args": ""})
+    ptfhost.template(src="templates/arp_responder.conf.j2", dest="/etc/supervisor/conf.d/arp_responder.conf")
+
+    ptfhost.shell("supervisorctl reread && supervisorctl update")
+    ptfhost.shell("supervisorctl restart arp_responder")
 
 
-def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
+def generate_port_config(duthost, tbinfo, most_common_port_speed):
     """
     Setup dut and ptf based on ports available in dut vlan
 
@@ -284,9 +299,15 @@ def setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed):
         "id": 109,
         "ip": "192.168.9.1/24"
     }
-    dut_lag_map = setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id)
-    ptf_lag_map = setup_ptf_lag(ptfhost, ptf_ports, vlan)
-    return dut_lag_map, ptf_lag_map, src_vlan_id
+    ip_splits = vlan["ip"].split("/")
+    vlan_ip = ipaddress.ip_address(UNICODE_TYPE(ip_splits[0]))
+    lag_ip = "{}/{}".format(vlan_ip + 1, ip_splits[1])
+    port_not_behind_lag_ip = "{}/{}".format(vlan_ip + 2, ip_splits[1])
+    ptf_ports["ip"] = {
+        "lag": lag_ip,
+        ATTR_PORT_NOT_BEHIND_LAG: port_not_behind_lag_ip
+    }
+    return dut_ports, ptf_ports, src_vlan_id, vlan
 
 
 def get_vlan_id(cfg_facts, number_of_lag_member):
@@ -349,12 +370,17 @@ def ptf_dut_setup_and_teardown(duthost, ptfhost, tbinfo, most_common_port_speed)
         ptfhost: PTF host object
         tbinfo: fixture provides information about testbed
     """
-    dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, most_common_port_speed)
+    dut_ports, ptf_ports, src_vlan_id, vlan = generate_port_config(duthost, tbinfo, most_common_port_speed)
+    try:
+        setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id)
+        setup_ptf_lag(ptfhost, ptf_ports)
 
-    yield dut_lag_map, ptf_lag_map
-
-    dut_teardown(duthost, dut_lag_map, src_vlan_id)
-    ptf_teardown(ptfhost, ptf_lag_map)
+        yield ptf_ports, vlan
+    except Exception as err:
+        pytest.fail("Setup failed with error: {}".format(err))
+    finally:
+        ptf_teardown(ptfhost, ptf_ports)
+        dut_teardown(duthost, dut_ports, src_vlan_id, vlan)
 
 
 @pytest.fixture(scope="module")
@@ -396,9 +422,13 @@ def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_te
                   "get port status error")
     for _, status in list(port_channel_status["ports"].items()):
         pytest_assert(status["runner"]["selected"], "status of lag member error")
+        if "partner_retry_count" in status["runner"]:
+            pytest_assert(status["runner"]["partner_retry_count"] == 3,
+                          "partner retry count is incorrect; expected 3, but is {}"
+                          .format(status["runner"]["partner_retry_count"]))
 
 
-def run_lag_member_traffic_test(duthost, dut_vlan, ptf_lag_map, ptfhost):
+def run_lag_member_traffic_test(duthost, dut_vlan, ptf_ports, ptfhost):
     """
     Run lag member traffic test
 
@@ -408,11 +438,17 @@ def run_lag_member_traffic_test(duthost, dut_vlan, ptf_lag_map, ptfhost):
         ptf_lag_map: information about lag in ptf
         ptfhost: PTF host object
     """
+    ptf_lag = {
+        "port_list": list(ptf_ports[ATTR_PORT_BEHIND_LAG].values()),
+        "ip": ptf_ports["ip"]["lag"]
+    }
+    ptf_not_lag = ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]
+    ptf_not_lag["ip"] = ptf_ports["ip"][ATTR_PORT_NOT_BEHIND_LAG]
     params = {
         "dut_mac": duthost.facts["router_mac"],
         "dut_vlan": dut_vlan,
-        "ptf_lag": ptf_lag_map[PTF_LAG_NAME],
-        ATTR_PORT_NOT_BEHIND_LAG: ptf_lag_map[ATTR_PORT_NOT_BEHIND_LAG]
+        "ptf_lag": ptf_lag,
+        ATTR_PORT_NOT_BEHIND_LAG: ptf_not_lag
     }
     ptf_runner(ptfhost, TEST_DIR, "lag_test.LagMemberTrafficTest", "/root/ptftests", params=params)
 
@@ -431,5 +467,6 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
             and then verify recieve the packet in port behind lag
     """
     ptfhost = common_setup_teardown
-    dut_lag_map, ptf_lag_map = ptf_dut_setup_and_teardown
-    run_lag_member_traffic_test(duthost, dut_lag_map["vlan"], ptf_lag_map, ptfhost)
+    ptf_ports, vlan = ptf_dut_setup_and_teardown
+
+    run_lag_member_traffic_test(duthost, vlan, ptf_ports, ptfhost)

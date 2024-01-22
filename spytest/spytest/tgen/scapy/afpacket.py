@@ -30,11 +30,13 @@ SOL_PACKET = 263
 PACKET_AUXDATA = 8
 TP_STATUS_VLAN_VALID = 1 << 4
 
+
 class struct_iovec(Structure):
     _fields_ = [
         ("iov_base", c_void_p),
         ("iov_len", c_size_t),
     ]
+
 
 class struct_msghdr(Structure):
     _fields_ = [
@@ -47,12 +49,14 @@ class struct_msghdr(Structure):
         ("msg_flags", c_int),
     ]
 
+
 class struct_cmsghdr(Structure):
     _fields_ = [
         ("cmsg_len", c_size_t),
         ("cmsg_level", c_int),
         ("cmsg_type", c_int),
     ]
+
 
 class struct_tpacket_auxdata(Structure):
     _fields_ = [
@@ -65,10 +69,12 @@ class struct_tpacket_auxdata(Structure):
         ("tp_padding", c_ushort),
     ]
 
+
 libc = CDLL("libc.so.6")
 recvmsg = libc.recvmsg
 recvmsg.argtypes = [c_int, POINTER(struct_msghdr), c_int]
 recvmsg.retype = c_int
+
 
 def enable_auxdata(sk):
     """
@@ -77,6 +83,7 @@ def enable_auxdata(sk):
     Must be called on the socket before afpacket.recv.
     """
     sk.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
+
 
 def recv(sk, bufsize):
     """
@@ -112,11 +119,11 @@ def recv(sk, bufsize):
     # only control message.
     assert msghdr.msg_controllen >= sizeof(struct_cmsghdr)
 
-    cmsghdr = struct_cmsghdr.from_buffer(ctrl_buf) # pylint: disable=E1101
+    cmsghdr = struct_cmsghdr.from_buffer(ctrl_buf)  # pylint: disable=E1101
     assert cmsghdr.cmsg_level == SOL_PACKET
     assert cmsghdr.cmsg_type == PACKET_AUXDATA
 
-    auxdata = struct_tpacket_auxdata.from_buffer(ctrl_buf, sizeof(struct_cmsghdr)) # pylint: disable=E1101
+    auxdata = struct_tpacket_auxdata.from_buffer(ctrl_buf, sizeof(struct_cmsghdr))  # pylint: disable=E1101
 
     if auxdata.tp_vlan_tci != 0 or auxdata.tp_status & TP_STATUS_VLAN_VALID:
         # Insert VLAN tag

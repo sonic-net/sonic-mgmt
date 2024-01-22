@@ -5,9 +5,10 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -53,13 +54,26 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
         values: expected value(s) of configdb_field
     """
     def _confirm_value_in_asic_db():
-        table_name = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
-        wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(table_name))["stdout"]
-        wred_data = ast.literal_eval(wred_data)
-        for field, value in zip(configdb_field.split(','), values.split(',')):
-            if value != wred_data[WRED_MAPPING[field]]:
-                return False
-        return True
+        wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+        wred_objects = wred_objects.split("\n")
+        if(len(wred_objects) > 1):
+            for wred_object in wred_objects:
+                wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
+                if('NULL' in wred_data):
+                    continue
+                wred_data = ast.literal_eval(wred_data)
+                for field, value in zip(configdb_field.split(','), values.split(',')):
+                    if value != wred_data[WRED_MAPPING[field]]:
+                        return False
+                return True
+            return False
+        else:
+            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_objects[0]))["stdout"]
+            wred_data = ast.literal_eval(wred_data)
+            for field, value in zip(configdb_field.split(','), values.split(',')):
+                if value != wred_data[WRED_MAPPING[field]]:
+                    return False
+            return True
 
     logger.info("Validating fields in ASIC DB...")
     pytest_assert(
@@ -95,7 +109,10 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, configdb_field, ",".join(values))
+        if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
+            expect_op_success(duthost, output)
+            ensure_application_of_updated_config(duthost, configdb_field, ",".join(values))
+        else:
+            expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
