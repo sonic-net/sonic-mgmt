@@ -68,35 +68,37 @@ TEST_DATA = [
 
 
 @pytest.fixture(scope="module", autouse=True)
-def remove_dataacl_table(rand_selected_dut):
+def remove_data_everflow_acl_table(rand_selected_dut, duthosts):
     """
-    Remove DATAACL to free TCAM resources
+    Remove DATAACL and EVERFLOWV6 to free TCAM resources.
+    The change is written to configdb as we don't want DATAACL recovered after reboot
     """
-    TABLE_NAME = "DATAACL"
-    lines = rand_selected_dut.shell(cmd="show acl table {}".format(TABLE_NAME))['stdout_lines']
-    data_acl_existing = False
-    for line in lines:
-        if TABLE_NAME in line:
-            data_acl_existing = True
-            break
-    if not data_acl_existing:
+    table_names = {'DATAACL': 'False', 'EVERFLOWV6': 'False'}
+
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table")['stdout_lines']
+        for table_name in table_names.keys():
+            for line in lines:
+                if table_name in line:
+                    table_names[table_name] = True
+                    logger.info("Removing ACL table {}".format(table_name))
+                    rand_selected_dut.shell(cmd="config acl remove table {}".format(table_name))
+
+    if True not in table_names.values():
         yield
         return
-    # Remove DATAACL
-    logger.info("Removing ACL table {}".format(TABLE_NAME))
-    rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME))
+
     yield
-    # Recover DATAACL
     config_db_json = "/etc/sonic/config_db.json"
     output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
-    try:
-        entry = json.loads(output)[TABLE_NAME]
-        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
-            .format(TABLE_NAME, entry['type'], ",".join(entry['ports']), entry['stage'])
-        logger.info("Restoring ACL table {}".format(TABLE_NAME))
-        rand_selected_dut.shell(cmd_create_table)
-    except Exception as e:
-        pytest.fail(str(e))
+    entry_json = json.loads(output)
+    for table_name in table_names.keys():
+        if table_names[table_name]:
+            entry = entry_json[table_name]
+            cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+                .format(table_name, entry['type'], ",".join(entry['ports']), entry['stage'])
+            logger.info("Restoring ACL table {}".format(table_name))
+            rand_selected_dut.shell(cmd_create_table)
 
 
 def remove_acl_table(duthost):
