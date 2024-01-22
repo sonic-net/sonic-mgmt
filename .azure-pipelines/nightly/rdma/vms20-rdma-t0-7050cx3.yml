@@ -15,7 +15,7 @@ schedules:
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202012
+        - internal
     always: true
 
 variables:
@@ -36,7 +36,7 @@ parameters:
   # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "snappi_tests"'
+    default: '-I "snappi_tests/pfc snappi_tests/pfcwd snappi_tests/qos snappi_tests/ecn"'
     displayName: Testbed specific
   
   # Extra parameters to skip sanity since BGP connections are down
