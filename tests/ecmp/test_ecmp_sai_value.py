@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
-    pytest.mark.topology('t0'),
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -140,7 +139,7 @@ def check_hash_seed_value(duthost, asic_name, topo_type):
             pytest_assert(hash_seed == '0', "HASH_SEED is not set to 0")
 
 
-def check_ecmp_offset_value(duthost, asic_name, topo_type):
+def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
     """
     Check the value of OFFSET_ECMP
     TH/TH2: the count of 0xa is 67
@@ -153,15 +152,23 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type):
         offset_count = offset_list.count('0')
         if asic_name == "td3":
             # For TD3, RTAG7_PORT_BASED_HASH.ipipe0[1]: <OFFSET_ECMP=2,>
-            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count == 391, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(391, offset_count))
+        elif asic_name == "td2":
+            # For TD2, 7050qx, the total number of ports are 362
+            pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(362, offset_count))
         else:
-            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(392, offset_count))
     elif topo_type == "t1":
         offset_count = offset_list.count('0xa')
-        if asic_name == "td2":
-            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct.")
+        if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32"]:
+            pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct. \
+                          Expected >= 33, but got {}.".format(offset_count))
         else:
-            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct.")
+            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct. \
+                          Expected >= 67, but got {}.".format(offset_count))
     else:
         pytest.fail("Unsupported topology type: {}".format(topo_type))
 
@@ -238,12 +245,12 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
         pytest.skip("Unsupported asic type: {}".format(asic))
 
     if parameter == "common":
-        check_ecmp_offset_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "restart_syncd":
         duthost.command("sudo systemctl restart syncd", module_ignore_errors=True)
         logging.info("Wait until all critical services are fully started")
         wait_critical_processes(duthost)
-        check_ecmp_offset_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "reload":
         logging.info("Run config reload on DUT")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
@@ -251,8 +258,8 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None)
-        check_ecmp_offset_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "warm-reboot" and topo_type == "t0":
         logging.info("Run warm reboot on DUT")
         reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None, reboot_kwargs=None)
-        check_ecmp_offset_value(duthost, asic_name, topo_type)
+        check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
