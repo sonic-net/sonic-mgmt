@@ -2214,7 +2214,7 @@
   ptf_ip: 10.212.65.65/24
   ptf_ipv6: 2603:10e2:140:3000::205/122
   server: server_tk5_4
-  vm_base: VM54020
+  vm_base: VM54084
   dut:
     - strtk5-dx010-acs-5
   inv_name: strtk5
