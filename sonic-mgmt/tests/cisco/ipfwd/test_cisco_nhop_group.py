@@ -78,6 +78,34 @@ class IPRoutes:
            "IP add failed on duthost:{}".format(self.filename)
         )
 
+    def program_replace_routes(self):
+        """
+        Create a file with static ip route add commands, copy file
+        to DUT and run it from DUT
+        """
+        with open(self.filename, "w") as fn:
+            for ip_nhop in self.ip_nhops:
+
+                ip_route = "sudo {} ip route replace {}".format(
+                    self.asic.ns_arg, ip_nhop.prefix
+                )
+                ip_nhop_str = ""
+
+                for ip in ip_nhop.nhop:
+                    ip_nhop_str += "nexthop via {} ".format(ip)
+
+                ip_cmd = "{} {}".format(ip_route, ip_nhop_str)
+                fn.write(ip_cmd+ "\n")
+
+        fn.close()
+        # copy file to DUT and run it on DUT
+        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        result = self.duthost.shell(self.filename)
+        pytest_assert(
+            result["rc"] == 0,
+           "IP add failed on duthost:{}".format(self.filename)
+        )
+
     def delete_routes(self):
         """
         Create a file with static ip route del commands, copy file
@@ -1061,3 +1089,91 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
                 crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
             )
         )
+
+def test_nhop_member_combination(duthost, tbinfo):
+    """
+    Test next hop group resource count to be 1, with various combinations of nhops per prefixs being replaced 
+    Steps:
+    - Add test IP address to an active IP interface
+    - Add static ARPs
+    - The combination creates around 12K lines of config
+    - Create a combinations of NextHop grouo with Nexthop IPs from 2 to 4 in different Combinations 
+    - The test replaces with the unique next-hop groups, 
+    - Check to create only one Nhop group eventually, even when there are different combinations of nexthops
+    - check CRM resource Nhop group used count before and ater with a difference of 1
+    - clean up
+    """
+    # Set of parameters for Cisco-8000 devices
+
+    default_max_nhop_paths = 4
+    polling_interval = 1
+    sleep_time = 240
+    sleep_time_sync_before = 120
+
+    asic = duthost.asic_instance()
+
+    # find out an active IP port
+    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    pytest_assert(len(ip_ifaces), "No IP interfaces found")
+    eth_if = ip_ifaces[0]
+
+    # Generate ARP entries
+    arp_count = 8
+    arplist = Arp(duthost, asic, arp_count, eth_if)
+    arplist.arps_add()
+
+    # indices
+    indices = range(arp_count)
+    ip_prefix = ipaddr.IPAddress("192.168.0.0")
+    crm_before = get_crm_info(duthost, asic)
+
+    # increase CRM polling time
+    asic.command("crm config polling interval {}".format(polling_interval))
+    # Waiting for ARP routes to be synced and programmed
+    time.sleep(sleep_time_sync_before)
+    crm_stat = get_crm_info(duthost, asic)
+    nhop_group_count = crm_stat["available_nhop_grp"]
+    nhop_group_mem_count = crm_stat["available_nhop_grp_mem"]
+    nhop_group_count = int(nhop_group_count * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+    # Consider both available nhop_grp and nhop_grp_mem before creating nhop_groups
+    nhop_group_mem_count = int((nhop_group_mem_count) / default_max_nhop_paths * CISCO_NHOP_GROUP_FILL_PERCENTAGE)
+    nhop_group_count = min(nhop_group_mem_count, nhop_group_count)
+
+    # list of all IPs available to generate a nexthop group
+    ip_list = arplist.ip_mac_list
+
+    # create nexthop group combination 
+    nhop = IPRoutes(duthost, asic)
+    try:
+        for i in range(2, default_max_nhop_paths+1):
+            ip_indices = list(combinations(indices, i))
+            for j, indx_list in zip(range(nhop_group_count), ip_indices):
+                # get a list of unique group of next hop IPs
+                ips = [arplist.ip_mac_list[x].ip for x in indx_list]
+
+                #Generating single 192.168.0.2 prefix 
+                ip_route = "{}/31".format(ip_prefix + (2))
+
+                # add IP route with the next hop group created
+                nhop.add_ip_route(ip_route, ips)
+
+        nhop.program_replace_routes()
+        # wait for routes to be synced and programmed
+        time.sleep(sleep_time)
+        crm_after = get_crm_info(duthost, asic)
+
+    finally:
+        nhop.delete_routes()
+        arplist.clean_up()
+        asic.command(
+            "crm config polling interval {}".format(crm_before["polling"])
+        )
+
+    # verify the test used up all the NHOP group resources
+    pytest_assert(
+        crm_after["used_nhop_grp"] == crm_before["used_nhop_grp"] + 1,
+        "Before Ised NHOP group resource:{}, Ataer used NHOP group resource:{}".format(
+            crm_before["used_nhop_grp"], crm_after["used_nhop_grp"]
+
+        )
+    )
