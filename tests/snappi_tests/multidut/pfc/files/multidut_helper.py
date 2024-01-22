@@ -51,7 +51,7 @@ def run_pfc_test(api,
                  test_traffic_pause,
                  snappi_extra_params=None):
     """
-    Run a PFC test
+    Run a multidut PFC test
     Args:
         api (obj): snappi session
         testbed_config (obj): testbed L1/L2/L3 configuration
@@ -93,8 +93,6 @@ def run_pfc_test(api,
     dut_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]['peer_port']
 
     port_id = 0
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
 
     # Rate percent must be an integer
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
