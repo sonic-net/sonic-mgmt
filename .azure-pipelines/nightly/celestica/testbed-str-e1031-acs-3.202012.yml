@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: testbed-str-e1031-acs-3
+    default: tbtk5-t0-e1031-3
     displayName: "Testbed Name"
 
   # Upgrade parameters

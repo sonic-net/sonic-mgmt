@@ -25,7 +25,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms12-t0-3800
+    default: tbtk5-t0-3800-1
     displayName: "Testbed Name"
 
   # Upgrade parameters

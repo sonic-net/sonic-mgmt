@@ -25,7 +25,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms7-t0-4600c-2
+    default: tbtk5-t0-4600c-2
     displayName: "Testbed Name"
 
   # Upgrade parameters
