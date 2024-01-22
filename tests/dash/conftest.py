@@ -123,7 +123,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
     topo = tbinfo["topo"]["name"]
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
         # For dpu with 2 ports Pick the first two BGP neighbor IPs since these should already be learned on the DUT
-        # Take neigh 1 as local PA, take neigh 2 as remote PA
+        # Take neighbor 1 as local PA, take neighbor 2 as remote PA
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PA_IP not in dash_info:
                 dash_info[LOCAL_PA_IP] = neigh_ip
@@ -131,10 +131,15 @@ def dash_config_info(duthost, config_facts, minigraph_facts, tbinfo):
                 dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
                 dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
                 if topo == 'dpu-1' and REMOTE_PA_IP not in dash_info:
-                    # For dup with single one port, there is only one bgp neighbor. Also take the neigh 1 as local pa,
-                    # take neigh 2's IP and network as remote PA,
-                    # but the mac of remote PA will take the value of nigh 1,
-                    # and the remote ptf intf will take the value of neigh 1
+                    # For DPU with only one single port, we just have one neighbor (neighbor 1).
+                    # So, we take neighbor 1 as the local PA. For the remote PA,
+                    # we take the original neighbor 2's IP as the remote PA IP,
+                    # and the original neighbor 2's network as the remote PA network.
+                    # Take the mac of neighbor 1's mac as the mac of remote PA,
+                    # because the BGP route to neighbor 1 is the default route,
+                    # and only the mac of neighbor 1 exists in the arp table.
+                    # The remote ptf intf will take the value of neighbor 1
+                    # because the packet to remote PA will be forwarded to the ptf port corresponding to neighbor 1.
                     dash_info[REMOTE_PA_IP] = '10.0.2.2'
                     dash_info[REMOTE_PTF_INTF] = dash_info[LOCAL_PTF_INTF]
                     dash_info[REMOTE_PTF_MAC] = dash_info[LOCAL_PTF_MAC]
