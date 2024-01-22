@@ -78,14 +78,14 @@ The three aspects that will be verified are whether:
 3.	The WRR scheduler works as expected
 
 #### Background
-The diagram in the test bed setup shows a multi-ASIC router using a VOQ architecture, with line cards interconnected via a non-blocking fabric. Although the diagram appears to imply a multi-card, multi-ASIC architecture, the test and expected behavior also applies to a single-card, multi-ASIC architecture.
+The diagram in the testbed setup shows a multi-ASIC router using a VOQ architecture, with line cards interconnected via a non-blocking fabric. Although the diagram appears to imply a multi-card, multi-ASIC architecture, the test and expected behavior also applies to a single-card, multi-ASIC architecture.
 It is assumed that the VOQs within the ingress packet forwarding engines will request and receive credits as needed from the output ports' egress packet forwarding engines, with all the forwarding engines being treated equally regardless of whether the request/response messages need to traverse the fabric or can communicate within the same switching ASIC.
 When the egress port is presented with more bandwidth that it can handle (egress congestion), the egress packet forwarding engine will use a weighted round robin (WRR) to fairly allocate bandwidth from the requestors' VOQs. For this version of the test, we will assume a SONiC configuration of a WRR scheduler with the same weights across all traffic priorities (lossy and lossless), and no strict-priority (SP) scheduling.
 The case of ingress congestion would happen when the chosen input ports are serviced by the same switch ASIC's ingress forwarding engine, with a combined offered load higher than what the egress port could handle. The overall resulting behavior will still be the same, with the egress forwarding engine still allocating bandwidth to the VOQs in a fair manner per the configured schedules.
 In either case, the ingress port VOQs, with not enough allocation granted for the lossless traffic streams causing the congestion, will in turn generate PFC pause (XOFF) messages out of the ingress port to temporarily stop the incoming lossless frames for the appropriate priority.
 
 #### Testbed Setup
-The test bed setup consists of three IXIA ports and a SONiC router as the device under test (DUT). All IXIA ports should have the same line speed.  The three DUT ports will be chosen at random across all the available ports in the router in order to eventually cover combinations of ports within the same line card and across line cards (or ports within the same ASIC vs. different ASICs on a single-card, multi-ASIC design).
+The testbed setup consists of three IXIA ports and a SONiC router as the device under test (DUT). All IXIA ports should have the same line speed.  The three DUT ports will be chosen at random across all the available ports in the router in order to eventually cover combinations of ports within the same line card and across line cards (or ports within the same ASIC vs. different ASICs on a single-card, multi-ASIC design).
 
 
 <p float="left">
@@ -141,9 +141,9 @@ In this experiment we will create a total of four streams, with each of the two 
 The mapping of background and test data traffic streams to IXIA transmit ports can be randomized while keeping two streams per port; for example, one test port could send two lossless traffic streams and the second port two lossy streams, or each port could send two mixed streams, one lossless, one lossy.
 
 This experiment needs the following eight steps:
-1.	Start the background traffic from IXIA Tx ports 1 & 2; the combined line rate will be 50% of the egress port capacity (25% line rate bandwidth per stream)
-2.	Start the test traffic from IXIA Tx ports 1 & 2; the additional increase in bandwidth will be either 55% or 60% depending on randomization (one stream with 25% BW, second stream with 30%, or both at 30% each), for a total oversubscription of either 105% or 110%.
-3.	After a few seconds, measure the received bandwidth per flow on the IXIA Rx port 3: each of the four flows should have an allocation of 25% of the total egress port bandwidth. Internally the router should be dropping lossy frames from the streams causing the over-subscription.
+1.	Start the background traffic from IXIA Tx ports 1 & 2; the combined line rate will be 48% of the egress port capacity (24% line rate bandwidth per stream)
+2.	Start the test traffic from IXIA Tx ports 1 & 2; the additional increase in bandwidth will be either 55% or 60% depending on randomization (one stream with 25% BW, second stream with 30%, or both at 30% each), for a total oversubscription of either 103% or 108%.
+3.	After a few seconds, measure the received bandwidth per flow on the IXIA Rx port 3: total egress port bandwidth should be 100%. Internally the router should be dropping lossy frames from the streams causing the over-subscription.
 4.	Stop all traffic from the two IXIA ports 1 & 2
 5.	On the IXIA Rx port ensure that:
 a.	The received lossless traffic streams on IXIA port 3 show no missing and no out-of-order frames.
