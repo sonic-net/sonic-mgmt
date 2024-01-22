@@ -133,7 +133,7 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
 def find_latest_build_id(branch, success_flag="succeeded"):
     """find latest successful build id for a branch"""
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=1&branchName=refs/heads/{}" \
+    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions=142&branchName=refs/heads/{}" \
                  "&resultFilter={}&statusFilter=completed&api-version=6.0".format(
                      branch, success_flag)
 
