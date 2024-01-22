@@ -24,6 +24,7 @@ from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
-                          "t0-120", "t0-80", "t0-backend"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
+                          "t0-120", "t0-80", "t0-backend", "t0-56-o8v48"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
@@ -667,6 +668,7 @@ class QosSaiBase(QosBase):
             "dst_asic": dst_asic,
             "src_dut": src_dut,
             "dst_dut": dst_dut,
+            "single_asic_test": (src_dut == dst_dut and src_asic == dst_asic),
             "all_asics": all_asics,
             "all_duts": all_duts
         }
@@ -928,7 +930,7 @@ class QosSaiBase(QosBase):
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
 
-        elif tbinfo["topo"]["type"] == "t2":
+        elif "t2" in tbinfo["topo"]["type"]:
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -999,7 +1001,7 @@ class QosSaiBase(QosBase):
         pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
         # Get dst_dut asic type
-        if dst_asic != src_asic:
+        if dst_dut != src_dut:
             vendor = dst_dut.facts["asic_type"]
             hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
             dstDutAsic = None
@@ -1015,7 +1017,7 @@ class QosSaiBase(QosBase):
 
         dutTopo = "topo-"
 
-        if dutAsic == "gb" and topo == "t2":
+        if dutAsic == "gb" and "t2" in topo:
             if get_src_dst_asic_and_duts['src_asic'] == \
                     get_src_dst_asic_and_duts['dst_asic']:
                 dutTopo = dutTopo + "any"
@@ -1149,9 +1151,6 @@ class QosSaiBase(QosBase):
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
 
-        if 'dualtor' in tbinfo['topo']['name']:
-            duthost_upper = upper_tor_host
-
         def updateDockerService(host, docker="", action="", service=""):  # noqa: F811
             """
                 Helper function to update docker services
@@ -1192,7 +1191,7 @@ class QosSaiBase(QosBase):
             except Exception as e:
                 pytest.skip('file {} not found. Exception {}'.format(file, str(e)))
 
-            duthost_upper.shell('sudo config feature state mux disabled')
+            upper_tor_host.shell('sudo config feature state mux disabled')
             lower_tor_host.shell('sudo config feature state mux disabled')
 
         src_services = [
@@ -1217,7 +1216,7 @@ class QosSaiBase(QosBase):
         feature_list = ['lldp', 'bgp', 'syncd', 'swss']
         if 'dualtor' in tbinfo['topo']['name']:
             disable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
         disable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
         for service in src_services:
@@ -1245,7 +1244,7 @@ class QosSaiBase(QosBase):
                 pytest.skip('file {} not found. Exception {}'.format(backup_file, str(e)))
 
             lower_tor_host.shell('sudo config feature state mux enabled')
-            lower_tor_host.shell('sudo config feature state mux enabled')
+            upper_tor_host.shell('sudo config feature state mux enabled')
             logger.info("Start mux container for dual ToR testbed")
 
         enable_container_autorestart(src_dut, testcase="test_qos_sai", feature_list=feature_list)
@@ -1253,7 +1252,7 @@ class QosSaiBase(QosBase):
             enable_container_autorestart(dst_dut, testcase="test_qos_sai", feature_list=feature_list)
         if 'dualtor' in tbinfo['topo']['name']:
             enable_container_autorestart(
-                duthost_upper, testcase="test_qos_sai", feature_list=feature_list)
+                upper_tor_host, testcase="test_qos_sai", feature_list=feature_list)
 
     @pytest.fixture(autouse=True)
     def updateLoganalyzerExceptions(self, get_src_dst_asic_and_duts, loganalyzer):
@@ -1407,7 +1406,8 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dutTopo], dutAsic,
+            dut_top = dutTopo if dutTopo in qosConfigs['qos_params']['mellanox'] else "topo-any"
+            qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dut_top], dutAsic,
                                                        portSpeedCableLength,
                                                        dutConfig,
                                                        ingressLosslessProfile,
@@ -1445,20 +1445,21 @@ class QosSaiBase(QosBase):
                 if sub_folder_dir not in sys.path:
                     sys.path.append(sub_folder_dir)
                 import qos_param_generator
-                qpm = qos_param_generator.QosParamBroadcom(qosConfigs['qos_params'][dutAsic][dutTopo],
-                                                           dutAsic,
-                                                           portSpeedCableLength,
-                                                           dutConfig,
-                                                           ingressLosslessProfile,
-                                                           ingressLossyProfile,
-                                                           egressLosslessProfile,
-                                                           egressLossyProfile,
-                                                           sharedHeadroomPoolSize,
-                                                           dutConfig["dualTor"],
-                                                           dutTopo,
-                                                           bufferConfig,
-                                                           duthost,
-                                                           tbinfo["topo"]["name"])
+                qpm = qos_param_generator.QosParamBroadcom({'qos_params': qosConfigs['qos_params'][dutAsic][dutTopo],
+                                                            'asic_type': dutAsic,
+                                                            'speed_cable_len': portSpeedCableLength,
+                                                            'dutConfig': dutConfig,
+                                                            'ingressLosslessProfile': ingressLosslessProfile,
+                                                            'ingressLossyProfile': ingressLossyProfile,
+                                                            'egressLosslessProfile': egressLosslessProfile,
+                                                            'egressLossyProfile': egressLossyProfile,
+                                                            'sharedHeadroomPoolSize': sharedHeadroomPoolSize,
+                                                            'dualTor': dutConfig["dualTor"],
+                                                            'dutTopo': dutTopo,
+                                                            'bufferConfig': bufferConfig,
+                                                            'dutHost': duthost,
+                                                            'testbedTopologyName': tbinfo["topo"]["name"],
+                                                            'selected_profile': profileName})
                 qosParams = qpm.run()
         elif is_cisco_device(duthost):
             bufferConfig = self.dutBufferConfig(duthost, dut_asic)
@@ -1475,6 +1476,12 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
+            dutTopo = "topo-any"
+            if (get_src_dst_asic_and_duts['src_dut_index'] ==
+                    get_src_dst_asic_and_duts['dst_dut_index'] and
+                get_src_dst_asic_and_duts['src_asic_index'] ==
+                    get_src_dst_asic_and_duts['dst_asic_index']):
+                dutTopo = "topo-any"
             qpm = qos_param_generator.QosParamCisco(
                       qosConfigs['qos_params'][dutAsic][dutTopo],
                       duthost,
@@ -1635,40 +1642,33 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        # This is not needed in T2.
+        if "t2" in dutTestParams["topo"]:
+            yield
+            return
 
-        saiQosTest = None
-        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulate"
-        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
-        else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                result = dut_asic.command("arp -n")
-                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
-                if result["stdout"].find("incomplete") == -1:
-                    saiQosTest = "sai_qos_tests.ARPpopulate"
+        self.populate_arp_entries(
+            get_src_dst_asic_and_duts, ptfhost, dutTestParams,
+            dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
 
-        if saiQosTest:
-            testParams = dutTestParams["basicParams"]
-            testParams.update(dutConfig["testPorts"])
-            testParams.update({
-                "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
-            })
-            self.runPtfTest(
-                ptfhost, testCase=saiQosTest, testParams=testParams
-            )
+        yield
+        return
 
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
         for duthost in get_src_dst_asic_and_duts['all_duts']:
+            docker0_ipv6_addr = \
+                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                    "stdout_lines"][0]
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
+            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2017,6 +2017,115 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
+    @pytest.fixture(scope='function', autouse=True)
+    def set_static_route(
+            self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
+        # Get portchannels.
+        # find the one that is backplane based.
+        # set a static route through that portchannel.
+        # remove when done.
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+
+        try:
+            if not (
+                src_asic.sonichost.facts['switch_type'] == "chassis-packet"
+                    and dutTestParams['topo'] == 't2'):
+                yield
+                return
+        except KeyError:
+            yield
+            return
+
+        dst_keys = []
+        for k in dutConfig["testPorts"].keys():
+            if re.search("dst_port.*ip", k):
+                dst_keys.append(k)
+
+        for k in dst_keys:
+            dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                dst_asic.asic_index,
+                dutConfig["testPorts"][k]), module_ignore_errors=True)
+
+        ip_address_mapping = self.get_interface_ip(dst_asic)
+        for intf in ip_address_mapping.keys():
+            if ip_address_mapping[intf]['peer_addr'] != '':
+                dst_asic.shell("ip netns exec asic{} ping -c 3 {}".format(
+                    dst_asic.asic_index,
+                    ip_address_mapping[intf]['peer_addr']), module_ignore_errors=True)
+
+        if src_asic == dst_asic:
+            yield
+            return
+
+        portchannels = dst_asic.command(
+            "show interface portchannel -n asic{} -d all".format(
+                dst_asic.asic_index))['stdout']
+        regx = re.compile("(PortChannel[0-9]+)")
+        bp_portchannels = []
+        for pc in portchannels.split("\n"):
+            if "-BP" in pc:
+                match = regx.search(pc)
+                if match:
+                    bp_portchannels.append(match.group(1))
+        if not bp_portchannels:
+            raise RuntimeError(
+                "Couldn't find the backplane porchannels from {}".format(
+                    bp_portchannels))
+
+        non_bp_intfs = set(list(ip_address_mapping.keys())) \
+            - set(bp_portchannels)
+        addresses_to_ping = []
+        for dst_key in dst_keys:
+            addresses_to_ping.append(dutConfig["testPorts"][dst_key])
+
+        for dst_intf in non_bp_intfs:
+            if ip_address_mapping[dst_intf]['peer_addr'] != '':
+                addresses_to_ping.append(
+                    ip_address_mapping[dst_intf]['peer_addr'])
+
+        addresses_to_ping = list(set(addresses_to_ping))
+        no_of_bp_pcs = len(bp_portchannels)
+
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
+            src_asic.shell("ip netns exec asic{} ping -c 1 {}".format(
+                src_asic.asic_index, gw))
+            src_asic.shell("ip netns exec asic{} route add {} gw {}".format(
+                src_asic.asic_index,
+                addresses_to_ping[dst_index],
+                gw))
+        yield
+        for dst_index in range(len(addresses_to_ping)):
+            gw = ip_address_mapping[
+                bp_portchannels[dst_index % no_of_bp_pcs]]['addr']
+            src_asic.shell("ip netns exec asic{} route del {} gw {}".format(
+                src_asic.asic_index,
+                addresses_to_ping[dst_index],
+                gw))
+
+    def get_interface_ip(self, dut_asic):
+        """
+            Parse the output of "show ip int -n asic0 -d all" into a dict:
+            interface => ip address.
+        """
+        mapping = {}
+        ip_address_out = dut_asic.command(
+            "show ip interface -n asic{} -d all".format(
+                dut_asic.asic_index))['stdout']
+        re_pattern = re.compile(
+            r"^([^ ]*) [ ]*([0-9\.]*)\/[0-9]*  *[^ ]*  *[^ ]*  *([0-9\.]*)")
+        for line in ip_address_out.split("\n"):
+            match = re_pattern.search(line)
+            if match:
+                mapping[match.group(1)] = {
+                    'addr': match.group(2),
+                    'peer_addr': match.group(3),
+                }
+
+        return mapping
+
     @pytest.fixture(autouse=False)
     def _check_ingress_speed_gte_400g(
             self,
@@ -2096,3 +2205,39 @@ class QosSaiBase(QosBase):
                 "This test is skipped since egress asic is cisco-8000 Q100.")
         yield
         return
+
+    def populate_arp_entries(
+        self, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa F811
+    ):
+        """
+        Update ARP entries of QoS SAI test ports
+        """
+        dut_asic = get_src_dst_asic_and_duts['src_asic']
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
+        saiQosTest = None
+        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulate"
+        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
+        else:
+            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                result = dut_asic.command("arp -n")
+                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
+                if result["stdout"].find("incomplete") == -1:
+                    saiQosTest = "sai_qos_tests.ARPpopulate"
+
+        if saiQosTest:
+            testParams = dutTestParams["basicParams"]
+            testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
+            })
+            self.runPtfTest(
+                ptfhost, testCase=saiQosTest, testParams=testParams
+            )

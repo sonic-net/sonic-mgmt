@@ -12,3 +12,5 @@
       args:
         login: "{{ switch_login[hwsku_map[peer_hwsku]] }}"
       connection: switch
+      vars:
+        ansible_connection: switch
