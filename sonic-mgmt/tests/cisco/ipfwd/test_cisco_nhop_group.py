@@ -1172,7 +1172,7 @@ def test_nhop_member_combination(duthost, tbinfo):
     # verify the test used up all the NHOP group resources
     pytest_assert(
         crm_after["used_nhop_grp"] == crm_before["used_nhop_grp"] + 1,
-        "Before Ised NHOP group resource:{}, Ataer used NHOP group resource:{}".format(
+        "Before Used NHOP group resource:{}, After used NHOP group resource:{}".format(
             crm_before["used_nhop_grp"], crm_after["used_nhop_grp"]
 
         )
