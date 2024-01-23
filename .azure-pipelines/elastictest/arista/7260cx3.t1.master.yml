@@ -41,14 +41,6 @@ parameters:
     default: "vms64-t1-7260-14, testbed-bjw-can-t1-7260-8"
     displayName: "Testbed Name"
 
-  - name: MIN_WORKER
-    type: string
-    default: "1"
-
-  - name: MAX_WORKER
-    type: string
-    default: "2"
-
   - name: IMAGE_URL
     type: string
     default: $(IMAGE_BRCM_ABOOT_PUBLIC)
@@ -122,5 +114,3 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        MIN_WORKER: ${{ parameters.MIN_WORKER }}
-        MAX_WORKER: ${{ parameters.MAX_WORKER }}
