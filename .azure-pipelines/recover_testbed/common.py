@@ -24,6 +24,7 @@ from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory 
 logger = logging.getLogger(__name__)
 
 
+
 def get_pdu_managers(sonichosts, conn_graph_facts):
     """Get PDU managers for all the devices to be upgraded.
 
@@ -49,12 +50,9 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
 
 
 def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
-    oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     try:
-        tty.setraw(sys.stdin.fileno())
-        tty.setcbreak(sys.stdin.fileno())
         dut_console.remote_conn.settimeout(0.0)
 
         while True:
@@ -131,16 +129,13 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                 dut_console.remote_conn.send(x)
 
     finally:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+        pass
 
 
 def posix_shell_aboot(dut_console, mgmt_ip, image_url):
-    oldtty = termios.tcgetattr(sys.stdin)
     install_image_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     try:
-        tty.setraw(sys.stdin.fileno())
-        tty.setcbreak(sys.stdin.fileno())
         dut_console.remote_conn.settimeout(0.0)
 
         while True:
@@ -213,7 +208,7 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                 dut_console.remote_conn.send(x)
 
     finally:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+        pass
 
 
 def do_power_cycle(sonichost, conn_graph_facts, localhost):
