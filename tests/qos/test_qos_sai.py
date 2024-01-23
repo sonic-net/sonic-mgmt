@@ -35,7 +35,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
-from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.pfcwd.files.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from .qos_sai_base import QosSaiBase
@@ -1127,8 +1127,6 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        pytest_require(separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module),
-                       "Skip test because separated QoS map is not applied")
         if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
             pytest.skip("Lossy Queue Voq test is not supported")
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
