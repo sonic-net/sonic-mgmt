@@ -64,6 +64,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd/test_bfd_static_route.py:
+  skip:
+    reason: "Only supported on chassis system."
+    conditions:
+      - "is_multi_asic is False"
+      
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
