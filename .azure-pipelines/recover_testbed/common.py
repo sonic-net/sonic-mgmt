@@ -8,7 +8,8 @@ import socket
 import time
 import pexpect
 import ipaddress
-from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, ONIE_START_TO_DISCOVERY, SONIC_PROMPT
+from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, \
+    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -47,7 +48,7 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
+def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
     oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
@@ -71,6 +72,14 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
                         dut_console.remote_conn.send('reboot\n')
                         continue
 
+                    if is_nokia and enter_onie_flag is True:
+                        if MARVELL_ENTRY in x:
+                            dut_console.remote_conn.send('\n')
+                            continue
+                        if "Marvell" in x and ">" in x:
+                            dut_console.remote_conn.send('run onie_bootcmd\n')
+                            continue
+
                     if OS_VERSION_IN_GRUB in x and enter_onie_flag is True:
                         # Send arrow key "down" here.
                         dut_console.remote_conn.send(b'\x1b[B')
@@ -86,6 +95,10 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False):
                         for i in range(5):
                             dut_console.remote_conn.send('onie-discovery-stop\n')
                             dut_console.remote_conn.send("\n")
+
+                            if is_nokia:
+                                enter_onie_flag = False
+                                dut_console.remote_conn.send('umount /dev/sda2\n')
 
                             dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
                                                          ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
