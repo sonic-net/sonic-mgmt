@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import ipaddress
+import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
 from constants import RC_SSH_FAILED
 
@@ -54,6 +55,7 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
         logger.info(e)
+        traceback.print_exc()
         return
 
 
