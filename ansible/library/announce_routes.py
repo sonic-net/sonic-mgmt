@@ -149,7 +149,8 @@ def change_routes(action, ptf_ip, port, routes):
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
     data = {"commands": ";".join(messages)}
-    r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
+    # nosemgrep-next-line
+    r = requests.post(url, data=data, timeout=360, proxies={"http": None, "https": None})
     if r.status_code != 200:
         raise Exception(
             "Change routes failed: url={}, data={}, r.status_code={}, r.reason={}, r.headers={}, r.text={}".format(
