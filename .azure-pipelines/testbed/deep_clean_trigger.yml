@@ -129,6 +129,8 @@ jobs:
                     return "nightly-svc"
                 elif server.startswith("server_bjw_"):
                     return "nightly-bjw"
+                elif server.startswith("server_tk5_"):
+                    return "nightly-tk5"
                 else:
                     return "nightly"
 
