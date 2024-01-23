@@ -44,12 +44,10 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     default_interfaces = list(port_alias_facts['port_name_map'].keys())
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
     port_speed_facts = port_alias_facts['port_speed']
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not port_speed_facts:
-        all_vars = duthost.host.options['variable_manager'].get_vars()
-        iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
-        iface_speed = str(iface_speed)
-        port_speed_facts = {_: iface_speed for _ in
-                            list(port_alias_facts['port_alias_map'].keys())}
+        for port_alias, port in port_alias_facts['port_alias_map'].items():
+            port_speed_facts[port_alias] = cfg_facts['PORT'][port]['speed']
 
     port_alias = list()
     port_name_map = dict()
@@ -999,7 +997,7 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def static_route_intf(self,  duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
+    def static_route_intf(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
