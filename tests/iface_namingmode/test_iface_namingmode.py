@@ -47,11 +47,12 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     minigraph_portchannels = minigraph_facts['minigraph_portchannels']
     port_speed_facts = port_alias_facts['port_speed']
     if not port_speed_facts:
-        all_vars = duthost.host.options['variable_manager'].get_vars()
-        iface_speed = all_vars['hostvars'][duthost.hostname]['iface_speed']
-        iface_speed = str(iface_speed)
-        port_speed_facts = {_: iface_speed for _ in
-                            list(port_alias_facts['port_alias_map'].keys())}
+        for asic_id in duthost.get_asic_ids():
+            namespace = duthost.get_namespace_from_asic_id(asic_id)
+            cfg_facts = duthost.config_facts(host=duthost.hostname, source="running",
+                                             namespace=namespace)['ansible_facts']
+            for port_alias, port in port_alias_facts['port_alias_map'].items():
+                port_speed_facts[port_alias] = cfg_facts['PORT'][port]['speed']
 
     port_alias = list()
     port_name_map = dict()
@@ -317,7 +318,7 @@ class TestShowInterfaces():
             if regex_int.match(line):
                 interfaces.append(regex_int.match(line).group(0))
 
-        assert(len(interfaces) > 0)
+        assert (len(interfaces) > 0)
 
         for item in interfaces:
             if mode == 'alias':
@@ -551,7 +552,7 @@ class TestShowQueue():
                 intfsChecked += 1
 
         # At least one interface should have been checked to have a valid result
-        assert(intfsChecked > 0)
+        assert (intfsChecked > 0)
 
     def test_show_queue_counters_interface(self, setup_config_mode, sample_intf):
         """
@@ -1010,7 +1011,7 @@ class TestShowIP():
             pytest.skip('No non-portchannel member interface present')
 
     @pytest.fixture(scope='class')
-    def static_route_intf(self,  duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
+    def static_route_intf(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tbinfo):
         """
         Returns the alias and names of the spine ports
 
