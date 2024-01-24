@@ -1,8 +1,6 @@
 import os
 import sys
 import logging
-import termios
-import tty
 import select
 import socket
 import time
@@ -49,171 +47,158 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
 
 
 def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
-    oldtty = termios.tcgetattr(sys.stdin)
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
-    try:
-        tty.setraw(sys.stdin.fileno())
-        tty.setcbreak(sys.stdin.fileno())
-        dut_console.remote_conn.settimeout(0.0)
 
-        while True:
-            r, w, e = select.select([dut_console.remote_conn, sys.stdin], [], [])
-            if dut_console.remote_conn in r:
-                try:
-                    x = dut_console.remote_conn.recv(65536)
-                    if len(x) == 0:
-                        sys.stdout.write("\r\n*** EOF\r\n")
-                        break
+    dut_console.remote_conn.settimeout(0.0)
 
-                    x = x.decode('ISO-8859-9')
-
-                    if is_nexus and "loader" in x and ">" in x:
-                        dut_console.remote_conn.send('reboot\n')
-                        continue
-
-                    if is_nokia and enter_onie_flag is True:
-                        if MARVELL_ENTRY in x:
-                            dut_console.remote_conn.send('\n')
-                            continue
-                        if "Marvell" in x and ">" in x:
-                            dut_console.remote_conn.send('run onie_bootcmd\n')
-                            continue
-
-                    if OS_VERSION_IN_GRUB in x and enter_onie_flag is True:
-                        # Send arrow key "down" here.
-                        dut_console.remote_conn.send(b'\x1b[B')
-                        continue
-
-                    if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
-                        dut_console.remote_conn.send("\n")
-                        enter_onie_flag = False
-
-                    # "ONIE: Starting ONIE Service Discovery"
-                    if ONIE_START_TO_DISCOVERY in x:
-                        # TODO: Define a function to send command here
-                        for i in range(5):
-                            dut_console.remote_conn.send('onie-discovery-stop\n')
-                            dut_console.remote_conn.send("\n")
-
-                            if is_nokia:
-                                enter_onie_flag = False
-                                dut_console.remote_conn.send('umount /dev/sda2\n')
-
-                            dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
-                                                         ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
-                            dut_console.remote_conn.send("\n")
-
-                            dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
-                            dut_console.remote_conn.send("\n")
-
-                            dut_console.remote_conn.send("onie-nos-install {}".format(image_url))
-                            dut_console.remote_conn.send("\n")
-                            # We will wait some time to connect to image server
-                            time.sleep(60)
-                            x = dut_console.remote_conn.recv(1024)
-                            x = x.decode('ISO-8859-9')
-                            # TODO: Give a sample output here
-                            if "ETA" in x:
-                                break
-
-                    if SONIC_PROMPT in x:
-                        dut_console.remote_conn.close()
-
-                    sys.stdout.write(x)
-                    sys.stdout.flush()
-                except socket.timeout:
-                    pass
-            if sys.stdin in r:
-                x = sys.stdin.read(1)
+    while True:
+        r, w, e = select.select([dut_console.remote_conn, sys.stdin], [], [])
+        if dut_console.remote_conn in r:
+            try:
+                x = dut_console.remote_conn.recv(65536)
                 if len(x) == 0:
+                    sys.stdout.write("\r\n*** EOF\r\n")
                     break
-                dut_console.remote_conn.send(x)
 
-    finally:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+                x = x.decode('ISO-8859-9')
+
+                if is_nexus and "loader" in x and ">" in x:
+                    dut_console.remote_conn.send('reboot\n')
+                    continue
+
+                if is_nokia and enter_onie_flag is True:
+                    if MARVELL_ENTRY in x:
+                        dut_console.remote_conn.send('\n')
+                        continue
+                    if "Marvell" in x and ">" in x:
+                        dut_console.remote_conn.send('run onie_bootcmd\n')
+                        continue
+
+                if OS_VERSION_IN_GRUB in x and enter_onie_flag is True:
+                    # Send arrow key "down" here.
+                    dut_console.remote_conn.send(b'\x1b[B')
+                    continue
+
+                if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
+                    dut_console.remote_conn.send("\n")
+                    enter_onie_flag = False
+
+                # "ONIE: Starting ONIE Service Discovery"
+                if ONIE_START_TO_DISCOVERY in x:
+                    # TODO: Define a function to send command here
+                    for i in range(5):
+                        dut_console.remote_conn.send('onie-discovery-stop\n')
+                        dut_console.remote_conn.send("\n")
+
+                        if is_nokia:
+                            enter_onie_flag = False
+                            dut_console.remote_conn.send('umount /dev/sda2\n')
+
+                        dut_console.remote_conn.send("ifconfig eth0 {} netmask {}".format(mgmt_ip.split('/')[0],
+                                                     ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
+                        dut_console.remote_conn.send("\n")
+
+                        dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
+                        dut_console.remote_conn.send("\n")
+
+                        dut_console.remote_conn.send("onie-nos-install {}".format(image_url))
+                        dut_console.remote_conn.send("\n")
+                        # We will wait some time to connect to image server
+                        time.sleep(60)
+                        x = dut_console.remote_conn.recv(1024)
+                        x = x.decode('ISO-8859-9')
+                        # TODO: Give a sample output here
+                        if "ETA" in x:
+                            break
+
+                if SONIC_PROMPT in x:
+                    dut_console.remote_conn.close()
+
+                sys.stdout.write(x)
+                sys.stdout.flush()
+            except socket.timeout:
+                pass
+        if sys.stdin in r:
+            x = sys.stdin.read(1)
+            if len(x) == 0:
+                break
+            dut_console.remote_conn.send(x)
 
 
 def posix_shell_aboot(dut_console, mgmt_ip, image_url):
-    oldtty = termios.tcgetattr(sys.stdin)
     install_image_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
-    try:
-        tty.setraw(sys.stdin.fileno())
-        tty.setcbreak(sys.stdin.fileno())
-        dut_console.remote_conn.settimeout(0.0)
+    dut_console.remote_conn.settimeout(0.0)
 
-        while True:
-            r, w, e = select.select([dut_console.remote_conn, sys.stdin], [], [])
-            if dut_console.remote_conn in r:
-                try:
-                    x = dut_console.remote_conn.recv(65536)
-                    if len(x) == 0:
-                        sys.stdout.write("\r\n*** EOF\r\n")
-                        break
-
-                    x = x.decode('ISO-8859-9')
-
-                    if install_image_flag:
-                        # TODO: We can not exactly determine the string in buffer,
-                        # TODO: in the future, maybe we will gather the buffer and then process them
-                        # "Press Control-C now to enter Aboot shell"
-                        if "Press" in x:
-                            dut_console.remote_conn.send("\x03")
-                            continue
-
-                        if "Aboot" in x and "#" in x:
-                            # TODO: Define a function to send command here
-                            dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
-                                                         ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
-                            dut_console.remote_conn.send("\n")
-
-                            time.sleep(1)
-
-                            dut_console.remote_conn.send("route add default gw {}".format(gw_ip))
-                            dut_console.remote_conn.send("\n")
-
-                            time.sleep(1)
-
-                            dut_console.remote_conn.send("ip route add default via {} dev ma1".format(gw_ip))
-                            dut_console.remote_conn.send("\n")
-
-                            time.sleep(1)
-
-                            dut_console.remote_conn.send("wget {}".format(image_url))
-                            dut_console.remote_conn.send("\n")
-
-                            for i in range(5):
-                                time.sleep(10)
-                                x = dut_console.remote_conn.recv(1024)
-                                x = x.decode('ISO-8859-9')
-                                if "ETA" in x:
-                                    break
-
-                            dut_console.remote_conn.send("echo 'SWI=flash:{}' > boot-config"
-                                                         .format(image_url.split("/")[-1]))
-                            dut_console.remote_conn.send("\n")
-
-                            dut_console.remote_conn.send("reboot")
-                            dut_console.remote_conn.send("\n")
-
-                            install_image_flag = False
-
-                    if "login:" in x:
-                        dut_console.remote_conn.close()
-
-                    sys.stdout.write(x)
-                    sys.stdout.flush()
-                except socket.timeout:
-                    pass
-            if sys.stdin in r:
-                x = sys.stdin.read(1)
+    while True:
+        r, w, e = select.select([dut_console.remote_conn, sys.stdin], [], [])
+        if dut_console.remote_conn in r:
+            try:
+                x = dut_console.remote_conn.recv(65536)
                 if len(x) == 0:
+                    sys.stdout.write("\r\n*** EOF\r\n")
                     break
-                dut_console.remote_conn.send(x)
 
-    finally:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+                x = x.decode('ISO-8859-9')
+
+                if install_image_flag:
+                    # TODO: We can not exactly determine the string in buffer,
+                    # TODO: in the future, maybe we will gather the buffer and then process them
+                    # "Press Control-C now to enter Aboot shell"
+                    if "Press" in x:
+                        dut_console.remote_conn.send("\x03")
+                        continue
+
+                    if "Aboot" in x and "#" in x:
+                        # TODO: Define a function to send command here
+                        dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
+                                                     ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
+                        dut_console.remote_conn.send("\n")
+
+                        time.sleep(1)
+
+                        dut_console.remote_conn.send("route add default gw {}".format(gw_ip))
+                        dut_console.remote_conn.send("\n")
+
+                        time.sleep(1)
+
+                        dut_console.remote_conn.send("ip route add default via {} dev ma1".format(gw_ip))
+                        dut_console.remote_conn.send("\n")
+
+                        time.sleep(1)
+
+                        dut_console.remote_conn.send("wget {}".format(image_url))
+                        dut_console.remote_conn.send("\n")
+
+                        for i in range(5):
+                            time.sleep(10)
+                            x = dut_console.remote_conn.recv(1024)
+                            x = x.decode('ISO-8859-9')
+                            if "ETA" in x:
+                                break
+
+                        dut_console.remote_conn.send("echo 'SWI=flash:{}' > boot-config"
+                                                     .format(image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("\n")
+
+                        dut_console.remote_conn.send("reboot")
+                        dut_console.remote_conn.send("\n")
+
+                        install_image_flag = False
+
+                if "login:" in x:
+                    dut_console.remote_conn.close()
+
+                sys.stdout.write(x)
+                sys.stdout.flush()
+            except socket.timeout:
+                pass
+        if sys.stdin in r:
+            x = sys.stdin.read(1)
+            if len(x) == 0:
+                break
+            dut_console.remote_conn.send(x)
 
 
 def do_power_cycle(sonichost, conn_graph_facts, localhost):
