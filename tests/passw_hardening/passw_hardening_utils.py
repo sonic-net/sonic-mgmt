@@ -91,7 +91,8 @@ def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF
 
     common_password_diff = [li for li in difflib.ndiff(command_password_stdout, common_password_expected) if
                             li[0] != ' ']
-    pytest_assert(len(common_password_diff) == 0, common_password_diff)
+    error_message = 'password diff: ' + '; '.join(common_password_diff)
+    pytest_assert(len(common_password_diff) == 0, error_message)
 
 
 def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):
