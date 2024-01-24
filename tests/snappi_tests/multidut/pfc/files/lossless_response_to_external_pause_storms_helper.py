@@ -30,17 +30,17 @@ PAUSE_FLOW_RATE = 15
 PAUSE_FLOW_NAME = 'PFC Traffic'
 
 
-def run_pfcwd_multi_node_test(api,
-                              testbed_config,
-                              port_config_list,
-                              conn_data,
-                              fanout_data,
-                              dut_port,
-                              pause_prio_list,
-                              test_prio_list,
-                              bg_prio_list,
-                              prio_dscp_map,
-                              snappi_extra_params=None):
+def run_lossless_response_to_external_pause_storms_test(api,
+                                                        testbed_config,
+                                                        port_config_list,
+                                                        conn_data,
+                                                        fanout_data,
+                                                        dut_port,
+                                                        pause_prio_list,
+                                                        test_prio_list,
+                                                        bg_prio_list,
+                                                        prio_dscp_map,
+                                                        snappi_extra_params=None):
     """
     Run PFC watchdog test in a multi-node (>=3) topoology
 
