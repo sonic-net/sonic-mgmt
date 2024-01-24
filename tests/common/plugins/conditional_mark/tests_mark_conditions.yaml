@@ -1334,6 +1334,13 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
 
+tacacs/test_ro_user.py::test_ro_user_banned_command:
+  xfail:
+    reason: "Case failed due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/11372"
+    conditions:
+      - "release in ['master']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11372
+
 #######################################
 #####           telemetry         #####
 #######################################
