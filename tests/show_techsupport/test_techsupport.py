@@ -529,4 +529,8 @@ def test_techsupport_commands(
             check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
         )
 
-    pytest_assert(len(cmd_not_found) == 0, cmd_not_found)
+    error_message = ''
+    for key, commands in cmd_not_found.items():
+        error_message += "Commands not found for '{}': ".format(key) + '; '.join(commands) + '\n'
+
+    pytest_assert(len(cmd_not_found) == 0, error_message)
