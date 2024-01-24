@@ -1378,6 +1378,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq/test_fabric_cli_and_db.py:
+  skip:
+    reason: "Skip test_fabric_cli_and_db on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
 voq/test_fabric_reach.py:
   skip:
     reason: "Skip test_fabric_reach on unsupported testbed."
