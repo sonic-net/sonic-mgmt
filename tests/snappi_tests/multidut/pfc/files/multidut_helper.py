@@ -90,8 +90,6 @@ def run_pfc_test(api,
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
 
-    #dut_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]['peer_port']
-
     port_id = 0
 
     # Rate percent must be an integer
