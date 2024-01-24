@@ -24,7 +24,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
+from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa E402
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class TestbedCheckResult(ElastictestCommonResponse):
     pass
 
 
-class TestbedConditionalCheckFailed(Exception):
+class SkipCurrentTestbed(Exception):
     pass
 
 
@@ -63,27 +63,139 @@ class TestbedUnhealthy(Exception):
     pass
 
 
-class TestbedHealthCheck:
+class HostInitFailed(Exception):
+    pass
+
+
+class TestbedHealthChecker:
     """
     Testbed health check class
     """
 
-    def __init__(self, sonichosts, output_file: str = None):
+    def __init__(self, inventory, testbed_name, testbed_file, log_verbosity, output_file: str = None):
         """
-        Initialize an instance of the TestbedHealthCheck class.
 
         Args:
-            sonichosts (list): A list of Sonic hosts to perform health checks on.
-            output_file (str, optional): The output file to store the health check results. Defaults to None.
+            inventory: (str). inventory.
+            testbed_name: (str). testbed name.
+            testbed_file: (str). testbed file.
+            log_verbosity: (str). log verbosity.
+            output_file: (str, optional). The output file to store the health check results. Defaults to None.
         """
-        self.sonichosts = sonichosts
-        self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
+
+        self.localhost = None
+        self.sonichosts = None
+
+        self.inventory = inventory
+        self.testbed_name = testbed_name
+        self.testbed_file = testbed_file
+        self.log_verbosity = log_verbosity
         self.output_file = output_file
+
+        self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
+
+    def init_hosts(self):
+
+        logger.info("======================= init_hosts starts =======================")
+
+        # Init localhost
+        self.localhost = init_localhost(self.inventory, options={"verbosity": self.log_verbosity})
+        if not self.localhost:
+            raise HostInitFailed("localhost is None. Please check inventory.")
+
+        self.sonichosts = init_testbed_sonichosts(
+            self.inventory, self.testbed_name, testbed_file=self.testbed_file,
+            options={"verbosity": self.log_verbosity}
+        )
+        if not self.sonichosts:
+            raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
+
+        logger.info("======================= init_hosts ends =======================")
+
+    def pre_check(self):
+        """
+            Perform essential pre-check before checking testbeds health.
+        """
+
+        logger.info("======================= pre_check starts =======================")
+
+        # Retrieve the connection graph facts of localhost
+        conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
+                                                           filepath=os.path.join(ansible_path, "files"))
+
+        hosts_reachable = True
+
+        # Check hosts reachability
+        for sonichost in self.sonichosts:
+
+            # Check sonichost reachability
+            is_reachable, result = sonichost.reachable()
+            logger.info(result)
+
+            if not is_reachable:
+                hosts_reachable = False
+                logger.info("sonichost {} is unreachable.".format(sonichost.hostname))
+                self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
+                self.check_result.data[sonichost.hostname] = result
+
+            dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
+
+            peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
+            peer_devices = list(set(peer_devices))
+
+            for fanout_hostname in peer_devices:
+                # Check fanouthost reachability
+
+                # Create fanouthost instance.
+                fanouthost = init_host(inventories=self.inventory, host_pattern=fanout_hostname)
+
+                # If sonic fannout, update ssh vars
+                is_sonic = self.localhost.get_host_vars(fanout_hostname).get("os", "eos") == "sonic"
+
+                if is_sonic:
+                    # Use fanouthost to read the variables.
+                    fanout_sonic_user = fanouthost.get_host_visible_var(fanouthost.hostname, "fanout_sonic_user")
+                    fanout_sonic_password = fanouthost.get_host_visible_var(fanouthost.hostname,
+                                                                            "fanout_sonic_password")
+                    fanouthost.vm.extra_vars.update(
+                        {"ansible_ssh_user": fanout_sonic_user, "ansible_ssh_password": fanout_sonic_password})
+
+                is_reachable, result = fanouthost.reachable()
+
+                logger.info(result)
+
+                if not is_reachable:
+                    hosts_reachable = False
+                    logger.info("fanouthost {} is unreachable.".format(fanout_hostname))
+                    self.check_result.errmsg.append("fanouthost {} is unreachable.".format(fanout_hostname))
+                    self.check_result.data[fanout_hostname] = result
+
+        if not hosts_reachable:
+            raise HostsUnreachable(self.check_result.errmsg)
+
+        # Retrieve the basic facts of the DUTs
+        duts_basic_facts = self.sonichosts.dut_basic_facts()
+
+        for dut_name, single_dut_basic_facts in duts_basic_facts.items():
+
+            # Get the basic facts of one DUT
+            dut_basic_facts = single_dut_basic_facts["ansible_facts"]["dut_basic_facts"]
+
+            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
+            if dut_basic_facts["is_multi_asic"]:
+                errmsg = "Not support to perform checks on multi-asic DUT now."
+                logger.info(errmsg)
+
+                raise SkipCurrentTestbed(errmsg)
+
+        logger.info("======================= pre_check ends =======================")
 
     def run_check(self):
         try:
 
-            self.conditional_check()
+            self.init_hosts()
+
+            self.pre_check()
 
             # Check if critical containers are running
             self.check_critical_containers_running()
@@ -96,10 +208,15 @@ class TestbedHealthCheck:
 
             logger.info("Check finished. Testbed is healthy.")
 
-        except TestbedConditionalCheckFailed as e:
-            # catch exception: TestbedConditionalCheckFailed
-            logger.info("Testbed conditional check failed, skip check current testbed health: {}".format(e))
-            # Currently, if the testbed conditional check fails, skip it and consider it healthy.
+        except HostInitFailed as e:
+            logger.info("Init hosts failed: {}".format(e))
+            self.check_result.code = -1
+            self.check_result.errmsg = ["Init hosts failed."]
+            self.check_result.data = str(e)
+
+        except SkipCurrentTestbed as e:
+            # catch exception: SkipCurrentTestbed
+            logger.info("Skip check current testbed health: {}".format(e))
             self.check_result.code = 0
             self.check_result.data = str(e)
 
@@ -112,8 +229,10 @@ class TestbedHealthCheck:
             # catch exception: HostsUnreachable
             logger.info("Host unreachable: {}".format(e))
             self.check_result.code = 2
-            self.check_result.errmsg = ["Host unreachable."]
-            self.check_result.data = str(e)
+            if not self.check_result.errmsg:
+                self.check_result.errmsg = ["Host unreachable"]
+            if not self.check_result.data:
+                self.check_result.data = str(e)
 
         except RunAnsibleModuleFailed as e:
             # catch exception: RunAnsibleModuleFailed
@@ -134,37 +253,6 @@ class TestbedHealthCheck:
             if self.output_file:
                 with open(self.output_file, "w") as f:
                     f.write(json.dumps(self.check_result.__dict__, separators=(",", ":")))
-
-    def conditional_check(self):
-        """
-        Perform conditional check before checking testbeds health.
-        Currently, if failed, regard it as healthy and skip.
-        """
-
-        logger.info("======================= conditional_check starts =======================")
-
-        failed = False
-        errmsg = ""
-
-        # Retrieve the basic facts of the DUTs
-        duts_basic_facts = self.sonichosts.dut_basic_facts()
-
-        for dut_name, single_dut_basic_facts in duts_basic_facts.items():
-
-            # Get the basic facts of one DUT
-            dut_basic_facts = single_dut_basic_facts["ansible_facts"]["dut_basic_facts"]
-
-            # todo: Skip multi_asic check on multi_asic dut now because currently not support get asic object
-            if dut_basic_facts["is_multi_asic"]:
-                errmsg = "Not support to perform checks on multi-asic DUT now."
-                logger.info(errmsg)
-                failed = True
-                break
-
-        logger.info("======================= conditional_check ends =======================")
-
-        if failed:
-            raise TestbedConditionalCheckFailed(errmsg)
 
     def check_bgp_session_state(self, state="established"):
         """
@@ -329,18 +417,11 @@ def main(args):
     logger.info("Validating arguments")
     validate_args(args)
 
-    logger.info("Initializing hosts")
-    localhost = init_localhost(args.inventory, options={"verbosity": args.verbosity})
-    sonichosts = init_testbed_sonichosts(
-        args.inventory, args.testbed_name, testbed_file=args.tbfile, options={"verbosity": args.verbosity}
-    )
-
-    if not localhost or not sonichosts:
-        sys.exit(1)
-
     logger.info("Checking")
-    testbedHealthCheck_instance = TestbedHealthCheck(sonichosts=sonichosts, output_file=args.output)
-    testbedHealthCheck_instance.run_check()
+    testbed_health_checker = TestbedHealthChecker(inventory=args.inventory, testbed_name=args.testbed_name,
+                                                  testbed_file=args.tbfile, log_verbosity=args.verbosity,
+                                                  output_file=args.output)
+    testbed_health_checker.run_check()
 
 
 if __name__ == "__main__":
