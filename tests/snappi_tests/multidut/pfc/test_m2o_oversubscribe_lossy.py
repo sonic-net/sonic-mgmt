@@ -1,5 +1,6 @@
 import pytest
 import random
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                          # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -8,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                          # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import run_pfcwd_multi_node_test
+from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import run_pfc_m2o_oversubscribe_lossy_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -41,7 +42,7 @@ def test_pfcwd_many_to_one(snappi_api,                                  # noqa: 
         N/A
     """
     if line_card_choice not in linecard_configuration_set.keys():
-        assert False, "Invalid line_card_choice value passed in parameter"
+        pytest_assert(False, "Invalid line_card_choice value passed in parameter")
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
         duthost1, duthost2 = dut_list
@@ -50,11 +51,11 @@ def test_pfcwd_many_to_one(snappi_api,                                  # noqa: 
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
-        assert False, "Hostname can't be an empty list"
+        pytest_assert(False, "Hostname can't be an empty list")
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
     if len(snappi_port_list) < 3:
-        assert False, "Need Minimum of 3 ports for the test"
+        pytest_assert(False, "Need Minimum of 3 ports for the test")
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 3)
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
@@ -70,16 +71,16 @@ def test_pfcwd_many_to_one(snappi_api,                                  # noqa: 
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_pfcwd_multi_node_test(api=snappi_api,
-                              testbed_config=testbed_config,
-                              port_config_list=port_config_list,
-                              conn_data=conn_graph_facts,
-                              fanout_data=fanout_graph_facts,
-                              dut_port=snappi_ports[0]['peer_port'],
-                              pause_prio_list=pause_prio_list,
-                              test_prio_list=test_prio_list,
-                              bg_prio_list=bg_prio_list,
-                              prio_dscp_map=prio_dscp_map,
-                              snappi_extra_params=snappi_extra_params)
+    run_pfc_m2o_oversubscribe_lossy_test(api=snappi_api,
+                                         testbed_config=testbed_config,
+                                         port_config_list=port_config_list,
+                                         conn_data=conn_graph_facts,
+                                         fanout_data=fanout_graph_facts,
+                                         dut_port=snappi_ports[0]['peer_port'],
+                                         pause_prio_list=pause_prio_list,
+                                         test_prio_list=test_prio_list,
+                                         bg_prio_list=bg_prio_list,
+                                         prio_dscp_map=prio_dscp_map,
+                                         snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
