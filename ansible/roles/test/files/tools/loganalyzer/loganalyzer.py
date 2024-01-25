@@ -768,7 +768,8 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(argv, "a:r:s:l:o:m:i:e:vh", [
-                                   "action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=", "expect_files_in=", "verbose", "help"])
+            "action=", "run_id=", "start_marker=", "logs=", "out_dir=", "match_files_in=", "ignore_files_in=",
+            "expect_files_in=", "verbose", "help"])
 
     except getopt.GetoptError:
         print("Invalid option specified")
