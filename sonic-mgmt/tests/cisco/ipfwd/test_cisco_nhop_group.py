@@ -1074,7 +1074,7 @@ def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
     - clean up
     """
 
-    # Test is applicable for Cisco platforms where 1K Nhop group limit is enabled 
+    # Test is applicable for Cisco platforms Gaunlet,Q100 where 1K Nhop group limit is enabled 
     if duthost.facts["platform"] not in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
         return
 
@@ -1086,13 +1086,6 @@ def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
     nhop_group_limit = 1024
 
     asic = duthost.asic_instance()
-
-    # find out MAX NHOP group count supported on the platform
-    result = asic.run_redis_cmd(argv=["redis-cli", "-n", 6, "HGETALL", "SWITCH_CAPABILITY|switch"])
-    it = iter(result)
-    switch_capability = dict(zip(it, it))
-    max_nhop = switch_capability.get("MAX_NEXTHOP_GROUP_COUNT")
-    max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
 
     # find out an active IP port
     ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
