@@ -22,7 +22,7 @@ def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     yield
 
     files_to_remove = [
-        "./{}".format(TEST_FILE_NAME), "/home/admin/perform_scp.py"]
+        "./{}".format(TEST_FILE_NAME), "/home/cisco/perform_scp.py"]
     for file in files_to_remove:
         duthost.file(path=file, state="absent")
 
@@ -55,7 +55,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
         "python3 -c 'import pexpect'", module_ignore_errors=True)["rc"]
     if p3_pexp_exists != 0:
         python_version = "python"
-    duthost.command("{} perform_scp.py in {} /root/{} /home/admin {} {}"
+    duthost.command("{} perform_scp.py in {} /root/{} /home/cisco {} {}"
                     .format(python_version, ptf_ip, TEST_FILE_NAME, creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate file was received
@@ -75,7 +75,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
                   .format(TEST_FILE_NAME, orig_checksum, TEST_FILE_NAME, new_checksum))
 
     # Use scp to copy the file into the PTF
-    duthost.command("{} perform_scp.py out {} /home/admin/{} /root/{} {} {}"
+    duthost.command("{} perform_scp.py out {} /home/cisco/{} /root/{} {} {}"
                     .format(python_version, ptf_ip, TEST_FILE_NAME, TEST_FILE_2_NAME,
                             creds["ptf_host_user"], creds["ptf_host_pass"]))
 
