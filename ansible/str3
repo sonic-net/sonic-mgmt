@@ -348,12 +348,12 @@ sonic_cisco_8102:
     str3-8102-05:
       ansible_host: 10.3.146.121
       model: 8102-64H-O
-      serial: FLM24530034
+      serial: FLM250702NN
       base_mac: F8:7A:41:A7:2C:F8
       syseeprom_info:
         "0x21": "8102-64H-O"
         "0x22": "ECI123"
-        "0x23": "FLM24530034"
+        "0x23": "FLM250702NN"
         "0x24": "F8:7A:41:A7:2C:F8"
         "0x26": "0"
         "0x28": "x86_64-8102_64h_o-r0"
@@ -361,7 +361,7 @@ sonic_cisco_8102:
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x4365416D"
+        "0xFE": "0xD27C51C0"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -378,12 +378,12 @@ sonic_cisco_8102:
     str3-8102-06:
       ansible_host: 10.3.146.78
       model: 8102-64H-O
-      serial: FLM24530036
+      serial: FLM25060BE9
       base_mac: E8:EB:34:B7:63:C0
       syseeprom_info:
         "0x21": "8102-64H-O"
         "0x22": "ECI123"
-        "0x23": "FLM24530036"
+        "0x23": "FLM25060BE9"
         "0x24": "E8:EB:34:B7:63:C0"
         "0x26": "0"
         "0x28": "x86_64-8102_64h_o-r0"
@@ -391,7 +391,7 @@ sonic_cisco_8102:
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0xA3746C27"
+        "0xFE": "0xF77CC5D7"
       plt_reboot_dict:
         cold:
           timeout: 300
