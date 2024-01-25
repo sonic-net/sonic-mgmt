@@ -51,15 +51,18 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_status
 platform_tests/api/test_thermal.py::TestThermalApi::test_is_replaceable
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_low_threshold
+platform_tests/cli/test_show_platform.py::test_show_platform_summary
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
 platform_tests/cli/test_show_platform.py::test_show_platform_temperature
 platform_tests/daemon/test_pcied.py::test_pmon_pcied_stop_and_start_status
 platform_tests/daemon/test_pcied.py::test_pmon_pcied_term_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 ssh/test_ssh_ciphers.py::test_ssh_protocol_version
 system_health/test_system_status.py
 tacacs/test_jit_user.py::test_jit_user
+tacacs/test_ro_disk.py::test_ro_disk
 tacacs/test_ro_user.py::test_ro_user_allowed_command
 tacacs/test_ro_user.py::test_ro_user_banned_command
 telemetry/test_telemetry.py::test_config_db_parameters
@@ -70,3 +73,5 @@ snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_thermal_info
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_transceiver_info
 snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
+cisco/test_platform_faults.py
+cisco/ipfwd/test_nhop_group.py
