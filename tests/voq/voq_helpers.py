@@ -421,7 +421,7 @@ def get_eos_mac(nbr, nbr_intf):
             shell_intf = "eth" + nbr_intf[-1]
     else:
         if "port-channel" in nbr_intf.lower():
-            # convert Port-Channel1 to po1
+            # convert Port-Channel1 to PortChannel1
             shell_intf = "PortChannel" + nbr_intf[-1]
         else:
             shell_intf = nbr_intf
