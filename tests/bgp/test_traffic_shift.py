@@ -80,6 +80,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     mg_facts = dut_host.minigraph_facts(
         host=dut_host.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
+    all_routes = {}
 
     host_name_map = {}
     for hostname, neigh_host in list(neigh_hosts.items()):
