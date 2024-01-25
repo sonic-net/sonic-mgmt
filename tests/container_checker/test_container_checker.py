@@ -11,6 +11,7 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import check_container_state
+from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import get_disabled_container_list
@@ -180,13 +181,8 @@ def get_expected_alerting_message(container_name):
     return expected_alerting_messages
 
 
-<<<<<<< HEAD
-def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                           enum_rand_one_asic_index, enum_dut_feature, tbinfo):
-=======
 def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature,
                            tbinfo, disable_container_autorestart):
->>>>>>> 87730a26a (Reg: Fix for exitied Container from previous test case)
     """Tests the feature of container checker.
 
     This function will check whether the container names will appear in the Monit
@@ -218,9 +214,6 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         skip_containers.append("radv")
     pytest_require(service_name not in skip_containers,
                    "Container '{}' is skipped for testing.".format(container_name))
-<<<<<<< HEAD
-
-=======
     feature_autorestart_states = duthost.get_container_autorestart_states()
     if feature_autorestart_states.get(service_name) == 'enabled':
         disable_container_autorestart(duthost)
@@ -231,7 +224,6 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         config_reload(duthost, safe_reload=True)
         time.sleep(300)
         sleep_time = 80
->>>>>>> 87730a26a (Reg: Fix for exitied Container from previous test case)
     asic.stop_service(service_name)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
