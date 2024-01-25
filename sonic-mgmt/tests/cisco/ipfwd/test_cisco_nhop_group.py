@@ -1038,9 +1038,6 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
             "crm config polling interval {}".format(crm_before["polling"])
         )
 
-    # check for any errors or crash
-    #RAJ loganalyzer.analyze(marker)
-
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
     if is_cisco_device(duthost):
@@ -1060,7 +1057,7 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
             "Unused NHOP group resource:{}, used_nhop_grp:{}".format(
                 crm_after["available_nhop_grp"], crm_after["used_nhop_grp"]
             )
-
+        )
 
 
 def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
@@ -1182,4 +1179,3 @@ def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
         )
     )
 
-        )
