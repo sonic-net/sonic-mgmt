@@ -20,7 +20,7 @@ def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loga
            duthost: DUT host object
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if loganalyzer:
+    if loganalyzer and duthost.facts["platform"] == "x86_64-cel_e1031-r0":
         loganalyzer_ignore_regex = [
             ".*ERR swss#orchagent: :- doPortTask: .*: autoneg is not supported.*",
         ]
