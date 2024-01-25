@@ -95,8 +95,9 @@ def update_topo_file(topology, platform):
         topo_config["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
         topo_config["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
     
-    spt_ip = get_spirent_ip()
-    topo_config["devices"]["spt"]["access"]["ip"] = spt_ip
+    spt_ip = get_spirent_ip().strip()
+    print(f"spirent ip is {spt_ip}")
+    topo_config["devices"]["spt"]["properties"]["ip"] = spt_ip
     
     with open(topo_file, "w") as f:
         yaml.safe_dump(topo_config, f)
