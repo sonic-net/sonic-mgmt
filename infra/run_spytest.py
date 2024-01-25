@@ -11,7 +11,7 @@ import subprocess
 import sys
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
-
+import pexpect
 
 VXR_PORTS_FILENAME = "vxr_ports.yaml"
 RESULT_FOLDER_PATH = "/home/vxr/sonic-test/sonic-mgmt/spytest/spytest_results"
@@ -61,6 +61,20 @@ def get_ports_config(port_file=VXR_PORTS_FILENAME):
     
     return ports_config
 
+def get_spirent_ip():
+    ports_config = get_ports_config()
+
+    telnet_host = ports_config["spt"]["HostAgent"]
+    telnet_port = ports_config["spt"]["serial0"]
+
+    p = pexpect.spawn(f'telnet {telnet_host} {telnet_port}')
+    p.sendline()
+    p.expect('login')
+    ret = str(p.before)
+    ret = ret.split("STCv-")[1].split("/dev")[0].replace("-", ".")
+
+    return ret
+
 
 def update_topo_file(topology, platform):
     print("Updating topo file")
@@ -76,9 +90,14 @@ def update_topo_file(topology, platform):
 
 
     for device in topo_config["devices"].keys():
+        if "SD" not in device:
+            continue
         topo_config["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
         topo_config["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
-
+    
+    spt_ip = get_spirent_ip()
+    topo_config["devices"]["spt"]["access"]["ip"] = spt_ip
+    
     with open(topo_file, "w") as f:
         yaml.safe_dump(topo_config, f)
 
@@ -149,11 +168,19 @@ def configure_vxr(topology, platform, tar_ball, script_file):
 
 
     try:
+        #untar sonic-test golden-code
         exec_command_raise_error(client, f"wget {tar_ball}")
         exec_command_raise_error(client, "tar -xvf golden_code_spytest.tar.gz")
+
+        #run sonic-mgmt docker
         exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/golden-code/docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "docker load < docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt /bin/bash")
+
+        #install spirent related files
+        exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/spirent_projects_folder.tar.gz")
+        exec_command_raise_error(client, "tar -xvf spirent_projects_folder.tar.gz -C sonic-test/sonic-mgmt/spytest")
+
     except paramiko.SSHException as e:
         return -1, e
     except Exception as e:
@@ -194,6 +221,9 @@ def run_sanity(script_file):
 
     chan.send(f"docker exec -it docker-sonic-mgmt /bin/bash\n")
     wait_for_command_complete(chan)
+
+    chan.send(f"cd /data; cp -r projects /; /data/spytest/bin/tool_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
+    wait_for_command_complete(chan, ":/data$ ")
 
     chan.send(f"cd /data; sudo mkdir spytest_results; cd spytest_results\n")
     wait_for_command_complete(chan, ":/data/spytest_results$ ")
