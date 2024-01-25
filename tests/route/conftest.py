@@ -17,3 +17,11 @@ def pytest_addoption(parser):
 @pytest.fixture(scope='module')
 def get_function_conpleteness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope='module', params=[4, 6])
+def ip_versions(request):
+    """
+    Parameterized fixture for IP versions.
+    """
+    yield request.param
