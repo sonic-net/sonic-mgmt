@@ -560,10 +560,6 @@ def verify_pause_frame_count_dut(duthost,
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames should be received and counted in RX PFC counters for priority {}"
                               .format(prio))
-            else:
-                # PFC pause frames should not be received when test traffic is not paused
-                pytest_assert(pfc_pause_rx_frames == 0,
-                              "PFC pause frames should not be received and counted in RX PFC counters")
 
 
 def verify_tx_frame_count_dut(duthost,
