@@ -206,7 +206,7 @@ stages:
               INTERVAL=60
 
               wait_time=0
-              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r SmokeTest; do
+              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
@@ -541,7 +541,7 @@ stages:
               INTERVAL=60
 
               wait_time=0
-              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release -r SmokeTest; do
+              until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
                   if (( $wait_time >= $TIMEOUT)); then
                       echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                       exit 1
