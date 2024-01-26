@@ -34,7 +34,7 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def get_interface_reload_timestamp(duthost):
-    res = duthost.command("sudo service interfaces-config status "\
+    res = duthost.command("sudo service interfaces-config status "
                           "| grep 'Finished interfaces-config.service - Update interfaces configuration.'")
     logger.info("interfaces config timestamp {}".format(res["stdout_lines"]))
 
