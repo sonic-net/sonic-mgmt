@@ -429,9 +429,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "Arista-7060DX5-32":
             for i in range(1, 33):
                 port_alias_to_name_map["Ethernet%d/1" % i] = "Ethernet%d" % ((i - 1) * 8)
+        elif "Arista" in hwsku and "FM" not in hwsku:
+            assert False, "Please add hwsku %s to port_alias_to_name_map" % hwsku
         else:
-            if "Arista-7800" in hwsku:
-                assert False, "Please add port_alias_to_name_map for new modular SKU %s." % hwsku
             for i in range(0, 128, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
 
