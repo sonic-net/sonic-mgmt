@@ -235,7 +235,7 @@ def run_sanity(script_file):
     wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     chan.send(f"sudo /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
-    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ", show_output=True)
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     return 0, ""
 
