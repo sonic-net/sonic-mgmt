@@ -2,6 +2,7 @@
 Tests for verifying the configuration on the DUT 
 to match the expected WRED probability configuration
 """
+import re
 import time
 import logging
 import pytest
