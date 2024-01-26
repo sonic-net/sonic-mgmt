@@ -231,10 +231,10 @@ def run_sanity(script_file):
     chan.send(f"cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
     wait_for_command_complete(chan, temination_str=":/data# ", show_output=True)
 
-    chan.send(f"sudo mkdir spytest_results; cd spytest_results\n")
+    chan.send(f"mkdir spytest_results; cd spytest_results\n")
     wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
-    chan.send(f"env; sudo /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
+    chan.send(f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
     wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     return 0, ""
