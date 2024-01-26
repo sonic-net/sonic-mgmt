@@ -672,9 +672,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test does not support dualtor topology."
+    reason: "Test not supported on Broadcom SKUs or dualtor topology."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####      iface_namingmode       #####
