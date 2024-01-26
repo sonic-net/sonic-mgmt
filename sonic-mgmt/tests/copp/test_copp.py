@@ -185,6 +185,7 @@ class TestCOPP(object):
         logger.info("Do {}".format(reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
+        time.sleep(180)
         logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))

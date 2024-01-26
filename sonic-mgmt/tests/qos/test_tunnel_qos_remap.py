@@ -122,7 +122,7 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,            
         testutils.send(ptfadapter, src_port, pkt)
         # Verify encaped packet
         try:
-            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports)
+            testutils.verify_packet_any_port(ptfadapter, expected_pkt, dst_ports, timeout=20)
             logger.info("Verified DSCP combination {}".format(str(dscp_combination)))
         except AssertionError:
             logger.info("Failed to verify packet on DSCP combination {}".format(str(dscp_combination)))

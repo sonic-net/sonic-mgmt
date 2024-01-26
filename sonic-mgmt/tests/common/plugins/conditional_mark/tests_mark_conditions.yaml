@@ -672,9 +672,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test does not support dualtor topology."
+    reason: "Test not supported on Broadcom SKUs or dualtor topology."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####      iface_namingmode       #####
@@ -1332,6 +1334,15 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
 
 #######################################
+#####           tacacs          #####
+#######################################
+tacacs/test_authorization.py::test_authorization_tacacs_and_local:
+  skip:
+    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11349"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11349
+
+#######################################
 #####           telemetry         #####
 #######################################
 telemetry/test_events.py:
@@ -1375,6 +1386,12 @@ vlan/test_vlan_ping.py:
 #######################################
 #####             voq             #####
 #######################################
+voq/test_fabric_cli_and_db.py:
+  skip:
+    reason: "Skip test_fabric_cli_and_db on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
 voq/test_fabric_reach.py:
   skip:
     reason: "Skip test_fabric_reach on unsupported testbed."

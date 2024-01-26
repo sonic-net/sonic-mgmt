@@ -549,6 +549,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
+        self.is_multi_asic = (self.clients['src'] != self.clients['dst'])
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -556,7 +557,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type:
+        if 't2' in self.testbed_type and self.is_multi_asic:
             stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
@@ -3680,9 +3681,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
             else:
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    pkts_num_leak_out = 0
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out +
                             pkts_num_trig_egr_drp - 1 - margin)
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    time.sleep(5)
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                                   port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                                   xmit_counters_base, self, src_port_id, pkt, 10)
 
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
                     hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
