@@ -480,7 +480,7 @@ def test_nhop_group_max_1K_limit(duthost, tbinfo):
 
     # Test is applicable for Cisco platforms where 1K Nhop group limit is enabled 
     if duthost.facts["platform"] not in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
-        pytest.skip("1K Nhop group is only enabled in Gauntlet")
+        pytest.skip("Skip test_nhop_group_max_1K_limit test Unsupported platform %s." % (duthost.facts["platform"])) 
 
     # Set of parameters for Cisco-8000 devices
     default_max_nhop_paths = 2
@@ -1076,7 +1076,8 @@ def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
 
     # Test is applicable for Cisco platforms Gaunlet,Q100 where 1K Nhop group limit is enabled 
     if duthost.facts["platform"] not in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
-        return
+        pytest.skip("Skip test_nhop_group_add_after_1Klimit test Unsupported platform %s." % (duthost.facts["platform"])) 
+        
 
     # Set of parameters for Cisco-8000 devices
     default_max_nhop_paths = 2
