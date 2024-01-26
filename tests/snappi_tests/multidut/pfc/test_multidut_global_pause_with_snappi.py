@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
      get_multidut_tgen_peer_port_set, cleanup_config                                                 # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map                # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from files.multidut_helper import run_pfc_test                      # noqa: F401
+from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 logger = logging.getLogger(__name__)
