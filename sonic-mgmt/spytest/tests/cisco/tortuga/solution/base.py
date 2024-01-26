@@ -2,6 +2,7 @@ import os
 import yaml
 import pytest
 from spytest import st, utils
+import apis.system.reboot as dut_obj
 import apis.system.box_services as boxserv_obj
 
 ##
@@ -15,12 +16,29 @@ import apis.system.box_services as boxserv_obj
 ##
 
 '''
+Importing libs for the example above
+from spytest import st, utils
+import apis.system.reboot as dut_obj
+
 Example on how to take a copy of config within the dut - Also on how to execute commands on DUT
 st.upload_file_to_dut(dut, file_path, "/tmp/00-copp.config.json")
 command = "sudo cp /tmp/00-copp.config.json /etc/sonic/copp_config.json"
 st.config(dut, command)
 
+To do a config save
+dut_obj.config_save(vars.D1)
+
+To do a config reload
+dut_obj.config_reload(vars.D1)
+
+To do a reboot
+st.reboot(vars.D1)
+
+
+
 '''
+
+
 
 pytest.fixture(scope="module", autouse=True)
 def box_service_module_hooks(request):
