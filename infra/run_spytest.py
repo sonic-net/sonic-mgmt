@@ -202,12 +202,13 @@ def configure_vxr(topology, platform, tar_ball, script_file):
     
     return 0, ""
         
-def wait_for_command_complete(chan, temination_str=":~$ "):
+def wait_for_command_complete(chan, temination_str=":~$ ", show_output=False):
     buff = ''
     while not buff.endswith(temination_str):
         resp = chan.recv(9999)
         buff += resp.decode('utf-8')
-        #print("resp: ", buff)
+        if show_output:
+            print("resp: ", buff)
 
 def run_sanity(script_file): 
     print("Starting step: run_sanity")
@@ -221,16 +222,16 @@ def run_sanity(script_file):
     wait_for_command_complete(chan)
 
     chan.send(f"docker exec -it docker-sonic-mgmt /bin/bash\n")
-    wait_for_command_complete(chan)
+    wait_for_command_complete(chan, show_output=True)
 
-    chan.send(f"cd /data; cp -r projects /; /data/spytest/bin/tool_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
-    wait_for_command_complete(chan, ":/data$ ")
+    chan.send(f"sudo su; cd /data; cp -r projects /; /data/spytest/bin/tool_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
+    wait_for_command_complete(chan, temination_str=":/data$ ", show_output=True)
 
     chan.send(f"cd /data; sudo mkdir spytest_results; cd spytest_results\n")
-    wait_for_command_complete(chan, ":/data/spytest_results$ ")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ", show_output=True)
 
     chan.send(f"sudo /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
-    wait_for_command_complete(chan, ":/data/spytest_results$ ")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ")
 
     return 0, ""
 
