@@ -116,7 +116,7 @@ class Arp:
 
         # create a list of IP-MAC bindings
         for i in range(11, count + 11):
-            moff1 = "{0:x}".format(i / 255)
+            moff1 = "{0:x}".format(i // 255)
             moff2 = "{0:x}".format(i % 255)
 
             self.ip_mac_list.append(IP_MAC(
@@ -362,7 +362,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
@@ -464,7 +464,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
 
 def test_nhop_group_max_1K_limit(duthost, tbinfo):
     """
-    Test next hop group resource count. For specific Cisco platforms
+    Test next hop group resource count. For specific Cisco Gauntlet platforms
     Steps:
     - Add test IP address to an active IP interface
     - Add static ARPs
@@ -480,7 +480,7 @@ def test_nhop_group_max_1K_limit(duthost, tbinfo):
 
     # Test is applicable for Cisco platforms where 1K Nhop group limit is enabled 
     if duthost.facts["platform"] not in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
-        return
+        pytest.skip("1K Nhop group is only enabled in Gauntlet")
 
     # Set of parameters for Cisco-8000 devices
     default_max_nhop_paths = 2
@@ -499,7 +499,7 @@ def test_nhop_group_max_1K_limit(duthost, tbinfo):
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
@@ -626,7 +626,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
         pytest.skip("Order ECMP is not configured so skipping the test-case")
 
     # Check Gather facts IP Interface is active one
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     pytest_assert(gather_facts['src_router_intf_name'] in ip_ifaces, "Selected IP interfaces is not active")
 
@@ -965,7 +965,7 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
     max_nhop = nhop_group_limit if max_nhop == None else int(max_nhop)
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
