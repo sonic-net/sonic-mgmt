@@ -1363,6 +1363,12 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
 
+tacacs/test_ro_user.py::test_ro_user_banned_command:
+  xfail:
+    reason: "Currently only supported for internal image. Fix will be merged to master branch later."
+    conditions:
+      - "release in ['master']"
+
 #######################################
 #####           telemetry         #####
 #######################################
