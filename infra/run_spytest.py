@@ -169,9 +169,10 @@ def configure_vxr(topology, platform, tar_ball, script_file):
 
 
     try:
+        tar_ball_name = tar_ball.split("/")[-1]
         #untar sonic-test golden-code
         exec_command_raise_error(client, f"wget {tar_ball}")
-        exec_command_raise_error(client, "tar -xvf golden_code_spytest.tar.gz")
+        exec_command_raise_error(client, f"tar -xvf {tar_ball_name}")
 
         #run sonic-mgmt docker
         exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/golden-code/docker-sonic-mgmt.gz")
@@ -224,14 +225,17 @@ def run_sanity(script_file):
     chan.send(f"docker exec -it docker-sonic-mgmt /bin/bash\n")
     wait_for_command_complete(chan, show_output=True)
 
-    chan.send(f"sudo su; cd /data; cp -r projects /; /data/spytest/bin/tool_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
-    wait_for_command_complete(chan, temination_str=":/data$ ", show_output=True)
+    chan.send(f"sudo su\n")
+    wait_for_command_complete(chan, temination_str=":/var/AzDevOps# ", show_output=True)
 
-    chan.send(f"cd /data; sudo mkdir spytest_results; cd spytest_results\n")
-    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ", show_output=True)
+    chan.send(f"cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
+    wait_for_command_complete(chan, temination_str=":/data# ", show_output=True)
+
+    chan.send(f"sudo mkdir spytest_results; cd spytest_results\n")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     chan.send(f"sudo /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
-    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results$ ", show_output=True)
 
     return 0, ""
 
