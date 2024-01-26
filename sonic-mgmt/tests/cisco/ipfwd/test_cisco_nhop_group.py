@@ -1088,7 +1088,7 @@ def test_nhop_group_add_after_1Klimit(duthost, tbinfo):
     asic = duthost.asic_instance()
 
     # find out an active IP port
-    ip_ifaces = asic.get_active_ip_interfaces(tbinfo).keys()
+    ip_ifaces = list(asic.get_active_ip_interfaces(tbinfo).keys())
     pytest_assert(len(ip_ifaces), "No IP interfaces found")
     eth_if = ip_ifaces[0]
 
