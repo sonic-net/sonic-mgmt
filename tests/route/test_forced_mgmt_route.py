@@ -34,7 +34,8 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def get_interface_reload_timestamp(duthost):
-    res = duthost.command("sudo service interfaces-config status | grep 'Finished interfaces-config.service - Update interfaces configuration.'")
+    res = duthost.command("sudo service interfaces-config status "\
+                          "| grep 'Finished interfaces-config.service - Update interfaces configuration.'")
     logger.info("interfaces config timestamp {}".format(res["stdout_lines"]))
 
     if len(res["stdout_lines"]) == 0:
@@ -187,7 +188,7 @@ def test_update_forced_mgmt(
         # Update current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(updated_forced_mgmt_routes))
         command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
-                        .format(interface_key, updated_forced_mgmt_routes)
+                  .format(interface_key, updated_forced_mgmt_routes)
         change_and_wait_interface_config_update(duthost, command)
 
         # Check /etc/network/interfaces generate correct
@@ -207,7 +208,7 @@ def test_update_forced_mgmt(
         # Revert current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(original_forced_mgmt_routes))
         command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
-                    .format(interface_key, original_forced_mgmt_routes)
+                  .format(interface_key, original_forced_mgmt_routes)
         change_and_wait_interface_config_update(duthost, command)
 
         # Check /etc/network/interfaces generate correct
