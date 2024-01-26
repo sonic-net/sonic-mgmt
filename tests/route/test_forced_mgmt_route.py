@@ -1,12 +1,13 @@
-import pytest
-import logging
+import ipaddress
 import json
+import logging
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
+from tests.common.utilities import wait_until
 from tests.override_config_table.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
-
+from tests.syslog.syslog_utils import is_mgmt_vrf_enabled
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -30,6 +31,32 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+
+
+def get_interface_reload_timestamp(duthost):
+    res = duthost.command("sudo service interfaces-config status | grep 'Finished interfaces-config.service - Update interfaces configuration.'")
+    logger.info("interfaces config timestamp {}".format(res["stdout_lines"]))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_interface_config_update(duthost, command, last_timestamp=None, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_interface_reload_timestamp(duthost)
+
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    def log_exist(duthost):
+        latest_timestamp = get_interface_reload_timestamp(duthost)
+        return latest_timestamp != last_timestamp
+
+    exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    pytest_assert(exist, "Not found interfaces-config update log: {}".format(command))
 
 
 def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
@@ -100,7 +127,7 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     interfaces = duthost.command("show ip interfaces")
     logging.debug("show ip interfaces: {}".format(interfaces))
 
-    # when eth1 up, forced mgmt route on thsi interface should exit
+    # when eth1 up, forced mgmt route on this interface should exit
     ipv4_rules = duthost.command("ip rule list")["stdout"]
     logging.debug("ip rule list: {}".format(ipv4_rules))
     ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
@@ -113,10 +140,76 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     interfaces = duthost.command("show ip interfaces")
     logging.debug("show ip interfaces: {}".format(interfaces))
 
-    # when eth1 down, forced mgmt route on thsi interface should not exit
+    # when eth1 down, forced mgmt route on this interface should not exit
     ipv4_rules = duthost.command("ip rule list")["stdout"]
     logging.debug("ip rule list: {}".format(ipv4_rules))
     ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
     logging.debug("ip -6 rule list: {}".format(ipv6_rules))
     pytest_assert("32764:	from all to 172.17.1.1/24 lookup default" not in ipv4_rules)
     pytest_assert("32764:	from all to fec1::fffe:afa:1/64 lookup default" not in ipv6_rules)
+
+def test_update_forced_mgmt(
+                        duthosts,
+                        enum_rand_one_per_hwsku_hostname,
+                        backup_restore_config):                             # noqa: F401
+    """
+    Check when update forced mgmt in CONFIG_DB, interfaces and routes will be update automatically.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Get interface and check config generate correct
+    mgmt_interface_keys = duthost.command("sonic-db-cli  CONFIG_DB keys 'MGMT_INTERFACE|eth0|*'")['stdout']
+    logging.warning("mgmt_interface_keys: {}".format(mgmt_interface_keys))
+
+    for interface_key in mgmt_interface_keys.split('\n'):
+        logging.warning("interface_key: {}".format(interface_key))
+        interface_address = interface_key.split('|')[2]
+
+        # Get current forced mgmt routes
+        original_forced_mgmt_routes = duthost.command("sonic-db-cli CONFIG_DB HGET '{}' forced_mgmt_routes@".format(interface_key))['stdout']
+        logging.warning("forced_mgmt_routes: {}, interface address: {}".format(original_forced_mgmt_routes, interface_address))
+
+        # Prepare new forced mgmt routes
+        test_route = "1::2:3:4/64"
+        ip_type = "-6"
+        if type(ipaddress.ip_network(interface_address, False)) == ipaddress.IPv4Network:
+            test_route = "1.2.3.4/24"
+            ip_type = "-4"
+
+        updated_forced_mgmt_routes = original_forced_mgmt_routes
+        if original_forced_mgmt_routes != "":
+            updated_forced_mgmt_routes += ","
+        updated_forced_mgmt_routes += test_route
+
+        # Update current forced mgmt routes
+        logging.warning("updated_forced_mgmt_routes: {}".format(updated_forced_mgmt_routes))
+        command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'".format(interface_key, updated_forced_mgmt_routes)
+        change_and_wait_interface_config_update(duthost, command)
+
+        # Check /etc/network/interfaces generate correct
+        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
+        logging.warning("interfaces: {}".format(interfaces))
+
+        pytest_assert("up ip {} rule add pref 32764 to {} table default".format(ip_type, test_route) in interfaces)
+        pytest_assert("pre-down ip {} rule delete pref 32764 to {} table default".format(ip_type, test_route) in interfaces)
+
+        # Check forced mgmt route add to route table
+        ip_rules = duthost.command("ip {} rule list".format(ip_type))["stdout"]
+        logging.warning("ip {} rule list: {}".format(ip_type, ip_rules))
+        pytest_assert("32764:	from all to {} lookup default".format(test_route) in ip_rules)
+
+        # Revert current forced mgmt routes
+        logging.warning("updated_forced_mgmt_routes: {}".format(original_forced_mgmt_routes))
+        command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'".format(interface_key, original_forced_mgmt_routes)
+        change_and_wait_interface_config_update(duthost, command)
+
+        # Check /etc/network/interfaces generate correct
+        interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
+        logging.warning("interfaces: {}".format(interfaces))
+        pytest_assert("up ip {} rule add pref 32764 to {} table default".format(ip_type, test_route) not in interfaces)
+        pytest_assert("pre-down ip {} rule delete pref 32764 to {} table default".format(ip_type, test_route) not in interfaces)
+
+        # Check forced mgmt route add to route table
+        ip_rules = duthost.command("ip {} rule list".format(ip_type))["stdout"]
+        logging.warning("ip {} rule list: {}".format(ip_type, ip_rules))
+        pytest_assert("32764:	from all to {} lookup default".format(test_route) not in ip_rules)
