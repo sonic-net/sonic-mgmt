@@ -145,6 +145,7 @@ class KustoConnector(object):
     def query_missing_testplan(self):
         query_str = '''
             FlatTestReportViewV5
+            | where UploadTimestamp > ago(30d)
             | distinct BuildId
             | join kind=leftanti TestReportUnionData on BuildId
             | take 20
