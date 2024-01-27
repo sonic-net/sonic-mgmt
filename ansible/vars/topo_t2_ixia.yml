@@ -1,0 +1,138 @@
+topology:
+  # 2 DUTs - 1 linecards (dut 0) and 1 Supervisor card (dut 1). 2 asics - asic0, asic1 in the linecard are used.
+  #
+  #  - asic0 on linecard dut0 connected to Ixia  - both routed port
+  #  - asic1 on linecard dut0 connected to Ixia  - both routed port
+  #
+  # No ptf ports, this is to setup the DUT for ixia testing.
+  # PLS DON'T USE THIS TOPOLOGY FOR ADD-TOPO/REMOVE-TOPO
+
+  dut_num: 2
+  VMs:
+    Ixia-Port1:
+      vlans:
+        - "0.0@0"
+      vm_offset: 0
+    Ixia-Port2:
+      vlans:
+        - "0.2@2"
+      vm_offset: 1
+    Ixia-Port3:
+      vlans:
+        - "0.12@12"
+      vm_offset: 2
+    Ixia-Port4:
+      vlans:
+        - "0.13@13"
+      vm_offset: 3
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+        - 10.1.0.2/32
+      ipv6:
+        - FC00:10::1/128
+        - FC00:11::1/128
+
+configuration_properties:
+  common:
+    podset_number: 400
+    tor_number: 16
+    tor_subnet_number: 8
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 65100
+    dut_type: SpineRouter
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  Ixia-Port1:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.0
+          - FC00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        ipv4: 10.0.0.1/31
+        ipv6: FC00::2/126
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  Ixia-Port2:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.4
+          - FC00::9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        ipv4: 10.0.0.5/31
+        ipv6: FC00::a/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::6/64
+
+  Ixia-Port3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.6
+          - FC00::d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
+      Ethernet1:
+        ipv4: 10.0.0.7/31
+        ipv6: FC00::e/126
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::9/64
+
+  Ixia-Port4:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.0.0.10
+          - FC00::15
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
+      Ethernet1:
+        ipv4: 10.0.0.11/31
+        ipv6: FC00::16/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::d/64
