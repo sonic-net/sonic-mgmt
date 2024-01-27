@@ -86,16 +86,34 @@ connections:
     - leaf0.Ethernet0
     spine0_leaf1_conn1:
     - spine0.Ethernet1
-    - leaf1.Ethernet0
+    - leaf1.Ethernet1
     spine1_leaf0_conn1:
     - spine1.Ethernet1
-    - leaf0.Ethernet0
+    - leaf0.Ethernet1
     spine1_leaf1_conn1:
     - spine1.Ethernet0
     - leaf1.Ethernet0
-    Spt_leaf0_conn:
-      - leaf0.Ethernet[2..5]
-      - spt.data[0..3]
-    hub7:
-      - leaf1.Ethernet[2..5]
-      - spt.data[4..7]
+    Spt_leaf0_conn0:
+      - leaf0.Ethernet2
+      - spt.data1/1
+    Spt_leaf0_conn1:
+      - leaf0.Ethernet3
+      - spt.data1/2
+    Spt_leaf0_conn2:
+      - leaf0.Ethernet4
+      - spt.data1/3
+    Spt_leaf0_conn3:
+      - leaf0.Ethernet5
+      - spt.data1/4
+    Spt_leaf1_conn0:
+      - leaf1.Ethernet2
+      - spt.data1/5
+    Spt_leaf1_conn1:
+      - leaf1.Ethernet3
+      - spt.data1/6
+    Spt_leaf1_conn2:
+      - leaf1.Ethernet4
+      - spt.data1/7
+    Spt_leaf1_conn3:
+      - leaf1.Ethernet5
+      - spt.data1/8
