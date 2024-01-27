@@ -10,8 +10,7 @@ devices:
   leaf0: &sonic_router
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
-      - mathilda32
-    linecard_versions: [p4]
+      - matilda32
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
