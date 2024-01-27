@@ -67,7 +67,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb', choices=["sol-tb"])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -242,6 +242,21 @@ def run_python_script(host,port,user,passwd,cmd_list):
     ssh.connect(host, port, user, passwd)
     chan = ssh.invoke_shell()
     for cmd in cmd_list:
+        chan.send(cmd)
+        time.sleep(3)
+        resp = chan.recv(9999)
+        print("Response : %s" % resp.decode("ascii"))
+
+    ssh.close()
+
+def apply_config(host,port,user,passwd,filepath):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, port, user, passwd)
+    chan = ssh.invoke_shell()
+    cfg_file = open(filepath, 'r')
+    configs = cfg_file.readlines()
+    for cmd in configs:
         chan.send(cmd)
         time.sleep(3)
         resp = chan.recv(9999)
@@ -486,6 +501,26 @@ def main():
     vcr_configure_end = datetime.datetime.now()
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()
+
+    if topo_type == 'sol-tb-l2vni':
+        leaf0_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l2vni/l2vni_leaf0.cfg'
+        apply_config(data['leaf0']['HostAgent'],data['leaf0']['xr_redir22'],dut_uname,dut_passwd,leaf0_filepath)
+        leaf1_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l2vni/l2vni_leaf1.cfg'
+        apply_config(data['leaf1']['HostAgent'],data['leaf1']['xr_redir22'],dut_uname,dut_passwd,leaf1_filepath)
+        spine0_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l2vni/spine0.cfg'
+        apply_config(data['spine0']['HostAgent'],data['spine0']['xr_redir22'],dut_uname,dut_passwd,spine0_filepath)
+        spine1_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l2vni/spine1.cfg'
+        apply_config(data['spine1']['HostAgent'],data['spine1']['xr_redir22'],dut_uname,dut_passwd,spine1_filepath)
+    elif topo_type == 'sol-tb-l3vni':
+        leaf0_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l3vni/l3vni_leaf0.cfg'
+        apply_config(data['leaf0']['HostAgent'],data['leaf0']['xr_redir22'],dut_uname,dut_passwd,leaf0_filepath)
+        leaf1_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l3vni/l3vni_leaf1.cfg'
+        apply_config(data['leaf1']['HostAgent'],data['leaf1']['xr_redir22'],dut_uname,dut_passwd,leaf1_filepath)
+        spine0_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l3vni/spine0.cfg'
+        apply_config(data['spine0']['HostAgent'],data['spine0']['xr_redir22'],dut_uname,dut_passwd,spine0_filepath)
+        spine1_filepath = './../sonic-mgmt/spytest/tests/cisco/tortuga/solution/validated_configs/base_l3vni/spine1.cfg'
+        apply_config(data['spine1']['HostAgent'],data['spine1']['xr_redir22'],dut_uname,dut_passwd,spine1_filepath)
+
     profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
 
     print("******************************************************************************************************************************************************************************\n")
