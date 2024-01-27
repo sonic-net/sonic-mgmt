@@ -1,4 +1,5 @@
 simulation:
+  sim_host: localhost
   slurm_flags:
         hours: 120
   no_image_copy: true
