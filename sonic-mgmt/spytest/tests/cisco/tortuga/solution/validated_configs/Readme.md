@@ -1,5 +1,6 @@
 1. Execute the below to create a 2x2 Spine/Leaf Topology with the required Topology (l2vni or l3vni)
 
+  cd sonic-test/infra
   ./create_tortuga_topo.py -f ./../pyvxr_yaml_files/tortuga_spytest_solution_tb.yaml -t sol-tb-l3vni -c
 
   -f : specify the yaml file for the topology
