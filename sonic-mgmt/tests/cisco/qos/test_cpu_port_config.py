@@ -4,6 +4,7 @@ to match the expected configuration
 """
 
 import logging
+import time
 import pytest
 from tests.common.cisco_data import is_cisco_device
 import json
@@ -13,6 +14,42 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
+
+
+def enable_serviceability_cli(duthost, show_cmd):
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if not dshell_disabled:
+        logging.info("Dshell is already enabled")
+        return
+
+    logging.info("Enabling dshell client")
+    duthost.command("config platform cisco sdk-debug enable")
+    time.sleep(60)
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if not dshell_disabled:
+        logging.info("Dshell started successfully")
+        return
+
+    time.sleep(120)
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if dshell_disabled:
+        pytest.fail(
+            "This test failed since debug shell server is not running for command: {}".format(show_cmd))
 
 
 def get_asic_facts(duthost):
@@ -31,11 +68,6 @@ def verify_command_result(result, cmd):
     # Raise an AssertionError if "stdout" is empty
     assert result["stdout"], "No output for {}".format(cmd)
 
-    # Check if "cisco sdk-debug enable" is present in result["stdout"]
-    dshell_disabled = "cisco sdk-debug enable" in result["stdout"]
-    # Raise an AssertionError if "cisco sdk-debug enable" is found
-    assert not dshell_disabled, "debug shell server is not running for command: {}".format(cmd)
-
     # Check if "Traceback" is present in result["stdout"]
     traceback_found = "Traceback" in result["stdout"]
     # Raise an AssertionError if "Traceback" is found
@@ -52,6 +84,9 @@ def test_verify_cpu_port_config(duthosts, rand_one_dut_hostname, pg_to_test, req
         pytest.skip("Skipping as not a Cisco device")
 
     cmd = "show platform npu rx cgm_global -d"
+
+    enable_serviceability_cli(duthost, cmd)
+
     result = duthost.command(cmd)
     verify_command_result(result, cmd)
 
