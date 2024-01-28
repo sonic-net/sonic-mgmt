@@ -1,0 +1,78 @@
+simulation:
+  slurm_flags:
+        hours: 120
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  staggered_boot_delay: 60
+devices:
+  leaf0: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+      - churchill
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+
+  leaf1:
+    <<: *sonic_router
+
+  spine0:
+    <<: *sonic_router
+
+  spine1:
+    <<: *sonic_router
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+    data_ports:
+      - data[0..1]
+
+  ixia:
+    platform: ixia
+    ixia_images:
+      windows: /auto/vxr/images/ixia/WindowsWithIxNetwork_9.0
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.00_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.00_KVM.qcow2
+    data_ports:
+      - data[0..7]
+
+connections:
+  hubs:
+    spine0_leaf0_conn1:
+    - spine0.Ethernet0
+    - leaf0.Ethernet0
+    spine0_leaf1_conn1:
+    - spine0.Ethernet1
+    - leaf1.Ethernet1
+    spine1_leaf0_conn1:
+    - spine1.Ethernet1
+    - leaf0.Ethernet1
+    spine1_leaf1_conn1:
+    - spine1.Ethernet0
+    - leaf1.Ethernet0
+    ixia_leaf0_conn0:
+      - leaf0.Ethernet[2..5]
+      - ixia.data[0..3]
+    ixia_leaf1_conn0:
+      - leaf1.Ethernet[2..5]
+      - ixia.data[4..7]
+    hub0:
+      - leaf0.Ethernet6
+      - sonic_mgmt.data0
+    hub1:
+      - leaf1.Ethernet6
+      - sonic_mgmt.data1

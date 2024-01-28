@@ -46,3 +46,6 @@ ONIE_START_TO_DISCOVERY = "Discovery"
 
 # At last, if installation successes in ONIE, we will get the prompt
 SONIC_PROMPT = "sonic login:"
+
+# For Nokia testbeds, we will get the string "Hit any key to stop autoboot" to enter into Marvell
+MARVELL_ENTRY = "stop autoboot"
