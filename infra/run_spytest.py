@@ -204,12 +204,11 @@ def configure_vxr(topology, platform, tar_ball, script_file):
     return 0, ""
         
 def wait_for_command_complete(chan, temination_str=":~$ ", show_output=False):
-    buff = ''
     while not buff.endswith(temination_str):
         resp = chan.recv(9999)
         buff += resp.decode('utf-8')
         if show_output:
-            print("resp: ", buff)
+            print("resp: ", resp)
 
 def run_sanity(script_file): 
     print("Starting step: run_sanity")
