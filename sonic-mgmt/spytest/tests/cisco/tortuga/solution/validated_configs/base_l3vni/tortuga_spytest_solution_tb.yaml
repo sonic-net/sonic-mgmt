@@ -1,0 +1,121 @@
+simulation:
+  slurm_flags:
+        hours: 120
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  staggered_boot_delay: 60
+devices:
+  leaf0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    console_ports: [62101]
+  leaf1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    console_ports: [62102]
+  spine0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    console_ports: [62103]
+  spine1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - matilda32
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    xr_port_redir:
+    - 22
+    console_ports: [62104]
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+  spt:
+    platform: spirent_cafy1
+    spirent_license_override:
+        license_server: "10.22.181.32"
+    spirent_images:
+        windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
+        api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
+        port: /auto/vxr/vxr_images/spirent/sptvm-5_05-dhcp.img
+    data_ports:
+      - data[0..7]
+
+connections:
+  hubs:
+    spine0_leaf0_conn1:
+    - spine0.Ethernet0
+    - leaf0.Ethernet0
+    spine0_leaf1_conn1:
+    - spine0.Ethernet1
+    - leaf1.Ethernet1
+    spine1_leaf0_conn1:
+    - spine1.Ethernet1
+    - leaf0.Ethernet1
+    spine1_leaf1_conn1:
+    - spine1.Ethernet0
+    - leaf1.Ethernet0
+    Spt_leaf0_conn0:
+      - leaf0.Ethernet2
+      - spt.data0
+    Spt_leaf0_conn1:
+      - leaf0.Ethernet3
+      - spt.data1
+    Spt_leaf0_conn2:
+      - leaf0.Ethernet4
+      - spt.data2
+    Spt_leaf0_conn3:
+      - leaf0.Ethernet5
+      - spt.data3
+    Spt_leaf1_conn0:
+      - leaf1.Ethernet2
+      - spt.data4
+    Spt_leaf1_conn1:
+      - leaf1.Ethernet3
+      - spt.data5
+    Spt_leaf1_conn2:
+      - leaf1.Ethernet4
+      - spt.data6
+    Spt_leaf1_conn3:
+      - leaf1.Ethernet5
+      - spt.data7

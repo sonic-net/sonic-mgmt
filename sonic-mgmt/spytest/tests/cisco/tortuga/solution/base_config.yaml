@@ -1,0 +1,250 @@
+spine0:
+    sonic:
+      config: |
+        sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface ip add Ethernet0 11.11.11.1/24
+        sudo config interface ip add Ethernet16 11.11.12.1/24
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.210/32
+        sudo config interface startup Loopback27
+      deconfig: |
+        sudo config interface ip rem Loopback27 10.200.200.210/32
+        sudo config interface ip rem Ethernet16 11.11.12.1/24
+        sudo config interface ip rem Ethernet0 11.11.11.1/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
+
+    bgp:
+      config: |
+        router bgp 2363070545
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.202 peer-group OVERLAY
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+
+      deconfig: |
+        no router bgp 2363070545
+
+
+spine1:
+    sonic:
+      config: |
+        sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface ip add Ethernet0 11.11.13.1/24
+        sudo config interface ip add Ethernet16 11.11.14.1/24
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.211/32
+        sudo config interface startup Loopback27
+      deconfig: |
+        sudo config interface ip rem Loopback27 10.200.200.211/32
+        sudo config interface ip rem Ethernet16 11.11.14.1/24
+        sudo config interface ip rem Ethernet0 11.11.13.1/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
+
+    bgp:
+      config: |
+        router bgp 2363070546
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.202 peer-group OVERLAY
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+
+      deconfig: |
+        no router bgp 2363070546
+
+
+leaf0:
+    sonic:
+      config: |
+        sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
+        sudo config interface startup Ethernet32
+        sudo config interface ip add Ethernet0 11.11.11.2/24
+        sudo config interface ip add Ethernet16 11.11.13.2/24
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.200/32
+        sudo config vlan add 2
+        sudo config vlan member add -u 2 Ethernet32
+        sudo config vxlan add VXLAN 10.200.200.200
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 2 5002
+
+      deconfig: |
+        sudo config vxlan map del VXLAN 2 5002
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 2 Ethernet32
+        sudo config vlan del 2
+        sudo config interface ip rem Loopback27 10.200.200.200/32
+        sudo config interface ip rem Ethernet16 11.11.13.2/24
+        sudo config interface ip rem Ethernet0 11.11.11.2/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
+
+    bgp:
+      config: |
+        router bgp 2363073663
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
+        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 10.200.200.211 peer-group OVERLAY
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+
+      deconfig: |
+        no router bgp 2363073663
+        exit
+
+
+leaf1:
+    sonic:
+      config: |
+        sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet32
+        sudo config interface startup Ethernet32
+        sudo config interface ip add Ethernet0 11.11.12.2/24
+        sudo config interface ip add Ethernet16 11.11.14.2/24
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 10.200.200.201/32
+        sudo config vlan add 2
+        sudo config vlan member add -u 2 Ethernet32
+        sudo config vxlan add VXLAN 10.200.200.201
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 2 5002
+
+      deconfig: |
+        sudo config vxlan map del VXLAN 2 5002
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 2 Ethernet32
+        sudo config vlan del 2
+        sudo config interface ip rem Loopback27 10.200.200.201/32
+        sudo config interface ip rem Ethernet16 11.11.14.2/24
+        sudo config interface ip rem Ethernet0 11.11.12.2/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
+
+    bgp:
+      config: |
+        router bgp 2363033449
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
+        neighbor 10.200.200.200 peer-group OVERLAY
+        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 10.200.200.211 peer-group OVERLAY
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+
+      deconfig: |
+        no router bgp 2363033449
+        exit
