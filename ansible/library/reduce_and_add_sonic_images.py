@@ -111,21 +111,35 @@ def setup_swap_if_necessary(module):
 def reduce_installed_sonic_images(module):
     log("reduce_installed_sonic_images")
 
-    _, out, _ = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    rc, out, _ = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    if rc != 0:
+        log("Failed to get sonic image list. Will try to install new image anyway.")
+        return
+
     lines = out.split('\n')
 
-    # if next boot image not same with current, set current as next boot, and delete the orinal next image
+    # if next boot image not same with current, set current as next boot, and delete the original next image
+    curr_image = ""
+    next_image = ""
     for line in lines:
         if 'Current:' in line:
             curr_image = line.split(':')[1].strip()
         elif 'Next:' in line:
             next_image = line.split(':')[1].strip()
 
+    if curr_image == "":
+        log("Failed to get current image. Will try to install new image anyway.")
+        return
+
+    if next_image == "":
+        log("Failed to get next image. Will try to install new image anyway.")
+        return
+
     if curr_image != next_image:
         log("set-next-boot")
         exec_command(module, cmd="sonic_installer set-next-boot {}".format(curr_image), ignore_error=True)
 
-    log("clearnup old image")
+    log("cleanup old image")
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
     log("Done reduce_installed_sonic_images")
