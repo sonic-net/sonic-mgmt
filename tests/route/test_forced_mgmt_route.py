@@ -34,7 +34,8 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def get_interface_reload_timestamp(duthost):
-    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config -p ExecMainExitTimestamp --value")["stdout"]
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"\
+                                " -p ExecMainExitTimestamp --value")["stdout"]
     logger.info("interfaces config timestamp {}".format(timestamp))
 
     return timestamp
