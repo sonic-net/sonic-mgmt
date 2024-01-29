@@ -34,14 +34,10 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def get_interface_reload_timestamp(duthost):
-    res = duthost.command("sudo service interfaces-config status "
-                          "| grep 'Finished interfaces-config.service - Update interfaces configuration.'")
-    logger.info("interfaces config timestamp {}".format(res["stdout_lines"]))
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config -p ExecMainExitTimestamp --value")["stdout"]
+    logger.info("interfaces config timestamp {}".format(timestamp))
 
-    if len(res["stdout_lines"]) == 0:
-        return ""
-
-    return res["stdout_lines"][-1]
+    return timestamp
 
 
 def change_and_wait_interface_config_update(duthost, command, last_timestamp=None, timeout=10):
@@ -50,8 +46,7 @@ def change_and_wait_interface_config_update(duthost, command, last_timestamp=Non
 
     duthost.shell(command)
 
-    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
-    # Wait auditd reload config finish
+    # Wait interfaces-config service finish
     def log_exist(duthost):
         latest_timestamp = get_interface_reload_timestamp(duthost)
         return latest_timestamp != last_timestamp
