@@ -176,6 +176,9 @@ def download_new_sonic_image(module, new_image_url, save_as):
         _, out, _ = exec_command(module, cmd="sonic_installer binary_version {}".format(save_as))
         results["downloaded_image_version"] = out.rstrip('\n')
         log("Downloaded image version: {}".format(results["downloaded_image_version"]))
+        # Save the binary version to file
+        exec_command(module, cmd="sudo echo {} > /tmp/downloaded-sonic-image-version".format(
+            results["downloaded_image_version"]))
 
 
 def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
