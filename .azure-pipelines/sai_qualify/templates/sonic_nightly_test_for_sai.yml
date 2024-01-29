@@ -203,7 +203,7 @@ jobs:
 
           wait_time=0
           lock_time=$(expr ${{ parameters.NIGHTLY_TEST_TIMEOUT }} / 60)
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r "SONiC nightly for SAI release" -o $lock_time; do
+          until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r "SONiC nightly for SAI release" -o $lock_time; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1
@@ -381,24 +381,29 @@ jobs:
             export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
             export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
 
+            echo "Activate python3 virtual environment"
+            source /var/AzDevOps/env-python3/bin/activate
+
             SAI_ADHOC_PATH=$BASE_PATH/tests/common/sai_adhoc.py
             DUT_PATH=/tmp/pkg
 
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "mkdir -p $DUT_PATH"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "mkdir -p $DUT_PATH"
 
             #copy files from server to dut
-            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$(Build.ArtifactStagingDirectory)/download dest=$DUT_PATH"
-            python $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/tests/scripts/sai_qualify/install_saibcm.sh dest=$DUT_PATH/download"
+            python3 $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$(Build.ArtifactStagingDirectory)/download dest=$DUT_PATH"
+            python3 $SAI_ADHOC_PATH -i -t dut -o copy -n  ${{ parameters.TESTBED_NAME }} -c "src=$BASE_PATH/tests/scripts/sai_qualify/install_saibcm.sh dest=$DUT_PATH/download"
 
             # copy file to saiserver docker and commit docker
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download syncd:/"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker cp $DUT_PATH/download syncd:/"
 
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd chmod +x /download/install_saibcm.sh"
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd /download/install_saibcm.sh"
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
-            python $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "sudo reboot"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd chmod +x /download/install_saibcm.sh"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec -u root syncd /download/install_saibcm.sh"
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd apt list --installed | grep sai"
+            python3 $SAI_ADHOC_PATH -i -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "sudo reboot"
             sleep 180
+
+            python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd dpkg -l | grep libsaibcm | awk -F'[ ]+' '{print $3}'"
 
         displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
 
@@ -468,6 +473,9 @@ jobs:
               exit 1
             elif [[ $RUN_TESTS_RC == 10 ]]; then
               echo "Sanity check failed. Please check the detailed log."
+              exit 1
+            elif [[ $RUN_TESTS_RC == 15 ]]; then
+              echo "duthosts fixture failed. Please check the detailed log."
               exit 1
             else
               exit 0
@@ -570,7 +578,7 @@ jobs:
           INTERVAL=60
 
           wait_time=0
-          until python ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
+          until python3 ./.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a release; do
               if (( $wait_time >= $TIMEOUT)); then
                   echo "Failed to release testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
                   exit 1
