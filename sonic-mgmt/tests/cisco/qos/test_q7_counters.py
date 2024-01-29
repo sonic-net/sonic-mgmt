@@ -7,7 +7,6 @@ import logging
 import pytest
 import time
 from tests.common.cisco_data import is_cisco_device
-# from tests.common.helpers.assertions import pytest_assert
 import json
 
 
@@ -15,18 +14,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
-
-
-def get_asic_facts(duthost):
-    asic_namespace_list = []
-
-    if duthost.is_multi_asic:
-        for asic in duthost.frontend_asics:
-            asic_namespace_list.append(asic.namespace)
-    else:
-        asic_namespace_list.append('asic0')
-
-    return asic_namespace_list
 
 
 def verify_command_result(result, cmd):
@@ -44,13 +31,13 @@ def verify_command_result(result, cmd):
     assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
-def get_queue_counter(duthost, portchannel_members):
+def get_queue_counter(asichost, portchannel_members):
 
     sonic_queue_counter_cmd = 'show queue counters {} --json'
     total_pkts = 0
     for member in portchannel_members:
         cmd = sonic_queue_counter_cmd.format(member)
-        result = duthost.command(cmd)
+        result = asichost.command(cmd)
         verify_command_result(result, cmd)
 
         json_str = result["stdout"].strip()
@@ -67,18 +54,26 @@ def get_queue_counter(duthost, portchannel_members):
     return total_pkts
 
 
-def test_verify_q7_counters(duthosts, rand_one_dut_hostname, tbinfo, request):
+def clear_queue_counters(asichost):
+    asichost.command("sonic-clear queuecounters")
+
+
+def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbinfo, request):
+
     """
     @summary: Verify output of `show queue counters for UC7 increases as expected`
     """
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
+
     if not is_cisco_device(duthost):
         pytest.skip("Skipping as not a Cisco device")
 
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    portchannel_itfs = cfg_facts["PORTCHANNEL_INTERFACE"]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+
+    port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
+
+    mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     """
       Create set of unique port channel entries
@@ -89,31 +84,26 @@ def test_verify_q7_counters(duthosts, rand_one_dut_hostname, tbinfo, request):
       5. Get end queue counter for UC7 as sum of counters per member link
       6. Check the delta between end and begin counter is greater than the pinged count
     """
-    port_channel_set = set()
-    port_channel_set.update([portchannel for portchannel, _ in list(portchannel_itfs.items())])
 
     PING_COUNT = 100
 
-    for portchannel in port_channel_set:
-        portchannel_members = list(cfg_facts["PORTCHANNEL_MEMBER"][portchannel].keys())
+    for portchannel, portchannel_members in port_channels_data.items():
         for neighbor in mg_facts['minigraph_portchannel_interfaces']:
             if neighbor['attachto'] == portchannel:
-                logging.info("portchannel {} peer ip {} members {}".format(
-                      neighbor['attachto'], neighbor['peer_addr'], portchannel_members))
+                logging.info("Checking portchannel {} with members {} and peer ip {}".format(
+                      neighbor['attachto'], portchannel_members, neighbor['peer_addr']))
 
-                sonic_clear_cmd = 'sonic-clear queuecounters'
-                result = duthost.command(sonic_clear_cmd)
-                verify_command_result(result, sonic_clear_cmd)
+                clear_queue_counters(asichost)
 
-                start_counter = get_queue_counter(duthost, portchannel_members)
+                start_counter = get_queue_counter(asichost, portchannel_members)
 
                 # Start ping traffic to peer
                 ping_cmd = "ping {} -c {} -f".format(neighbor['peer_addr'], PING_COUNT)
-                result = duthost.command(ping_cmd)
+                result = asichost.command(ping_cmd)
                 verify_command_result(result, ping_cmd)
 
                 time.sleep(10)
-                end_counter = get_queue_counter(duthost, portchannel_members)
+                end_counter = get_queue_counter(asichost, portchannel_members)
 
                 assert (end_counter - start_counter >= PING_COUNT), \
                        "Insufficient UC7 counter increase of {}. Expected at least {} increase.".format(
