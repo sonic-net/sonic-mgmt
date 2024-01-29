@@ -109,7 +109,7 @@ class IPRoutes:
 
         fn.close()
         # copy file to DUT and run it on DUT
-        self.duthost.copy(src=self.filename, dest=self.filename, mode=0755)
+        self.duthost.copy(src=self.filename, dest=self.filename, mode='0755')
         result = self.duthost.shell(self.filename)
         pytest_assert(
             result["rc"] == 0,
