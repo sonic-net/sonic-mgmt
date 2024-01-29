@@ -1849,7 +1849,7 @@ class TestQosSai(QosSaiBase):
         disableTest = request.config.getoption("--disable_test")
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
-                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "mellanox"]):
             disableTest = False
         if disableTest:
             pytest.skip("DSCP to PG mapping test disabled")
