@@ -1,8 +1,10 @@
 import re
+import os
 import json
 from spytest import st
 from apis.system.rest import get_rest
 import apis.system.interface as Intf
+import apis.system.basic as basic_obj
 from apis.system.switch_configuration import show_running_config
 from utilities.common import filter_and_select, kwargs_to_dict_list
 from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
@@ -360,11 +362,22 @@ def config_buffer_init(dut, **kwargs):
     '''
     cli_type = st.get_ui_type(dut, **kwargs)
     config = kwargs.get('config', 'yes')
-    min_time = kwargs.pop('min_time', 40)
+    chip = basic_obj.get_hwsku(dut)
+    if "Z9432f" in chip or "AS9736" in chip:
+        wait_time = "130"
+    else:
+        wait_time = "40"
+    min_time = kwargs.pop('min_time', int(os.getenv("SONIC_ROCE_ENABLE_MIN_TIME", wait_time)))
     cli_type = 'klish' if cli_type == 'click' else cli_type
     if 'return_output' in kwargs:
         cli_type = 'klish'
-
+    result = show_running_config(dut, module="| grep lossless")
+    if "buffer init lossless" in result and 'return_output' not in kwargs and config == 'yes':
+        st.banner("WARNING: buffer init is already configured on the box so skipping re-config")
+        return True
+    elif "buffer init lossless" not in result and 'return_output' not in kwargs and config == 'no':
+        st.banner("WARNING: buffer init is not enabled on the box so skipping roce disable application")
+        return True
     if cli_type in get_supported_ui_type_list():
         service = YangRpcService()
         rpc = umf_qosp.QosBufferConfigRpc()
@@ -413,7 +426,12 @@ def config_roce(dut, **kwargs):
     config = kwargs.get('config', 'yes')
     skip_error_check = kwargs.pop('skip_error_check', True)
     expect_reboot = kwargs.pop('expect_reboot', True)
-    min_time = kwargs.pop('min_time', 40)
+    chip = basic_obj.get_hwsku(dut)
+    if "Z9432f" in chip or "AS9736" in chip:
+        wait_time = "130"
+    else:
+        wait_time = "40"
+    min_time = kwargs.pop('min_time', int(os.getenv("SONIC_ROCE_ENABLE_MIN_TIME", wait_time)))
     cli_type = 'klish' if cli_type == 'click' else cli_type
     if 'return_output' in kwargs:
         cli_type = 'klish'
