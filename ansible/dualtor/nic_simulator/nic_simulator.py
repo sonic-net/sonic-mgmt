@@ -119,10 +119,10 @@ class OVSCommand(object):
             if ovs_version >= _versiontuple("2.10"):
                 global USE_HASH_SELECTION_METHOD_EXPLICITLY
                 USE_HASH_SELECTION_METHOD_EXPLICITLY = True
-                OVSCommand.OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow15 del-flows {bridge_name}"
+                OVSCommand.OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow15 del-groups {bridge_name}"
                 OVSCommand.OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 add-group {bridge_name} {group}"
                 OVSCommand.OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 mod-group {bridge_name} {group}"
-        except Exception as error:
+        except Exception:
             raise ValueError("Failed to find/setup openflow version: %s" % out.stdout)
 
     @staticmethod
