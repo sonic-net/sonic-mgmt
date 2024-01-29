@@ -1617,6 +1617,8 @@ class QosSaiBase(QosBase):
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
