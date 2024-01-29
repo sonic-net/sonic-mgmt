@@ -142,14 +142,98 @@ class KustoConnector(object):
         logger.info("The total count is:{}".format(total_count))
         return total_count
 
-    def query_missing_testplan(self):
+    def query_missing_testplan(self, upload_time_start, upload_time_end):
         query_str = '''
-            FlatTestReportViewV5
+            let ExcludeTestbedList = dynamic(['ixia', 't2', '3132', '7280', 'slx', '3164', 'azd']);
+            let IncludeBranchList = dynamic(['20191130', '20201231', '20220531', '20230531', '20231105','internal','master']);
+            let ExcludeTopoList = dynamic(['t2']);
+            let ExcludeAsicList = dynamic(['barefoot']);
+            let newTestBeds = TestBeds
+            | where UploadTime between (datetime({}) .. datetime({}))
+            | project-away CreateTime, UpdateTime,UploadTime,Dut
+            | where TestbedType == 'PHYSICAL'
+            | where isnotempty(HardwareSku)
+            | distinct *;
+            let newTestplans = TestPlans
+            | where UploadTime between (datetime({}) .. datetime({}))
+            | where TestPlanType == 'NIGHTLY'
+            | distinct *
+            | summarize arg_max(UploadTime, *) by TestPlanId;
+            let ElasticTest = V2TestCases
+            | where UploadTime between (datetime({}) .. datetime({}))
+            | join kind=leftouter newTestBeds on TestPlanId and TestbedId
+            | join kind=leftouter newTestplans on TestPlanId
+            | where TestPlanType == 'NIGHTLY'
+            | project-rename TestPlanResult=Result1, TestplanStartTime=StartTime1, TestplanEndTime=EndTime1,TestplanUploadTime=UploadTime1,TestbedPlatform=Platform
+            | project-away TestbedId1, TestPlanId1,TestPlanId2,HardwareSku1,AsicType1,Topology1,Platform1,Asic1,UploadTime
+            | distinct *
+            | extend Asic = case(HardwareSku has_any ("7050CX3"), "TD3",
+                                HardwareSku has_any ("7050", "S6000"), "TD2",
+                                HardwareSku has_any ("7060CX", "DX010", "S6100", "3164"), "TH",
+                                HardwareSku has_any ("7260CX3"), "TH2",
+                                HardwareSku has_any ("Z9332f"), "TH3",
+                                HardwareSku has_any ("MSN4600C"), "Spectrum3",
+                                HardwareSku has_any ("64x100Gb"), "SiliconOne",
+                                HardwareSku has_any ("Celestica-E1031-T48S4"), "Helix4",
+                                HardwareSku has_any ("7215"), "Marvell",
+                                HardwareSku has_any ("7280CR3"), "J2C",
+                                HardwareSku has_any ("IXR7250E"), "J2C+",
+                                HardwareSku has_any ("8102"), "Q201L",
+                                HardwareSku has_any ("8101"), "Q200",
+                                HardwareSku has_any ("9516"), "Tofino2",
+                                HardwareSku has_any ("ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410", "ACS-MSN2010", "ACS-MSN2201"), "SPC1",
+                                HardwareSku has_any ("ACS-MSN3700", "ACS-MSN3700C", "ACS-MSN3800", "Mellanox-SN3800-D112C8", "ACS-MSN3420"), "SPC2",
+                                HardwareSku has_any ("ACS-MSN4700", "ACS-MSN4600C", "ACS-MSN4410", "ACS-MSN4600", "Mellanox-SN4600C-D112C8", "Mellanox-SN4600C-C64"), "SPC3",
+                                "FIXME"),
+                TopologyType = case(Topology has "dualtor", "dualtor",
+                                    Topology has "t0", "t0",
+                                    Topology has "t1", "t1",
+                                    Topology has "t2", "t2",
+                                    Topology has "m0", "m0",
+                                    Topology has "mx", "mx",
+                                    "FIXME"),
+                RunDate = make_datetime(datetime_part("Year", TestplanStartTime),
+                                        datetime_part("Month", TestplanStartTime),
+                                        datetime_part("Day", TestplanStartTime))
+            | extend FullTestPath = strcat(ModulePath, ".", TestCase)
+            | extend OSVersion=case(isempty(OSVersion), substring(OSVersion1, 6),substring(OSVersion, 6))
+            | extend Result = case(Result in ("xfail_skipped"), "xfail_expected",
+                                Result in ("xfail_failure", "xfail_error"), "xfail_unexpected",
+                                Result in ("xfail_success"), "xfail_forgive",
+                                Result);
+            FlatTestReportViewLatest
+            | join kind=leftouter TestReportPipeline on ReportId
+            | extend PipeStatus = case (FailedTasks != "", "Sanity Failure", CancelledTasks != "", "Canceled", "FINISHED")
+            | project-away ReportId1,TestbedName1,OSVersion1
+            | project-rename TestplanStartTime=StartTimestamp,TestplanEndTime=UploadTimestamp
+            | project-rename UploadTimestamp = UploadTimeUTC
+            | union ( ElasticTest
+                | extend BuildId = TestPlanId
+                | extend StartTimeUTC= TestplanStartTime
+                | extend PipeStatus = TestPlanResult
+                | extend UploadTimestamp = TestplanUploadTime
+            )
+            | project-away TestPlanId,TestPlanResult,TestplanUploadTime,TestbedSponsor
+            | extend opTestCase = case(TestCase has'[', split(TestCase, '[')[0], TestCase)
+            | extend opTestCase = case(isempty(opTestCase), TestCase, opTestCase)
+            | extend BranchName = tostring(split(OSVersion, '.')[0])
+            | extend FullCaseName = strcat(ModulePath,".",opTestCase)
+            | extend TestType = case(strlen(BuildId)>10, "ElasticTest",strlen(BuildId)<=10, "PipeplineTest", "Unknow")
+            | extend Pipeline = case(strlen(BuildId)>10, strcat("https://elastictest.org/scheduler/testplan/",BuildId),strlen(BuildId)<=10,strcat("https://dev.azure.com/mssonic/internal/_build/results?buildId=", BuildId, "&view=logs"),"Unknow URL")
+            | extend URL = case(FilePath has'test_pretest' or FilePath has 'test_posttest',strcat(FilePath,"%7C%7C%7C0"),FilePath has 'drop_packets.py',replace_string(FilePath, "drop_packets.py", "test_drop_counters.py"),FilePath)
+            | extend URL = case(strlen(URL)>0,strcat("?testcase=",replace_string(URL, "/", "%2F"),"&type=console"),"")
+            | extend Pipeline=case(strlen(BuildId)>10,strcat(Pipeline,URL),Pipeline)
+            | project-away URL
+            | where not(TestbedName has_any(ExcludeTestbedList))
+            | where not(TopologyType has_any(ExcludeTopoList))
+            | where not(AsicType has_any(ExcludeAsicList))
+            | project-away CancelledTasks,CreatedByType,FailedTasks,ImageSrc,ImageSrcType,JenkinsId,RawTestbed,RawTestCase,RawTestPlan,ReportId,Server,SuccessTasks,TestbedPlatform,TestbedType,TestPlanName,TestPlanType,TestRepo,TrackingId,VmType
+            | order by UploadTimestamp desc
             | where UploadTimestamp > ago(30d)
             | distinct BuildId
             | join kind=leftanti TestReportUnionData on BuildId
             | take 20
-            '''
+            '''.format(upload_time_start, upload_time_end, upload_time_start, upload_time_end, upload_time_start, upload_time_end)
         logger.info("Query missing testplan IDs:{}".format(query_str))
         result = self.query(query_str)
         # testplan_ids = result.primary_results[0].rows
@@ -238,7 +322,13 @@ def main():
     # end_time = current_time - timedelta(minutes=7)
     latest_timestamp = kusto_connector.get_latest_timestamp()
     logger.info("The latest UploadTimestamp in TestReportUnionData is:{}".format(latest_timestamp))
-    missing_testplan_ids = kusto_connector.query_missing_testplan()
+    current_datetime = datetime.utcnow() - timedelta(days=1)
+    next_day_datetime = datetime.utcnow() + timedelta(days=0.1)
+    # Format the datetime object as a string in the desired format
+    start_date = current_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Format the next day's datetime object as a string in the desired format
+    end_date = next_day_datetime.strftime('%Y-%m-%dT%H:%M:%SZ')
+    missing_testplan_ids = kusto_connector.query_missing_testplan(start_date, end_date)
     response = kusto_connector.query_data(missing_testplan_ids)
     df = dataframe_from_result_table(response.primary_results[0])
     list_of_dicts = df.to_dict(orient="records")
