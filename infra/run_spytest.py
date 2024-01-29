@@ -231,7 +231,7 @@ def run_sanity(script_file):
     chan.send(f"cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
     wait_for_command_complete(chan, temination_str=":/data# ", show_output=True)
 
-    chan.send(f"mkdir spytest_results; cd spytest_results\n")
+    chan.send(f"mkdir spytest_results; chmod 777 spytest_results; cd spytest_results\n")
     wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     chan.send(f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
@@ -257,11 +257,14 @@ def collect_result():
 
     global test_start_time
     test_start_time = extract_test_start_time(spytest_results_files)
+    
+    exec_command_raise_error(client, f"cd {RESULT_FOLDER_PATH}; tar -czvf spytest_result.tar.gz *")
+    ftp_client.get(f"{RESULT_FOLDER_PATH}/spytest_result.tar.gz","./spytest_result.tar.gz")
+
 
     os.system(f"mkdir spytest_result_{test_start_time}")
+    os.system(f"tar -xvf spytest_result.tar.gz -C spytest_result_{test_start_time}")
     
-    for result_file in spytest_results_files:
-        ftp_client.get(f"{RESULT_FOLDER_PATH}/{result_file}",f"./spytest_result_{test_start_time}/{result_file}")
     
     #generate report files for pipeline
     sum_f = open(SUMMARY_REPORT_PATH, "w")
@@ -316,8 +319,8 @@ def upload_result():
     spytest_results_files = os.listdir(f"spytest_result_{test_start_time}")
     ftp_client.mkdir(f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}")
     
-    for result_file in spytest_results_files:
-        ftp_client.put(f"./spytest_result_{test_start_time}/{result_file}", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/{result_file}")
+    ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/spytest_result.tar.gz")
+    exec_command_raise_error(client,f"cd /auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}; tar -xvf spytest_result.tar.gz")
     
     with open(SUMMARY_REPORT_PATH, "r") as f:
         sum = json.load(f)
