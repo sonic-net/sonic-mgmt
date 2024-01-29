@@ -7049,6 +7049,54 @@ vms_tk5_3:
       ansible_host: 172.16.130.126
     VM53095:
       ansible_host: 172.16.130.127
+    VM53096:
+      ansible_host: 172.16.130.128
+    VM53097:
+      ansible_host: 172.16.130.129
+    VM53098:
+      ansible_host: 172.16.130.130
+    VM53099:
+      ansible_host: 172.16.130.131
+    VM53100:
+      ansible_host: 172.16.130.132
+    VM53101:
+      ansible_host: 172.16.130.133
+    VM53102:
+      ansible_host: 172.16.130.134
+    VM53103:
+      ansible_host: 172.16.130.135
+    VM53104:
+      ansible_host: 172.16.130.136
+    VM53105:
+      ansible_host: 172.16.130.137
+    VM53106:
+      ansible_host: 172.16.130.138
+    VM53107:
+      ansible_host: 172.16.130.139
+    VM53108:
+      ansible_host: 172.16.130.140
+    VM53109:
+      ansible_host: 172.16.130.141
+    VM53110:
+      ansible_host: 172.16.130.142
+    VM53111:
+      ansible_host: 172.16.130.143
+    VM53112:
+      ansible_host: 172.16.130.144
+    VM53113:
+      ansible_host: 172.16.130.145
+    VM53114:
+      ansible_host: 172.16.130.146
+    VM53115:
+      ansible_host: 172.16.130.147
+    VM53116:
+      ansible_host: 172.16.130.148
+    VM53117:
+      ansible_host: 172.16.130.149
+    VM53118:
+      ansible_host: 172.16.130.150
+    VM53119:
+      ansible_host: 172.16.130.151
 
 vms_tk5_4:
   hosts:
@@ -7244,6 +7292,30 @@ vms_tk5_4:
       ansible_host: 172.16.131.126
     VM54095:
       ansible_host: 172.16.131.127
+    VM54096:
+      ansible_host: 172.16.131.128
+    VM54097:
+      ansible_host: 172.16.131.129
+    VM54098:
+      ansible_host: 172.16.131.130
+    VM54099:
+      ansible_host: 172.16.131.131
+    VM54100:
+      ansible_host: 172.16.131.132
+    VM54101:
+      ansible_host: 172.16.131.133
+    VM54102:
+      ansible_host: 172.16.131.134
+    VM54103:
+      ansible_host: 172.16.131.135
+    VM54104:
+      ansible_host: 172.16.131.136
+    VM54105:
+      ansible_host: 172.16.131.137
+    VM54106:
+      ansible_host: 172.16.131.138
+    VM54107:
+      ansible_host: 172.16.131.139
 
 vms_tk5_5:
   hosts:

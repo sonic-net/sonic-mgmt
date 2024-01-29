@@ -108,8 +108,8 @@ fanout:
   hosts:
     strtk5-7260-root-01:
       ansible_host: 10.212.69.34
-    strtk5-7260-fanout-01:
-      ansible_host: 10.212.69.35
+    strtk5-8101-fanout-02:
+      ansible_host: 10.212.69.39
     strtk5-7260-fanout-02:
       ansible_host: 10.212.69.36
     strtk5-7260-fanout-03:
@@ -182,6 +182,25 @@ sonic:
 
 sonic_arista64_100:
   hosts:
+    strtk5-7260-01:
+      ansible_host: 10.212.69.35
+      ansible_hostv6: 2603:10e2:140:3000::43
+      hwsku: Arista-7260CX3-C64
+      model: DCS-7260CX3-64
+      serial: JPA2312P0CG
+      base_mac: fc:59:c0:29:69:a1
+      syseeprom_info:
+        "0x21": "DCS-7260CX3-64"
+        "0x22": "ASY0250504C0"
+        "0x23": "JPA2312P0CG"
+        "0x24": "fc:59:c0:29:69:a1"
+        "0x25": "2017/11/21 00:16:01"
+        "0x26": "01"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7260cx3_64"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
+        "0x2F": "JPA2312P0CG"
     strtk5-7260-7:
       ansible_host: 10.212.69.124
       ansible_hostv6: 2603:10e2:140:3000::9d
@@ -210,7 +229,7 @@ sonic_arista64_100:
 
 sonic_cisco_8101:
   vars:
-    hwsku: Cisco-8101-O32
+    hwsku: Cisco-8101-O8C48
     iface_speed: 100000
   hosts:
     strtk5-8101-01:
@@ -231,37 +250,6 @@ sonic_cisco_8101:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x90B319A7"
-      plt_reboot_dict:
-        cold:
-          timeout: 300
-          wait: 360
-        watchdog:
-          timeout: 300
-          wait: 360
-        acl/test_acl.py::TestAclWithReboot:
-          timeout: 300
-          wait: 600
-        platform_tests/test_reload_config.py::test_reload_configuration_checks:
-          timeout: 300
-          wait: 600
-    strtk5-8101-02:
-      ansible_host: 10.212.69.39
-      num_asics: 1
-      model: 8101-32FH-O
-      serial: FLM2634071G
-      base_mac: 08:F3:FB:11:3E:00
-      syseeprom_info:
-        "0x21": "8101-32FH-O"
-        "0x22": "477691"
-        "0x23": "FLM2634071G"
-        "0x24": "08:F3:FB:11:3E:00"
-        "0x26": "2"
-        "0x28": "x86_64-8101_32fh_o-r0"
-        "0x2A": "512"
-        "0x2B": "Cisco"
-        "0x2C": "US"
-        "0x2D": "Cisco"
-        "0xFE": "0xD1727132"
       plt_reboot_dict:
         cold:
           timeout: 300

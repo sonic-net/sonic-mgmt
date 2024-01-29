@@ -1996,15 +1996,15 @@
   auto_recover: 'True'
   comment: tbtk5-s6000-9
 
-- conf-name: tbtk5-t0-8101-1
+- conf-name: tbtk5-t1-8101-1
   group-name: tk5-3-1
-  topo: t0
+  topo: t1-56-lag
   ptf_image_name: docker-ptf
   ptf: ptf3-1
   ptf_ip: 10.212.65.51/24
   ptf_ipv6: 2603:10e2:140:3000::191/122
   server: server_tk5_3
-  vm_base: VM53000
+  vm_base: VM53096
   dut:
     - strtk5-8101-01
   inv_name: strtk5
@@ -2131,20 +2131,20 @@
   auto_recover: 'True'
   comment: tbtk5-s6100-5
 
-- conf-name: tbtk5-t0-8101-2
+- conf-name: tbtk5-t1-7260-01
   group-name: tk5-4-0
-  topo: t0
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: ptf4-0
   ptf_ip: 10.212.65.60/24
   ptf_ipv6: 2603:10e2:140:3000::200/122
   server: server_tk5_4
-  vm_base: VM54000
+  vm_base: VM54084
   dut:
-    - strtk5-8101-02
+    - strtk5-7260-01
   inv_name: strtk5
   auto_recover: 'True'
-  comment: tbtk5-8101-2
+  comment: tbtk5-7260-01
 
 - conf-name: tbtk5-t0-n3132-1
   group-name: tk5-4-1
