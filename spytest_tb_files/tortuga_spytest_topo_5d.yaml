@@ -43,6 +43,10 @@ devices:
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    spt:
+        device_type: TGEN
+        properties: {type: stc, version: 5.05, ip: 192.168.122.92, params: def_tg}
+
 
 
 topology:
@@ -68,9 +72,9 @@ topology:
             Ethernet28: {EndDevice: SD4, EndPort: Ethernet28, params: def_link}
     SD3:
         interfaces:
-            Ethernet32: {EndDevice: stc-01, EndPort: 1/1, params: def_tg_link}
+            Ethernet32: {EndDevice: spt, EndPort: 1/1, params: def_tg_link}
 
     SD4:
         interfaces:
-            Ethernet32: {EndDevice: stc-01, EndPort: 1/2, params: def_tg_link}
+            Ethernet32: {EndDevice: spt, EndPort: 1/2, params: def_tg_link}
 
