@@ -2,7 +2,7 @@
 
 import logging
 import sys
-from datetime import datetime
+import time
 from os import path
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
@@ -37,7 +37,8 @@ results = {"downloaded_image_version": "Unknown", "current_stage": "Unknown", "m
 def log(msg):
     global results
 
-    timestamp = datetime.utcnow()
+    current_time = time.time()
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(current_time))
     results["messages"].append("{} {}".format(str(timestamp), msg))
     logging.debug(msg)
 
