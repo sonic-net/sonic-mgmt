@@ -104,6 +104,8 @@ def get_ssh_info(sonichost):
 def duthost_console(sonichost, conn_graph_facts, localhost):
     console_host, console_port, console_type, console_username = get_console_info(sonichost, conn_graph_facts)
     console_type = "console_" + console_type
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = sonichost.vm.get_vars(
