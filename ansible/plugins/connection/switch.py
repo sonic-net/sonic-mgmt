@@ -33,7 +33,10 @@ class Connection(ConnectionBase):
 
     def _build_command(self):
         self._ssh_command = ['ssh', '-tt', '-q']
-        ansible_ssh_args = C.ANSIBLE_SSH_ARGS
+        if hasattr(C, 'ANSIBLE_SSH_ARGS'):
+            ansible_ssh_args = C.ANSIBLE_SSH_ARGS
+        else:
+            ansible_ssh_args = None
         if ansible_ssh_args:
             self._ssh_command += shlex.split(ansible_ssh_args)
         else:
