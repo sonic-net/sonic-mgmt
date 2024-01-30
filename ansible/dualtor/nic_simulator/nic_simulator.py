@@ -34,6 +34,7 @@ import nic_simulator_grpc_mgmt_service_pb2_grpc
 
 
 THREAD_CONCURRENCY_PER_SERVER = 2
+USE_HASH_SELECTION_METHOD_EXPLICITLY = False
 
 # name templates
 ACTIVE_ACTIVE_BRIDGE_TEMPLATE = r"baa-%s-%d"
@@ -43,6 +44,7 @@ ACTIVE_ACTIVE_INTERFACES_TEMPLATE = r"iaa-%s-%d"
 ACTIVE_ACTIVE_INTERFACE_PATTERN = r"iaa-[\w-]+-\d+"
 SERVER_NIC_INTERFACE_TEMPLATE = r"nic-%s-%d"
 SERVER_NIC_INTERFACE_PATTERN = r"nic-[\w-]+-\d+"
+OVS_VERSION_PATTERN = r"ovs-vsctl \(Open vSwitch\) (.*)"
 
 # gRPC settings
 GRPC_TIMEOUT = 0.5
@@ -93,6 +95,7 @@ def run_command(cmd, check=True):
 class OVSCommand(object):
     """OVS related commands."""
 
+    OVS_VSCTL_SHOW_VERSION_COMD = "ovs-vsctl -V"
     OVS_VSCTL_LIST_BR_CMD = "ovs-vsctl list-br"
     OVS_VSCTL_LIST_PORTS_CMD = "ovs-vsctl list-ports {bridge_name}"
     OVS_OFCTL_DEL_FLOWS_CMD = "ovs-ofctl del-flows {bridge_name}"
@@ -101,6 +104,26 @@ class OVSCommand(object):
     OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
     OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
     OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
+
+    @staticmethod
+    def setup_openflow_version():
+
+        def _versiontuple(v):
+            return tuple(map(int, (v.split("."))))
+
+        try:
+            out = run_command(OVSCommand.OVS_VSCTL_SHOW_VERSION_COMD)
+            first_line = out.stdout.splitlines()[0]
+            ovs_version = _versiontuple(re.search(OVS_VERSION_PATTERN, first_line).groups()[0])
+            # NOTE: use openflow15 for OVS 2.10 and above
+            if ovs_version >= _versiontuple("2.10"):
+                global USE_HASH_SELECTION_METHOD_EXPLICITLY
+                USE_HASH_SELECTION_METHOD_EXPLICITLY = True
+                OVSCommand.OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow15 del-groups {bridge_name}"
+                OVSCommand.OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 add-group {bridge_name} {group}"
+                OVSCommand.OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow15 mod-group {bridge_name} {group}"
+        except Exception:
+            raise ValueError("Failed to find/setup openflow version: %s" % out.stdout)
 
     @staticmethod
     def ovs_vsctl_list_br():
@@ -161,14 +184,18 @@ class StrObj(abc.ABC):
 class OVSGroup(StrObj):
     """Object to represent an OVS group."""
 
-    __slots__ = ("group_id", "group_type", "output_ports", "_str_prefix")
+    __slots__ = ("group_id", "group_type", "output_ports", "_str_prefix",  "optional_fields")
 
-    def __init__(self, group_id, group_type, output_ports=[]):
+    def __init__(self, group_id, group_type, output_ports=[], optional_fields=None):
         self.group_id = group_id
         self.group_type = group_type
         self.output_ports = set(output_ports)
         self._str_prefix = "group_id=%s,type=%s" % (
             self.group_id, self.group_type)
+        if optional_fields:
+            self._str_prefix += ","
+            self._str_prefix += ",".join("%s=%s" % kv for kv in optional_fields.items())
+        self.optional_fields = optional_fields or []
 
     def to_string(self):
         group_parts = [self._str_prefix]
@@ -290,8 +317,10 @@ class UpstreamECMPGroup(OVSGroup):
             output_ports.append(upper_tor_port)
         if lower_tor_forwarding_state == ForwardingState.ACTIVE:
             output_ports.append(lower_tor_port)
+        optional_fields = {"selection_method": "hash"} if USE_HASH_SELECTION_METHOD_EXPLICITLY else None
         super(UpstreamECMPGroup, self).__init__(
-            group_id, "select", output_ports=output_ports)
+            group_id, "select", output_ports=output_ports, optional_fields=optional_fields
+        )
         self.upper_tor_port = upper_tor_port
         self.lower_tor_port = lower_tor_port
         self.upper_tor_forwarding_state = upper_tor_forwarding_state
@@ -1237,6 +1266,7 @@ def main():
     logging.debug("Start nic_simulator with args: %s", args)
     config_env()
     config_logging(args.vm_set, args.log_level.upper(), args.stdout_log)
+    OVSCommand.setup_openflow_version()
     loopback_ips = args.loopback_ips.split(",")
     if len(loopback_ips) != 3:
         raise ValueError("Invalid loopback ips: {loopback_ips}".format(loopback_ips=loopback_ips))
