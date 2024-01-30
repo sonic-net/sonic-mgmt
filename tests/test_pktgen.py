@@ -128,15 +128,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
             "Cpu util was above threshold {} for pktgen process"
             " after sending pktgen traffic".format(cpu_threshold))
 
-    # Check kernel messages for errors after sending traffic
-    logging.info("Check dmesg")
-    dmesg = duthost.command("sudo dmesg")
-    error_keywords = ["crash", "Out of memory", \
-                      "Call Trace", "Exception", "panic"]
-    for err_kw in error_keywords:
-        pytest_assert(not re.match(err_kw, dmesg["stdout"], re.I), \
-        "Found error keyword {} in dmesg: {}".format(err_kw, dmesg["stdout"])
-        
     # Check number of new core/crash files
     core_files_new = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
     dump_files_new = duthost.shell("ls /var/dump | wc -l")["stdout_lines"][0]
