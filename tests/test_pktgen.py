@@ -3,7 +3,6 @@ import pytest
 import random
 import re
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
@@ -76,9 +75,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     '''
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
-
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
-    loganalyzer.load_common_config()
 
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
