@@ -2048,6 +2048,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
     if check_flag:
         for duthost in duthosts:
+            logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
+
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
             duts_data[duthost.hostname] = {}
 
@@ -2084,6 +2088,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
             new_core_dumps[duthost.hostname] = []
+
+            logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
 
             logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
             if "20191130" in duthost.os_version:
