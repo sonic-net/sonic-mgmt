@@ -399,6 +399,12 @@ dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
 
+dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
+  skip:
+    reason: "Testcase ignored on dualtor-64 topology due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11403"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
+
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
   xfail:
     reason: "Testcase ignored on mellanox setups due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/16085"
