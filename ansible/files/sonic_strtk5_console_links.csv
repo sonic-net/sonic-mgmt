@@ -1,6 +1,5 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy
 strtk5-0101-0200-01c0,3,strtk5-7260-root-01,ssh,admin
-strtk5-0101-0200-01c0,4,strtk5-7260-fanout-01,ssh,admin
 strtk5-0101-0200-01c0,5,strtk5-7260-fanout-02,ssh,admin
 strtk5-0101-0200-01c0,6,strtk5-7260-fanout-03,ssh,admin
 strtk5-0101-0200-01c0,10,strtk5-7260-fanout-04,ssh,admin
@@ -26,9 +25,10 @@ strtk5-0101-0200-03c0,7,strtk5-7260-fanout-24,ssh,admin
 strtk5-0101-0200-03c0,10,strtk5-7260-fanout-25,ssh,admin
 strtk5-0101-0200-03c0,12,strtk5-7260-fanout-26,ssh,admin
 
+strtk5-0101-0200-01c0,4,strtk5-7260-01,ssh,admin
 strtk5-0101-0200-02c0,32,strtk5-7260-7,ssh,admin
 strtk5-0101-0200-01c0,7,strtk5-8101-01,ssh,admin
-strtk5-0101-0200-01c0,8,strtk5-8101-02,ssh,admin
+strtk5-0101-0200-01c0,8,strtk5-8101-fanout-02,ssh,admin
 strtk5-0101-0200-02c0,21,strtk5-a7170-acs-1,ssh,admin
 strtk5-0101-0200-02c0,24,strtk5-dx010-acs-4,ssh,admin
 strtk5-0101-0200-02c0,25,strtk5-dx010-acs-5,ssh,admin

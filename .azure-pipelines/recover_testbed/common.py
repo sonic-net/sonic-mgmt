@@ -22,7 +22,6 @@ from tests.common.plugins.pdu_controller.pdu_manager import pdu_manager_factory 
 logger = logging.getLogger(__name__)
 
 
-
 def get_pdu_managers(sonichosts, conn_graph_facts):
     """Get PDU managers for all the devices to be upgraded.
 

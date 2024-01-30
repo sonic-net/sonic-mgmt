@@ -93,11 +93,6 @@
     become: true
     when: hwsku == 'Cisco-8111-O64' and 't0' in topo
 
-  - name: Override port_config.ini to hack port speed
-    include_tasks: override_port_config.yml
-    vars:
-      testbed_name: "{{ testbed_name }}"
-
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
     delegate_to: localhost
