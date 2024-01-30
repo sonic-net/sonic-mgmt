@@ -39,6 +39,7 @@ PKTGEN_CMDS = [
 
 CPU_CMD = "show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'"
 
+
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return list(mg_facts["minigraph_ports"].keys())
@@ -77,6 +78,8 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
 
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
+
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
     cpu_before = duthost.shell(CPU_CMD)["stdout_lines"]
@@ -104,8 +107,8 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     try:
         loganalyzer.ignore_regex.extend(ignoreRegex)
         with loganalyzer:
-           # Send packet
-           duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
+            # Send packet
+            duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
     except LogAnalyzerError as err:
         raise err
 
