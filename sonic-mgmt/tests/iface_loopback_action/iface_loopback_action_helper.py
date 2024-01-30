@@ -634,3 +634,13 @@ def check_interface_state(duthost, rif_interfaces, state='up'):
         return all(interface in ports_down for interface in rif_interfaces)
 
     return all(interface not in ports_down for interface in rif_interfaces)
+
+
+def is_rif_counters_ready(duthost):
+    """
+    Check whether the rif counters are all available
+    """
+    result = duthost.shell("show interfaces counters rif")
+    if len(result['stdout_lines']) == 2 or 'N/A' in result['stdout']:
+        return False
+    return True
