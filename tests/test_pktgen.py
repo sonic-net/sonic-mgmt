@@ -3,6 +3,7 @@ import pytest
 import random
 import re
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
