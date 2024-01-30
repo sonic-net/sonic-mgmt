@@ -77,7 +77,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     '''
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
-    
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
     loganalyzer.load_common_config()
     
