@@ -77,10 +77,10 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     '''
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
-
+    
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
     loganalyzer.load_common_config()
-
+    
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
     cpu_before = duthost.shell(CPU_CMD)["stdout_lines"]
@@ -111,7 +111,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
             duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
     except LogAnalyzerError as err:
         raise err
-
+        
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
     pktgen_param = pktgen_param.split("\n")[0]
