@@ -61,31 +61,19 @@ Verify VXLAN udp port can be changed dynamically
 ## Part2 - Negative test
 ### Test case # 1 – Negative traffic validation
 #### Test objective
-Verify VXLAN udp port can be changed dynamically, and the traffic with the origin port is dropped.
+Verify VXLAN udp port can be changed dynamically, and the traffic with the original port is dropped.
 #### Test steps
 * Configure basic dash vnet configuration.
 * Send the traffic with default port 4789, check it is received.
 * Change the port to 13330
 * Send the traffic with default port 4789, check it is dropped.
-* Send the outbound traffic with default port 4789 and verify it can be received.
+* Send the traffic with default port 4789 and verify it can be received.
 * Change the port back to 4789
 * Send the traffic with port 4789, check it is received.
 * Send the traffic with port 13330, check it is dropped.
 * Restore the configuration
 
-### Test case # 2 – Invalid VXLAN UDP port
-#### Test objective
-Verify if invalid port is configured, no critical issue is caused.
-#### Test steps
-* Configure basic dash vnet configuration.
-* The invalid port list: ["", "string", "65536"]
-* Configure the invalid values in iterations
-* Wait for 10 seconds
-* Check the critical services are all running
-* Send the traffic with default port 4789 and check it can be received.
-* Restore the configuration
-
 ## TODO
-Align the test to smartswitch DPU testbed after the test infra is ready.
+The test is only for standalone DPU testbed. Need to align it to SmartSwitch DPU testbed after the test infra is ready.
 
 ## Open questions
