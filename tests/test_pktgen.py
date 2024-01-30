@@ -3,6 +3,7 @@ import pytest
 import random
 import re
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +78,8 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     duthost = duthosts[enum_dut_hostname]
     router_mac = duthost.asic_instance(enum_frontend_asic_index).get_router_mac()
 
-    if loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
+    loganalyzer.load_common_config()
 
     cpu_threshold = setup_thresholds
     # Check CPU util before sending traffic
@@ -103,9 +104,13 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
             duthost.shell(cmd.format(router_mac, port))
         else:
             duthost.shell(cmd.format(port))
-
-    # Send packet
-    duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
+    try:
+        loganalyzer.ignore_regex.extend(ignoreRegex)
+        with loganalyzer:
+            # Send packet
+            duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
+    except LogAnalyzerError as err:
+        raise err
 
     # Verify packet count from pktgen
     pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
@@ -126,6 +131,15 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
             float(entry) < cpu_threshold,
             "Cpu util was above threshold {} for pktgen process"
             " after sending pktgen traffic".format(cpu_threshold))
+        
+    # Check kernel messages for errors after sending traffic
+    logging.info("Check dmesg")
+    dmesg = duthost.command("sudo dmesg")
+    error_keywords = ["crash", "Out of memory",
+                      "Call Trace", "Exception", "panic"]
+    for err_kw in error_keywords:
+        assert not re.match(err_kw, dmesg["stdout"], re.I), \
+            "Found error keyword %s in dmesg: %s" % (err_kw, dmesg["stdout"])
 
     # Check number of new core/crash files
     core_files_new = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
