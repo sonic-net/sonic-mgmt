@@ -117,7 +117,6 @@ class AzureBlobConnecter(object):
 
         logger.info("Connected to Azure Blob Storage {} successfully".format(self.account_url))
 
-
     def connect_to_blob(self, container_name):
         container = self.blob_service_client.get_container_client(container=container_name)
         container_list = container.list_blobs()
@@ -125,7 +124,6 @@ class AzureBlobConnecter(object):
             logger.info(blob.name + '\n')
 
         return container
-
 
     def upload_artifacts_to_container_with_tag(self, container_name, artifact, tag):
         try:
@@ -144,11 +142,10 @@ class AzureBlobConnecter(object):
         except Exception as ex:
             logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
 
-
     def upload_artifacts_to_container(self, container_name, artifact, blob_name):
         try:
             # Create a BlobClient for the artifact
-            blob_client  = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
 
             # upload artifact
             with open(artifact, "rb") as data:
@@ -162,12 +159,11 @@ class AzureBlobConnecter(object):
         except Exception as ex:
             logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
 
-
     def download_artifacts_from_container(self, container_name, blob_name, local_file_path):
         try:
 
             # Create a BlobClient for the artifact
-            blob_client  = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
 
             # download artifact to the local file
             with open(local_file_path, "wb") as download_file:
@@ -180,7 +176,6 @@ class AzureBlobConnecter(object):
 
         except Exception as ex:
             logger.error("Error {} occurred when downloading {} from container {}".format(ex, blob_name, container_name))
-
 
     def download_artifacts_from_container_recursively(self, container_name, folder_name, local_path):
         os.makedirs(local_path, exist_ok=True)
@@ -250,11 +245,11 @@ def main(args):
         if vendor not in VENDOR_CONTAINER:
             logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
             continue
-        
-        if casses_run < CASE_SHRESHOLD:
+
+        if casses_run < CASE_SHRESHOLD and vendor != 'cisco':
             logger.info('Total CassesRun: {} is less than 800, may be not a full run, ingore'.format(str(casses_run)))
             continue
-        
+
         nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
         shutil.make_archive(buildid, 'zip', base_path)
         # artifact name is buildid.zip
@@ -262,7 +257,7 @@ def main(args):
 
         vendor_container_name = vendor + 'testresult'
 
-        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + branch + '.zip'
+        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + branch + os_version + '_' + success_rate + '.zip'
         tags = {'BuildId': buildid,
                 'HardwareSku': hardwaresku,
                 'TopologyType': topology,
@@ -284,33 +279,33 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Sharing nightly test results with vendors")
-    
+
     parser.add_argument('-t', '--topology',
         type=str,
         dest='topology',
         default="All",
         choices=['t0', 't1', 'All'],
         help='Topology type, t0 or t1')
-    
+
     parser.add_argument('-b', '--branch',
         type=str,
         dest='branch',
         default="All",
         choices=['20230531', '20231105', 'All'],
         help='Branch name, 20230531 or 20231105')
-    
+
     parser.add_argument('-s', '--sku',
         type=str,
         dest='hardwaresku',
         default="All",
         help='Hardware sku')
-    
+
     parser.add_argument('-i', '--buildid',
         type=str,
         dest='buildid',
         default="All",
         help='Build id')
-    
+
     args = parser.parse_args()
 
     main(args)
