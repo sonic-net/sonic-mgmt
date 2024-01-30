@@ -134,7 +134,7 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     # Check kernel messages for errors after sending traffic
     logging.info("Check dmesg")
     dmesg = duthost.command("sudo dmesg")
-    error_keywords = ["crash", "Out of memory",
+    error_keywords = ["crash", "Out of memory", \
                       "Call Trace", "Exception", "panic"]
     for err_kw in error_keywords:
         assert not re.match(err_kw, dmesg["stdout"], re.I), \
