@@ -7,6 +7,7 @@ import logging
 import time
 import pytest
 from tests.common.cisco_data import is_cisco_device
+from tests.cisco.common.utils import verify_command_result
 import json
 
 
@@ -62,16 +63,6 @@ def get_asic_facts(duthost):
         asic_namespace_list.append('asic0')
 
     return asic_namespace_list
-
-
-def verify_command_result(result, cmd):
-    # Raise an AssertionError if "stdout" is empty
-    assert result["stdout"], "No output for {}".format(cmd)
-
-    # Check if "Traceback" is present in result["stdout"]
-    traceback_found = "Traceback" in result["stdout"]
-    # Raise an AssertionError if "Traceback" is found
-    assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
 @pytest.mark.parametrize("pg_to_test", [0, 3])

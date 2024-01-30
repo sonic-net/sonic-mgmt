@@ -7,27 +7,13 @@ import logging
 import pytest
 import time
 import json
+from tests.cisco.common.utils import CheckEnvironment, verify_command_result
 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
-
-
-def verify_command_result(result, cmd):
-    # Raise an AssertionError if "stdout" is empty
-    assert result["stdout"], "No output for {}".format(cmd)
-
-    # Check if "cisco sdk-debug enable" is present in result["stdout"]
-    dshell_disabled = "cisco sdk-debug enable" in result["stdout"]
-    # Raise an AssertionError if "cisco sdk-debug enable" is found
-    assert not dshell_disabled, "debug shell server is not running for command: {}".format(cmd)
-
-    # Check if "Traceback" is present in result["stdout"]
-    traceback_found = "Traceback" in result["stdout"]
-    # Raise an AssertionError if "Traceback" is found
-    assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
 def get_queue_counter(asichost, portchannel_members):
@@ -64,6 +50,10 @@ def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_
     """
 
     duthost = duthosts[enum_frontend_dut_hostname]
+
+    if CheckEnvironment.is_sim(duthost):
+        pytest.skip("Test not supported in SIM environment")
+
     asichost = duthost.asic_instance(enum_frontend_asic_index)
 
     port_channels_data = asichost.get_portchannels_and_members_in_ns(tbinfo)
@@ -82,7 +72,7 @@ def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_
 
     PING_COUNT = 50
     POLL_INTERVAL = 2
-    POLL_COUNT = 4
+    MAX_POLLS = 4
 
     for portchannel, portchannel_members in port_channels_data.items():
         for neighbor in mg_facts['minigraph_portchannel_interfaces']:
@@ -99,7 +89,7 @@ def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_
                 result = asichost.command(ping_cmd)
                 verify_command_result(result, ping_cmd)
 
-                for _ in range(POLL_COUNT):
+                for _ in range(MAX_POLLS):
                     time.sleep(POLL_INTERVAL)
                     end_counter = get_queue_counter(asichost, portchannel_members)
 
