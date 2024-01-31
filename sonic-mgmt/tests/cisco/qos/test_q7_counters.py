@@ -5,6 +5,7 @@ taking the UC7 queue
 
 import logging
 import pytest
+import ipaddress
 import time
 import json
 from tests.cisco.common.utils import CheckEnvironment, verify_command_result
@@ -61,51 +62,57 @@ def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
     """
-      Create set of unique port channel entries
-      1. Iterate over all port channel.
-      2. Clear sonic-queuecounters
-      3. Get begin queue counter for UC7 as sum of counters per memeber link
+      1. Clear sonic-queuecounters
+      2. Iterate over all port channel.
+      3. Get begin queue counter for UC7 as sum of counters per member link
       4. Ping 50 packets to the peer IP
+      6. Sleep for 2 seconds
       5. Get end queue counter for UC7 as sum of counters per member link
       6. Check the delta between end and begin counter is greater than the pinged count
     """
 
     PING_COUNT = 50
-    POLL_INTERVAL = 2
-    MAX_POLLS = 4
+    SLEEP_INTERVAL = 2
 
-    for portchannel, portchannel_members in port_channels_data.items():
-        for neighbor in mg_facts['minigraph_portchannel_interfaces']:
-            if neighbor['attachto'] == portchannel:
-                logging.info("Checking portchannel {} with members {} and peer ip {}".format(
-                      neighbor['attachto'], portchannel_members, neighbor['peer_addr']))
+    start_counters = {}  # Dictionary to store start counters for each port channel
+    clear_queue_counters(asichost)
 
-                clear_queue_counters(asichost)
+    port_channel_peer_addr = {}
 
-                start_counter = get_queue_counter(asichost, portchannel_members)
+    for pc in mg_facts["minigraph_portchannel_interfaces"]:
+        try:
+            if ipaddress.ip_address(pc['peer_addr']).version == 4:
+                port_channel_peer_addr[pc['attachto']] = pc['peer_addr']
+            elif ipaddress.ip_address(pc['peer_addr']).version == 6:
+                continue
+        except ipaddress.AddressValueError:
+            # the case where 'peer_addr' is 'NA' or an invalid address
+            # choose to ignore and log
+            logging.info("Ignoring PortChannel {} which has a invalid IPV4 address {}".format(
+                                                        pc['attachto'], pc['peer_addr']))
+            pass
 
-                # Start ping traffic to peer
-                ping_cmd = "ping {} -c {} -f".format(neighbor['peer_addr'], PING_COUNT)
-                result = asichost.command(ping_cmd)
-                verify_command_result(result, ping_cmd)
+    for portchannel in port_channel_peer_addr.keys():
+        portchannel_members = port_channels_data[portchannel]
+        logging.info("Checking portchannel {} with members {} and peer ip {}".format(
+              portchannel, portchannel_members, port_channel_peer_addr[portchannel]))
 
-                for _ in range(MAX_POLLS):
-                    time.sleep(POLL_INTERVAL)
-                    end_counter = get_queue_counter(asichost, portchannel_members)
+        start_counters[portchannel] = get_queue_counter(asichost, portchannel_members)
 
-                    if end_counter - start_counter >= PING_COUNT:
-                        break
+        # Start ping traffic to peer
+        ping_cmd = "ping {} -c {} -f".format(port_channel_peer_addr[portchannel], PING_COUNT)
+        result = asichost.command(ping_cmd)
+        verify_command_result(result, ping_cmd)
 
-                assert (end_counter - start_counter >= PING_COUNT), \
-                       "Insufficient UC7 counter increase of {}. Expected at least {} increase.".format(
-                                                                       (end_counter - start_counter),
-                                                                       PING_COUNT
-                                                                     )
+    time.sleep(SLEEP_INTERVAL)
 
-                '''
-                    There will be two entries per port channel.
-                    One for IPV4 and another for IPV6 address.
-                    Verify one of them and break and move on to
-                    next port channel
-                '''
-                break
+    for portchannel in port_channel_peer_addr.keys():
+        portchannel_members = port_channels_data[portchannel]
+        start_counter = start_counters[portchannel]
+        end_counter = get_queue_counter(asichost, portchannel_members)
+
+        assert (end_counter - start_counter >= PING_COUNT), \
+               "Insufficient UC7 counter increase of {}. Expected at least {} increase.".format(
+                                                               (end_counter - start_counter),
+                                                               PING_COUNT
+                                                             )
