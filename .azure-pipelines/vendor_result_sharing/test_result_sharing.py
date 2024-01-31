@@ -257,7 +257,7 @@ def main(args):
 
         vendor_container_name = vendor + 'testresult'
 
-        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + branch + os_version + '_' + success_rate + '.zip'
+        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology  + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
         tags = {'BuildId': buildid,
                 'HardwareSku': hardwaresku,
                 'TopologyType': topology,

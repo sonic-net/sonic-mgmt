@@ -5,13 +5,13 @@ name: $(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
-# schedules:
-#   - cron: "15,45 * * * *"
-#     displayName: TestResultSharingWithVendor
-#     branches:
-#       include:
-#         - internal
-#     always: true
+schedules:
+  - cron: "15 * * * Sun"
+    displayName: Test Result Sharing With Vendor Scheduler
+    branches:
+      include:
+        - internal
+    always: true
 
 pool:
   vmImage: ubuntu-latest
@@ -21,17 +21,17 @@ parameters:
     type: string
     default: 'All'
     displayName: "Hardware SKU"
-  
+
   - name: TOPOLGY_TYPE
     type: string
     default: 'All'
     displayName: "Topology Type, t0 or t1"
-  
+
   - name: BRANCH
     type: string
     default: 'All'
     displayName: "Branch name, 20230531 or 20231105"
-  
+
   - name: BUILD_ID
     type: string
     default: 'All'
