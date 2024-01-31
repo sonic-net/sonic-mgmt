@@ -56,3 +56,4 @@
     - copy: src="docker-ptf.tar" dest="docker-ptf.tar"
     - shell: docker load -i docker-ptf.tar || true
     - shell: rm -f docker-ptf.tar
+  when: ptf_on_neighbor is defined and ptf_on_neighbor|bool == true
