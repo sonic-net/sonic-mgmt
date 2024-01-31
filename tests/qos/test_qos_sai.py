@@ -32,7 +32,6 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
@@ -1108,7 +1107,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("LossyVoq", ["lossy_queue_voq_1"])
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts
+        ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
+        dut_qos_maps            # noqa: F811
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1139,7 +1139,7 @@ class TestQosSai(QosSaiBase):
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
-        if separated_dscp_to_tc_map_on_uplink:
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
@@ -1898,7 +1898,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts, _skip_watermark_multi_DUT,
-        resetWatermark, dut_qos_maps,  # noqa F811
+        resetWatermark, dut_qos_maps  # noqa F811
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
