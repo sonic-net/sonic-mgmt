@@ -5,14 +5,16 @@
         }
     },
     "CONSOLE_PORT": {
-{% for line, peer_info in device_console_link[inventory_hostname].iteritems() %}
-{% if line != "ConsolePort" %}
-        "{{ line }}": {
-            "baud_rate": "{{ peer_info["baud_rate"] }}",
+{% set ns = namespace(first=true) %}
+{% for device, console_info in device_console_link.iteritems() %}
+{% if "ConsolePort" in console_info and console_info["ConsolePort"]["peerdevice"] == inventory_hostname %}
+{% if ns.first != true %},
+{% endif %}
+        "{{ console_info["ConsolePort"]["peerport"] }}": {
+            "baud_rate": "{{ console_info["ConsolePort"]["baud_rate"] }}",
             "flow_control": "0",
-            "remote_device": "{{ peer_info["peerdevice"] }}"
-        }{% if not loop.last %},{% endif %}
-
+            "remote_device": "{{ device }}"
+        }{% set ns.first = false %}
 {% endif %}
 {% endfor %}
     },

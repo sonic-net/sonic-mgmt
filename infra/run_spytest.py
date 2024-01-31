@@ -11,10 +11,9 @@ import subprocess
 import sys
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
-
+import pexpect
 
 VXR_PORTS_FILENAME = "vxr_ports.yaml"
-TOPO_FILE_PATH = "../spytest_tb_files/tortuga_spytest_topo_4d.yaml"
 RESULT_FOLDER_PATH = "/home/vxr/sonic-test/sonic-mgmt/spytest/spytest_results"
 test_start_time = ""
 
@@ -62,38 +61,63 @@ def get_ports_config(port_file=VXR_PORTS_FILENAME):
     
     return ports_config
 
+def get_spirent_ip():
+    ports_config = get_ports_config()
 
-def update_topo_file():
+    telnet_host = ports_config["spt"]["HostAgent"]
+    telnet_port = ports_config["spt"]["serial0"]
+
+    p = pexpect.spawn(f'telnet {telnet_host} {telnet_port}')
+    p.sendline()
+    p.expect('login')
+    ret = str(p.before)
+    ret = ret.split("STCv-")[1].split("/dev")[0].replace("-", ".")
+
+    return ret
+
+
+def update_topo_file(topology, platform):
     print("Updating topo file")
-    with open(TOPO_FILE_PATH, "r") as f:
-        topo_file = yaml.load(f, Loader=yaml.BaseLoader)
+    topo_file = import_topo_file(topology, platform)
+
+    if not topo_file:
+        return -1, "error! topo_file does not exist in config file!"
+    
+    with open(topo_file, "r") as f:
+        topo_config = yaml.load(f, Loader=yaml.BaseLoader)
     
     ports_config = get_ports_config()
 
 
-    for device in topo_file["devices"].keys():
+    for device in topo_config["devices"].keys():
         if "SD" not in device:
             continue
-        topo_file["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
-        topo_file["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
-
-    with open(TOPO_FILE_PATH, "w") as f:
-        yaml.safe_dump(topo_file, f)
+        topo_config["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
+        topo_config["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
+    
+    spt_ip = get_spirent_ip().strip()
+    print(f"spirent ip is {spt_ip}")
+    topo_config["devices"]["spt"]["properties"]["ip"] = spt_ip
+    
+    with open(topo_file, "w") as f:
+        yaml.safe_dump(topo_config, f)
 
     #BaseLoader does not preserve custom data types. add datatype '!include' back into topo file
-    os.system(f"sed -E -i 's/([^[:space:]]+.yaml)/!include \\1/' {TOPO_FILE_PATH}")
+    os.system(f"sed -E -i 's/([^[:space:]]+.yaml)/!include \\1/' {topo_file}")
 
     return 0, ""
 
-def send_topo_file_to_vxr():
+def send_topo_file_to_vxr(topology, platform):
     print("Uploading topo file to vxr sim")
     ports_config = get_ports_config()
+
+    topo_file = import_topo_file(topology, platform)
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(ports_config['sonic_mgmt']['HostAgent'], ports_config['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
     ftp_client=client.open_sftp()
-    ftp_client.put(TOPO_FILE_PATH,'sonic-test/sonic-mgmt/spytest/topo')
+    ftp_client.put(topo_file,'sonic-test/sonic-mgmt/spytest/topo')
     ftp_client.close()
     client.close()
 
@@ -109,12 +133,17 @@ def send_test_files_to_vxr(script_file):
 
     ftp_client=client.open_sftp()
     ftp_client.put(f"../sonic-mgmt/spytest/{script_file}", f"sonic-test/sonic-mgmt/spytest/{script_file}")
-    with open(f"../sonic-mgmt/spytest/{script_file}", 'r') as f:
-        for line in f.readlines():
-            if "+file:" in line:
-                _, test_file = line.split(":")
-                test_file = test_file.strip()
-                ftp_client.put(f"../sonic-mgmt/spytest/tests/{test_file}", f"sonic-test/sonic-mgmt/spytest/tests/{test_file}")
+
+
+    for root, subdirs, files in os.walk("../sonic-mgmt/spytest/templates"):
+        exec_command_raise_error(client, f"mkdir -p sonic-test/sonic-mgmt/{root}")
+        for file in files:
+            ftp_client.put(f"{root}/{file}", f"sonic-test/sonic-mgmt/{root}/{file}")
+
+    for root, subdirs, files in os.walk("../sonic-mgmt/spytest/tests"):
+        exec_command_raise_error(client, f"mkdir -p sonic-test/sonic-mgmt/{root}")
+        for file in files:
+            ftp_client.put(f"{root}/{file}", f"sonic-test/sonic-mgmt/{root}/{file}")
 
     ftp_client.close()
     client.close()
@@ -128,7 +157,9 @@ def exec_command_raise_error(client, cmd):
         print(f"Encountered error while executing '{cmd}', stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
         raise Exception(stdout.channel.recv_exit_status(), stderr.readlines())
 
-def configure_vxr(tar_ball, script_file):
+    return stdin, stdout, stderr
+
+def configure_vxr(topology, platform, tar_ball, script_file):
     print("Starting step: configure_vxr")
     ports_config = get_ports_config()
 
@@ -138,11 +169,20 @@ def configure_vxr(tar_ball, script_file):
 
 
     try:
+        tar_ball_name = tar_ball.split("/")[-1]
+        #untar sonic-test golden-code
         exec_command_raise_error(client, f"wget {tar_ball}")
-        exec_command_raise_error(client, "tar -xvf golden_code_spytest.tar.gz")
+        exec_command_raise_error(client, f"tar -xvf {tar_ball_name}")
+
+        #run sonic-mgmt docker
         exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/golden-code/docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "docker load < docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt /bin/bash")
+
+        #install spirent related files
+        exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/spirent_projects_folder.tar.gz")
+        exec_command_raise_error(client, "tar -xvf spirent_projects_folder.tar.gz -C sonic-test/sonic-mgmt/spytest")
+
     except paramiko.SSHException as e:
         return -1, e
     except Exception as e:
@@ -150,10 +190,10 @@ def configure_vxr(tar_ball, script_file):
     
     client.close()
 
-    rc, msg = update_topo_file()
+    rc, msg = update_topo_file(topology, platform)
     if rc != 0:
         return rc, msg
-    rc, msg = send_topo_file_to_vxr()
+    rc, msg = send_topo_file_to_vxr(topology, platform)
     if rc != 0:
         return rc, msg
     
@@ -163,12 +203,13 @@ def configure_vxr(tar_ball, script_file):
     
     return 0, ""
         
-def wait_for_command_complete(chan, temination_str=":~$ "):
+def wait_for_command_complete(chan, temination_str=":~$ ", show_output=False):
     buff = ''
     while not buff.endswith(temination_str):
         resp = chan.recv(9999)
         buff += resp.decode('utf-8')
-        #print("resp: ", buff)
+        if show_output:
+            print("resp: ", resp.decode('utf-8'))
 
 def run_sanity(script_file): 
     print("Starting step: run_sanity")
@@ -182,13 +223,19 @@ def run_sanity(script_file):
     wait_for_command_complete(chan)
 
     chan.send(f"docker exec -it docker-sonic-mgmt /bin/bash\n")
-    wait_for_command_complete(chan)
+    wait_for_command_complete(chan, show_output=True)
 
-    chan.send(f"cd /data; sudo mkdir spytest_results; cd spytest_results\n")
-    wait_for_command_complete(chan, ":/data/spytest_results$ ")
+    chan.send(f"sudo su\n")
+    wait_for_command_complete(chan, temination_str=":/var/AzDevOps# ", show_output=True)
 
-    chan.send(f"sudo /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
-    wait_for_command_complete(chan, ":/data/spytest_results$ ")
+    chan.send(f"cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
+    wait_for_command_complete(chan, temination_str=":/data# ", show_output=True)
+
+    chan.send(f"mkdir spytest_results; chmod 777 spytest_results; cd spytest_results\n")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
+
+    chan.send(f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
+    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
     return 0, ""
 
@@ -210,11 +257,14 @@ def collect_result():
 
     global test_start_time
     test_start_time = extract_test_start_time(spytest_results_files)
+    
+    exec_command_raise_error(client, f"cd {RESULT_FOLDER_PATH}; tar -czvf spytest_result.tar.gz *")
+    ftp_client.get(f"{RESULT_FOLDER_PATH}/spytest_result.tar.gz","./spytest_result.tar.gz")
+
 
     os.system(f"mkdir spytest_result_{test_start_time}")
+    os.system(f"tar -xvf spytest_result.tar.gz -C spytest_result_{test_start_time}")
     
-    for result_file in spytest_results_files:
-        ftp_client.get(f"{RESULT_FOLDER_PATH}/{result_file}",f"./spytest_result_{test_start_time}/{result_file}")
     
     #generate report files for pipeline
     sum_f = open(SUMMARY_REPORT_PATH, "w")
@@ -269,8 +319,8 @@ def upload_result():
     spytest_results_files = os.listdir(f"spytest_result_{test_start_time}")
     ftp_client.mkdir(f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}")
     
-    for result_file in spytest_results_files:
-        ftp_client.put(f"./spytest_result_{test_start_time}/{result_file}", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/{result_file}")
+    ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/spytest_result.tar.gz")
+    exec_command_raise_error(client,f"cd /auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}; tar -xvf spytest_result.tar.gz")
     
     with open(SUMMARY_REPORT_PATH, "r") as f:
         sum = json.load(f)
@@ -292,6 +342,33 @@ def upload_result():
 def cleanup():
     return 0, ""
 
+def import_pyvxr_yaml_file(topology, platform):
+    print(f"get vxr config for topology: {topology}, platform: {platform}")
+    
+    with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
+        TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
+
+    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT)) 
+
+    if topology in TOPO_PLATFORM_FILE_DICT:
+        if platform in TOPO_PLATFORM_FILE_DICT[topology]:
+            pyvxr_yaml_file = TOPO_PLATFORM_FILE_DICT[topology][platform]["pyvxr_yaml_file"]
+    
+    return pyvxr_yaml_file
+
+def import_topo_file(topology, platform):
+    print(f"get topo config for topology: {topology}, platform: {platform}")
+
+    with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
+        TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
+    
+    topo_file = None
+    if topology in TOPO_PLATFORM_FILE_DICT:
+        if platform in TOPO_PLATFORM_FILE_DICT[topology] and "topo_file" in TOPO_PLATFORM_FILE_DICT[topology][platform]:
+            topo_file = TOPO_PLATFORM_FILE_DICT[topology][platform]["topo_file"]
+    
+    return topo_file
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -301,24 +378,14 @@ def main():
     platform = args['platform']
     script_file = args['script_file']
 
-    print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
-    with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
-        TOPO_PLATFORM_FILE_DICT = json.load(cfg_file)
-    
-    print("Topo & platform to filename mapping dict: '{}'".format(TOPO_PLATFORM_FILE_DICT)) 
-
-    #get topo_yaml from topology
-    if not topo_yaml and topology in TOPO_PLATFORM_FILE_DICT:
-        if platform in TOPO_PLATFORM_FILE_DICT[topology]:
-            topo_yaml = TOPO_PLATFORM_FILE_DICT[topology][platform]
-
+    topo_yaml = import_pyvxr_yaml_file(topology, platform)
 
     rc, msg = start_vxr(topo_yaml)
     if rc != 0:
         print(f"error at start_vxr! msg: {msg}")
         sys.exit(rc)
 
-    rc, msg = configure_vxr(tar_ball, script_file)
+    rc, msg = configure_vxr(topology, platform, tar_ball, script_file)
     if rc != 0:
         print(f"error at configure_vxr! msg: {msg}")
         sys.exit(rc)

@@ -20,11 +20,11 @@ mismatch_pass = "badpassword"
 
 
 @pytest.fixture(scope='module')
-def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_frontend_asic_index, request):
+def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
     # verify neighbors are type sonic
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_frontend_dut_hostname]
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
     lldp_table = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()
@@ -107,8 +107,9 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname, enum_rand_one_front
 
 
 def test_bgp_peer_group_password(setup):
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
-        -c "end"'.format(setup['asic_index'], setup['dut_asn'], setup['peer_group_v4'], bgp_pass,
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'], bgp_pass,
                          setup['peer_group_v6'], bgp_pass)
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -128,8 +129,9 @@ def test_bgp_peer_group_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # set password on neighbor
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}"' \
-        .format(setup['neigh_asic_index'], setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
+    ns = '-n ' + str(setup['neigh_asic_index']) if setup['neigh_asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config"  -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}"' \
+        .format(setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
                 bgp_pass)
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
     logger.debug(setup['neighhost'].shell("show run bgp"))
@@ -144,8 +146,9 @@ def test_bgp_peer_group_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
 
     # mismatch peer group passwords
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
-          -c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+          -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
                            setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
@@ -166,9 +169,10 @@ def test_bgp_peer_group_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # turn off peer group passwords on DUT
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}"'\
-        '-c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'], setup['peer_group_v4'], mismatch_pass,
-                          setup['peer_group_v6'], mismatch_pass)
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "no neighbor {} password {}" \
+          -c "no neighbor {} password {}" -c "end"'.format(setup['dut_asn'], setup['peer_group_v4'],
+                                                           mismatch_pass, setup['peer_group_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -179,9 +183,10 @@ def test_bgp_peer_group_password(setup):
     logger.debug(setup['duthost'].shell('show run bgp'))
 
     # remove passwords from neighbor
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}"'\
-          .format(setup['neigh_asic_index'], setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
-                  bgp_pass)
+    ns = '-n ' + str(setup['neigh_asic_index']) if setup['neigh_asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "no neighbor {} password {}" \
+                            -c "no neighbor {} password {}"'.format(setup['neigh_asn'], setup['dut_ip_v4'],
+                                                                    bgp_pass, setup['dut_ip_v6'], bgp_pass)
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
     logger.debug(setup['neighhost'].shell("show run bgp"))
 
@@ -194,9 +199,9 @@ def test_bgp_peer_group_password(setup):
 
 
 def test_bgp_neighbor_password(setup):
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
-        -c "end"'.format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], bgp_pass,
-                         setup['neigh_ip_v6'], bgp_pass)
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['dut_asn'], setup['neigh_ip_v4'], bgp_pass, setup['neigh_ip_v6'], bgp_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -218,8 +223,9 @@ def test_bgp_neighbor_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # configure password on neighbor
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}"' \
-          .format(setup['neigh_asic_index'], setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
+    ns = '-n ' + str(setup['neigh_asic_index']) if setup['neigh_asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}"' \
+          .format(setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
                   bgp_pass)
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
     logger.debug(setup['neighhost'].shell("show run bgp"))
@@ -232,9 +238,9 @@ def test_bgp_neighbor_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] == 'established'
 
     # mismatch passwords
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
-        -c "end"'.format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass,
-                         setup['neigh_ip_v6'], mismatch_pass)
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "neighbor {} password {}" -c "neighbor {} password {}" \
+        -c "end"'.format(setup['dut_asn'], setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'], mismatch_pass)
 
     command_output = setup['duthost'].shell(cmd, module_ignore_errors=True)
 
@@ -254,8 +260,9 @@ def test_bgp_neighbor_password(setup):
     assert bgp_facts['bgp_neighbors'][setup['neigh_ip_v6']]['state'] != 'established'
 
     # remove password configs
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c \
-        "no neighbor {} password {}" -c "end"'.format(setup['neigh_asic_index'], setup['dut_asn'],
+    ns = '-n ' + str(setup['asic_index']) if setup['asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c \
+        "no neighbor {} password {}" -c "end"'.format(setup['dut_asn'],
                                                       setup['neigh_ip_v4'], mismatch_pass, setup['neigh_ip_v6'],
                                                       mismatch_pass)
 
@@ -265,9 +272,10 @@ def test_bgp_neighbor_password(setup):
         logger.error("Error configuring BGP password")
         return False
 
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} password {}"'\
-          .format(setup['neigh_asic_index'], setup['neigh_asn'], setup['dut_ip_v4'], bgp_pass, setup['dut_ip_v6'],
-                  bgp_pass)
+    ns = '-n ' + str(setup['neigh_asic_index']) if setup['neigh_asic_index'] is not None else ''
+    cmd = 'vtysh ' + ns + ' -c "config" -c "router bgp {}" -c "no neighbor {} password {}" -c "no neighbor {} ' \
+                          'password {}"'.format(setup['neigh_asn'], setup['dut_ip_v4'],
+                                                bgp_pass, setup['dut_ip_v6'], bgp_pass)
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
 
     time.sleep(bgp_config_sleeptime)

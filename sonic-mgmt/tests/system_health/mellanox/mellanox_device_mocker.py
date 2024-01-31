@@ -4,6 +4,8 @@ from tests.common.mellanox_data import get_platform_data, get_hw_management_vers
 from tests.platform_tests.mellanox.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
+HW_MANAGE_VER = '7.0030.2003'
+
 
 class AsicData(object):
     TEMPERATURE_FILE = '/run/hw-management/thermal/asic'
@@ -17,7 +19,7 @@ class AsicData(object):
     def get_asic_temperature_threshold(self):
         threshold_file = '/run/hw-management/thermal/asic_temp_emergency'
         hw_mgmt_version = get_hw_management_version(self.helper.dut)
-        if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
             threshold_file = '/run/hw-management/thermal/mlxsw/temp_trip_hot'
         value = self.helper.read_value(threshold_file)
         return int(value)
@@ -28,6 +30,8 @@ class PsuData(object):
     PSU_POWER_STATUS_FILE = '/run/hw-management/thermal/psu{}_pwr_status'
     PSU_TEMPERATURE_FILE = '/run/hw-management/thermal/psu{}_temp'
     PSU_TEMP_THRESHOLD_FILE = '/run/hw-management/thermal/psu{}_temp_max'
+    PSU_TEMPERATURE_FILE_NEW = '/run/hw-management/thermal/psu{}_temp1'
+    PSU_TEMP_THRESHOLD_FILE_NEW = '/run/hw-management/thermal/psu{}_temp1_max'
 
     def __init__(self, mock_helper, index):
         self.helper = mock_helper
@@ -51,11 +55,17 @@ class PsuData(object):
         self.helper.mock_value(power_status_file, str(value))
 
     def mock_temperature(self, value):
-        temperature_file = PsuData.PSU_TEMPERATURE_FILE.format(self.index)
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        temperature_file = PsuData.PSU_TEMPERATURE_FILE_NEW.format(self.index)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            temperature_file = PsuData.PSU_TEMPERATURE_FILE.format(self.index)
         self.helper.mock_value(temperature_file, str(value))
 
     def get_psu_temperature_threshold(self):
-        threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE.format(self.index)
+        hw_mgmt_version = get_hw_management_version(self.helper.dut)
+        threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE_NEW.format(self.index)
+        if parse_version(hw_mgmt_version) < parse_version(HW_MANAGE_VER):
+            threshold_file = PsuData.PSU_TEMP_THRESHOLD_FILE.format(self.index)
         value = self.helper.read_value(threshold_file)
         return int(value)
 

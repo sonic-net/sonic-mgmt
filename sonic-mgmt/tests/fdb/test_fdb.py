@@ -57,7 +57,7 @@ def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
 
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
     # Use DUMMY_MAC_COUNT_SLIM on dualtor-64 to reduce running time
-    REQUIRED_TOPO = ["t0-116", "dualtor-64"]
+    REQUIRED_TOPO = ["t0-116", "dualtor-64", "dualtor-120"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
         # To reduce the case running time
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))
@@ -243,32 +243,32 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
             # portchannel might have no member ports or all member ports are down, so skip empty list
             if not member['port_index']:
                 continue
-            port_index = member['port_index'][0]
-            vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
-            mac = ptfadapter.dataplane.get_mac(0, port_index)
-            # send a packet to switch to populate layer 2 table with MAC of PTF interface
-            send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
+            for port_index in member['port_index']:
+                vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
+                mac = ptfadapter.dataplane.get_mac(0, port_index)
+                # send a packet to switch to populate layer 2 table with MAC of PTF interface
+                send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
 
-            # put in learned MAC
-            fdb[port_index] = {mac}
+                # put in learned MAC
+                fdb[port_index] = {mac}
 
-            # Send packets to switch to populate the layer 2 table with dummy MACs for each port
-            # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
-                          for i in range(dummy_mac_count)]
+                # Send packets to switch to populate the layer 2 table with dummy MACs for each port
+                # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
+                dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
+                              for i in range(dummy_mac_count)]
 
-            for dummy_mac in dummy_macs:
-                if pkt_type == "ethernet":
-                    send_eth(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                elif pkt_type == "arp_request":
-                    send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                elif pkt_type == "arp_reply":
-                    send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                else:
-                    pytest.fail("Unknown option '{}'".format(pkt_type))
+                for dummy_mac in dummy_macs:
+                    if pkt_type == "ethernet":
+                        send_eth(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    elif pkt_type == "arp_request":
+                        send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    elif pkt_type == "arp_reply":
+                        send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    else:
+                        pytest.fail("Unknown option '{}'".format(pkt_type))
 
-            # put in set learned dummy MACs
-            fdb[port_index].update(dummy_macs)
+                # put in set learned dummy MACs
+                fdb[port_index].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
@@ -376,7 +376,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([len(members) for members in list(vlan_table.values())])
+    vlan_member_count = sum(len(port['port_index']) for members in vlan_table.values() for port in members)
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:

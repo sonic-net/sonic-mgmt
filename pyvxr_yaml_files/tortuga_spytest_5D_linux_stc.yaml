@@ -1,0 +1,80 @@
+devices:
+  SD1: &sonic_router
+    platform: spitfire_f
+    os_type: sonic
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    xr_config: |
+        snmp-server community public RO
+        ssh server vrf default
+        ssh server netconf vrf default
+        netconf-yang agent ssh
+    xr_port_redir: [22, 161, 830]
+    onie-install: /users/yucgu/sonic-cisco-8000.bin
+    linecard_types: [matilda32]
+    vxr_sim_config:
+        shelf:
+           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.7/npl
+           ConfigS1NpsuiteVer: 1.137.1
+
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD4:
+      <<: *sonic_router
+
+  SD5: 
+      <<: *sonic_router
+
+  spt:
+    platform: spirent_cafy1
+    spirent_license_override:
+        license_server: "10.22.181.32"
+    spirent_images:
+        windows: /auto/vxr/vxr_images/spirent/WindowsWithTestCenter_5_05
+        api: /auto/vxr/vxr_images/spirent/Spirent_TestCenter_LabServer-5.05-dhcp.img
+        port: /auto/vxr/vxr_images/spirent/sptvm-5_05-dhcp.img
+
+    data_ports:
+    - data0
+    - data1
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    hub0:
+      - SD1.Ethernet[0..3]
+      - SD3.Ethernet[0..3]
+    hub1:
+      - SD1.Ethernet[4..7]
+      - SD4.Ethernet[0..3]
+    hub2:
+      - SD1.Ethernet[8..11]
+      - SD5.Ethernet[0..3]
+    hub3:
+      - SD2.Ethernet[0..3]
+      - SD3.Ethernet[4..7]
+    hub4:
+      - SD2.Ethernet[4..7]
+      - SD4.Ethernet[4..7]
+    hub5:
+      - SD2.Ethernet[8..11]
+      - SD5.Ethernet[4..7]
+    hub6:
+      - SD3.Ethernet8
+      - spt.data0
+    hub7:
+      - SD4.Ethernet8
+      - spt.data1

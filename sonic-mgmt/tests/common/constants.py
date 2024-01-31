@@ -9,8 +9,8 @@ IS_BACKEND_TOPOLOGY_KEY = "is_backend_topology"
 BACKEND_TOPOLOGY_IND = "backend"
 # ssh connect default username and password
 DEFAULT_SSH_CONNECT_PARAMS = {
-    "public": {"username": "admin",
-               "password": "YourPaSsWoRd"}
+    "public": {"username": "cisco",
+               "password": "cisco123"}
 }
 # resolv.conf expected nameservers
 RESOLV_CONF_NAMESERVERS = {

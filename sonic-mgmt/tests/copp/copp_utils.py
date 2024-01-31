@@ -25,7 +25,7 @@ _TEMP_COPP_TEMPLATE = "/tmp/copp.json.j2"
 _COPP_TEMPLATE_PATH = "/usr/share/sonic/templates/copp.json.j2"
 _SWSS_COPP_TEMPLATE = ":" + _COPP_TEMPLATE_PATH
 _DEFAULT_COPP_TEMPLATE = "/usr/share/sonic/templates/copp_cfg.j2"
-_BASE_COPP_TEMPLATE = "/home/admin/copp_cfg_base.j2"
+_BASE_COPP_TEMPLATE = "/home/cisco/copp_cfg_base.j2"
 
 _PTF_NN_TEMPLATE = "templates/ptf_nn_agent.conf.ptf.j2"
 _PTF_NN_DEST = "/etc/supervisor/conf.d/ptf_nn_agent.conf"
@@ -35,7 +35,7 @@ _SYNCD_NN_DEST = "/tmp/ptf_nn_agent.conf"
 _SYNCD_NN_FILE = "ptf_nn_agent.conf"
 
 _CONFIG_DB = "/etc/sonic/config_db.json"
-_TEMP_CONFIG_DB = "/home/admin/config_db_copp_backup.json"
+_TEMP_CONFIG_DB = "/home/cisco/config_db_copp_backup.json"
 
 
 def limit_policer(dut, pps_limit, nn_target_namespace):

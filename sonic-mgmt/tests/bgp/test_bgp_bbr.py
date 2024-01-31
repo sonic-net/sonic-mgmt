@@ -19,6 +19,8 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until, delete_running_config
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
+from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 
 
 pytestmark = [
@@ -59,16 +61,74 @@ def bbr_default_state(setup):
     return setup['bbr_default_state']
 
 
+def add_bbr_config_to_running_config(duthost, status):
+    logger.info('Add BGP_BBR config to running config')
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/BGP_BBR",
+            "value": {
+                "all": {
+                    "status": "{}".format(status)
+                }
+            }
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    time.sleep(3)
+
+
+def config_bbr_by_gcu(duthost, status):
+    logger.info('Config BGP_BBR by GCU cmd')
+    json_patch = [
+        {
+            "op": "replace",
+            "path": "/BGP_BBR/all/status",
+            "value": "{}".format(status)
+        }
+    ]
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    time.sleep(3)
+
+
 def enable_bbr(duthost, namespace):
     logger.info('Enable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Enable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/enable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "enabled")
 
 
 def disable_bbr(duthost, namespace):
     logger.info('Disable BGP_BBR')
-    duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w'.format('-n ' + namespace if namespace else ''))
-    time.sleep(3)
+    # gcu doesn't support multi-asic for now, use sonic-cfggen instead
+    if namespace:
+        logger.info('Disable BGP_BBR in namespace {}'.format(namespace))
+        duthost.shell('sonic-cfggen {} -j /tmp/disable_bbr.json -w '.format('-n ' + namespace))
+        time.sleep(3)
+    else:
+        config_bbr_by_gcu(duthost, "disabled")
 
 
 @pytest.fixture
@@ -172,6 +232,10 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
         'bbr_route_dual_dut_asn': bbr_route_dual_dut_asn,
         'bbr_route_v6_dual_dut_asn': bbr_route_v6_dual_dut_asn
     }
+
+    if not setup_info['tor1_namespace']:
+        logger.info('non multi-asic environment, add bbr config to running config using gcu cmd')
+        add_bbr_config_to_running_config(duthost, bbr_default_state)
 
     logger.info('setup_info: {}'.format(json.dumps(setup_info, indent=2)))
 
