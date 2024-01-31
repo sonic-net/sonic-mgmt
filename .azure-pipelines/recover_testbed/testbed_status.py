@@ -12,8 +12,12 @@ def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip):
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     brd_ip = ipaddress.ip_interface(mgmt_ip).network.broadcast_address
     try:
-        ret = dut_console.send_command("sudo ip addr add {} brd {} dev eth0".format(mgmt_ip, brd_ip))  # noqa F841
+        dut_console.send_command("sudo mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+
+        dut_console.send_command("sudo ip addr add {} brd {} dev eth0".format(mgmt_ip, brd_ip))
         dut_console.send_command("sudo ip route add default via {}".format(gw_ip))
+
+        dut_console.send_command("sudo config save -y")
     except Exception as e:
         logging.info(e)
     finally:
