@@ -224,19 +224,21 @@ class OVSFlow(StrObj):
 class OVSUpstreamFlow(OVSFlow):
     """Object to represent an OVS upstream flow to output to both ToRs."""
 
-    __slots__ = ("drop_output",)
+    __slots__ = ("drop_output", "enable_output_ports")
 
-    def __init__(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None):
+    def __init__(self, in_port, packet_filter=None, output_ports=[],
+                 group=None, priority=None, enable_output_ports=None):
         super(OVSUpstreamFlow, self).__init__(
             in_port, packet_filter, output_ports, group, priority)
         self.drop_output = [False, False]
+        self.enable_output_ports = enable_output_ports if enable_output_ports else [True, True]
 
     def to_string(self):
         flow_parts = [self._str_prefix]
         has_output = False
         if self.output_ports:
             output = ["output:%s" % port for (portid, port) in enumerate(self.output_ports)
-                      if not self.drop_output[portid]]
+                      if (self.get_port_enable(portid) and (not self.get_drop(portid)))]
             has_output = bool(output)
             if has_output:
                 flow_parts.append("actions=%s" % ",".join(output))
@@ -244,6 +246,9 @@ class OVSUpstreamFlow(OVSFlow):
         if not has_output:
             flow_parts.append("actions=drop")
         return ",".join(flow_parts)
+
+    def get_port_enable(self, portid):
+        return self.enable_output_ports[portid]
 
     def get_drop(self, portid):
         return self.drop_output[portid]
@@ -256,7 +261,8 @@ class OVSUpstreamFlow(OVSFlow):
         else:
             self.drop_output[portid] = is_drop
 
-        self.reset()
+        if self.get_port_enable(portid):
+            self.reset()
 
 
 class ForwardingState(object):
@@ -389,6 +395,8 @@ class OVSBridge(object):
         "downstream_upper_tor_flow",
         "downstream_lower_tor_flow",
         "upstream_nic_flow",
+        "upstream_upper_tor_nic_flow",
+        "upstream_lower_tor_nic_flow",
         "upstream_loopback2_flow",
         "upstream_upper_tor_loopback3_flow",
         "upstream_lower_tor_loopback3_flow",
@@ -472,11 +480,29 @@ class OVSBridge(object):
                                                         output_ports=[self.ptf_port, self.server_nic], priority=10)
 
         # upstream flows
-        # upstream packet from server NiC should be directed to both ToRs
+        # upstream packet to the upper ToR loopback3 from server NiC should be forwarded to the upper ToR
+        self.upstream_upper_tor_nic_flow = self._add_flow(
+            self.server_nic,
+            packet_filter="tcp,ip_dst=%s" % self.upper_tor_loopback3_ip,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=9,
+            upstream=True,
+            enable_output_ports=[False, True]
+        )
+        # upstream packet to the lower ToR loopback3 from server NiC should be forwarded to the lower ToR
+        self.upstream_lower_tor_nic_flow = self._add_flow(
+            self.server_nic,
+            packet_filter="tcp,ip_dst=%s" % self.lower_tor_loopback3_ip,
+            output_ports=[self.lower_tor_port, self.upper_tor_port],
+            priority=9,
+            upstream=True,
+            enable_output_ports=[True, False]
+        )
+        # other upstream packet from server NiC should be directed to both ToRs
         self.upstream_nic_flow = self._add_flow(
             self.server_nic,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=9,
+            priority=8,
             upstream=True
         )
         # upstream packet to loopback2 from ptf port should be duplicated to both ToRs
@@ -484,7 +510,7 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.loopback2_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=8,
+            priority=7,
             upstream=True
         )
         # upstream packet to the upper ToR loopback3 from ptf should be duplicated to both ToRs
@@ -492,7 +518,7 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.upper_tor_loopback3_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=7,
+            priority=6,
             upstream=True
         )
         # upstream packet to the lower ToR loopback3 from ptf should be duplicated to both ToRs
@@ -500,21 +526,21 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.lower_tor_loopback3_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=7,
+            priority=6,
             upstream=True
         )
         # upstream arp packet from ptf port should be duplicated to both ToRs
         self.upstream_arp_flow = self._add_flow(
             self.ptf_port, packet_filter="arp",
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=6,
+            priority=5,
             upstream=True
         )
         # upstream ipv6 icmp packet from ptf port should be duplicated to both ToRs
         self.upstream_icmpv6_flow = self._add_flow(
             self.ptf_port, packet_filter="ipv6,nw_proto=58",
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=5,
+            priority=4,
             upstream=True
         )
         # upstream packet from ptf port should be ECMP directed to active ToRs
@@ -543,10 +569,11 @@ class OVSBridge(object):
         self.upstream_ecmp_group = None
         self.groups.clear()
 
-    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None, upstream=False):
+    def _add_flow(self, in_port, packet_filter=None, output_ports=[], group=None, priority=None,
+                  upstream=False, enable_output_ports=None):
         if upstream:
             flow = OVSUpstreamFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
-                                   group=group, priority=priority)
+                                   group=group, priority=priority, enable_output_ports=enable_output_ports)
         else:
             flow = OVSFlow(in_port, packet_filter=packet_filter, output_ports=output_ports,
                            group=group, priority=priority)
@@ -610,6 +637,18 @@ class OVSBridge(object):
 
                     # recover upstream
                     # recover upstream traffic from server NiC
+                    if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
+                        if self.upstream_upper_tor_nic_flow.get_drop(portid):
+                            self.upstream_upper_tor_nic_flow.set_drop(
+                                portid=portid, recover=recover)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_upper_tor_nic_flow)
+                    if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
+                        if self.upstream_lower_tor_nic_flow.get_drop(portid):
+                            self.upstream_lower_tor_nic_flow.set_drop(
+                                portid=portid, recover=recover)
+                            OVSCommand.ovs_ofctl_mod_flow(
+                                self.bridge_name, self.upstream_lower_tor_nic_flow)
                     if self.upstream_nic_flow.get_drop(portid):
                         self.upstream_nic_flow.set_drop(
                             portid=portid, recover=recover)
@@ -661,6 +700,16 @@ class OVSBridge(object):
                     elif direction == 1:
                         # upstream
                         # drop upstream traffic from server NiC
+                        if self.upstream_upper_tor_nic_flow.get_port_enable(portid):
+                            if not self.upstream_upper_tor_nic_flow.get_drop(portid):
+                                self.upstream_upper_tor_nic_flow.set_drop(portid)
+                                OVSCommand.ovs_ofctl_mod_flow(
+                                    self.bridge_name, self.upstream_upper_tor_nic_flow)
+                        if self.upstream_lower_tor_nic_flow.get_port_enable(portid):
+                            if not self.upstream_lower_tor_nic_flow.get_drop(portid):
+                                self.upstream_lower_tor_nic_flow.set_drop(portid)
+                                OVSCommand.ovs_ofctl_mod_flow(
+                                    self.bridge_name, self.upstream_lower_tor_nic_flow)
                         if not self.upstream_nic_flow.get_drop(portid):
                             self.upstream_nic_flow.set_drop(portid)
                             OVSCommand.ovs_ofctl_mod_flow(
