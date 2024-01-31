@@ -199,7 +199,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
 
 def get_kexec_time(duthost, messages, result):
     reboot_pattern = re.compile(
-        r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
+        r'.* NOTICE (?:admin|root): Rebooting with /sbin/kexec -e to.*...')
     reboot_time = "N/A"
     logging.info("FINDING REBOOT PATTERN")
     for message in messages:
