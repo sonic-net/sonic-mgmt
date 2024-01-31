@@ -26,7 +26,7 @@ def check_watchdog_service_status(duthost):
 
 def test_reboot_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
     """
-    @summary: Inject an fault on midplane link and check the recovery"`
+    @summary: Check cisco watchdog is disabled in boot by watchdog control service
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
