@@ -746,7 +746,7 @@ platform_tests/test_advanced_reboot.py:
       - "'dualtor' in topo_name and release in ['202012']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
-    skip:
+  skip:
     reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11007
