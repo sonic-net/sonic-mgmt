@@ -12,6 +12,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 
 
 pytestmark = [
+    pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
