@@ -1166,7 +1166,7 @@ class TestQosSai(QosSaiBase):
             for index in range(len(dutConfig['testPorts']['downlink_port_ids'])):
                 if dutConfig["testPorts"]["src_port_id"] != \
                         dutConfig['testPorts']['downlink_port_ids'][index]:
-                    dst_port_id = id
+                    dst_port_id = index
                     dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][index]
                     break
 
