@@ -1,4 +1,4 @@
-r, ".* NOTICE admin: Rebooting with /sbin/kexec -e to.*..."
+r, ".* NOTICE (?:admin|root): Rebooting with /sbin/kexec -e to.*..."
 
 r, ".* systemd.* (Stopping|Stopped|Starting|Started).* Database container.*"
 r, ".* NOTICE admin: (Stopping|Stopped|Starting|Started).* (?!syncd|swss|gbsyncd).* service.*"
