@@ -112,7 +112,8 @@ def test_verify_q7_counters(duthosts, enum_frontend_dut_hostname, enum_frontend_
         end_counter = get_queue_counter(asichost, portchannel_members)
 
         assert (end_counter - start_counter >= PING_COUNT), \
-               "Insufficient UC7 counter increase of {}. Expected at least {} increase.".format(
+               "Portchannel {}: Insufficient UC7 counter increase of {}. Expected at least {} increase.".format(
+                                                               portchannel,
                                                                (end_counter - start_counter),
                                                                PING_COUNT
                                                              )
