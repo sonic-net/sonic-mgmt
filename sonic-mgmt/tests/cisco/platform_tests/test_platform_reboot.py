@@ -18,8 +18,8 @@ pytestmark = [
 
 def check_watchdog_service_status(duthost):
 
-    result = duthost.shell("systemctl status watchdog-control.service | grep Active")
-    if "Active: inactive (dead)" in result['stdout']:
+    result = duthost.shell("systemctl status watchdog-control.service | grep status")
+    if "code=exited, status=0/SUCCESS" in result['stdout']:
         return True
     else:
         return False
@@ -45,4 +45,3 @@ def test_reboot_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
     assert "Disabled" in str(result), "Watchdog failed to stop during boot"
 
     wait_critical_processes(duthost)
-
