@@ -267,4 +267,4 @@
   - fetch: src=docker-ptf.tar dest=docker-ptf.tar flat=yes
   - shell: rm -f docker-ptf.tar
   run_once: yes
-  when: vm_type is defined and vm_type == "vsonic"
+  when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true
