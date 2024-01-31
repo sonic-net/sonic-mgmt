@@ -1118,7 +1118,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_src_dst_different_asic,  separated_dscp_to_tc_map_on_uplink
+            skip_src_dst_different_asic
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
