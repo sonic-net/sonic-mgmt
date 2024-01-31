@@ -29,6 +29,8 @@ r, ".* ERR kernel:.* Module gpio_ich is blacklisted.*"
 r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
 r, ".* ERR monit.*Expected containers not running: telemetry.*"
 r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*"
+r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
+r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
@@ -195,6 +197,9 @@ r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, err
 # NTPsec logs a message with ERR in it at NOTICE level when exiting gracefully, ignore it
 r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
 
+# Race condition while removing a vlan member, no functionality impact
+r, ". *ERR swss#orchagent: :- update: FdbOrch MOVE notification: Failed to get port by bridge port ID.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/7895
 # https://github.com/Azure/sonic-sairedis/issues/582
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- get_dispatch_attribs_handler: Failed getting attrib SAI_BRIDGE_PORT_ATTR_ISOLATION_GROUP"
@@ -213,3 +218,9 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/10384
+r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
+
+# https://msazure.visualstudio.com/One/_workitems/edit/25833053
+r, ".* ERR dualtor_neighbor_check.py: .*"
