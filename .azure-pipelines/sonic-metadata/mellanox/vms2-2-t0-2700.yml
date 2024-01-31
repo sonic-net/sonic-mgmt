@@ -108,10 +108,11 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "18"
+  default: "16"
   values:
   - "1"
   - "10"
+  - "16"
   - "18"
   - "20"
   - "22"
