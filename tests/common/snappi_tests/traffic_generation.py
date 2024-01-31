@@ -526,6 +526,7 @@ def verify_in_flight_buffer_pkts(duthost,
 
 def verify_pause_frame_count_dut(duthost,
                                  test_traffic_pause,
+                                 global_pause,
                                  snappi_extra_params):
     """
     Verify correct frame count for pause frames when the traffic is expected to be paused or not
@@ -534,6 +535,7 @@ def verify_pause_frame_count_dut(duthost,
     Args:
         duthost (obj): DUT host object
         test_traffic_pause (bool): whether test traffic is expected to be paused
+        global_pause (bool): if pause frame is IEEE 802.3X pause i.e. global pause applied
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
@@ -544,10 +546,16 @@ def verify_pause_frame_count_dut(duthost,
     for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
             pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio, is_tx=False)
-            # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port
-            pytest_assert(pfc_pause_rx_frames > 0,
-                          "PFC pause frames should be received and counted in RX PFC counters for priority {}"
-                          .format(prio))
+            # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
+            # except the case with global pause frames which SONiC does not count currently
+            if global_pause:
+                pytest_assert(pfc_pause_rx_frames == 0,
+                              "Global pause frames should not be counted in RX PFC counters for priority {}"
+                              .format(prio))
+            else:
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                              .format(prio))
 
     for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
