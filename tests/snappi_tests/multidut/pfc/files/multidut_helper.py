@@ -90,6 +90,7 @@ def run_pfc_test(api,
     global DATA_FLOW_DURATION_SEC
     global data_flow_delay_sec
 
+    # Port id of Rx port for traffic config
     port_id = 0
 
     # Rate percent must be an integer
