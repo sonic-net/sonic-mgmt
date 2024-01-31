@@ -33,7 +33,6 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
