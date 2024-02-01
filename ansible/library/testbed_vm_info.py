@@ -91,6 +91,7 @@ class TestbedVMFacts():
                     result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
         return result_dict
 
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
