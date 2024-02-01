@@ -31,7 +31,6 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # lgtm[py/unused-import]
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module                         # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file          # lgtm[py/unused-import]
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled             # lgtm[py/unused-import]
 from tests.common.helpers.assertions import pytest_assert
@@ -1086,7 +1085,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiLossyQueueVoq(
         self, LossyVoq, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             ingressLossyProfile, duthost, localhost, get_src_dst_asic_and_duts,
-            skip_check_for_hbm_either_asic, dut_qos_maps_module
+            skip_check_for_hbm_either_asic, dut_qos_maps
     ):
         """
             Test QoS SAI Lossy queue with non_default voq and default voq
@@ -1119,7 +1118,7 @@ class TestQosSai(QosSaiBase):
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
-        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
@@ -1127,7 +1126,7 @@ class TestQosSai(QosSaiBase):
                 if dutConfig["testPorts"]["src_port_id"] != \
                         dutConfig['testPorts']['downlink_port_ids'][index]:
                     dst_port_id = index
-                    dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][0]
+                    dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][index]
                     break
 
         try:
@@ -1139,8 +1138,8 @@ class TestQosSai(QosSaiBase):
                 "pg": qosConfig[LossyVoq]["pg"],
                 "src_port_id": dutConfig["testPorts"]["src_port_id"],
                 "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
-                "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
-                "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+                "dst_port_id": dst_port_id,
+                "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
                 "flow_config": flow_config,
                 "pkts_num_trig_egr_drp": qosConfig[LossyVoq]["pkts_num_trig_egr_drp"]
@@ -1876,7 +1875,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_wm_all_ports"])
     def testQosSaiQWatermarkAllPorts(
         self, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps_module
+        resetWatermark, get_src_dst_asic_and_duts, dut_qos_maps
     ):
         """
             Test QoS SAI Queue watermark test for lossless/lossy traffic on all ports
@@ -1913,7 +1912,7 @@ class TestQosSai(QosSaiBase):
             all_dst_info[get_src_dst_asic_and_duts['dst_asic_index']].values()])
         src_port_id = dutConfig["testPorts"]["src_port_id"]
         src_port_ip = dutConfig["testPorts"]["src_port_ip"]
-        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
+        if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
              # Remove the upstream ports from the test port list.
              allTestPorts = list(set(allTestPorts) - set(dutConfig['testPorts']['uplink_port_ids']))
              allTestPortIps = [
