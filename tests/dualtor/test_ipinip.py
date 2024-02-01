@@ -111,6 +111,7 @@ def test_decap_active_tor(
 
     if is_t0_mocked_dualtor(tbinfo):
         request.getfixturevalue('apply_active_state_to_orchagent')
+        time.sleep(30)
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
@@ -123,7 +124,6 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
