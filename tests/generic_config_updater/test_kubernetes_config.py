@@ -54,7 +54,7 @@ K8SHALFTOFULLPATCH = [
         "path": "/KUBERNETES_MASTER/SERVER/disable",
         "value": "false"
     },
-    {   
+    {
         "op": "add",
         "path": "/KUBERNETES_MASTER/SERVER/ip",
         "value": "k8svip.ap.gbl"
