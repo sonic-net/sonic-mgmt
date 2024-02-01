@@ -11,6 +11,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
+# Skip testing on following containers
+# db and pmon will be privileged hardening
+# syncd, gbsyncd, and swss cannot be privileged hardening
+PRIVILEGED_CONTAINERS = [
+    "database",
+    "pmon",
+    "syncd",
+    "gbsyncd",
+    "swss",
+]
 
 
 def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature):
@@ -22,12 +32,8 @@ def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname, enum_r
     container_name = asic.get_docker_name(enum_dut_feature)
     disabled_containers = get_disabled_container_list(duthost)
 
-    # Skip testing on following containers
-    # db and pmon will be privileged hardening
-    # syncd, gbsyncd, and swss cannot be privileged hardening
     skip_condition = disabled_containers[:]
-    skip_condition.extend(["database", "pmon"])
-    skip_condition.extend(["syncd", "gbsyncd", "swss"])
+    skip_condition.extend(PRIVILEGED_CONTAINERS)
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
     pytest_require(feature_name not in skip_condition, "Skipping test for container {}".format(feature_name))
