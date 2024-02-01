@@ -171,13 +171,13 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
     conditions:
-      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "topo_name not in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
 
 cacl/test_cacl_application.py::test_cacl_application_nondualtor:
   skip:
     reason: "test_cacl_application is only supported on non dualtor topology"
     conditions:
-      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120']"
+      - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-64', 'dualtor-120']"
 
 cacl/test_cacl_application.py::test_multiasic_cacl_application:
   skip:
@@ -568,6 +568,12 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
     reason: "Skip m0 everflow per interface IPv6 test on marvell"
     conditions:
       - "asic_type in ['marvell']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
+  skip:
+    reason: "Due to HW resource limitation, need to skip the test on the Mellanox t0-120 setup"
+    conditions:
+      - "'t0-120' in topo_name and asic_type in ['mellanox']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1060,6 +1066,12 @@ qos/test_qos_sai.py::TestQosSai:
     reason: "Unsupported testbed type."
     conditions:
       - "topo_name not in ['t0', 't0-64', 't0-116', 't0-35', 't0-56', 'dualtor-56', 'dualtor-120', 'dualtor', 't0-80', 't0-backend', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic'] and asic_type not in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
+  skip:
+    reason: "For DSCP to PG mapping on IPinIP traffic , mellanox device has different behavior to community. For mellanox device, testQosSaiDscpToPgMapping can cover the scenarios"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
