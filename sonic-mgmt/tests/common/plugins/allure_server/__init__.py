@@ -8,6 +8,7 @@ import subprocess
 
 logger = logging.getLogger()
 
+FileNotFoundError = IOError
 ALLURE_REPORT_URL = 'allure_report_url'
 
 
@@ -17,7 +18,7 @@ def pytest_addoption(parser):
     :param parser: pytest buildin
     """
     parser.addoption('--allure_server_addr', action='store', default=None, help='Allure server address: IP/domain name')
-    parser.addoption('--allure_server_port', action='store', default=5050, help='Allure server port')
+    parser.addoption('--allure_server_port', action='store', default=None, help='Allure server port')
     parser.addoption('--allure_server_project_id', action='store', default=None, help='Allure server project ID')
 
 
@@ -39,14 +40,13 @@ def pytest_sessionfinish(session, exitstatus):
                 try:
                     session_info_dict = get_setup_session_info(session)
                 except Exception as err:
-                    logger.warning('Can not get session info for Allure report. Error: {}'.format(err))
+                    logger.info('Can not get session info for Allure report. Error: {}'.format(err))
 
                 if session_info_dict:
                     export_session_info_to_allure(session_info_dict, allure_report_dir)
 
                 try:
-                    allure_server_obj = AllureServer(allure_server_addr, allure_server_port, allure_report_dir,
-                                                     allure_server_project_id)
+                    allure_server_obj = AllureServer(allure_server_addr, allure_server_port, allure_report_dir, allure_server_project_id)
                     report_url = allure_server_obj.generate_allure_report()
                     session.config.cache.set(ALLURE_REPORT_URL, report_url)
                 except Exception as err:
@@ -88,11 +88,12 @@ def get_setup_session_info(session):
     return result
 
 
+
 def export_session_info_to_allure(session_info_dict, allure_report_dir):
     allure_env_file_name = 'environment.properties'
     allure_env_file_path = os.path.join(allure_report_dir, allure_env_file_name)
     with open(allure_env_file_path, 'w') as env_file_obj:
-        for item, value in list(session_info_dict.items()):
+        for item, value in session_info_dict.items():
             env_file_obj.write('{}={}\n'.format(item, value))
 
 
@@ -117,11 +118,15 @@ def get_time_stamp_str():
 
 
 class AllureServer:
-    def __init__(self, allure_server_ip, allure_server_port, allure_report_dir, project_id=None):
+    def __init__(self, allure_server_ip, allure_server_port, allure_report_dir, allure_server_project_id=None):
         self.allure_report_dir = allure_report_dir
-        self.base_url = 'http://{}:{}/allure-docker-service'.format(allure_server_ip, allure_server_port)
-        self.project_id = project_id if project_id else get_time_stamp_str()
-        self.http_headers = {'Content-type': 'application/json'}
+
+        if allure_server_port:
+            self.base_url = "http://{}:{}/allure-docker-service".format(allure_server_ip, allure_server_port)
+        else:
+            self.base_url = "http://{}/allure-docker-service".format(allure_server_ip)
+        self.project_id = str(allure_server_project_id) if allure_server_project_id else get_time_stamp_str()
+        self.http_headers = {"Content-type": "application/json"}
 
     def generate_allure_report(self):
         """
@@ -139,31 +144,43 @@ class AllureServer:
         """
         data = {'id': self.project_id}
         url = self.base_url + '/projects'
-
-        if requests.get(url + '/' + self.project_id).status_code != 200:
-            logger.info('Creating project {} on allure server'.format(self.project_id))
+        logger.info("Base url: {}".format(url))
+        get_project_res = requests.get(url + "/" + self.project_id)
+        if get_project_res.status_code == 404:
+            logger.info("Creating project {} on allure server".format(self.project_id))
             response = requests.post(url, json=data, headers=self.http_headers)
-            if response.raise_for_status():
-                logger.error('Failed to create project on allure server, error: {}'.format(response.content))
+            if not response.ok:
+                logger.error("Failed to create project on allure server, error: {}".format(response.content))
+        elif get_project_res.status_code == 200:
+            logger.info("Allure project {} already exist on server. No need to create project".format(self.project_id))
         else:
-            logger.info('Allure project {} already exist on server. No need to create project'.format(self.project_id))
+            logger.info("Unknown error, status: {}".format(get_project_res.status_code))
+
 
     def upload_results_to_allure_server(self):
         """
         This method uploads files from allure results folder to allure server
         """
-        data = {'results': self.get_allure_files_content()}
-        url = self.base_url + '/send-results?project_id=' + self.project_id
+        data = {"results": self.get_allure_files_content()}
+        params = {"project_id": self.project_id}
+        url = self.base_url + "/send-results"
 
-        logger.info('Sending allure results to allure server')
-        response = requests.post(url, json=data, headers=self.http_headers)
-        if response.raise_for_status():
-            logger.error('Failed to upload results to allure server, error: {}'.format(response.content))
+        logger.info("Sending allure results to allure server")
+        response = requests.post(url, params=params, json=data, headers=self.http_headers)
+        if not response.ok:
+            logger.error("Failed to upload results to allure server, error: {}".format(response.content))
 
     def get_allure_files_content(self):
         """
         This method creates a list all files under allure report folder
-        :return: list with allure folder content, example [{'file1': 'file content'}, {'file2': 'file2 content'}]
+        :return: list with allure folder content, example
+        [
+            {
+                'file_name': 'xyz',
+                'content_base64': 'xyz'
+            },
+            ...
+        ]
         """
         files = os.listdir(self.allure_report_dir)
         results = []
@@ -177,33 +194,46 @@ class AllureServer:
                         content = f.read()
                         if content.strip():
                             b64_content = base64.b64encode(content)
-                            result['file_name'] = file
-                            result['content_base64'] = b64_content.decode('UTF-8')
+                            result["file_name"] = file
+                            result["content_base64"] = b64_content.decode("UTF-8")
                             results.append(result)
-                finally:
-                    f.close()
+                except Exception as e:
+                    logger.info(
+                        "Error! Encountered exception while opening file {file_path}, error: {e}".format(file_path, e)
+                    )
         return results
 
     def generate_report_on_allure_server(self):
         """
         This method would generate the report on the remote allure server and display the report URL in the log
         """
-        logger.info('Generating report on allure server')
-        url = self.base_url + '/generate-report?project_id=' + self.project_id
-        response = requests.get(url, headers=self.http_headers)
+        logger.info("Generating report on allure server")
+        time.sleep(30)
+        params = {"project_id": self.project_id}
+        url = self.base_url + "/generate-report"
+        response = requests.get(url, params=params, headers=self.http_headers)
 
-        if response.raise_for_status():
-            logger.error('Failed to generate report on allure server, error: {}'.format(response.content))
+        if not response.ok:
+            logger.error("Failed to generate report on allure server, error: {}".format(response.content))
         else:
-            report_url = response.json()['data']['report_url']
+            resJson = response.json()
+            if resJson["data"] and resJson["data"]["report_url"]:
+                report_url = resJson["data"]["report_url"]
+            else:
+                logger.error(
+                    "ERROR! Data was not found in response for generating allure report. res: {resJson}".format(resJson)
+                )
+                report_url = ""
             return report_url
 
     def clean_results_on_allure_server(self):
         """
         This method would clean results for project on the remote allure server
         """
-        url = self.base_url + '/clean-results?project_id=' + self.project_id
-        response = requests.get(url, headers=self.http_headers)
+        time.sleep(30)
+        url = self.base_url + "/clean-results"
+        params = {"project_id": self.project_id}
+        response = requests.get(url, params=params, headers=self.http_headers)
 
-        if response.raise_for_status():
-            logger.error('Failed to clean results on allure server, error: {}'.format(response.content))
+        if not response.ok:
+            logger.error("Failed to clean results on allure server, error: {}".format(response.content))
