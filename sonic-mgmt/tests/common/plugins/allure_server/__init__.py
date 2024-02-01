@@ -40,7 +40,7 @@ def pytest_sessionfinish(session, exitstatus):
                 try:
                     session_info_dict = get_setup_session_info(session)
                 except Exception as err:
-                    logger.info('Can not get session info for Allure report. Error: {}'.format(err))
+                    logger.warning('Can not get session info for Allure report. Error: {}'.format(err))
 
                 if session_info_dict:
                     export_session_info_to_allure(session_info_dict, allure_report_dir)
