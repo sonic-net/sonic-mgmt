@@ -3,7 +3,7 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
+from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 
@@ -19,24 +19,32 @@ logger = logging.getLogger(__name__)
 K8SEMPTYCONFIG = []
 K8SHALFCONFIG = [
     '"KUBERNETES_MASTER": {\n'
-    '    "SERVER": {}\n'
-    '}'
+    '        "SERVER": {}\n'
+    '    }'
 ]
 K8SFULLCONFIG = [
     '"KUBERNETES_MASTER": {\n'
-    '    "SERVER": {\n'
-    '        "disable": "false",\n'
-    '        "ip": "k8svip.ap.gbl"\n'
-    '    }\n'
-    '}'
+    '        "SERVER": {\n'
+    '            "disable": "false",\n'
+    '            "ip": "k8svip.ap.gbl"\n'
+    '        }\n'
+    '    }'
 ]
 K8SFULLCONFIG2 = [
     '"KUBERNETES_MASTER": {\n'
-    '    "SERVER": {\n'
-    '        "disable": "false",\n'
-    '        "ip": "k8svip2.ap.gbl"\n'
-    '    }\n'
-    '}'
+    '        "SERVER": {\n'
+    '            "disable": "false",\n'
+    '            "ip": "k8svip2.ap.gbl"\n'
+    '        }\n'
+    '    }'
+]
+K8SEMPTYIPCONFIG = [
+    '"KUBERNETES_MASTER": {\n'
+    '        "SERVER": {\n'
+    '            "disable": "true",\n'
+    '            "ip": ""\n'
+    '        }\n'
+    '    }'
 ]
 
 
@@ -46,6 +54,18 @@ K8SEMPTYTOHALFPATCH = [
         "op": "add",
         "path": "/KUBERNETES_MASTER",
         "value": {"SERVER": {}}
+    }
+]
+K8SHALFTOWRONGIPPATCH = [
+    {
+        "op": "add",
+        "path": "/KUBERNETES_MASTER/SERVER/disable",
+        "value": "true"
+    },
+    {
+        "op": "add",
+        "path": "/KUBERNETES_MASTER/SERVER/ip",
+        "value": ""
     }
 ]
 K8SHALFTOFULLPATCH = [
@@ -90,12 +110,67 @@ K8SFULLTOFULLPATCH = [
         "value": "k8svip2.ap.gbl"
     }
 ]
+K8SFULLTOWRONGIPPATCH = [
+    {
+        "op": "replace",
+        "path": "/KUBERNETES_MASTER/SERVER/ip",
+        "value": ""
+    },
+    {
+        "op": "replace",
+        "path": "/KUBERNETES_MASTER/SERVER/disable",
+        "value": "true"
+    }
+]
 K8SFULLTOEMPTYPATCH = [
     {
         "op": "remove",
         "path": "/KUBERNETES_MASTER"
     }
 ]
+K8SEMPTYTOWRONGIPPATCH = [
+    {
+        "op": "add",
+        "path": "/KUBERNETES_MASTER",
+        "value": {"SERVER": {"disable": "true", "ip": ""}}
+    }
+]
+K8SWRONGIPTOFULLPATCH = [
+    {
+        "op": "replace",
+        "path": "/KUBERNETES_MASTER/SERVER/ip",
+        "value": "k8svip.ap.gbl"
+    },
+    {
+        "op": "replace",
+        "path": "/KUBERNETES_MASTER/SERVER/disable",
+        "value": "false"
+    }
+]
+
+
+# Succeed and fail flag
+SUCCEED = "SUCCEED"
+FAIL = "FAIL"
+
+
+test_data_1 = {
+    0: (K8SEMPTYTOHALFPATCH, K8SHALFCONFIG, SUCCEED),
+    1: (K8SHALFTOWRONGIPPATCH, K8SHALFCONFIG, FAIL),
+    2: (K8SHALFTOFULLPATCH, K8SFULLCONFIG, SUCCEED),
+    3: (K8SFULLTOHALFPATCH, K8SHALFCONFIG, SUCCEED),
+    4: (K8SHALFTOEMPTYPATCH, K8SEMPTYCONFIG, SUCCEED),
+    5: (K8SEMPTYTOFULLPATCH, K8SFULLCONFIG, SUCCEED),
+    6: (K8SFULLTOFULLPATCH, K8SFULLCONFIG2, SUCCEED),
+    7: (K8SFULLTOWRONGIPPATCH, K8SFULLCONFIG2, FAIL),
+    8: (K8SFULLTOEMPTYPATCH, K8SEMPTYCONFIG, SUCCEED),
+    9: (K8SEMPTYTOWRONGIPPATCH, K8SEMPTYCONFIG, FAIL),
+}
+
+
+test_data_2 = {
+    10: (K8SWRONGIPTOFULLPATCH, K8SEMPTYIPCONFIG, FAIL),
+}
 
 
 @pytest.fixture(autouse=True)
@@ -128,7 +203,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
 
 def get_k8s_runningconfig(duthost):
     """ Get k8s config from running config
-
     Sample output: K8SEMPTYCONFIG, K8SHALFCONFIG, K8SFULLCONFIG
     """
     cmds = "show runningconfiguration all"
@@ -149,27 +223,28 @@ def k8s_config_cleanup(duthost):
     pytest_assert(not output['rc'], "k8s config cleanup failed.")
 
 
-def k8s_config_update(duthost):
+def k8s_empty_ip_config_setup(duthost):
+    """ Set up k8s config with empty ip
+    """
+    cmds = 'sonic-db-cli CONFIG_DB hmset "KUBERNETES_MASTER|SERVER" "disable" "true" "ip" ""'
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "k8s config setup failed.")
+
+
+def k8s_config_update(duthost, test_data):
     """ Update k8s config
     """
-
-    test_data = {
-        0: (K8SEMPTYTOHALFPATCH, K8SHALFCONFIG),
-        1: (K8SHALFTOFULLPATCH, K8SFULLCONFIG),
-        2: (K8SFULLTOHALFPATCH, K8SHALFCONFIG),
-        3: (K8SHALFTOEMPTYPATCH, K8SEMPTYCONFIG),
-        4: (K8SEMPTYTOFULLPATCH, K8SFULLCONFIG),
-        5: (K8SFULLTOFULLPATCH, K8SFULLCONFIG2),
-        6: (K8SFULLTOEMPTYPATCH, K8SEMPTYCONFIG)
-    }
-
-    for num, (json_patch, target_config) in test_data.items():
+    for num, (json_patch, target_config, expected_result) in test_data.items():
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
         try:
             output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-            expect_op_success(duthost, output)
+
+            if expected_result == SUCCEED:
+                expect_op_success(duthost, output)
+            elif expected_result == FAIL:
+                expect_op_failure(output)
 
             k8s_config = get_k8s_runningconfig(duthost)
             pytest_assert(
@@ -181,8 +256,11 @@ def k8s_config_update(duthost):
             delete_tmpfile(duthost, tmpfile)
 
 
-def test_k8s_tc1_test_config(rand_selected_dut):
+def test_k8s_config_patch_apply(rand_selected_dut):
     """ Test suite for k8s config update
     """
     k8s_config_cleanup(rand_selected_dut)
-    k8s_config_update(rand_selected_dut)
+    k8s_config_update(rand_selected_dut, test_data_1)
+    k8s_empty_ip_config_setup(rand_selected_dut)
+    k8s_config_update(rand_selected_dut, test_data_2)
+    k8s_config_cleanup(rand_selected_dut)
