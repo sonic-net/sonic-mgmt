@@ -74,4 +74,4 @@ snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_transceiver_info
 snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
 cisco/test_platform_faults.py
-cisco/ipfwd/test_nhop_group.py
+cisco/ipfwd/test_cisco_nhop_group.py
