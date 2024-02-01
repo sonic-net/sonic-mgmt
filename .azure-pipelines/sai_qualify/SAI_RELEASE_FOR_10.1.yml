@@ -1,41 +1,38 @@
-name: SAI_RELEASE_PRE_TEST_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
 resources:
  pipelines:
-   - pipeline: bcm_sai_external_sug
+   - pipeline: SAIBuildPipeline
      source: bcm_sai_external_sug
      project: broadcom
-   - pipeline: Build.SAI.BRCM.7.0
-     source: Build.SAI.BRCM.7.0
-     project: internal
-   - pipeline: Build.SAI.BRCM.4.3
-     source: Build.SAI.BRCM.4.3
-     project: internal
+     trigger:
+        enabled: true
+        branches:
+          include:
+          - SAI_10.1.0_GA
+
 
 variables:
   - template: templates/template_variables.yml
+  - name: SDK_BUILD_ID
+    value: $(resources.pipeline.SAIBuildPipeline.runId)
 
 parameters:
   - name: TESTBED_NAME
     type: string
     displayName: "Testbed Name"
-    default: vms20-t0-7050cx3-1
-
-  - name:  UPGRADE_IMAGE
-    type: boolean
-    displayName: "Upgrade Image"
-    default: true
+    default: vms20-t0-7050cx3-2
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_ABOOT_202205)
+    default: $(IMAGE_BRCM_ABOOT_202311)
     displayName: "Image URL"
 
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_202205)
+    default: $(SAITHRIFT_BRCM_202311)
     displayName: "py_saithrift URL"
 
   # Testbed specific, to skip and/or include directories or just run basic tests
@@ -43,6 +40,10 @@ parameters:
     type: string
     default: '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py platform_tests/test_advanced_reboot.py"'
     displayName: Testbed specific
+    values:
+      - '-I "platform_tests show_techport acl everflow drop_packets"'
+      - '-S "platform_tests copp show_techport acl everflow drop_packets qos"'
+      - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py platform_tests/test_advanced_reboot.py"'
 
 
   # Deploy SAI SDK
@@ -64,7 +65,6 @@ parameters:
     values:
       - "bcm_sai_external_sug"
       - "Build.SAI.BRCM.7.0"
-      - "Build.SAI.BRCM.4.3"
 
   - name: SDK_ARTIFACT_NAME
     displayName: "artifact name"
@@ -73,12 +73,6 @@ parameters:
     values:
       - xgs
       - saibcm.7.0
-      - saibcm.4_3
-
-  - name: SDK_BUILD_ID
-    displayName: "SDK build id"
-    type: string
-    default: ""
 
   # Test report
   - name: UPLOAD_TEST_REPORT
@@ -106,7 +100,6 @@ jobs:
   - template: templates/sonic_nightly_test_for_sai.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
-      UPGRADE_IMAGE: ${{ parameters.UPGRADE_IMAGE }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
@@ -116,4 +109,4 @@ jobs:
       SDK_ARTIFACT_NAME: ${{ parameters.SDK_ARTIFACT_NAME }}
       AGENT_POOL: ${{ parameters.AGENT_POOL }}
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SDK_BUILD_ID: ${{ parameters.SDK_BUILD_ID }}
+      SDK_BUILD_ID: $(SDK_BUILD_ID)

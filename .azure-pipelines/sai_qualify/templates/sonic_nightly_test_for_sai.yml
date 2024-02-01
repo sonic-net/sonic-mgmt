@@ -23,6 +23,10 @@ parameters:
       - nightly-bjw
 
   # ============ Upgrade parameters ============
+  - name: UPGRADE_IMAGE
+    type: boolean
+    default: true
+
   - name: IMAGE_URL
     type: string
     default: ""
@@ -219,6 +223,7 @@ jobs:
 
       - task: Bash@3
         displayName: "Upgrade Image"
+        condition: ${{ parameters.UPGRADE_IMAGE }}
         timeoutInMinutes: 90
         inputs:
           targetType: 'inline'
