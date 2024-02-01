@@ -26,7 +26,7 @@ def test_container_privileged(duthosts, enum_rand_one_per_hwsku_hostname, enum_r
     # db and pmon will be privileged hardening
     # syncd, gbsyncd, and swss cannot be privileged hardening
     skip_condition = disabled_containers[:]
-    skip_condition.append(["database", "pmon"])
+    skip_condition.extend(["database", "pmon"])
     skip_condition.extend(["syncd", "gbsyncd", "swss"])
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
