@@ -2243,3 +2243,12 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_vanguard(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        if src_asic.sonichost.facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+            pytest.skip(
+                "This test is skipped since this asic is cisco-8000 Q200 longlink.")
+        yield
+        return
