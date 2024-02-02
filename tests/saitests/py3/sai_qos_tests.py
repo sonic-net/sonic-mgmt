@@ -577,7 +577,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                                                        1, dst_port_ip['peer_addr'], '192.168.0.1',
                                                        '00:00:00:00:00:00', None)
                         send_packet(self, dst_port_id, arpreq_pkt)
-                        
+
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
             if self.test_port_ips:
                 ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
@@ -1516,8 +1516,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of ingress drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
                                  test_stage, recv_counters,
                                  recv_counters_base, xmit_counters,
                                  xmit_counters_base))
@@ -1552,8 +1552,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
                                  test_stage, recv_counters, recv_counters_base,
                                  xmit_counters, xmit_counters_base))
             # recv port pfc
