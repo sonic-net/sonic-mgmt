@@ -2245,10 +2245,11 @@ class QosSaiBase(QosBase):
             )
 
     @pytest.fixture(scope="function", autouse=False)
-    def skip_vanguard(self, get_src_dst_asic_and_duts):
-        src_asic = get_src_dst_asic_and_duts['src_asic']
-        if src_asic.sonichost.facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+    def skip_longlink(self, dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        match = re.search("_([0-9]*)m", portSpeedCableLength)
+        if match and int(match.group(1)) > 2000:
             pytest.skip(
-                "This test is skipped since this asic is cisco-8000 Q200 longlink.")
+                "This test is skipped for longlink.")
         yield
         return
