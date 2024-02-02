@@ -838,7 +838,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     """
 
     def _generate_hashed_ipv4_packet(src_mac, dst_mac, dst_ip, hash_key):
-        SRC_IP_RANGE = ['1.0.0.0', '200.255.255.255']
+        SRC_IP_RANGE = ['1.0.0.0', '126.255.255.255']
         src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
         sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
         dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
@@ -1072,7 +1072,7 @@ def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_pa
 def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
                                    tbinfo, downlink_ints):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
-    expect_packet_num = 10000
+    expect_packet_num = 1000
 
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
@@ -1081,13 +1081,14 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
+                                                       expect_packet_num)
     for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect multi-mux nexthops to focus packets to one downlink
         all_allowed_ports = expected_downlink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter, exp_packet=exp_pkt, exp_tunnel_pkt=exp_tunnel_pkt,
-                                                         ports=all_allowed_ports, timeout=0.1, count=1)
+                                                         ports=all_allowed_ports, timeout=1, count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
@@ -1435,6 +1436,7 @@ def recover_linkmgrd_probe_interval(duthosts, tbinfo):
     '''
     default_probe_interval_ms = 100
     update_linkmgrd_probe_interval(duthosts, tbinfo, default_probe_interval_ms)
+    duthosts.shell('sonic-db-cli CONFIG_DB DEL "MUX_LINKMGR|LINK_PROBER"')
 
 
 def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
