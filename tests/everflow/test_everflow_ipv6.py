@@ -21,6 +21,7 @@ EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
 
 logger = logging.getLogger(__name__)
 
+
 class EverflowIPv6Tests(BaseEverflowTest):
     """
     Base class for testing IPv6 match types for the Everflow feature.
