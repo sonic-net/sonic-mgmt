@@ -16,6 +16,16 @@ parameters:
   type: string
   displayName: "Testbed Name"
 
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
+
 - name: UPGRADE_TYPE
   type: string
   displayName: "Type of upgrade"
@@ -185,6 +195,7 @@ stages:
 - template: metadata_upgrade_template.yml
   parameters:
     TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+    POOL: ${{ parameters.POOL }}
     UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
     VM_TYPE: ${{ parameters.VM_TYPE }}
     FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
