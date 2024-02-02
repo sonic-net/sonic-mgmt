@@ -6,7 +6,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "15 * * * Sun"
+  - cron: "15 0 * * Sun"
     displayName: Test Result Sharing With Vendor Scheduler
     branches:
       include:
