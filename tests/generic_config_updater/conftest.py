@@ -109,6 +109,14 @@ def verify_configdb_with_empty_input(duthosts, rand_one_dut_hostname):
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.fixture(scope='function')
+def skip_when_buffer_is_dynamic_model(duthost):
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    if buffer_model == 'dynamic':
+        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
+
+
 # Function Fixture
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):

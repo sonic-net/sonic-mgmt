@@ -24,6 +24,7 @@ from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
-                          "t0-120", "t0-80", "t0-backend"]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
+                          "t0-120", "t0-80", "t0-backend", "t0-56-o8v48"]
+    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
@@ -1593,6 +1594,8 @@ class QosSaiBase(QosBase):
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
@@ -1620,52 +1623,33 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        dut_asic = get_src_dst_asic_and_duts['src_asic']
-
         # This is not needed in T2.
         if "t2" in dutTestParams["topo"]:
             yield
             return
 
-        dut_asic.command('sonic-clear fdb all')
-        dut_asic.command('sonic-clear arp')
+        self.populate_arp_entries(
+            get_src_dst_asic_and_duts, ptfhost, dutTestParams,
+            dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
 
-        saiQosTest = None
-        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulate"
-        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
-        else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                result = dut_asic.command("arp -n")
-                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
-                if result["stdout"].find("incomplete") == -1:
-                    saiQosTest = "sai_qos_tests.ARPpopulate"
-
-        if saiQosTest:
-            testParams = dutTestParams["basicParams"]
-            testParams.update(dutConfig["testPorts"])
-            testParams.update({
-                "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
-            })
-            self.runPtfTest(
-                ptfhost, testCase=saiQosTest, testParams=testParams
-            )
         yield
         return
 
     @pytest.fixture(scope='class', autouse=True)
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
         for duthost in get_src_dst_asic_and_duts['all_duts']:
+            docker0_ipv6_addr = \
+                duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
+                    "stdout_lines"][0]
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=1")
 
         yield
 
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             duthost.shell("sysctl -w net.ipv6.conf.all.disable_ipv6=0")
+            logger.info("Adding docker0's IPv6 address since it was removed when disabing IPv6")
+            duthost.shell("ip -6 addr add {} dev docker0".format(docker0_ipv6_addr))
+            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope='class', autouse=True)
     def sharedHeadroomPoolSize(
@@ -2186,6 +2170,7 @@ class QosSaiBase(QosBase):
         yield
         return
 
+
     @pytest.fixture(scope="function", autouse=False)
     def skip_src_dst_different_asic(self, dutConfig):
         if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
@@ -2193,3 +2178,40 @@ class QosSaiBase(QosBase):
                 "This test is skipped since asic types of ingress and egress are different.")
         yield
         return
+
+    def populate_arp_entries(
+        self, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa F811
+    ):
+        """
+        Update ARP entries of QoS SAI test ports
+        """
+        dut_asic = get_src_dst_asic_and_duts['src_asic']
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
+        saiQosTest = None
+        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulate"
+        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
+        else:
+            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                result = dut_asic.command("arp -n")
+                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
+                if result["stdout"].find("incomplete") == -1:
+                    saiQosTest = "sai_qos_tests.ARPpopulate"
+
+        if saiQosTest:
+            testParams = dutTestParams["basicParams"]
+            testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
+            })
+            self.runPtfTest(
+                ptfhost, testCase=saiQosTest, testParams=testParams
+            )
+

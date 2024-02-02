@@ -1666,7 +1666,8 @@ Totals               6450                 6449
         elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output):
+                "Broadcom Limited Broadcom BCM56850" in output or
+                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
             asic = "td2"
         elif ("Broadcom Limited Device b870" in output or
                 "Broadcom Inc. and subsidiaries Device b870" in output):
@@ -1679,6 +1680,9 @@ Totals               6450                 6449
             asic = "spc"
 
         return asic
+
+    def is_nvidia_platform(self):
+        return 'mellanox' == self.facts['asic_type']
 
     def _get_platform_asic(self, platform):
         platform_asic = os.path.join(
@@ -2198,6 +2202,13 @@ Totals               6450                 6449
                             raise ValueError('Got invalid packets count "{}" for {}|{}'
                                              .format(acl_table_name, acl_rule_name, rule['packets count']))
         raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
+
+    def get_port_counters(self, in_json=True):
+        cli = "portstat"
+        if in_json:
+            cli += " -j"
+        res = self.shell(cli)['stdout']
+        return re.sub(r"Last cached time was.*\d+\n", "", res)
 
     def remove_acl_table(self, acl_table):
         """
