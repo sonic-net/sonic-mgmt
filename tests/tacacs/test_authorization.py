@@ -11,6 +11,7 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
+from tests.common.helpers.dut_utils import is_container_running
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -203,7 +204,6 @@ def test_authorization_tacacs_only(
         "show interfaces counters -a -p 3",
         "show ip bgp neighbor",
         "show ipv6 bgp neighbor",
-        "show feature status telemetry",
         "touch testfile",
         "chmod +w testfile",
         "echo \"test\" > testfile",
@@ -225,6 +225,14 @@ def test_authorization_tacacs_only(
         "configlet --help",
         "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
     ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    telemetry_is_running = is_container_running(duthost, 'telemetry')
+    gnmi_is_running = is_container_running(duthost, 'gnmi')
+    if not telemetry_is_running and gnmi_is_running:
+        commands.append("show feature status gnmi")
+    else:
+        commands.append("show feature status telemetry")
 
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)
@@ -324,10 +332,10 @@ def test_authorization_tacacs_and_local(
     pytest_assert(exit_code == 1)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
-    # Verify TACACS+ user can run command not in server side whitelist, but have local permission.
+    # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 0)
-    check_ssh_output_any_of(stdout, ['root:x:0:0:root:/root:/bin/bash'])
+    pytest_assert(exit_code == 1)
+    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip

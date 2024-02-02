@@ -540,6 +540,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
+        self.is_multi_asic = (self.clients['src'] != self.clients['dst'])
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -547,7 +548,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type:
+        if 't2' in self.testbed_type and self.is_multi_asic:
             stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
                                                             self.test_params['dut_password'],
                                                             'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
@@ -3254,6 +3255,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         qos_remap_enable = bool(
             self.test_params.get('qos_remap_enable', False))
+        dry_run = bool(self.test_params.get('dry_run', False))
         print("dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" %
               (dst_port_id, src_port_id, qos_remap_enable))
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
@@ -3416,7 +3418,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info(
                     "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
-            else:
+            elif not dry_run:
                 assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
                     dscp, diff, limit)
 
@@ -3427,6 +3429,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print(list(map(operator.sub, queue_counters,
                        queue_counters_base)), file=sys.stderr)
 
+        print([q_cnt_sum, total_pkts], file=sys.stderr)
         # All packets sent should be received intact
         assert (q_cnt_sum == total_pkts)
 
@@ -3541,9 +3544,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
             else:
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    pkts_num_leak_out = 0
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out +
                             pkts_num_trig_egr_drp - 1 - margin)
+                if check_leackout_compensation_support(asic_type, hwsku):
+                    time.sleep(5)
+                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
+                                                   port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
+                                                   xmit_counters_base, self, src_port_id, pkt, 10)
 
             if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
                     hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
