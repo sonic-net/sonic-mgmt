@@ -414,7 +414,7 @@ class DecapPacketTest(BaseTest):
                              str(expected_ports)))
 
         matched, received = verify_packet_any_port(
-            self, masked_exp_pkt, expected_ports)
+            self, masked_exp_pkt, expected_ports, timeout=1)
         logging.info('Received expected packet on interface {}'.format(
             str(expected_ports[matched])))
         return matched, received

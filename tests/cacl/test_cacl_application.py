@@ -348,11 +348,13 @@ def generate_and_append_block_ip2me_traffic_rules(duthost, iptables_rules, ip6ta
                         pytest.fail("Unrecognized IP address type on interface '{}': {}".format(iface_name, ip_ntwrk))
 
 def append_midplane_traffic_rules(duthost, iptables_rules):
-    result = duthost.shell('ip link show | grep -w "eth1-midplane"', module_ignore_errors=True)['stdout']
+    # Get the kernel intf name in the event that eth1-midplane is an altname
+    result = duthost.shell('ip link show eth1-midplane | awk \'NR==1{print$2}\' | cut -f1 -d"@" | cut -f1 -d":"',
+                           module_ignore_errors=True)['stdout']
     if result:
         midplane_ip = duthost.shell('ip -4 -o addr show eth1-midplane | awk \'{print $4}\' | cut -d / -f1 | head -1',
                                     module_ignore_errors=True)['stdout']
-        iptables_rules.append("-A INPUT -i eth1-midplane -j ACCEPT")
+        iptables_rules.append("-A INPUT -i {} -j ACCEPT".format(result))
         iptables_rules.append("-A INPUT -s {}/32 -d {}/32 -j ACCEPT".format(midplane_ip, midplane_ip))
 
 def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expected_dhcp_rules_for_standby):

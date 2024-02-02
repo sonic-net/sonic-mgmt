@@ -73,9 +73,19 @@ class MultiAsicSonicHost(object):
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
+
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        # NOTE: Add mux to critical services for dualtor
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+        ):
+            service_list.append("mux")
+
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
-            config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
                 if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
@@ -677,6 +687,36 @@ class MultiAsicSonicHost(object):
                 config_facts.get("VOQ_INBAND_INTERFACE", {})
             )
         return voq_inband_interfaces.keys()
+
+    def get_portchannel_member(self):
+        """
+        This Function is applicable on packet Chassis, or
+        any dut that has PORTCHANNEL_MEMBER in config dbs.
+        Get PORTCHANNEL_MEMBER from config db of all asics.
+        Returns:
+              List of [portchannel]. e.g. ["PortChannel101|Ethernet104", "PortChannel01|EthernetBPxx", ...]
+              {} if VOQ chassis or other dut that doesn't have PORTCHANNEL_MEMBER
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        pcs = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            pcs.update(
+                config_facts.get("PORTCHANNEL_MEMBER", {})
+            )
+        return pcs.keys()
+
+    def run_redis_cmd(self, argv=[], asic_index=DEFAULT_ASIC_ID):
+        """
+        Wrapper function to call run_redis_cmd on sonic_asic.py
+        This will work for both single/multi-asic.
+        Note that for multi-asic, it will run on specific asic given, or asic0
+        """
+        return self.asic_instance(asic_index).run_redis_cmd(argv)
 
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""

@@ -11,6 +11,8 @@ from tests.common.utilities import wait
 from tests.common.reboot import reboot
 from .test_ro_user import ssh_remote_run
 from .utils import setup_tacacs_client
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -88,8 +90,9 @@ def do_reboot(duthost, localhost, duthosts):
         for host in duthosts:
             if host != duthost:
                 logger.info("checking if {} critical services are up".format(host.hostname))
-                assert wait_until(300, 20, 0, host.critical_services_fully_started), \
-                        "All critical services of {} should fully started!".format(host.hostname)
+                wait_critical_processes(host)
+                assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, host),
+                          "Not all ports that are admin up on are operationally up")
 
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')

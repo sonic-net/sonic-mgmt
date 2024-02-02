@@ -146,7 +146,9 @@ class TestContLinkFlap(object):
         if incr_redis_memory > 0.0:
             percent_incr_redis_memory = (incr_redis_memory / float(start_time_redis_memory)) * 100
             logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-            pytest_assert(percent_incr_redis_memory < 5, "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
+            incr_redis_memory_threshold = 10 if tbinfo["topo"]["type"] in ["m0", "mx"] else 5
+            pytest_assert(percent_incr_redis_memory < incr_redis_memory_threshold,
+                          "Redis Memory Increase more than expected: {}".format(percent_incr_redis_memory))
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)

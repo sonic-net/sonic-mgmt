@@ -73,8 +73,7 @@ class TestDynamicInnerHashingLag():
                                "symmetric_hashing": symmetric_hashing},
                        log_file=log_file,
                        qlen=PTF_QLEN,
-                       socket_recv_size=16384,
-                       is_python3=True)
+                       socket_recv_size=16384)
 
         retry_call(check_pbh_counters,
                    fargs=[duthost, outer_ipver, inner_ipver, balancing_test_times,

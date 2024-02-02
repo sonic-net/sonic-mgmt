@@ -4,6 +4,8 @@ import time
 import logging
 import ipaddress
 import json
+from collections import defaultdict
+
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -222,8 +224,7 @@ def partial_ptf_runner(ptfhost, test_case, dst_ip, exp_flow_count, **kwargs):
             platform_dir="ptftests",
             params= params,
             qlen=1000,
-            log_file=log_file,
-            is_python3=True)
+            log_file=log_file)
 
 
 def validate_packet_flow_without_neighbor_resolution(ptfhost, duthost, ip_to_port, prefix_list):
@@ -299,7 +300,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     flows_per_nh = NUM_FLOWS/len(port_list)
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
-        
+
     flows_to_redist = exp_flow_count[shutdown_link]
     for port in bank_0_port:
         if port != shutdown_link:
@@ -403,7 +404,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port != withdraw_nh_port:
             exp_flow_count[port] = flows_for_withdrawn_nh_bank
 
-    partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link) 
+    partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=shutdown_link)
 
 
     ### Send the same flows again, but enable the next-hop which was down previously
@@ -423,7 +424,7 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for port in port_list:
         exp_flow_count[port] = flows_per_nh
 
-    partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port) 
+    partial_ptf_runner(ptfhost, 'add_nh', dst_ip, exp_flow_count, add_nh_port=withdraw_nh_port)
 
 
     ### Simulate route and link flap conditions by toggling the route
@@ -468,10 +469,10 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     for port in bank_1_port:
         exp_flow_count[port] = flows_per_nh
 
-    partial_ptf_runner(ptfhost, 'withdraw_bank', dst_ip, exp_flow_count, withdraw_nh_bank=withdraw_nh_bank) 
+    partial_ptf_runner(ptfhost, 'withdraw_bank', dst_ip, exp_flow_count, withdraw_nh_bank=withdraw_nh_bank)
 
 
-    ### Send the same flows again, but enable 1 next-hop in a previously down bank to check 
+    ### Send the same flows again, but enable 1 next-hop in a previously down bank to check
     ### if flows redistribute back to previously down bank
     logger.info("Send the same flows again, but enable 1 next-hop in a previously down bank to check "
                 "if flows redistribute back to previously down bank")
@@ -598,7 +599,7 @@ def common_setup_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost):
         if USE_INNER_HASHING is True:
             configure_switch_vxlan_cfg(duthost)
 
-        yield duthost, cfg_facts, router_mac, net_ports 
+        yield duthost, cfg_facts, router_mac, net_ports
 
     finally:
         cleanup(duthost, ptfhost)

@@ -1,5 +1,6 @@
 """Test cases to support the Everflow Mirroring feature in SONiC."""
 import logging
+import os
 import time
 import pytest
 
