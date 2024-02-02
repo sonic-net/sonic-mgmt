@@ -31,6 +31,7 @@ REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
 REBOOT_TYPE_CPU = "cpu"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
+REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -112,6 +113,13 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         "cause": "ASIC",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_KERNEL_PANIC: {
+        "command": 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &',
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Kernel Panic",
         "test_reboot_cause_only": True
     }
 }

@@ -428,6 +428,16 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms."
     conditions:
       - "asic_type=='cisco-8000'"
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Skipping test since mirror with policer is not supported on Broadcom DNX platforms."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
 
 #######################################
 #####            fdb              #####
@@ -953,6 +963,20 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiQWatermarkAllPorts:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_active:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_active is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
+qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
+  xfail:
+    reason: "test_pfc_watermark_extra_lossless_standby is not support on broadcom platform yet"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/11271
+
 #######################################
 #####         restapi             #####
 #######################################
@@ -1093,6 +1117,15 @@ system_health/test_system_health.py::test_service_checker_with_process_exit:
       - "int(build_version.split('.')[1]) <= 44"
 
 #######################################
+#####           tacacs          #####
+#######################################
+tacacs/test_authorization.py::test_authorization_tacacs_and_local:
+  skip:
+    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11349"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/11349
+
+#######################################
 #####            vlan             #####
 #######################################
 vlan/test_vlan_ping.py:
@@ -1134,6 +1167,12 @@ vrf/test_vrf.py::TestVrfAclRedirect:
 #######################################
 #####           vxlan            #####
 #######################################
+vxlan/test_vnet_route_leak.py:
+  skip:
+    reason: "Test skipped due to issue #8374"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
 vxlan/test_vnet_vxlan.py:
   skip:
     reason: "1. Enable tests only for: mellanox, barefoot
