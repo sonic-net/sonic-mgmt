@@ -4,6 +4,7 @@ import os
 import pytest
 import time
 import six
+import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -50,6 +51,15 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+
+def is_longlink(dut, profile):
+    if dut.sonichost._facts['platform'] in \
+            ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        match = re.search("_([0-9]*)m_", profile)
+        if match:
+            return int(match.group(1)) > 2000
+    return False
 
 
 class PfcCmd(object):
@@ -137,7 +147,7 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, profile):
             asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
@@ -191,7 +201,7 @@ class PfcCmd(object):
 
         alpha = 0
         static_th = 0
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
@@ -392,7 +402,7 @@ class SetupPfcwdFunc(object):
         """
         new_alpha = self.alpha
         new_static_th = self.static_th
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, self.pg_profile):
             if int(self.static_th) > 0:
                 new_static_th = int(int(self.static_th) / 2)
         else:
