@@ -2170,7 +2170,6 @@ class QosSaiBase(QosBase):
         yield
         return
 
-
     @pytest.fixture(scope="function", autouse=False)
     def skip_src_dst_different_asic(self, dutConfig):
         if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
@@ -2214,4 +2213,3 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
-
