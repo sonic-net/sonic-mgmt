@@ -2087,6 +2087,22 @@ class QosSaiBase(QosBase):
         yield
         return
 
+    @pytest.fixture(scope="function", autouse=False)
+    def _skip_watermark_multi_DUT(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        if not is_cisco_device(get_src_dst_asic_and_duts['src_dut']):
+            yield
+            return
+        if (get_src_dst_asic_and_duts['src_dut'] !=
+                get_src_dst_asic_and_duts['dst_dut']):
+            pytest.skip(
+                "All WM Tests are skipped for multiDUT for cisco platforms.")
+
+        yield
+        return
+
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
