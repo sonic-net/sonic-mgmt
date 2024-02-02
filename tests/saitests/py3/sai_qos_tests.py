@@ -3399,8 +3399,8 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
             dst_port_mac, src_port_mac, src_port_ip, dst_port_ip))
         asic_type = self.test_params['sonic_asic_type']
-        default_packet_length = 1500
         exp_ip_id = 110
+        default_packet_length = int(self.test_params.get('packet_size', 1500))
         queue_0_num_of_pkts = int(self.test_params.get('q0_num_of_pkts', 0))
         queue_1_num_of_pkts = int(self.test_params.get('q1_num_of_pkts', 0))
         queue_2_num_of_pkts = int(self.test_params.get('q2_num_of_pkts', 0))
