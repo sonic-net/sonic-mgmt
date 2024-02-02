@@ -1588,6 +1588,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
@@ -2023,6 +2025,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
     if check_flag:
         for duthost in duthosts:
+            logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
+
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
             duts_data[duthost.hostname] = {}
 
@@ -2059,6 +2065,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
             new_core_dumps[duthost.hostname] = []
+
+            logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
 
             logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
             if "20191130" in duthost.os_version:
