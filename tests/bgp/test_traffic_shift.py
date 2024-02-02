@@ -190,11 +190,12 @@ def test_TSB(duthost, ptfhost, nbrhosts, bgpmon_setup_teardown):
     pytest_assert(verify_all_routes_announce_to_neighs(duthost, nbrhosts, parse_rib(duthost, 6), 6),
                   "Not all ipv6 routes are announced to neighbors")
 
-def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown):
+def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown, core_dump_and_config_check):
     """
     Test TSA, TSB, TSC with no neighbors on ASIC0 in case of multi-asic and single-asic.
     """
     bgp_neighbors = {}
+    duts_data = core_dump_and_config_check
     asic_index = 0 if duthost.is_multi_asic else DEFAULT_ASIC_ID
 
     try:
@@ -213,3 +214,12 @@ def test_TSA_B_C_with_no_neighbors(duthost, bgpmon_setup_teardown):
 
         # Recover to Normal state
         duthost.shell("TSB")
+
+        # If expected core dump files exist, add it into duts_data
+        if "20191130" in duthost.os_version:
+            existing_core_dumps = duthost.shell('ls /var/core/ | grep -v python || true')['stdout'].split()
+        else:
+            existing_core_dumps = duthost.shell('ls /var/core/')['stdout'].split()
+        for core_dump in existing_core_dumps:
+            if re.match("dplane_fpm_nl", core_dump):
+                duts_data[duthost.hostname]["pre_core_dumps"].append(core_dump)
