@@ -48,6 +48,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
     from tests.macsec import MacsecPlugin
@@ -62,6 +63,8 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
+DUTHOSTS_FIXTURE_FAILED_RC = 15
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -314,6 +317,12 @@ def get_specified_duts(request):
     return duts
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("duthosts_fixture_failed", None):
+        session.config.cache.set("duthosts_fixture_failed", None)
+        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+
+
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
@@ -323,7 +332,14 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize duthosts.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! duthosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 @pytest.fixture(scope="session")
@@ -1572,6 +1588,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
@@ -2007,6 +2025,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
     if check_flag:
         for duthost in duthosts:
+            logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
+
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
             duts_data[duthost.hostname] = {}
 
@@ -2043,6 +2065,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
             new_core_dumps[duthost.hostname] = []
+
+            logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
 
             logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
             if "20191130" in duthost.os_version:

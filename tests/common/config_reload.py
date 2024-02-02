@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
 
-def config_system_checks_passed(duthost):
+def config_system_checks_passed(duthost, delayed_services=[]):
     logging.info("Checking if system is running")
     out = duthost.shell("systemctl is-system-running", module_ignore_errors=True)
     if "running" not in out['stdout_lines']:
@@ -42,6 +42,12 @@ def config_system_checks_passed(duthost):
 
         out = duthost.shell("ps -o etimes -p $(systemctl show swss.service --property ExecMainPID --value) | sed '1d'")
         if int(out['stdout'].strip()) < 120:
+            return False
+
+    logging.info("Checking delayed services: %s", delayed_services)
+    for service in delayed_services:
+        out = duthost.shell("systemctl is-active %s" % service, module_ignore_errors=True)
+        if out["stdout"].strip().lower() != "active":
             return False
 
     logging.info("All checks passed")
@@ -126,7 +132,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 240) if modular_chassis else wait
+    wait = max(wait, 240) if modular_chassis.lower() == 'true' else wait
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual

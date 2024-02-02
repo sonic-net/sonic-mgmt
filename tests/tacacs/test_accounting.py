@@ -6,11 +6,12 @@ from tests.common.devices.ptf import PTFHost
 import pytest
 
 
-from .test_authorization import ssh_connect_remote, ssh_run_command, \
+from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update
+        change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+        ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -128,9 +129,11 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
 def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
-    ssh_client = ssh_connect_remote(dutip,
-                                    tacacs_creds['tacacs_rw_user'],
-                                    tacacs_creds['tacacs_rw_user_passwd'])
+    ssh_client = ssh_connect_remote_retry(
+                    dutip,
+                    tacacs_creds['tacacs_rw_user'],
+                    tacacs_creds['tacacs_rw_user_passwd'],
+                    duthost)
     yield ssh_client
     ssh_client.close()
 
@@ -171,7 +174,8 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
                                                     check_tacacs,
-                                                    rw_user_client):
+                                                    rw_user_client,
+                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -216,11 +220,19 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     invalid_tacacs_server_ip = "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
+
+    # when tacacs config change multiple time in short time
+    # auditd service may been request reload during reloading
+    # when this happen, auditd will ignore request and only reload once
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost,
+                                      "sudo config aaa accounting tacacs+",
+                                      last_timestamp)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -282,7 +294,8 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
                                                         check_tacacs,
-                                                        rw_user_client):
+                                                        rw_user_client,
+                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, 'sudo config aaa accounting "tacacs+ local"')
     cleanup_tacacs_log(ptfhost, rw_user_client)

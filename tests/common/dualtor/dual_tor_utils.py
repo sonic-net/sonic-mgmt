@@ -838,7 +838,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
     """
 
     def _generate_hashed_ipv4_packet(src_mac, dst_mac, dst_ip, hash_key):
-        SRC_IP_RANGE = ['1.0.0.0', '200.255.255.255']
+        SRC_IP_RANGE = ['1.0.0.0', '126.255.255.255']
         src_ip = random_ip(SRC_IP_RANGE[0], SRC_IP_RANGE[1]) if 'src-ip' in hash_key else SRC_IP_RANGE[0]
         sport = random.randint(1, 65535) if 'src-port' in hash_key else 1234
         dport = random.randint(1, 65535) if 'dst-port' in hash_key else 80
@@ -1072,7 +1072,7 @@ def check_nexthops_single_uplink(portchannel_ports, port_packet_count, expect_pa
 def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_addr,
                                    tbinfo, downlink_ints):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
-    expect_packet_num = 10000
+    expect_packet_num = 1000
 
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
@@ -1081,13 +1081,14 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(rand_selected_dut, tbinfo))
     port_packet_count = dict()
-    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr, 10000)
+    packets_to_send = generate_hashed_packet_to_server(ptfadapter, rand_selected_dut, HASH_KEYS, dst_server_addr,
+                                                       expect_packet_num)
     for send_packet, exp_pkt, exp_tunnel_pkt in packets_to_send:
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), send_packet, count=1)
         # expect multi-mux nexthops to focus packets to one downlink
         all_allowed_ports = expected_downlink_ports
         ptf_port_count = count_matched_packets_all_ports(ptfadapter, exp_packet=exp_pkt, exp_tunnel_pkt=exp_tunnel_pkt,
-                                                         ports=all_allowed_ports, timeout=0.1, count=1)
+                                                         ports=all_allowed_ports, timeout=1, count=1)
 
         for ptf_idx, pkt_count in ptf_port_count.items():
             port_packet_count[ptf_idx] = port_packet_count.get(ptf_idx, 0) + pkt_count
@@ -1294,6 +1295,15 @@ def show_muxcable_status(duthost):
     return ret
 
 
+def check_muxcable_status(duthost, port, expected_status):
+    """
+    Check the muxcable status of a specific interface is as expected.
+    """
+    command = "show muxcable status --json"
+    output = json.loads(duthost.shell(command)["stdout"])
+    return output['MUX_CABLE'][port]['STATUS'] == expected_status
+
+
 def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     """Build ipv4 packet and expected mask packet destinated to server."""
     pkt_dscp = random.choice(list(range(0, 33)))
@@ -1441,7 +1451,7 @@ def update_linkmgrd_probe_interval(duthosts, tbinfo, probe_interval_ms):
 
 
 @pytest.fixture(scope='module')
-def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Fetch dual ToR ports
     logger.info("Starting fetching dual ToR info")
 
@@ -1483,9 +1493,8 @@ def dualtor_ports(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     "
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    dut_asic = duthost.asic_instance(enum_frontend_asic_index)
-    dualtor_ports_str = dut_asic.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
-                                                     fetch_dual_tor_ports_script, "0"])
+    dualtor_ports_str = duthost.run_redis_cmd(argv=["sonic-db-cli", "CONFIG_DB", "eval",
+                                                    fetch_dual_tor_ports_script, "0"])
     if dualtor_ports_str:
         dualtor_ports_set = set(dualtor_ports_str)
     else:

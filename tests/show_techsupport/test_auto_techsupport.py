@@ -354,7 +354,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
@@ -378,7 +378,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)

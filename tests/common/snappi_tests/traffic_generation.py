@@ -7,7 +7,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
-    sec_to_nanosec, get_pfc_frame_count, packet_capture
+    sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 
@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
+PFC_FRAME_COUNT_TOL = 5
+CONTINUOUS_MODE = -5
+ANSIBLE_POLL_DELAY_SEC = 4
 
 
 def setup_base_traffic_config(testbed_config,
@@ -82,6 +85,38 @@ def setup_base_traffic_config(testbed_config,
     base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
 
     return base_flow_config
+
+
+def setup_pause_flow_config(testbed_config,
+                            link_blockage_threshold=2):
+    """
+    Generate default configurations of pause flows.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        link_blockage_threshold (int): link blockage threshold in number of overlaps per pause dur (default: 2)
+    Returns:
+        pause_flow_params (dict): pause flow parameters
+            Params:
+                pause_frame_size (int): pause frame size in bytes (default: 64)
+                pause_frame_rate (int): pause frame rate in frames per second (default: pause dur to block link fully)
+                pause_flow_dur (int): pause flow duration in seconds (default: -5 to signal continuous mode)
+                pause_flow_delay (int): pause flow delay in seconds (default: 0)
+    """
+    pause_flow_params = {}
+    pause_flow_params["pause_frame_size"] = 64
+    pause_flow_params["link_blockage_threshold"] = link_blockage_threshold
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
+    pps = int(link_blockage_threshold / pause_dur)  # 2 pause frames per pause_dur to fully block link
+    pause_flow_params["pause_frame_rate"] = pps
+
+    pause_flow_params["pause_flow_dur"] = CONTINUOUS_MODE
+    pause_flow_params["pause_flow_delay"] = 0
+
+    return pause_flow_params
 
 
 def generate_test_flows(testbed_config,
@@ -200,9 +235,7 @@ def generate_pause_flows(testbed_config,
                          pause_flow_name,
                          pause_prio_list,
                          global_pause,
-                         snappi_extra_params,
-                         pause_flow_delay_sec=0,
-                         pause_flow_dur_sec=CONTINUOUS_MODE):
+                         snappi_extra_params):
     """
     Generate configurations of pause flows.
 
@@ -212,11 +245,11 @@ def generate_pause_flows(testbed_config,
         pause_prio_list (list): list of pause priorities
         global_pause (bool): global pause or per priority pause
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
-        pause_flow_delay_sec (int): delay of pause flows in seconds
-        pause_flow_dur_sec (int): duration of pause flows in seconds except when set to continuous
     """
     base_flow_config = snappi_extra_params.base_flow_config
+    pause_flow_params = snappi_extra_params.pause_flow_params
     pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    pytest_assert(pause_flow_params is not None, "Cannot find pause flow parameters")
 
     pause_flow = testbed_config.flows.flow(name=pause_flow_name)[-1]
     pause_flow.tx_rx.port.tx_name = testbed_config.ports[base_flow_config["rx_port_id"]].name
@@ -251,25 +284,22 @@ def generate_pause_flows(testbed_config,
         pause_pkt.pause_class_7.value = pause_time[7]
 
     # Pause frames are sent from the RX port of ixia
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-    pause_dur = 65535 * 64 * 8.0 / (speed_gbps * 1e9)
-    pps = int(2 / pause_dur)
+    pause_flow.rate.pps = pause_flow_params["pause_frame_rate"]
+    pause_flow.size.fixed = pause_flow_params["pause_frame_size"]
 
-    pause_flow.rate.pps = pps
-    pause_flow.size.fixed = 64
-    if pause_flow_dur_sec != CONTINUOUS_MODE:
-        pause_flow.duration.fixed_seconds.seconds = pause_flow_dur_sec
-        pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
+    if pause_flow_params["pause_flow_dur"] != CONTINUOUS_MODE:
+        pause_flow.duration.fixed_seconds.seconds = pause_flow_params["pause_flow_dur"]
+        pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(pause_flow_params["pause_flow_delay"]))
     else:
         pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
-        pause_flow.duration.continuous.delay.nanoseconds = int(sec_to_nanosec(pause_flow_delay_sec))
+        pause_flow.duration.continuous.delay.nanoseconds = int(sec_to_nanosec(pause_flow_params["pause_flow_delay"]))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
 
 
-def run_traffic(api,
+def run_traffic(duthost,
+                api,
                 config,
                 data_flow_names,
                 all_flow_names,
@@ -279,6 +309,7 @@ def run_traffic(api,
     """
     Run traffic and return per-flow statistics, and capture packets if needed.
     Args:
+        duthost (obj): DUT host object
         api (obj): snappi session
         config (obj): experiment config (testbed config + flow config)
         data_flow_names (list): list of names of data (test and background) flows
@@ -295,6 +326,11 @@ def run_traffic(api,
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     pcap_type = snappi_extra_params.packet_capture_type
+    base_flow_config = snappi_extra_params.base_flow_config
+    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
+    switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
+    switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
+    switch_device_results = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
         cs = api.capture_state()
@@ -307,7 +343,26 @@ def run_traffic(api,
     ts.state = ts.START
     api.set_transmit_state(ts)
 
-    time.sleep(exp_dur_sec)
+    # Test needs to run for at least 10 seconds to allow successive device polling
+    if snappi_extra_params.poll_device_runtime and exp_dur_sec > 10:
+        switch_device_results = {}
+        switch_device_results["tx_frames"] = {}
+        switch_device_results["rx_frames"] = {}
+        for lossless_prio in switch_tx_lossless_prios:
+            switch_device_results["tx_frames"][lossless_prio] = []
+            switch_device_results["rx_frames"][lossless_prio] = []
+        exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC  # extra time to allow for device polling
+        poll_freq_sec = int(exp_dur_sec / 10)
+
+        for _ in range(10):
+            for lossless_prio in switch_tx_lossless_prios:
+                switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port,
+                                                                                                lossless_prio)[0])
+                switch_device_results["rx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_rx_port,
+                                                                                                lossless_prio)[0])
+            time.sleep(poll_freq_sec)
+    else:
+        time.sleep(exp_dur_sec)  # no polling required
 
     attempts = 0
     max_attempts = 20
@@ -349,7 +404,7 @@ def run_traffic(api,
     ts.state = ts.STOP
     api.set_transmit_state(ts)
 
-    return flow_metrics
+    return flow_metrics, switch_device_results
 
 
 def verify_pause_flow(flow_metrics,
@@ -518,13 +573,16 @@ def verify_in_flight_buffer_pkts(duthost,
                               format(dropped_packets))
 
 
-def verify_pause_frame_count(duthost,
-                             snappi_extra_params):
+def verify_pause_frame_count_dut(duthost,
+                                 test_traffic_pause,
+                                 snappi_extra_params):
     """
-    Verify correct frame count for pause frames when the traffic is expected to be paused
+    Verify correct frame count for pause frames when the traffic is expected to be paused or not
+    on the DUT
 
     Args:
         duthost (obj): DUT host object
+        test_traffic_pause (bool): whether test traffic is expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
 
@@ -532,11 +590,82 @@ def verify_pause_frame_count(duthost,
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in dut_port_config[1].items():
+    for peer_port, prios in dut_port_config[0].items():  # TX PFC pause frames
         for prio in range(len(prios)):
-            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio])
-            pytest_assert(pfc_pause_rx_frames > 0,
-                          "PFC pause frames with zero source MAC are not counted in the PFC counters")
+            pfc_pause_tx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=True)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_tx_frames > 0,
+                              "PFC pause frames should be transmitted and counted in TX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_tx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be transmitted and counted in TX PFC counters")
+
+    for peer_port, prios in dut_port_config[1].items():  # RX PFC pause frames
+        for prio in range(len(prios)):
+            pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prios[prio], is_tx=False)
+            if test_traffic_pause:
+                pytest_assert(pfc_pause_rx_frames > 0,
+                              "PFC pause frames should be received and counted in RX PFC counters for priority {}"
+                              .format(prios[prio]))
+            else:
+                pytest_assert(pfc_pause_rx_frames <= PFC_FRAME_COUNT_TOL,
+                              "PFC pause frames should not be received and counted in RX PFC counters")
+
+
+def verify_tx_frame_count_dut(duthost,
+                              snappi_extra_params,
+                              tx_frame_count_deviation=0.01,
+                              tx_drop_frame_count_tol=5):
+    """
+    Verify correct frame count for tx frames on the DUT
+    (OK and DROPS) when the traffic is expected to be paused on the DUT.
+    DUT is polled after it stops receiving PFC pause frames from TGEN.
+    Args:
+        duthost (obj): DUT host object
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        tx_frame_count_deviation (float): deviation for tx frame count (default to 1%)
+        tx_drop_frame_count_tol (int): tolerance for tx drop frame count
+    Returns:
+
+    """
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
+    tgen_tx_frames = snappi_extra_params.test_tx_frames
+
+    # RX frames on DUT must TX once DUT stops receiving PFC pause frames
+    for peer_port, _ in dut_port_config[1].items():
+        tx_frames, tx_drop_frames = get_tx_frame_count(duthost, peer_port)
+        pytest_assert(abs(sum(tgen_tx_frames) - tx_frames)/sum(tgen_tx_frames) <= tx_frame_count_deviation,
+                      "Additional frames are transmitted outside of deviation. Possible PFC frames are counted.")
+        pytest_assert(tx_drop_frames <= tx_drop_frame_count_tol, "No frames should be dropped")
+
+
+def verify_rx_frame_count_dut(duthost,
+                              snappi_extra_params,
+                              rx_frame_count_deviation=0.01,
+                              rx_drop_frame_count_tol=5):
+    """
+    Verify correct frame count for rx frames on the DUT
+    (OK and DROPS) when the traffic is expected to be paused on the DUT.
+    Args:
+        duthost (obj): DUT host object
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
+        rx_drop_frame_count_tol (int): tolerance for tx drop frame count
+    Returns:
+
+    """
+    dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
+    pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
+    tgen_tx_frames = snappi_extra_params.test_tx_frames
+
+    # TX on TGEN is RX on DUT
+    for peer_port, _ in dut_port_config[0].items():
+        rx_frames, rx_drop_frames = get_rx_frame_count(duthost, peer_port)
+        pytest_assert(abs(sum(tgen_tx_frames) - rx_frames)/sum(tgen_tx_frames) <= rx_frame_count_deviation,
+                      "Additional frames are received outside of deviation. Possible PFC frames are counted.")
+        pytest_assert(rx_drop_frames <= rx_drop_frame_count_tol, "No frames should be dropped")
 
 
 def verify_unset_cev_pause_frame_count(duthost,
@@ -563,13 +692,20 @@ def verify_unset_cev_pause_frame_count(duthost,
 
 
 def verify_egress_queue_frame_count(duthost,
-                                    snappi_extra_params):
+                                    switch_flow_stats,
+                                    test_traffic_pause,
+                                    snappi_extra_params,
+                                    egress_queue_frame_count_tol=10):
     """
     Verify correct frame count for regular traffic from DUT egress queue
 
     Args:
         duthost (obj): DUT host object
+        switch_flow_stats (dict): switch flow statistics
+        test_traffic_pause (bool): whether test traffic is expected to be paused
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+        egress_queue_frame_count_tol (int): tolerance for egress queue frame count when traffic is expected
+                                            to be paused
     Returns:
 
     """
@@ -578,7 +714,17 @@ def verify_egress_queue_frame_count(duthost,
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
     test_tx_frames = snappi_extra_params.test_tx_frames
 
-    if not set_class_enable_vec:
+    if test_traffic_pause:
+        pytest_assert(switch_flow_stats, "Switch flow statistics is not provided")
+        for prio, poll_data in switch_flow_stats["tx_frames"].items():
+            mid_poll_index = int(len(poll_data)/2)
+            next_poll_index = mid_poll_index + 1
+            mid_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][mid_poll_index]
+            next_poll_egress_queue_count = switch_flow_stats["tx_frames"][prio][next_poll_index]
+            pytest_assert(next_poll_egress_queue_count - mid_poll_egress_queue_count <= egress_queue_frame_count_tol,
+                          "Egress queue frame count should not increase when test traffic is paused")
+
+    if not set_class_enable_vec and not test_traffic_pause:
         for peer_port, prios in dut_port_config[1].items():
             for prio in range(len(prios)):
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])

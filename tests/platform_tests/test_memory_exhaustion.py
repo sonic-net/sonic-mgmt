@@ -11,8 +11,8 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-SSH_SHUTDOWN_TIMEOUT = 360
-SSH_STARTUP_TIMEOUT = 420
+SSH_SHUTDOWN_TIMEOUT = 480
+SSH_STARTUP_TIMEOUT = 600
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"

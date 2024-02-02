@@ -494,8 +494,7 @@ class SonicHost(AnsibleHostBase):
                  and service type.
         """
         monit_services_status = {}
-
-        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=False)
+        services_status_result = self.shell("sudo monit status", module_ignore_errors=True, verbose=True)
 
         exit_code = services_status_result["rc"]
         if exit_code != 0:
@@ -1616,7 +1615,7 @@ Totals               6450                 6449
     @cached(name='mg_facts')
     def get_extended_minigraph_facts(self, tbinfo, namespace=DEFAULT_NAMESPACE):
         mg_facts = self.minigraph_facts(host=self.hostname, namespace=namespace)['ansible_facts']
-        mg_facts['minigraph_ptf_indices'] = mg_facts['minigraph_port_indices'].copy()
+        mg_facts['minigraph_ptf_indices'] = {}
 
         # Fix the ptf port index for multi-dut testbeds. These testbeds have
         # multiple DUTs sharing a same PTF host. Therefore, the indices from
@@ -1667,7 +1666,8 @@ Totals               6450                 6449
         elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output):
+                "Broadcom Limited Broadcom BCM56850" in output or
+                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
             asic = "td2"
         elif ("Broadcom Limited Device b870" in output or
                 "Broadcom Inc. and subsidiaries Device b870" in output):
@@ -1680,6 +1680,9 @@ Totals               6450                 6449
             asic = "spc"
 
         return asic
+
+    def is_nvidia_platform(self):
+        return 'mellanox' == self.facts['asic_type']
 
     def _get_platform_asic(self, platform):
         platform_asic = os.path.join(
@@ -2199,6 +2202,13 @@ Totals               6450                 6449
                             raise ValueError('Got invalid packets count "{}" for {}|{}'
                                              .format(acl_table_name, acl_rule_name, rule['packets count']))
         raise Exception("Failed to read acl counter for {}|{}".format(acl_table_name, acl_rule_name))
+
+    def get_port_counters(self, in_json=True):
+        cli = "portstat"
+        if in_json:
+            cli += " -j"
+        res = self.shell(cli)['stdout']
+        return re.sub(r"Last cached time was.*\d+\n", "", res)
 
     def remove_acl_table(self, acl_table):
         """
