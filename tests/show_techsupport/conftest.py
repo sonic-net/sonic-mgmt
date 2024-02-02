@@ -21,7 +21,15 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
         ".*ERR kernel:.*Fails to access.*module eeprom.*",
         ".*ERR kernel:.*Fails to get module type.*",
         ".*ERR pmon#xcvrd:.*Failed to read sfp.*",
-        ".*DEBUG systemd.*"
+        ".*DEBUG systemd.*",
+        ".*ERR syncd#SDK:.*mlnx_sai_object.* mlnx_(?:allocate|deallocate)_sx_bulk_buffer: Failed to (?:create|destroy) "
+        "buffer: Driver.* Return Status is Non-Zero.*",
+        ".*ERR syncd#SDK: .*mlnx_sai_queue.c.*- mlnx_sai_bulk_queue_stats_get: "
+        "Failed to prepare bulk counter for queue stats.*",
+        ".*ERR syncd#SDK: .*mlnx_sai_buffer.c.*Failed to prepare bulk counter for pg occupancy stats.*",
+        ".*ERR syncd#SDK: .*mlnx_sai_buffer.c.*Failed to deallocate SDK occupancy buffer.*",
+        ".*WARNING kernel:.*syncd: page allocation failure: order:.*, mode:.*GFP_KERNEL.__GFP_COMP., "
+        "nodemask=.null.,cpuset=.*,mems_allowed=.*"
     ]
     for dut in duthosts:
         if loganalyzer and loganalyzer[dut.hostname]:
