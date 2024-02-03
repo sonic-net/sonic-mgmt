@@ -17,7 +17,7 @@ endif
 	cd infra && \
 	$(PYTHON) -m venv pyats && \
 	$(BIN)/pip install --upgrade pip && \
-	$(BIN)/pip install -r requirements.txt
+	$(BIN)/pip install -r requirements.txt --no-cache-dir
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."

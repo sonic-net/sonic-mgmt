@@ -9,6 +9,7 @@ COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
+ALLURE_REPORT_URL_FILE = 'allure_report_url.log'
 
 # VXR SIM failure detected, don't overwrite file contents
 bgp_failure = False
@@ -64,6 +65,15 @@ for line in lines:
         sum["total"] += int(n[0])
 if sum["total"] > 0:
     sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
+
+try:
+    with open(ALLURE_REPORT_URL_FILE, 'r') as f:
+        allure_url = f.readline()
+        print(f"found allure report url: {allure_url}")
+        sum["report_link"] = allure_url
+except FileNotFoundError as e:
+    print(f"Error! could not find file {ALLURE_REPORT_URL_FILE}, containing allure report: {e}")
+
 print(sum)
 
 json.dump(sum, sum_f)
