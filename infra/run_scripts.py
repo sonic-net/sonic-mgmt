@@ -14,6 +14,7 @@ from allure_server import AllureServer
 import paramiko
 
 ALLURE_SERVER_HOST, ALLURE_DIR = 'sonic-ci-vip-lnx.cisco.com', '/tmp/allure_results'
+ALLURE_REPORT_URL_FILE = 'allure_report_url.log'
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -67,6 +68,8 @@ def generate_allure_report(build_id, current_result_file):
         allure_server_obj = AllureServer(ALLURE_SERVER_HOST, ALLURE_DIR, project_id=build_id)
         report_url = allure_server_obj.generate_allure_report()
         print("Allure report generated, url is: ", report_url)
+        with open(ALLURE_REPORT_URL_FILE, 'w') as f:
+            f.write(report_url)
         current_result_file.write("Allure report generated, url is: {}\n".format(report_url))
         current_result_file.flush()
     except Exception as e:
@@ -462,11 +465,16 @@ def main():
         dut_name = 'mth-t0-64'
     elif device_type == 'sfd':
         dut_name = 'sfd'
+    elif device_type == 'aaa14-t2':
+        dut_name = 'aaa14-t2'
     else:
         dut_name = 'mathilda-01'
 
-    if dut_name != 'sfd':
+    if dut_name != 'sfd' and dut_name != 'aaa14-t2':
         run_options += '-d {} '.format(dut_name)
+    
+    if dut_name == 'aaa14-t2':
+        run_options += '-t t2,any'.format(dut_name)
 
     if skip_sanity:
         run_options += '-e --skip_sanity '

@@ -32,7 +32,8 @@ def upload_sanity_file(host, username, password, script_file, sonic_test_dir, ss
     uploaded_script_files = []
     for script_file_path in script_file.split(","):
         script_filename = script_file_path.rsplit('/', 1)[-1]
-        ftp_client.put(script_file_path,'{}/sonic-test/sonic-mgmt/tests/{}'.format(sonic_test_dir, script_filename))
+        print(f"script_file_path: {script_file_path}, destination: {sonic_test_dir}/sonic-test/sonic-mgmt/tests/{script_filename}")
+        ftp_client.put(script_file_path,f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{script_filename}")
         uploaded_script_files.append(script_filename)
     ftp_client.close()
 
@@ -202,8 +203,8 @@ def run_scripts(host, username, password, script_file,drop_version,log_dir,devic
 def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_port=22):
     print("Creating report html on remote host {}. SSH port {}, username/password: {}/{}".format(host, ssh_port, username, password))
     print("running command: ")
-    print('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
+    print('python3 {}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o {}/sonic-test/sonic-mgmt/tests/results.json \
+        --directory {}/sonic-test/sonic-mgmt/tests/{} > {}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, ssh_port, username, password)
@@ -216,11 +217,11 @@ def create_report_html(host, username, password, log_dir, sonic_test_dir, ssh_po
     time.sleep(3)
     commands = []
 
-    commands.append('python3 ~/{}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o ~/{}/sonic-test/sonic-mgmt/tests/results.json \
-        --directory ~/{}/sonic-test/sonic-mgmt/tests/{} > ~/{}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
-    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{} --merge ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir, log_dir))
-    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix ~/{}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
-    commands.append('junit2html ~/{}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
+    commands.append('python3 {}/sonic-test/sonic-mgmt/test_reporting/junit_xml_parser.py -o {}/sonic-test/sonic-mgmt/tests/results.json \
+        --directory {}/sonic-test/sonic-mgmt/tests/{} > {}/sonic-test/sonic-mgmt/tests/report.txt \n'.format(sonic_test_dir, sonic_test_dir, sonic_test_dir, log_dir, sonic_test_dir))
+    commands.append('junit2html {}/sonic-test/sonic-mgmt/tests/{} --merge {}/sonic-test/sonic-mgmt/tests/{}/test-results.xml\n'.format(sonic_test_dir, log_dir, sonic_test_dir, log_dir))
+    commands.append('junit2html {}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --report-matrix {}/sonic-test/sonic-mgmt/tests/report.html\n'.format(sonic_test_dir, log_dir, sonic_test_dir))
+    commands.append('junit2html {}/sonic-test/sonic-mgmt/tests/{}/test-results.xml --summary-matrix\n'.format(sonic_test_dir, log_dir))
     i = 0
     while True:
         if len(commands) == i:
@@ -287,6 +288,10 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
     #ftp_client.get('{}/sonic-test/sonic-mgmt/tests/full_report.txt','full_report.txt')
     ftp_client.get('{}/sonic-test/sonic-mgmt/tests/test-results.xml.html'.format(sonic_test_dir),'test-results.xml.html')
     ftp_client.get('{}/sonic-test/sonic-mgmt/tests/report.html'.format(sonic_test_dir),'report.html')
+    try:
+        ftp_client.get('{}/sonic-test/sonic-mgmt/tests/allure_report_url.log'.format(sonic_test_dir),'allure_report_url.log')
+    except Exception as e:
+        print("Error! Could not get allure report url file!")
     ftp_client.close() 
 
 
@@ -299,21 +304,21 @@ def get_log_files(host, username, password, log_dir, sonic_test_dir, ssh_port=22
     time.sleep(3)
     chan.send("cd {}/sonic-test/sonic-mgmt/tests/{} \n".format(sonic_test_dir,log_dir))
     resp = ''
-    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir,log_dir) not in resp:
+    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
 
     chan.send("tar -cvf sanity_logs.tar * \n")
     resp = ''
-    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir) not in resp:
+    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
 
     chan.send("gzip -f sanity_logs.tar \n")
     resp = ''
-    while ':~/{}/sonic-test/sonic-mgmt/tests/{}$ '.format(sonic_test_dir, log_dir) not in resp:
+    while '/sonic-test/sonic-mgmt/tests/{}$ '.format(log_dir) not in resp:
         resp = chan.recv(9999).decode("ascii")
         print(resp)
     time.sleep(3)
@@ -336,6 +341,7 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     ssh.connect(host, ssh_port, username, password)
     print("connected to host {}".format(host))
 
+    print("determine sonic_test_dir from docker_mgmt_container name")
     cmd = f'docker inspect `docker ps -aqf name={docker_mgmt_container}` | grep sonic-test | head -1\n'
 
     stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -343,15 +349,10 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
     out = stdout.read().decode("ascii").strip()
 
     print(f"resp for docker inspect is {out}")
-    tmp_sonic_test_dir = ""
-    for s in out.split("/"):
-        if s == "sonic-test":
-            break
-        tmp_sonic_test_dir = s
-
     sys.stdout.flush()    
-    print("sonic-test dir is: ", tmp_sonic_test_dir)
-    sonic_test_dir = tmp_sonic_test_dir
+    out = out.strip('"')
+    sonic_test_dir = out.split("/sonic-test")[0]
+    print("sonic-test dir is: ", sonic_test_dir)
 
     #send additional test files to sim
     ftp_client=ssh.open_sftp()
@@ -368,8 +369,6 @@ def run_scripts_remote(host, username, password, script_file,drop_version,log_di
             except Exception as e:
                 print(f"caught error while uploading file {additional_test}! e: {e}")
                 return 1
-
-    print("determine sonic_test_dir from docker_mgmt_container name")
 
 
     uploaded_script_files = upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
@@ -420,7 +419,7 @@ def _create_parser():
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'sfd', 'm64-zz-2', 'mth-t0-64', 'dut-400g', 'churchill-mono'])
+                      required=False,default="mth64")
     parser.add_argument('-c', '--docker_mgmt_container', type=str, help='name of the docker management container',
                       required=False,default='docker-sonic-mgmt')
     parser.add_argument('-t', '--sonic_test_dir', type=str, help='Directory of sonic-test on DUT',
