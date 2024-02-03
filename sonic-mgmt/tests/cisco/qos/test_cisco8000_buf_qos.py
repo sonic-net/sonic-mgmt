@@ -1,5 +1,8 @@
 import pytest
 import logging
+from tests.cisco.common.utils import skip_if_not_sim
+
+pytestmark = [ pytest.mark.topology('t1') ]
 
 #
 # list of pid and sku that cisco-8000 supports
@@ -61,7 +64,7 @@ def run_mmu_config(duthost, raw_pid_sku, mmucommand):
 
 @pytest.mark.parametrize("raw_pid_sku", pid_sku)
 @pytest.mark.parametrize("mmucommand", ["buffers.json.j2", "qos.json.j2"])
-def test_mmu_config(duthosts, raw_pid_sku, mmucommand):
+def test_mmu_config(duthosts, raw_pid_sku, mmucommand, enum_rand_one_per_hwsku_hostname, skip_if_not_sim):
     for duthost in duthosts:
         if duthost.facts["asic_type"] != "cisco-8000":
             pytest.skip("Test is only supported for cisco-8000")
@@ -119,7 +122,7 @@ class AIML_Config:
 
 @pytest.mark.parametrize("aiml_pid_sku", aiml_pid_sku)
 @pytest.mark.parametrize("mmucommand", ["qos.json.j2"])
-def test_aiml_qos_config(duthosts, aiml_pid_sku, mmucommand):
+def test_aiml_qos_config(duthosts, aiml_pid_sku, mmucommand, enum_rand_one_per_hwsku_hostname, skip_if_not_sim):
     for duthost in duthosts:
         if duthost.facts["asic_type"] != "cisco-8000":
             pytest.skip("Test is only supported for cisco-8000")
