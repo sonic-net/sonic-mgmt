@@ -1330,7 +1330,7 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     packet_size=packet_size
                 )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
-                    self.client, asic_type, port_list['src'][src_port_id])
+                    self.src_client, asic_type, port_list['src'][src_port_id])
                 logging.info(pg_shared_wm_res_base)
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
