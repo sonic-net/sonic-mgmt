@@ -75,11 +75,17 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 extra_vars = {
                     'addr': mgmt_ip.split('/')[0],
                     'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
-                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
+                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0],
+                    'mgmt_ip': mgmt_ip
                 }
                 sonichost.vm.extra_vars.update(extra_vars)
                 sonichost.template(src="../.azure-pipelines/recover_testbed/interfaces.j2",
                                    dest="/etc/network/interface")
+
+                # Add management ip info into config_db.json
+                sonichost.template(src="../.azure-pipelines/recover_testbed/mgmt_ip.j2",
+                                   dest="/etc/sonic/mgmt_ip.j2")
+                sonichost.shell("configlet -u -j {}".format("/etc/sonic/mgmt_ip.j2"))
 
                 sonic_username = dut_ssh[0]
                 sonic_password = dut_ssh[1]
