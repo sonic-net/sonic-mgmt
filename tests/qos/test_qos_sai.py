@@ -1468,7 +1468,8 @@ class TestQosSai(QosSaiBase):
         )
 
     def testQosSaiDwrr(
-        self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed
+        self, ptfhost, duthosts, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig, change_port_speed,
+        skip_src_dst_different_asic
     ):
         """
             Test QoS SAI DWRR
@@ -1500,21 +1501,13 @@ class TestQosSai(QosSaiBase):
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update(qosConfigWrr)
         testParams.update({
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfigWrr["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfigWrr["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfigWrr["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfigWrr["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfigWrr["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfigWrr["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfigWrr["q6_num_of_pkts"],
-            "q7_num_of_pkts": qosConfigWrr.get("q7_num_of_pkts", 0),
-            "limit": qosConfigWrr["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku": dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],
@@ -2013,7 +2006,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiDwrrWeightChange(
         self, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        updateSchedProfile
+        updateSchedProfile, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI DWRR runtime weight change
@@ -2044,6 +2037,7 @@ class TestQosSai(QosSaiBase):
         qos_remap_enable = is_tunnel_qos_remap_enabled(duthost)
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
+        testParams.update(qosConfigWrrChg)
         testParams.update({
             "ecn": qosConfigWrrChg["ecn"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
@@ -2051,14 +2045,6 @@ class TestQosSai(QosSaiBase):
             "src_port_id": dutConfig["testPorts"]["src_port_id"],
             "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
-            "q0_num_of_pkts": qosConfigWrrChg["q0_num_of_pkts"],
-            "q1_num_of_pkts": qosConfigWrrChg["q1_num_of_pkts"],
-            "q2_num_of_pkts": qosConfigWrrChg["q2_num_of_pkts"],
-            "q3_num_of_pkts": qosConfigWrrChg["q3_num_of_pkts"],
-            "q4_num_of_pkts": qosConfigWrrChg["q4_num_of_pkts"],
-            "q5_num_of_pkts": qosConfigWrrChg["q5_num_of_pkts"],
-            "q6_num_of_pkts": qosConfigWrrChg["q6_num_of_pkts"],
-            "limit": qosConfigWrrChg["limit"],
             "pkts_num_leak_out": qosConfig[portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku": dutTestParams['hwsku'],
             "topo": dutTestParams["topo"],
