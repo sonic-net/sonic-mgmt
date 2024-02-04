@@ -22,6 +22,10 @@ def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip):
             "sudo redis-cli -n 4 hset 'MGMT_INTERFACE|eth0|{}' 'gwaddr' '{}'".format(mgmt_ip, gw_ip))
         logger.info(ret)
 
+        ret = dut_console.send_command(
+            "sudo redis-cli -n 4 hset 'MGMT_PORT|eth0' 'alias' 'eth0' 'admin_status' 'up'")
+        logger.info(ret)
+
         dut_console.send_command("sudo config save -y")
 
     except Exception as e:
