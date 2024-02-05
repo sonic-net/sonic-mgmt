@@ -260,10 +260,8 @@ class PolicyTest(ControlPlaneBaseTest):
              str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
         )
 
-        if self.has_trap:
-            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
-        else:
-            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
+        assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(
+            rx_pps)
 
 
 # SONIC config contains policer CIR=600 for ARP
