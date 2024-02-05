@@ -8,14 +8,10 @@ import time
 import logging
 from datetime import datetime
 import json
-import re
 import pytest
-import copy
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.ptfhost_utils \
     import copy_ptftests_directory     # noqa: F401
-from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.vxlan.vxlan_ecmp_utils import Ecmp_Utils
 
@@ -30,7 +26,6 @@ pytestmark = [
     # This script supports any T1 topology: t1, t1-64-lag, t1-56-lag, t1-lag.
     pytest.mark.topology("t1", "t1-64-lag", "t1-56-lag", "t1-lag")
 ]
-
 
 @pytest.fixture(
     name="encap_type",
@@ -59,8 +54,6 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*_M_construct null not valid.*",
             ])
     return
-
-
 
 @pytest.fixture(name="setUp", scope="module")
 def fixture_setUp(duthosts,
@@ -318,9 +311,8 @@ class Test_VxLAN_ECMP_Priority_endpoints():
             af=ecmp_utils.get_payload_version(encap_type),
             netid=DESTINATION_PREFIX)
 
-
         Logger.info("Create a new priority endpoint config and Copy to the DUT.")
-        ax = {vnet:{tc1_new_dest:tc1_end_point_list}}
+        ax = {vnet : {tc1_new_dest : tc1_end_point_list}}
         self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = ax
         Logger.info("Create the json and apply the config in the DUT swss.")
         # The config looks like:
@@ -491,7 +483,7 @@ class Test_VxLAN_ECMP_Priority_endpoints():
         tc2_new_dest = ecmp_utils.get_ip_address(
             af=ecmp_utils.get_payload_version(encap_type),
             netid=DESTINATION_PREFIX)
-        ax = {vnet:{tc2_new_dest:tc2_end_point_list}}
+        ax = {vnet : {tc2_new_dest : tc2_end_point_list}}
         self.vxlan_test_setup[encap_type]['dest_to_nh_map'] = ax
         Logger.info("Map the new destination and the new endpoint(s).")
 
