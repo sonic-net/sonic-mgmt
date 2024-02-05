@@ -297,5 +297,4 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
             acl_counter_unselected_dut = read_acl_counter(rand_unselected_dut, rule)
             acl_counter += acl_counter_unselected_dut
         # Verify acl counter
-        import pdb; pdb.set_trace()
         pytest_assert(acl_counter == 1, "ACL counter for {} didn't increase as expected".format(rule))
