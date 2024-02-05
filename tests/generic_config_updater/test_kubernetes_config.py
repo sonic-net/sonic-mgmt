@@ -149,27 +149,33 @@ K8SWRONGIPTOFULLPATCH = [
 ]
 
 
+EMPTYK8STABLE = ()
+FULLK8STABLE = ("k8svip.ap.gbl", "false")
+FULLK8STABLE2 = ("k8svip2.ap.gbl", "false")
+WRONGIPK8STABLE = ("", "true")
+
+
 # Succeed and fail flag
 SUCCEED = "SUCCEED"
 FAIL = "FAIL"
 
 
 test_data_1 = {
-    0: (K8SEMPTYTOHALFPATCH, K8SHALFCONFIG, SUCCEED),
-    1: (K8SHALFTOWRONGIPPATCH, K8SHALFCONFIG, FAIL),
-    2: (K8SHALFTOFULLPATCH, K8SFULLCONFIG, SUCCEED),
-    3: (K8SFULLTOHALFPATCH, K8SHALFCONFIG, SUCCEED),
-    4: (K8SHALFTOEMPTYPATCH, K8SEMPTYCONFIG, SUCCEED),
-    5: (K8SEMPTYTOFULLPATCH, K8SFULLCONFIG, SUCCEED),
-    6: (K8SFULLTOFULLPATCH, K8SFULLCONFIG2, SUCCEED),
-    7: (K8SFULLTOWRONGIPPATCH, K8SFULLCONFIG2, FAIL),
-    8: (K8SFULLTOEMPTYPATCH, K8SEMPTYCONFIG, SUCCEED),
-    9: (K8SEMPTYTOWRONGIPPATCH, K8SEMPTYCONFIG, FAIL),
+    0: (K8SEMPTYTOHALFPATCH, K8SHALFCONFIG, EMPTYK8STABLE, SUCCEED),
+    1: (K8SHALFTOWRONGIPPATCH, K8SHALFCONFIG, EMPTYK8STABLE, FAIL),
+    2: (K8SHALFTOFULLPATCH, K8SFULLCONFIG, FULLK8STABLE, SUCCEED),
+    3: (K8SFULLTOHALFPATCH, K8SHALFCONFIG, EMPTYK8STABLE, SUCCEED),
+    4: (K8SHALFTOEMPTYPATCH, K8SEMPTYCONFIG, EMPTYK8STABLE, SUCCEED),
+    5: (K8SEMPTYTOFULLPATCH, K8SFULLCONFIG, FULLK8STABLE, SUCCEED),
+    6: (K8SFULLTOFULLPATCH, K8SFULLCONFIG2, FULLK8STABLE2, SUCCEED),
+    7: (K8SFULLTOWRONGIPPATCH, K8SFULLCONFIG2, FULLK8STABLE2, FAIL),
+    8: (K8SFULLTOEMPTYPATCH, K8SEMPTYCONFIG, EMPTYK8STABLE, SUCCEED),
+    9: (K8SEMPTYTOWRONGIPPATCH, K8SEMPTYCONFIG, EMPTYK8STABLE, FAIL),
 }
 
 
 test_data_2 = {
-    10: (K8SWRONGIPTOFULLPATCH, K8SEMPTYIPCONFIG, FAIL),
+    10: (K8SWRONGIPTOFULLPATCH, K8SEMPTYIPCONFIG, WRONGIPK8STABLE, FAIL),
 }
 
 
@@ -215,6 +221,28 @@ def get_k8s_runningconfig(duthost):
     return k8s_config
 
 
+def get_k8s_table(duthost):
+    """ Get k8s config from CONFIG_DB by show kube server config
+    """
+    cmds = 'show kube server config'
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
+    k8s_table = output['stdout']
+
+    empty_table = 'Kubernetes server is not configured'
+    if k8s_table == empty_table:
+        return ()
+    else:
+        table_config_list = k8s_table.split('\n')[-1].split()
+        if len(table_config_list) == 4:
+            vip, _, _, diable = table_config_list
+        elif len(table_config_list) == 3:
+            vip = ""
+            _, _, diable = table_config_list
+
+    return (vip, diable)
+
+
 def k8s_config_cleanup(duthost):
     """ Clean up k8s config to avoid conflict
     """
@@ -234,7 +262,7 @@ def k8s_empty_ip_config_setup(duthost):
 def k8s_config_update(duthost, test_data):
     """ Update k8s config
     """
-    for num, (json_patch, target_config, expected_result) in test_data.items():
+    for num, (json_patch, target_config, target_table, expected_result) in test_data.items():
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -250,6 +278,12 @@ def k8s_config_update(duthost, test_data):
             pytest_assert(
                 k8s_config == target_config,
                 f"Failed to run num.{num+1} test case to update k8s config."
+            )
+
+            k8s_table = get_k8s_table(duthost)
+            pytest_assert(
+                k8s_table == target_table,
+                f"Failed to run num.{num+1} test case to update k8s table."
             )
 
         finally:
