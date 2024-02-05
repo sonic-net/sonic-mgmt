@@ -40,6 +40,14 @@ parameters:
     default: "testbed-bjw-can-720dt-1, testbed-bjw-can-720dt-3, testbed-str2-pikez-acs-1"
     displayName: "Testbed Name"
 
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "3"
+
   - name: IMAGE_URL
     type: string
     default: $(BJW_IMAGE_BRCM_ABOOT_202311)
@@ -124,3 +132,5 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         AFFINITY: ${{ parameters.AFFINITY }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
