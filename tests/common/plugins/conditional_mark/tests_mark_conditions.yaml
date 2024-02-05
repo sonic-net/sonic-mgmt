@@ -617,7 +617,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "topo_type in ['m0', 'mx']"
       - "release in ['202211']"
 
-generic_config_updater/test_eth_interface.py::test_eth_interface_admin_change:
+generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
     conditions:
