@@ -55,7 +55,7 @@
         },
         {
                 "DASH_ROUTE_TABLE:{{ eni }}:{{ remote_ca_prefix }}" : {
-                        "action_type":"{{ routing_action }}"
+                        "routing_type":"{{ routing_action }}"
 {%- if lookup_overlay_ip is defined -%},
                         "overlay_ip": "{{ lookup_overlay_ip }}"
 {%- endif %}

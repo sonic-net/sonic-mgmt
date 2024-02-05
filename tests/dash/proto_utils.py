@@ -38,7 +38,7 @@ def vnet_from_json(json_obj):
 
 def vnet_mapping_from_json(json_obj):
     pb = VnetMapping()
-    pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
+    pb.routing_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
     pb.underlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["underlay_ip"])))
     pb.mac_address = bytes.fromhex(json_obj["mac_address"].replace(":", ""))
     pb.use_dst_vni = json_obj["use_dst_vni"] == "true"
@@ -67,23 +67,23 @@ def eni_from_json(json_obj):
 
 def route_from_json(json_obj):
     pb = Route()
-    if json_obj["action_type"] == "vnet":
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET
+    if json_obj["routing_type"] == "vnet":
+        pb.routing_type = RoutingType.ROUTING_TYPE_VNET
         pb.vnet = json_obj["vnet"]
-    elif json_obj["action_type"] == "vnet_direct":
-        pb.action_type = RoutingType.ROUTING_TYPE_VNET_DIRECT
+    elif json_obj["routing_type"] == "vnet_direct":
+        pb.routing_type = RoutingType.ROUTING_TYPE_VNET_DIRECT
         pb.vnet_direct.vnet = json_obj["vnet"]
         pb.vnet_direct.overlay_ip.ipv4 = socket.htonl(int(ipaddress.IPv4Address(json_obj["overlay_ip"])))
-    elif json_obj["action_type"] == "direct":
-        pb.action_type = RoutingType.ROUTING_TYPE_DIRECT
+    elif json_obj["routing_type"] == "direct":
+        pb.routing_type = RoutingType.ROUTING_TYPE_DIRECT
     else:
-        pytest.fail("Unknown action type %s" % json_obj["action_type"])
+        pytest.fail("Unknown routing type %s" % json_obj["routing_type"])
     return pb
 
 
 def route_rule_from_json(json_obj):
     pb = RouteRule()
-    pb.action_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
+    pb.routing_type = RoutingType.ROUTING_TYPE_VNET_ENCAP
     pb.priority = int(json_obj["priority"])
     pb.pa_validation = json_obj["pa_validation"] == "true"
     if json_obj["pa_validation"] == "true":
