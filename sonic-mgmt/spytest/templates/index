@@ -1,5 +1,4 @@
 Template, Hostname, Platform, Command
-<<<<<<< HEAD
 
 show_interfaces_status_qa.tmpl, .*, sonic, show interfaces status
 show_interfaces_portchannel_fallback.tmpl, .*, sonic, show interfaces portchannel \w+ fallback
