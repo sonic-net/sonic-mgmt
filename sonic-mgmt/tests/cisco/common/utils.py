@@ -31,6 +31,18 @@ def skip_if_sim(duthosts, enum_rand_one_per_hwsku_hostname):
                    'Test not supported in SIM environment')
 
 
+@pytest.fixture(scope='module')
+def skip_if_not_sim(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Skip the test if its not simulation environment
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    pytest_require(CheckEnvironment.is_sim(duthost),
+                   'Test is supported only in SIM environment')
+
+
 def verify_command_result(result, cmd):
     # Raise an AssertionError if "stdout" is empty
     assert result["stdout"], "No output for {}".format(cmd)
