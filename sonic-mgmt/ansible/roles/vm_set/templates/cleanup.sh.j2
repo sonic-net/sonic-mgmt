@@ -6,7 +6,7 @@ set -ex
 test -z "$(virsh list --state-running --name)" || virsh list --state-running --name | xargs -I % virsh destroy %
 
 # stop paused VMs
-test -z "$(virsh list --state-paused --name)" || virsh list --state-running --name | xargs -I % virsh destroy %
+test -z "$(virsh list --state-paused --name)" || virsh list --state-paused --name | xargs -I % virsh destroy %
 
 # undefine all VMs
 test -z "$(virsh list --all --name)" || virsh list --all --name | xargs -I % virsh undefine %

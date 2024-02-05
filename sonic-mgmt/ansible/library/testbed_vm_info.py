@@ -6,8 +6,12 @@ import yaml
 import traceback
 import ipaddress
 
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
+try:
+    from ansible.parsing.dataloader import DataLoader
+    from ansible.inventory.manager import InventoryManager
+    has_dataloader = True
+except ImportError:
+    has_dataloader = False
 
 DOCUMENTATION = '''
 module: testbed_vm_info.py
@@ -51,8 +55,9 @@ class TestbedVMFacts():
         self.topofile = TOPO_PATH + 'topo_' + self.toponame + '.yml'
         self.base_vm = base_vm
         self.vm_file = vm_file
-        self.inv_mgr = InventoryManager(
-            loader=DataLoader(), sources=self.vm_file)
+        if has_dataloader:
+            self.inv_mgr = InventoryManager(
+                loader=DataLoader(), sources=self.vm_file)
 
     def get_neighbor_eos(self):
         eos = {}
@@ -75,6 +80,17 @@ class TestbedVMFacts():
             eos[eos_name] = vm_name
         return eos
 
+    def gather_veos_vms(self):
+        yaml_data = {}
+        with open(self.vm_file, 'r') as default_f:
+            yaml_data = yaml.safe_load(default_f)
+        result_dict = {}
+        for group_name, group_content in yaml_data.items():
+            if group_name.startswith('vms_'):
+                for host_name, host_info in group_content.get('hosts', {}).items():
+                    result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
+        return result_dict
+
 
 def main():
     module = AnsibleModule(
@@ -95,15 +111,21 @@ def main():
         vm_facts = TestbedVMFacts(
             m_args['topo'], m_args['base_vm'], m_args['vm_file'])
         neighbor_eos = vm_facts.get_neighbor_eos()
-
+        if has_dataloader:
+            hosts = vm_facts.inv_mgr.hosts
+        else:
+            hosts = vm_facts.gather_veos_vms()
         tgen_mgmt_ips = list(ipaddress.ip_network(TGEN_MGMT_NETWORK.encode().decode()))
         for index, eos in enumerate(neighbor_eos):
             vm_name = neighbor_eos[eos]
             if 'tgen' in topo_type:
                 vm_mgmt_ip[eos] = str(tgen_mgmt_ips[index])
-            elif vm_name in vm_facts.inv_mgr.hosts:
-                vm_mgmt_ip[eos] = vm_facts.inv_mgr.get_host(
-                    vm_name).get_vars()['ansible_host']
+            elif vm_name in hosts:
+                if has_dataloader:
+                    vm_mgmt_ip[eos] = vm_facts.inv_mgr.get_host(
+                        vm_name).get_vars()['ansible_host']
+                else:
+                    vm_mgmt_ip[eos] = hosts[vm_name]['ansible_host']
             else:
                 err_msg = "Cannot find the vm {} in VM inventory file {}, please make sure you have enough VMs" \
                           "for the topology you are using."

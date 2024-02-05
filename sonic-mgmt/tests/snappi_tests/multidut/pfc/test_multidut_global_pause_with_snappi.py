@@ -4,8 +4,8 @@ import logging
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts                                                                              # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
      get_multidut_tgen_peer_port_set, cleanup_config                                                 # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp_map                # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
@@ -44,6 +44,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
     Returns:
         N/A
     """
+
     pytest_assert(line_card_choice in linecard_configuration_set.keys(), "Invalid line_card_choice in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):

@@ -13,6 +13,7 @@ from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
 from tests.override_config_table.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
+from tests.common.helpers.dut_utils import is_container_running
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -205,7 +206,6 @@ def test_authorization_tacacs_only(
         "show interfaces counters -a -p 3",
         "show ip bgp neighbor",
         "show ipv6 bgp neighbor",
-        "show feature status telemetry",
         "touch testfile",
         "chmod +w testfile",
         "echo \"test\" > testfile",
@@ -227,6 +227,14 @@ def test_authorization_tacacs_only(
         "configlet --help",
         "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
     ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    telemetry_is_running = is_container_running(duthost, 'telemetry')
+    gnmi_is_running = is_container_running(duthost, 'gnmi')
+    if not telemetry_is_running and gnmi_is_running:
+        commands.append("show feature status gnmi")
+    else:
+        commands.append("show feature status telemetry")
 
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)

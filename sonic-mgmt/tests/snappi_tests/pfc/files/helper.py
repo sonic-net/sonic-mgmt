@@ -264,6 +264,7 @@ def run_pfc_test(api,
     # Verify PFC pause frame count on the DUT
     verify_pause_frame_count_dut(duthost=duthost,
                                  test_traffic_pause=test_traffic_pause,
+                                 global_pause=global_pause,
                                  snappi_extra_params=snappi_extra_params)
 
     # Verify in flight TX lossless packets do not leave the DUT when traffic is expected
