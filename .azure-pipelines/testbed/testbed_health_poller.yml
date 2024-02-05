@@ -40,10 +40,7 @@ stages:
                 cd ansible
                 python health_checker.py --skip-testbeds=ptf2-6-b,spytest,vms-chassis-packet-dut,vms-example-ixia-1,ixanvl-vs-conf
 
-                source /var/AzDevOps/env-python3/bin/activate
-
                 cd ../test_reporting
-                pip3 install -r requirements.txt
 
                 python3 report_uploader.py -c "reachability" ../ansible/testbed_ping.json SonicTestData
             env:

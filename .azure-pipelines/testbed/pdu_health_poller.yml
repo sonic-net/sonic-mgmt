@@ -58,8 +58,6 @@ stages:
 
                 ls -l *.json
 
-                source /var/AzDevOps/env-python3/bin/activate
-
                 cd ../test_reporting
 
                 FILES=$(ls ../ansible/*pdu*.json)

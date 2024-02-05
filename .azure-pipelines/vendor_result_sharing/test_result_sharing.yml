@@ -58,10 +58,7 @@ stages:
               script: |
                 set -x
 
-                source /var/AzDevOps/env-python3/bin/activate
-
                 cd .azure-pipelines/vendor_result_sharing
-                pip3 install -r requirements.txt
 
                 python3 test_result_sharing.py -t ${{ parameters.TOPOLGY_TYPE }} -b ${{ parameters.BRANCH }} -i ${{ parameters.BUILD_ID }} -s ${{ parameters.HARDWARESKU }}
 
