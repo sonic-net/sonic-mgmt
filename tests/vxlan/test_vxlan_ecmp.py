@@ -2003,4 +2003,3 @@ class Test_VxLAN_entropy(Test_VxLAN):
             random_dport=False,
             random_src_ip=True,
             tolerance=0.03)
-
