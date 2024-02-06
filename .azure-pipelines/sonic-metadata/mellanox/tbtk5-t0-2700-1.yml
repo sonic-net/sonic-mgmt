@@ -11,7 +11,7 @@ resources:
     ref: master
 
 schedules:
-  - cron: "0 0,12 * * 2,4,6"
+  - cron: "0 0,12 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -25,8 +25,18 @@ variables:
 parameters:
 - name: TESTBED_NAME
   type: string
-  default: vms2-2-t0-2700
+  default: tbtk5-t0-2700-1
   displayName: "Testbed Name"
+
+- name: POOL
+  type: string
+  default: nightly-tk5
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
 
 - name: UPGRADE_TYPE
   type: string
