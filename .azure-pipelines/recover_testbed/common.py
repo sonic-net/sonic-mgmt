@@ -159,17 +159,19 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                         dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
                                                      ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                         dut_console.remote_conn.send("\n")
-
                         time.sleep(1)
 
                         dut_console.remote_conn.send("route add default gw {}".format(gw_ip))
                         dut_console.remote_conn.send("\n")
-
                         time.sleep(1)
 
                         dut_console.remote_conn.send("ip route add default via {} dev ma1".format(gw_ip))
                         dut_console.remote_conn.send("\n")
+                        time.sleep(1)
 
+                        # Rename image to avoid "File exists" error
+                        dut_console.remote_conn.send("mv {} {}.bak".format(image_url.split("/")[-1], image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("\n")
                         time.sleep(1)
 
                         dut_console.remote_conn.send("wget {}".format(image_url))
