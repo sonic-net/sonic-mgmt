@@ -1,14 +1,20 @@
 # This file contains the list of API's which performs VLAN operations.
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
+import re
 import json
+
 from spytest import st
+
 from apis.system.rest import config_rest, delete_rest, get_rest, rest_status
+
 from utilities.common import random_vlan_list, filter_and_select, make_list, get_query_params
 from utilities.utils import get_interface_number_from_name, get_portchannel_name_for_rest
 from utilities.utils import is_a_single_intf, segregate_intf_list_type, get_supported_ui_type_list, convert_intf_name_to_component
+from utilities.utils import get_random_space_string
 
 try:
     import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
+    import apis.yang.codegen.messages.vlan_ext.VlanExt as umf_vlan_ext
     import apis.yang.codegen.messages.network_instance as umf_ni
     import apis.yang.codegen.bulk as umf_bulk
     from apis.yang.utils.common import Operation
@@ -47,8 +53,16 @@ def create_vlan(dut, vlan_list, cli_type='', **kwargs):
     cmd_edit_list = list()
     for each_vlan in vlan_li:
         if cli_type in get_supported_ui_type_list():
+            #            operation = Operation.UPDATE
+            # operation = Operation.CREATE
             intf_obj = umf_intf.Interface(Name='Vlan' + str(each_vlan))
             cmd_edit_list.append(umf_bulk.Edit(intf_obj, operation=Operation.CREATE))
+            '''
+            result = intf_obj.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Creation of Vlan {}'.format(result.data))
+                return False
+            '''
         elif cli_type == "click":
             commands.append("config vlan add {}".format(each_vlan))
         elif cli_type == "klish":
@@ -104,6 +118,12 @@ def delete_vlan(dut, vlan_list, cli_type='', remove_vlan_mapping=True, verify_de
             if cli_type in get_supported_ui_type_list():
                 intf_obj = umf_intf.Interface(Name='Vlan' + str(each_vlan))
                 cmd_edit_list.append(umf_bulk.Edit(intf_obj, operation=Operation.DELETE))
+                '''
+                result = intf_obj.unConfigure(dut, cli_type=cli_type)
+                if not result.ok():
+                    st.error("Failed to Unconfigure VLAN: {}".format(result.data))
+                    return False
+                '''
             elif cli_type == "click":
                 commands.append("config vlan del {}".format(each_vlan))
             elif cli_type == "klish":
@@ -162,10 +182,12 @@ def delete_all_vlan(dut, cli_type='', delete_members=True, **kwargs):
         return config_vlan_range(dut, '1 4093', config='del', skip_verify=True, cli_type=cli_type, **kwargs)
     elif cli_type in ["klish", "rest-put", "rest-patch"] or cli_type in get_supported_ui_type_list():
         tmp_cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+        # vlan_list = get_vlan_list(dut, cli_type=tmp_cli_type)
         if delete_members:
             tagged_port_list = list()
             untagged_port_list = list()
             not_used_in_api = 4095
+#            show_vlan_op = show_vlan_config(dut, cli_type=tmp_cli_type)
             show_vlan_op = show_vlan_config(dut, cli_type='klish')
             for vlan_port in show_vlan_op:
                 if vlan_port['member']:
@@ -193,6 +215,7 @@ def show_vlan_config(dut, vlan_id=None, **kwargs):
     :param cli_type:
     :return:
     """
+    # cli_type = force_cli_type_to_klish(cli_type=cli_type)
     yang_data_type = kwargs.get("filter_type", "ALL")
     if cli_type in get_supported_ui_type_list():
         if not vlan_id or kwargs.get("autostate"):
@@ -391,7 +414,7 @@ def show_vlan_brief(dut, vlan_id=None, **kwargs):
         try:
             if get_resp and rest_status(get_resp["status"]):
                 vlan_data = show_vlan_from_rest_response(get_resp["output"])
-                # vlan_data = append_autostate_data(dut, vlan_data)
+                vlan_data = append_autostate_data(dut, vlan_data)
                 if not vlan_id:
                     return vlan_data
                 else:
@@ -555,7 +578,8 @@ def add_vlan_member(dut, vlan, port_list, tagging_mode=False, skip_error=False, 
                 if not interface_details:
                     st.log("Interface details not found {}".format(interface_details))
                     return False
-                commands.append("interface {} {}".format(interface_details.get("type"), interface_details.get("number")))
+                zero_or_more_space = get_random_space_string()
+                commands.append("interface {}{}{}".format(interface_details.get("type"), zero_or_more_space, interface_details.get("number")))
             participation_mode = "trunk" if tagging_mode else "access"
             if participation_mode == "trunk":
                 command = "switchport trunk allowed Vlan {} {}"
@@ -740,6 +764,36 @@ def get_vlan_member(dut, vlan_list=[], cli_type=''):
     return vlan_val
 
 
+def get_member_vlan(dut, interface_list=[], cli_type=''):
+    # API_Not_Used: To Be removed in CyrusPlus. Also Duplicate API
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    """
+    To Get Members vs list of VLANs.
+    Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
+
+    :param dut:
+    :param interface_list:
+    :param cli_type:
+    :return:
+    """
+    member_val = {}
+    interface_li = list(interface_list) if isinstance(interface_list, list) else [interface_list]
+    out = show_vlan_config(dut, cli_type=cli_type)
+    if interface_li:
+        temp = []
+        for each in list(set(interface_li)):
+            temp += filter_and_select(out, None, {"member": each})
+        out = temp
+
+    for each in out:
+        if each['member']:
+            if each['member'] not in member_val:
+                member_val[each['member']] = [each['vid']]
+            else:
+                member_val[each['member']].append(each['vid'])
+    return member_val
+
+
 def verify_vlan_config(dut, vlan_list, tagged=None, untagged=None, name=None, cli_type='', **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
@@ -754,6 +808,7 @@ def verify_vlan_config(dut, vlan_list, tagged=None, untagged=None, name=None, cl
     :return:
     """
     negative = kwargs.pop('negative', False)
+    # cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type in get_supported_ui_type_list() and kwargs.get("autostate"):
         cli_type = force_cli_type_to_klish(cli_type=cli_type)
     vlan_li = map(str, vlan_list) if isinstance(vlan_list, list) else [vlan_list]
@@ -838,6 +893,7 @@ def verify_vlan_brief(dut, vid, tagged=None, untagged=None, ip_address=None, dhc
     :return:
     """
     exec_mode = kwargs.get("exec_mode", "")
+    # cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type in get_supported_ui_type_list() and autostate:
         cli_type = force_cli_type_to_klish(cli_type=cli_type)
     vid = str(vid)
@@ -1345,3 +1401,543 @@ def show_vlan_from_rest_response(rest_response):
         return output
     except Exception as e:
         st.error("Exception is :{}".format(e))
+
+
+def config_vlan_autostate(dut, vlan, config='yes', cli_type='', skip_error=False, **kwargs):
+    """
+    To enable/disable autostate for single vlan, list of vlan,vlan range
+    Author:Sooriya.Gajendrababu@broadcom.cm
+    :param dut:
+    :param vlan: - Accepts string,vlan_range,list of vlans
+    :param config:
+    :param cli_type:
+    :param skip_error:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if isinstance(vlan, int):
+        vlan = str(vlan)
+    vlan_list = list()
+    if '-' not in vlan:
+        vlan_list = make_list(vlan)
+    vlan_range = False
+    if '-' in vlan and _has_vlan_range(dut):
+        vlan_range = True
+    cmd = list()
+    if cli_type == 'click':
+        action = 'enable' if config == 'yes' else 'disable'
+        if vlan_range:
+            vlan = vlan.split('-')
+            start_vlan = vlan[0]
+            end_vlan = vlan[1]
+            cmd.append('config vlan range autostate {} {} {}'.format(start_vlan, end_vlan, action))
+        else:
+            for each_vlan in vlan_list:
+                cmd.append('config vlan autostate {} {}'.format(each_vlan, action))
+        st.config(dut, cmd, skip_error_check=skip_error, cli_type='click')
+    elif cli_type == 'klish':
+        action = '' if config == 'yes' else 'no '
+        if vlan_range:
+            vlan = vlan.split('-')
+            start_vlan = vlan[0]
+            end_vlan = vlan[1]
+            cmd.append('interface range Vlan {}-{} '.format(start_vlan, end_vlan))
+            cmd.append('{}autostate'.format(action))
+        else:
+            for each_vlan in vlan_list:
+                cmd.append('interface Vlan{}'.format(each_vlan))
+                cmd.append('{}autostate'.format(action))
+                cmd.append('exit')
+        out = st.config(dut, cmd, skip_error_check=skip_error, type='klish')
+        return False if 'Error' in out else True
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        http_method = kwargs.pop('http_method', cli_type)
+        if '-' in vlan:
+            vlans = vlan.split('-')
+            vlan_list = range(int(vlans[0]), int(vlans[-1]) + 1)
+        for each_vlan in vlan_list:
+            rest_url = rest_urls['config_autostate'].format(each_vlan)
+            oc_data = dict()
+            oc_data["sonic-vlan:autostate"] = 'enable' if config == 'yes' else 'disable'
+            response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=oc_data)
+            if not response:
+                return False
+    return True
+
+
+def append_autostate_data(dut, vlan_data):
+    rest_urls = st.get_datastore(dut, 'rest_urls')
+    rest_url = rest_urls['get_autostate']
+    try:
+        output = get_rest(dut, rest_url=rest_url)['output']['sonic-vlan:VLAN_LIST']
+        for vlans in vlan_data:
+            get_autostate = filter_and_select(output, match={"vlanid": vlans['vid']})
+            if get_autostate:
+                autostate = get_autostate[0].get('autostate', 'enable')
+            match_item = filter_and_select(vlan_data, match={'vid': vlans['vid']})
+            if match_item:
+                for item in match_item:
+                    item['autostate'] = autostate.capitalize()
+        st.log(vlan_data)
+        return vlan_data
+    except Exception as e:
+        st.error("Exception is :{}".format(e))
+
+
+def config_reserved_vlan_range(dut, **kwargs):
+    '''
+    Purpose of this API is to change the Default Reserved  VLAN Range
+    :param dut:
+    :param reserved_range:
+    :return:
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type)
+    config = kwargs.get('config', 'yes')
+    skip_error = kwargs.get('skip_error', False)
+    config = '' if config == 'yes' else 'no'
+    command = '{} system vlan {} reserve'.format(config, int(kwargs.get('reserved_range')))
+    if cli_type in get_supported_ui_type_list():
+        rvlan_obj = umf_vlan_ext.ReserveVlan(VlanName=int(kwargs.get('reserved_range')))
+        if config == '':
+            result = rvlan_obj.configure(dut, cli_type=cli_type)
+        else:
+            result = rvlan_obj.unConfigure(dut, target_attr=rvlan_obj.VlanName, cli_type=cli_type)
+        if not result.ok():
+            st.error("test_step_failed: Reserved VLAN")
+            return False
+        return True
+    elif cli_type == 'klish':
+        result = st.config(dut, command, type=cli_type, skip_error_check=skip_error)
+        if "%Error" in result or "% Error" in result:
+            st.error("Failed to Change the Reserved VLAN Range")
+            return False
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_url = st.get_datastore(dut, 'rest_urls')['config_show_reserved_vlan']
+        if config == '':
+            payload = {"openconfig-vlan-ext:reserve-vlans": {"reserve-vlan": []}}
+            for vlan_id in range(int(kwargs.get('reserved_range')), int(kwargs.get('reserved_range')) + 128):
+                temp = {"config": {"vlan-name": "Vlan{}".format(vlan_id)}, "vlan-name": "Vlan{}".format(vlan_id)}
+                payload["openconfig-vlan-ext:reserve-vlans"]["reserve-vlan"].append(temp)
+            if not config_rest(dut, http_method=cli_type, json_data=payload, rest_url=rest_url):
+                st.error("Failed to Configure Reserved VLAN")
+                return False
+        else:
+            if not delete_rest(dut, http_method=cli_type, rest_url=rest_url):
+                st.error("Failed to Delete Reserved VLAN")
+                return False
+    else:
+        st.log("Unsupported UI-TYPE: {}".format(cli_type))
+        return False
+    return True
+
+
+def verify_reserved_vlan(dut, **kwargs):
+    '''
+    Purpose of this API is to Verify the Reserved VLAN
+    :param dut:
+    :param kwargs:
+    :return:
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type)
+    skip_tmpl = kwargs.get('skip_tmpl', False)
+    command = 'show system vlan reserved'
+    if cli_type == 'klish':
+        output = st.show(dut, command, type=cli_type, skip_tmpl=skip_tmpl)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_url = st.get_datastore(dut, 'rest_urls')['config_show_reserved_vlan']
+        try:
+            response = get_rest(dut, http_method=cli_type, rest_url=rest_url)['output']
+            if "openconfig-vlan-ext:reserve-vlans" in response:
+                total_len = len(response["openconfig-vlan-ext:reserve-vlans"]["reserve-vlan"])
+                temp_min = str(response["openconfig-vlan-ext:reserve-vlans"]["reserve-vlan"][0]['config']['vlan-name'].split('n')[1])
+                temp_max = str(response["openconfig-vlan-ext:reserve-vlans"]["reserve-vlan"][total_len - 1]['config']['vlan-name'].split('n')[1])
+                output = [{'vlan_range': temp_min + '-' + temp_max}]
+            else:
+                output = st.show(dut, command, type='klish', skip_tmpl=skip_tmpl)
+        except Exception as e:
+            st.error("Exception Occurred is {}".format(e))
+            return False
+    else:
+        st.log("Unsupported UI-TYPE: {}".format(cli_type))
+        return False
+    if len(output) == 0:
+        st.error("Output is Empty")
+        return False
+
+    if 'return_output' in kwargs:
+        return output
+
+    for each in kwargs.keys():
+        match = {each: kwargs[each]}
+        if not filter_and_select(output, None, match=match):
+            st.error("Match not found for {}".format(kwargs[each]))
+            return False
+    return True
+
+
+#################################################################################
+# DELL APIS
+#################################################################################
+def configure_vlan_translation(dut, interface, s_vlan, **kwargs):
+    '''
+    Purpose: To configure single or double tagged vlan translation
+
+    :param dut:
+    :param interface:
+    :param s_vlan:
+    :param outer_c_vlan:
+    :param inner_c_vlan:
+    :param priority:
+    :param multitag:
+    :param kwargs:
+    :return:
+
+    Usage:
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100,priority=1)	--> Double Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,priority=1)			--> Single Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100)                 --> Double Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10)                                  --> Single Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100,multitag='y')	--> Multi Tag for Double Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,priority=1,multitag='y')		--> Multi tag for Single Tag Translation
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,config="no")					--> Unconfig all translations on s-vlan
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,priority=1,update_priority='y')			--> Config s-vlan priority (Supported only in 4.1)
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,priority='',config="no")				--> Unconfig s-vlan priority (Supported only in 4.1)
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,priority='',config="no")		--> Unconfig priority (Supported from 4.2))
+        configure_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100,config="no")     --> Unconfig translation (Supported from 4.2)
+    '''
+
+    st.log('API_NAME: configure_vlan_translation, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+
+    config = kwargs.get('config', 'yes').lower()
+    skip_error = bool(kwargs.get('skip_error', False))
+    maxtime = kwargs['maxtime'] if 'maxtime' in kwargs else 0
+    outer_c_vlan = kwargs.get('outer_c_vlan', None)
+    inner_c_vlan = kwargs.get('inner_c_vlan', None)
+    priority = kwargs.get('priority', None)
+
+    if cli_type == 'klish':
+
+        my_cmd = list()
+        intf = get_interface_number_from_name(interface)
+        my_cmd.append("interface {} {}".format(intf['type'], intf['number']))
+
+        if config == 'yes':
+            if 'update_priority' in kwargs:
+                if are_multi_flows_supported(dut):
+                    if 'inner_c_vlan' in kwargs:
+                        my_cmd.append('switchport vlan-mapping {} inner {} {} priority {}'.format(outer_c_vlan, inner_c_vlan, s_vlan, priority))
+                    elif 'outer_c_vlan' in kwargs:
+                        my_cmd.append('switchport vlan-mapping {} {} priority {}'.format(outer_c_vlan, s_vlan, priority))
+                    else:
+                        st.error("Starting Release 4.2, both s-vlan and c-vlan are required for priority configuration")
+                        return False
+                else:
+                    my_cmd.append('switchport vlan-mapping {} priority {}'.format(s_vlan, priority))
+            elif 'inner_c_vlan' in kwargs:
+                double_tag_trans_cmd = 'switchport vlan-mapping {} inner {} {}'.format(outer_c_vlan, inner_c_vlan, s_vlan)
+                if 'priority' in kwargs:
+                    double_tag_trans_cmd += ' priority {}'.format(priority)
+                if 'multitag' in kwargs:
+                    double_tag_trans_cmd += ' multi-tag'
+                my_cmd.append(double_tag_trans_cmd)
+            elif 'outer_c_vlan' in kwargs:
+                single_tag_trans_cmd = 'switchport vlan-mapping {} {}'.format(outer_c_vlan, s_vlan)
+                if 'priority' in kwargs:
+                    single_tag_trans_cmd += ' priority {}'.format(priority)
+                if 'multitag' in kwargs:
+                    single_tag_trans_cmd += ' multi-tag'
+                my_cmd.append(single_tag_trans_cmd)
+        else:
+            if are_multi_flows_supported(dut):
+                if 'inner_c_vlan' in kwargs:
+                    double_tag_trans_cmd = 'no switchport vlan-mapping {} inner {} {}'.format(outer_c_vlan, inner_c_vlan, s_vlan)
+                    if 'priority' in kwargs:
+                        double_tag_trans_cmd += ' priority'
+                    my_cmd.append(double_tag_trans_cmd)
+                elif 'outer_c_vlan' in kwargs:
+                    single_tag_trans_cmd = 'no switchport vlan-mapping {} {}'.format(outer_c_vlan, s_vlan)
+                    if 'priority' in kwargs:
+                        single_tag_trans_cmd += ' priority'
+                    my_cmd.append(single_tag_trans_cmd)
+                elif 'priority' in kwargs:
+                    st.error("Starting Release 4.2, both s-vlan and c-vlan are required for priority deletion")
+                    return False
+                else:
+                    my_cmd.append('no switchport vlan-mapping {}'.format(s_vlan))
+            else:
+                if 'priority' in kwargs:
+                    my_cmd.append('no switchport vlan-mapping {} priority'.format(s_vlan))
+                else:
+                    my_cmd.append('no switchport vlan-mapping {}'.format(s_vlan))
+
+        my_cmd.append('exit')
+        return st.config(dut, my_cmd, type=cli_type, skip_error_check=skip_error, max_time=maxtime)
+
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+
+def configure_vlan_stacking(dut, interface, s_vlan, **kwargs):
+    '''
+    Purpose: To configure vlan stacking
+
+    :param dut:
+    :param interface:
+    :param s_vlan:
+    :param c_vlan_list:
+    :param add_c_vlans:
+    :param rem_c_vlans:
+    :param priority:
+    :param kwargs:
+    :return:
+
+    Usage:
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,c_vlan_list=[10,20,30],priority=1)
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,add_c_vlans=['10','21-25','30'],priority=1)
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1040,c_vlan_list='40,51-55,60')
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1040,add_c_vlans=50)
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1040,rem_c_vlans='41-50')
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,priority=2)			--> Config s-vlan priority alone
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,priority='',config="no")	--> Unconfig s-vlan priority alone
+        configure_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,config="no")
+    '''
+
+    st.log('API_NAME: configure_vlan_stacking, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+
+    config = kwargs.get('config', 'yes').lower()
+    skip_error = bool(kwargs.get('skip_error', False))
+    maxtime = kwargs['maxtime'] if 'maxtime' in kwargs else 0
+    c_vlan_list = kwargs.get('c_vlan_list', None)
+    add_c_vlans = kwargs.get('add_c_vlans', None)
+    rem_c_vlans = kwargs.get('rem_c_vlans', None)
+    priority = kwargs.get('priority', None)
+
+    if cli_type == 'klish':
+
+        c_vlan_str = ''
+
+        if 'c_vlan_list' in kwargs:
+            if isinstance(c_vlan_list, list):
+                for c_vlan in c_vlan_list:
+                    c_vlan_str += str(c_vlan)
+                    c_vlan_str += ','
+                c_vlan_str = c_vlan_str.strip(',')
+            else:
+                c_vlan_str = c_vlan_list
+
+        if 'add_c_vlans' in kwargs:
+            if isinstance(add_c_vlans, list):
+                for c_vlan in add_c_vlans:
+                    c_vlan_str += str(c_vlan)
+                    c_vlan_str += ','
+                c_vlan_str = c_vlan_str.strip(',')
+            else:
+                c_vlan_str = add_c_vlans
+
+        if 'rem_c_vlans' in kwargs:
+            if isinstance(rem_c_vlans, list):
+                for c_vlan in rem_c_vlans:
+                    c_vlan_str += str(c_vlan)
+                    c_vlan_str += ','
+                c_vlan_str = c_vlan_str.strip(',')
+            else:
+                c_vlan_str = rem_c_vlans
+
+        my_cmd = list()
+        intf = get_interface_number_from_name(interface)
+        my_cmd.append("interface {} {}".format(intf['type'], intf['number']))
+
+        if config == 'yes':
+            if 'c_vlan_list' in kwargs:
+                if 'priority' in kwargs:
+                    my_cmd.append('switchport vlan-mapping {} dot1q-tunnel {} priority {}'.format(c_vlan_str, s_vlan, priority))
+                else:
+                    my_cmd.append('switchport vlan-mapping {} dot1q-tunnel {}'.format(c_vlan_str, s_vlan))
+            elif 'add_c_vlans' in kwargs:
+                if 'priority' in kwargs:
+                    my_cmd.append('switchport vlan-mapping add {} dot1q-tunnel {} priority {}'.format(c_vlan_str, s_vlan, priority))
+                else:
+                    my_cmd.append('switchport vlan-mapping add {} dot1q-tunnel {}'.format(c_vlan_str, s_vlan))
+            elif 'rem_c_vlans' in kwargs:
+                my_cmd.append('switchport vlan-mapping remove {} dot1q-tunnel {}'.format(c_vlan_str, s_vlan))
+            elif 'priority' in kwargs:
+                my_cmd.append('switchport vlan-mapping dot1q-tunnel {} priority {}'.format(s_vlan, priority))
+        else:
+            if 'priority' in kwargs:
+                my_cmd.append('no switchport vlan-mapping {} priority'.format(s_vlan))
+            else:
+                my_cmd.append('no switchport vlan-mapping {}'.format(s_vlan))
+        my_cmd.append('exit')
+        return st.config(dut, my_cmd, type=cli_type, skip_error_check=skip_error, max_time=maxtime)
+
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+
+def verify_vlan_translation(dut, **kwargs):
+    '''
+    Usage:
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100,priority=1) 	--> Double Tag
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,priority=1)				--> Single Tag
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100)
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10)
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,inner_c_vlan=100,flags='M')		--> Multi Tag
+        verify_vlan_translation(dut=dut1,interface='Ethernet0',s_vlan=1000,outer_c_vlan=10,intf_filter='')
+        verify_vlan_translation(dut=dut1,return_output='')
+    '''
+
+    st.log('API_NAME: verify_vlan_translation, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cmd = ''
+
+    skip_error = kwargs.get('skip_error', False)
+
+    if cli_type == 'klish':
+        if 'intf_filter' in kwargs:
+            intf = get_interface_number_from_name(kwargs['interface'])
+            cmd = "show interface {} {} vlan-mappings".format(intf['type'], intf['number'])
+        else:
+            cmd = "show interface vlan-mappings"
+        output = st.show(dut, cmd, type=cli_type, skip_error_check=skip_error)
+        if 'return_output' in kwargs:
+            return output
+
+        if len(output) == 0:
+            st.error("Output is Empty")
+            return False
+
+        input_dict = dict()
+        input_dict['interface'] = kwargs.get('interface')
+        input_dict['outer_c_vlan'] = kwargs.get('outer_c_vlan')
+        input_dict['inner_c_vlan'] = kwargs.get('inner_c_vlan', '-')
+        input_dict['s_vlan'] = kwargs.get('s_vlan')
+        input_dict['vlan_priority'] = kwargs.get('priority', '-')
+        if 'flags' in kwargs:
+            input_dict['multi_tag'] = kwargs.get('flags')
+
+        entries = filter_and_select(output, None, match=input_dict)
+        if not entries:
+            st.error("DUT {} -> Match Not Found {}".format(dut, input_dict))
+            return False
+        else:
+            st.log("DUT {} -> Match Found for {}".format(dut, input_dict))
+            return True
+
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+
+def verify_vlan_stacking(dut, **kwargs):
+    '''
+    Usage:
+        verify_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,c_vlan_list=[10,20,30],priority=1)
+        verify_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,c_vlan_list=['10','21-25','30'],priority=1)
+        verify_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,c_vlan_list='40,51-55,60')
+        verify_vlan_stacking(dut=dut1,interface='Ethernet0',s_vlan=1000,c_vlan_list=10,intf_filter='')
+        verify_vlan_stacking(dut=dut1,return_output='')
+    '''
+
+    st.log('API_NAME: verify_vlan_stacking, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cmd = ''
+
+    skip_error = kwargs.get('skip_error', False)
+
+    if cli_type == 'klish':
+        if 'intf_filter' in kwargs:
+            intf = get_interface_number_from_name(kwargs['interface'])
+            cmd = "show interface {} {} vlan-mappings dot1q-tunnel".format(intf['type'], intf['number'])
+        else:
+            cmd = "show interface vlan-mappings dot1q-tunnel"
+        output = st.show(dut, cmd, type=cli_type, skip_error_check=skip_error)
+
+        if 'return_output' in kwargs:
+            return output
+
+        if len(output) == 0:
+            st.error("Output is Empty")
+            return False
+
+        c_vlan_str = ''
+        c_vlan_list = kwargs.get('c_vlan_list', None)
+        if 'c_vlan_list' in kwargs:
+            if isinstance(c_vlan_list, list):
+                for c_vlan in c_vlan_list:
+                    c_vlan_str += str(c_vlan)
+                    c_vlan_str += ','
+                c_vlan_str = c_vlan_str.strip(',')
+            else:
+                c_vlan_str = c_vlan_list
+
+        input_dict = dict()
+        input_dict['interface'] = kwargs.get('interface')
+        input_dict['c_vlan_list'] = c_vlan_str
+        input_dict['s_vlan'] = kwargs.get('s_vlan')
+        input_dict['vlan_priority'] = kwargs.get('priority', '-')
+
+        entries = filter_and_select(output, None, match=input_dict)
+        if not entries:
+            st.error("DUT {} -> Match Not Found {}".format(dut, input_dict))
+            return False
+        else:
+            st.log("DUT {} -> Match Found for {}".format(dut, input_dict))
+            return True
+
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+
+def stacking_feature(dut, **kwargs):
+    """
+    Author: Divya Balasubramanian (divya_balasubramania@dell.com)
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    cli_cfg = ''
+    if 'config' in kwargs:
+        config = kwargs['config']
+    else:
+        config = 'yes'
+    if config.lower() == 'yes':
+        config_cmd = ''
+    else:
+        config_cmd = 'no'
+    if cli_type == 'klish':
+        cli_cfg += 'switch-resource \n'
+        cli_cfg += '{} vlan-stacking \n'.format(config_cmd)
+        st.config(dut, cli_cfg, type='klish')
+    else:
+        st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False
+
+
+def are_multi_flows_supported(dut):
+    """
+    Purpose: This definition is used to check whether multiple VLAN translations can be configured on an interface associated to a S-vlan
+    This capability is not supported on Release 4.1 and is supported only from Release 4.2 onwards.
+    Hence this definition returns False for Software version 4.1 and True for all other later versions.
+    """
+
+    sw_version = st.get_testbed_vars().version[dut]
+
+    release_regex = r'(\d\.\w)'
+    release = re.findall(release_regex, sw_version)
+
+    if release[0] == '4.1':
+        return False
+    # For all other versions including 4.x, return True
+    else:
+        return True
