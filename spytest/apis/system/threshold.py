@@ -1,13 +1,21 @@
 # This file contains the list of API's which performs Threshold Feature operations.
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 from spytest import st
-import utilities.common as utils
-from utilities.utils import get_interface_number_from_name
+
 from apis.common import redis
 import apis.system.interface as intapi
 import apis.system.logging as logapi
 import apis.common.asic as asicapi
 from apis.system.rest import config_rest, delete_rest, get_rest
+import apis.system.config_qos as qos_api
+
+import utilities.common as utils
+from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
+
+try:
+    import apis.yang.codegen.messages.qos as umf_qos
+except ImportError:
+    pass
 
 
 def config_threshold(dut, **kwargs):
@@ -26,30 +34,44 @@ def config_threshold(dut, **kwargs):
     :return:
     """
     if 'threshold_type' not in kwargs and 'port_alias' not in kwargs and 'buffer_type' not in kwargs and \
-        'value' not in kwargs and 'index' not in kwargs:
+            'value' not in kwargs and 'index' not in kwargs:
         st.error("Mandatory parameter threshold_type/port_alias/index/buffer_type/value not found")
         return False
     cli_type = st.get_ui_type(dut, **kwargs)
     if kwargs['threshold_type'] in ["priority-group", "queue"]:
+        if cli_type in get_supported_ui_type_list():
+            kwargs['qos_type'] = 'threshold'
+            kwargs['ts_buffer'] = kwargs.pop('threshold_type')
+            kwargs['ts_type'] = kwargs.pop('buffer_type')
+            kwargs['ts_port'] = kwargs.pop('port_alias')
+            kwargs['ts_index'] = kwargs.pop('index')
+            kwargs['ts_value'] = kwargs.pop('value')
+            result = qos_api.config_qos_properties(dut, **kwargs)
+            if not result:
+                st.log('Add code for skip error')
+            return result
+
         if cli_type == 'click':
+            if "/" in kwargs['port_alias']:
+                kwargs['port_alias'] = st.get_other_names(dut, [kwargs['port_alias']])[0]
             commands = "config {} threshold {} {} {} {}".format(kwargs['threshold_type'], kwargs['port_alias'],
-                                                               kwargs['index'], kwargs['buffer_type'], kwargs['value'])
+                                                                kwargs['index'], kwargs['buffer_type'], kwargs['value'])
         elif cli_type == "klish":
             commands = list()
             commands.append("interface {}".format(kwargs.get('port_alias')))
-            commands.append("threshold {} {} {} {}".format(kwargs['threshold_type'],
-                                                     kwargs['index'], kwargs['buffer_type'], kwargs['value']))
+            commands.append("threshold {} {} {} {}".format(kwargs['threshold_type'], kwargs['index'], kwargs['buffer_type'], kwargs['value']))
             commands.append("exit")
+
         elif cli_type in ["rest-patch", "rest-put"]:
-            config_data = {"openconfig-qos-ext:thresholds":{"threshold":[{"buffer": kwargs['threshold_type'],
+            config_data = {"openconfig-qos:thresholds": {"threshold": [{"buffer": kwargs['threshold_type'],
                                                                         "type": kwargs['buffer_type'],
-                                                                        "port": kwargs['port_alias'],
+                                                                       "port": kwargs['port_alias'],
                                                                         "index": kwargs['index'],
                                                                         "config": {"buffer": kwargs['threshold_type'],
                                                                                    "type": kwargs['buffer_type'],
                                                                                    "port": kwargs['port_alias'],
                                                                                    "index": kwargs['index'],
-                                                                                "threshold-value": kwargs['value']}}]}}
+                                                                                   "threshold-value": kwargs['value']}}]}}
             url = st.get_datastore(dut, "rest_urls")["thresholds"]
             if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=config_data):
                 return False
@@ -96,6 +118,7 @@ def clear_threshold(dut, **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     if cli_type == "click":
         if kwargs.get('port_alias') == 'CPU':
             kwargs['buffer_type'] = 'all'
@@ -146,14 +169,14 @@ def clear_threshold(dut, **kwargs):
             else:
                 st.error("Invalid threshold_type provided '{}'".format(kwargs['threshold_type']))
                 return False
-    elif cli_type in ["rest-patch","rest-put"]:
+    elif cli_type in ["rest-patch", "rest-put"]:
         if kwargs.get("breach"):
             if kwargs.get('breach') == "all":
-                data = {"openconfig-qos-ext:input": {"breach-event-id": "ALL"}}
+                data = {"openconfig-qos-private:input": {"breach-event-id": "ALL"}}
             else:
-                data = {"openconfig-qos-ext:input": {"breach-event-id": str(kwargs.get('breach'))}}
+                data = {"openconfig-qos-private:input": {"breach-event-id": str(kwargs.get('breach'))}}
             url = st.get_datastore(dut, "rest_urls")["clear_threshold_breaches"]
-            if not config_rest(dut, http_method="post", rest_url= url, json_data=data):
+            if not config_rest(dut, http_method="post", rest_url=url, json_data=data):
                 st.debug("Failed to clear threshold breaches")
                 return False
         else:
@@ -167,14 +190,14 @@ def clear_threshold(dut, **kwargs):
                     if kwargs['buffer_type'] == 'all':
                         for buffer in buffers:
                             for i in range(8):
-                                url = st.get_datastore(dut,"rest_urls")["delete_int_threshold"].\
-                                format(kwargs['threshold_type'], buffer,port, i)
+                                url = st.get_datastore(dut, "rest_urls")["delete_int_threshold"].\
+                                    format(kwargs['threshold_type'], buffer, port, i)
                                 if not delete_rest(dut, rest_url=url):
                                     st.debug("Failed to clear threshold buffers")
                                     return False
                     else:
-                        url = st.get_datastore(dut,"rest_urls")["delete_int_threshold"].format(kwargs['threshold_type'],
-                                            kwargs['buffer_type'], port, kwargs['index'])
+                        url = st.get_datastore(dut, "rest_urls")["delete_int_threshold"].format(kwargs['threshold_type'],
+                                                                                                kwargs['buffer_type'], port, kwargs['index'])
                         if not delete_rest(dut, rest_url=url):
                             st.debug("Failed to clear threshold buffers")
                             return False
@@ -201,6 +224,7 @@ def show_threshold(dut, **kwargs):
     :return:
     """
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     if 'threshold_type' not in kwargs and 'buffer_type' not in kwargs:
         st.error("Mandatory parameter threshold_type and buffer_type not found")
         return False
@@ -221,11 +245,16 @@ def show_threshold(dut, **kwargs):
                     output['mc{}'.format(queue)] = entry['threshold']
                 st.debug([output])
                 return [output]
-    elif cli_type in ["rest-patch","rest-put"]:
+
+    elif cli_type in ["rest-patch", "rest-put"]:
         output = list()
         url = st.get_datastore(dut, "rest_urls")["thresholds"]
         try:
-            get_resp = get_rest(dut, rest_url=url)["output"]["openconfig-qos-ext:thresholds"]["threshold"]
+            get_resp = get_rest(dut, rest_url=url)["output"]
+            if not get_resp:
+                return []
+            get_resp = get_resp["openconfig-qos:thresholds"]["threshold"]
+
             temp_output = {}
             for each in get_resp:
                 buffer_mapping = {"priority-group": "pg", "unicast": "uc", "multicast": "mc"}
@@ -235,11 +264,9 @@ def show_threshold(dut, **kwargs):
                         port = each["port"]
                         temp_output[port] = {}
                         temp_output[port]["port"] = port
-                        temp_output[port]["{}{}".format(buffer_mapping[each["buffer"]], each["index"])] = each["state"]\
-                        ["threshold-value"]
+                        temp_output[port]["{}{}".format(buffer_mapping[each["buffer"]], each["index"])] = each["state"]["threshold-value"]
                     else:
-                        temp_output[port]["{}{}".format(buffer_mapping[each["buffer"]], each["index"])] = each["state"]\
-                        ["threshold-value"]
+                        temp_output[port]["{}{}".format(buffer_mapping[each["buffer"]], each["index"])] = each["state"]["threshold-value"]
             if 'port_alias' in kwargs:
                 output.append(temp_output[kwargs['port_alias']])
             else:
@@ -287,6 +314,7 @@ def show_threshold_breaches(dut, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     if cli_type in ["click", "klish"]:
         command = "show threshold breaches"
         output = st.show(dut, command, type=cli_type)
@@ -294,7 +322,10 @@ def show_threshold_breaches(dut, cli_type=""):
         output = list()
         url = st.get_datastore(dut, "rest_urls")["threshold_breaches"]
         try:
-            get_resp = get_rest(dut, rest_url=url)["output"]["openconfig-qos-ext:threshold-breaches"]["breach"]
+            get_resp = get_rest(dut, rest_url=url)["output"]
+            if not get_resp:
+                return []
+            get_resp = get_resp["openconfig-qos:threshold-breaches"]["breach"]
             for each in get_resp:
                 breach = dict()
                 if "state" in each:
@@ -302,7 +333,7 @@ def show_threshold_breaches(dut, cli_type=""):
                     breach["index"] = str(each["state"]["index"])
                     breach["buffer"] = each["state"]["buffer"]
                     breach["threshold_type"] = each["state"]["type"]
-                    breach["counter"] = each["state"]["counter"]
+                    breach["counter"] = each["state"].get('counter')
                     breach["value"] = str(each["state"]["breach-value"])
                     breach["port"] = each["state"]["port"]
                     output.append(breach)
@@ -338,7 +369,23 @@ def verify_threshold_breaches(dut, **kwargs):
         st.error("Mandatory parameter 'buffer' not found")
         return False
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     output = show_threshold_breaches(dut, cli_type)
+    if not output:
+        st.error("Empty output for show threshold breaches - {}".format(output))
+        return False
+    if cli_type in get_supported_ui_type_list():
+        field_mapping = {"buffer": "Buffer", "threshold_type": "Type", "port": "Port", "index": "Index", "value": "BreachValue", "counter": "Counter"}
+        qos_obj = umf_qos.Qos()
+        for breach in output:
+            breach_obj = umf_qos.Breach(Id=int(breach.get("eventid")), Qos=qos_obj)
+            for field, mapping in field_mapping.items():
+                if breach.get(field):
+                    setattr(breach_obj, mapping, breach.get(field))
+                rv = breach_obj.verify(dut, match_subset=True, cli_type=cli_type)
+                if not rv.ok():
+                    return False
+        return True
     kwargs.pop("cli_type", "click")
     entries = utils.filter_and_select(output, None, {'buffer': kwargs['buffer']})
     if not entries:
@@ -430,7 +477,7 @@ def set_threshold_rest_data(**kwargs):
             "port": kwargs['port_alias'],
             "priority-group": kwargs['index'],
             "um-share-threshold": kwargs['value']
-            }
+        }
         return rv
 
     if kwargs['threshold_type'] == 'priority-group' and kwargs['buffer_type'] == 'headroom':
@@ -439,7 +486,7 @@ def set_threshold_rest_data(**kwargs):
             "port": kwargs['port_alias'],
             "priority-group": kwargs['index'],
             "um-headroom-threshold": kwargs['value']
-            }
+        }
         return rv
 
     if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'unicast':
@@ -448,7 +495,7 @@ def set_threshold_rest_data(**kwargs):
             "port": kwargs['port_alias'],
             "user-queue": kwargs['index'],
             "uc-threshold": kwargs['value']
-            }
+        }
         return rv
 
     if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'multicast':
@@ -488,15 +535,15 @@ def get_threshold_rest_data(**kwargs):
         "include-egress-cpu-queue": 0,
         "include-egress-rqe-queue": 0,
         "include-device": 0
-        }
+    }
 
     if kwargs['threshold_type'] == 'priority-group' and kwargs['buffer_type'] in ['shared', 'headroom']:
         rv['include-ingress-port-priority-group'] = 1
     if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'unicast':
         rv['include-egress-uc-queue'] = 1
-    if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'multicast'  and kwargs['port'] != 'CPU':
+    if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'multicast' and kwargs['port'] != 'CPU':
         rv['include-egress-mc-queue'] = 1
-    if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'multicast'  and kwargs['port'] == 'CPU':
+    if kwargs['threshold_type'] == 'queue' and kwargs['buffer_type'] == 'multicast' and kwargs['port'] == 'CPU':
         rv['include-egress-cpu-queue'] = 1
 
     return rv
@@ -525,15 +572,20 @@ def threshold_feature_debug(dut, mode, platform=None, test=''):
             st.wait(1)
             asicapi.dump_counters(dut)
 
+        if each_mode == 'show_watermark_counters':
+            intapi.show_watermark_counters(dut, 'all')
+
         if each_mode == 'asic_info':
             asicapi.dump_threshold_info(dut, test, platform, 'asic_info')
 
         if each_mode == 'debug_log_enable':
             st.config(dut, 'swssloglevel -l DEBUG -c thresholdmgr', skip_error_check=True)
+            st.config(dut, 'swssloglevel -l DEBUG -c snapshotmgr', skip_error_check=True)
             st.config(dut, 'swssloglevel -l SAI_LOG_LEVEL_DEBUG -s -c TAM', skip_error_check=True)
 
         if each_mode == 'debug_log_disable':
             st.config(dut, 'swssloglevel -l INFO -c thresholdmgr', skip_error_check=True)
+            st.config(dut, 'swssloglevel -l INFO -c snapshotmgr', skip_error_check=True)
             st.config(dut, 'swssloglevel -l SAI_LOG_LEVEL_INFO -s -c TAM', skip_error_check=True)
 
         if each_mode == 'show_logging':
@@ -541,6 +593,7 @@ def threshold_feature_debug(dut, mode, platform=None, test=''):
 
         if each_mode == 'port_map':
             asicapi.dump_threshold_info(dut, test, platform, 'asic_portmap')
+
 
 def config_buffer_pool_threshold(dut, **kwargs):
     """
@@ -561,10 +614,164 @@ def config_buffer_pool_threshold(dut, **kwargs):
 
     if cli_type == 'klish':
         command = "threshold buffer-pool {} {}".format(kwargs['pool'], kwargs['threshold'])
+
+        if kwargs.get('port_alias'):
+
+            command = list()
+            if 'buffer-pool' in kwargs:
+                command.append("interface {}".format(kwargs.get('port_alias')))
+                command.append("threshold buffer-pool {} {} {}".format(kwargs['pool_name'], kwargs['buffer_type'], kwargs['value']))
+                command.append("exit")
+
+            elif 'no_buffer-pool' in kwargs:
+                command.append("interface {}".format(kwargs.get('port_alias')))
+                command.append("no threshold buffer-pool {} {}".format(kwargs['pool_name'], kwargs['buffer_type']))
+                command.append("exit")
+        else:
+            command = list()
+            if 'buffer-pool' in kwargs:
+                command.append("threshold buffer-pool {} {} {}".format(kwargs['pool_name'], kwargs['buffer_type'], kwargs['value']))
+            elif 'no_buffer-pool' in kwargs:
+                command.append("threshold buffer-pool {} {} {}".format(kwargs['pool_name'], kwargs['buffer_type'], kwargs['value']))
+
     else:
         command = "config buffer-pool threshold {} {}".format(kwargs['pool'], kwargs['threshold'])
+
     st.config(dut, command, type=cli_type)
     return True
+
+
+def config_buffer_pool_threshold_interface(dut, *argv, **kwargs):
+    """
+    :param dut:
+    :param :pool:ingress_lossless_pool|egress_lossy_pool|egress_lossless_pool
+    :param :threshold_value:
+    :param :cli_type:click|klish
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+
+    if cli_type == 'klish':
+
+        if kwargs.get('port_alias'):
+
+            command = list()
+            if 'buffer-pool' in argv:
+                command.append("interface {}".format(kwargs.get('port_alias')))
+                command.append("threshold buffer-pool {} {} {}".format(kwargs['pool_name'], kwargs['buffer_type'], kwargs['value']))
+                command.append("exit")
+
+            elif 'no_buffer-pool' in argv:
+                command.append("interface {}".format(kwargs.get('port_alias')))
+                command.append("no threshold buffer-pool {} {}".format(kwargs['pool_name'], kwargs['buffer_type']))
+                command.append("exit")
+        else:
+            command = list()
+            if 'buffer-pool' in argv:
+                command.append("threshold buffer-pool {} {} {}".format(kwargs['pool_name'], kwargs['buffer_type'], kwargs['value']))
+            elif 'no_buffer-pool' in argv:
+                command.append("no threshold buffer-pool {} {}".format(kwargs['pool_name'], kwargs['buffer_type']))
+
+            elif 'device' in argv:
+                command.append("threshold device {}".format(kwargs['threshold_value']))
+
+            elif 'no_device' in argv:
+                command.append("no threshold device")
+    else:
+        st.report_unsupported("test_case_unsupported", "Supported only in klish UI")
+
+    st.config(dut, command, type=cli_type)
+    return True
+
+
+def show_device(dut, *argv, **kwargs):
+    """
+
+    :param dut:
+    :param :threshold_type:  priority-group|queue
+    :param :buffer_type: if threshold_type:priority-group {shared|headroom} |else threshold_type:queue {unicast|multicast}
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] else cli_type
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+
+    if 'device' in argv:
+        command = "show threshold device"
+    elif 'buffer_pool' in argv:
+        command = "show threshold buffer-pool"
+    elif 'buffer_pool_intf' in argv:
+        command = "show threshold buffer-pool interface {}".format(kwargs['intf_name'])
+    elif 'threshold' in argv:
+        command = "show threshold breaches"
+    else:
+        return None
+
+    output = st.show(dut, command, type=cli_type)
+    return output
+
+
+def verify_device_threshold_pool(dut, **kwargs):
+    """
+    :param :dut:
+    :param :buffer: (Mandatory)
+    :param :port:
+    :param :index:
+    :param :threshold_type:
+    :param :value:
+    :param :year:
+    :param :month:
+    :param :day:
+    :param :hours:
+    :param :minutes:
+    :param :seconds:
+    :param :eventid:
+    :param :cli_type:
+    :return:
+    """
+    entries_temp = {}
+    if 'buffer' not in kwargs:
+        st.error("Mandatory parameter 'buffer' not found")
+        return False
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+    output = show_threshold_breaches(dut, cli_type)
+    if not output:
+        st.error("Empty output for show threshold breaches - {}".format(output))
+        return False
+    if cli_type in get_supported_ui_type_list():
+        field_mapping = {"buffer": "Buffer", "threshold_type": "Type", "port": "Port", "index": "Index", "value": "BreachValue", "counter": "Counter"}
+        qos_obj = umf_qos.Qos()
+        for breach in output:
+            breach_obj = umf_qos.Breach(Id=int(breach.get("eventid")), Qos=qos_obj)
+            for field, mapping in field_mapping.items():
+                if breach.get(field):
+                    setattr(breach_obj, mapping, breach.get(field))
+                rv = breach_obj.verify(dut, match_subset=True, cli_type=cli_type)
+                if not rv.ok():
+                    return False
+        return True
+    non_zero_value = kwargs.get('non_zero_value', False)
+    kwargs.pop("cli_type", "click")
+    kwargs.pop("non_zero_value")
+    entries = utils.filter_and_select(output, None, {'buffer': kwargs['buffer']})
+    if not entries:
+        st.log("Provided buffer '{}' is not present in table ".format(kwargs['buffer']))
+        return False
+    for each in kwargs.keys():
+        match = {each: kwargs[each]}
+        entries_temp = utils.filter_and_select(entries, None, match)
+        if not entries_temp:
+            st.log("{} and {} is not match ".format(each, kwargs[each]))
+            return False
+    for i in entries_temp:
+        if non_zero_value:
+            if int(i.get('value', 0)) == 0:
+                return False
+    return True
+
 
 def verify_buffer_pool_threshold(dut, **kwargs):
     """
@@ -589,6 +796,7 @@ def verify_buffer_pool_threshold(dut, **kwargs):
             return False
     return True
 
+
 def show_buffer_pool_threshold(dut, **kwargs):
     """
     Show buffer pool threshold
@@ -611,6 +819,7 @@ def show_buffer_pool_threshold(dut, **kwargs):
         command = "show buffer_pool threshold buffer_pool_all"
     output = st.show(dut, command, type=cli_type)
     return output
+
 
 def clear_buffer_pool_threshold(dut, **kwargs):
     """
