@@ -152,6 +152,11 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
 
                     if "Aboot" in x and "#" in x:
                         # TODO: Define a function to send command here
+                        dut_console.remote_conn.send("cd /mnt/flash")
+                        dut_console.remote_conn.send("\n")
+
+                        time.sleep(1)
+
                         dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
                                                      ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                         dut_console.remote_conn.send("\n")
