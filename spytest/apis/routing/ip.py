@@ -2,14 +2,15 @@
 # Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
 
 import re
+import time
 import ipaddress
-import subprocess
 
 from spytest import st
 
 from apis.system.rest import config_rest, delete_rest, get_rest
 from apis.routing.ip_rest import get_subinterface_index
 from apis.routing.sag import config_sag_ip
+import apis.switching.portchannel as pc
 import apis.system.boot_up as bootup_api
 
 import utilities.common as utils
@@ -17,16 +18,22 @@ from utilities.utils import get_interface_number_from_name
 from utilities.utils import segregate_intf_list_type
 from utilities.utils import is_a_single_intf
 from utilities.utils import get_supported_ui_type_list
+from utilities.utils import cli_type_for_get_mode_filtering
 from utilities.utils import is_valid_ipv4_address
 from utilities.utils import is_valid_ipv6_address
 from utilities.utils import is_valid_ip_address
 from utilities.utils import get_intf_short_name, convert_intf_name_to_component
+from utilities.utils import get_random_space_string
 
 try:
     import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
+    import apis.yang.codegen.messages.network_instance as umf_ni
+    import apis.yang.codegen.messages.ip_sla as umf_ipsla
     import apis.yang.codegen.messages.routing_policy as umf_rp
+    import apis.yang.codegen.messages.loadshare_mode_ext as umf_loadshare
+    import apis.yang.codegen.messages.system as umf_system
+    import apis.yang.codegen.bulk as umf_bulk
     from apis.yang.utils.common import Operation
-
 except ImportError:
     pass
 
@@ -170,8 +177,7 @@ def ping(dut, addresses, family='ipv4', **kwargs):
 
     if external:
         st.log(command)
-        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
-                             universal_newlines=True)
+        p = utils.process_popen(command)
         rv, err = p.communicate()
         st.log(rv)
         st.log(err)
@@ -210,7 +216,65 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
     is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
     max_time = kwargs.get('max_time', 600)
     gw_addr = kwargs.get('gw_addr', None)
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        index = get_subinterface_index(dut, interface_name)
+        if not index:
+            st.error("Failed to get index for interface: {}".format(interface_name))
+            index = 0
+        if config in ['add', 'verify']:
+            # operation = Operation.UPDATE
+            operation = Operation.CREATE
+            # Update/Patch is not working for Phy interface.
+            if 'Eth' in interface_name and '.' not in interface_name:
+                operation = Operation.CREATE
+            interface_name = get_phy_port(interface_name)
+            intf_obj = umf_intf.Interface(Name=interface_name)
+            secondary_ip_flag = True if is_secondary_ip == 'yes' else False
+            if "Vlan" in interface_name:
+                operation = Operation.CREATE
+                if family == "ipv4":
+                    intf_ipx_obj = umf_intf.RoutedVlanIpv4Address(Ip=ip_address, PrefixLength=subnet, Secondary=secondary_ip_flag, Interface=intf_obj)
+                else:
+                    intf_ipx_obj = umf_intf.RoutedVlanIpv6Address(Ip=ip_address, PrefixLength=subnet, Interface=intf_obj)
+                if config == 'add':
+                    result = intf_ipx_obj.configure(dut, operation=operation, cli_type=cli_type, timeout=time_out)
+            else:
+                if 'Loopback' in interface_name.capitalize():
+                    loopback_intfs = get_loopback_interfaces(dut)
+                    if interface_name.capitalize() not in loopback_intfs:
+                        if not config_loopback_interfaces(dut, loopback_name=interface_name.capitalize(), cli_type=cli_type):
+                            st.error("msg", "Failed to create loopback interface")
+                            return False
+                sub_intf_obj = umf_intf.Subinterface(Index=int(index), Interface=intf_obj)
+                if family == "ipv4":
+                    if not gw_addr:
+                        intf_ipx_obj = umf_intf.SubinterfaceIpv4Address(Ip=ip_address, PrefixLength=subnet, Secondary=secondary_ip_flag, Subinterface=sub_intf_obj)
+                    else:
+                        intf_ipx_obj = umf_intf.SubinterfaceIpv4Address(Ip=ip_address, PrefixLength=subnet,
+                                                                        Secondary=secondary_ip_flag,
+                                                                        Subinterface=sub_intf_obj, GwAddr=gw_addr)
+                    sub_intf_obj.add_SubinterfaceIpv4Address(intf_ipx_obj)
+                else:
+                    intf_ipx_obj = umf_intf.SubinterfaceIpv6Address(Ip=ip_address, PrefixLength=subnet, Subinterface=sub_intf_obj)
+                    sub_intf_obj.add_SubinterfaceIpv6Address(intf_ipx_obj)
+
+                if config == 'add':
+                    result = sub_intf_obj.configure(dut, operation=operation, cli_type=cli_type, timeout=time_out)
+
+            if config == 'verify':
+                return intf_ipx_obj
+
+            # result = intf_ipx_obj.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Configuring IP Address on Interface {}'.format(result.data))
+                return False
+            elif result.ok() and skip_error:
+                st.log('Negative Scenario: Error/Exception is expected')
+                return False
+            return True
+        elif config == 'remove':
+            return delete_ip_interface(dut, interface_name, ip_address, subnet, family, cli_type=cli_type, is_secondary_ip=is_secondary_ip)
+    elif cli_type == 'click':
         if config == 'add':
             try:
                 if not interface_name:
@@ -222,7 +286,7 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
 
                 if family == "ipv4":
                     if not is_valid_ipv4_address(ip_address):
-                        st.error("Invalid IP address.")
+                        st.warn("Invalid IP address.")
                         return False
                 elif family == "ipv6":
                     if not is_valid_ipv6_address(ip_address):
@@ -249,14 +313,16 @@ def config_ip_addr_interface(dut, interface_name='', ip_address='', subnet='', f
                 expect_ipchange = False
                 if interface_name == 'eth0':
                     expect_ipchange = True
-                    command = "interface Management 0"
+                    zero_or_more_space = get_random_space_string()
+                    command = "interface Management{}0".format(zero_or_more_space)
                     if not gw_addr:
                         command = command + "\n" + "ip address {}/{}".format(ip_address, subnet)
                     else:
                         command = command + "\n" + "ip address {}/{} gwaddr {}".format(ip_address, subnet, gw_addr)
                 else:
                     intf = get_interface_number_from_name(interface_name)
-                    command = "interface {} {}".format(intf['type'], intf['number'])
+                    zero_or_more_space = get_random_space_string()
+                    command = "interface {}{}{}".format(intf['type'], zero_or_more_space, intf['number'])
                     fam = "ip" if family == 'ipv4' else 'ipv6'
                     command = command + "\n" + "{} address {}/{}".format(fam, ip_address, subnet)
                     if is_secondary_ip == 'yes':
@@ -357,7 +423,7 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
     """
     if family == "ipv4":
         if not is_valid_ipv4_address(ip_address):
-            st.error("Invalid IP address.")
+            st.warn("Invalid IP address.")
     elif family == "ipv6":
         if not is_valid_ipv6_address(ip_address):
             st.error("Invalid IPv6 address.")
@@ -365,7 +431,40 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
     is_secondary_ip = kwargs.get('is_secondary_ip', 'no').lower()
     max_time = kwargs.get('max_time', 600)
 
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list() and not is_a_single_intf(interface_name):
+        cli_type = 'klish'
+
+    if cli_type in get_supported_ui_type_list():
+        index = get_subinterface_index(dut, interface_name)
+        if not index:
+            st.error("Failed to get index for interface: {}".format(interface_name))
+            index = 0
+        interface_name = get_phy_port(interface_name)
+        secondary_ip_flag = True if is_secondary_ip == 'yes' else False
+        intf_obj = umf_intf.Interface(Name=interface_name)
+        if "Vlan" in interface_name:
+            if family == "ipv4":
+                intf_ipx_obj = umf_intf.RoutedVlanIpv4Address(Ip=ip_address, PrefixLength=subnet, Secondary=secondary_ip_flag, Interface=intf_obj)
+            else:
+                intf_ipx_obj = umf_intf.RoutedVlanIpv6Address(Ip=ip_address, PrefixLength=subnet, Interface=intf_obj)
+        else:
+            sub_intf_obj = umf_intf.Subinterface(Index=index, Interface=intf_obj)
+            if family == 'ipv4':
+                intf_ipx_obj = umf_intf.SubinterfaceIpv4Address(Ip=ip_address, PrefixLength=subnet, Secondary=secondary_ip_flag, Subinterface=sub_intf_obj)
+            else:
+                intf_ipx_obj = umf_intf.SubinterfaceIpv6Address(Ip=ip_address, PrefixLength=subnet, Subinterface=sub_intf_obj)
+
+        if not secondary_ip_flag:
+            target_attr = None
+        else:
+            target_attr = intf_ipx_obj.Secondary
+
+        result = intf_ipx_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type, timeout=time_out)
+        if not result.ok():
+            st.log('test_step_failed: Configuring IP Address on Interface {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'click':
         if not is_a_single_intf(interface_name):
             st.error("Range intf not supported in cli_type CLICK")
             return False
@@ -388,7 +487,8 @@ def delete_ip_interface(dut, interface_name, ip_address, subnet="32", family="ip
                 command.append("no {} address {}/{}".format(fam, ip_address, subnet))
             else:
                 intf = get_interface_number_from_name(ifname)
-                command.append("interface {} {}".format(intf['type'], intf['number']))
+                zero_or_more_space = get_random_space_string()
+                command.append("interface {}{}{}".format(intf['type'], zero_or_more_space, intf['number']))
                 sub_cmd = "no {} address {}/{}".format(fam, ip_address, subnet)
                 if is_secondary_ip == 'yes':
                     sub_cmd += ' secondary'
@@ -493,7 +593,100 @@ def verify_interface_ip_address(dut, interface_name, ip_address, family="ipv4", 
     if cli_type in ['rest-patch', 'rest-put']:
         cli_type = 'klish'  # OC-YANG URLs are not available for show ip/ipv6 interface. Reported JIRA: SONIC-23677 for this.
     # gnmi related code is not complete as some of the values are not available
-    if cli_type in ['klish', 'click']:
+    if cli_type in get_supported_ui_type_list():
+        #        if vrfname != '' and vrfname != 'default': cli_type = 'klish'
+        if flags != '':
+            cli_type = 'klish'
+        for ip_addr in ip_addrs:
+            if '/' not in ip_addr:
+                cli_type = 'klish'
+        st.log('Forcing the cli_type to Klish as either flags is non-blank or / not in ip_addr')
+    if cli_type in get_supported_ui_type_list():
+        kwargs['cli_type'] = cli_type
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+
+        for intf, ip_addr, vrf_name in zip(interfaces, ip_addrs, vrfs):
+            if vrf_name == '':
+                vrf_name = 'default'
+            ip = ip_addr.split('/')[0]
+            subnet = ip_addr.split('/')[1]
+            if 'eth0' in intf:
+                if family == 'ipv4':
+                    intf_obj = umf_intf.Interface(Name='eth0')
+                    intf_ipx_obj = umf_intf.Subinterface(Index=0, Interface=intf_obj)
+                    result = intf_ipx_obj.verify(dut, target_path='ipv4/addresses', query_param=query_param_obj)
+                    if result.payload and ip == result.payload['openconfig-if-ip:addresses']['address'][0]['state']['ip']:
+                        st.log('test_step_passed: Match Found: {} {}'.format(intf, ip))
+                        return True
+                    else:
+                        st.log('test_step_failed: Match Not Found: {} {}'.format(intf, ip))
+                        return False
+                else:
+                    intf_obj = umf_intf.Interface(Name='eth0')
+                    sub_intf_obj = umf_intf.Subinterface(Index=0, Interface=intf_obj)
+                    intf_ipx_obj = umf_intf.SubinterfaceIpv6Address(Ip=ip, Subinterface=sub_intf_obj)
+                    result = intf_ipx_obj.verify(dut, query_param=query_param_obj)
+
+                    if result.payload and ip == result.payload['openconfig-if-ip:address'][0]['state']['ip']:
+                        st.log('test_step_passed: Match Found: {} {}'.format(intf, ip))
+                        return True
+                    else:
+                        st.log('test_step_failed: Match Not Found: {} {}'.format(intf, ip))
+                        return False
+            else:
+                verify_ipx_obj = config_ip_addr_interface(dut, interface_name=intf, ip_address=ip, subnet=subnet, family=family, config='verify', **kwargs)
+                result = verify_ipx_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+                if negative and result.ok():
+                    st.log('test_step_failed: Match Not Expected But Found: {} {}'.format(intf, ip_addr))
+                    return False
+            if not negative and not result.ok():
+                st.log('test_step_failed: Match Not Found: {} {}'.format(intf, ip_addr))
+                return False
+            if intf_status and '.' not in intf:
+                # TBD Code for sub-interfce
+                intf_obj = umf_intf.Interface(Name=intf)
+                intf_obj.AdminStatus = intf_status.split('/')[0].upper()
+                result_admin_status = intf_obj.verify(dut, target_attr=getattr(intf_obj, 'AdminStatus'), match_subset=True, cli_type=cli_type)
+                if not result_admin_status.ok():
+                    st.log('test_step_failed: AdminStatus Mismatch for Interface {}'.format(intf))
+                    return False
+                intf_obj.OperStatus = intf_status.split('/')[1].upper()
+                result_oper_status = intf_obj.verify(dut, target_attr=getattr(intf_obj, 'OperStatus'), match_subset=True, cli_type=cli_type)
+                if not result_oper_status.ok():
+                    st.log('test_step_failed: OperStatus Mismatch for Interface {}'.format(intf))
+                    return False
+
+            # VRF needs to be validated separately
+            if intf == 'eth0' and vrf_name != 'mgmt':
+                continue
+            ni_obj = umf_ni.NetworkInstance(Name=vrf_name)
+            ni_intf_obj = umf_ni.NetworkInstanceInterface(Id=intf, NetworkInstance=ni_obj)
+            if vrf_name == 'default':
+                filter_type = 'NON_CONFIG'
+                query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+            result_vrf = ni_intf_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+            if negative and result_vrf.ok():
+                st.log('test_step_failed: Vrf {}, Interface {} found'.format(vrf_name, intf))
+                return False
+            if not negative and not result_vrf.ok():
+                st.log('test_step_failed: Vrf {}, Interface {} not found'.format(vrf_name, intf))
+                return False
+
+            if flags == 'U':
+                intf_obj = umf_intf.Interface(Name=intf)
+                if 'Vlan' in intf:
+                    # Enabled attribute is not valid - defect fix 74996
+                    # intf_obj.VlanIpv4UnNumEnabled = True
+                    result_flag = intf_obj.verify(dut, target_attr=intf_obj.Ipv4Interface, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+                if negative and result_flag.ok():
+                    st.log('test_step_failed: Vrf {}, Interface {} found'.format(vrf_name, intf))
+                    return False
+                if not negative and not result_flag.ok():
+                    st.log('test_step_failed: Vrf {}, Interface {} not found'.format(vrf_name, intf))
+                    return False
+        return True
+    else:
         command = "show ip interface"
         if family == "ipv6":
             command = "show ipv6 interface"
@@ -556,7 +749,56 @@ def create_static_route(dut, next_hop=None, static_ip=None, shell="vtysh", famil
     else:
         st.error("IP family should be ipv4/ipv6 but {} found".format(family))
         return False
-    if cli_type == "vtysh":
+    if cli_type in get_supported_ui_type_list():
+        config = kwargs.get('config', 'yes')
+        # ui, operation = get_ui_op(dut, cli_type=cli_type)
+        if '/' not in static_ip:
+            st.error('Network ID should be provided along with subnet mask')
+            return False
+        instance = vrf if vrf else 'default'
+        ni_obj = umf_ni.NetworkInstance(Name=instance)
+        proto_obj = umf_ni.Protocol(ProtoIdentifier="STATIC", Name="static", NetworkInstance=ni_obj)
+        static_obj = umf_ni.Static(Prefix=static_ip, Protocol=proto_obj)
+        ip_args = {"Static": static_obj}
+        if next_hop:
+            if not re.search(r':|\.', next_hop) and 'blackhole' not in next_hop:
+                ip_args.update({"Interface": next_hop})
+                interface = None
+            elif 'blackhole' in next_hop:
+                next_hop = 'DROP'
+                ip_args.update({"Blackhole": True})
+            else:
+                ip_args.update({"NextHop": next_hop})
+            index = "{}_{}".format(next_hop, nexthop_vrf).replace('None', '').replace("__", "_").strip("_")
+            if next_hop.lower().startswith('fe80'):
+                ip_args.update({"Interface": interface})
+                index = "{}_{}_{}".format(interface, next_hop, nexthop_vrf).replace('None', '').replace("__", "_").strip("_")
+        elif interface:
+            ip_args.update({"Interface": interface})
+            index = "{}_{}".format(interface, nexthop_vrf).replace('None', '').replace("__", "_").strip("_")
+        if nexthop_vrf:
+            ip_args.update({"NetworkInstance": nexthop_vrf})
+        if distance:
+            ip_args.update({"Metric": int(distance)})
+        if track:
+            ip_args.update({"Track": track})
+        if config == 'yes':
+            static_next_hop_obj = umf_ni.StaticNextHop(Index=index, **ip_args)
+            static_obj.add_StaticNextHop(static_next_hop_obj)
+            operation = Operation.CREATE
+            result = static_obj.configure(dut, operation=operation, cli_type=cli_type, timeout=time_out)
+        else:
+            ip_args.update({'Static': static_obj})
+            static_next_hop_obj = umf_ni.StaticNextHop(Index=index, **ip_args)
+            if not next_hop:
+                static_obj.add_StaticNextHop(static_next_hop_obj)
+                result = static_obj.unConfigure(dut, cli_type=cli_type, timeout=time_out)
+            else:
+                result = static_next_hop_obj.unConfigure(dut, cli_type=cli_type, timeout=time_out)
+        if not result.ok():
+            st.log('test_step_failed: Configuring Static Route {}'.format(result.data))
+            return False
+    elif cli_type == "vtysh":
         if family.lower() == "ipv4" or family.lower() == "":
             if next_hop:
                 command = "ip route {} {}".format(static_ip, next_hop)
@@ -758,17 +1000,76 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     """
 
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    yang_data_type = kwargs.get("yang_data_type", "ALL")
     # format = kwargs.get("format", True)
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type in ['click', 'vtysh']:
         cli_type = 'click'
     elif cli_type in ["rest-patch", "rest-put"]:
         cli_type = "klish"
-    elif cli_type in ["rest", "gnmi"]:
-        cli_type = "klish"
 
     summary_routes = ' summary' if kwargs.get('summary_routes') else ''
-    if cli_type in ['click', 'klish']:
+    if cli_type in ["rest", "gnmi"] and not summary_routes:
+        result = list()
+        vrf_name = "default" if not vrf_name else vrf_name
+        ni_obj = umf_ni.NetworkInstance(Name=vrf_name)
+        if cli_type in cli_type_for_get_mode_filtering():
+            query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+            rv = ni_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+        else:
+            rv = ni_obj.get_payload(dut, cli_type=cli_type)
+        if rv.ok():
+            response = rv.payload
+            afts_data = response["openconfig-network-instance:network-instance"][0]["afts"]
+            unicast_entry = afts_data.get("{}-unicast".format(family)).get("{}-entry".format(family))
+            if unicast_entry:
+                for entry in unicast_entry:
+                    route_data = dict()
+                    if entry.get("state").get("origin-protocol"):
+                        origin_proto = entry.get("state").get("origin-protocol").replace("openconfig-policy-types:", "")
+                        if origin_proto == "DIRECTLY_CONNECTED":
+                            route_data["type"] = "C"
+                        elif origin_proto in ["BGP", "OSPF", "IGMP", "STATIC", "PIM"]:
+                            route_data["type"] = origin_proto[0]
+                        else:
+                            route_data["type"] = "K"
+                    else:
+                        route_data["type"] = "K"
+                    route_data["selected"] = ""
+                    route_data["fib"] = ""
+                    route_data["not_installed"] = ""
+                    route_data["ip_address"] = entry.get("prefix")
+                    route_data["duration"] = entry.get("state").get("uptime")
+                    route_data["distance"] = entry.get("state").get("distance")
+                    route_data["distance"] = entry.get("state").get("distance")
+                    route_data["cost"] = entry.get("state").get("metric")
+                    route_data["vrf_name"] = vrf_name
+                    route_data["dest_vrf_name"] = ""
+                    route_data["weight"] = ""
+                    next_hops = entry.get("openconfig-aft-deviation:next-hops")
+                    if next_hops:
+                        next_hop_data = next_hops.get("next-hop")
+                        for next_hop in next_hop_data:
+                            next_hop_entry = dict()
+                            if next_hop.get("interface-ref").get("state").get("interface"):
+                                next_hop_entry["interface"] = next_hop.get("interface-ref").get("state").get("interface")
+                            else:
+                                next_hop_entry["interface"] = ""
+                            if next_hop.get("state").get("ip-address"):
+                                next_hop_entry["nexthop"] = next_hop.get("state").get("ip-address")
+                            else:
+                                next_hop_entry["nexthop"] = ""
+                            next_hop_entry["nh_type"] = ""
+                            route_data.update(next_hop_entry)
+                            result.append(route_data)
+                    else:
+                        result.append(route_data)
+                return result
+            else:
+                return result
+        else:
+            return result
+    else:
         if vrf_name:
             cmd = "show ip route vrf " + vrf_name + summary_routes
         else:
@@ -782,6 +1083,40 @@ def show_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
 
     output = st.show(dut, cmd, type=cli_type)
     return output
+
+
+def verify_ip_route_summary(dut, match_summary={}, version='ipv4', vrf='default', cli_type=''):
+    """
+    :param dut:
+    :param match_summary:
+    :param version:
+    :param cli_type:
+    :return: True/False
+    """
+
+    family = ''
+    if version == 'ip' or version == 'ipv4':
+        family = 'ipv4'
+    elif version == 'ipv6':
+        family = 'ipv6'
+    else:
+        st.error("Invalid version parameter {}".format(version))
+        return False
+
+    match_summary[u'vrf'] = vrf
+
+    st.log("IP Routing table summary on DUT {} , vrf {}.".format(dut, match_summary[u'vrf']))
+
+    output = show_ip_route(dut, family=family, vrf_name=vrf, summary_routes='yes')
+
+    summary_entries = utils.filter_and_select(output, None, match_summary)
+    if len(summary_entries):
+        st.log("IP - {} route summary match successfull".format(version))
+        return True
+    else:
+        st.log("IP - Routing table summary: {}".format(output))
+        st.log("IP - {} route summary match failed for {}".format(version, match_summary))
+        return False
 
 
 def verify_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
@@ -817,6 +1152,92 @@ def verify_ip_route(dut, family="ipv4", shell="sonic", vrf_name=None, **kwargs):
     if cli_type in ['rest-patch', 'rest-put']:
         cli_type = 'klish'
 #    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+
+    if cli_type in get_supported_ui_type_list():
+        # Most likely there wont be any call without IP address, however being careful here
+        if 'ip_address' not in kwargs:
+            cli_type = 'klish'
+        # no option to get these info using data_driven APIs
+        if 'selected' in kwargs:
+            cli_type = 'klish'
+        if 'fib' in kwargs:
+            cli_type = 'klish'
+        # Forcing below line to klish due to defect 62149
+        if 'nexthop' in kwargs and 'ffff' in kwargs['nexthop']:
+            cli_type = 'klish'
+        if cli_type == 'klish':
+            st.log('Forcing cli_type to Klish, due to various limitation/defect')
+
+    if cli_type in get_supported_ui_type_list():
+        st.log('Cant fetch non-selected routes using GNMI/REST, so check if the route is selected using Klish')
+        route_entries = fetch_ip_route(dut, family=family, vrf_name=vrf_name, match={'ip_address': kwargs['ip_address']}, cli_type='klish')
+        nexthop_index = 1
+        ecmp_count = 0
+        for route_entry in route_entries:
+            ecmp_count += 1
+            if route_entry['selected'] != '>':
+                cli_type = 'klish'
+                st.log('Forcing cli_type to Klish, route is not selected')
+                break
+            '''if route_entry['nexthop'] == kwargs.get('nexthop'):
+                nexthop_index = ecmp_count
+                break'''
+            # If route_entry is selected, compare other params like next_hop, interface, protocol type and
+            # if all matches pick that route Index for gnmi GET call.
+            valid_route = True
+            for key in kwargs:
+                if route_entry[key] != kwargs.get(key):
+                    valid_route = False
+                    break
+            if valid_route:
+                nexthop_index = ecmp_count
+                break
+
+    if cli_type in get_supported_ui_type_list():
+        if 'ip_address' in kwargs:
+            st.banner("Verify Route:{}".format(kwargs['ip_address']))
+
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        vrf_name = vrf_name if vrf_name else 'default'
+        # for klish, testcase specifies vrf_name as "Vrf1 45.45.45.0/24", it fails in GNMI & REST
+        vrf_name = vrf_name.split(" ")[0]
+        ni_obj = umf_ni.NetworkInstance(Name=vrf_name)
+        if family == 'ipv4':
+            route_obj = umf_ni.Ipv4UnicastIpv4Entry(Prefix=kwargs['ip_address'], NetworkInstance=ni_obj)
+        else:
+            route_obj = umf_ni.Ipv6Entry(Prefix=kwargs['ip_address'], NetworkInstance=ni_obj)
+
+        if 'distance' in kwargs:
+            route_obj.Distance = kwargs['distance']
+        if 'cost' in kwargs:
+            route_obj.Metric = kwargs['cost']
+        if 'type' in kwargs:
+            route_type_map = {'C': 'DIRECTLY_CONNECTED', 'B': 'BGP', 'O': 'OSPF', 'S': 'STATIC', 'K': 'SYS_KERNEL'}
+            route_obj.OriginProtocol = route_type_map[kwargs['type'].upper()]
+        if 'duration' in kwargs:
+            route_obj.Duration = kwargs['duration']
+        if 'nexthop' in kwargs or 'interface' in kwargs:
+            if family == 'ipv4':
+                nh_obj = umf_ni.Ipv4EntryNextHop(Index=nexthop_index)
+                if 'nexthop' in kwargs:
+                    nh_obj.IpAddress = kwargs['nexthop']
+                if 'interface' in kwargs:
+                    nh_obj.Interface = kwargs['interface']
+                route_obj.add_Ipv4EntryNextHop(nh_obj)
+            else:
+                nh_obj = umf_ni.Ipv6EntryNextHop(Index=nexthop_index)
+                if 'nexthop' in kwargs:
+                    nh_obj.IpAddress = kwargs['nexthop']
+                if 'interface' in kwargs:
+                    nh_obj.Interface = kwargs['interface']
+                route_obj.add_Ipv6EntryNextHop(nh_obj)
+
+        result = route_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Match Not Found: {}'.format(kwargs['ip_address']))
+            return False
+        return True
 
     if family == "ipv6":
         if vrf_name:
@@ -952,7 +1373,6 @@ def _clear_ip_configuration_helper(dut_list, family="ipv4", cli_type='', skip_er
     """
     dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
     cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
-#    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if family == "ipv4":
         family_li = ['ipv4']
     elif family == "ipv6":
@@ -992,9 +1412,8 @@ def clear_ip_configuration(dut_list, family='ipv4', thread=True, cli_type='', sk
     """
     if not thread:
         return _clear_ip_configuration_helper(dut_list, family, cli_type, skip_error_check)
-    dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
-    [out, _] = utils.exec_foreach(thread, dut_li, _clear_ip_configuration_helper, family, cli_type=cli_type, skip_error_check=skip_error_check)
+    out = st.exec_each(utils.make_list(dut_list), _clear_ip_configuration_helper,
+                       family, cli_type=cli_type, skip_error_check=skip_error_check)[0]
     return False if False in out else True
 
 
@@ -1032,8 +1451,9 @@ def clear_loopback_interfaces(dut_list, thread=True):
     :param dut_list
     :return:
     """
-    dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    [out, _] = utils.exec_foreach(thread, dut_li, _clear_loopback_config_helper)
+    if not thread:
+        return _clear_loopback_config_helper(dut_list)
+    out = st.exec_each(utils.make_list(dut_list), _clear_loopback_config_helper)[0]
     return False if False in out else True
 
 
@@ -1112,6 +1532,30 @@ def verify_ip_route_not_installed(dut, family="ipv4", **kwargs):
             st.log("{} and {} is not match ".format(each, kwargs[each]))
             return False
     return True
+
+
+def fetch_ip_not_installed_summary(dut, vrf='default', version='ip', **kwargs):
+    """
+    :param dut:
+    :param vrf:
+    :param version:
+    :param key:
+    :return:
+    """
+    # cli_type = st.get_ui_type(dut, **kwargs)
+    result = 0
+    st.log("Check route not-installed summary on DUT {} for vrf {}".format(dut, vrf))
+    key = kwargs.get('key', 'fib_total')
+    cmd = "show {} route vrf {} not-installed summary".format(version, vrf)
+    output = st.show(dut, cmd, type="klish")
+    output = utils.filter_and_select(output, None, {u'vrf': vrf})
+    if output[0]:
+        output = output[0]
+        if key in output.keys():
+            result = int(output[key])
+    else:
+        st.error("Output is not proper; Received output is: {}".format(output))
+    return result
 
 
 def create_neighbor(dut, neigh, mac, interface, family='ipv4'):
@@ -1203,8 +1647,7 @@ def traceroute(dut, addresses, family='ipv4', vrf_name=None, timeout=None, gatew
 
     if external:
         st.log(command)
-        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True,
-                             universal_newlines=True)
+        p = utils.process_popen(command)
         rv, err = p.communicate()
         st.log(rv)
         st.log(err)
@@ -1257,8 +1700,10 @@ def config_route_map(dut, route_map, config='yes', **kwargs):
     :param :match_source_protocol: match source-protocol
     :param :local_preference: set local-preference
     :param :origin: set origin attribute
+    :param :action: permit | deny <default is permit if arg is not passed>
     :EX: config_route_map(dut, route_map='rmap1', config='yes', sequence='10', community='100:100')
          config_route_map(dut, route_map='rmap1', config='no')
+         config_route_map(dut, route_map='rmap1', config='yes', sequence='10', action="deny", weight="10")
          config_route_map(dut, route_map='rmap1', config='no', sequence='10',weight="100")
          config_route_map(dut, route_map='rmap1', sequence='20',weight="100")
     :Caution: while creating the route-map (config='yes'), sequence number must be mentioned and it should be
@@ -1270,7 +1715,10 @@ def config_route_map(dut, route_map, config='yes', **kwargs):
     if config == 'yes':
         cmd = "route-map {}".format(route_map)
         if kwargs['sequence']:
-            cmd += " permit {}".format(kwargs['sequence'])
+            if 'action' in kwargs and kwargs['action'] == "deny":
+                cmd += " deny {}".format(kwargs['sequence'])
+            else:
+                cmd += " permit {}".format(kwargs['sequence'])
         if 'metric' in kwargs:
             cmd += "\n set metric {}".format(kwargs['metric'])
         if 'community' in kwargs:
@@ -1439,6 +1887,21 @@ def config_route_map_mode(dut, tag, operation, sequence, config='yes', **kwargs)
     """
     cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = 'vtysh' if cli_type in ['vtysh', 'click'] else cli_type
+    if cli_type in get_supported_ui_type_list():
+        action = 'ACCEPT_ROUTE' if operation == 'permit' else 'REJECT_ROUTE'
+        rp_pd_obj = umf_rp.PolicyDefinition(Name=tag)
+        if config.lower() == 'yes':
+            operation = Operation.CREATE
+            rp_rule_obj = umf_rp.Statement(StatementName=str(sequence), PolicyResult=action, PolicyDefinition=rp_pd_obj)
+            rp_pd_obj.add_Statement(rp_rule_obj)
+            result = rp_pd_obj.configure(dut, operation=operation, cli_type=cli_type)
+        else:
+            rp_rule_obj = umf_rp.Statement(StatementName=str(sequence), PolicyDefinition=rp_pd_obj)
+            result = rp_rule_obj.unConfigure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Configure Route Map {}'.format(result.data))
+            return False
+        return True
     if cli_type in ['vtysh', 'klish']:
         if config.lower() == 'yes':
             mode = ""
@@ -1488,6 +1951,29 @@ def config_route_map_match_ip_address(dut, tag, operation, sequence, value, fami
     if not config_route_map_mode(dut, tag, operation, sequence, cli_type=cli_type):
         st.error("Route map mode configuration failed")
         return False
+    if cli_type in get_supported_ui_type_list():
+        rp_pd_obj = umf_rp.PolicyDefinition(Name=tag)
+        rp_rule_obj = umf_rp.Statement(StatementName=str(sequence))
+        if community:
+            setattr(rp_rule_obj, 'CommunitySet', community)
+        else:
+            if family == 'ip':
+                setattr(rp_rule_obj, 'PrefixSet', value)
+                target_attr = getattr(rp_rule_obj, 'PrefixSet')
+            else:
+                setattr(rp_rule_obj, 'Ipv6PrefixSet', value)
+                target_attr = getattr(rp_rule_obj, 'Ipv6PrefixSet')
+        if config.lower() == 'yes':
+            operation = Operation.CREATE
+            rp_pd_obj.add_Statement(rp_rule_obj)
+            result = rp_pd_obj.configure(dut, operation=operation, cli_type=cli_type)
+        else:
+            result = rp_rule_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Configure Route Map Match {}'.format(result.data))
+            return False
+        return True
+
     if cli_type == 'vtysh':
         command += '{} match {} address {}\n'.format(mode, family, value)
         command += 'exit\n'
@@ -2073,6 +2559,42 @@ def config_unnumbered_interface(dut, **kwargs):
     loop_back = kwargs.get("loop_back", None)
     skip_error = kwargs.get('skip_error', False)
     intf_name = get_interface_number_from_name(interface)
+    if cli_type in get_supported_ui_type_list():
+        index = get_subinterface_index(dut, interface)
+        if not index:
+            st.error("Failed to get index for interface: {}".format(interface))
+            index = 0
+        intf_name = get_phy_port(interface)
+        intf_obj = umf_intf.Interface(Name=intf_name)
+        if 'Vlan' in intf_name:
+            # Enabled attribute is not valid - defect fix 74996
+            # intf_obj.VlanIpv4UnNumEnabled = True
+            intf_obj.Ipv4Interface = loop_back
+            intf_obj.Ipv4Subinterface = int(index)
+            target_attr = intf_obj.Ipv4Interface
+        else:
+            sub_intf_obj = umf_intf.Subinterface(Index=int(index))
+            # Enabled attribute is not valid - defect fix 74996
+            # sub_intf_obj.SubIntfIpv4UnNumEnabled = True
+            sub_intf_obj.RefLoopbackIntf = loop_back
+            sub_intf_obj.Subinterface = 0
+            intf_obj.add_Subinterface(sub_intf_obj)
+            target_attr = sub_intf_obj.RefLoopbackIntf
+        if action == 'add':
+            result = intf_obj.configure(dut, cli_type=cli_type, timeout=time_out)
+        else:
+            if 'Vlan' in intf_name:
+                result = intf_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type, timeout=time_out)
+            else:
+                result = sub_intf_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type, timeout=time_out)
+        if not result.ok():
+            st.log('test_step_failed: Configuring Unnumbered intf {}'.format(result.data))
+            return False
+        elif result.ok() and skip_error:
+            st.log('Negative Scenario: Error/Exception is expected')
+            return True
+        return True
+
     if cli_type == "click":
         commands = list()
         if action not in ["add", "del"]:
@@ -2246,7 +2768,7 @@ def dump_mgmt_connectivity_info(dut):
     :param dut:
     :return:
     """
-    utils.exec_foreach(True, utils.make_list(dut), st.config, "sudo route -n")
+    st.exec_each(utils.make_list(dut), st.config, "sudo route -n")
 
 
 def kill_dhclient_on_interface(dut, interface):
@@ -2300,7 +2822,21 @@ def config_loopback_interfaces(dut, **kwargs):
     if not st.is_feature_supported("config-loopback-add-command", dut):
         st.warn("build doesn't need Loopback interface {}uration".format(msg), dut=dut)
         return True
-    if cli_type == 'click':
+    if cli_type in get_supported_ui_type_list():
+        operation = Operation.CREATE
+        for intf in loopback_interface:
+            intf_obj = umf_intf.Interface(Name=intf)
+            if config == 'yes':
+                result = intf_obj.configure(dut, operation=operation, cli_type=cli_type, timeout=time_out)
+                msg = "Configuring"
+            elif config == 'no':
+                # result = intf_obj.unConfigure(dut, target_attr=intf_obj.Name, cli_type=cli_type)
+                result = intf_obj.unConfigure(dut, cli_type=cli_type, timeout=time_out)
+                msg = "Un Configuring"
+            if not result.ok():
+                st.log('test_step_failed: {} Loopback Interface {}'.format(msg, result.data))
+                return False
+    elif cli_type == 'click':
         cmds = []
         for intf in loopback_interface:
             if config == 'yes':
@@ -2394,7 +2930,80 @@ def config_ip_sla(dut, sla_num, sla_type='', dst_ip='', config='yes', **kwargs):
     """
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     skip_error = kwargs.pop('skip_error', False)
-    if cli_type == "click" or cli_type == 'klish':
+    if cli_type in get_supported_ui_type_list():
+        sla_type = 'icmp' if 'icmp' in sla_type.lower() else 'tcp'
+        ipsla_obj = umf_ipsla.IpSla(IpSlaId=int(sla_num))
+        if dst_ip != '':
+            kwargs['dst_ip'] = dst_ip
+        if sla_type == 'tcp':
+            ipsla_attr_list = {
+                'frequency': ['Frequency', int(kwargs['frequency']) if 'frequency' in kwargs else None],
+                'threshold': ['Threshold', int(kwargs['threshold']) if 'threshold' in kwargs else None],
+                'timeout': ['Timeout', int(kwargs['timeout']) if 'timeout' in kwargs else None],
+                'tcp_port': ['TcpDstPort', int(kwargs['tcp_port']) if 'tcp_port' in kwargs else None],
+                'src_port': ['TcpSourcePort', int(kwargs['src_port']) if 'src_port' in kwargs else None],
+                'vrf_name': ['TcpVrf', kwargs['vrf_name'] if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default' else None],
+                'src_addr': ['TcpSourceIp', kwargs['src_addr'] if 'src_addr' in kwargs else None],
+                'dst_ip': ['TcpDstIp', kwargs['dst_ip'] if 'dst_ip' in kwargs else None],
+                'src_intf': ['TcpSourceInterface', kwargs['src_intf'] if 'src_intf' in kwargs else None],
+                'tos': ['TcpTos', int(kwargs['tos']) if 'tos' in kwargs else None],
+                'ttl': ['TcpTtl', int(kwargs['ttl']) if 'ttl' in kwargs else None],
+            }
+        if sla_type == 'icmp':
+            ipsla_attr_list = {
+                'frequency': ['Frequency', int(kwargs['frequency']) if 'frequency' in kwargs else None],
+                'threshold': ['Threshold', int(kwargs['threshold']) if 'threshold' in kwargs else None],
+                'timeout': ['Timeout', int(kwargs['timeout']) if 'timeout' in kwargs else None],
+                'vrf_name': ['IcmpVrf', kwargs['vrf_name'] if 'vrf_name' in kwargs and kwargs['vrf_name'] != 'default' else None],
+                'src_addr': ['IcmpSourceIp', kwargs['src_addr'] if 'src_addr' in kwargs else None],
+                'dst_ip': ['IcmpDstIp', kwargs['dst_ip'] if 'dst_ip' in kwargs else None],
+                'src_intf': ['IcmpSourceInterface', kwargs['src_intf'] if 'src_intf' in kwargs else None],
+                'tos': ['IcmpTos', int(kwargs['tos']) if 'tos' in kwargs else None],
+                'ttl': ['IcmpTtl', int(kwargs['ttl']) if 'ttl' in kwargs else None],
+                'data_size': ['IcmpSize', int(kwargs['data_size']) if 'data_size' in kwargs else None],
+            }
+
+        if config == 'yes':
+            operation = Operation.CREATE
+            ipsla_obj.Enabled = True
+            for key, attr_value in ipsla_attr_list.items():
+                if key in kwargs and attr_value[1] is not None:
+                    setattr(ipsla_obj, attr_value[0], attr_value[1])
+            result = ipsla_obj.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Config IP SLA {}'.format(result.data))
+                return False
+        else:
+            if 'sla_num' in kwargs['del_cmd_list']:
+                result = ipsla_obj.unConfigure(dut, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: Config IP SLA {}'.format(result.data))
+                    return False
+            else:
+                if 'sla_type' in kwargs['del_cmd_list']:
+                    target_attr = ipsla_obj.TcpDstIp if sla_type == 'tcp' else ipsla_obj.IcmpDstIp
+                    result = ipsla_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
+                    if not result.ok():
+                        st.log('test_step_failed: Config IP SLA {}'.format(result.data))
+                        return False
+                    if 'dst_port' in kwargs['del_cmd_list']:
+                        result = ipsla_obj.unConfigure(dut, target_attr=ipsla_obj.TcpDstPort, cli_type=cli_type)
+                        if not result.ok():
+                            st.log('test_step_failed: Config IP SLA {}'.format(result.data))
+                            return False
+                else:
+                    del_cmd_list = kwargs['del_cmd_list']
+                    for key, attr_value in ipsla_attr_list.items():
+                        if key in del_cmd_list:
+                            target_attr = getattr(ipsla_obj, attr_value[0])
+                            result = ipsla_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: Config IP SLA {}'.format(result.data))
+                                return False
+
+        return True
+
+    elif cli_type == "click" or cli_type == 'klish':
         if config == 'yes':
             cmd = "ip sla {} \n {} {}".format(sla_num, sla_type, dst_ip)
             if "tcp_port" in kwargs:
@@ -2629,12 +3238,32 @@ def verify_ip_sla(dut, inst, **kwargs):
     Created by: Julius <julius.mariyan@broadcom.com
     '''
     success = True
+    yang_data_type = kwargs.get("yang_data_type", "ALL")
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
     id_list = list(map(str, inst)) if isinstance(inst, list) else [inst]
     if cli_type == "click":
         cli_type = "vtysh"
-    if cli_type in ['rest-put', 'rest-patch']:
+    if cli_type in get_supported_ui_type_list():
+        for sla_inst in id_list:
+            ipsla_obj = umf_ipsla.IpSla(IpSlaId=int(sla_inst))
+            if cli_type in cli_type_for_get_mode_filtering():
+                query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+                rv = ipsla_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+            else:
+                rv = ipsla_obj.get_payload(dut, cli_type=cli_type)
+            if rv.ok():
+                if rv.payload:
+                    output = dict()
+                    output["ip-sla"] = rv.payload.get("openconfig-ip-sla:ip-sla")
+                    cli_out = convert_sla_rest_output(output, parse_type='summary')
+                else:
+                    st.debug("Rcvd empty payload as response")
+                    return False
+            else:
+                st.debug("Data not found for sla instance - {} using gNMI".format(sla_inst))
+                return False
+    elif cli_type in ['rest-put', 'rest-patch']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['show_ip_sla']
         output = get_rest(dut, rest_url=rest_url)['output']['openconfig-ip-sla:ip-slas']
@@ -2725,9 +3354,28 @@ def verify_ip_sla_inst(dut, inst, **kwargs):
 
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    yang_data_type = kwargs.get("yang_data_type", "ALL")
     if cli_type == "click":
         cli_type = "vtysh"
-    if cli_type in ['rest-patch', 'rest-put']:
+    if cli_type in get_supported_ui_type_list():
+        ipsla_obj = umf_ipsla.IpSla(IpSlaId=int(inst))
+        if cli_type in cli_type_for_get_mode_filtering():
+            query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+            rv = ipsla_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+        else:
+            rv = ipsla_obj.get_payload(dut, cli_type=cli_type)
+        if rv.ok():
+            if rv.payload:
+                output = dict()
+                output["ip-sla"] = rv.payload.get("openconfig-ip-sla:ip-sla")
+                cli_out = convert_sla_rest_output(output, parse_type='inst')
+            else:
+                st.debug("Rcvd empty payload as response")
+                return False
+        else:
+            st.debug("Data not found for sla instance - {} using gNMI".format(inst))
+            return False
+    elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, 'rest_urls')
         rest_url = rest_urls['show_ip_sla_inst'].format(inst)
         output = get_rest(dut, rest_url=rest_url)['output']['openconfig-ip-sla:ip-sla']
@@ -2809,7 +3457,6 @@ def verify_ip_sla_history(dut, inst, **kwargs):
         expected_sequence = [event] if isinstance(event, str) else list(event)
         # Sort output based on timestamp
         # Fri Jul 10 11:35:21 2020
-        import time
         sorted_output = sorted(cli_out, key=lambda x: time.strptime(x['event_time'], '%a %b %d %H:%M:%S %Y'))
         actual_sequence = [out['event'].rstrip() for out in sorted_output]
         if set(actual_sequence) != set(expected_sequence):
@@ -2964,9 +3611,9 @@ def clear_ipsla_configuration(dut_list, thread=True, cli_type=''):
     """
     Find and clear IP SLA configuration in the lsit of DUTs
     """
-    dut_li = list(dut_list) if isinstance(dut_list, list) else [dut_list]
-    cli_type = st.get_ui_type(dut_li[0], cli_type=cli_type)
-    [out, _] = utils.exec_foreach(thread, dut_li, _clear_ipsla_configuration_helper, cli_type=cli_type)
+    if not thread:
+        return _clear_ipsla_configuration_helper(dut_list, cli_type=cli_type)
+    out = st.exec_each(utils.make_list(dut_list), _clear_ipsla_configuration_helper, cli_type=cli_type)[0]
     return False if False in out else True
 
 
@@ -3030,6 +3677,38 @@ def verify_multiple_routes(dut, family="ipv4", shell="sonic", vrf_name=None, **k
     return ret_val
 
 
+def config_ip_reserve(dut, **kwargs):
+    """
+    Author: Sunil Rajendra (sunil.rajendra@broadcom.com)
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut))
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skiperr = kwargs.pop('skip_error', False)
+    my_cmd = ''
+    if 'config' in kwargs:
+        config = kwargs['config']
+    else:
+        config = 'yes'
+    if config.lower() == 'yes':
+        config_cmd = ''
+    else:
+        config_cmd = 'no'
+    if cli_type == 'klish':
+        if 'local_neigh' in kwargs:
+            local_neigh = kwargs['local_neigh'] if config_cmd == '' else ''
+            my_cmd += '{} ip reserve local-neigh {} \n'.format(config_cmd, local_neigh)
+            out = st.config(dut, my_cmd, type=cli_type, skip_error_check=skiperr)
+            if '%Error:' in out:
+                return False
+            return True
+    else:
+        st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False
+
+
 def config_system_max_routes(dut, **kwargs):
     """
     Author: Sooriya.Gajendrababu@broadcom.com
@@ -3050,6 +3729,35 @@ def config_system_max_routes(dut, **kwargs):
     else:
         config_cmd = 'no'
 
+    if cli_type in get_supported_ui_type_list():
+        attr_map = {'hosts': 'Hosts', 'route_count': 'Routes'}
+        hosts_val_map = {'layer2-layer3-balanced': 'L2_L3_BALANCED', 'layer2-layer3': 'L2_L3', 'default': 'DEFAULT'}
+        routes_val_map = {'max': 'MAX', 'max-v6': 'MAX_V6', 'default': 'DEFAULT'}
+        # config_value = 'L2_L3_BALANCED' if config == 'yes' else 'DEFAULT'
+        resource_obj = umf_system.Resource(Name='ROUTE_SCALE')
+        keys = []
+        vals = []
+        if 'hosts' in kwargs:
+            keys.append('hosts')
+            val = hosts_val_map[kwargs['hosts']]
+            val = val if config == 'yes' else 'DEFAULT'
+            vals.append(val)
+        if 'route_count' in kwargs:
+            keys.append('route_count')
+            val = routes_val_map[kwargs['route_count']]
+            val = val if config == 'yes' else 'DEFAULT'
+            vals.append(val)
+        for key, val in zip(keys, vals):
+            setattr(resource_obj, attr_map[key], val)
+        if config == 'yes':
+            result = resource_obj.configure(dut, operation=Operation.CREATE, cli_type=cli_type)
+        else:
+            result = resource_obj.unConfigure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Configure route-scale Hosts')
+            return False
+        return True
+
     if cli_type == 'klish' or cli_type == 'click':
         if 'route_count' in kwargs:
             my_cmd += 'switch-resource \n'
@@ -3066,6 +3774,84 @@ def config_system_max_routes(dut, **kwargs):
             return True
     else:
         st.log("Unsupported CLI TYPE - {}".format(cli_type))
+        return False
+
+
+def verify_switch_resource_route_scale(dut, **kwargs):
+    """
+    Verify the output of 'show switch-resource route-scale'.
+    Author: Sunil Rajendra (sunil.rajendra@broadcom.com)
+    :param dut:
+    :param hosts: hosts='layer2-layer3-balanced'
+    :param :cli_type:
+    :param :skip_error:
+    :param :skip_template:
+    :return:
+    res=ip_api.verify_switch_resource_route_scale(dut, hosts='layer2-layer3-balanced')
+    """
+    cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
+    if 'hosts' not in kwargs:
+        cli_type = cli_type if cli_type not in ["rest-patch", "rest-put", "click"] else "klish"
+        cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    skip_error = kwargs.get('skip_error', False)
+    skip_template = kwargs.get('skip_template', False)
+    return_output = kwargs.pop('return_output', False)
+    return_flag = True
+
+    if cli_type in get_supported_ui_type_list():
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        val_map = {'layer2-layer3-balanced': 'L2_L3_BALANCED', 'layer2-layer3': 'L2_L3', 'default': 'DEFAULT', '': 'DEFAULT'}
+        out_map = {'L2_L3_BALANCED': 'layer2-layer3-balanced', 'L2_L3': 'layer2-layer3', 'DEFAULT': 'default'}
+        resource_obj = umf_system.Resource(Name='ROUTE_SCALE')
+        if 'hosts' in kwargs:
+            host_val = kwargs['hosts']
+            if host_val in val_map.keys():
+                host_val = val_map[host_val]
+            setattr(resource_obj, 'Hosts', host_val)
+            st.log('***IETF_JSON***: {}'.format(resource_obj.get_ietf_json()))
+            result = resource_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+            if return_output:
+                output = []
+                if result.payload and 'openconfig-system-ext:resource' in result.payload:
+                    if 'config' in result.payload['openconfig-system-ext:resource'][0]:
+                        if 'hosts' in result.payload['openconfig-system-ext:resource'][0]['config']:
+                            out_val = result.payload['openconfig-system-ext:resource'][0]['config']['hosts']
+                            if out_val in out_map:
+                                out_val = out_map[out_val]
+                            output = [{'hosts': out_val}]
+                return output
+            if not result.ok():
+                st.log('test_step_failed: Verify route-scale Hosts: result={}.'.format(result.data))
+                return_flag = False
+        return return_flag
+    elif cli_type == 'click':
+        st.error("CLI not supported in CLICK. Supported only in KLISH.")
+        return False
+    elif cli_type == 'klish':
+        command = "show switch-resource route-scale"
+        output = st.show(dut, command, type=cli_type, skip_error_check=skip_error, skip_tmpl=skip_template)
+        st.log("output={}, kwargs={}".format(output, kwargs))
+        if return_output:
+            return output
+        # Removing unwanted keys from kwargs.
+        for key in ['cli_type', 'skip_template', 'return_output', 'skip_error', 'filter_type']:
+            kwargs.pop(key, None)
+        # If output is empty, filling it with empty dict.
+        output = [{}] if output == [] else output
+        for key in kwargs.keys():
+            if key in output[0]:
+                if kwargs[key] != output[0][key]:
+                    st.error("key : {} - Value is not same - Input : {}, Output : {}.".format(key, kwargs[key], output[0][key]))
+                    return_flag = False
+                else:
+                    st.log('Found for key: {}, val:{}'.format(key, kwargs[key]))
+            else:
+                st.error("{} not found in the output.".format(key))
+                return_flag = False
+        return return_flag
+    else:
+        st.error("Supported modes are only KLISH.")
         return False
 
 
@@ -3100,6 +3886,44 @@ def config_ip_loadshare_hash(dut, **kwargs):
         if key == 'seed':
             val = ['']
     command = []
+    if cli_type in get_supported_ui_type_list():
+        attr_map = {'seed': 'EcmpHashSeed', 'ipv4': 'Ipv4', 'ipv4-l4-src-port': 'Ipv4L4SrcPort', 'ipv4-l4-dst-port': 'Ipv4L4DstPort', 'ipv4-src-ip': 'Ipv4SrcIp', 'ipv4-dst-ip': 'Ipv4DstIp', 'ipv4-ip-proto': 'Ipv4IpProto', 'ipv4-symmetric': 'Ipv4Symmetric', 'ipv6': 'Ipv6', 'ipv6-l4-src-port': 'Ipv6L4SrcPort', 'ipv6-l4-dst-port': 'Ipv6L4DstPort', 'ipv6-src-ip': 'Ipv6SrcIp', 'ipv6-dst-ip': 'Ipv6DstIp', 'ipv6-ip-proto': 'Ipv6IpProto', 'ipv6-symmetric': 'Ipv6Symmetric', 'ipv6-next-hdr': 'Ipv6NextHdr'}
+        config_value = 'true' if config == 'yes' else 'false'
+        if key == 'seed':
+            loadshare_obj = umf_loadshare.Loadshare()
+            target_path = '/seed-attrs'
+            if config_type == '':
+                setattr(loadshare_obj, attr_map[key], int(val[0]))
+                result = loadshare_obj.configure(dut, target_path=target_path, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: Configure Load Share: {}'.format(result.data))
+                    return False
+            else:
+                result = loadshare_obj.unConfigure(dut, target_path=target_path, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: unConfigure Load Share: {}'.format(result.data))
+                    return False
+            return True
+        else:
+            result_list = []
+            for v in val:
+                loadshare_obj = umf_loadshare.Loadshare()
+                target_path = '/ipv4-attrs' if key == 'ipv4' else '/ipv6-attrs'
+                setattr(loadshare_obj, attr_map[key], key)
+                if v == 'symmetric':
+                    v = "{}-{}".format(key, v)
+                setattr(loadshare_obj, attr_map[v], str(config_value))
+                # Sending the values one by one for symmetric-hashing module to work properly (SONIC-70838).
+                result = loadshare_obj.configure(dut, target_path=target_path, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: Configure Load Share. But continuing with other values.')
+                    result_list.append(False)
+                else:
+                    result_list.append(True)
+            if all(result_list) is False:
+                st.log('test_step_failed: Configure Load Share')
+                return False
+            return True
     if cli_type == 'klish':
         for v in val:
             command = command + [config_type + 'ip load-share hash {} {}'.format(key, v)]
@@ -3202,6 +4026,46 @@ def verify_ip_loadshare(dut, **kwargs):
     """
     cli_type = kwargs.pop('cli_type', st.get_ui_type(dut, **kwargs))
     st.log('API_NAME: verify_ip_loadshare, API_ARGS: {}'.format(locals()))
+    if cli_type in get_supported_ui_type_list():
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+        attr_map = {'seed': 'EcmpHashSeed', 'ipv4': 'Ipv4', 'ipv4-l4-src-port': 'Ipv4L4SrcPort', 'ipv4-l4-dst-port': 'Ipv4L4DstPort', 'ipv4-src-ip': 'Ipv4SrcIp', 'ipv4-dst-ip': 'Ipv4DstIp', 'ipv4-ip-proto': 'Ipv4IpProto', 'ipv4-symmetric': 'Ipv4Symmetric', 'ipv6': 'Ipv6', 'ipv6-l4-src-port': 'Ipv6L4SrcPort', 'ipv6-l4-dst-port': 'Ipv6L4DstPort', 'ipv6-src-ip': 'Ipv6SrcIp', 'ipv6-dst-ip': 'Ipv6DstIp', 'ipv6-ip-proto': 'Ipv6IpProto', 'ipv6-symmetric': 'Ipv6Symmetric', 'ipv6-next-hdr': 'Ipv6NextHdr'}
+        loadshare_obj = umf_loadshare.Loadshare()
+        for key in kwargs.keys():
+            if key == 'ip_mode' or key == 'ipv6_mode':
+                if key == 'ip_mode':
+                    attr = 'ipv4-symmetric'
+                if key == 'ipv6_mode':
+                    attr = 'ipv6-symmetric'
+                if kwargs[key] == 'Symmetric':
+                    setattr(loadshare_obj, attr_map[attr], True)
+                if kwargs[key] == 'Default':
+                    continue
+                    # Default value ipv4/6-symmetric=False is not present in GET calls(Commenting below code)
+                    # loadshare_obj_def = umf_loadshare.Loadshare()
+                    # filter_type = 'CONFIG'
+                    # query_param_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+                    # setattr(loadshare_obj_def, attr_map[attr], False)
+                    # result_def = loadshare_obj_def.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+                    # if not result_def.ok():
+                    #     st.log('test_step_failed: Verify Loadshare with mode=Default')
+                    #     return False
+                continue
+            if key == 'seed':
+                # Default value of 10 is not present in the GET Calls
+                if int(kwargs[key]) != 10:
+                    setattr(loadshare_obj, attr_map[key], kwargs[key])
+                continue
+            attr_list = [kwargs[key]] if isinstance(kwargs[key], str) else kwargs[key]
+            for attr in attr_list:
+                if attr == 'symmetric':
+                    attr = "{}-{}".format(key, attr)
+                setattr(loadshare_obj, attr_map[attr], True)
+        result = loadshare_obj.verify(dut, match_subset=True, query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Verify Loadshare')
+            return False
+        return True
 
     return_key = True
     output = show_ip_loadshare(dut, **kwargs)
@@ -3274,3 +4138,905 @@ def create_route_leak(dut, vrf, network, **kwargs):
         st.error("Unsupported CLI_TYPE: {}".format(cli_type))
         return False
     return True
+
+
+def config_sub_interface(dut, intf, **kwargs):
+    """
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    encap_id = kwargs.get('vlan', None)
+    config = kwargs.get('config', 'yes')
+    skip_error = kwargs.pop('skip_error_check', False)
+    del_sub_intf = kwargs.get('del_sub_intf', 'yes')
+    create_parent_po = kwargs.get('create_parent_po', False)
+    skip_exit = kwargs.pop('skip_exit', False)
+    maxtime = kwargs.pop('maxtime', 0)
+
+    if not isinstance(intf, list):
+        intf = [intf]
+    if encap_id:
+        if not isinstance(encap_id, list):
+            encap_id = [encap_id]
+    else:
+        # handling if vlan argument not passed
+        encap_id = [encap_id] * len(intf)
+    if cli_type in get_supported_ui_type_list():
+        for intf_item, encap_item in zip(intf, encap_id):
+            parent_intf = intf_item.split('.')[0]
+            sub_intf_index = intf_item.split('.')[1]
+            intf_obj = umf_intf.Interface(Name=parent_intf)
+            sub_intf_obj = umf_intf.Subinterface(Index=int(sub_intf_index), Interface=intf_obj)
+            try:
+                if config == 'yes':
+                    if 'portchannel' in intf_item.lower() and create_parent_po:
+                        parent_po = intf_item.split('.')[0]
+                        pc.create_portchannel(dut, [parent_po])
+                    if encap_item:
+                        sub_intf_obj.VlanId = int(encap_item)
+                    result = sub_intf_obj.configure(dut, cli_type=cli_type)
+                else:
+                    if del_sub_intf == 'yes':
+                        result = sub_intf_obj.unConfigure(dut, cli_type=cli_type)
+                    else:
+                        sub_intf_obj.VlanId = int(encap_item)
+                        result = sub_intf_obj.unConfigure(dut, target_attr=sub_intf_obj.VlanId, cli_type=cli_type)
+                if not result.ok():
+                    st.error("test_step_failed: Configure Sub-Interface: {}".format(result.data))
+                    return False
+            except ValueError as exp:
+                if skip_error:
+                    st.log('ValueError: {}'.format(exp))
+                    st.log('Negative Scenario: Errors/Expception expected')
+                    return False
+                else:
+                    raise
+        return True
+    elif cli_type == 'click':
+        for intf_item, encap_item in zip(intf, encap_id):
+            if config == 'yes':
+                cmd = 'config subinterface add {}'.format(intf_item)
+                if encap_item:
+                    cmd += ' {}'.format(encap_item)
+            else:
+                cmd = 'config subinterface del {}'.format(intf_item)
+            out = st.config(dut, cmd=cmd, type='click', max_time=maxtime, skip_error_check=skip_error)
+            if 'Error' in out:
+                return False
+        return True
+    elif cli_type == 'klish':
+        cmd = []
+        for intf_item, encap_item in zip(intf, encap_id):
+            interface = get_interface_number_from_name(intf_item)
+            if config == 'yes':
+                if 'portchannel' in intf_item.lower() and create_parent_po:
+                    parent_po = intf_item.split('.')[0]
+                    pc.create_portchannel(dut, [parent_po])
+                cmd.append('interface {} {}'.format(interface['type'], interface['number']))
+                if encap_item:
+                    cmd.append('encapsulation dot1q vlan-id {}'.format(encap_item))
+                if not skip_exit:
+                    cmd.append('exit')
+            else:
+                if del_sub_intf == 'yes':
+                    cmd.append('no interface {} {}'.format(interface['type'], interface['number']))
+                else:
+                    cmd.append('interface {} {}'.format(interface['type'], interface['number']))
+                    cmd.append('no encapsulation')
+                    if not skip_exit:
+                        cmd.append('exit')
+        out = st.config(dut, cmd=cmd, type='klish', skip_error_check=skip_error, max_time=maxtime)
+        if 'Error' in out:
+            return False
+        return True
+    elif cli_type in ['rest-patch', 'rest-put']:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        http_method = kwargs.pop('http_method', cli_type)
+        for intf_item, encap_item in zip(intf, encap_id):
+            parent_intf = intf_item.split('.')[0]
+            sub_intf_index = intf_item.split('.')[1]
+            if config == 'yes':
+                oc_data = dict()
+                oc_data['openconfig-interfaces:subinterfaces'] = dict()
+                oc_data['openconfig-interfaces:subinterfaces']["subinterface"] = list()
+                list_items = dict()
+                list_items['config'] = dict()
+                rest_url = rest_urls['config_sub_intf'].format(parent_intf)
+                list_items['index'] = int(sub_intf_index)
+                list_items['config']['index'] = int(sub_intf_index)
+                oc_data['openconfig-interfaces:subinterfaces']["subinterface"].append(list_items)
+                response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=oc_data)
+                if not response:
+                    return False
+                if encap_item:
+                    rest_url = rest_urls['add_del_sub_intf_vlan'].format(parent_intf, sub_intf_index)
+                    oc_data = dict()
+                    oc_data["openconfig-vlan:vlan-id"] = int(encap_item)
+                    response = config_rest(dut, http_method=http_method, rest_url=rest_url, json_data=oc_data)
+                    if not response:
+                        return False
+            else:
+                if del_sub_intf == 'yes':
+                    rest_url = rest_urls['delete_sub_intf'].format(parent_intf, sub_intf_index)
+
+                else:
+                    rest_url = rest_urls['add_del_sub_intf_vlan'].format(parent_intf, sub_intf_index)
+                response = delete_rest(dut, rest_url=rest_url)
+                if not response:
+                    return False
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
+    return True
+
+
+def verify_sub_interface_status(dut, **kwargs):
+    """
+
+    :param dut:
+    :param kwargs:
+    :return:
+    """
+    ret_val = True
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    kwargs.pop('cli_type', '')
+    skip_tmpl = kwargs.pop('skip_tmpl', False)
+    skip_error = kwargs.pop('skip_error', False)
+    yang_data_type = kwargs.get("filter_type", "ALL")
+    # Converting all kwargs to list type to handle single or list of mroute instances
+    if not kwargs.get("interface") and cli_type in get_supported_ui_type_list():
+        cli_type = "klish"
+    for key in kwargs:
+        if isinstance(kwargs[key], list):
+            kwargs[key] = list(kwargs[key])
+        else:
+            kwargs[key] = [kwargs[key]]
+    if 'interface' in kwargs and cli_type == 'click':
+        kwargs['interface'] = [get_intf_short_name(i) for i in kwargs['interface']]
+    output = []
+    if cli_type in get_supported_ui_type_list():
+        query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+        intf_name = kwargs.get("interface_name")
+        parent_intf = intf_name.split('.')[0]
+        sub_intf_index = intf_name.split('.')[1]
+        intf_obj = umf_intf.Interface(Name=parent_intf)
+        sub_intf_obj = umf_intf.Subinterface(Index=int(sub_intf_index), Interface=intf_obj)
+        rv = sub_intf_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+        if rv.ok():
+            res = rv.payload.get("openconfig-interfaces:subinterface")
+            if res:
+                output = list()
+                result = dict()
+                result['interface'] = res[0].get("state").get("name", "")
+                result['admin'] = res[0].get("state").get("admin-status", "")
+                result['mtu'] = res[0].get("state").get("openconfig-interfaces-ext:mtu", "")
+                result['speed'] = res[0].get("state").get("speed", "")
+                result['type'] = res[0].get("state").get("type", 'dot1q-encapsulation')
+                output.append(result)
+            else:
+                st.error("Rcvd empty response")
+                return False
+        else:
+            st.error("Rcvd not ok response")
+            return False
+    elif cli_type in ['click', 'klish']:
+        cmd = 'show subinterfaces status'
+        output = st.show(dut, cmd, skip_error_check=skip_error, skip_tmpl=skip_tmpl, type=cli_type)
+    elif cli_type in ['rest-put', 'rest-patch']:
+        rest_urls = st.get_datastore(dut, 'rest_urls')
+        rest_url = rest_urls['show_sub_intf_status']
+        rest_output = get_rest(dut, rest_url=rest_url)['output'].get('sonic-interface:VLAN_SUB_INTERFACE', {}).get('VLAN_SUB_INTERFACE_LIST', {})
+        output = convert_sub_intf_rest(rest_output)
+        st.log("\nConverted Output : {}\n".format(output))
+    if 'return_output' in kwargs:
+        return output
+    if len(output) == 0:
+        st.error("Output is Empty")
+        return False
+
+    # convert kwargs into list of dictionary
+    input_dict_list = []
+    for i in range(len(kwargs[list(kwargs.keys())[0]])):
+        temp_dict = {}
+        for key in kwargs.keys():
+            temp_dict[key] = kwargs[key][i]
+        input_dict_list.append(temp_dict)
+
+    for input_dict in input_dict_list:
+        entries = utils.filter_and_select(output, None, match=input_dict)
+        if not entries:
+            st.error("DUT {} -> Match Not Found {}".format(dut, input_dict))
+            ret_val = False
+
+    return ret_val
+
+
+def convert_sub_intf_rest(output):
+    for item in output:
+        item['interface'] = item.pop('id', '')
+        item['admin'] = item.pop('admin_status', '')
+        item['mtu'] = item.pop('mtu', '')
+        item['speed'] = item.pop('speed', '')
+        item['type'] = item.pop('type', 'dot1q-encapsulation')
+    return output
+
+
+def get_running_config_subintf(dut, subinterface, cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if cli_type in ['klish', 'rest-patch', 'rest-put']:
+        interface = get_interface_number_from_name(subinterface)
+        return st.show(dut, 'show running-configuration subinterface {} {}'.format(interface['type'], interface['number']), skip_tmpl=True, type='klish')
+
+
+def verify_running_config(dut, sub_cmd, **kwargs):
+    # params for switchport
+    # access_mode, trunk_mode, access_vlan, trunk_vlan_list
+
+    cli_type = st.get_ui_type(dut, **kwargs)
+    skip_tmpl = kwargs.pop('skip_tmpl', False)
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put', 'click'] else cli_type
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    if 'interface ' in sub_cmd.lower():
+        intf_info = get_interface_number_from_name(sub_cmd.replace('interface ', ''))
+        sub_cmd = 'interface {} {}'.format(intf_info['type'], intf_info['number'])
+    output = st.show(dut, 'show running-configuration {}'.format(sub_cmd), type=cli_type, skip_tmpl=skip_tmpl)
+    if 'return_output' in kwargs:
+        return output
+    kwargs.pop('sub_cmd', None)
+    kwargs.pop('cli_type', None)
+    if 'interface' in kwargs:
+        if ' ' in kwargs['interface']:
+            kwargs['interface'] = kwargs['interface'].replace(' ', "")
+    if cli_type == 'klish':
+        for each_param in kwargs.keys():
+            match = {each_param: kwargs[each_param]}
+            entries = utils.filter_and_select(output, None, match)
+            if not entries:
+                st.log('Match not found for param: {} value: {}'.format(each_param, kwargs[each_param]))
+                return False
+        return True
+    else:
+        return True
+
+
+def config_nht(dut, **kwargs):
+    '''
+    Configures Nexthop Tracking.
+    Author: sunil.rajendra@broadcom.com
+    :param dut:
+    :param config: yes/no.
+    :param family: address family - ip/ipv6.
+    :param vrf: VRF name.
+    :param cli_type: CLI type - click/klish/rest-patch (As of now only klish is supported).
+    :param skip_error: True/False.
+    :return:
+
+    Usage:
+    [no] ip [vrf <vrf-name>] nht resolve-via-default
+    config_nht(dut)
+    config_nht(dut, config='no')
+    config_nht(dut, family='ipv6', vrf='Vrf1')
+    '''
+    # Optional parameters processing
+    config = kwargs.get('config', 'yes')
+    family = kwargs.get('family', "ip")
+    vrf = kwargs.get('vrf', "")
+    skip_error = kwargs.get('skip_error', False)
+    cli_type = kwargs.get('cli_type', st.get_ui_type(dut, **kwargs))
+    # CLI not supported in click
+    # Will add Rest support in next checkin after validation.
+    cli_type = cli_type if cli_type not in ["rest-patch", "rest-put", "click"] else "klish"
+
+    vrf = 'vrf ' + vrf + ' ' if vrf != "" else ""
+    output = False
+    if cli_type in get_supported_ui_type_list():
+        vrf_name = kwargs.get('vrf', 'default')
+        ni_obj = umf_ni.NetworkInstance(Name=vrf_name)
+        addr_family = 'IPV4' if family == 'ip' else 'IPV6'
+        nht_obj = umf_ni.AddressFamily(Family=addr_family, NetworkInstance=ni_obj)
+        if config == 'yes':
+            nht_obj.ResolveViaDefault = True
+            result = nht_obj.configure(dut, cli_type=cli_type)
+        else:
+            result = nht_obj.unConfigure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.error('test_step_failed: Configure NHT: {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'klish':
+        config = '' if config == "yes" else "no "
+        cmd = "{}{} {}nht resolve-via-default".format(config, family, vrf)
+        output = st.config(dut, cmd, type=cli_type, conf=True, skip_error_check=skip_error)
+        if "Could not connect to Management REST Server" in output:
+            st.error("klish mode not working.")
+            return False
+        if "Error" in output:
+            st.error("Error seen while configuring.")
+            return False
+    return output
+
+
+def config_ra_retrans_interval(dut, **kwargs):
+    """
+    :param dut:
+    :param interval
+    :return:
+    """
+    config = kwargs.get("config", "yes")
+    cli_type = 'vtysh'
+    config = ' ' if config == 'yes' else 'no'
+    intf_info = get_interface_number_from_name(kwargs['interface'])
+    command = 'interface {}{}\n'.format(intf_info["type"], intf_info["number"])
+    command += '{} ipv6 nd ra-retrans-interval {}\n'.format(config, kwargs['interval'])
+    command += 'exit\n'
+    if command:
+        try:
+            st.config(dut, command, type=cli_type)
+        except Exception as e:
+            st.log(e)
+            return False
+    return True
+
+
+def config_ipv6_ra(dut, interface, **kwargs):
+    '''
+
+    :param dut:
+    :param interface: interface can be list and in that case same set of parameters will be configured on all given interfac
+    :param kwargs:
+
+    :return:
+    Usage:
+        config_ipv6_ra(dut=dut1,interface='Ethernet0',ra_interval=5,eip="3.3.3.3",config="no")
+        config_ipv6_ra(dut=dut1,pip="1.1.1.2",sip="2.2.2.2",eip="3.3.3.3")
+    '''
+
+    st.log('API_NAME: config_ipv6_ra, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type == 'click':
+        cli_type = "vtysh"
+
+    config = kwargs.get('config', 'yes').lower()
+    cfg_clean = kwargs.get('cfg_clean', False)
+    # skip_error = kwargs.get('skip_error', False)
+
+    prefix_list = kwargs.get('prefix_list', None)
+    dnssl_list = kwargs.get('dnssl_list', None)
+    rdnss_list = kwargs.get('rdnss_list', None)
+
+    interface_list = utils.make_list(interface)
+    t_path = None
+    cmd_edit_list = list()
+
+    bulk_conf_mode = True if cli_type in get_supported_ui_type_list() else False
+
+    v6_ra_attrs = {
+        'ra_interval_sec': ['Interval', kwargs.get('ra_interval_sec', None)],
+        'ra_lifetime': ['Lifetime', kwargs.get('ra_lifetime', None)],
+        'ra_suppress': ['Suppress', kwargs.get('ra_suppress', None)],
+        'retrans_interval': ['RaRetransInterval', kwargs.get('retrans_interval', None)],
+        'ra_interval_msec': ['RaIntervalMsec', kwargs.get('ra_interval_msec', None)],
+        'ra_hop_limit': ['RaHopLimit', kwargs.get('ra_hop_limit', None)],
+        'reachable_time': ['ReachableTime', kwargs.get('reachable_time', None)],
+        'home_agent_conf': ['HomeAgentConfig', kwargs.get('home_agent_conf', None)],
+        'home_agent_life': ['HomeAgentLifetime', kwargs.get('home_agent_life', None)],
+        'home_agent_pref': ['HomeAgentPreference', kwargs.get('home_agent_pref', None)],
+        'ra_mtu': ['RouterAdvertisementMtu', kwargs.get('ra_mtu', None)],
+        'def_router_pref': ['RouterPreference', kwargs.get('def_router_pref', None)],
+        'ra_fast_retrans': ['RaFastRetrans', kwargs.get('ra_fast_retrans', None)],
+        'ra_manage_conf': ['ManagedConfig', kwargs.get('ra_manage_conf', None)],
+        'ra_other_conf': ['OtherConfig', kwargs.get('ra_other_conf', None)],
+        'ra_adv_interval': ['AdvIntervalOption', kwargs.get('ra_adv_interval', None)]
+    }
+
+    if cli_type in get_supported_ui_type_list() + ['klish']:
+        for interface in interface_list:
+            index = get_subinterface_index(dut, interface)
+            interface_name = get_phy_port(interface)
+            if 'Vlan' in interface_name:
+                intf_obj = umf_intf.Interface(Name=interface_name)
+                t_path = "/openconfig-vlan:routed-vlan/openconfig-if-ip:ipv6/router-advertisement/config"
+            else:
+                temp_obj = umf_intf.Interface(Name=interface_name)
+                intf_obj = umf_intf.Subinterface(Index=int(index), Interface=temp_obj)
+                t_path = "/openconfig-if-ip:ipv6/router-advertisement/config"
+
+            # intf_obj = umf_intf.Interface(Name=interface_name)
+            if config == 'yes':
+                gnmi_op = Operation.UPDATE
+
+                for key, attr_value in v6_ra_attrs.items():
+                    if key in kwargs and attr_value[1] is not None:
+                        if key == 'def_router_pref':
+                            setattr(intf_obj, attr_value[0], attr_value[1].upper())
+                        else:
+                            setattr(intf_obj, attr_value[0], attr_value[1])
+                if not bulk_conf_mode:
+                    result = intf_obj.configure(dut, operation=gnmi_op, cli_type=cli_type)
+                    if not result.ok():
+                        st.log('test_step_failed: {}: Config of IPv6 RA params result: {}'
+                               .format(cli_type.upper(), result.data))
+                        return False
+                else:
+                    cmd_edit_list.append(umf_bulk.Edit(intf_obj, operation=gnmi_op))
+
+                # adding new prefixes, rdnss or dnssl using gnmi needs CREATE
+                gnmi_op = Operation.CREATE
+
+                if prefix_list:
+                    for prefix_dict in prefix_list:
+                        if 'Vlan' in interface_name:
+                            ra_prefix_obj = umf_intf.RoutedVlanRaPrefix(Prefix=prefix_dict['prefix'], Interface=intf_obj)
+                        else:
+                            ra_prefix_obj = umf_intf.SubinterfaceRaPrefix(Prefix=prefix_dict['prefix'],
+                                                                          Subinterface=intf_obj)
+
+                        if 'valid_life' in prefix_dict.keys():
+                            value = prefix_dict['valid_life']
+                            ra_prefix_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                        if 'preferred_life' in prefix_dict.keys():
+                            value = prefix_dict['preferred_life']
+                            ra_prefix_obj.PreferredLifetime = 4294967295 if value == 'infinite' else value
+                        if 'no_auto_cfg' in prefix_dict.keys():
+                            ra_prefix_obj.NoAutoconfig = prefix_dict['no_auto_cfg']
+                        if 'off_link' in prefix_dict.keys():
+                            ra_prefix_obj.OffLink = prefix_dict['off_link']
+                        if 'router_add' in prefix_dict.keys():
+                            ra_prefix_obj.RouterAddress = prefix_dict['router_add']
+                        if not bulk_conf_mode:
+                            result = ra_prefix_obj.configure(dut, operation=gnmi_op, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: Config of IPv6 RA prefix:{} result: {}'
+                                       .format(cli_type.upper(), prefix_dict['prefix'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_prefix_obj, operation=gnmi_op))
+                if dnssl_list:
+                    for dnss_dict in dnssl_list:
+                        if 'Vlan' in interface_name:
+                            ra_dnss_obj = umf_intf.RoutedVlanDnsSearchName(DnsslName=dnss_dict['dnss_name'], Interface=intf_obj)
+                        else:
+                            ra_dnss_obj = umf_intf.SubinterfaceDnsSearchName(DnsslName=dnss_dict['dnss_name'],
+                                                                             Subinterface=intf_obj)
+
+                        if 'valid_life' in dnss_dict.keys():
+                            value = dnss_dict['valid_life']
+                            ra_dnss_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                        if not bulk_conf_mode:
+                            result = ra_dnss_obj.configure(dut, operation=gnmi_op, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: Config of IPv6 RA DNS Name:{} result: {}'
+                                       .format(cli_type.upper(), dnss_dict['dnss_name'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_dnss_obj, operation=gnmi_op))
+                if rdnss_list:
+                    for rdnss_dict in rdnss_list:
+                        if 'Vlan' in interface_name:
+                            ra_rdnss_obj = umf_intf.RoutedVlanRdnssAddress(Address=rdnss_dict['address'], Interface=intf_obj)
+                        else:
+                            ra_rdnss_obj = umf_intf.SubinterfaceRdnssAddress(Address=rdnss_dict['address'],
+                                                                             Subinterface=intf_obj)
+
+                        if 'valid_life' in rdnss_dict.keys():
+                            value = rdnss_dict['valid_life']
+                            ra_rdnss_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                        if not bulk_conf_mode:
+                            result = ra_rdnss_obj.configure(dut, operation=gnmi_op, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: Config of IPv6 RA DNS prefix:{} result: {}'
+                                       .format(cli_type.upper(), rdnss_dict['address'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_rdnss_obj, operation=gnmi_op))
+                '''if cmd_edit_list:
+                    result = umf_bulk.bulkRequest(dut, edits=cmd_edit_list, cli_type=cli_type)
+                    if not result.ok():
+                        st.log('test_step_failed: Config of IPv6 RA Parameters {}'.format(result.data))
+                        return False'''
+            else:
+                gnmi_op = Operation.DELETE
+                for key, attr_value in v6_ra_attrs.items():
+                    if key in kwargs and attr_value[1] is not None:
+                        target_attr = getattr(intf_obj, attr_value[0])
+                        if not bulk_conf_mode:
+                            result = intf_obj.unConfigure(dut, target_attr=target_attr, target_attr_name=attr_value[0], cli_type=cli_type)
+                            # result = intf_obj.unConfigure(dut, target_attr=attr_value[0], cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: Unconfig IPv6 RA param:{} result: {}'
+                                       .format(cli_type.upper(), key, result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(intf_obj, target_attr=target_attr, operation=gnmi_op))
+                if prefix_list:
+                    for prefix_dict in prefix_list:
+                        if "Vlan" in interface_name:
+                            ra_prefix_obj = umf_intf.RoutedVlanRaPrefix(Prefix=prefix_dict['prefix'], Interface=intf_obj)
+                        else:
+                            ra_prefix_obj = umf_intf.SubinterfaceRaPrefix(Prefix=prefix_dict['prefix'],
+                                                                          Subinterface=intf_obj)
+                        if not bulk_conf_mode:
+                            result = ra_prefix_obj.unConfigure(dut, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: UnConfig of IPv6 RA prefix:{} result: {}'
+                                       .format(cli_type.upper(), prefix_dict['prefix'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_prefix_obj, operation=gnmi_op))
+                if dnssl_list:
+                    for dnss_dict in dnssl_list:
+                        if 'Vlan' in interface_name:
+                            ra_dnss_obj = umf_intf.RoutedVlanDnsSearchName(DnsslName=dnss_dict['dnss_name'], Interface=intf_obj)
+                        else:
+                            ra_dnss_obj = umf_intf.SubinterfaceDnsSearchName(DnsslName=dnss_dict['dnss_name'],
+                                                                             Subinterface=intf_obj)
+                        if not bulk_conf_mode:
+                            result = ra_dnss_obj.unConfigure(dut, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: UnConfig of IPv6 RA DNS:{} result: {}'
+                                       .format(cli_type.upper(), dnss_dict['dnss_name'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_dnss_obj, operation=gnmi_op))
+                if rdnss_list:
+                    for rdnss_dict in rdnss_list:
+                        if 'Vlan' in interface_name:
+                            ra_rdnss_obj = umf_intf.RoutedVlanRdnssAddress(Address=rdnss_dict['address'], Interface=intf_obj)
+                        else:
+                            ra_rdnss_obj = umf_intf.SubinterfaceRdnssAddress(Address=rdnss_dict['address'],
+                                                                             Subinterface=intf_obj)
+                        if not bulk_conf_mode:
+                            result = ra_rdnss_obj.unConfigure(dut, cli_type=cli_type)
+                            if not result.ok():
+                                st.log('test_step_failed: {}: UnConfig of IPv6 RA DNS prefix:{} result: {}'
+                                       .format(cli_type.upper(), rdnss_dict['address'], result.data))
+                                return False
+                        else:
+                            cmd_edit_list.append(umf_bulk.Edit(ra_rdnss_obj, operation=gnmi_op))
+            if cfg_clean and cli_type in get_supported_ui_type_list():
+                # Explicitly delete RA config container as per workaroud given in SONIC-64388
+                result = intf_obj.unConfigure(dut, target_path=t_path, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: {}: Unconfig IPv6 RA Config Container, result: {}'
+                           .format(cli_type.upper(), result.data))
+                    return False
+
+        if cmd_edit_list:
+            result = umf_bulk.bulkRequest(dut, edits=cmd_edit_list, cli_type=cli_type)
+            if not result.ok():
+                conf_str = 'Config' if config == 'yes' else 'UnConfig'
+                st.log('test_step_failed: {} of IPv6 RA Parameters {}'.format(conf_str, result.data))
+                return False
+
+    elif cli_type == 'vtysh':
+        command = list()
+        for interface in interface_list:
+            command.append("interface {}".format(interface))
+            fields = {"home_agent_conf": "home-agent-config-flag", "ra_suppress": "suppress-ra",
+                      "ra_interval_sec": "ra-interval", "ra_interval_msec": "ra-interval msec",
+                      "ra_adv_interval": "adv-interval-option", "home_agent_life": "home-agent-lifetime",
+                      "home_agent_pref": "home-agent-preference", "ra_manage_conf": "managed-config-flag", "ra_mtu": "mtu",
+                      "ra_other_conf": "other-config-flag", "ra_fast_retrans": "ra-fast-retrans",
+                      "ra_hop_limit": "ra-hop-limit", "ra_lifetime": "ra-lifetime",
+                      "retrans_interval": "ra-retrans-interval", "reachable_time": "reachable-time",
+                      "def_router_pref": "router-preference"}
+            if "ra_suppress" not in kwargs and config == 'yes':
+                cmd = "no ipv6 nd {}".format(fields["ra_suppress"])
+                command.append(cmd)
+            for param in kwargs.keys():
+                if param in ["home_agent_conf", "ra_adv_interval", "ra_suppress", "ra_manage_conf", "ra_other_conf",
+                             "ra_fast_retrans"]:
+                    param_config = "" if kwargs[param] else "no"
+                    cmd = "{} ipv6 nd {}".format(param_config, fields[param])
+                    command.append(cmd)
+                if param in ["ra_interval_sec", "ra_interval_msec", "home_agent_life", "home_agent_pref", "ra_mtu",
+                             "ra_hop_limit", "ra_lifetime", "retrans_interval", "reachable_time", "def_router_pref"]:
+                    if config == 'yes':
+                        cmd = "ipv6 nd {} {}".format(fields[param], kwargs[param])
+                    else:
+                        cmd = "no ipv6 nd {}".format(fields[param])
+                    command.append(cmd)
+            if prefix_list:
+                for prefix_dict in prefix_list:
+                    if "prefix" in prefix_dict.keys():
+                        if config == 'yes':
+                            cmd = "ipv6 nd prefix {}".format(prefix_dict["prefix"])
+                            if "valid_life" in prefix_dict.keys() and "preferred_life" in prefix_dict.keys():
+                                cmd = "{} {} {}".format(cmd, prefix_dict["valid_life"], prefix_dict["preferred_life"])
+                            if prefix_dict.get("no_auto_cfg", False):
+                                cmd = "{} no-autoconfig".format(cmd)
+                            if prefix_dict.get("off_link", False):
+                                cmd = "{} off-link".format(cmd)
+                            elif prefix_dict.get("router_add", False):
+                                cmd = "{} router-address".format(cmd)
+                        else:
+                            cmd = "no ipv6 nd prefix {}".format(prefix_dict["prefix"])
+                        command.append(cmd)
+            if dnssl_list:
+                for dnssl_dict in dnssl_list:
+                    if "dnss_name" in dnssl_dict.keys():
+                        if config == 'yes':
+                            cmd = "ipv6 nd dnssl {}".format(dnssl_dict["dnss_name"])
+                            if "valid_life" in dnssl_dict.keys():
+                                cmd = "{} {}".format(cmd, dnssl_dict["valid_life"])
+                        else:
+                            cmd = "no ipv6 nd dnssl {}".format(dnssl_dict["dnss_name"])
+                        command.append(cmd)
+            if rdnss_list:
+                for rdnss_dict in rdnss_list:
+                    if "address" in rdnss_dict.keys():
+                        if config == 'yes':
+                            cmd = "ipv6 nd rdnss {}".format(rdnss_dict["address"])
+                            if "valid_life" in rdnss_dict.keys():
+                                cmd = "{} {}".format(cmd, rdnss_dict["valid_life"])
+                        else:
+                            cmd = "no ipv6 nd rdnss {}".format(rdnss_dict["address"])
+                        command.append(cmd)
+            command.append("exit")
+        if command:
+            st.config(dut, command, type='vtysh')
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+    return True
+
+
+def verify_ipv6_ra(dut, interface, **kwargs):
+    st.log('API_NAME: verify_ipv6_ra, API_ARGS: {}'.format(locals()))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    if cli_type == 'click':
+        cli_type = "vtysh"
+
+    prefix_list = kwargs.get('prefix_list', None)
+    dnssl_list = kwargs.get('dnssl_list', None)
+    rdnss_list = kwargs.get('rdnss_list', None)
+
+    if cli_type in get_supported_ui_type_list() + ['klish']:
+
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_params_obj = utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+
+        v6_ra_attrs = {
+            'ra_interval_sec': ['Interval', kwargs.get('ra_interval_sec', None)],
+            'ra_lifetime': ['Lifetime', kwargs.get('ra_lifetime', None)],
+            'ra_suppress': ['Suppress', kwargs.get('ra_suppress', None)],
+            'retrans_interval': ['RaRetransInterval', kwargs.get('retrans_interval', None)],
+            'ra_interval_msec': ['RaIntervalMsec', kwargs.get('ra_interval_msec', None)],
+            'ra_hop_limit': ['RaHopLimit', kwargs.get('ra_hop_limit', None)],
+            'reachable_time': ['ReachableTime', kwargs.get('reachable_time', None)],
+            'home_agent_conf': ['HomeAgentConfig', kwargs.get('home_agent_conf', None)],
+            'home_agent_life': ['HomeAgentLifetime', kwargs.get('home_agent_life', None)],
+            'home_agent_pref': ['HomeAgentPreference', kwargs.get('home_agent_pref', None)],
+            'ra_mtu': ['RouterAdvertisementMtu', kwargs.get('ra_mtu', None)],
+            'def_router_pref': ['RouterPreference', kwargs.get('def_router_pref', None)],
+            'ra_fast_retrans': ['RaFastRetrans', kwargs.get('ra_fast_retrans', None)],
+            'ra_manage_conf': ['ManagedConfig', kwargs.get('ra_manage_conf', None)],
+            'ra_other_conf': ['OtherConfig', kwargs.get('ra_other_conf', None)],
+            'ra_adv_interval': ['AdvIntervalOption', kwargs.get('ra_adv_interval', None)],
+            'ra_pkt_sent': ['RaPktSent', kwargs.get('ra_pkt_sent', None)],
+            'ra_pkt_rcvd': ['RaPktRcvd', kwargs.get('ra_pkt_rcvd', None)]
+        }
+
+        index = get_subinterface_index(dut, interface)
+        interface_name = get_phy_port(interface)
+        # intf_obj = umf_intf.Interface(Name=interface_name)
+        if 'Vlan' in interface_name:
+            intf_obj = umf_intf.Interface(Name=interface_name)
+        else:
+            temp_obj = umf_intf.Interface(Name=interface_name)
+            intf_obj = umf_intf.Subinterface(Index=int(index), Interface=temp_obj)
+
+        for key, attr_value in v6_ra_attrs.items():
+            if key in kwargs and attr_value[1] is not None:
+                if key == 'def_router_pref':
+                    setattr(intf_obj, attr_value[0], attr_value[1].upper())
+                elif key == 'home_agent_life':
+                    if int(kwargs.get('home_agent_life')) != 0:
+                        setattr(intf_obj, attr_value[0], attr_value[1])
+                elif key == 'home_agent_pref':
+                    if int(kwargs.get('home_agent_pref')) != 0:
+                        setattr(intf_obj, attr_value[0], attr_value[1])
+                else:
+                    setattr(intf_obj, attr_value[0], attr_value[1])
+
+        result = intf_obj.verify(dut, match_subset=True, query_param=query_params_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Match NOT Found: IPv6 RA Params')
+            return False
+
+        if prefix_list:
+            for prefix_dict in prefix_list:
+                if 'Vlan' in interface_name:
+                    ra_prefix_obj = umf_intf.RoutedVlanRaPrefix(Prefix=prefix_dict['prefix'], Interface=intf_obj)
+                else:
+                    ra_prefix_obj = umf_intf.SubinterfaceRaPrefix(Prefix=prefix_dict['prefix'],
+                                                                  Subinterface=intf_obj)
+                # ra_prefix_obj = umf_intf.RoutedVlanRaPrefix(Prefix=prefix_dict['prefix'], Interface=intf_obj)
+                if 'valid_life' in prefix_dict.keys():
+                    value = prefix_dict['valid_life']
+                    ra_prefix_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                if 'preferred_life' in prefix_dict.keys():
+                    value = prefix_dict['preferred_life']
+                    ra_prefix_obj.PreferredLifetime = 4294967295 if value == 'infinite' else value
+                if 'no_auto_cfg' in prefix_dict.keys():
+                    ra_prefix_obj.NoAutoconfig = prefix_dict['no_auto_cfg']
+                if 'off_link' in prefix_dict.keys():
+                    ra_prefix_obj.OffLink = prefix_dict['off_link']
+                if 'router_add' in prefix_dict.keys():
+                    ra_prefix_obj.RouterAddress = prefix_dict['router_add']
+
+                result = ra_prefix_obj.verify(dut, match_subset=True, query_param=query_params_obj, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: {}: Verify of IPv6 RA prefix:{} result: {}'
+                           .format(cli_type.upper(), prefix_dict['prefix'], result.data))
+                    return False
+        if dnssl_list:
+            for dnss_dict in dnssl_list:
+                if 'Vlan' in interface_name:
+                    ra_dnss_obj = umf_intf.RoutedVlanDnsSearchName(DnsslName=dnss_dict['dnss_name'], Interface=intf_obj)
+                else:
+                    ra_dnss_obj = umf_intf.SubinterfaceDnsSearchName(DnsslName=dnss_dict['dnss_name'],
+                                                                     Subinterface=intf_obj)
+                # ra_dnss_obj = umf_intf.RoutedVlanDnsSearchName(DnsslName=dnss_dict['dnss_name'], Interface=intf_obj)
+                if 'valid_life' in dnss_dict.keys():
+                    value = dnss_dict['valid_life']
+                    ra_dnss_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                result = ra_dnss_obj.verify(dut, match_subset=True, query_param=query_params_obj, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: {}: Verify of IPv6 RA DNS Name:{} result: {}'
+                           .format(cli_type.upper(), dnss_dict['dnss_name'], result.data))
+                    return False
+        if rdnss_list:
+            for rdnss_dict in rdnss_list:
+                if 'Vlan' in interface_name:
+                    ra_rdnss_obj = umf_intf.RoutedVlanRdnssAddress(Address=rdnss_dict['address'], Interface=intf_obj)
+                else:
+                    ra_rdnss_obj = umf_intf.SubinterfaceRdnssAddress(Address=rdnss_dict['address'],
+                                                                     Subinterface=intf_obj)
+                if 'valid_life' in rdnss_dict.keys():
+                    value = rdnss_dict['valid_life']
+                    ra_rdnss_obj.ValidLifetime = 4294967295 if value == 'infinite' else value
+                result = ra_rdnss_obj.verify(dut, match_subset=True, query_param=query_params_obj, cli_type=cli_type)
+                if not result.ok():
+                    st.log('test_step_failed: {}: Verify of IPv6 RA DNS prefix:{} result: {}'
+                           .format(cli_type.upper(), rdnss_dict['address'], result.data))
+                    return False
+    elif cli_type == 'vtysh':
+        command = "show ipv6 nd ra-interfaces"
+        output = st.show(dut, command, type=cli_type)
+        args1 = ['ra_interval_sec', 'intf_name', 'reachable_time', 'retrans_interval', 'ra_hop_limit'
+                                                                                       'ra_pkt_sent', 'ra_pkt_rcvd',
+                 'ra_interval_msec', 'ra_lifetime', 'def_router_pref',
+                 'home_agent_life', 'home_agent_pref', 'ra_mtu']
+        args2 = ['ra_manage_conf', 'ra_other_conf', 'home_agent_conf', 'ra_adv_interval']
+        fields = {'ra_manage_conf': 'DHCP', 'ra_other_conf': '', 'home_agent_conf': 'Home Agent flag bit set',
+                  'ra_adv_interval': 'Adv. Interval option'}
+        if output:
+            for i in output:
+                if i['intf_name'] == interface:
+                    out1 = i
+            for key in args1:
+                if key in kwargs:
+                    if key == "home_agent_life" and not kwargs[key]:
+                        continue
+                    if key == "ra_mtu":
+                        continue
+                    if not str(kwargs[key]) == out1[key]:
+                        st.log("Provided and configured address values are not matching for {}.".format(key))
+                        return False
+            for key in args2:
+                if key in kwargs:
+                    value = kwargs[key]
+                    if value:
+                        if not str(fields[key]) == out1[key]:
+                            st.log("Provided and configured address values are not matching for {}.".format(key))
+                            return False
+                    else:
+                        value = ''
+                        if not value == out1[key]:
+                            st.log("Provided and configured address values are not matching for {}.".format(key))
+                            return False
+            if kwargs.get('prefix_list'):
+                for prefix_dict in kwargs['prefix_list']:
+                    if 'prefix' in prefix_dict.keys():
+                        value = prefix_dict['prefix']
+                        try:
+                            index = out1['prefix'].index(value)
+                        except ValueError:
+                            st.log('item is not in the list')
+                        if value not in out1['prefix']:
+                            st.log("Provided and configured address values are not matching for prefix address.")
+                            return False
+                    if 'preferred_life' in prefix_dict.keys():
+                        value = prefix_dict['preferred_life']
+                        if not str(value) == out1['prefix_prefd_lifetime'][index]:
+                            st.log("Provided and configured address values are not matching for prefix preferred life.")
+                            return False
+                    if 'valid_life' in prefix_dict.keys():
+                        value = prefix_dict['valid_life']
+                        if not str(value) == out1['prefix_valid_lifetime'][index]:
+                            st.log("Provided and configured address values are not matching for prefix valid life.")
+                            return False
+                    if 'no_auto_cfg' in prefix_dict.keys():
+                        value = prefix_dict['no_auto_cfg']
+                        value = 'no-autoconfig' if value is True else None
+                        if not str(value) == out1['prefix_no_auto_cfg'][index]:
+                            st.log("Provided and configured address values are not matching for prefix no autoconfig.")
+                            return False
+                    if 'off_link' in prefix_dict.keys():
+                        value = prefix_dict['off_link']
+                        value = 'off-link' if value is True else None
+                        if not str(value) == out1['prefix_off_link'][index]:
+                            st.log("Provided and configured address values are not matching for prefix offlink.")
+                            return False
+                    if 'router_add' in prefix_dict.keys():
+                        value = prefix_dict['router_add']
+                        value = 'router-address' if value is True else None
+                        if not str(value) == out1['prefix_router_add'][index]:
+                            st.log("Provided and configured address values are not matching for prefix routeradd.")
+                            return False
+            if kwargs.get('dnssl_list'):
+                for dnssl_dict in dnssl_list:
+                    if 'dnss_name' in dnssl_dict.keys():
+                        value = dnssl_dict['dnss_name']
+                        try:
+                            index = out1['dnssl'].index(value)
+                        except ValueError:
+                            st.log('item is not in the list')
+                        if str(value) not in out1["dnssl"]:
+                            st.log("Provided and configured address values are not matching for dnssl name.")
+                            return False
+                    if 'valid_life' in dnssl_dict.keys():
+                        value = dnssl_dict['valid_life']
+                        if not str(value) == out1['dnssl_lifetime'][index]:
+                            st.log("Provided and configured address values are not matching for dnssl valid life.")
+                            return False
+            if kwargs.get('rdnss_list'):
+                for rdnss_dict in rdnss_list:
+                    if 'address' in rdnss_dict.keys():
+                        value = rdnss_dict['address']
+                        try:
+                            index = out1['rdnss'].index(value)
+                        except ValueError:
+                            st.log('item is not in the list')
+                        if str(value) not in out1["rdnss"]:
+                            st.log("Provided and configured address values are not matching for rdnss address.")
+                            return False
+                    if 'valid_life' in rdnss_dict.keys():
+                        value = rdnss_dict['valid_life']
+                        if not str(value) == out1['rdnss_lifetime'][index]:
+                            st.log("Provided and configured address values are not matching for rdnss valid life.")
+                            return False
+        else:
+            return False
+    else:
+        st.error("Invalid CLI type - {}".format(cli_type))
+        return False
+
+    return True
+
+
+def show_running_config(dut, **kwargs):
+    """
+    API to verify ntp on DUT
+    Author : Nagarjuna Suravarapu (nagarjuna.survarapu@broadcom.com)
+    :param dut:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    intf = kwargs.get('intf', None)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+    if cli_type in ["klish", "rest-patch", "rest-put", "click"]:
+        cmd = 'show running-configuration interface {}'.format(intf)
+        output = st.show(dut, cmd, skip_tmpl=True, type="klish")
+        st.banner(output)
+    else:
+        st.log("UNSUPPORTED CLI TYPE")
+        return False
+    return output
