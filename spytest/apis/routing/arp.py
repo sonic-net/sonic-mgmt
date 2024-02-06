@@ -13,6 +13,7 @@ import utilities.common as common_utils
 
 try:
     import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
+    from apis.yang.utils.common import Operation
     import apis.yang.codegen.messages.neighbor.Neighbor as umf_nbr
 
 except ImportError:
@@ -934,3 +935,89 @@ def _get_rest_neighbor_entries(dut, interface, is_arp=True):
                 retval.append(temp)
                 st.debug("ARP entries of {} - {}".format(interface, temp))
     return retval
+
+
+def config_drop_nbr(dut, **kwargs):
+    """
+    API to configure drop nbr on DUT
+    Author : Pavan Kumar Kasula (pavan.kasula@broadcom.com)
+    :param dut:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    time_val = kwargs.get('time_val', 300)
+    family = kwargs.get('family', 'ipv4')
+    config = kwargs.get('config', 'yes')
+    operation = Operation.UPDATE if cli_type == 'gnmi' else Operation.CREATE
+    if cli_type in get_supported_ui_type_list() or cli_type in ["klish"]:
+        nbr_msg = umf_nbr.NeighborGlobal('Values')
+        if config == 'no':
+            if family == 'ipv6':
+                result = nbr_msg.unConfigure(dut, target_attr=nbr_msg.Ipv6DropNeighborAgingTime, family='ipv6', cli_type=cli_type)
+            else:
+                result = nbr_msg.unConfigure(dut, target_attr=nbr_msg.Ipv4DropNeighborAgingTime, family='ipv4', cli_type=cli_type)
+
+            if not result.ok():
+                st.log('test_step_failed: {}: Unconfig  drop nbr param: result: {}'
+                       .format(cli_type.upper(), result.data))
+                return False
+        else:
+            if family == 'ipv6':
+                nbr_msg.Ipv6DropNeighborAgingTime = time_val
+            else:
+                nbr_msg.Ipv4DropNeighborAgingTime = time_val
+            result = nbr_msg.configure(dut, operation=operation, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: {}: Unconfig drop nbr param: result: {}'
+                       .format(cli_type.upper(), result.data))
+                return False
+
+
+def verify_neighbor_agetime(dut, entry_type, **kwargs):
+    """
+    To get drop neighbor time.
+    Author: Pavan kumar (pavan.kasula@broadcom.com)
+    :param dut:
+    :return:
+    arp_api.verify_neighbor_agetime(data.dut, entry_type='drop_entry', return_output=True)
+    arp_api.verify_neighbor_agetime(data.dut, entry_type='drop_entry', timeout=450)
+    arp_api.verify_neighbor_agetime(data.dut, entry_type='drop_entry', timeout=300, family='ipv6')
+    arp_api.verify_neighbor_agetime(data.dut, entry_type='nbr_entry', return_output=True)
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    family = kwargs.get('family', 'ipv4')
+    return_output = kwargs.get('return_output', False)
+    filter_type = kwargs.get('filter_type', 'ALL')
+    query_param_obj = common_utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+
+    if cli_type == 'klish':
+        cli_type = 'gnmi'
+    if cli_type in get_supported_ui_type_list():
+        nbr_obj = umf_nbr.NeighborGlobal(Name='Values')
+        if return_output:
+            result = nbr_obj.get_payload(dut, cli_type=cli_type)
+            if not result.ok():
+                st.log('test_step_failed: Get ARP timeout {}'.format(result.data))
+                return False
+            return result.payload
+        if entry_type == 'drop_entry':
+            timeout = int(kwargs.get('timeout', 300))
+            if family == 'ipv4':
+                setattr(nbr_obj, 'Ipv4DropNeighborAgingTime', timeout)
+            else:
+                setattr(nbr_obj, 'Ipv6DropNeighborAgingTime', timeout)
+        elif entry_type == 'nbr_entry':
+            timeout = int(kwargs.get('timeout', 180))
+            if family == 'ipv4':
+                setattr(nbr_obj, 'Ipv4ArpTimeout', timeout)
+            else:
+                setattr(nbr_obj, 'Ipv6NdCacheExpiry', timeout)
+        result = nbr_obj.verify(dut, match_subset=True,
+                                query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Match Not Found: {}'.format(kwargs['ip_address']))
+            return False
+        return True
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
