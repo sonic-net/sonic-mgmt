@@ -6,7 +6,7 @@ import logging
 import shutil
 import argparse
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
-from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.storage.blob import BlobServiceClient, BlobClient
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
 import datetime
 # Install the following package before running this program
@@ -52,7 +52,7 @@ class KustoChecker(object):
         self.logger.debug('Query String: {}'.format(query))
         return self.client.execute(self.database, query)
 
-    def query_highest_pass_rate(self, HardwareSku=None, TopologyType=None, BranchName=None, BuildId=None):
+    def query_highest_pass_rate(self, HardwareSku=None, TopologyType=None, BranchName=None, BuildId=None, Vendor=None):
         """
         Query the highest pass rate for each HardwareSku, Topology, Branch for past 7 days
         return: list[{Vendor,BuildId,HardwareSku,TopologyType,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun}]
@@ -61,6 +61,7 @@ class KustoChecker(object):
         TopologyType_q = '| where TopologyType contains "{}"'.format(TopologyType) if TopologyType else ''
         BranchName_q = '| where BranchName contains "{}"'.format(BranchName) if BranchName else ''
         BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
+        Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
             let IncludeBranchList = dynamic(['20230531', '20231105']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
@@ -92,7 +93,8 @@ class KustoChecker(object):
                                 HardwareSku has_any (BroadcomList), "brcm", "unknow" )
             | where Vendor in (VendorList)
             | project Vendor,BuildId,HardwareSku,TopologyType,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun
-        '''.format(hardwaresku_q, TopologyType_q, BranchName_q, BuildId_q)
+            {}
+        '''.format(hardwaresku_q, TopologyType_q, BranchName_q, BuildId_q, Vendor_q)
         logger.info('Query highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(query_str))
 
         result = self.query(query_str)
@@ -111,13 +113,14 @@ class AzureBlobConnecter(object):
         else:
             raise RuntimeError('Could not load Storage credentials from environment')
 
-        self.logger = logging.getLogger('AzureBlobConnecter')
+        self.http_logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+        self.http_logger.setLevel(logging.WARNING)
 
         self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=self.token)
 
         logger.info("Connected to Azure Blob Storage {} successfully".format(self.account_url))
 
-    def connect_to_blob(self, container_name):
+    def connect_to_container(self, container_name):
         container = self.blob_service_client.get_container_client(container=container_name)
         container_list = container.list_blobs()
         for blob in container_list:
@@ -143,6 +146,7 @@ class AzureBlobConnecter(object):
             logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
 
     def upload_artifacts_to_container(self, container_name, artifact, blob_name):
+        logger.debug("Tyr to upload artifacts to container {} with blob name {} from local file {}".format(container_name, blob_name, artifact))
         try:
             # Create a BlobClient for the artifact
             blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
@@ -151,7 +155,7 @@ class AzureBlobConnecter(object):
             with open(artifact, "rb") as data:
                 blob_client.upload_blob(data=data, overwrite=True)
 
-            logger.info("upload artifact {} to {}".format(artifact, blob_name))
+            logger.info("uploaded artifact {} to {}".format(artifact, blob_name))
 
         except ResourceExistsError as ex:
             logger.error("The artifact {} already exists. Error: {}".format(artifact, ex))
@@ -159,11 +163,18 @@ class AzureBlobConnecter(object):
         except Exception as ex:
             logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
 
+        logger.debug("Upload artifacts to container {} with blob name {} from local file {} DONE".format(container_name, blob_name, artifact))
+
     def download_artifacts_from_container(self, container_name, blob_name, local_file_path):
         try:
-
             # Create a BlobClient for the artifact
-            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+            blob_client = BlobClient(account_url=self.account_url,
+                                     container_name=container_name,
+                                     credential=self.token,
+                                     blob_name=blob_name,
+                                     max_single_get_size=1024*1024*32,  # 32 MiB
+                                     max_chunk_get_size=1024*1024*4  # 4 MiB
+            )
 
             # download artifact to the local file
             with open(local_file_path, "wb") as download_file:
@@ -177,7 +188,9 @@ class AzureBlobConnecter(object):
         except Exception as ex:
             logger.error("Error {} occurred when downloading {} from container {}".format(ex, blob_name, container_name))
 
+
     def download_artifacts_from_container_recursively(self, container_name, folder_name, local_path):
+        logger.debug("Download artifacts from container {} with folder {} to local path {}".format(container_name, folder_name, local_path))
         os.makedirs(local_path, exist_ok=True)
 
         container_client = self.blob_service_client.get_container_client(container=container_name)
@@ -195,6 +208,8 @@ class AzureBlobConnecter(object):
                     self.download_artifacts_from_container(container_name, blob_name, local_path + "/" + head + "/" + tail)
             else:
                 self.download_artifacts_from_container(container_name, blob_name, local_path + "/" + blob_name)
+
+        logger.debug("Download artifacts from container {} with folder {} to local path {} DONE".format(container_name, folder_name, local_path))
 
 
 def create_kusto_checker():
@@ -217,6 +232,7 @@ def main(args):
     branch = args.branch if args.branch != "All" else None
     hardwaresku = args.hardwaresku if args.hardwaresku != "All" else None
     buildid = args.buildid if args.buildid != "All" else None
+    vendor = args.vendor if args.vendor != "All" else None
 
     kustochecker = create_kusto_checker()
     vendor_sharing_storage_token = os.getenv("VENDOR_SHARING_SAS_TOKEN")
@@ -224,11 +240,20 @@ def main(args):
     nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_token)
     vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_storage_token)
 
-    result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid)
+    result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
 
     upload_date = datetime.datetime.now().strftime("%Y%m%d")
     base_path = os.getcwd()
     logger.info('Current working directory: {}, current date:{}'.format(base_path, upload_date))
+
+    counter_map = dict()
+    if vendor:
+        counter_map[vendor] = 0
+    else:
+        counter_map['arista'] = 0
+        counter_map['brcm'] = 0
+        counter_map['cisco'] = 0
+        counter_map['mellanox'] = 0
 
     for res in result:
         buildid = res['BuildId']
@@ -258,18 +283,14 @@ def main(args):
         vendor_container_name = vendor + 'testresult'
 
         remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology  + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
-        tags = {'BuildId': buildid,
-                'HardwareSku': hardwaresku,
-                'TopologyType': topology,
-                'BranchName': branch,
-                'RunDate': run_date,
-                'OSVersion': os_version,
-                'CassesRun': str(casses_run),
-                'SuccessRate': success_rate
-                }
-        # upload with tag or change name?
+
+        logger.debug('Staring upload artifact {} to container {} with blob name:{}'.format(local_artifact_path, vendor_container_name, remote_file_path))
         vendor_sharing_storage_connecter.upload_artifacts_to_container(container_name=vendor_container_name, artifact=local_artifact_path, blob_name=remote_file_path)
-        # vendor_sharing_storage_connecter.upload_artifacts_to_container_with_tag(container_name=vendor_container_name, artifact=local_artifact_path, tag=tags)
+        counter_map[vendor] += 1
+        shutil.rmtree(base_path + '/' + buildid)
+        os.remove(local_artifact_path)
+
+    logger.info('Upload summary: {}'.format(counter_map))
 
     return
 
@@ -305,6 +326,12 @@ if __name__ == '__main__':
         dest='buildid',
         default="All",
         help='Build id')
+
+    parser.add_argument('-v', '--vendor',
+        type=str,
+        dest='vendor',
+        default="All",
+        help='Vendor name')
 
     args = parser.parse_args()
 
