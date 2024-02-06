@@ -1,21 +1,36 @@
 # This file contains the list of API's for operations on ZTP
 # @author : Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
+import os
+import datetime
+import re
+
 from spytest import st
 import apis.system.basic as basic_obj
-import utilities.utils as utils_obj
 import apis.system.switch_configuration as switch_conf_obj
 import apis.system.interface as intf_obj
 import apis.routing.ip as ip_obj
 import apis.system.reboot as reboot_obj
 import apis.system.boot_up as boot_up_obj
-import datetime
+from apis.system.rest import config_rest, get_rest
+
+import utilities.utils as utils_obj
+
+try:
+    import apis.yang.codegen.messages.ztp as umf_ztp
+except ImportError:
+    pass
 
 wait_5 = 5
 wait_10 = 10
 wait_60 = 60
 
 
-def show_ztp_status(dut, expect_reboot=False, cli_type=""):
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in utils_obj.get_supported_ui_type_list() else cli_type
+    return cli_type
+
+
+def show_ztp_status(dut, expect_reboot=False, expect_ipchange=False, cli_type=""):
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
     API to show ztp status
@@ -23,54 +38,91 @@ def show_ztp_status(dut, expect_reboot=False, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type)
     result = dict()
-    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
-    if cli_type not in ["click", "klish"]:
+    if cli_type not in ["click", "klish", "rest-put", "rest-patch"]:
         st.error("UNSUPPORTED CLI TYPE")
         return result
     command = "sudo ztp status" if cli_type == "click" else "show ztp-status"
-    output = st.show(dut, command, expect_reboot=False, type=cli_type)
-    file_name = dict()
-    timestamps = dict()
-    #excluded_file_name = ["--sonic-mgmt--#"]
-    if output:
-        for row in output:
-            result["filenames"] = list()
-            result["timestamps"] = list()
-            if result.get("service"):
-                pass
+    if cli_type in ["click", "klish"]:
+        output = st.show(dut, command, expect_reboot=expect_reboot, expect_ipchange=expect_ipchange, skip_waiting=True, type=cli_type)
+        file_name = dict()
+        timestamps = dict()
+        # excluded_file_name = ["--sonic-mgmt--#"]
+        if output:
+            for row in output:
+                result["filenames"] = list()
+                result["timestamps"] = list()
+                if result.get("service"):
+                    pass
+                else:
+                    result["service"] = row.get("service", "")
+                # if not result["source"]:
+                if result.get("source"):
+                    pass
+                else:
+                    result["source"] = row.get("source", "")
+                # if not result["status"]:
+                if result.get("status"):
+                    pass
+                else:
+                    result["status"] = row.get("status", "")
+                # if not result["adminmode"]:
+                if result.get("adminmode"):
+                    pass
+                else:
+                    result["adminmode"] = row.get("adminmode", "")
+                # if not result["timestamp"]:
+                result["timestamp"] = row.get("timestamp", "")
+                if row.get("filename"):
+                    if cli_type == "click":
+                        values = row["filename"].split(":")
+                        file_name[values[0].strip()] = values[1].strip()
+                        result["filenames"].append(file_name)
+                    elif cli_type == "klish":
+                        file_name[row.get("filename")] = row.get("filestatus")
+                        result["filenames"].append(file_name)
+                        if row.get("filetimestamp"):
+                            timestamps.update({row.get("filename"): row.get("filetimestamp")})
+                            result["timestamps"].append(timestamps)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_urls = st.get_datastore(dut, "rest_urls")
+        url = rest_urls['show_ztp']
+        resp = get_rest(dut, http_method=cli_type, rest_url=url, timeout=30)
+        try:
+            if "output" not in resp:
+                ip = st.get_mgmt_ip(dut)
+                st.error("Failed to Display ZTP Output Mgmt ip={}".format(ip))
+                return {}
             else:
-                result["service"] = row.get("service", "")
-            # if not result["source"]:
-            if result.get("source"):
-                pass
-            else:
-                result["source"] = row.get("source", "")
-            # if not result["status"]:
-            if result.get("status"):
-                pass
-            else:
-                result["status"] = row.get("status", "")
-            # if not result["adminmode"]:
-            if result.get("adminmode"):
-                pass
-            else:
-                result["adminmode"] = row.get("adminmode", "")
-            # if not result["timestamp"]:
-            result["timestamp"] = row.get("timestamp", "")
-            if row.get("filename"):
-                if cli_type == "click":
-                    values = row["filename"].split(":")
-                    file_name[values[0].strip()] = values[1].strip()
-                    result["filenames"].append(file_name)
-                elif cli_type == "klish":
-                    file_name[row.get("filename")] = row.get("filestatus")
-                    result["filenames"].append(file_name)
-                    if row.get("filetimestamp"):
-                        timestamps.update({row.get("filename"):row.get("filetimestamp")})
-                        result["timestamps"].append(timestamps)
-            # if not result["processingtext"]:
-            # result["processingtext"] = row["processingtext"] if "processingtext" in row and row["processingtext"] else ""
+                temp = dict()
+                result = dict()
+                temp1 = dict()
+                temp2 = dict()
+                op = resp["output"]["openconfig-ztp:ztp"]
+                temp["adminmode"] = str(op["config"].get("admin-mode"))
+                if "section-state" in op:
+                    sbset = op["section-state"]["section-list"]
+                    temp["filenames"] = list()
+                    temp["timestamps"] = list()
+                    for i in sbset:
+                        result = temp.copy()
+                        temp2.update({i["state"].get("section-name"): i["state"].get("status")})
+                        temp1.update({i["state"].get("section-name"): i["state"].get("timestamp")})
+                    result["filenames"].append(temp2)
+                    result["timestamps"].append(temp1)
+                    result["fileruntime"] = str(op["state"]["runtime"] if op["state"].get("runtime") else '')
+                    result["source"] = str(op["state"]["source"] if op["state"].get("source") else '')
+                    result["service"] = str(op["state"]["service"] if op["state"].get("service") else '')
+                    result["status"] = str(op["state"]["status"] if op["state"].get("status") else '')
+                    result["timestamp"] = str(op["state"]["timestamp"] if op["state"].get("timestamp") else '')
+                else:
+                    temp["service"] = str(op["state"]["service"] if op["state"].get("service") else '')
+                    temp["status"] = str(op["state"]["status"] if op["state"].get("status") else '')
+                    result = temp
+        except Exception:
+            st.error("Failed to display Output")
+            return {}
     st.debug(result)
     return result
 
@@ -232,11 +284,12 @@ def verify_ztp_status(dut, retry_cnt=0, iteration=300, retry=3, expect_reboot=Fa
                                     for filename in reboot_flag:
                                         if filename in filenames and filenames[filename] == "SUCCESS":
                                             return True
-                            if cli_type == "klish":
+                            if cli_type in ["klish", "rest-patch", "rest-put"]:
                                 if len(response["filenames"]) > 0:
-                                    for key,value in response["filenames"][0].items():
+                                    for key, value in response["filenames"][0].items():
                                         if ("configdb-json" in key or "graphservice" in key) and value == "IN-PROGRESS":
                                             st.wait(300)
+                                            basic_obj.poll_for_system_status(dut)
                             st.wait(retry)
                             # return verify_ztp_status(dut)
                         elif response["status"] == "FAILED":
@@ -258,7 +311,10 @@ def verify_ztp_status(dut, retry_cnt=0, iteration=300, retry=3, expect_reboot=Fa
                         return True
             else:
                 st.log("Found that ZTP is disabled hence enabling it ..")
-                ztp_operations(dut, "enable")
+                if not ip_obj.ping(dut, st.get_mgmt_ip(dut)):
+                    ztp_operations(dut, "enable", cli_type='klish')
+                else:
+                    ztp_operations(dut, "enable")
                 # ztp_operations(dut, "run")
                 # return verify_ztp_status(dut)
         return False
@@ -275,6 +331,7 @@ def get_ztp_timestamp_obj(ztp_timestamp):
         return datetime.datetime.strptime(ztp_timestamp, '%Y-%m-%d %H:%M:%S')
     except ValueError as e:
         st.error(e)
+        return None
 
 
 def enable_ztp_if_disabled(dut, iteration=5, delay=1, cli_type=""):
@@ -312,7 +369,7 @@ def enable_ztp_if_disabled(dut, iteration=5, delay=1, cli_type=""):
         st.wait(delay)
 
 
-def ztp_operations(dut, operation, cli_type="", max_time=0):
+def ztp_operations(dut, operation, cli_type="", max_time=0, **kwargs):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     """
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -321,7 +378,15 @@ def ztp_operations(dut, operation, cli_type="", max_time=0):
     :param operation:
     :return:
     """
-    if cli_type == "click":
+    if cli_type in utils_obj.get_supported_ui_type_list():
+        oper = False if operation == "disable" else True
+        ztp_obj = umf_ztp.Ztp(AdminMode=oper)
+        result = ztp_obj.configure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Config ZTP Admin Mode {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == "click":
         supported_opers = ["run", "enable", "disable"]
         if operation not in supported_opers:
             return False
@@ -332,7 +397,18 @@ def ztp_operations(dut, operation, cli_type="", max_time=0):
     elif cli_type == "klish":
         no_form = "no" if operation == "disable" else ""
         command = "{} ztp enable".format(no_form)
-    st.config(dut, command, type=cli_type, max_time=max_time)
+    elif cli_type in ["rest-patch", "rest-put"]:
+        rest_url = st.get_datastore(dut, "rest_urls")
+        url = rest_url["config_ztp"]
+        if operation == "disable":
+            payload = {"openconfig-ztp:config": {"admin-mode": False}}
+        else:
+            payload = {"openconfig-ztp:config": {"admin-mode": True}}
+        if not config_rest(dut, http_method=cli_type, json_data=payload, rest_url=url):
+            st.error("Failed to Config ZTP Admin Mode", dut)
+            return False
+    if cli_type in ["click", "klish"]:
+        st.config(dut, command, type=cli_type, max_time=max_time, **kwargs)
 
 
 def ztp_push_full_config(dut, cli_type=""):
@@ -425,8 +501,7 @@ def config_and_verify_dhcp_option(ssh_conn_obj, dut, ztp_params, data, expect_re
     :param data:
     :return:
     """
-    cli_type = st.get_ui_type(dut,cli_type=cli_type)
-    cli_type = "klish" if cli_type in ["rest-put", "rest-patch"] else cli_type
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     retry_count = data.retry_count if "retry_count" in data and data.retry_count else 0
     iteration = data.iteration if "iteration" in data and data.iteration else 300
     delay = data.delay if "delay" in data and data.delay else 3
@@ -442,11 +517,11 @@ def config_and_verify_dhcp_option(ssh_conn_obj, dut, ztp_params, data, expect_re
         file_path = basic_obj.write_to_json_file(data.json_content)
     if file_path:
         destination_path = "{}{}/{}".format(ztp_params.home_path, ztp_params.config_path, data.config_file)
-        basic_obj.copy_file_from_client_to_server(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
+        basic_obj.upload_file(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
     if "config_db_location" in data and data.config_db_location == "json":
         st.download_file_from_dut(dut, data.config_db_temp, file_path)
         destination_path = "{}{}/{}".format(ztp_params.home_path, ztp_params.config_path, data.config_db_file_name)
-        basic_obj.copy_file_from_client_to_server(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
+        basic_obj.upload_file(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
     if "scenario" in data and data.scenario == "invalid-json":
         st.log("Writing invalid content to make invalid json ...")
         basic_obj.write_to_file_to_line(ssh_conn_obj, ",", 5, destination_path, "server")
@@ -462,7 +537,7 @@ def config_and_verify_dhcp_option(ssh_conn_obj, dut, ztp_params, data, expect_re
             data.option_url = "ftp://{}/{}/{}".format(data.static_ip, data.config_path, data.config_file)
         write_option_to_dhcp_server(ssh_conn_obj, data)
         basic_obj.service_operations(ssh_conn_obj, data.dhcp_service_name, data.action, data.device)
-        if not verify_dhcpd_service_status(ssh_conn_obj, data.dhcpd_pid):
+        if not verify_dhcpd_service_status(ssh_conn_obj, data.dhcpd_pid, new_pid=True):
             st.log("{} service not running".format(data.dhcp_service_name))
             st.report_fail("service_not_running", data.dhcp_service_name)
         # write_option_67_to_dhcp_server(ssh_conn_obj, data)
@@ -474,11 +549,11 @@ def config_and_verify_dhcp_option(ssh_conn_obj, dut, ztp_params, data, expect_re
         st.wait_system_status(dut, 500)
     elif data.device_action == "run":
         ztp_operations(dut, data.device_action)
-    if "band_type" in data and data.band_type=="inband":
+    if "band_type" in data and data.band_type == "inband":
         if not basic_obj.poll_for_system_status(dut):
             st.log("Sytem is not ready ..")
             st.report_env_fail("system_not_ready")
-        if not basic_obj.check_interface_status(dut, ztp_params.oob_port,"up"):
+        if not basic_obj.check_interface_status(dut, ztp_params.oob_port, "up"):
             basic_obj.ifconfig_operation(dut, ztp_params.oob_port, "down")
         interface_status = basic_obj.check_interface_status(dut, ztp_params.inband_port, "up")
         if interface_status is not None:
@@ -548,6 +623,7 @@ def write_option_239_to_dhcp_server(ssh_conn_obj, data):
                                        option_239_config, data["dhcp_config_file"]):
         st.log("Written content in file {} not found".format(data["dhcp_config_file"]))
         st.report_fail("content_not_found")
+
 
 def write_option_225_to_dhcp_server(ssh_conn_obj, data):
     option_225 = "option option-225 ="
@@ -643,24 +719,53 @@ def verify_ztp_filename_logs(dut, data, status="SUCCESS", condition="positive"):
     :param status:
     :return:
     """
+    cli_type = st.get_ui_type(dut)
     filenames = list([str(e) for e in data.file_names]) if isinstance(data.file_names, list) else [data.file_names]
     log_msg = data.log_msg if "log_msg" in data and data.log_msg else "Checking configuration section {} result: {}"
     match = data.match if "match" in data else ""
+    output = show_ztp_status(dut, cli_type=cli_type)
+    if not output:
+        st.error("Observed empty output for show ztp status")
+        return False
+    match_strings = [output.get("timestamp")] if output.get("timestamp") else []
     for file_name in filenames:
+        time_stamps = output.get("timestamps")
         log_string_1 = log_msg.format(file_name, status)
         st.log(log_string_1)
-        if not basic_obj.poll_for_error_logs(dut, data.ztp_log_path, log_string_1, match=match):
-            if condition == "positive":
-                st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path, log_string_1))
-                if not basic_obj.poll_for_error_logs(dut, data.ztp_log_path_1, log_string_1, match=match):
-                    st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path_1,
-                                                                                  log_string_1))
-                    st.report_fail("ztp_log_verification_failed", data.ztp_log_path_1, log_string_1)
+        if not time_stamps:
+            if not basic_obj.poll_for_error_logs(dut, data.ztp_log_path, log_string_1, match=match):
+                if condition == "positive":
+                    st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path, log_string_1))
+                    if not basic_obj.poll_for_error_logs(dut, data.ztp_log_path_1, log_string_1, match=match):
+                        st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path_1,
+                                                                                      log_string_1))
+                        st.report_fail("ztp_log_verification_failed", data.ztp_log_path_1, log_string_1)
+                    else:
+                        return True
+        else:
+            time_stamp_val = time_stamps[0].get(file_name)
+            if not time_stamp_val:
+                st.error("Timestamp value of {} is not found".format(file_name))
+                st.report_fail("ztp_timestamp_value_not_found", file_name)
+            match_strings.append(time_stamp_val)
+            for match in match_strings:
+                timestamp_value = re.findall(r"\d{4}-\d{1,2}-\d{1,2}\s\d{1,2}:\d{1,2}:\d{1,2}", match)
+                if not timestamp_value:
+                    st.error("Matching timestamp string is not found - {}".format(file_name))
+                    st.report_fail("ztp_timestamp_mismatch", file_name)
+                date_time_val = datetime.datetime.strftime(get_ztp_timestamp_obj(timestamp_value[0]), "%b %d %H:%M:%S")
+                if not st.poll_wait(basic_obj.verify_log_messages_by_time_stamp, 20, dut, search_string=date_time_val, file_path=data.ztp_log_path, match_string=log_string_1):
+                    if condition == "positive":
+                        st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path, log_string_1))
+                        if not st.poll_wait(basic_obj.verify_log_messages_by_time_stamp, 20, dut, search_string=date_time_val, file_path=data.ztp_log_path_1, match_string=log_string_1):
+                            st.log("ZTP log {} verification failed for message {}".format(data.ztp_log_path_1,
+                                                                                          log_string_1))
+                            st.report_fail("ztp_log_verification_failed", data.ztp_log_path_1, log_string_1)
+                        else:
+                            return True
                 else:
                     return True
-        else:
-            return True
-
+        return True
 
 
 def config_ztp_backdoor_options(dut, ztp_cfg={"admin-mode": True, "restart-ztp-interval": 30}, dut_ztp_cfg_file="/host/ztp/ztp_cfg.json"):
@@ -678,6 +783,7 @@ def config_ztp_backdoor_options(dut, ztp_cfg={"admin-mode": True, "restart-ztp-i
 
 def ztp_status_verbose(dut, cli_type=""):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type)
     """
     API to get the ztp status verbose output with filename and its details as we are getting the status in ztp status API
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -689,7 +795,6 @@ def ztp_status_verbose(dut, cli_type=""):
         return st.show(dut, command, type=cli_type)
     else:
         return show_ztp_status(dut, cli_type=cli_type)
-
 
 
 def verify_plugin_chronological_order(dut, cli_type=""):
@@ -746,6 +851,7 @@ def verify_dhclient_on_interface(dut, search_string, interface, expected_count=2
             return True
     return False
 
+
 def create_required_folders(conn_obj, path_list):
     """
     API to create folders as per the provided path in bulk
@@ -753,7 +859,7 @@ def create_required_folders(conn_obj, path_list):
     :param path:
     :return:
     """
-    path_list = [path_list] if type(path_list) is str else list([str(e) for e in path_list])
+    path_list = [path_list] if isinstance(path_list, str) else list([str(e) for e in path_list])
     for path in path_list:
         basic_obj.make_dir(conn_obj, path, "server")
         basic_obj.change_permissions(conn_obj, path, 777, "server")
@@ -772,7 +878,7 @@ def config_dhcpv6_options(ssh_conn_obj, ztp_params, config_params, options=dict(
     retry_count = config_params.retry_count if "retry_count" in config_params and config_params.retry_count else 0
     iteration = config_params.iteration if "iteration" in config_params and config_params.iteration else 300
     delay = config_params.delay if "delay" in config_params and config_params.delay else 3
-    expect_reboot = True if "expect_reboot" in options and options ["expect_reboot"] else False
+    expect_reboot = True if "expect_reboot" in options and options["expect_reboot"] else False
     st.log(config_params)
     if "func_name" in config_params:
         syslog_file_names = ["syslog_1_{}".format(config_params.func_name), "syslog_{}".format(config_params.func_name)]
@@ -782,17 +888,17 @@ def config_dhcpv6_options(ssh_conn_obj, ztp_params, config_params, options=dict(
         if file_path:
             destination_path = "{}{}/{}".format(config_params.home_path, ztp_params.config_path, config_params.ztp_file)
             st.log(destination_path)
-            basic_obj.copy_file_from_client_to_server(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
+            basic_obj.upload_file(ssh_conn_obj, src_path=file_path, dst_path=destination_path)
     config_params.option_59_url = "http://[{}]{}/{}".format(config_params.static_ip, ztp_params.config_path, config_params.ztp_file)
     config_params.search_pattern = r'\s*option\s+dhcp6.boot-file-url\s+"\S+";'
     write_option_59_to_dhcp_server(ssh_conn_obj, config_params)
     basic_obj.service_operations(ssh_conn_obj, config_params.dhcp6_service_name, "restart", "server")
-    if not verify_dhcpd_service_status(ssh_conn_obj, config_params.dhcpd6_pid):
+    if not verify_dhcpd_service_status(ssh_conn_obj, config_params.dhcpd6_pid, new_pid=True):
         st.log("{} service is running which is not expected".format(config_params.dhcp6_service_name))
         st.report_fail("service_running_not_expected", config_params.dhcp6_service_name)
     reboot_type = config_params.reboot_type if "reboot_type" in config_params and config_params.reboot_type else "normal"
     if "ztp_operation" in config_params:
-        config_params.ztp_operation = "reboot" if cli_type == "klish" else config_params.ztp_operation
+        config_params.ztp_operation = "reboot" if cli_type in ["klish", "rest-patch", "rest-put"] + utils_obj.get_supported_ui_type_list() else config_params.ztp_operation
         if config_params.ztp_operation == "reboot":
             basic_obj.remove_file(config_params.dut, config_params.config_db_path)
             st.reboot(config_params.dut, reboot_type, skip_port_wait=True)
@@ -851,9 +957,10 @@ def write_option_59_to_dhcp_server(connection_obj, data):
     #     basic_obj.delete_line_using_line_number(connection_obj, line_number, data.dhcp_config_file)
     #     basic_obj.write_to_file_to_line(connection_obj, option_59_config, line_number, data.dhcp_config_file, device="server")
     line_number = basic_obj.get_file_number_with_regex(connection_obj, data.search_pattern, data.dhcp_config_file)
-    if line_number <=0:
+    if line_number <= 0:
         st.log("Written content in file {} not found".format(data["dhcp_config_file"]))
         st.report_fail("content_not_found")
+
 
 def write_option_to_dhcp_server(connection_obj, data):
     """
@@ -878,6 +985,7 @@ def write_option_to_dhcp_server(connection_obj, data):
         st.log("Written content in file {} not found".format(data["dhcp_config_file"]))
         st.report_fail("content_not_found")
 
+
 def clear_options_from_dhcp_server(connection_obj, data):
     st.log("Clearing OPTIONS from DHCP server")
     option = ""
@@ -897,9 +1005,10 @@ def clear_options_from_dhcp_server(connection_obj, data):
                                                            option, data.dhcp_config_file)
         if line_number > 0:
             basic_obj.delete_line_using_line_number(connection_obj, line_number,
-                                                data.dhcp_config_file)
+                                                    data.dhcp_config_file)
 
-def verify_dhcpd_service_status(dut, process_id):
+
+def verify_dhcpd_service_status(dut, process_id, new_pid=False):
     """
     API to verify DHCLIENT on provided interface using ps aux command
     Author: Chaitanya Vella (chaitanya-vella.kumar@broadcom.com)
@@ -910,13 +1019,16 @@ def verify_dhcpd_service_status(dut, process_id):
     :return:
     """
     st.log("Verifying DHCPD for {} ".format(process_id))
-    dhcpd_pid = "/run/dhcp-server/{}".format(process_id)
+    if new_pid:
+        dhcpd_pid = "{}".format(process_id)
+    else:
+        dhcpd_pid = "/run/dhcp-server/{}".format(process_id)
     ps_aux = basic_obj.get_ps_aux(dut, dhcpd_pid, device="server")
     st.log(ps_aux)
     config_string = ""
-    if process_id == "dhcpd6.pid":
+    if process_id in ["dhcpd6", "dhcpd6.pid"]:
         config_string = "-cf /etc/dhcp/dhcpd6.conf"
-    if process_id == "dhcpd.pid":
+    if process_id in ["dhcpd", "dhcpd.pid"]:
         config_string = "-cf /etc/dhcp/dhcpd.conf"
     st.log("Verifying the output with {}".format(config_string))
     if config_string not in ps_aux:
@@ -924,13 +1036,41 @@ def verify_dhcpd_service_status(dut, process_id):
         return False
     return True
 
+
 def capture_syslogs(dut, destination_path, file_name):
     file_names = list(file_name) if isinstance(file_name, list) else [file_name]
     syslog_paths = ["/var/log/syslog.1", "/var/log/syslog"]
     for i, syslog_path in enumerate(syslog_paths):
+        syslog_path_tmp = "/tmp/{}".format(os.path.basename(syslog_path))
+        st.config(dut, "cp -f {} {}".format(syslog_path, syslog_path_tmp))
         dst_file = "{}/{}".format(destination_path, file_names[i])
-        st.download_file_from_dut(dut, syslog_path, dst_file)
+        st.download_file_from_dut(dut, syslog_path_tmp, dst_file)
     return True
 
 
-
+def kdump_enable(dut, enable=False, **kwargs):
+    """
+    API to Enable/Disable Kdump
+    Author: Mohammed Abdul Raheem Ali (mohammed.raheem-ali@broadcom.com)
+    :param dut:
+    :param enable:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    skip_error_check = kwargs.get("skip_error_check", False)
+    command = "config kdump" if cli_type == 'click' else 'kdump'
+    cli_type = 'klish' if cli_type in ['rest-patch', 'rest-put'] + utils_obj.get_supported_ui_type_list() else cli_type
+    if cli_type == 'click':
+        if enable:
+            command += " enable"
+        else:
+            command += " disable"
+    elif cli_type == 'klish':
+        if enable:
+            command = '{} {}'.format(command, 'enable')
+        else:
+            command = "no {}".format(command)
+    resp = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
+    if resp is False:
+        return False
+    return True
