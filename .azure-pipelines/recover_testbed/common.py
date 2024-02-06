@@ -170,7 +170,7 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                         time.sleep(1)
 
                         # Rename image to avoid "File exists" error
-                        dut_console.remote_conn.send("mv {} {}.bak".format(image_url.split("/")[-1], image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("rm -f {}".format(image_url.split("/")[-1]))
                         dut_console.remote_conn.send("\n")
                         time.sleep(1)
 
