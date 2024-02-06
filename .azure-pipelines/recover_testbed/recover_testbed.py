@@ -84,8 +84,10 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
 
                 # Add management ip info into config_db.json
                 sonichost.template(src="../.azure-pipelines/recover_testbed/mgmt_ip.j2",
-                                   dest="/etc/sonic/mgmt_ip.j2")
-                sonichost.shell("configlet -u -j {}".format("/etc/sonic/mgmt_ip.j2"))
+                                   dest="/etc/sonic/mgmt_ip.json")
+                sonichost.shell("configlet -u -j {}".format("/etc/sonic/mgmt_ip.json"))
+
+                sonichost.shell("sudo config save -y")
 
                 sonic_username = dut_ssh[0]
                 sonic_password = dut_ssh[1]
