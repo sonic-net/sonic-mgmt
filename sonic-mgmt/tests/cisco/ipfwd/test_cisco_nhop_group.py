@@ -970,7 +970,7 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
         default_max_nhop_paths = 2
 
         if duthost.facts["platform"] in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']:
-            default_max_nhop_paths = 8
+            pytest.skip("Skip test_nhop_member_max_threshold test Unsupported platform %s." % (duthost.facts["platform"]))
         elif duthost.facts["platform"] in ['x86_64-88_lc0_36fh_mo-r0', 'x86_64-88_lc0_36fh_m-r0', 
                 'x86_64-88_lc0_36fh-r0', 'x86_64-88_lc0_36fh_o-r0']:
             default_max_nhop_paths = 32
