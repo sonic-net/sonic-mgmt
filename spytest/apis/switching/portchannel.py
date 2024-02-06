@@ -13,11 +13,12 @@ import utilities.common as utils
 import utilities.utils as uutils
 from utilities.utils import is_a_single_intf, segregate_intf_list_type
 from utilities.utils import get_supported_ui_type_list, override_supported_ui
-from utilities.utils import convert_intf_name_to_component
+from utilities.utils import cli_type_for_get_mode_filtering, convert_intf_name_to_component
 try:
     import apis.yang.codegen.messages.interfaces.Interfaces as umf_intf
     import apis.yang.codegen.messages.aggregate_ext.AggregateExt as umf_aggr_ext
-    # import apis.yang.codegen.messages.lacp as umf_lacp
+    import apis.yang.codegen.messages.lacp as umf_lacp
+    import apis.yang.codegen.messages.network_instance as umf_ni
     from apis.yang.utils.common import Operation
 except ImportError:
     pass
@@ -83,6 +84,16 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
                 result = lag_obj.configure(dut, operation=operation, cli_type=cli_type)
                 if not result.ok():
                     st.error("test_step_failed: Failed to Create LAG: {}".format(result.data))
+                    return False
+
+            if system_mac:
+                lag_obj.SystemMac = system_mac
+                if config_type == 'yes':
+                    result = lag_obj.configure(dut, cli_type=cli_type)
+                else:
+                    result = lag_obj.unConfigure(dut, target_attr=lag_obj.SystemMac, cli_type=cli_type)
+                if not result.ok():
+                    st.error("test_step_failed: Failed to Configure System MAC: {}".format(result.data))
                     return False
         return True
     elif cli_type == "click":
@@ -272,6 +283,8 @@ def get_portchannel(dut, portchannel_name="", cli_type="", **kwargs):
     {u'group': '111', u'name': 'PortChannel111', u'state': 'D', 'members': [], u'protocol': 'LACP', u'type': 'Eth'}]
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    yang_data_type = kwargs.get("yang_data_type", "ALL")
+    format = kwargs.get("format", True)
     st.log("Getting port channel {} details ...".format(portchannel_name), dut=dut)
     result = dict()
     try:
@@ -279,8 +292,30 @@ def get_portchannel(dut, portchannel_name="", cli_type="", **kwargs):
             st.log("Please provide portchannel")
             return False
         if cli_type in get_supported_ui_type_list():
-            cli_type = 'klish'
-        if cli_type == "click":
+            lag_obj = umf_intf.Interface(Name=portchannel_name)
+            if cli_type in cli_type_for_get_mode_filtering():
+                query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+                rv = lag_obj.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+            else:
+                rv = lag_obj.get_payload(dut, cli_type=cli_type)
+            if rv.ok():
+                if yang_data_type == "ALL" and format is True:
+                    output = _parse_portchannel_data(rv.payload)
+                    if output:
+                        if output[0].get("protocol") == "LACP":
+                            member_data = get_gnmi_portchannel_member_data(dut, portchannel_name, yang_data_type=yang_data_type, format=True)
+                        else:
+                            member_data = get_gnmi_static_pc_members(dut, rv.payload)
+                        output[0]["members"] = list()
+                        if member_data:
+                            output[0]["members"] = member_data
+                        return output
+                    return []
+                else:
+                    return rv.payload
+            else:
+                return []
+        elif cli_type == "click":
             command = "show interfaces portchannel | grep -w {}".format(portchannel_name)
             rv = st.show(dut, command)
             return rv
@@ -527,6 +562,8 @@ def verify_portchannel_member(dut, portchannel, members, flag='add', cli_type=""
     :param flag:
     :return:
     """
+    yang_data_type = kwargs.get("yang_data_type", "ALL")
+    depth = kwargs.get("depth", 3)
     verify = kwargs.get("verify", False)
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
 
@@ -548,7 +585,13 @@ def verify_portchannel_member(dut, portchannel, members, flag='add', cli_type=""
             return True
     else:
         # not validating input members list
-        return True
+        portchannel_details = get_portchannel(dut, portchannel, cli_type=cli_type)
+        if portchannel_details:
+            return verify_gnmi_portchannel_member_data(dut, portchannel_details, members, yang_data_type=yang_data_type,
+                                                       depth=depth)
+        else:
+            return False
+
 
 def add_del_portchannel_member(dut, portchannel, members, flag="add", skip_verify=True, cli_type="", skip_err_check=False):
     """
@@ -845,8 +888,8 @@ def _clear_portchannel_configuration_helper(dut_list, cli_type=""):
                     if not delete_portchannel_member(dut, portchannel_name, portchannel_member):
                         st.log("Error while deleting portchannel members")
                         return False
-                # if not config_portchannel_ethernet_segment(dut, portchannel_name, config_type='no', cli_type="klish", skip_error="True"):
-                #    st.log("PortChannel ethernet-segment config deletion failed {}".format(portchannel_name))
+                if not config_portchannel_ethernet_segment(dut, portchannel_name, config_type='no', cli_type="klish", skip_error="True"):
+                    st.log("PortChannel ethernet-segment config deletion failed {}".format(portchannel_name))
                 if not delete_portchannel(dut, portchannel_name):
                     st.log("Portchannel deletion failed {}".format(portchannel_name))
                     return False
@@ -1483,3 +1526,301 @@ def get_portchannel_names(dut, cli_type=''):
             st.log("Unsupported CLI type: {}".format(cli_type))
             return False
     return result
+
+
+def config_add_range_members(dut, portchannel, ports, **kwargs):
+    """
+    To add range of ports as members to PortChannel
+    :param :dut:
+    :param :portchannel:
+    :param :ports:
+    #Added range support (pavan.kasula@broadcom.com)
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    config = kwargs.get('config', 'yes')
+    skip_error = kwargs.get('skip_error', False)
+    flag = "add" if config == "yes" else "del"
+    return add_del_portchannel_member(dut, portchannel, ports, flag=flag, skip_err_check=skip_error, cli_type=cli_type)
+
+
+def _parse_portchannel_data(portchannel_data):
+    """
+    Function to get the portchannel data
+    :param portchannel_data:
+    :return:
+    """
+    result = list()
+    pc_data = dict()
+    if portchannel_data.get("openconfig-interfaces:interface"):
+        oc_intf = portchannel_data.get("openconfig-interfaces:interface")[0]
+        pc_data["name"] = oc_intf.get("name")
+        pc_data["group"] = re.search(r"(\d+)", pc_data["name"]).group(0)
+        pc_fallback_config = oc_intf.get("openconfig-if-aggregate:aggregation").get("config").get("fallback")
+        pc_data["fallback_config"] = "Enabled" if pc_fallback_config else "Disabled"
+        pc_data["state"] = "U" if oc_intf.get("state").get("oper-status").upper() == "UP" else "D"
+        pc_fallback_state = oc_intf.get("openconfig-if-aggregate:aggregation").get("state", {}).get("fallback")
+        if pc_fallback_state is None:
+            st.error('Expected "state" key is missed in "openconfig-if-aggregate:aggregation"')
+        pc_data["fallback_oper_status"] = "Enabled" if pc_fallback_state else "Disabled"
+        if oc_intf.get("openconfig-if-aggregate:aggregation"):
+            pc_data["protocol"] = "STATIC" if oc_intf.get("openconfig-if-aggregate:aggregation").get("config").get("lag-type") == "STATIC" else "LACP"
+        else:
+            pc_data["protocol"] = "LACP"
+    result.append(pc_data)
+    return result
+
+
+def get_gnmi_portchannel_member_data(dut, portchannel, yang_data_type="ALL", format=True):
+    """
+    Function to parse the portchannel member data
+    :param pc_member_data:
+    :return:
+    """
+    member_data = list()
+    cli_type = st.get_ui_type(dut)
+    lag_obj = umf_lacp.Lacp()
+    lacp_intf = umf_lacp.LacpIntfCfg(Name=portchannel, Lacp=lag_obj)
+    if cli_type in cli_type_for_get_mode_filtering():
+        query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+        rv = lacp_intf.get_payload(dut, query_param=query_params_obj, cli_type=cli_type)
+    else:
+        rv = lacp_intf.get_payload(dut, cli_type=cli_type)
+    if rv.ok():
+        if yang_data_type == "ALL" and format is True:
+            pc_member_data = rv.payload
+            if pc_member_data.get("openconfig-lacp:interface"):
+                members_data = pc_member_data.get("openconfig-lacp:interface")[0]
+                members_info = members_data.get('members', {}).get('member', [])
+                for member_info in members_info:
+                    members = dict()
+                    members['port'] = member_info.get('interface', '')
+                    members['port_state'] = 'U' if member_info.get('state', {}).get('selected', None) else 'D'
+                    member_data.append(members)
+            return member_data
+        else:
+            return rv.payload
+    else:
+        return member_data
+
+
+def get_gnmi_static_pc_members(dut, portchannel_data, yang_data_type="ALL"):
+    """
+    Function to parse the STATIC PortChannel data and get the member status
+    :param dut:
+    :param pc_data:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut)
+    member_data = list()
+    if portchannel_data.get("openconfig-interfaces:interface"):
+        oc_intf = portchannel_data.get("openconfig-interfaces:interface")[0]
+        if oc_intf.get("openconfig-if-aggregate:aggregation"):
+            members = oc_intf.get("openconfig-if-aggregate:aggregation").get("state", []).get("member", [])
+            params = {"cli_type": cli_type}
+            if cli_type in cli_type_for_get_mode_filtering():
+                query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, cli_type=cli_type)
+                params.update({"query_param": query_params_obj})
+            for member in members:
+                intf_obj = umf_intf.Interface(Name=member)
+                rv = intf_obj.get_payload(dut, **params)
+                if rv.ok():
+                    member_intf = portchannel_data.get("openconfig-interfaces:interface")[0]
+                    members = dict()
+                    members['port'] = member
+                    members['port_state'] = 'U' if member_intf['state']['oper-status'] == "UP" else 'D'
+                    member_data.append(members)
+    return member_data
+
+
+def verify_gnmi_portchannel_member_data(dut, portchannel_data, members_list, **kwargs):
+    """
+    Function to veirfy the gNMI response
+    :param dut:
+    :param portchannel:
+    :param protocol:
+    :param yang_data_type:
+    :param depth:
+    :param verify:
+    :return:
+    """
+    try:
+        yang_data_type = kwargs.get("yang_data_type", "ALL")
+        depth = kwargs.get("depth", 3)
+        cli_type = st.get_ui_type(dut, **kwargs)
+        portchannel_name = portchannel_data[0].get("name")
+        protocol = portchannel_data[0].get("protocol")
+        if protocol.upper() not in ["LACP", "STATIC"]:
+            st.error("Invalid protocol - {}".format(protocol))
+            return False
+        if not portchannel_data[0].get("members"):
+            st.log("No members found for {}".format(portchannel_name))
+            return False
+        lag_obj = umf_lacp.Lacp()
+        lacp_intf = umf_lacp.LacpIntfCfg(Name=portchannel_name, Lacp=lag_obj)
+        for member in utils.make_list(members_list):
+            lacp_mem = umf_lacp.Member(LacpMemberIntf=member, LacpIntfCfg=lacp_intf)
+            if cli_type in cli_type_for_get_mode_filtering():
+                query_params_obj = utils.get_query_params(yang_data_type=yang_data_type, depth=depth, cli_type=cli_type)
+                if yang_data_type in ["ALL", "CONFIG"]:
+                    rv = lacp_mem.verify(dut, query_param=query_params_obj, match_subset=True)
+                elif yang_data_type in ["OPERATIONAL", "NON_CONFIG"]:
+                    rv = lacp_mem.verify(dut, query_param=query_params_obj, match_subset=True)
+                else:
+                    st.error("Unsupported YANG DATA TYPE - {}".format(yang_data_type))
+                    return False
+            else:
+                rv = lacp_mem.verify(dut, cli_type=cli_type)
+            if not rv.ok():
+                st.log('test_step_failed: Match NOT Found: Member port:{} for PO:{}'.format(member, portchannel_name))
+                return False
+        return True
+    except Exception as e:
+        st.error("EXCEPTION: verify_portchannel_member_data: {}".format(e))
+        return False
+
+
+def config_portchannel_range(dut, type, param_range, config="add", cli_type=''):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = 'klish' if cli_type in ['rest-put', 'rest-patch'] + get_supported_ui_type_list() else cli_type
+
+    param_range_list = list(param_range) if isinstance(param_range, list) else [param_range]
+
+    commands = []
+    if cli_type == 'klish':
+        new_param_range = ''
+        for mrange in param_range_list:
+            new_param_range += mrange.replace(' ', '-')
+            new_param_range += ','
+        new_param_range = new_param_range.strip(',')
+        if type == 'po_range':
+            if config != "del":
+                commands.append('interface range create Portchannel {}'.format(new_param_range))
+                commands.append('exit')
+                commands.append('interface range Portchannel {}'.format(new_param_range))
+                commands.append('no shutdown')
+                commands.append('exit')
+            else:
+                commands.append('no interface Portchannel {}'.format(new_param_range))
+            st.config(dut, commands, type=cli_type)
+        elif type == 'mem_range':
+            commands.append('interface range ethernet {}'.format(new_param_range))
+            if config == "del":
+                commands.append('no channel-group')
+                commands.append('exit')
+            else:
+                st.log("For adding a range of interfaces to portchannel user add_portchannel_member api.")
+                return False
+            st.config(dut, commands, type=cli_type)
+        else:
+            st.log("Invalid type specified in the api call. Supported value is param_range|mem_range")
+            return False
+    else:
+        st.log("Unsupported CLI type: {}".format(cli_type))
+        return False
+    return True
+
+
+def config_portchannel_ethernet_segment(dut, portchannel_list, cli_type='', **kwargs):
+    """
+    API to configure ethernet-segment under portchannel interface
+    :param dut:
+    :type dut:
+    :param portchannel_list:
+    :type portchannel_list:
+    :return:
+    :rtype:
+    :kwargs:
+    :   ethernet_segment - HH:HH:HH:HH:HH:HH:HH:HH:HH:HH, or "auto-system-mac", or "auto-lacp"
+    :   df_pref - df preference value
+    :examples:
+    :    config_portchannel_ethernet_segment(dut, <interface>, ethernet_segment=<ethernet-segment>)  - configure evpn eth-seg with default df-pref
+    :    config_portchannel_ethernet_segment(dut, <interface>, ethernet_segment=<ethernet-segment>, df_pref=<df-pref>)  - configure evpn eth-seg with user df-pref
+    :    config_portchannel_ethernet_segment(dut, <interface|interface-list>, config_type='no') - unconfigure evpn eth-seg
+    :    config_portchannel_ethernet_segment(dut, <interface|interface-list>, ethernet_segment=<ethernet-segment>, df_pref='', config_type='no') - unconfigure df-pref
+    """
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    config_type = kwargs.get('config_type', 'yes')
+    ethernet_segment = kwargs.get('ethernet_segment', False)
+    df_pref = kwargs.get('df_pref', False)
+    vrf_name = kwargs.get('vrf_name', 'default')
+    skip_error = kwargs.get('skip_error', False)
+
+    st.log("Configure port-channel {} ethernet-segment config_type={}, cli_type={}, es={}, df-pref={} ..".format(portchannel_list, config_type, cli_type, ethernet_segment, df_pref), dut=dut)
+    if cli_type in get_supported_ui_type_list():
+        ni_obj = umf_ni.NetworkInstance(Name=vrf_name)
+        for portchannel_name in utils.make_list(portchannel_list):
+            operation = Operation.UPDATE
+            eth_seg_obj = umf_ni.EthernetSegment(Name=portchannel_name, Interface=portchannel_name, NetworkInstance=ni_obj)
+            if config_type == 'yes':
+                if ethernet_segment == 'auto-system-mac':
+                    ethernet_segment = 'AUTO'
+                    setattr(eth_seg_obj, 'EsiType', 'TYPE_3_MAC_BASED')
+                    setattr(eth_seg_obj, 'Esi', ethernet_segment)
+                elif ethernet_segment == 'auto-lacp':
+                    ethernet_segment = 'AUTO'
+                    setattr(eth_seg_obj, 'EsiType', 'TYPE_1_LACP_BASED')
+                    setattr(eth_seg_obj, 'Esi', ethernet_segment)
+                else:
+                    ethernet_segment = ethernet_segment.replace(':', '')
+                    setattr(eth_seg_obj, 'EsiType', 'TYPE_0_OPERATOR_CONFIGURED')
+                    setattr(eth_seg_obj, 'Esi', ethernet_segment)
+                if df_pref is not False:
+                    setattr(eth_seg_obj, 'DfElectionMethod', 'PREFERENCE')
+                    setattr(eth_seg_obj, 'Preference', df_pref)
+                result = eth_seg_obj.configure(dut, operation=operation, cli_type=cli_type)
+                if not result.ok():
+                    st.error('test_step_failed: Ethernet Segment Config: {}'.format(result.data))
+                    return False
+            else:
+                target_attr_list = list()
+                if df_pref is not False:
+                    target_attr_list.append(eth_seg_obj.Preference)
+                if target_attr_list:
+                    for target_attr in target_attr_list:
+                        result = eth_seg_obj.unConfigure(dut, target_attr=target_attr, cli_type=cli_type)
+                        if not result.ok():
+                            st.error('test_step_failed: Ethernet Segment UnConfig: {}'.format(result.data))
+                            return False
+                else:
+                    eth_seg_obj = umf_ni.EthernetSegment(Name=portchannel_name, NetworkInstance=ni_obj)
+                    result = eth_seg_obj.unConfigure(dut, cli_type=cli_type)
+                    if not result.ok():
+                        st.error('test_step_failed: Ethernet Segment UnConfig: {}'.format(result.data))
+                        return False
+        return True
+    elif cli_type == "click":
+        # TODO
+        return False
+    elif cli_type == "klish":
+        commands = list()
+        for portchannel_name in utils.make_list(portchannel_list):
+            intf_data = uutils.get_interface_number_from_name(portchannel_name)
+            commands.append("interface PortChannel {}".format(intf_data["number"]))
+            # commands.append("interface {} {}".format(intf_data["type"], intf_data["number"]))
+            if config_type == 'no':
+                if df_pref is not False:
+                    if ethernet_segment is False:
+                        st.log("Error, ethernet-segment value is required when unconfiguring df_pref", dut=dut)
+                        return False
+                    commands.append("evpn ethernet-segment {}".format(ethernet_segment))
+                    commands.append("no df-preference")
+                    commands.append("exit")
+                else:
+                    commands.append("no evpn ethernet-segment")
+            else:
+                if ethernet_segment is False:
+                    st.log("Error, ethernet_segment parameter is required to configure ethernet-segment on interface {}".format(portchannel_name))
+                    return False
+                commands.append("evpn ethernet-segment {}".format(ethernet_segment))
+                if df_pref is not False:
+                    commands.append("df-preference {}".format(df_pref))
+                commands.append("exit")
+            commands.append("exit")
+            st.config(dut, commands, type=cli_type, skip_error_check=skip_error)
+        return True
+    elif cli_type in ["rest-patch", "rest-put"]:
+        # TODO
+        return False
+    else:
+        st.error("Unsupported CLI Type: {}".format(cli_type))
+        return False
