@@ -128,6 +128,16 @@ class AzureBlobConnecter(object):
 
         return container
 
+    def get_buildid_from_container(self, container_name):
+        container = self.blob_service_client.get_container_client(container=container_name)
+        buildid = []
+        container_list = container.list_blobs(name_starts_with="2024")
+        for blob in container_list:
+            buildid.append(blob.name.split('/')[1].split('_')[0])
+        logger.info("Buildid list: {} in container {}".format(buildid, container_name))
+
+        return buildid
+
     def upload_artifacts_to_container_with_tag(self, container_name, artifact, tag):
         try:
             # Create a ContainerClient
@@ -255,6 +265,13 @@ def main(args):
         counter_map['cisco'] = 0
         counter_map['mellanox'] = 0
 
+    buildid_list = dict()
+    if vendor:
+        buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
+    else:
+        for vendor in VENDOR_CONTAINER:
+            buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
+
     for res in result:
         buildid = res['BuildId']
         hardwaresku = res['HardwareSku']
@@ -269,6 +286,10 @@ def main(args):
 
         if vendor not in VENDOR_CONTAINER:
             logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
+            continue
+
+        if buildid in buildid_list[vendor]:
+            logger.info('BuildId: {} already exists in container {}, ignore'.format(buildid, vendor + 'testresult'))
             continue
 
         if casses_run < CASE_SHRESHOLD and vendor != 'cisco':
