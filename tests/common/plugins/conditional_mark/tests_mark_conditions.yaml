@@ -1388,9 +1388,10 @@ tacacs/test_ro_user.py::test_ro_user_banned_command:
 #######################################
 telemetry/test_events.py:
   skip:
-    reason: "Skip telemetry test events for 202211 and older branches"
+    reason: "Skip test events testcase due to known issue"
     conditions:
-      - "release in ['201811', '201911', '202012', '202205', '202211']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/17654
+#     - "release in ['201811', '201911', '202012', '202205', '202211', '202305']"
 
 telemetry/test_telemetry.py:
   skip:
