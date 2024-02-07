@@ -213,8 +213,6 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    # PW hardening disabled
-
     # create user with weak passw when passw policies are disable.
     passw_hardening_ob_pre = passw_hardening_utils.PasswHardening(state='disabled')
 
@@ -222,14 +220,13 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
     passw_hardening_utils.config_and_review_policies(duthost, passw_hardening_ob_pre,
                                                      passw_hardening_utils.PAM_PASSWORD_CONF_DEFAULT_EXPECTED)
 
-    simple_passw_digits = '12345678'
-    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_0, simple_passw_digits)
+    simple_passw_0 = '12345678'
+    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_0, simple_passw_0)
 
     pytest_assert(chpasswd_cmd['rc'] == SUCCESS_CODE,
                   "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
-                  .format(passw_hardening_utils.USERNAME_SIMPLE_0, simple_passw_digits))
+                  .format(passw_hardening_utils.USERNAME_SIMPLE_0, simple_passw_0))
 
-    # PW hardening enabled
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled')
 
     # config one policy, check show CLI, test policy configured in switch
@@ -237,11 +234,12 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
                                                      passw_hardening_utils.PAM_PASSWORD_CONF_EXPECTED)
 
     # ~~ test user with weak passw (only digits) expecting to fail (bad flow) ~~
-    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_digits)
+    simple_passw_1 = '12345678'
+    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_1)
 
-    pytest_assert("BAD PASSWORD" in chpasswd_cmd['stderr'],
+    pytest_assert("BAD PASSWORD: it is too simplistic/systematic" in chpasswd_cmd['stderr'],
                   "Fail: username='{}' with simple password='{}' was set, even though, strong policy configured"
-                  .format(passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_digits))
+                  .format(passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_1))
 
     # ~~ test user with strong password (digits, lower class, upper class, special class) ~~
     strong_passw = 'Nvi_d_ia_2020'
@@ -251,18 +249,25 @@ def test_passw_hardening_en_dis_policies(duthosts, enum_rand_one_per_hwsku_hostn
                   "Fail creating user: username='{}' with strong password='{}'"
                   .format(passw_hardening_utils.USERNAME_STRONG, strong_passw))
 
-    # PW hardening disabled
+    # clean new users
+    userdel_cmd = passw_hardening_utils.config_user(duthost=duthost,
+                                                    username=passw_hardening_utils.USERNAME_SIMPLE_1, mode='del')
+
+    pytest_assert(userdel_cmd['rc'] == SUCCESS_CODE,
+                  "Fail: users: '{}'  was not deleted correctly".format(userdel_cmd['stderr']))
+
+    # disable feature
     passw_hardening_dis_ob = passw_hardening_utils.PasswHardening(state='disabled')
     passw_hardening_utils.config_and_review_policies(duthost, passw_hardening_dis_ob,
                                                      passw_hardening_utils.PAM_PASSWORD_CONF_DEFAULT_EXPECTED)
 
     # ~~ test feature disabled: by trying to create a new user with a weak passw
     # after feature disabled expecting to success.
-    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_2, simple_passw_digits)
+    chpasswd_cmd = config_user_and_passw(duthost, passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_1)
 
     pytest_assert(chpasswd_cmd['rc'] == SUCCESS_CODE,
                   "Fail: expected: username={} to be added with weak passw={}, because passw hardening disabled"
-                  .format(passw_hardening_utils.USERNAME_SIMPLE_2, simple_passw_digits))
+                  .format(passw_hardening_utils.USERNAME_SIMPLE_1, simple_passw_1))
 
 
 def test_passw_hardening_history(duthosts, enum_rand_one_per_hwsku_hostname, clean_passw_policies, clean_passw_history):
@@ -407,7 +412,6 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname,
                   .format(passw_hardening_utils.USERNAME_LEN_MIN, passw_test))
 
     # --- Bad Flow ---
-    LEN_MIN = '10'
     # set new passw hardening policies values
     passw_hardening_ob_len_min_big = passw_hardening_utils.PasswHardening(state='enabled',
                                                                           expiration=expiration,
@@ -428,7 +432,7 @@ def test_passw_hardening_len_min(duthosts, enum_rand_one_per_hwsku_hostname,
     # test settig smaller passw than config
     chpasswd_cmd = change_password(duthost, passw_bad_test, passw_hardening_utils.USERNAME_LEN_MIN)
 
-    pytest_assert('BAD PASSWORD: The password is shorter than '+LEN_MIN+' characters' in chpasswd_cmd['stderr'],
+    pytest_assert('BAD PASSWORD: is too simple' in chpasswd_cmd['stderr'],
                   "Fail : password='{}' was set with an small len than the policy, even though, it was configured"
                   .format(passw_bad_test))
 
@@ -445,7 +449,7 @@ def test_passw_hardening_policies_digits(duthosts, enum_rand_one_per_hwsku_hostn
     expiration = check_expiration_value(duthost, 100)
     passw_test = '19892022'
     passw_bad_test = 'b_a_d_passw_no_digs'
-    passw_exp_error = 'BAD PASSWORD: The password contains less than 1 digits'
+    passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
@@ -475,7 +479,7 @@ def test_passw_hardening_policies_lower_class(duthosts, enum_rand_one_per_hwsku_
     expiration = check_expiration_value(duthost, 10)
     passw_test = 'n_v_d_i_a'
     passw_bad_test = 'BADFLOWNOLOWERLETTERS'
-    passw_exp_error = 'BAD PASSWORD: The password contains less than 1 lowercase letters'
+    passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
@@ -505,7 +509,7 @@ def test_passw_hardening_policies_upper_class(duthosts, enum_rand_one_per_hwsku_
     expiration = check_expiration_value(duthost, 10)
     passw_test = 'NVI_DI_A_UP#'
     passw_bad_test = 'l_o_w_l_#_e#t1'
-    passw_exp_error = 'BAD PASSWORD: The password contains less than 1 uppercase letters'
+    passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
@@ -535,7 +539,7 @@ def test_passw_hardening_policies_special_class(duthosts, enum_rand_one_per_hwsk
     expiration = check_expiration_value(duthost, 10)
     passw_test = 'nvipashar_'
     passw_bad_test = 'no11spec'
-    passw_exp_error = 'BAD PASSWORD: The password contains less than 1 non-alphanumeric characters'
+    passw_exp_error = 'BAD PASSWORD: is too simple'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
@@ -564,7 +568,7 @@ def test_passw_hardening_policy_reject_user_passw_match(duthosts, enum_rand_one_
     expiration = check_expiration_value(duthost, 10)
     passw_test = '19892022'
     passw_bad_test = passw_hardening_utils.USERNAME_ONE_POLICY
-    passw_exp_error = 'BAD PASSWORD: The password contains the user name in some form'
+    passw_exp_error = 'BAD PASSWORD: contains the user name in some form'
 
     # set new passw hardening policies values
     passw_hardening_ob = passw_hardening_utils.PasswHardening(state='enabled',
