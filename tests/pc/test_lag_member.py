@@ -370,7 +370,7 @@ def check_arp(duthost, port_name, ip_address):
     return False
 
 
-def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_teardown):
+def test_lag_member_status(duthost, ptf_dut_setup_and_teardown):
     """
     Test ports' status of members in a lag
 
