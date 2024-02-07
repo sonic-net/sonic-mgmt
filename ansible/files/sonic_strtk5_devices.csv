@@ -37,7 +37,7 @@ strtk5-msn2700-06,10.212.69.61/27,Mellanox-SN2700,DevSonic,,sonic
 strtk5-n3132-acs-1,10.212.69.136/27,Nexus-3132-GX-Q32,DevSonic,,sonic
 strtk5-n3132-acs-3,10.212.69.107/27,Nexus-3132-GE-Q32,DevSonic,,sonic
 strtk5-7260-01,10.212.69.35/27,Arista-7260CX3-C64,DevSonic,,sonic
-strtk5-7260-7,10.212.69.124/27,Arista-7260CX3-C64,DevSonic,,sonic
+strtk5-7260-7,10.212.69.124/27,Arista-7260CX3-D108C8,DevSonic,,sonic
 strtk5-s6100-acs-2,10.212.69.108/27,Force10-S6100,DevSonic,,sonic
 strtk5-s6100-acs-5,10.212.69.103/27,Force10-S6100,DevSonic,,sonic
 strtk5-s6100-acs-4,10.212.69.111/27,Force10-S6100,DevSonic,,sonic
