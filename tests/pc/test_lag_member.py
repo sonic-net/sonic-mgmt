@@ -9,6 +9,7 @@ import sys
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.ptf_runner import ptf_runner
+from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py   # lgtm[py/unused-import]
 from tests.common.config_reload import config_reload
 
@@ -169,6 +170,7 @@ def setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id):
     transfer_vlan_member(duthost, src_vlan_id, vlan["id"], dut_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"])
     duthost.shell("sonic-clear fdb all")
     duthost.shell("sonic-clear arp")
+    time.sleep(5)
 
 
 def setup_ptf_lag(ptfhost, ptf_ports):
@@ -349,14 +351,26 @@ def ptf_dut_setup_and_teardown(duthost, ptfhost, tbinfo):
         setup_dut_lag(duthost, dut_ports, vlan, src_vlan_id)
         setup_ptf_lag(ptfhost, ptf_ports)
 
-        yield ptf_ports, vlan
+        yield dut_ports, ptf_ports, vlan
     except Exception as err:
         pytest.fail("Setup failed with error: {}".format(err))
     finally:
         ptf_teardown(ptfhost, ptf_ports)
         dut_teardown(duthost, dut_ports, src_vlan_id, vlan)
 
-def test_lag_member_status(duthost, ptf_dut_setup_and_teardown):
+
+def check_arp(duthost, port_name, ip_address):
+    res = duthost.shell("show arp", module_ignore_errors=True)
+    if res["rc"] != 0:
+        return False
+    output_lines = res["stdout_lines"]
+    for line in output_lines:
+        if ip_address in line and port_name in line:
+            return True
+    return False
+
+
+def test_lag_member_status(duthost, most_common_port_speed, ptf_dut_setup_and_teardown):
     """
     Test ports' status of members in a lag
 
@@ -408,6 +422,20 @@ def test_lag_member_traffic(common_setup_teardown, duthost, ptf_dut_setup_and_te
         4.) Send ICMP request packet from port not behind lag in PTF to port behind lag in PTF, and then verify recieve the packet in port behind lag
     """
     ptfhost = common_setup_teardown
-    ptf_ports, vlan = ptf_dut_setup_and_teardown
+    dut_ports, ptf_ports, vlan = ptf_dut_setup_and_teardown
+    ping_format = "timeout 2 ping -c 2 -w 2 -I {} {}"
+
+    vlan_ip = vlan["ip"].split("/")[0]
+    not_behind_lag_ping_cmd = ping_format.format(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], vlan_ip)
+    behind_lag_ping_cmd = " & ".join([ping_format.format(port, vlan_ip) for port in ptf_ports[ATTR_PORT_BEHIND_LAG]
+                                      .values()])
+    # ping dut from port not behind lag, port not behind lag and lag interface to refresh arp table in dut.
+    ptfhost.shell((not_behind_lag_ping_cmd + " & " + behind_lag_ping_cmd + "&" +
+                  ping_format.format(PTF_LAG_NAME, vlan_ip)), module_ignore_errors=True)
+    pytest_assert(wait_until(10, 1, 0, check_arp, duthost, DUT_LAG_NAME, ptf_ports["ip"]["lag"].split("/")[0]),
+                  "Arp info for portchannel is not correct")
+    pytest_assert(wait_until(10, 1, 0, check_arp, duthost, dut_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"],
+                             ptf_ports["ip"][ATTR_PORT_NOT_BEHIND_LAG].split("/")[0]),
+                  "Arp info for port not behind lag is not correct")
 
     run_lag_member_traffic_test(duthost, vlan, ptf_ports, ptfhost)
