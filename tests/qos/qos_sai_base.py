@@ -2177,7 +2177,7 @@ class QosSaiBase(QosBase):
                 "This test is skipped since asic types of ingress and egress are different.")
         yield
         return
-    
+
     @pytest.fixture(scope="function", autouse=False)
     def skip_pacific_dst_asic(self, dutConfig):
         if dutConfig['dstDutAsic'] == "pac":
