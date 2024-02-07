@@ -769,7 +769,8 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 if (duthost.facts["hwsku"] == "Cisco-8111-O64" or
                         duthost.facts["hwsku"] == "Cisco-8111-O32" or
                         duthost.facts["hwsku"] == "Cisco-8111-C32" or
-                        duthost.facts["hwsku"] == "Cisco-8111-O62C2"):
+                        duthost.facts["hwsku"] == "Cisco-8111-O62C2" or 
+                        duthost.facts["platform"] == "x86_64-8122_64eh_o-r0"):
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
