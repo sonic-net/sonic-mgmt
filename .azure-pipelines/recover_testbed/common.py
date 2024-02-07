@@ -154,23 +154,24 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                         # TODO: Define a function to send command here
                         dut_console.remote_conn.send("cd /mnt/flash")
                         dut_console.remote_conn.send("\n")
-
                         time.sleep(1)
 
                         dut_console.remote_conn.send("ifconfig ma1 {} netmask {}".format(mgmt_ip.split('/')[0],
                                                      ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1]))
                         dut_console.remote_conn.send("\n")
-
                         time.sleep(1)
 
                         dut_console.remote_conn.send("route add default gw {}".format(gw_ip))
                         dut_console.remote_conn.send("\n")
-
                         time.sleep(1)
 
                         dut_console.remote_conn.send("ip route add default via {} dev ma1".format(gw_ip))
                         dut_console.remote_conn.send("\n")
+                        time.sleep(1)
 
+                        # Remove image to avoid "File exists" error
+                        dut_console.remote_conn.send("rm -f {}".format(image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("\n")
                         time.sleep(1)
 
                         dut_console.remote_conn.send("wget {}".format(image_url))
