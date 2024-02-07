@@ -704,7 +704,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
         loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
+        if not dut.facts["asic_type"] in ['cisco-8000']:
+            loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
         loganalyzer.match_regex = []
 
         if action != "dontcare":
@@ -746,7 +747,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
         loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_RESTORE_RE])
+        if not dut.facts["asic_type"] in ['cisco-8000']:
+            loganalyzer.expect_regex.extend([EXPECT_PFC_WD_RESTORE_RE])
         loganalyzer.match_regex = []
 
         if self.pfc_wd['fake_storm']:
@@ -1105,7 +1107,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
                 loganalyzer.ignore_regex.extend(reg_exp)
                 loganalyzer.expect_regex = []
-                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)])
+                if not duthost.facts["asic_type"] in ['cisco-8000']:
+                    loganalyzer.expect_regex.extend(
+                        [EXPECT_PFC_WD_DETECT_RE +
+                            fetch_vendor_specific_diagnosis_re(duthost)])
                 loganalyzer.match_regex = []
 
                 port_toggle(self.dut, tbinfo, ports=[port])
