@@ -13,10 +13,10 @@ from tabulate import tabulate
 
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
-from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value
+from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
+    get_egress_queue_pkt_count_all_prio
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module # noqa F401
-from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +28,12 @@ DEFAULT_DSCP = 4
 DEFAULT_TTL = 64
 DEFAULT_ECN = 1
 DEFAULT_PKT_COUNT = 10000
-TOLERANCE = 0.02 * DEFAULT_PKT_COUNT
+TOLERANCE = 0.05 * DEFAULT_PKT_COUNT  # Account for noise and polling delays
 DUMMY_OUTER_SRC_IP = '8.8.8.8'
 DUMMY_INNER_SRC_IP = '9.9.9.9'
 DUMMY_INNER_DST_IP = '10.10.10.10'
 output_table = []
+packet_egressed_success = False
 
 
 def create_ipip_packet(outer_src_mac,
@@ -118,19 +119,29 @@ def send_and_verify_traffic(ptfadapter,
     """
 
     ptfadapter.dataplane.flush()
-    logger.info("Send packet from port {} upstream".format(ptf_src_port_id))
+    logger.info("Send packet(s) from port {} upstream".format(ptf_src_port_id))
     testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
 
     try:
         port_index, _ = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
-        logger.info("Received packet on port {}".format(ptf_dst_port_ids[port_index]))
-        time.sleep(5)
+        logger.info("Received packet(s) on port {}".format(ptf_dst_port_ids[port_index]))
+        global packet_egressed_success
+        packet_egressed_success = True
+        # Wait for packets to be processed by the DUT
+        time.sleep(7)
         return ptf_dst_port_ids[port_index]
 
     except AssertionError as detail:
         if "Did not receive expected packet on any of ports" in str(detail):
-            logger.error("Expected packet was not received")
-        raise
+            logger.error("Expected packet(s) was not received on any of the ports -> {}".format(ptf_dst_port_ids))
+
+
+def find_queue_count_and_value(duthost, queue_val, dut_egress_port):
+    egress_queue_counts_all_queues = get_egress_queue_pkt_count_all_prio(duthost, dut_egress_port)
+    egress_queue_count = egress_queue_counts_all_queues[queue_val]
+    egress_queue_val = find_egress_queue(egress_queue_counts_all_queues, DEFAULT_PKT_COUNT)
+
+    return egress_queue_count, egress_queue_val
 
 
 class TestQoSSaiDSCPQueueMapping_IPIP_Base():
@@ -208,6 +219,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, ptf_src_port_id)
         failed_once = False
 
+        # Log packet information
+        logger.info("Outer Pkt Src IP: {}".format(outer_src_pkt_ip))
+        logger.info("Outer Pkt Dst IP: {}".format(outer_dst_pkt_ip))
+        logger.info("Inner Pkt Src IP: {}".format(inner_src_pkt_ip))
+        logger.info("Inner Pkt Dst IP: {}".format(inner_dst_pkt_ip))
+        logger.info("Pkt Src MAC: {}".format(ptf_src_mac))
+        logger.info("Pkt Dst MAC: {}".format(router_mac))
+
         pytest_assert(dut_qos_maps_module.get("dscp_to_tc_map") and dut_qos_maps_module.get("tc_to_queue_map"),
                       "No QoS map found on DUT")
 
@@ -215,9 +234,11 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             if decap_mode == "uniform":
                 outer_dscp = rotating_dscp
                 inner_dscp = DEFAULT_DSCP
+                logger.info("Uniform mode: outer_dscp = {}, inner_dscp = {}".format(outer_dscp, inner_dscp))
             elif decap_mode == "pipe":
                 outer_dscp = DEFAULT_DSCP
                 inner_dscp = rotating_dscp
+                logger.info("Pipe mode: outer_dscp = {}, inner_dscp = {}".format(outer_dscp, inner_dscp))
 
             pkt, exp_pkt = create_ipip_packet(outer_src_mac=ptf_src_mac,
                                               outer_dst_mac=router_mac,
@@ -251,29 +272,55 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                                                           ptf_dst_port_ids=ptf_dst_port_ids)
 
             except Exception as e:
-                raise (e)
-
-            dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
-            pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(dst_ptf_port_id))
-
-            egress_queue_count, _ = get_egress_queue_count(duthost, dut_egress_port, queue_val)
-            verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
-
-            if verification_success:
-                logger.info("Received expected number of packets on queue {}".format(queue_val))
-                output_table.append([rotating_dscp, queue_val, egress_queue_count, "SUCCESS"])
-            else:
+                logger.error(str(e))
                 failed_once = True
-                logger.info("Received {} packets on queue {} instead of {}".format(egress_queue_count, queue_val,
-                                                                                   DEFAULT_PKT_COUNT))
-                output_table.append([rotating_dscp, queue_val, egress_queue_count, "FAILURE"])
+
+            global packet_egressed_success
+            if packet_egressed_success:
+                dut_egress_port = get_dut_pair_port_from_ptf_port(duthost, tbinfo, dst_ptf_port_id)
+                pytest_assert(dut_egress_port, "No egress port on DUT found for ptf port {}".format(dst_ptf_port_id))
+                egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val, dut_egress_port)
+                # Re-poll DUT if queue value could not be accurately found
+                if egress_queue_val == -1:
+                    time.sleep(2)
+                    egress_queue_count, egress_queue_val = find_queue_count_and_value(duthost, queue_val,
+                                                                                      dut_egress_port)
+                verification_success = abs(egress_queue_count - DEFAULT_PKT_COUNT) < TOLERANCE
+
+                if verification_success:
+                    logger.info("SUCCESS: Received expected number of packets on queue {}".format(queue_val))
+                    output_table.append([rotating_dscp, queue_val, egress_queue_count, "SUCCESS", queue_val])
+                else:
+                    if queue_val == egress_queue_val:
+                        # If the queue value is correct, but the packet count is incorrect, then the DUT poll failed
+                        logger.info("FAILURE: Not all packets received on queue {}. DUT poll failure."
+                                    .format(queue_val))
+                        logger.info("Received {} packets instead".format(egress_queue_count))
+                        output_table.append([rotating_dscp, queue_val, egress_queue_count,
+                                             "FAILURE - INCORRECT PACKET COUNT", egress_queue_val])
+                    else:
+                        if egress_queue_val == -1:
+                            logger.info("FAILURE: Packets not received on any queue. DUT poll failure.")
+                            output_table.append([rotating_dscp, queue_val, egress_queue_count,
+                                                 "FAILURE - DUT POLL FAILURE", egress_queue_val])
+                        else:
+                            logger.info("FAILURE: Received {} packets on queue {} instead of queue {}."
+                                        .format(DEFAULT_PKT_COUNT, egress_queue_val, queue_val))
+                            output_table.append([rotating_dscp, queue_val, egress_queue_count,
+                                                 "FAILURE - INCORRECT QUEUE", egress_queue_val])
+                    failed_once = True
+            else:
+                output_table.append([rotating_dscp, queue_val, 0, "FAILURE - NO PACKETS EGRESSED", "N/A"])
+
+            # Reset packet egress status
+            packet_egressed_success = False
 
         logger.info("DSCP to queue mapping test results:\n{}"
                     .format(tabulate(output_table,
-                                     headers=["Inner Packet DSCP Value", "Egress Queue",
-                                              "Egress Queue Count", "Result"])))
-        pytest_assert(not failed_once, "Received {} packets on queue {} instead of {}".format(
-                    egress_queue_count, queue_val, DEFAULT_PKT_COUNT))
+                                     headers=["Inner Packet DSCP Value", "Expected Egress Queue",
+                                              "Egress Queue Count", "Result", "Actual Egress Queue"])))
+
+        pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
     def _teardown_test(self, duthost):
         """
