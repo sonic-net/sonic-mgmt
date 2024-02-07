@@ -92,13 +92,6 @@ class TestBfdStaticRoute(BfdBase):
         if failed:
             pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
 
-        check_bgp = request.getfixturevalue("check_bgp")
-        results = check_bgp()
-        failed = [result for result in results if "failed" in result and result["failed"]]
-        if failed:
-            pytest.fail("BGP check failed, not all BGP sessions are up. Failed: {}".format(failed))
-        
-
         # Verification of BFD session state.
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(dst_dut, dst_dut_nexthops.values(), dst_asic, "Up"))
         assert wait_until(300, 20, 0, lambda: bfd_base_instance.verify_bfd_state(src_dut, src_dut_nexthops.values(), src_asic, "Up"))
