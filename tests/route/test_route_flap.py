@@ -97,23 +97,29 @@ def get_ptf_recv_ports(duthost, tbinfo):
         recv_ports.append(ptf_idx)
     return recv_ports
 
-def get_neighbor_info(duthost, dev_port):
-    nbr = []
-    neighbor_name = ''
+
+def get_neighbor_info(duthost, dev_port, tbinfo):
     neighbor_type = ''
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     neighs = config_facts['BGP_NEIGHBOR']
     dev_neigh_mdata = config_facts['DEVICE_NEIGHBOR_METADATA'] if 'DEVICE_NEIGHBOR_METADATA' in config_facts else {}
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    nbr_port_map = mg_facts['minigraph_port_name_to_alias_map'] \
+        if 'minigraph_port_name_to_alias_map' in mg_facts else {}
     for neighbor in neighs:
         local_ip = neighs[neighbor]['local_addr']
         nbr_port = get_port_by_ip(config_facts, local_ip)
+        if 'Ethernet' in nbr_port:
+            for p_key, p_value in nbr_port_map.items():
+                if p_value == nbr_port:
+                    nbr_port = p_key
         if dev_port == nbr_port:
             neighbor_name = neighs[neighbor]['name']
-            nbr.append(neighbor)
     for k, v in dev_neigh_mdata.items():
         if k == neighbor_name:
             neighbor_type = v['type']
-    return nbr, neighbor_name, neighbor_type
+    return neighbor_type
+
 
 def get_port_by_ip(config_facts, ipaddr):
     if ':' in ipaddr:
@@ -133,7 +139,7 @@ def get_port_by_ip(config_facts, ipaddr):
             elif iptype == 'ipv4' and ':' not in intf_ip[0] and intf_ip[0] == ipaddr:
                 return a_intf
 
-    raise Exception("Dod not find port for IP %s" % ipaddr)
+    raise Exception("Did not find port for IP %s" % ipaddr)
 
 
 def get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list):
@@ -407,9 +413,7 @@ def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
     ptf_send_port = get_ptf_send_ports(duthost, tbinfo, dev_port)
 
     # Get the list of ptf ports to receive msg, even for multi-dut scenario
-    nbr_ip, neighbor_name, neighbor_type = get_neighbor_info(duthost, dev_port)
-    logger.info("Dev port neighbor ip {}, neighbor name {} and neighbor type {}"
-                .format(nbr_ip, neighbor_name, neighbor_type))
+    neighbor_type = get_neighbor_info(duthost, dev_port, tbinfo)
     recv_neigh_list = get_all_recv_neigh(duthosts, neighbor_type)
     logger.info("Receiving ports neighbor list : {}".format(recv_neigh_list))
     ptf_recv_ports = get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list)
