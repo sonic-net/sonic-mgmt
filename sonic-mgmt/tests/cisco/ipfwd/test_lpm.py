@@ -9,12 +9,10 @@ import yaml
 from collections import namedtuple
 from collections import defaultdict
 
-from ptf.mask import Mask
-import ptf.packet as scapy
-import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.utilities import wait_until
+from tests.cisco.common.utils import skip_if_sim
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
