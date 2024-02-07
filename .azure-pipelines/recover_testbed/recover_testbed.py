@@ -76,11 +76,13 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                     'addr': mgmt_ip.split('/')[0],
                     'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
                     'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0],
-                    'mgmt_ip': mgmt_ip
+                    'mgmt_ip': mgmt_ip,
+                    'brd_ip': ipaddress.ip_interface(mgmt_ip).network.broadcast_address,
+                    'network': str(ipaddress.ip_interface(mgmt_ip).network).split('/')[0]
                 }
                 sonichost.vm.extra_vars.update(extra_vars)
                 sonichost.template(src="../.azure-pipelines/recover_testbed/interfaces.j2",
-                                   dest="/etc/network/interface")
+                                   dest="/etc/network/interfaces")
 
                 # Add management ip info into config_db.json
                 sonichost.template(src="../.azure-pipelines/recover_testbed/mgmt_ip.j2",
