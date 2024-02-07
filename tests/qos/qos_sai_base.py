@@ -2153,6 +2153,14 @@ class QosSaiBase(QosBase):
         yield
         return
 
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
+        yield
+        return
+
     def populate_arp_entries(
         self, get_src_dst_asic_and_duts,
         ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa F811
