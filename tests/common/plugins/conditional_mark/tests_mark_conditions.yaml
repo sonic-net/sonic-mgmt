@@ -66,9 +66,10 @@ arp/test_wr_arp.py:
 #######################################
 bfd/test_bfd_static_route.py:
   skip:
-    reason: "Only supported on chassis system."
+    reason: "Only supported on chassis system & cisco platform."
     conditions:
       - "is_multi_asic is False"
+      - "asic_type in ['cisco-8000']"
       
 bfd/test_bfd.py:
   skip:
