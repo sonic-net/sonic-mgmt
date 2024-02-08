@@ -552,6 +552,9 @@ def verify_pause_frame_count_dut(duthost,
                 pytest_assert(pfc_pause_rx_frames == 0,
                               "Global pause frames should not be counted in RX PFC counters for priority {}"
                               .format(prio))
+            elif not snappi_extra_params.set_pfc_class_enable_vec:
+                pytest_assert(pfc_pause_rx_frames == 0,
+                              "PFC pause frames with no bit set in the class enable vector should be dropped")
             else:
                 pytest_assert(pfc_pause_rx_frames > 0,
                               "PFC pause frames should be received and counted in RX PFC counters for priority {}"
