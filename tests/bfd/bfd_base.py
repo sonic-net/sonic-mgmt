@@ -1,14 +1,16 @@
 
 import random
-import pytest, re, time
+import pytest
+import re
+import time
 import logging
-logger = logging.getLogger(__name__)
 from tests.platform_tests.cli import util
 from tests.common.plugins.sanity_check.checks import _parse_bfd_output
+logger = logging.getLogger(__name__)
+
 
 class BfdBase:
     def list_to_dict(self, sample_list):
-        header = sample_list[1].split()
         data_rows = sample_list[3:]
         for data in data_rows:
             data_dict = {}
@@ -30,7 +32,7 @@ class BfdBase:
         for asic in asic_routes:
             for prefix in asic_routes[asic]:
                 nexthops_in_static_route_output = asic_routes[asic][prefix]
-                #If nexthops on source dut are same destination dut's interfaces, we are picking that static route
+                # If nexthops on source dut are same destination dut's interfaces, we are picking that static route
                 if sorted(nexthops_in_static_route_output) == sorted(nexthops):
                     time.sleep(2)
                     logger.info("Nexthops from static route output")
@@ -52,16 +54,14 @@ class BfdBase:
         # Creating bfd.json, bfd0.json, bfd1.json, bfd2.json ...
         for i in range(asic_count):
             file_name = "config_db{}.json".format(i)
-            dut.shell("cp /etc/sonic/{} /etc/sonic/{}.bak".format(file_name,file_name))
+            dut.shell("cp /etc/sonic/{} /etc/sonic/{}.bak".format(file_name, file_name))
             if flag == "false":
                 command = """sed -i 's/"bfd": "true"/"bfd": "false"/' {}""".format("/etc/sonic/" + file_name)
             elif flag == "true":
                 command = """sed -i 's/"bfd": "false"/"bfd": "true"/' {}""".format("/etc/sonic/" + file_name)
             dut.shell(command)
 
-        
-     
-
+    
     def extract_backend_portchannels(self, dut):
         output = dut.show_and_parse('show int port -d all')
         port_channel_dict = {}
@@ -85,6 +85,7 @@ class BfdBase:
                 }
                     
         return port_channel_dict
+
     
     def interface_cleanup(self, dut, dut_asic, interface):
         int_status = dut.show_interface(command="status", include_internal_intfs=True, asic_index=dut_asic.asic_index)['ansible_facts']['int_status'][interface]
@@ -103,6 +104,7 @@ class BfdBase:
                 assert wait_until(180, 10, 0, lambda: dut.show_interface(command="status", include_internal_intfs=True, asic_index=asic.asic_index)['ansible_facts']['int_status'][interface]['oper_state'] == target_state)
             else:
                 assert wait_until(180, 10, 0, lambda: self.extract_backend_portchannels(dut)[interface]['status'] == target_state)
+
     
     def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic, version):
         backend_port_channels = self.extract_backend_portchannels(dut)
@@ -122,18 +124,21 @@ class BfdBase:
             if interface in backend_port_channels:
                 result_dict[interface] = ip_address
         return result_dict
+
     
     def delete_bfd(self, asic_number, prefix, dut):
         command = 'sonic-db-cli -n asic{} CONFIG_DB HSET "STATIC_ROUTE|{}" bfd \'false\''.format(asic_number, prefix).replace('\\', '')
         logger.info(command)
         dut.shell(command)
         time.sleep(15)
+
     
     def add_bfd(self, asic_number, prefix, dut):
         command = 'sonic-db-cli -n asic{} CONFIG_DB HSET "STATIC_ROUTE|{}" bfd \'true\''.format(asic_number, prefix).replace('\\', '')
         logger.info(command)
         dut.shell(command)
         time.sleep(15)
+
     
     def extract_current_bfd_state(self, nexthop, asic_number, dut):
         bfd_peer_command = "ip netns exec asic{} show bfd peer {}".format(asic_number, nexthop)
@@ -145,7 +150,8 @@ class BfdBase:
         else:                
             entry = self.list_to_dict(bfd_peer_output)
             return entry['State']
-        
+
+    
     def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
         # Expected BFD states: Up, Down, No BFD sessions found
         peer_count = []
@@ -173,6 +179,7 @@ class BfdBase:
             if current_bfd_state != expected_bfd_state:
                 return False
         return True
+
     
     def extract_routes(self, static_route_output, version):
         asic_routes = {}
@@ -204,6 +211,7 @@ class BfdBase:
                 
                 asic_routes[asic].setdefault(prefix, []).append(next_hop)  
         return asic_routes
+
     
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=(["multi_dut"]))
@@ -234,6 +242,7 @@ class BfdBase:
         "dst_asic_index": int(dst_asic_index)
         }
 
+    
     @pytest.fixture(scope='class')
     def get_src_dst_asic_and_duts(self, duthosts, select_src_dst_dut_and_asic):
         logger.info("Printing select_src_dst_dut_and_asic")
