@@ -75,3 +75,4 @@ snmp/test_snmp_memory.py::test_snmp_swap
 snmp/test_snmp_loopback.py::test_snmp_loopback
 cisco/test_platform_faults.py
 cisco/ipfwd/test_cisco_nhop_group.py
+cisco/qos/test_cisco8000_buf_qos.py
