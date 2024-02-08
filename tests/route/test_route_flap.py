@@ -235,7 +235,7 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     # Mask src_mac for T2 multi-dut chassis, since the packet can be received on any of the dut's ptf-ports
     if 't2' in tbinfo["topo"]["name"]:
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
+    masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "tos")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
     masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
