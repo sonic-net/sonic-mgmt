@@ -178,12 +178,16 @@ def compare_and_create_pull_request(repo, repo_path, url_with_token, source_bran
 def create_pull_request(source_branch, target_branch):
     repository_url = f'https://dev.azure.com/mssonic/internal/_apis/git/repositories/{MGMT_REPOSITOR_ID}/pullrequests?api-version=7.1-preview.1'
     title = f"[Auto Created] Sync connection graph facts from internal to {target_branch}"
-    description = '''
-        Across different branches, the connection graph facts should remain consistent. 
-        However, as the code undergoes continuous updates, the disparities between connection graph facts files among different branches are becoming more pronounced, which divergence poses significant challenges for cherry-pick. 
-        To address these differences and reduce the time spent synchronizing branches, we can automate the creation of pull requests by running a pipeline. 
-        This pull request use the connection graph facts from the internal branch to overwrite other branches, thereby synchronizing the connection graph facts across different branches.
-        '''
+    description = "Across different branches, the connection graph facts should remain consistent. " \
+                  "However, as the code undergoes continuous updates, the disparities between " \
+                  "connection graph facts files among different branches are becoming more " \
+                  "pronounced, which divergence poses significant challenges for cherry-pick. " \
+                  "To address these differences and reduce the time spent synchronizing branches, " \
+                  "we can automate the creation of pull requests by running a pipeline. " \
+                  "This pull request use the connection graph facts from the internal branch to " \
+                  "overwrite other branches, thereby synchronizing the connection graph facts across " \
+                  "different branches."
+
     source_branch = f'refs/heads/{source_branch}'
     target_branch = f'refs/heads/{target_branch}'
 
