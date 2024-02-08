@@ -99,6 +99,15 @@ def get_ptf_recv_ports(duthost, tbinfo):
 
 
 def get_neighbor_info(duthost, dev_port, tbinfo):
+    """
+    This function returns the neighbor type of
+    the chosen dev_port based on route info
+
+    Args:
+        duthost: DUT belong to the testbed.
+        dev_port: Chosen dev_port based on route info
+        tbinfo: A fixture to gather information about the testbed.
+    """
     neighbor_type = ''
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     neighs = config_facts['BGP_NEIGHBOR']
@@ -122,6 +131,9 @@ def get_neighbor_info(duthost, dev_port, tbinfo):
 
 
 def get_port_by_ip(config_facts, ipaddr):
+    """
+    This function returns port name based on ip address
+    """
     if ':' in ipaddr:
         iptype = "ipv6"
     else:
@@ -143,6 +155,10 @@ def get_port_by_ip(config_facts, ipaddr):
 
 
 def get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list):
+    """
+    This function returns all the ptf ports of
+    all the duts w.r.t received neighbors' list, even for multi dut chassis
+    """
     recv_ports = []
     for duthost in duthosts:
         if duthost.is_supervisor_node():
@@ -156,6 +172,10 @@ def get_all_ptf_recv_ports(duthosts, tbinfo, recv_neigh_list):
 
 
 def get_all_recv_neigh(duthosts, neigh_type):
+    """
+    This function returns all the neighbors of
+    same type for dut, including multi dut chassis
+    """
     recv_neigh_list = []
     for duthost in duthosts:
         if duthost.is_supervisor_node():
@@ -212,6 +232,7 @@ def send_recv_ping_packet(ptfadapter, ptf_send_port, ptf_recv_ports, dst_mac, ex
     ext_pkt['Ether'].src = exp_src_mac
 
     masked_exp_pkt = Mask(ext_pkt)
+    # Mask src_mac for T2 multi-dut chassis, since the packet can be received on any of the dut's ptf-ports
     if 't2' in tbinfo["topo"]["name"]:
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
     masked_exp_pkt.set_do_not_care_scapy(scapy.Ether,"dst")
