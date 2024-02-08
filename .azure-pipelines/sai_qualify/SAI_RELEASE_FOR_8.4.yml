@@ -34,6 +34,10 @@ parameters:
     default: $(SAITHRIFT_BRCM_202305)
     displayName: "py_saithrift URL"
 
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202305
+
   # Testbed specific, to skip and/or include directories or just run basic tests
   - name: TESTBED_SPECIFIC
     type: string
@@ -43,7 +47,6 @@ parameters:
       - '-I "platform_tests show_techport acl everflow drop_packets"'
       - '-S "platform_tests copp show_techport acl everflow drop_packets qos"'
       - '-c "fib/test_fib.py vxlan/test_vxlan_decap.py fdb/test_fdb.py decap/test_decap.py pfcwd/test_pfcwd_all_port_storm.py acl/null_route/test_null_route_helper.py acl/test_acl.py vlan/test_vlan.py ipfwd/test_nhop_group.py everflow/test_everflow_per_interface.py everflow/test_everflow_testbed.py platform_tests/test_reboot.py platform_tests/test_advanced_reboot.py"'
-
 
   # Deploy SAI SDK
   - name: DEPLOY_SAI_SDK
@@ -70,11 +73,6 @@ parameters:
     type: boolean
     default: false
 
-  # - name: PIPELINE_BRANCH
-  #   displayName: "pipeline running branch(all the buildouts binding to a branch)"
-  #   default: "internal"
-  #   type: string
-
   # Resource agent pool
   - name: AGENT_POOL
     displayName: "Resource agent pool"
@@ -92,6 +90,7 @@ jobs:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
       DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
       SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}

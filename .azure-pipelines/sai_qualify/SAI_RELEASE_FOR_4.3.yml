@@ -34,6 +34,10 @@ parameters:
     default: $(SAITHRIFT_BRCM_202012)
     displayName: "py_saithrift URL"
 
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202012
+
   # Testbed specific, to skip and/or include directories or just run basic tests
   - name: TESTBED_SPECIFIC
     type: string
@@ -69,11 +73,6 @@ parameters:
     type: boolean
     default: false
 
-  # - name: PIPELINE_BRANCH
-  #   displayName: "pipeline running branch(all the buildouts binding to a branch)"
-  #   default: "internal"
-  #   type: string
-
   # Resource agent pool
   - name: AGENT_POOL
     displayName: "Resource agent pool"
@@ -91,6 +90,7 @@ jobs:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       UPLOAD_TEST_REPORT: ${{ parameters.UPLOAD_TEST_REPORT }}
       DEPLOY_SAI_SDK: ${{ parameters.DEPLOY_SAI_SDK }}
       SDK_BUILD_PIPELINE_NAME: ${{ parameters.SDK_BUILD_PIPELINE_NAME }}
