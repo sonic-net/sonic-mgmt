@@ -63,14 +63,7 @@ arp/test_wr_arp.py:
 
 #######################################
 #####            bfd              #####
-#######################################
-bfd/test_bfd_static_route.py:
-  skip:
-    reason: "Only supported on chassis system & cisco platform."
-    conditions:
-      - "is_multi_asic is False"
-      - "asic_type in ['cisco-8000']"
-      
+#######################################      
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4600c/4700/5600 and cisco-8102. Skipping the test"
@@ -89,6 +82,12 @@ bfd/test_bfd.py::test_bfd_scale:
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
+bfd/test_bfd_static_route.py:
+  skip:
+    reason: "Only supported on chassis system & cisco platform."
+    conditions:
+      - "is_multi_asic is False"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####            bgp              #####
