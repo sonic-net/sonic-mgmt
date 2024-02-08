@@ -97,7 +97,7 @@ class OVSCommand(object):
     OVS_VSCTL_LIST_PORTS_CMD = "ovs-vsctl list-ports {bridge_name}"
     OVS_OFCTL_DEL_FLOWS_CMD = "ovs-ofctl del-flows {bridge_name}"
     OVS_OFCTL_ADD_FLOWS_CMD = "ovs-ofctl add-flow {bridge_name} {flow}"
-    OVS_OFCTL_MOD_FLOWS_CMD = "ovs-ofctl mod-flows {bridge_name} {flow}"
+    OVS_OFCTL_MOD_FLOWS_CMD = "ovs-ofctl --strict mod-flows {bridge_name} {flow}"
     OVS_OFCTL_DEL_GROUPS_CMD = "ovs-ofctl -O OpenFlow13 del-groups {bridge_name}"
     OVS_OFCTL_ADD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 add-group {bridge_name} {group}"
     OVS_OFCTL_MOD_GROUP_CMD = "ovs-ofctl -O OpenFlow13 mod-group {bridge_name} {group}"
