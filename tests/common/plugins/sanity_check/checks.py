@@ -63,6 +63,7 @@ def _find_down_ip_ports(dut, ip_interfaces):
             down_ip_ports.append(intf)
     return down_ip_ports
 
+
 def _parse_bfd_output(output):
     data_rows = output[3:]
     data_dict = {}
@@ -80,6 +81,7 @@ def _parse_bfd_output(output):
         data_dict[data[0]]['Multihop'] = data[9]
         data_dict[data[0]]['Local Discriminator'] = data[10]
     return data_dict
+
 
 def _find_down_ports(dut, phy_interfaces, ip_interfaces):
     """Finds the ports which are operationally down
