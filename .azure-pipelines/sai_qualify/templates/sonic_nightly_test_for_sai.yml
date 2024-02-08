@@ -150,6 +150,10 @@ parameters:
     type: string
     default: ""
 
+  - name: MGMT_BRANCH
+    type: string
+    default: "internal"
+
 jobs:
 
   - job: SONiC_Nightly_for_SAI_RELEASE_Test
@@ -411,6 +415,23 @@ jobs:
             python3 $SAI_ADHOC_PATH -t dut -o cmd -n ${{ parameters.TESTBED_NAME }} -c "docker exec syncd dpkg -l | grep libsaibcm | awk -F'[ ]+' '{print $3}'"
 
         displayName: "install ${{ parameters.SDK_ARTIFACT_NAME }}"
+
+      - task: Bash@3
+        displayName: "Checkout mgmt branch"
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            if [[ "$MGMT_BRANCH" == "internal" ]]; then
+                echo "Skip checkout mgmt branch"
+                exit 0
+            fi
+            git checkout -b $MGMT_BRANCH origin/$MGMT_BRANCH
+            git branch -vv
+            echo "Checkout branch to $MGMT_BRANCH"
+        env:
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
 
       - task: Bash@3
         displayName: Run Tests
