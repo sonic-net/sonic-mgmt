@@ -15,7 +15,7 @@ console-212,19,str2-7050qx-32s-acs-01,ssh,admin
 console-212,21,str2-7060cx-32s-29,ssh,admin
 console-199,5,str2-7260cx3-acs-9,ssh,admin
 console-199,12,str2-msn2700-spy-1,ssh,admin
-console-199,14,str2-msn2700-spy-2,ssh,admin
+console-212,26,str2-msn2700-spy-2,ssh,admin
 console-80,45,str2-n3164-acs-1,ssh,admin
 console-194,22,str2-n3164-acs-3,ssh,admin
 console-194,21,str2-n3164-acs-4,ssh,admin
