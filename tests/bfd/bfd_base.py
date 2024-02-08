@@ -3,7 +3,6 @@ import random
 import pytest, re, time
 import logging
 logger = logging.getLogger(__name__)
-from tests.common.config_reload import config_reload
 from tests.platform_tests.cli import util
 from tests.common.plugins.sanity_check.checks import _parse_bfd_output
 
