@@ -2,9 +2,6 @@ import ipaddr
 import logging
 import os
 import pytest
-import random
-import time
-import yaml
 
 from collections import namedtuple
 from collections import defaultdict
