@@ -64,7 +64,6 @@ def _find_down_ip_ports(dut, ip_interfaces):
     return down_ip_ports
 
 def _parse_bfd_output(output):
-    header = output[1].split()
     data_rows = output[3:]
     data_dict = {}
     for data in data_rows:
