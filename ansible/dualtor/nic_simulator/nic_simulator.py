@@ -405,7 +405,7 @@ class OVSBridge(object):
         "flap_counter"
     )
 
-    def __init__(self, bridge_name, loopback_ips):
+    def __init__(self, bridge_name, loopback_ips, duplicate_nic_upstream=False):
         self.bridge_name = bridge_name
         self.loopback2_ip = loopback_ips[0]
         self.upper_tor_loopback3_ip = loopback_ips[1]
@@ -421,7 +421,7 @@ class OVSBridge(object):
         self.flows = []
         self.groups = []
         self._init_ports()
-        self._init_flows()
+        self._init_flows(duplicate_nic_upstream)
         self.states_getter = {
             1: self.upstream_ecmp_flow.get_upper_tor_forwarding_state,
             0: self.upstream_ecmp_flow.get_lower_tor_forwarding_state
@@ -468,41 +468,43 @@ class OVSBridge(object):
             self.lower_tor_port
         )
 
-    def _init_flows(self):
+    def _init_flows(self, duplicate_nic_upstream=False):
         """Initialize OVS flows for the bridge."""
         logging.info("Init flows for bridge %s", self.bridge_name)
         self._del_flows()
         self._del_groups()
         # downstream flows
         self.downstream_upper_tor_flow = self._add_flow(self.upper_tor_port,
-                                                        output_ports=[self.ptf_port, self.server_nic], priority=10)
+                                                        output_ports=[self.ptf_port, self.server_nic], priority=11)
         self.downstream_lower_tor_flow = self._add_flow(self.lower_tor_port,
-                                                        output_ports=[self.ptf_port, self.server_nic], priority=10)
+                                                        output_ports=[self.ptf_port, self.server_nic], priority=11)
 
         # upstream flows
-        # upstream packet to the upper ToR loopback3 from server NiC should be forwarded to the upper ToR
-        self.upstream_upper_tor_nic_flow = self._add_flow(
-            self.server_nic,
-            packet_filter="tcp,ip_dst=%s" % self.upper_tor_loopback3_ip,
-            output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=9,
-            upstream=True,
-            enable_output_ports=[False, True]
-        )
-        # upstream packet to the lower ToR loopback3 from server NiC should be forwarded to the lower ToR
-        self.upstream_lower_tor_nic_flow = self._add_flow(
-            self.server_nic,
-            packet_filter="tcp,ip_dst=%s" % self.lower_tor_loopback3_ip,
-            output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=9,
-            upstream=True,
-            enable_output_ports=[True, False]
-        )
-        # other upstream packet from server NiC should be directed to both ToRs
+        if not duplicate_nic_upstream:
+            # NOTE: add two flows to direct gRPC traffic to its correct destination
+            # upstream packet to the upper ToR loopback3 from server NiC should be forwarded to the upper ToR
+            self.upstream_upper_tor_nic_flow = self._add_flow(
+                self.server_nic,
+                packet_filter="tcp,ip_dst=%s" % self.upper_tor_loopback3_ip,
+                output_ports=[self.lower_tor_port, self.upper_tor_port],
+                priority=10,
+                upstream=True,
+                enable_output_ports=[False, True]
+            )
+            # upstream packet to the lower ToR loopback3 from server NiC should be forwarded to the lower ToR
+            self.upstream_lower_tor_nic_flow = self._add_flow(
+                self.server_nic,
+                packet_filter="tcp,ip_dst=%s" % self.lower_tor_loopback3_ip,
+                output_ports=[self.lower_tor_port, self.upper_tor_port],
+                priority=10,
+                upstream=True,
+                enable_output_ports=[True, False]
+            )
+        # upstream packet from server NiC should be directed to both ToRs
         self.upstream_nic_flow = self._add_flow(
             self.server_nic,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=8,
+            priority=9,
             upstream=True
         )
         # upstream packet to loopback2 from ptf port should be duplicated to both ToRs
@@ -510,7 +512,7 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.loopback2_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=7,
+            priority=8,
             upstream=True
         )
         # upstream packet to the upper ToR loopback3 from ptf should be duplicated to both ToRs
@@ -518,7 +520,7 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.upper_tor_loopback3_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=6,
+            priority=7,
             upstream=True
         )
         # upstream packet to the lower ToR loopback3 from ptf should be duplicated to both ToRs
@@ -526,21 +528,21 @@ class OVSBridge(object):
             self.ptf_port,
             packet_filter="ip,ip_dst=%s" % self.lower_tor_loopback3_ip,
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=6,
+            priority=7,
             upstream=True
         )
         # upstream arp packet from ptf port should be duplicated to both ToRs
         self.upstream_arp_flow = self._add_flow(
             self.ptf_port, packet_filter="arp",
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=5,
+            priority=6,
             upstream=True
         )
         # upstream ipv6 icmp packet from ptf port should be duplicated to both ToRs
         self.upstream_icmpv6_flow = self._add_flow(
             self.ptf_port, packet_filter="ipv6,nw_proto=58",
             output_ports=[self.lower_tor_port, self.upper_tor_port],
-            priority=4,
+            priority=5,
             upstream=True
         )
         # upstream packet from ptf port should be ECMP directed to active ToRs
@@ -1148,7 +1150,7 @@ class MgmtServer(nic_simulator_grpc_mgmt_service_pb2_grpc.DualTorMgmtServiceServ
 class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
     """NiC simulator class, define all the gRPC calls."""
 
-    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips):
+    def __init__(self, vm_set, mgmt_port, binding_port, loopback_ips, duplicate_nic_upstream=False):
         self.vm_set = vm_set
         self.server_nics = self._find_all_server_nics()
         self.server_nic_addresses = {
@@ -1164,7 +1166,8 @@ class NiCSimulator(nic_simulator_grpc_service_pb2_grpc.DualToRActiveServicer):
             if server_nic in self.server_nic_addresses:
                 server_nic_addr = self.server_nic_addresses[server_nic]
                 if server_nic_addr is not None:
-                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips)
+                    self.ovs_bridges[server_nic_addr] = OVSBridge(bridge_name, loopback_ips, duplicate_nic_upstream)
+
         logging.info("Starting NiC simulator to manipulate OVS bridges: %s",
                      json.dumps(list(self.ovs_bridges.keys()), indent=4))
 
@@ -1238,6 +1241,13 @@ def parse_args():
         help="the Loopback IPs to duplicate to both ToRs: <Loopback2>,<upper ToR Loopback3>,<lower ToR Loopback3>",
         dest="loopback_ips"
     )
+    parser.add_argument(
+        "-n",
+        "--duplicate_nic_upstream",
+        default=False,
+        action="store_true",
+        help="Duplicate NIC upstream traffic to both ToRs (default: False)",
+    )
     args = parser.parse_args()
     return args
 
@@ -1289,7 +1299,7 @@ def main():
     loopback_ips = args.loopback_ips.split(",")
     if len(loopback_ips) != 3:
         raise ValueError("Invalid loopback ips: {loopback_ips}".format(loopback_ips=loopback_ips))
-    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips)
+    nic_simulator = NiCSimulator(args.vm_set, "mgmt", args.port, loopback_ips, args.duplicate_nic_upstream)
     nic_simulator.start_nic_servers()
     try:
         nic_simulator.start_mgmt_server()
