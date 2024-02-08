@@ -82,7 +82,6 @@ def _parse_bfd_output(output):
         data_dict[data[0]]['Local Discriminator'] = data[10]
     return data_dict
 
-
 def _find_down_ports(dut, phy_interfaces, ip_interfaces):
     """Finds the ports which are operationally down
 
