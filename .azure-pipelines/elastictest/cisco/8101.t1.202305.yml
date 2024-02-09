@@ -49,7 +49,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: "http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/cisco-8000/internal-202305-private/tagged/sonic-cisco-8000-20230531.cisco106.bin"
+    default: $(IMAGE_CISCO_202305)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
