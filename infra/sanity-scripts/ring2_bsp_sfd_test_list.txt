@@ -10,6 +10,7 @@ platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
 platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
 test_interfaces.py
 test_posttest.py
+test_procdockerstatsd.py::test_verify_redisexport
 test_pretest.py::test_cleanup_cache
 test_pretest.py::test_cleanup_testbed
 test_pretest.py::test_collect_testbed_prio
@@ -19,4 +20,3 @@ test_pretest.py::test_features_state
 test_pretest.py::test_generate_running_golden_config
 test_pretest.py::test_stop_pfcwd
 test_pretest.py::test_update_saithrift_ptf
-test_procdockerstatsd.py::test_verify_redisexport
