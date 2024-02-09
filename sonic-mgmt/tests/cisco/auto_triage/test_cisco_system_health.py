@@ -23,3 +23,4 @@ def test_cisco_system_health(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "Platform services state check Passed" in result["stdout"], "Platform services state check Failed!"
     assert "Container check Passed" in result["stdout"], "Container check Failed!"
     assert "Platform Health Check Passed" in result["stdout"], "Platform Health Check Failed!"
+    assert "Container Critical Process check Passed" in result["stdout"], "Container Critical Process Check Failed!"
