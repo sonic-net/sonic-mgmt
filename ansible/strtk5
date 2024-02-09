@@ -656,16 +656,16 @@ server:
   hosts:
     strtk5-serv-01:
       ansible_host: 10.212.65.2
-      ansible_hostv6: 2603:10e2:140:3000::142
+      ansible_hostv6: 2603:10e2:140:3000::102
     strtk5-serv-02:
       ansible_host: 10.212.65.3
-      ansible_hostv6: 2603:10e2:140:3000::143
+      ansible_hostv6: 2603:10e2:140:3000::103
     strtk5-serv-03:
       ansible_host: 10.212.65.4
-      ansible_hostv6: 2603:10e2:140:3000::144
+      ansible_hostv6: 2603:10e2:140:3000::104
     strtk5-serv-04:
       ansible_host: 10.212.65.5
-      ansible_hostv6: 2603:10e2:140:3000::145
+      ansible_hostv6: 2603:10e2:140:3000::105
     strtk5-serv-05:
       ansible_host: 10.212.65.6
-      ansible_hostv6: 2603:10e2:140:3000::146
+      ansible_hostv6: 2603:10e2:140:3000::106
