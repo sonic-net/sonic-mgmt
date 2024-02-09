@@ -185,7 +185,7 @@ sonic_arista64_100:
     strtk5-7260-01:
       ansible_host: 10.212.69.35
       ansible_hostv6: 2603:10e2:140:3000::43
-      hwsku: Arista-7260CX3-C64
+      hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
       serial: JPA2312P0CG
       base_mac: fc:59:c0:29:69:a1

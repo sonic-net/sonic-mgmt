@@ -2131,9 +2131,9 @@
   auto_recover: 'True'
   comment: tbtk5-s6100-5
 
-- conf-name: tbtk5-t1-7260-01
+- conf-name: tbtk5-t0-7260-01
   group-name: tk5-4-0
-  topo: t1-64-lag
+  topo: t0-116
   ptf_image_name: docker-ptf
   ptf: ptf4-0
   ptf_ip: 10.212.65.60/24
