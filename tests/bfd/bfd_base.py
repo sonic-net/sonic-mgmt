@@ -6,6 +6,7 @@ import time
 import logging
 from tests.platform_tests.cli import util
 from tests.common.plugins.sanity_check.checks import _parse_bfd_output
+from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +62,6 @@ class BfdBase:
                 command = """sed -i 's/"bfd": "false"/"bfd": "true"/' {}""".format("/etc/sonic/" + file_name)
             dut.shell(command)
 
-    
     def extract_backend_portchannels(self, dut):
         output = dut.show_and_parse('show int port -d all')
         port_channel_dict = {}
@@ -80,32 +80,12 @@ class BfdBase:
                 status = status_match.group(1) if status_match else ''
                 if ports:
                     port_channel_dict[port_channel] = {
-                    'members': ports,
-                    'status': status
-                }
+                        'members': ports,
+                        'status': status
+                        }
                     
         return port_channel_dict
 
-    
-    def interface_cleanup(self, dut, dut_asic, interface):
-        int_status = dut.show_interface(command="status", include_internal_intfs=True, asic_index=dut_asic.asic_index)['ansible_facts']['int_status'][interface]
-        oper_state = int_status['oper_state']
-        target_state = "up"
-        if oper_state != target_state:
-            command = "startup"
-            exec_cmd = "sudo ip netns exec asic{} config interface -n asic{} {} {}".format(dut_asic.asic_index, dut_asic.asic_index, command, interface)
-            
-            logger.info("Command: {}".format(exec_cmd))
-            logger.info("Target state: {}".format(target_state))
-            
-            dut.shell(exec_cmd)
-
-            if "BP" in interface:
-                assert wait_until(180, 10, 0, lambda: dut.show_interface(command="status", include_internal_intfs=True, asic_index=asic.asic_index)['ansible_facts']['int_status'][interface]['oper_state'] == target_state)
-            else:
-                assert wait_until(180, 10, 0, lambda: self.extract_backend_portchannels(dut)[interface]['status'] == target_state)
-
-    
     def extract_ip_addresses_for_backend_portchannels(self, dut, dut_asic, version):
         backend_port_channels = self.extract_backend_portchannels(dut)
         if version == "ipv4":
@@ -125,21 +105,18 @@ class BfdBase:
                 result_dict[interface] = ip_address
         return result_dict
 
-    
     def delete_bfd(self, asic_number, prefix, dut):
         command = 'sonic-db-cli -n asic{} CONFIG_DB HSET "STATIC_ROUTE|{}" bfd \'false\''.format(asic_number, prefix).replace('\\', '')
         logger.info(command)
         dut.shell(command)
         time.sleep(15)
 
-    
     def add_bfd(self, asic_number, prefix, dut):
         command = 'sonic-db-cli -n asic{} CONFIG_DB HSET "STATIC_ROUTE|{}" bfd \'true\''.format(asic_number, prefix).replace('\\', '')
         logger.info(command)
         dut.shell(command)
         time.sleep(15)
 
-    
     def extract_current_bfd_state(self, nexthop, asic_number, dut):
         bfd_peer_command = "ip netns exec asic{} show bfd peer {}".format(asic_number, nexthop)
         logger.info("Verifying BFD status on {}".format(dut))
@@ -151,7 +128,6 @@ class BfdBase:
             entry = self.list_to_dict(bfd_peer_output)
             return entry['State']
 
-    
     def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
         # Expected BFD states: Up, Down, No BFD sessions found
         peer_count = []
@@ -180,7 +156,6 @@ class BfdBase:
                 return False
         return True
 
-    
     def extract_routes(self, static_route_output, version):
         asic_routes = {}
         asic = None
