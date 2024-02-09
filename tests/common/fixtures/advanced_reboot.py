@@ -140,7 +140,7 @@ class AdvancedReboot:
             if self.kvmTest:
                 self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
-                self.rebootLimit = 0
+                self.rebootLimit = 0.05 # small number of packet drops can happen due to ptf infra limitations
             else:
                 self.rebootLimit = 30  # Default reboot limit for physical devices
 
