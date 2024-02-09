@@ -133,6 +133,7 @@ stages:
   - template: ../metadata_upgrade_template.yml
     parameters:
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      POOL: ${{ parameters.POOL }}
       UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
       VM_TYPE: ${{ parameters.VM_TYPE }}
       FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
