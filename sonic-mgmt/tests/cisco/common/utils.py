@@ -2,19 +2,17 @@ import pytest
 import ipaddr
 import logging
 import os
-import pytest
-import random
-import time
-import yaml
-import logging
 
 from collections import namedtuple
-from collections import defaultdict
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 logger = logging.getLogger(__name__)
+
+ROOT_DIR = "/root"
+CISCO_DIR = "cisco"
+
 
 class CheckEnvironment:
     _is_sim = None
@@ -30,6 +28,26 @@ class CheckEnvironment:
                 CheckEnvironment._is_sim = False
                 logging.info("In hardware env")
         return CheckEnvironment._is_sim
+
+
+@pytest.fixture(scope="session", autouse=True)
+def copy_cisco_directory(ptfhost):
+    """
+        Copies cisco directory to PTF host.
+        This copying follows the concept of copying the saitest for
+        qos test in sonic-mgmt.
+        Args:
+            ptfhost (AnsibleHost): Packet Test Framework (PTF)
+        Returns:
+            None
+    """
+    logger.info("Copy cisco directory to PTF host '{0}'".format(ptfhost.hostname))
+    ptfhost.copy(src=CISCO_DIR, dest=ROOT_DIR)
+
+    yield
+
+    logger.info("Delete cisco directory from PTF host '{0}'".format(ptfhost.hostname))
+    ptfhost.file(path=os.path.join(ROOT_DIR, CISCO_DIR), state="absent")
 
 
 @pytest.fixture(scope='module')
@@ -274,4 +292,3 @@ def combinations(iterable, r):
         for j in range(i + 1, r):
             indices[j] = indices[j - 1] + 1
         yield tuple(pool[i] for i in indices)
-
