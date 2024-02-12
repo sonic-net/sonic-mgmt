@@ -884,7 +884,10 @@ def get_egress_queue_count(duthost, port, priority):
     Returns:
         tuple (int, int): total count of packets and bytes in the queue
     """
-    raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
+    asic = duthost.get_port_asic_instance(port)
+    raw_out = duthost.shell(
+        "show queue counters -n {} {} | sed -n '/UC{}/p'".format(
+            asic.namespace, port, priority))['stdout']
     total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
     total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
