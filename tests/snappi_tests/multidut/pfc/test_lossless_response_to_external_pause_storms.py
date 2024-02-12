@@ -9,7 +9,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map,\
     lossless_prio_list                                                                      # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.lossless_response_to_external_pause_storms_helper import (
-     run_pfcwd_multi_node_test,
+     run_lossless_response_to_external_pause_storms_test,
     )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
@@ -76,16 +76,16 @@ def test_pfcwd_many_to_one(snappi_api,                     # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_pfcwd_multi_node_test(api=snappi_api,
-                              testbed_config=testbed_config,
-                              port_config_list=port_config_list,
-                              conn_data=conn_graph_facts,
-                              fanout_data=fanout_graph_facts,
-                              dut_port=snappi_ports[0]['peer_port'],
-                              pause_prio_list=pause_prio_list,
-                              test_prio_list=test_prio_list,
-                              bg_prio_list=bg_prio_list,
-                              prio_dscp_map=prio_dscp_map,
-                              snappi_extra_params=snappi_extra_params)
+    run_lossless_response_to_external_pause_storms_test(api=snappi_api,
+                                                        testbed_config=testbed_config,
+                                                        port_config_list=port_config_list,
+                                                        conn_data=conn_graph_facts,
+                                                        fanout_data=fanout_graph_facts,
+                                                        dut_port=snappi_ports[0]['peer_port'],
+                                                        pause_prio_list=pause_prio_list,
+                                                        test_prio_list=test_prio_list,
+                                                        bg_prio_list=bg_prio_list,
+                                                        prio_dscp_map=prio_dscp_map,
+                                                        snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
