@@ -154,6 +154,7 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
+r, ".* ERR pmon#CCmisApi: :- checkReplyType: Expected to get redis type 0 got type 3, err: NON-STRING-REPLY*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/15012104
 # TO BE REMOVED
