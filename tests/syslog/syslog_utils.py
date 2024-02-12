@@ -58,6 +58,18 @@ def create_vrf(dut, vrf):
     dut.command('sudo config vrf add {} '.format(vrf), module_async=True)
 
 
+def check_vrf(dut, vrf):
+    """
+    Check if Vrf was created
+
+    Args:
+        dut (SonicHost): The target device
+        vrf (str): vrf
+    """
+    res = dut.command('sudo show vrf')["stdout"]
+    return vrf in res
+
+
 def remove_vrf(dut, vrf):
     """
     Remove Vrf

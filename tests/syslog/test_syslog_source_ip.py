@@ -7,7 +7,7 @@ import re
 
 from scapy.all import rdpcap
 from .syslog_utils import create_vrf, remove_vrf, add_syslog_server, del_syslog_server, capture_syslog_packets,\
-    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
+    replace_ip_neigh, is_mgmt_vrf_enabled, bind_interface_to_vrf, check_vrf, TCPDUMP_CAPTURE_TIME, DUT_PCAP_FILEPATH
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX
@@ -219,6 +219,9 @@ class TestSSIP:
         """
         logger.info("Create data vrf {}".format(VRF_LIST[1]))
         create_vrf(self.duthost, VRF_LIST[1])
+
+        logger.info(f"Validate vrf {VRF_LIST[1]} is created")
+        wait_until(5, 1, 0, check_vrf, self.duthost, VRF_LIST[1])
 
         logger.info("Bind interface {} to  data vrf {}".format(routed_interfaces[1], VRF_LIST[1]))
         bind_interface_to_vrf(self.asichost, VRF_LIST[1], routed_interfaces[1])
