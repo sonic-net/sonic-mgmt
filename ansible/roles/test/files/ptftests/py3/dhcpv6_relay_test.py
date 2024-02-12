@@ -134,7 +134,7 @@ class DHCPTest(DataplaneBaseTest):
         # For DUALTOR Setup, flapping the link will disrupt ICMP HB communication and link health is impacted.
         # Skip this for DUALTOR.
         if not self.is_dualtor:
-            #Shutdown and startup the client interface to generate a proper IPv6 link-local address
+            # Shutdown and startup the client interface to generate a proper IPv6 link-local address
             command = "ifconfig eth{} down".format(client_port_index)
             proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             proc.communicate()

@@ -240,6 +240,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
                 "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or \
                ("*:*" in output, "dhcp6relay socket is not properly binded")
 
+
 @pytest.fixture
 def setup_active_active_as_active_standby(
     active_active_ports, rand_selected_dut, rand_unselected_dut, tbinfo,                # noqa F811
@@ -256,6 +257,7 @@ def setup_active_active_as_active_standby(
         config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
 
     return
+
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                               toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
