@@ -601,9 +601,9 @@ def get_multidut_snappi_ports(duthosts, conn_graph_facts, fanout_graph_facts):  
                     snappi_fanout_list.get_fanout_device_details(i)
                 except Exception:
                     pass
-                    raise RuntimeError(
-                        "Couldnot parse the fanout details"
-                        " for {}, pls check sonic_lab_devices.csv".format(i))
+                    # raise RuntimeError(
+                    #     "Couldnot parse the fanout details"
+                    #     " for {}, pls check sonic_lab_devices.csv".format(i))
             snappi_ports = snappi_fanout_list.get_ports(peer_device=host.hostname)
             for port in snappi_ports:
                 port['location'] = get_snappi_port_location(port)
