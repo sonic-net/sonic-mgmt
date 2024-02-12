@@ -93,7 +93,7 @@ def _create_parser():
     parser.add_argument('--cicd_clean', action='store_true', help='Clean at the end of CICD run',
                       default=False)
     parser.add_argument('--create_allure_report', action='store_true', help='When testing, specify if allure report to be created at the end of test',
-                      default=False)            
+                      default=False)
     parser.add_argument('-k', '--skip_sanity', action='store_true', help='Skip sanity test',
                       default=False)
     parser.add_argument('--sim_attach', action='store_true', help='Use the existing SIM',
@@ -500,6 +500,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client=ssh.open_sftp()
     ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
     ftp_client.put('../sonic-mgmt/tests/allure_server.py','golden-code/sonic-test/sonic-mgmt/tests/allure_server.py')
+    ftp_client.put('./../sonic-mgmt/tests/cisco', 'golden-code/sonic-test/sonic-mgmt/tests/cisco')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
     ftp_client.put(base_topo_file,'golden-code/sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
     ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
