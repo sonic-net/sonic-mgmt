@@ -486,22 +486,18 @@ def replace_fabric_name(topo_yaml,fabric_name):
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
         for line in vxr_data['devices']['L0']['cli_commands'].splitlines():
             if 'config hostname' in line:
-                print(line)
                 newline = "sudo config hostname {}-leaf0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
         for line in vxr_data['devices']['L1']['cli_commands'].splitlines():
             if 'config hostname' in line:
-                print(line)
                 newline = "sudo config hostname {}-leaf1".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
         for line in vxr_data['devices']['L2']['cli_commands'].splitlines():
             if 'config hostname' in line:
-                print(line)
                 newline = "sudo config hostname {}-leaf2".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
         for line in vxr_data['devices']['S0']['cli_commands'].splitlines():
             if 'config hostname' in line:
-                print(line)
                 newline = "sudo config hostname {}-spine0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
