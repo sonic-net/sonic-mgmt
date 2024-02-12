@@ -8,16 +8,16 @@ https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.
 git clone https://github.com/sonic-net/sonic-mgmt
 ```
 
-download `https://downloads.ixiacom.com/support/downloads_and_updates/public/ixnetwork/9.30/IxNetworkAPI9.30.2212.7Linux64.bin.tgz` in the current directory
+download `https://downloads.ixiacom.com/support/downloads_and_updates/public/IxNetwork/10.00/10.00.2312.4/IxNetworkAPI10.00.2312.4Linux64.bin.tgz` in the current directory
 ```
-tar zxvf ./IxNetworkAPI9.30.2212.7Linux64.bin.tgz
-cp ./IxNetworkAPI9.30.2212.7Linux64.bin ./sonic-mgmt/spytest/containers/keysight-ubuntu18/
+tar zxvf ./IxNetworkAP10.00.2312.4Linux64.bin.tgz
+cp ./IxNetworkAPI10.00.2312.4Linux64.bin ./sonic-mgmt/spytest/containers/keysight-ubuntu18/
 ```
 
 # build container
 ```
 docker build --no-cache --tag spytest/keysight-u18:latest ./sonic-mgmt/spytest/containers/keysight-ubuntu18
-docker tag spytest/keysight-u18:latest spytest/keysight-u18:9.30.2212.7
+docker tag spytest/keysight-u18:latest spytest/keysight-u18:10.00.2312.4
 ```
 
 
