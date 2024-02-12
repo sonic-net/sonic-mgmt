@@ -8,7 +8,7 @@ from tests.common.utilities import wait, wait_until
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR, NIC
-from tests.common.dualtor.dual_tor_common import CableType
+from tests.common.dualtor.dual_tor_common import CableType, active_standby_ports                # noqa F401
 from tests.common.cache import FactsCache
 from tests.common.plugins.sanity_check.constants import STAGE_PRE_TEST, STAGE_POST_TEST
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -519,6 +519,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
                     err_msg_from_mux_status.append('Inconsistent mux status for active-standby ports on dualtors, \
                                                    please check output of "show mux status"')
                     dut_wrong_mux_status_ports.append(port_idx)
+            if cable_type == CableType.active_active:
+                logger.debug('Verify that active-active ports:{}'.format(duts_parsed_mux_status))
+                if (upper_tor_mux_status[port_idx]['status'] != 1 or lower_tor_mux_status[port_idx]['status'] != 1):
+                    err_msg_from_mux_status.append('Inconsistent mux status for active-active ports on dualtors, \
+                                                   please check output of "show mux status"')
+                    dut_wrong_mux_status_ports.append(port_idx)
 
         if len(dut_wrong_mux_status_ports) != 0:
             return False
@@ -609,11 +615,12 @@ def _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs):
 
 @pytest.fixture(scope='module')
 def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status,     # noqa F811
-                        reset_simulator_port, restart_nic_simulator):               # noqa F811
-
+                        reset_simulator_port, restart_nic_simulator,                # noqa F811
+                        active_standby_ports):                                      # noqa F811
     def _recover():
-        duthosts.shell('config muxcable mode auto all')
-        reset_simulator_port()
+        duthosts.shell('config muxcable mode auto all; config save -y')
+        if active_standby_ports:
+            reset_simulator_port()
         restart_nic_simulator()
 
     def _check(*args, **kwargs):
