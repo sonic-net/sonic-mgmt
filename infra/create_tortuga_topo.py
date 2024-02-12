@@ -67,7 +67,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'sol-controller'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -393,7 +393,7 @@ def attach_vxr():
 
 
 def print_env_info(data, device_type):
-    if 'tortuga-controller' in data['topo_type']:
+    if 'tortuga-controller' not in data['topo_type']:
         print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
         print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf0']['HostAgent'], data['leaf0']['serial0'], data['leaf0']['xr_mgmt_ip'], data['leaf0']['xr_redir22']))
         print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf1']['HostAgent'], data['leaf1']['serial0'], data['leaf1']['xr_mgmt_ip'], data['leaf1']['xr_redir22']))
@@ -403,27 +403,47 @@ def print_env_info(data, device_type):
         print("Ixia Gui (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}  redir3389: {}".format(data['ixia_gui']['HostAgent'], data['ixia_gui']['serial0'], data['ixia_gui']['redir3389']))
         print("Ixia (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}".format(data['ixia']['HostAgent'], data['ixia']['serial0']))
     else:
-        leaf_ports = [data['leaf0']['xr_redir22'],data['leaf1']['xr_redir22'],data['leaf2']['xr_redir22']]
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         host_ports = list()
-        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf0']['HostAgent'], data['leaf0']['serial0'], data['leaf0']['xr_mgmt_ip'], data['leaf0']['xr_redir22']))
-        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf1']['HostAgent'], data['leaf1']['serial0'], data['leaf1']['xr_mgmt_ip'], data['leaf1']['xr_redir22']))
-        print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf2']['HostAgent'], data['leaf2']['serial0'], data['leaf2']['xr_mgmt_ip'], data['leaf2']['xr_redir22']))
-        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['spine0']['HostAgent'], data['spine0']['serial0'], data['spine0']['xr_mgmt_ip'], data['spine0']['xr_redir22']))
+        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
         for i in range(1,10):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
-        fabric_str = "FABRIC_NAME={}".format(data['fabric_name'])
-        pyvxr_str = "PYVXR_HOST={}".format(data['leaf0']['HostAgent'])
-        host_ports = "HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports)))
-        leaf_ports = "LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports)))
-        print("FABRIC_NAME={}".format(data['fabric_name']))
-        print("PYVXR_HOST={}".format(data['leaf0']['HostAgent']))
-        print("HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports))))
-        print("LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports))))
-
         return leaf_ports, host_ports
 
+def update_controller_test(data, leaf_ports, host_ports):
 
+    fabric_str = "FABRIC_NAME={}".format(data['fabric_name'])
+    pyvxr_str = "PYVXR_HOST={}".format(data['L0']['HostAgent'])
+    host_str = "HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports)))
+    leaf_str = "LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports)))
+    print(fabric_str)
+    print(pyvxr_str)
+    print(host_str)
+    print(leaf_str)
+    os.system("sed -i 's/.*FABRIC_NAME\=.*/{}/' ./tortuga_controller/test.sh".format(fabric_str))
+    os.system("sed -i 's/.*PYVXR_HOST\=.*/{}/' ./tortuga_controller/test.sh".format(pyvxr_str))
+    os.system("sed -i 's/.*HOST_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(host_str))
+    os.system("sed -i 's/.*LEAF_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(leaf_str))
+
+def start_controller():
+    test_path = "./tortuga_controller/test.sh"
+    cwd = os.getcwd()
+    os.chdir('./tortuga_controller')
+    os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
+
+    test_output = subprocess.check_output("grep -i 'Completed in' test_op.log | wc -l", shell=True).strip()
+
+    os.chdir(cwd)
+
+    # Populate results file with failure data
+    if not int(test_output):
+        return False
+    else:
+        return True
 
 def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     sim_cfg_filename = "sim_credentials.json"
@@ -461,6 +481,30 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
+def replace_fabric_name(topo_yaml,fabric_name):
+    with open(topo_yaml) as f:
+        vxr_data = yaml.load(f, Loader=yaml.FullLoader)
+        for line in vxr_data['devices']['L0']['cli_commands'].splitlines():
+            if 'config hostname' in line:
+                print(line)
+                newline = "sudo config hostname {}-leaf0".format(fabric_name)
+                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        for line in vxr_data['devices']['L1']['cli_commands'].splitlines():
+            if 'config hostname' in line:
+                print(line)
+                newline = "sudo config hostname {}-leaf1".format(fabric_name)
+                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        for line in vxr_data['devices']['L2']['cli_commands'].splitlines():
+            if 'config hostname' in line:
+                print(line)
+                newline = "sudo config hostname {}-leaf2".format(fabric_name)
+                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        for line in vxr_data['devices']['S0']['cli_commands'].splitlines():
+            if 'config hostname' in line:
+                print(line)
+                newline = "sudo config hostname {}-spine0".format(fabric_name)
+                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -494,6 +538,9 @@ def main():
         if device_type in TOPO_PLATFORM_FILE_DICT[topo_type]:
             topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]["pyvxr_yaml_file"]
 
+    if 'tortuga-controller' in topo_type:
+        replace_fabric_name(topo_yaml,fabric_name)
+
     dut_platform = get_dut_platform(device_type)
 
     vxr_start_begin = datetime.datetime.now()
@@ -514,6 +561,7 @@ def main():
 
     data['tar_ball'] = tar_ball
     data['topo_type'] = topo_type
+    data['fabric_name'] = fabric_name
 
     #print_env_info(data, device_type)
 
@@ -542,20 +590,27 @@ def main():
 
     profile_time_delta = (vcr_configure_end - vxr_start_end).total_seconds()
 
-    print("******************************************************************************************************************************************************************************\n")
-    print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
-    #print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
-    print("Ixia (1/1-1/4) ----> Leaf0(Ethernet16..40)")
-    print("Ixia (1/5-1/8) ----> Leaf1(Ethernet16..40)")
-    print("Leaf0 Ethernet0 ----> Spine0 Ethernet0")
-    print("Leaf0 Ethernet8 ----> Spine1 Ethernet8")
-    print("Leaf1 Ethernet0 ----> Spine1 Ethernet0")
-    print("Leaf1 Ethernet8 ----> Spine0 Ethernet8")
-    print("Sonic-Mgmt eth1 ----> Leaf0 Ethernet48")
-    print("Sonic-Mgmt eth2 ----> Leaf1 Ethernet48")
-    print("******************************************************************************************************************************************************************************\n")
-
-    print_env_info(data, device_type)
+    if 'tortuga-controller' not in data['topo_type']:
+        print("******************************************************************************************************************************************************************************\n")
+        print("Time taken for the sim to come up: {} mins".format(sim_time_delta/60))
+        #print("Time taken for the profile to come up: {} mins".format(profile_time_delta/60))
+        print("Ixia (1/1-1/4) ----> Leaf0(Ethernet16..40)")
+        print("Ixia (1/5-1/8) ----> Leaf1(Ethernet16..40)")
+        print("Leaf0 Ethernet0 ----> Spine0 Ethernet0")
+        print("Leaf0 Ethernet8 ----> Spine1 Ethernet8")
+        print("Leaf1 Ethernet0 ----> Spine1 Ethernet0")
+        print("Leaf1 Ethernet8 ----> Spine0 Ethernet8")
+        print("Sonic-Mgmt eth1 ----> Leaf0 Ethernet48")
+        print("Sonic-Mgmt eth2 ----> Leaf1 Ethernet48")
+        print("******************************************************************************************************************************************************************************\n")
+        print_env_info(data, device_type)
+    else:
+        leaf_ports, host_ports = print_env_info(data, device_type)
+        update_controller_test(data, leaf_ports, host_ports)
+        if start_controller():
+            print("Successfully pushed configuration and Traffic Test passed")
+        else:
+            print("Test Failed. Something went wrong, Please check the test logs")
 
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
