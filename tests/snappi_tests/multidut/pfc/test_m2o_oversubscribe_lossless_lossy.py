@@ -8,7 +8,9 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map,\
     lossless_prio_list                                                                          # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossless_lossy_helper import run_pfcwd_multi_node_test
+from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossless_lossy_helper import (
+     run_pfc_m2o_oversubscribe_lossless_lossy_test
+    )
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -16,15 +18,15 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
-def test_pfcwd_many_to_one(snappi_api,                   # noqa: F811
-                           conn_graph_facts,             # noqa: F811
-                           fanout_graph_facts,           # noqa: F811
-                           line_card_choice,
-                           duthosts,
-                           prio_dscp_map,                # noqa: F811
-                           lossless_prio_list,           # noqa: F811
-                           linecard_configuration_set,
-                           get_multidut_snappi_ports,):  # noqa: F811
+def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: F811
+                                          conn_graph_facts,             # noqa: F811
+                                          fanout_graph_facts,           # noqa: F811
+                                          line_card_choice,
+                                          duthosts,
+                                          prio_dscp_map,                # noqa: F811
+                                          lossless_prio_list,           # noqa: F811
+                                          linecard_configuration_set,
+                                          get_multidut_snappi_ports,):  # noqa: F811
 
     """
     Run PFC watchdog test under many to one traffic pattern
@@ -74,16 +76,16 @@ def test_pfcwd_many_to_one(snappi_api,                   # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
 
-    run_pfcwd_multi_node_test(api=snappi_api,
-                              testbed_config=testbed_config,
-                              port_config_list=port_config_list,
-                              conn_data=conn_graph_facts,
-                              fanout_data=fanout_graph_facts,
-                              dut_port=snappi_ports[0]['peer_port'],
-                              pause_prio_list=pause_prio_list,
-                              test_prio_list=test_prio_list,
-                              bg_prio_list=bg_prio_list,
-                              prio_dscp_map=prio_dscp_map,
-                              snappi_extra_params=snappi_extra_params)
+    run_pfc_m2o_oversubscribe_lossless_lossy_test(api=snappi_api,
+                                                  testbed_config=testbed_config,
+                                                  port_config_list=port_config_list,
+                                                  conn_data=conn_graph_facts,
+                                                  fanout_data=fanout_graph_facts,
+                                                  dut_port=snappi_ports[0]['peer_port'],
+                                                  pause_prio_list=pause_prio_list,
+                                                  test_prio_list=test_prio_list,
+                                                  bg_prio_list=bg_prio_list,
+                                                  prio_dscp_map=prio_dscp_map,
+                                                  snappi_extra_params=snappi_extra_params)
 
     cleanup_config(dut_list, snappi_ports)
