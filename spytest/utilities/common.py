@@ -393,7 +393,7 @@ def is_basestring(arg):
 def do_eval(arg):
     # nosemgrep-next-line
     return eval(arg)
- 
+
 
 def ipcheck(addr, max_attempts=1, logf=None, addr_type="", sleep=0):
     for attempt in range(1, max_attempts + 1):
