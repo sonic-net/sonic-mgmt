@@ -25,7 +25,7 @@ variables:
 parameters:
 - name: TESTBED_NAME
   type: string
-  default: tbtk5-t0-7260-1
+  default: tbtk5-t0-7260-01
   displayName: "Testbed Name"
 
 - name: POOL
