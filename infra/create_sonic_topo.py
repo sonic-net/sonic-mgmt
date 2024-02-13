@@ -283,6 +283,38 @@ def deploy_mg(data,topo_type,base_topo_file):
 
     ssh.close()
 
+def untar_cisco_dir(data):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+    chan = ssh.invoke_shell()
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+    buff = ''
+    while not buff.endswith(':~$ '):
+        resp = chan.recv(9999)
+        buff += resp.decode("ascii")
+        print(resp.decode("ascii"))
+    time.sleep(3)
+
+    chan.send('cd /data/tests \n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    chan.send('tar -xvf cisco.tar\n')
+    time.sleep(3)
+    resp = chan.recv(9999)
+    print(resp.decode("ascii"))
+
+    ssh.close()
+
 def vEOS_inital_cfg(data,vEOS_count):
     # Specify the connection timeout in seconds for blocking operations, like connection attempt
     connection_timeout = 5
@@ -500,7 +532,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
     ftp_client=ssh.open_sftp()
     ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
     ftp_client.put('../sonic-mgmt/tests/allure_server.py','golden-code/sonic-test/sonic-mgmt/tests/allure_server.py')
-    ftp_client.put('./../sonic-mgmt/tests/cisco', 'golden-code/sonic-test/sonic-mgmt/tests/cisco')
+    os.system("tar -cvf cisco.tar -C ./../sonic-mgmt/tests cisco")
+    ftp_client.put('cisco.tar', 'golden-code/sonic-test/sonic-mgmt/tests/cisco.tar')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
     ftp_client.put(base_topo_file,'golden-code/sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
     ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
@@ -837,6 +870,10 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
     upload_tb_files(data,topo_type,base_topo_file,device_type)
+
+    # Untar cisco directory
+    print("********** Untar the uploaded cisco directory **********")
+    untar_cisco_dir(data)
 
     # Change DUT password and set mgmt ip address
     for dut_name in get_dut_names(data):
