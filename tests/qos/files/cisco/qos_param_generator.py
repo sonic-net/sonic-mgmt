@@ -156,6 +156,7 @@ class QosParamCisco(object):
         return autogen
 
     def __mark_skip(self, testcase, reason):
+        self.qos_params[testcase] = {}
         self.qos_params[testcase]["skip"] = reason
 
     def __define_shared_reservation_size(self):
