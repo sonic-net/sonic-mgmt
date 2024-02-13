@@ -1,3 +1,11 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+    cluster: rch-slurm-m1
+
 devices:
   SD1: &sonic_router
     platform: spitfire_f
