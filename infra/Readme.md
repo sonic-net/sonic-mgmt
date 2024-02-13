@@ -1,17 +1,18 @@
-Steps to Bring up Tortuga Controller based Sim setup
+**Steps to Bring up Tortuga Controller based Sim setup**
 1. Add image information to pyvxr_yaml_files/tortuga_controller.yaml
 2. Currently it will bring up a topology with 3 Leaf and 1 Spine, 9 Trex host.
 3. Specify the fabric name. Fabric name has to be unique for each topology.
 4. ./create_tortuga_topo.py --topo_type tortuga-controller -f ./../pyvxr_yaml_files/tortuga_controller.yaml -c --fabric_name lotr-1x3
 5. Above command will
-  a. Bring up the sim based topology,
-  b. Gather the ip address and ports based information from sim
-  c. Populate test.sh which will invoke controller to configure all the devices
-  d. Run a traffic test to confirm that the topology has come up properly
-  e. Based on the results, it will either print completed or will fail with error message.
+    1. Bring up the sim based topology
+    2. Gather the ip address and ports based information from sim
+    3. Populate test.sh which will invoke controller to configure all the devices
+    4. Run a traffic test to confirm that the topology has come up properly
+    5. Based on the results, it will either print completed or will fail with error message.
 
   For e.g.
   In case of a passed test
+        
         --- 10.212.2.2 ping statistics ---
         5 packets transmitted, 5 received, 0% packet loss, time 4006ms
         rtt min/avg/max/mdev = 24.495/28.886/31.556/2.771 ms
