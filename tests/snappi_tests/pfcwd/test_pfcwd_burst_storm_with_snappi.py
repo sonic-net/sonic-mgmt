@@ -15,8 +15,8 @@ pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.parametrize("traffic_rate, pause_pps, pause_flow_dur_sec, iterations", [
-    (95, None, None, 1),
-    (0.00002, 1000, 5, 10)
+    (95, None, None, 1, 1),
+    (0.00002, 1000, 5, 10, 2)
     ])
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # noqa F811
                                                 snappi_testbed_config,      # noqa F811
@@ -30,7 +30,8 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # no
                                                 traffic_rate,
                                                 pause_pps,
                                                 pause_flow_dur_sec,
-                                                iterations):
+                                                iterations,
+                                                time_multiplier):
 
     """
     Test PFC watchdog under bursty PFC storms on a single lossless priority
