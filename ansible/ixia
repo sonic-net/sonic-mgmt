@@ -8,6 +8,7 @@ all:
       children:
         sonic:
         ixia_chassis:
+        l1_switch:
 
     ptf:
       hosts:
@@ -44,3 +45,10 @@ ixia_chassis:
   hosts:
     msr-ixia-4:
       ansible_host: 10.3.145.39
+
+l1_switch:
+  hosts:
+    STR-W2W-SONIC-03-A:
+      ansible_host: 10.64.247.250
+    STR-W2W-SONIC-03-B:
+      ansible_host: 10.64.247.251
