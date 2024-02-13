@@ -807,6 +807,10 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
+        multi_asic_dut = False
+        if get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic \
+                and get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic:
+            multi_asic_dut = True
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
@@ -1087,7 +1091,8 @@ class QosSaiBase(QosBase):
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario": len(dualtor_ports_for_duts) != 0
+            "dualTorScenario": len(dualtor_ports_for_duts) != 0,
+            "is_multi_asic": multi_asic_dut
         }
 
     @pytest.fixture(scope='class')
@@ -1616,7 +1621,8 @@ class QosSaiBase(QosBase):
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
+                "testbed_type": dutTestParams["topo"],
+                "is_multi_asic": dutConfig["is_multi_asic"]
             })
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
