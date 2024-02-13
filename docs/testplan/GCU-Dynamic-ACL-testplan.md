@@ -307,7 +307,3 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 
 **Additional checks**
 - None
-
-
-
-
