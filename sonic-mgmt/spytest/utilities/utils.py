@@ -1191,6 +1191,14 @@ def get_random_string(N=4):
                                  + string.digits, k=N))
 
 
+def get_random_space_string():
+    """
+    Function to generate random space string in the given length
+    :param N:
+    :return:
+    """
+    return ''.join(random.choice((' ', '')) for _ in range(random.randrange(2,5)))
+
 def get_traffic_loss_duration(tx_count, rx_count, tx_rate):
     '''
 
