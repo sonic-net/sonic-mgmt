@@ -1,24 +1,21 @@
-#Dynamic ACL Update via GCU Test Plan 
+# Dynamic ACL Update via GCU Test Plan 
 
 **Table of Contents**
 
-[TOCM]
 
-[TOC]
-
-##Overview
+## Overview
 
 This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules. 
 
-##Testbed 
+## Testbed 
 
 The test will run on T0 testbeds. 
 
-##Setup Configuration 
+## Setup Configuration 
 
 No setup pre-configuration is required, the test will configure and return the testbed to its original state. 
 
-##Testing Plan 
+## Testing Plan 
 
 To test the capability of GCU to dynamically update ACLs, we will: 
 
@@ -46,11 +43,11 @@ To test the capability of GCU to dynamically update ACLs, we will:
 
 - Remove ACL table type 
 
-##JSON Patch Files and Expected Results
+## JSON Patch Files and Expected Results
 
-####Create a new ACL table type 
-_JSON Patch:_
-    
+### Create a new ACL table type 
+**JSON Patch:**    
+
 	[
         { 
             "op": "add",  
@@ -70,7 +67,7 @@ _JSON Patch:_
 **Additional checks** 
 - None 
 
-####Create an ACL Table 
+### Create an ACL Table 
 
 **Json Patch**:
 
@@ -100,7 +97,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
   | | Ethernet8 | |
   | | Ethernet12...
 
-####Create A Duplicate ACL Table 
+### Create A Duplicate ACL Table 
 
 **Json Patch**:
 - Identical to previous test
@@ -111,7 +108,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks**
 - None 
 
-####Create Forwarding Rules 
+### Create Forwarding Rules 
 
 **Json Patch:**
 
@@ -140,10 +137,9 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional Checks**
 + Check that results of “show acl rule | grep RULE_1” and “show acl rule | grep RULE_2” match the following output: 
   + DYNAMIC_ACL |_TABLE	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32 
+  + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128 
 
- + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128 
-
-####Create Drop Rule 
+### Create Drop Rule 
 
 **Json Patch** 
 
@@ -164,9 +160,9 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 
 **Additional checks:**
 + Check that result of “show acl rule | grep RULE_3” matches the following output: 
- + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: “Ethernet4” 
+  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: “Ethernet4” 
 
-####Remove Drop Rule 
+### Remove Drop Rule 
 
 **Json Patch** 
 
@@ -184,7 +180,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks**
 - Check that “show acl rule RULE_3” results in no output 
 
-####Replace Non-Existent Rule 
+### Replace Non-Existent Rule 
 **Json Patch** 
 
     [  
@@ -205,7 +201,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks**
 - None 
 
-####Replace Content of a Rule 
+### Replace Content of a Rule 
 
 **Json Patch**
 
@@ -235,10 +231,10 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 
 **Additional checks** 
 + Check that results of “show acl rule | grep RULE_1” and “show acl rule | grep RULE_2” match the following output: 
- + DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32 
- + DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128 
+  + DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32 
+  + DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128 
 
-####Remove Forward Rules 
+### Remove Forward Rules 
 **Json Patch**: 
 
     [  
@@ -260,7 +256,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks**
 - Check that “show acl rule RULE_1” and “show acl rule RULE_2” both result in no output 
 
-####Remove Non-Existent Table 
+### Remove Non-Existent Table 
 **Json Patch**: 
 
     [  
@@ -277,7 +273,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks**
 - None
 
-####Remove ACL Table 
+### Remove ACL Table 
 
 **Json Patch** 
 
@@ -295,7 +291,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 **Additional checks** 
 - None
 
-####Remove ACL Table Type
+### Remove ACL Table Type
 **Json Patch:** 
 
     [  
