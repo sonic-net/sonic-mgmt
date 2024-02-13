@@ -34,7 +34,8 @@ def run_pfcwd_burst_storm_test(api,
                                pause_pps,
                                traffic_rate,
                                pause_flow_dur_sec,
-                               iterations):
+                               iterations,
+                               time_multiplier):
     """
     Test PFC watchdog under bursty PFC storms
 
@@ -73,7 +74,8 @@ def run_pfcwd_burst_storm_test(api,
     restore_time_sec = get_pfcwd_restore_time(
         host_ans=duthost, intf=dut_port) / 1000.0
 
-    burst_cycle_sec = 2 * (poll_interval_sec + detect_time_sec + restore_time_sec + 0.1)
+    burst_cycle_sec = time_multiplier * \
+        (poll_interval_sec + detect_time_sec + restore_time_sec + 0.1)
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS * 4)
     if not pause_flow_dur_sec:
         pause_flow_dur_sec = poll_interval_sec * 0.5
@@ -140,9 +142,11 @@ def run_pfcwd_burst_storm_test(api,
         full_output += "-"*52
     logger.info(full_output)
 
-    __verify_results(rows=flow_stats,
-                     data_flow_prefix=DATA_FLOW_PREFIX,
-                     pause_flow_prefix=PAUSE_FLOW_PREFIX)
+    for iteration in range(iterations):
+        __verify_results(
+            rows=flow_stats[iteration],
+            data_flow_prefix=DATA_FLOW_PREFIX,
+            pause_flow_prefix=PAUSE_FLOW_PREFIX)
 
 
 def __gen_traffic(testbed_config,
