@@ -1714,7 +1714,8 @@ Totals               6450                 6449
         elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output):
+                "Broadcom Limited Broadcom BCM56850" in output or
+                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
             asic = "td2"
         elif ("Broadcom Limited Device b870" in output or
                 "Broadcom Inc. and subsidiaries Device b870" in output):
