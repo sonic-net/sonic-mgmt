@@ -48,9 +48,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def get_dummay_mac_count(tbinfo):
+def get_dummay_mac_count(tbinfo, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
+        logger.info("Use dummy mac count {} for BSL test\n".format(DUMMY_MAC_COUNT_SLIM))
+        return DUMMY_MAC_COUNT_SLIM
+
     # t0-116 will take 90m with DUMMY_MAC_COUNT, so use DUMMY_MAC_COUNT_SLIM for t0-116 to reduce running time
-    REQUIRED_TOPO = ["t0-116"]
+    # Use DUMMY_MAC_COUNT_SLIM on dualtor-64 to reduce running time
+    REQUIRED_TOPO = ["t0-116", "dualtor-64", "dualtor-120"]
     if tbinfo["topo"]["name"] in REQUIRED_TOPO:
         # To reduce the case running time
         logger.info("Use dummy mac count {} on topo {}\n".format(DUMMY_MAC_COUNT_SLIM, tbinfo["topo"]["name"]))
@@ -178,15 +185,18 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         # need to use Mask to ignore the priority field.
         exp_pkt = Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "prio")
-    logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {}'
-                 .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports))
 
-    # fdb test will send lots of pkts between paired ports, it's hard to guarantee there is no congestion
-    # on server side during this period. So tolerant to retry 3 times before complain the assert.
+    # FDB test sends lot of packets to validate all the dynamically learnt MACs.
+    # So, PTF server ports might get congested with the flood of packets and script
+    # may not capture the packets and validate the tests within the PTF timeout.
+    # When the failure is detected in the first pass, script retries 5 times
+    # with a delay and also dumps DUT's portstat to debug any issues.
 
-    retry_count = 3
+    retry_count = 5
     pkt_count = 1
-    for _ in range(retry_count):
+    for cnt in range(retry_count):
+        logger.debug('send packet src port {} smac: {} dmac: {} vlan: {} verifying on dst port {} dst_vlan {} count {}'
+                     .format(source_ports, source_mac, dest_mac, src_vlan, dest_ports, dst_vlan, pkt_count))
         try:
             ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, source_ports[0], pkt, count=pkt_count)
@@ -200,13 +210,17 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         except Exception:
             # Send 10 pkts in retry to make this test case to be more tolerent of congestion on server/ptf
             pkt_count = 10
+            logger.info("Packets not reached destination in first pass,sleep and retry count:{}".format(cnt))
+            time.sleep(FDB_WAIT_EXPECTED_PACKET_TIMEOUT)
+            result = duthost.command("portstat", module_ignore_errors=True)
+            logger.info("Port counters: {}".format(result['stdout']))
+            duthost.command("portstat -c", module_ignore_errors=True)
             pass
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(False, "Expected packet was not received on ports {}"
-                             "Dest MAC in fdb is {}"
-                             .format(dest_ports, dest_mac.lower() in result['stdout'].lower()))
+                             .format(dest_ports))
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
@@ -229,32 +243,32 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
             # portchannel might have no member ports or all member ports are down, so skip empty list
             if not member['port_index']:
                 continue
-            port_index = member['port_index'][0]
-            vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
-            mac = ptfadapter.dataplane.get_mac(0, port_index)
-            # send a packet to switch to populate layer 2 table with MAC of PTF interface
-            send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
+            for port_index in member['port_index']:
+                vlan_id = vlan if member['tagging_mode'] == 'tagged' else 0
+                mac = ptfadapter.dataplane.get_mac(0, port_index)
+                # send a packet to switch to populate layer 2 table with MAC of PTF interface
+                send_eth(ptfadapter, port_index, mac, router_mac, vlan_id)
 
-            # put in learned MAC
-            fdb[port_index] = {mac}
+                # put in learned MAC
+                fdb[port_index] = {mac}
 
-            # Send packets to switch to populate the layer 2 table with dummy MACs for each port
-            # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-            dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
-                          for i in range(dummy_mac_count)]
+                # Send packets to switch to populate the layer 2 table with dummy MACs for each port
+                # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
+                dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
+                              for i in range(dummy_mac_count)]
 
-            for dummy_mac in dummy_macs:
-                if pkt_type == "ethernet":
-                    send_eth(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                elif pkt_type == "arp_request":
-                    send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                elif pkt_type == "arp_reply":
-                    send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
-                else:
-                    pytest.fail("Unknown option '{}'".format(pkt_type))
+                for dummy_mac in dummy_macs:
+                    if pkt_type == "ethernet":
+                        send_eth(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    elif pkt_type == "arp_request":
+                        send_arp_request(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    elif pkt_type == "arp_reply":
+                        send_arp_reply(ptfadapter, port_index, dummy_mac, router_mac, vlan_id)
+                    else:
+                        pytest.fail("Unknown option '{}'".format(pkt_type))
 
-            # put in set learned dummy MACs
-            fdb[port_index].update(dummy_macs)
+                # put in set learned dummy MACs
+                fdb[port_index].update(dummy_macs)
 
     time.sleep(FDB_POPULATE_SLEEP_TIMEOUT)
     # Flush dataplane
@@ -362,7 +376,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             if port_index:
                 vlan_table[vlan_id].append({'port_index': port_index, 'tagging_mode': tagging_mode})
 
-    vlan_member_count = sum([len(members) for members in list(vlan_table.values())])
+    vlan_member_count = sum(len(port['port_index']) for members in vlan_table.values() for port in members)
 
     fdb = setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, configured_dummay_mac_count)
     for vlan in vlan_table:

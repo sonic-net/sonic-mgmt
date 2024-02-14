@@ -626,6 +626,29 @@ def port_alias_to_name_map_50G(all_ports, s100G_ports):
     return port_alias_to_name_map
 
 
+def parse_linkmeta(meta, hname):
+    link = meta.find(str(QName(ns, "Link")))
+    macsec_neighbors = []
+    macsec_enabled_ports = []
+    for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
+        local_port = None
+        # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
+        key = linkmeta.find(str(QName(ns1, "Key"))).text
+        endpoints = key.split(';')
+        local_endpoint = endpoints[1]
+        remote_endpoint = endpoints[0]
+        t = local_endpoint.split(':')
+        if len(t) == 2 and t[0].lower() == hname.lower():
+            local_port = t[1]
+            macsec_enabled_ports.append(local_port)
+            neighbor_host = remote_endpoint.split(':')[0]
+            macsec_neighbors.append(neighbor_host)
+        else:
+            # Cannot find a matching hname, something went wrong
+            continue
+    return macsec_enabled_ports, macsec_neighbors
+
+
 def parse_xml(filename, hostname, asic_name=None):
     mini_graph_path, root = reconcile_mini_graph_locations(filename, hostname)
 
@@ -654,6 +677,8 @@ def parse_xml(filename, hostname, asic_name=None):
     bgp_peers_with_range = []
     deployment_id = None
     is_storage_device = None
+    macsec_enabled_ports = []
+    macsec_neighbors = []
 
     if asic_name is not None:
         asic_id = asic_name[len('asic'):]
@@ -699,8 +724,9 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
-                 resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+            elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
+                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
             if child.tag == str(QName(ns, "DpgDec")):
                 (intfs, lo_intfs, mgmt_intf, vlans, pcs, acls,
@@ -710,8 +736,9 @@ def parse_xml(filename, hostname, asic_name=None):
                 (bgp_sessions, bgp_asn, bgp_peers_with_range) = parse_cpg(
                     child, asic_name)
             elif child.tag == str(QName(ns, "PngDec")):
-                (neighbors, devices, _) = parse_asic_png(
-                    child, asic_name, hostname)
+                (neighbors, devices, _) = parse_asic_png(child, asic_name, hostname)
+            elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
+                macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
 
     current_device = [devices[key]
                       for key in devices if key.lower() == hostname.lower()][0]
@@ -845,6 +872,10 @@ def parse_xml(filename, hostname, asic_name=None):
     if is_storage_device:
         results['minigraph_device_metadata']['storage_device'] = "true"
 
+    if macsec_enabled_ports:
+        results['macsec_enabled_ports'] = macsec_enabled_ports
+    if macsec_neighbors:
+        results['macsec_neighbors'] = macsec_neighbors
     return results
 
 

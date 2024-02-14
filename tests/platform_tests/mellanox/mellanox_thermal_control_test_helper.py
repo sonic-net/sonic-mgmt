@@ -1,13 +1,16 @@
 import os
 import json
+import re
 import random
 import logging
 import time
 from pkg_resources import parse_version
 from tests.platform_tests.thermal_control_test_helper import mocker, FanStatusMocker, ThermalStatusMocker, \
     SingleFanMocker
-from tests.common.mellanox_data import get_platform_data
+from tests.common.mellanox_data import get_hw_management_version, get_platform_data
 from .minimum_table import get_min_table
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 NOT_AVAILABLE = 'N/A'
@@ -27,8 +30,8 @@ THERMAL_NAMING_RULE = {
     },
     "psu": {
         "name": "PSU-{} Temp",
-        "temperature": "psu{}_temp",
-        "high_threshold": "psu{}_temp_max"
+        "temperature": "psu{}_temp1",
+        "high_threshold": "psu{}_temp1_max"
     },
     "cpu_pack": {
         "name": "CPU Pack Temp",
@@ -39,14 +42,14 @@ THERMAL_NAMING_RULE = {
     "gearbox": {
         "name": "Gearbox {} Temp",
         "temperature": "gearbox{}_temp_input",
-        "high_threshold": "mlxsw-gearbox{}/temp_trip_hot",
-        "high_critical_threshold": "mlxsw-gearbox{}/temp_trip_crit"
+        "high_threshold": "gearbox{}_temp_emergency",
+        "high_critical_threshold": "gearbox{}_temp_trip_crit"
     },
     "asic_ambient": {
         "name": "ASIC",
         "temperature": "asic",
-        "high_threshold": "mlxsw/temp_trip_hot",
-        "high_critical_threshold": "mlxsw/temp_trip_crit"
+        "high_threshold": "asic_temp_emergency",
+        "high_critical_threshold": "asic_temp_trip_crit"
     },
     "port_ambient": {
         "name": "Ambient Port Side Temp",
@@ -76,15 +79,67 @@ THERMAL_NAMING_RULE = {
     }
 }
 
-ASIC_THERMAL_RULE_201911 = {
-    "name": "Ambient ASIC Temp",
-    "temperature": "asic"
+thermal_rule_patched = False
+
+THERMAL_RULE_PATCHES = {
+    "201911": {
+        "asic_ambient": {
+            "name": "Ambient ASIC Temp",
+            "temperature": "asic"
+        },
+        "gearbox": {
+            "name": "Gearbox {} Temp",
+            "temperature": "gearbox{}_temp_input"
+        }
+    },
+    "hw-mgmt.7.0030.2003.before": {
+        "asic_ambient": {
+            "name": "ASIC",
+            "temperature": "asic",
+            "high_threshold": "mlxsw/temp_trip_hot",
+            "high_critical_threshold": "mlxsw/temp_trip_crit"
+        },
+        "gearbox": {
+            "name": "Gearbox {} Temp",
+            "temperature": "gearbox{}_temp_input",
+            "high_threshold": "mlxsw-gearbox{}/temp_trip_hot",
+            "high_critical_threshold": "mlxsw-gearbox{}/temp_trip_crit"
+        },
+        "psu": {
+            "name": "PSU-{} Temp",
+            "temperature": "psu{}_temp",
+            "high_threshold": "psu{}_temp_max"
+        }
+    }
 }
 
-GEARBOX_THERMAL_RULE_201911 = {
-    "name": "Gearbox {} Temp",
-    "temperature": "gearbox{}_temp_input"
-}
+
+def patch_thermal_rule(mock_helper):
+    """
+    Patch thermal rule for different sonic version/kernel version/hw-management version.
+    This function is mainly for backward compatible.
+    :param mock_helper: Mock helper.
+    """
+    global thermal_rule_patched
+    global THERMAL_NAMING_RULE
+
+    if thermal_rule_patched:
+        return
+
+    patch = None
+    if mock_helper.is_201911():
+        patch = THERMAL_RULE_PATCHES['201911']
+    else:
+        hw_mgmt_version = get_hw_management_version(mock_helper.dut)
+        if parse_version(hw_mgmt_version) < parse_version('7.0030.2003'):
+            patch = THERMAL_RULE_PATCHES['hw-mgmt.7.0030.2003.before']
+
+    if patch is not None:
+        for key, rule in patch.items():
+            THERMAL_NAMING_RULE[key] = rule
+
+    thermal_rule_patched = True
+
 
 FAN_NAMING_RULE = {
     "fan": {
@@ -106,6 +161,8 @@ FAN_NAMING_RULE = {
         "max_speed": "psu{}_fan_max",
     }
 }
+
+SUSPEND_FILE_PATH = "/var/run/hw-management/config/suspend"
 
 
 class SysfsNotExistError(Exception):
@@ -178,11 +235,6 @@ class MockerHelper:
             return
 
         MockerHelper.FAN_NUM = int(content)
-        platform_data = get_platform_data(self.dut)
-        if not platform_data['fans']['hot_swappable']:
-            # For non swappable fan, there is no drawer. We put them in a "virtual" drawer.
-            MockerHelper.FAN_NUM_PER_DRAWER = MockerHelper.FAN_NUM
-            return
 
         if MockerHelper.FAN_NUM > fan_drawer_num:
             MockerHelper.FAN_NUM_PER_DRAWER = 2
@@ -352,6 +404,11 @@ class MockerHelper:
             return False
         else:
             return True
+
+    def has_thermal_updater(self):
+        cmd = 'python3 -c "from sonic_platform import thermal_updater"'
+        out = self.dut.shell(cmd, module_ignore_errors=True)
+        return not out['failed']
 
 
 class FanDrawerData:
@@ -676,12 +733,7 @@ class TemperatureData:
         :param index: Thermal index.
         """
         self.helper = mock_helper
-        if self.helper.is_201911():
-            if 'ASIC' in naming_rule['name']:
-                naming_rule = ASIC_THERMAL_RULE_201911
-            elif 'Gearbox' in naming_rule['name']:
-                naming_rule = GEARBOX_THERMAL_RULE_201911
-
+        patch_thermal_rule(mock_helper)
         self.name = naming_rule['name']
         self.temperature_file = naming_rule['temperature']
         self.high_threshold_file = naming_rule['high_threshold'] if 'high_threshold' in naming_rule else None
@@ -761,6 +813,8 @@ class CheckMockerResultMixin(object):
         """
         expected = {}
         for name, fields in list(self.expected_data.items()):
+            if self.excluded_entry_pattern and re.search(self.excluded_entry_pattern, name):
+                continue
             data = {}
             for idx, header in enumerate(self.expected_data_headers):
                 data[header] = fields[idx]
@@ -773,6 +827,8 @@ class CheckMockerResultMixin(object):
         mismatch_in_actual_data = []
         for actual_data_item in actual_data:
             primary = actual_data_item[self.primary_field]
+            if self.excluded_entry_pattern and re.search(self.excluded_entry_pattern, primary):
+                continue
             if primary not in expected:
                 extra_in_actual_data.append(actual_data_item)
             else:
@@ -823,6 +879,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
             'drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
         self.primary_field = 'fan'
         self.excluded_fields = ['timestamp', ]
+        self.excluded_entry_pattern = None
 
     def deinit(self):
         """
@@ -844,7 +901,9 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
         # All system fan is controlled to have the same speed, so only
         # get a random value once here
         speed = random.randint(60, 100)
-        FanData.mock_cooling_cur_state(self.mock_helper, speed / 10)
+        if not self.mock_helper.dut.is_host_service_running("hw-management-tc"):
+            # When image doesn't support new tc, we still use cooling level to control thermal
+            FanData.mock_cooling_cur_state(self.mock_helper, speed / 10)
         while fan_index <= MockerHelper.FAN_NUM:
             try:
                 if (fan_index - 1) % MockerHelper.FAN_NUM_PER_DRAWER == 0:
@@ -894,6 +953,19 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
                 if drawer_data.mocked_presence == 'Present':
                     expected_data = self.expected_data[fan_data.name]
                     expected_data[1] = drawer_data.get_expect_led_color()
+
+        platform_data = get_platform_data(self.dut)
+        if not platform_data['fans']['hot_swappable']:
+            # For non swappable fan, all fans share one led
+            is_one_red_led_at_least = False
+            for _, expected_data in self.expected_data.items():
+                if expected_data[1] == "red":
+                    is_one_red_led_at_least = True
+                    break
+            if is_one_red_led_at_least:
+                logging.info("update all expected led to red")
+                for fan_name, expected_data in self.expected_data.items():
+                    self.expected_data[fan_name][1] = "red"
 
         platform_data = get_platform_data(self.mock_helper.dut)
         psu_count = platform_data["psus"]["number"]
@@ -962,6 +1034,13 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
                                       'warning']
         self.primary_field = 'sensor'
         self.excluded_fields = ['timestamp', ]
+        if self.mock_helper.has_thermal_updater():
+            # if thermal updater is there, ASIC and module temperature are read from SDK sysfs.
+            # There is no way to mock SDK sysfs because it is created by kernel (user space has
+            # no permission to change it). So, we just ignore it for checking.
+            self.excluded_entry_pattern = re.compile(r"ASIC|(xSFP module \d+ Temp)")
+        else:
+            self.excluded_entry_pattern = None
 
     def deinit(self):
         """
@@ -1255,7 +1334,7 @@ class PsuMocker(object):
 
     def deinit(self):
         """
-        Destructor of MinTableMocker.
+        Destructor of PsuMocker.
         :return:
         """
         self.mock_helper.deinit()
@@ -1331,14 +1410,21 @@ class PsuPowerThresholdMocker(object):
         self.mock_helper.mock_value(
             self.FAN_AMBIENT_TEMP, self.read_fan_ambient_thermal())
 
-    def mock_psu_power(self, psu, power):
-        self.mock_helper.mock_value(self.PSU_POWER.format(psu), int(power))
+    def mock_psu_power(self, power, number_psus):
+        for i in range(number_psus):
+            self.mock_helper.mock_value(self.PSU_POWER.format(i+1), int(power/number_psus))
 
     def mock_fan_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.FAN_AMBIENT_TEMP, int(temperature))
 
     def mock_port_ambient_thermal(self, temperature):
         self.mock_helper.mock_value(self.PORT_AMBIENT_TEMP, int(temperature))
+
+    def mock_ambient_temp_critical_threshold(self, temperature):
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_CRITICAL_THRESHOLD, int(temperature))
+
+    def mock_ambient_temp_warning_threshold(self, temperature):
+        self.mock_helper.mock_value(self.AMBIENT_TEMP_WARNING_THRESHOLD, int(temperature))
 
     def read_psu_power_threshold(self, psu):
         return int(self.mock_helper.read_value(self.PSU_POWER_CAPACITY.format(psu)))
@@ -1365,7 +1451,6 @@ class PsuPowerThresholdMocker(object):
 @mocker('RebootCauseMocker')
 class RebootCauseMocker(object):
     RESET_RELOAD_BIOS = '/var/run/hw-management/system/reset_reload_bios'
-    RESET_FROM_COMEX = '/var/run/hw-management/system/reset_from_comex'
     RESET_FROM_ASIC = '/var/run/hw-management/system/reset_from_asic'
 
     def __init__(self, dut):
@@ -1377,8 +1462,30 @@ class RebootCauseMocker(object):
     def mock_reset_reload_bios(self):
         self.mock_helper.mock_value(self.RESET_RELOAD_BIOS, 1)
 
-    def mock_reset_from_comex(self):
-        self.mock_helper.mock_value(self.RESET_FROM_COMEX, 1)
-
     def mock_reset_from_asic(self):
         self.mock_helper.mock_value(self.RESET_FROM_ASIC, 1)
+
+
+def suspend_hw_tc_service(dut):
+    """
+    Suspend thermal control service
+    """
+    logging.info("suspend hw tc service ")
+
+    dut.shell(f"sudo touch {SUSPEND_FILE_PATH}")
+    dut.shell(f"sudo chown admin {SUSPEND_FILE_PATH}")
+    dut.shell(f"sudo echo 1 > {SUSPEND_FILE_PATH}")
+
+    def check_pwm_is_max():
+        pwm = int(dut.shell("cat /var/run/hw-management/thermal/pwm1")["stdout"])
+        return pwm == 255
+
+    pytest_assert(wait_until(10, 0, 1, check_pwm_is_max), "TC is not suspended")
+
+
+def resume_hw_tc_service(dut):
+    """
+    Resume hw thermal control service
+    """
+    logging.info("resume hw tc service ")
+    dut.shell(f"sudo rm -f {SUSPEND_FILE_PATH}")

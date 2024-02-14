@@ -228,7 +228,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                         localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                         localhost, conn_graph_facts, xcvr_skip_list, tbinfo):      # noqa F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -239,9 +239,26 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     if "" != watchdogutil_status_result["stderr"] or "" == watchdogutil_status_result["stdout"]:
         pytest.skip(
             "Watchdog is not supported on this DUT, skip this test case")
+    if "x86_64-8102_64h_o-r0" in duthost.facts['platform']:
+        output = duthost.shell("dmidecode -s bios-version")["stdout"]
+        bios = output.split('-')
+        bios_version = bios[1]
+        if bios_version < "218" and "t1" in tbinfo["topo"]["type"]:
+            pytest.skip("Skip test if BIOS ver <218 and topo is T1 and platform is M64")
+    try:
+        if "x86_64-cel_e1031-r0" in duthost.facts['platform']:
+            # On Celestica E1031 platform, the cpu_wdt service periodically sends keep alive
+            # message to watchdog via "watchdogutil arm -s <timeout>" command. This may affect
+            # the test result. So, we need to stop the cpu_wdt service before doing watchdog
+            # reboot on the DUT.
+            duthost.shell("sudo systemctl stop cpu_wdt", module_ignore_errors=True)
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
-                     xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                         xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
+    finally:
+        if "x86_64-cel_e1031-r0" in duthost.facts['platform']:
+            # On Celestica E1031 platform, ensure the cpu_wdt service is started once test finished.
+            duthost.shell("sudo systemctl start cpu_wdt", module_ignore_errors=True)
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
