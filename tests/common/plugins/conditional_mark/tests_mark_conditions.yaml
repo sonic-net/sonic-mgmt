@@ -1050,6 +1050,12 @@ qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
     conditions:
       - "asic_type in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
+  skip:
+    reason: "This test is only for Mellanox."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
     reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
