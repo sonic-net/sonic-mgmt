@@ -10,7 +10,11 @@ from fcntl import ioctl
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 scapy2.conf.use_pcap = True
-import scapy.arch.pcapdnet # noqa F401
+# pcapdnet has been renamed to libpcap from scapy 2.4.5
+try:
+    import scapy.arch.pcapdnet # noqa F401
+except ImportError:
+    import scapy.arch.libpcap # noqa F401
 
 
 def hexdump(data):
@@ -19,7 +23,7 @@ def hexdump(data):
 
 def get_if(iff, cmd):
     s = socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
+    ifreq = ioctl(s, cmd, struct.pack("16s16x", str(iff).encode("utf-8")))
     s.close()
 
     return ifreq
@@ -53,9 +57,7 @@ class Interface(object):
     def recv(self):
         sniffed = self.socket.recv()
         pkt = sniffed[0]
-        str_pkt = str(pkt).encode("HEX")
-        binpkt = binascii.unhexlify(str_pkt)
-        return binpkt
+        return bytes(pkt)
 
     def send(self, data):
         scapy2.sendp(data, iface=self.iface)
@@ -123,9 +125,9 @@ class ARPResponder(object):
         op_type_start = 20
         eth_offset = 0
         vlan_id = None
-        ether_type = str(data[12:14]).encode("HEX")
+        ether_type = data[12:14].hex()
         if (ether_type == '8100'):
-            vlan = str(data[14:16]).encode("HEX")
+            vlan = data[14:16].hex()
             if (vlan != '0000'):
                 eth_offset = 4
                 vlan_id = data[14:16]
@@ -137,7 +139,7 @@ class ARPResponder(object):
         op_type_end = op_type_start + 1
 
         return data[6:12], data[rem_ip_start:rem_ip_end], data[req_ip_start:req_ip_end], \
-            (ord(data[op_type_start]) * 256 + ord(data[op_type_end])), vlan_id
+            ((data[op_type_start]) * 256 + data[op_type_end]), vlan_id
 
     def generate_arp_reply(self, local_mac, remote_mac, local_ip, remote_ip, vlan_id):
         eth_hdr = remote_mac + local_mac

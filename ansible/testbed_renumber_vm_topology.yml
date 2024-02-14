@@ -19,13 +19,19 @@
     - vars/docker_registry.yml
   pre_tasks:
   - set_fact: ansible_user="{{ vm_host_user }}"
-    when: vm_host_user is defined
+    when:
+      - vm_host_user is defined
+      - vm_host_user != 'use_own_value'
 
   - set_fact: ansible_password="{{ vm_host_password }}"
-    when: vm_host_password is defined
+    when:
+      - vm_host_password is defined
+      - vm_host_password != 'use_own_value'
 
   - set_fact: ansible_become_password="{{ vm_host_become_password }}"
-    when: vm_host_become_password is defined
+    when:
+      - vm_host_become_password is defined
+      - vm_host_become_password != 'use_own_value'
 
   - name: Check for a single host
     fail: msg="Please use -l server_X to limit this playbook to one host"

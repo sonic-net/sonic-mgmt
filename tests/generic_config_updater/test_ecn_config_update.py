@@ -54,9 +54,9 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
         values: expected value(s) of configdb_field
     """
     def _confirm_value_in_asic_db():
-        if(duthost.facts['asic_type'] == 'cisco-8000'):
-            wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
-            wred_objects = wred_objects.split("\n")
+        wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+        wred_objects = wred_objects.split("\n")
+        if(len(wred_objects) > 1):
             for wred_object in wred_objects:
                 wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
                 if('NULL' in wred_data):
@@ -68,8 +68,7 @@ def ensure_application_of_updated_config(duthost, configdb_field, values):
                 return True
             return False
         else:
-            table_name = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
-            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(table_name))["stdout"]
+            wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_objects[0]))["stdout"]
             wred_data = ast.literal_eval(wred_data)
             for field, value in zip(configdb_field.split(','), values.split(',')):
                 if value != wred_data[WRED_MAPPING[field]]:
@@ -110,7 +109,7 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning"):
+        if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, configdb_field, ",".join(values))
         else:

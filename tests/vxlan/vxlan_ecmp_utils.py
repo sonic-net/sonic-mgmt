@@ -822,7 +822,7 @@ class Ecmp_Utils(object):
                 dut_mac, str(dut_loop_ips).replace('\'', '"'), monitor_file)
         supervisor_conf_content = '''
 [program:bfd_responder]
-command=ptf --test-dir /root/ptftests bfd_responder.BFD_Responder''' +\
+command=/root/env-python3/bin/ptf --test-dir /root/ptftests/py3 bfd_responder.BFD_Responder''' +\
             ' --platform-dir /root/ptftests -t' + \
             ''' '{}' --relax  --platform remote
 process_name=bfd_responder

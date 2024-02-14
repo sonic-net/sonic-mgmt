@@ -5,6 +5,7 @@ import ast
 import json
 import os
 import sys
+import copy
 import time
 from datetime import datetime, timedelta
 
@@ -232,8 +233,8 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
-
-        payload = json.dumps({
+        affinity = json.loads(kwargs.get("affinity", "[]"))
+        payload = {
             "name": test_plan_name,
             "testbed": {
                 "platform": platform,
@@ -243,7 +244,8 @@ class TestPlanManager(object):
                 "min": min_worker,
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
-                "asic_num": kwargs["num_asic"]
+                "asic_num": kwargs["num_asic"],
+                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
             },
             "test_option": {
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
@@ -268,6 +270,7 @@ class TestPlanManager(object):
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
+                "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
                 "max_execute_seconds": kwargs.get("max_execute_seconds", None),
                 "dump_kvm_if_fail": kwargs.get("dump_kvm_if_fail", False),
@@ -281,8 +284,8 @@ class TestPlanManager(object):
             },
             "extra_params": {},
             "priority": 10
-        })
-        print('Creating test plan with payload: {}'.format(payload))
+        }
+        print('Creating test plan with payload:\n{}'.format(json.dumps(payload, indent=4)))
         headers = {
             "Authorization": "Bearer {}".format(self.get_token()),
             "scheduler-site": "PRTest",
@@ -290,7 +293,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=payload, timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception("HTTP execute failure, url: {}, raw_resp: {}, exception: {}"
@@ -304,8 +307,8 @@ class TestPlanManager(object):
 
         if output:
             print("Store new test plan id to file {}".format(output))
-            with open(output, "w") as f:
-                f.write(str(resp["data"]))
+            with open(output, "a") as f:
+                f.write(str(resp["data"]) + "\n")
 
         return resp["data"]
 
@@ -469,6 +472,16 @@ if __name__ == "__main__":
         help="Max worker number for the test plan."
     )
     parser_create.add_argument(
+        "--lock-wait-timeout-seconds",
+        type=int,
+        dest="lock_wait_timeout_seconds",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Max lock testbed wait seconds. None or the values <= 0 means endless."
+    )
+    parser_create.add_argument(
         "--test-set",
         type=str,
         dest="test_set",
@@ -553,12 +566,14 @@ if __name__ == "__main__":
         help="The asic number of dut"
     )
     parser_create.add_argument(
-        "--azp-pr-id",
+        "--build-reason",
         type=str,
-        dest="azp_pr_id",
-        default="",
+        dest="build_reason",
+        nargs='?',
+        const=None,
+        default=None,
         required=False,
-        help="Pullrequest ID from Azure Pipelines"
+        help="Build reason"
     )
     parser_create.add_argument(
         "--repo-name",
@@ -683,6 +698,17 @@ if __name__ == "__main__":
              '[{"name": "macsec", "param": "--enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}]'
     )
     parser_create.add_argument(
+        "--affinity",
+        type=str,
+        dest="affinity",
+        nargs='?',
+        const="[]",
+        default="[]",
+        required=False,
+        help='Test module affinity, like: '
+             '[{"name": "bgp/test_bgp_fact.py", "op": "NOT_ON", "value": ["vms-kvm-t0"]}]'
+    )
+    parser_create.add_argument(
         "--stop-on-failure",
         type=ast.literal_eval,
         dest="stop_on_failure",
@@ -733,6 +759,16 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="Max execute seconds of the test plan."
+    )
+    parser_create.add_argument(
+        "--test-plan-num",
+        type=int,
+        dest="test_plan_num",
+        nargs="?",
+        const=1,
+        default=1,
+        required=False,
+        help="Test plan num to be created."
     )
 
     parser_poll = subparsers.add_parser("poll", help="Poll test plan status.")
@@ -822,14 +858,15 @@ if __name__ == "__main__":
             env["client_secret"])
 
         if args.action == "create":
-            pr_id = args.azp_pr_id if args.azp_pr_id else os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER")
+            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
+                "SYSTEM_PULLREQUEST_PULLREQUESTID")
             repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = os.environ.get("BUILD_REASON")
+            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
 
-            test_plan_name = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
+            test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
                     repo=repo,
                     reason=reason,
@@ -851,39 +888,46 @@ if __name__ == "__main__":
                 if not specific_param:
                     specific_param = parsed_specific_param
 
-            tp.create(
-                args.topology,
-                test_plan_name=test_plan_name,
-                deploy_mg_extra_params=args.deploy_mg_extra_params,
-                kvm_build_id=args.kvm_build_id,
-                kvm_image_branch=args.kvm_image_branch,
-                min_worker=args.min_worker,
-                max_worker=args.max_worker,
-                pr_id=pr_id,
-                scripts=scripts,
-                features=args.features,
-                scripts_exclude=args.scripts_exclude,
-                features_exclude=args.features_exclude,
-                output=args.output,
-                source_repo=repo_name,
-                mgmt_branch=args.mgmt_branch,
-                common_extra_params=args.common_extra_params,
-                num_asic=args.num_asic,
-                specified_params=args.specified_params,
-                specific_param=specific_param,
-                vm_type=args.vm_type,
-                testbed_name=args.testbed_name,
-                image_url=args.image_url,
-                upgrade_image_param=args.upgrade_image_param,
-                hwsku=args.hwsku,
-                test_plan_type=args.test_plan_type,
-                platform=args.platform,
-                stop_on_failure=args.stop_on_failure,
-                retry_times=args.retry_times,
-                dump_kvm_if_fail=args.dump_kvm_if_fail,
-                requester=args.requester,
-                max_execute_seconds=args.max_execute_seconds,
-            )
+            for num in range(args.test_plan_num):
+                test_plan_name = copy.copy(test_plan_prefix)
+                if args.test_plan_num > 1:
+                    test_plan_name = "{}_{}".format(test_plan_name, num + 1)
+
+                tp.create(
+                    args.topology,
+                    test_plan_name=test_plan_name,
+                    deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    kvm_build_id=args.kvm_build_id,
+                    kvm_image_branch=args.kvm_image_branch,
+                    min_worker=args.min_worker,
+                    max_worker=args.max_worker,
+                    pr_id=pr_id,
+                    scripts=scripts,
+                    features=args.features,
+                    scripts_exclude=args.scripts_exclude,
+                    features_exclude=args.features_exclude,
+                    output=args.output,
+                    source_repo=repo_name,
+                    mgmt_branch=args.mgmt_branch,
+                    common_extra_params=args.common_extra_params,
+                    num_asic=args.num_asic,
+                    specified_params=args.specified_params,
+                    specific_param=specific_param,
+                    affinity=args.affinity,
+                    vm_type=args.vm_type,
+                    testbed_name=args.testbed_name,
+                    image_url=args.image_url,
+                    upgrade_image_param=args.upgrade_image_param,
+                    hwsku=args.hwsku,
+                    test_plan_type=args.test_plan_type,
+                    platform=args.platform,
+                    stop_on_failure=args.stop_on_failure,
+                    retry_times=args.retry_times,
+                    dump_kvm_if_fail=args.dump_kvm_if_fail,
+                    requester=args.requester,
+                    max_execute_seconds=args.max_execute_seconds,
+                    lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":

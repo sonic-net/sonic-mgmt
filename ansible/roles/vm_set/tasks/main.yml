@@ -72,6 +72,11 @@
         - net-tools
         - bridge-utils
         - util-linux
+
+    - name: Install necessary packages
+      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
+      become: yes
+      with_items:
         - iproute2
         - vlan
         - apt-transport-https
@@ -224,10 +229,18 @@
   register: vm_list_running
   become: true
 
-- name: Retrieve a list of the paused VMs
+- name: Set vm_state_string according to ansible version
+  set_fact:
+    vm_state_string: "{{ 'paused' if ansible_version.full is version_compare('2.13', '>=') else 'pause' }}"
+
+- name: Print ansible version and vm_state_string
+  debug:
+    msg: "ansible version is {{ ansible_version.full }} and vm_state_string is {{ vm_state_string }}"
+
+- name: Retrieve a list of the paused VMs with status={{ vm_state_string }}
   virt: command=list_vms
         uri=qemu:///system
-        state=pause
+        state={{ vm_state_string }}
   register: vm_list_paused
   become: true
 

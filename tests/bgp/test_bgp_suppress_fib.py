@@ -57,8 +57,8 @@ IP_ROUTE_LIST = [
 
 # ipv6 route injection from T0
 IPV6_ROUTE_LIST = [
-    '1000:1001::1/128',
-    '1000:1001::2/128'
+    '1000:1001::/64',
+    '1000:1002::/64'
 ]
 
 TRAFFIC_DATA_FORWARD = [
@@ -66,7 +66,7 @@ TRAFFIC_DATA_FORWARD = [
     ("91.0.1.1", FORWARD),
     ("91.0.2.1", FORWARD),
     ("1000:1001::1", FORWARD),
-    ("1000:1001::2", FORWARD)
+    ("1000:1002::1", FORWARD)
 ]
 
 TRAFFIC_DATA_DROP = [
@@ -74,7 +74,7 @@ TRAFFIC_DATA_DROP = [
     ("91.0.1.1", DROP),
     ("91.0.2.1", DROP),
     ("1000:1001::1", DROP),
-    ("1000:1001::2", DROP),
+    ("1000:1002::1", DROP),
 ]
 
 
@@ -101,11 +101,25 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
 @pytest.fixture(scope="function")
 def restore_bgp_suppress_fib(duthost):
     """
+    Record the configuration before test only restore bgp suppress fib
+    if it is not enabled before test
+    """
+    suppress_fib = True
+    rets = duthost.shell('show suppress-fib-pending')
+    if rets['rc'] != 0:
+        logger.info("Failed to get suppress-fib-pending configuration")
+    else:
+        logger.info("Get suppress-fib-pending configuration: {}".format(rets['stdout']))
+        if rets['stdout'] == 'Enabled':
+            suppress_fib = True
+        else:
+            suppress_fib = False
+
+    """
     Restore bgp suppress fib pending function
     """
     yield
-
-    config_bgp_suppress_fib(duthost, False)
+    config_bgp_suppress_fib(duthost, suppress_fib)
     logger.info("Save configuration")
     duthost.shell('sudo config save -y')
 
@@ -467,7 +481,8 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
                 config_reload(duthost)
 
 
-def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, get_exabgp_ptf_ports):
+def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, get_exabgp_ptf_ports,
+                                    restore_bgp_suppress_fib):
     with allure.step("Prepare needed parameters"):
         router_mac = duthost.facts["router_mac"]
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -477,6 +492,9 @@ def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, get_e
             4: ptf_recv_port,
             6: ptf_recv_port_v6
         }
+
+    with allure.step("Disable bgp suppress-fib-pending function"):
+        config_bgp_suppress_fib(duthost, False)
 
     with allure.step("Suspend orchagent process to simulate a route install delay"):
         operate_orchagent(duthost)
@@ -596,6 +614,9 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, get_exabgp_ptf_ports
             4: ptf_recv_port,
             6: ptf_recv_port_v6
         }
+
+    with allure.step("Disable bgp suppress-fib-pending function"):
+        config_bgp_suppress_fib(duthost, False)
 
     with allure.step("Suspend orchagent process to simulate a route install delay"):
         operate_orchagent(duthost)
