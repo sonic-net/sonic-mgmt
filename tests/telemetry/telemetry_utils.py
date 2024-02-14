@@ -74,7 +74,11 @@ def restore_telemetry_forpyclient(duthost, default_client_auth):
                       % (env.gnmi_config_table, default_client_auth),
                       module_ignore_errors=False)
         duthost.shell("systemctl reset-failed %s" % (env.gnmi_container))
-        duthost.service(name=env.gnmi_container, state="restarted")
+        duthost.service(name=env.gnmi_container, state="stopped")
+        output = duthost.shell("netstat -nap | grep %d" % (env.gnmi_port))
+        if env.gnmi_process in output['stdout']:
+            pytest.fail("Port %d is still active after %s has been stopped" % (env.gnmi_port, env.gnmi_process))
+        duthost.service(name=env.gnmi_container, state="started")
 
 
 def check_gnmi_cli_running(ptfhost):
