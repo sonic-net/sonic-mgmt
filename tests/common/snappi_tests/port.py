@@ -14,7 +14,7 @@ class SnappiPortConfig:
     """
     Snappi port configuration information
     """
-    def __init__(self, id, ip, mac, gw, gw_mac, prefix_len, port_type, peer_port):
+    def __init__(self, id, ip, mac, gw, gw_mac, prefix_len, port_type, peer_port, speed_gbps):
         self.id = id
         self.ip = ip
         self.mac = mac
@@ -23,6 +23,7 @@ class SnappiPortConfig:
         self.prefix_len = prefix_len
         self.type = port_type
         self.peer_port = peer_port
+        self.speed_gbps = speed_gbps
 
 
 def select_ports(port_config_list, pattern, rx_port_id):

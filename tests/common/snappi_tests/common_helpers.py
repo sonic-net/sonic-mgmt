@@ -227,10 +227,12 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     dut_device_conn = device_conn[dut_hostname]
     peer_devices = [dut_device_conn[port]['peerdevice'] for port in dut_device_conn]
     peer_devices = list(set(peer_devices))
-    if len(peer_devices) == 1:
-        return peer_devices[0]
-    else:
-        return None
+
+    for peer_device in peer_devices:
+        if "ixia" not in peer_device.lower():
+            return None
+
+    return peer_devices
 
 
 def get_peer_port(conn_data, dut_hostname, dut_intf):
