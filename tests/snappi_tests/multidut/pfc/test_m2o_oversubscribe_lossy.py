@@ -17,15 +17,15 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
-def test_pfcwd_many_to_one(snappi_api,                                  # noqa: F811
-                           conn_graph_facts,                            # noqa: F811
-                           fanout_graph_facts,                          # noqa: F811
-                           line_card_choice,
-                           duthosts,
-                           prio_dscp_map,                               # noqa: F811
-                           lossless_prio_list,                          # noqa: F811
-                           linecard_configuration_set,
-                           get_multidut_snappi_ports,):                 # noqa: F811o
+def test_m2o_oversubscribe_lossy(snappi_api,                                  # noqa: F811
+                                 conn_graph_facts,                            # noqa: F811
+                                 fanout_graph_facts,                          # noqa: F811
+                                 line_card_choice,
+                                 duthosts,
+                                 prio_dscp_map,                               # noqa: F811
+                                 lossless_prio_list,                          # noqa: F811
+                                 linecard_configuration_set,
+                                 get_multidut_snappi_ports,):                 # noqa: F811o
     """
     Run PFC watchdog test under many to one traffic pattern
     Args:

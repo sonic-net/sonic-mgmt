@@ -3,7 +3,6 @@
 # Decompiled from: Python 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
 # Embedded file name: /var/johnar/sonic-mgmt/tests/snappi/multi_dut_rdma/files/rdma_helper.py
 # Compiled at: 2023-02-10 09:15:26
-import time
 from math import ceil                                                                               # noqa: F401
 import logging                                                                                      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require                           # noqa: F401
@@ -12,9 +11,9 @@ from tests.common.snappi_tests.snappi_helpers import get_dut_port_id            
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
      stop_pfcwd, disable_packet_aging                                                               # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-
+from tests.common.snappi_tests.traffic_generation import run_traffic, verify_m2o_oversubscribe_lossy_result, \
+     setup_base_traffic_config                                                                      # noqa: F401
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -23,8 +22,8 @@ TEST_FLOW_AGGR_RATE_PERCENT = 30
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 2
-DATA_FLOW_DELAY_SEC = 1
+DATA_FLOW_DURATION_SEC = 5
+DATA_FLOW_DELAY_SEC = 2
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
 
@@ -79,7 +78,12 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    exp_dur_sec = 5
+    port_id = 0
+    # Generate base traffic config
+    snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
+                                                                     port_config_list=port_config_list,
+                                                                     port_id=port_id)
+
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
                   rx_port_id_list=rx_port_id_list,
@@ -98,16 +102,24 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
-    flow_stats = __run_traffic(api=api,
-                               config=testbed_config,
-                               all_flow_names=all_flow_names,
-                               exp_dur_sec=exp_dur_sec,
-                               duthost=duthost1)
+    data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
-    __verify_results(rows=flow_stats,
-                     test_flow_name=TEST_FLOW_NAME,
-                     bg_flow_name=BG_FLOW_NAME,
-                     rx_port=rx_port)
+    """ Run traffic """
+    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
+                                                api=api,
+                                                config=testbed_config,
+                                                data_flow_names=data_flow_names,
+                                                all_flow_names=all_flow_names,
+                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                snappi_extra_params=snappi_extra_params)
+
+    """ Verify Results """
+    verify_m2o_oversubscribe_lossy_result(duthost=duthost2,
+                                          rows=flow_stats,
+                                          test_flow_name=TEST_FLOW_NAME,
+                                          bg_flow_name=BG_FLOW_NAME,
+                                          rx_port=rx_port,
+                                          rx_frame_count_deviation=TOLERANCE_THRESHOLD)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
@@ -289,6 +301,7 @@ def __gen_data_flow(testbed_config,
     ipv4.priority.choice = ipv4.priority.DSCP
 
     flow_prio_dscp_list = []
+    flow.duration.fixed_seconds.delay.nanoseconds = 0
     if 'Background Flow' in flow_name_prefix:
         for fp in flow_prio:
             for val in prio_dscp_map[fp]:
@@ -310,123 +323,14 @@ def __gen_data_flow(testbed_config,
             0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
             56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
         ]
+    elif 'Test Flow' in flow.name:
+        flow.duration.fixed_seconds.delay.nanoseconds = 5
     else:
         pass
 
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     flow.size.fixed = data_pkt_size
     flow.rate.percentage = flow_rate_percent
-    flow.duration.choice = flow.duration.CONTINUOUS
-    flow.duration.continuous.delay.nanoseconds = 0
-
+    flow.duration.fixed_seconds.seconds = flow_dur_sec
     flow.metrics.enable = True
     flow.metrics.loss = True
-
-
-def start_traffic(api, flow_names):
-    logger.info("Starting traffic on :{}".format(flow_names))
-    ts = api.transmit_state()
-    ts.flow_names = flow_names
-    ts.state = ts.START
-    api.set_transmit_state(ts)
-
-
-def stop_traffic(api, flow_names):
-    logger.info("Stopping traffic on :{}".format(flow_names))
-    ts = api.transmit_state()
-    ts.flow_names = flow_names
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
-
-
-def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
-    """
-    Run traffic and dump per-flow statistics
-
-    Args:
-        api (obj): SNAPPI session
-        config (obj): experiment config (testbed config + flow config)
-        all_flow_names (list): list of names of all the flows
-        exp_dur_sec (int): experiment duration in second
-
-    Returns:
-        per-flow statistics (list)
-    """
-    test_traffic, bg_traffic = [], []
-    api.set_config(config)
-
-    logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
-    duthost.command("sonic-clear counters \n")
-    logger.info('Starting transmit on all flows ...')
-    for flow in all_flow_names:
-        if 'Test Flow' in flow:
-            test_traffic.append(flow)
-        else:
-            bg_traffic.append(flow)
-    logger.info('Start Traffic..')
-    start_traffic(api, bg_traffic)
-    time.sleep(5)
-    start_traffic(api, test_traffic)
-
-    logger.info('Stop Traffic..')
-    stop_traffic(api, all_flow_names)
-    var = duthost.shell("show interface counters")['stdout']
-    """ Dump per-flow statistics """
-    request = api.metrics_request()
-    request.flow.flow_names = all_flow_names
-    rows = api.get_metrics(request).flow_metrics
-    file1 = open('myfile.txt', 'w+')
-    file1.writelines(var)
-    return rows
-
-
-def __verify_results(rows,
-                     test_flow_name,
-                     bg_flow_name,
-                     rx_port):
-    """
-    Verify if we get expected experiment results
-
-    Args:
-        rows (list): per-flow statistics
-        test_flow_name (str): name of test flows
-        bg_flow_name (str): name of background flows
-        rx_port: Rx port of the dut
-
-    Returns:
-        N/A
-    """
-    sum = 1
-    for row in rows:
-        if bg_flow_name in row.name:
-            tx_frames = row.frames_tx
-            rx_frames = row.frames_rx
-            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-            pytest_assert(tx_frames == rx_frames,
-                          '{} should not have any dropped packet'.format(row.name))
-            pytest_assert(row.loss == 0,
-                          '{} should not have traffic loss'.format(row.name))
-            sum += int(row.frames_rx)
-        else:
-            tx_frames = row.frames_tx
-            rx_frames = row.frames_rx
-            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-            pytest_assert(tx_frames != rx_frames,
-                          '{} should have dropped packet'.format(row.name))
-            pytest_assert(row.loss > 0,
-                          '{} should have traffic loss'.format(row.name))
-            sum += int(row.frames_rx)
-
-    logger.info('Total Frames Received on Rx Port : {}'.format(sum))
-    with open('myfile.txt') as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            if rx_port['peer_port'] in line:
-                logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'], line))
-                if str(format(sum, ',')) in line.split(' '):
-                    logger.info('PASS: DUT counters match with the total frames received on Rx port')
-                else:
-                    pytest_assert(False, "FAIL: DUT counters doesn't match with the total frames received on Rx port")
