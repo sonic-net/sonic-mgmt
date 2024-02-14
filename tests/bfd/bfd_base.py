@@ -6,7 +6,6 @@ import time
 import logging
 from tests.platform_tests.cli import util
 from tests.common.plugins.sanity_check.checks import _parse_bfd_output
-from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 
@@ -131,7 +130,6 @@ class BfdBase:
     def find_bfd_peers_with_given_state(self, dut, dut_asic, expected_bfd_state):
         # Expected BFD states: Up, Down, No BFD sessions found
         peer_count = []
-        peers = {}
         bfd_cmd = "ip netns exec asic{} show bfd sum"
         result = True
         bfd_peer_output = dut.shell(bfd_cmd.format(dut_asic))["stdout"].encode("utf-8").strip().split("\n")
@@ -187,7 +185,6 @@ class BfdBase:
                 asic_routes[asic].setdefault(prefix, []).append(next_hop)  
         return asic_routes
 
-    
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=(["multi_dut"]))
     def select_src_dst_dut_and_asic(self, duthosts, request, tbinfo):
@@ -211,13 +208,12 @@ class BfdBase:
         dst_asic_index = dst_asic_index_selection.split("asic")[1]
         
         yield {
-        "src_dut_index": src_dut_index,
-        "dst_dut_index": dst_dut_index,
-        "src_asic_index": int(src_asic_index),
-        "dst_asic_index": int(dst_asic_index)
+                "src_dut_index": src_dut_index,
+                "dst_dut_index": dst_dut_index,
+                "src_asic_index": int(src_asic_index),
+                "dst_asic_index": int(dst_asic_index)
         }
 
-    
     @pytest.fixture(scope='class')
     def get_src_dst_asic_and_duts(self, duthosts, select_src_dst_dut_and_asic):
         logger.info("Printing select_src_dst_dut_and_asic")
