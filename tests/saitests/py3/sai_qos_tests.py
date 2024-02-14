@@ -4522,7 +4522,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
                 if 'cisco-8000' in asic_type:
