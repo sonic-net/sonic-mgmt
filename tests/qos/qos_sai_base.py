@@ -9,6 +9,7 @@ import os
 import sys
 import six
 import copy
+import time
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -1959,7 +1960,9 @@ class QosSaiBase(QosBase):
         for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark enable")
             dut_asic.command("counterpoll queue enable")
-            dut_asic.command("sleep 70")
+
+        time.sleep(70)
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
 
