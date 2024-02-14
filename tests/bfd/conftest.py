@@ -1,18 +1,21 @@
 import pytest
 from bfd_base import BfdBase
 import logging
-logger = logging.getLogger(__name__)
 from tests.platform_tests.link_flap.link_flap_utils import check_orch_cpu_utilization
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
+logger = logging.getLogger(__name__)
+
 
 @pytest.fixture(scope='class')
 def bfd_base_instance():
     return BfdBase()
 
+
 def pytest_addoption(parser):
     parser.addoption("--num_sessions", action="store", default=5)
     parser.addoption("--num_sessions_scale", action="store", default=128)
+
 
 @pytest.fixture(scope='function')
 def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname, bfd_base_instance, autouse=True):
