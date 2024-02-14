@@ -960,6 +960,7 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         dscp_to_pg_map = self.test_params.get('dscp_to_pg_map', None)
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         asic_type = self.test_params.get("sonic_asic_type")
+        platform_asic = self.test_params['platform_asic']
 
         print("dst_port_id: %d, src_port_id: %d" %
               (dst_port_id, src_port_id), file=sys.stderr)
@@ -1031,13 +1032,13 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # In DNX, ip2me packets trapped to cpu mapped to TC 1 -> PG 0 and
                     # all other control packets trapped to cpu mapped to TC 4 -> PG 4.
                     if i == pg:
-                        if i == 0 or i == 4 or i == 7:
+                        if platform_asic and platform_asic == "broadcom-dnx" and i in [0, 4, 7]:
                             assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
                         else:
                             assert (pg_cntrs[pg] ==
                                     pg_cntrs_base[pg] + len(dscps))
                     else:
-                        if i == 0 or i == 4 or i == 7:
+                        if platform_asic and platform_asic == "broadcom-dnx" and i in [0, 4, 7]:
                             assert(pg_cntrs[i] >= pg_cntrs_base[i])
                         else:
                             assert (pg_cntrs[i] == pg_cntrs_base[i])
