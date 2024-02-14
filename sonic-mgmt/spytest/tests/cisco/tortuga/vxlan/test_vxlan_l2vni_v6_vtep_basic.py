@@ -81,6 +81,9 @@ def setup_and_teardown():
     with open(dir_path + '/' + V6_VTEP_CONFIG_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            # Disabling drake so that there are no automatic underlay configs
+            st.config(nodes[node], "systemctl stop drake", skip_error_check=False, conf=True)
+
             config_static(node, 'sonic')
             config_static(node, 'bgp')
 

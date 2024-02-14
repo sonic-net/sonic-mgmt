@@ -55,7 +55,7 @@ def box_service_module_hooks(request):
     global dut_list
     vars = st.ensure_min_topology("D1D3:4","D1D4:4","D2D3:4","D2D4:4", "D3T1:1", "D4T1:1")
     dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-    
+
     yield
 
 @pytest.fixture(scope="function", autouse=True)
@@ -117,6 +117,9 @@ def setup_teardown_l2vni():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            # Disabling drake so that there are no automatic underlay configs
+            st.config(nodes[node], "systemctl stop drake", skip_error_check=False, conf=True)
+
             config_static(node, 'sonic')
             st.wait(2)
             config_static(node, 'bgp')
