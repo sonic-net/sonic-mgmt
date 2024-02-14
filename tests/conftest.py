@@ -2212,15 +2212,13 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         duthost_os_version = duthost.os_version
                         whitelist_data = _get_whitelist_data(duthost_os_version, downloaded_image_version)
 
-                        if not whitelist_data:
-                            return
-
-                        for key, sub_key in whitelist_data.items():
-                            fields = key.split('|')
-                            if len(fields) != 2:
-                                continue
-                            _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
-                            _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
+                        if whitelist_data:
+                            for key, sub_key in whitelist_data.items():
+                                fields = key.split('|')
+                                if len(fields) != 2:
+                                    continue
+                                _remove_whitelist_entry(fields[0], fields[1], sub_key, pre_running_config)
+                                _remove_whitelist_entry(fields[0], fields[1], sub_key, cur_running_config)
 
                 pre_running_config_keys = set(pre_running_config.keys())
                 cur_running_config_keys = set(cur_running_config.keys())
