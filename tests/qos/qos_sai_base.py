@@ -1614,9 +1614,10 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        testParams = dict()
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            testParams = dutTestParams["basicParams"]
+            testParams.update(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
