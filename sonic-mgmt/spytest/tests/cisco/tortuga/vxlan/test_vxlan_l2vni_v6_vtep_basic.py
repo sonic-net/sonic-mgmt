@@ -76,6 +76,14 @@ def config_static(node, config_domain, add=True):
 
 @pytest.fixture()
 def setup_and_teardown():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     with open(dir_path + '/' + V6_VTEP_CONFIG_FILE) as c:
