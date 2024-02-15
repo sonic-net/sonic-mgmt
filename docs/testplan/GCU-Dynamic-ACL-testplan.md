@@ -14,7 +14,7 @@ No setup pre-configuration is required, the test will configure and return the t
 
 ## Testing Plan
 
-To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in [JSON Patch Files and Expected Results](json-patch-files-and-expected-results).
+To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in the last section of this document, **JSON Patch Files and Expected Results**.
 
 ### Test Case # 1 - Create and apply custom ACL table without rules
 
