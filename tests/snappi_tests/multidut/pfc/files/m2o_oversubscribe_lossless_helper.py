@@ -12,8 +12,8 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
     stop_pfcwd, disable_packet_aging, sec_to_nanosec                                                 # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                       # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.traffic_generation import run_traffic, setup_base_traffic_config, \
-     verify_m2o_results                                                                     # noqa: F401
+from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, \
+     verify_m2o_oversubscribtion_results, run_traffic                                         # noqa: F401
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -111,13 +111,13 @@ def run_m2o_oversubscribe_lossless_test(api,
                                                 exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                 snappi_extra_params=snappi_extra_params)
     flag = {'Background': 'no_loss', 'Test': 'no_loss'}
-    verify_m2o_results(duthost=duthost2,
-                       rows=flow_stats,
-                       test_flow_name=TEST_FLOW_NAME,
-                       bg_flow_name=BG_FLOW_NAME,
-                       rx_port=rx_port,
-                       rx_frame_count_deviation=TOLERANCE_THRESHOLD,
-                       flag=flag)
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+                                        flag=flag)
 
 
 def __gen_traffic(testbed_config,
@@ -319,5 +319,3 @@ def __gen_data_flow(testbed_config,
     flow.duration.fixed_seconds.seconds = flow_dur_sec
     flow.metrics.enable = True
     flow.metrics.loss = True
-
-
