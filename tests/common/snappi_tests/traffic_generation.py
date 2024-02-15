@@ -700,13 +700,13 @@ def verify_egress_queue_frame_count(duthost,
                               "Queue counters should increment for invalid PFC pause frames")
 
 
-def verify_m2o_results(duthost,
-                       rows,
-                       test_flow_name,
-                       bg_flow_name,
-                       rx_port,
-                       rx_frame_count_deviation,
-                       flag):
+def verify_m2o_oversubscribtion_results(duthost,
+                                        rows,
+                                        test_flow_name,
+                                        bg_flow_name,
+                                        rx_port,
+                                        rx_frame_count_deviation,
+                                        flag):
     """
     Verify if we get expected experiment results
 

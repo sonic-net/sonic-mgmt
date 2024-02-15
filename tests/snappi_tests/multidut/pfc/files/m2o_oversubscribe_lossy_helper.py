@@ -12,8 +12,8 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
      stop_pfcwd, disable_packet_aging                                                               # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                             # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.traffic_generation import run_traffic, verify_m2o_results, \
-     setup_base_traffic_config                                                                      # noqa: F401
+from tests.common.snappi_tests.traffic_generation import run_traffic, setup_base_traffic_config, \
+     verify_m2o_oversubscribtion_results                                                                      # noqa: F401
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -114,13 +114,13 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
                                                 snappi_extra_params=snappi_extra_params)
 
     """ Verify Results """
-    verify_m2o_results(duthost=duthost2,
-                       rows=flow_stats,
-                       test_flow_name=TEST_FLOW_NAME,
-                       bg_flow_name=BG_FLOW_NAME,
-                       rx_port=rx_port,
-                       rx_frame_count_deviation=TOLERANCE_THRESHOLD,
-                       flag=flag)
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+                                        flag=flag)
 
 
 def __data_flow_name(name_prefix, src_id, dst_id, prio):
