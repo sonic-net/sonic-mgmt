@@ -154,6 +154,7 @@ r, ".*ERR syncd[0-9]*#syncd.*updateSupportedBufferPoolCounters.*BUFFER_POOL_WATE
 r, ".* ERR dhcp_relay#dhcpmon.*Invalid number of interfaces, downlink/south 1, uplink/north 0.*"
 
 r, ".* ERR pmon#ycable.*Error: Could not get port instance for muxcable info for Y cable port Ethernet.*"
+r, ".* ERR pmon#CCmisApi: :- checkReplyType: Expected to get redis type 0 got type 3, err: NON-STRING-REPLY*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/15012104
 # TO BE REMOVED
@@ -224,3 +225,8 @@ r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/25833053
 r, ".* ERR dualtor_neighbor_check.py: .*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/17683
+r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
+r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
+r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
