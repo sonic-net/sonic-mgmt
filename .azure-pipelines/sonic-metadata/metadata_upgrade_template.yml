@@ -119,7 +119,18 @@ stages:
 
     - script: |
         set -ex
-        python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48
+        TIMEOUT=7200
+        INTERVAL=60
+        wait_time=0
+        until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
+            if (( $wait_time >= $TIMEOUT )); then
+                echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
+                exit 1
+            fi
+            echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
+            sleep $INTERVAL
+            wait_time=$(expr $wait_time + $INTERVAL)
+        done
         echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       env:
           TBSHARE_AAD_CLIENT_ID: $(TBSHARE_AAD_CLIENT_ID)
@@ -185,6 +196,8 @@ stages:
           ITERATIONS : [1,2,3,4,5,6,7,8,9,10]
         ${{ if eq(parameters.ITERATIONS, '16') }}:
           ITERATIONS : [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]
+        ${{ if eq(parameters.ITERATIONS, '17') }}:
+          ITERATIONS : [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]
         ${{ if eq(parameters.ITERATIONS, '18') }}:
           ITERATIONS : [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
         ${{ if eq(parameters.ITERATIONS, '20') }}:
