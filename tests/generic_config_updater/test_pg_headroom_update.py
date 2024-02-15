@@ -77,7 +77,7 @@ def ensure_application_of_updated_config(duthost, xoff, values):
 
 
 @pytest.mark.parametrize("operation", ["replace"])
-def test_pg_headroom_update(duthost, ensure_dut_readiness, operation):
+def test_pg_headroom_update(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model):
     asic_type = duthost.get_asic_name()
     pytest_require("td2" not in asic_type, "PG headroom should be skipped on TD2")
     tmpfile = generate_tmpfile(duthost)
@@ -104,7 +104,7 @@ def test_pg_headroom_update(duthost, ensure_dut_readiness, operation):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification"):
+        if is_valid_platform_and_version(duthost, "BUFFER_PROFILE", "PG headroom modification", operation):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, xoff, values)
         else:
