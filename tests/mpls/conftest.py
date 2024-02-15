@@ -1,6 +1,8 @@
 import logging
+import os
 import pytest
 import pprint
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +51,20 @@ def setup(duthost, tbinfo, ptfadapter):
             tor_addr[k]=v['ipv4']
             tor_peer_addr[k]=v['peer_ipv4']
         elif 'T2' in v['bgp_neighbor']:
-            spine_ports.append(k) 
-            spine_addr[k]=v['ipv4']    
-            spine_peer_addr[k]=v['peer_ipv4']           
-    
+            spine_ports.append(k)
+            spine_addr[k]=v['ipv4']
+            spine_peer_addr[k]=v['peer_ipv4']
+
     logger.info('tor_ports: {}'.format(tor_ports))
-    logger.info('spine_ports: {}'.format(spine_ports))    
-    logger.info('tor_addr: {}'.format(tor_addr)) 
-  
+    logger.info('spine_ports: {}'.format(spine_ports))
+    logger.info('tor_addr: {}'.format(tor_addr))
+
     for dut_port in tor_ports:
         port_id=mg_facts['minigraph_port_indices'][dut_port]
         tor_ports_ids[dut_port]=port_id
         ansible_port='ansible_'+dut_port
         tor_mac[dut_port]=host_facts[ansible_port]['macaddress']
-    
+
     for dut_port in spine_ports:
         port_id=mg_facts['minigraph_port_indices'][dut_port]
         spine_ports_ids[dut_port]=port_id

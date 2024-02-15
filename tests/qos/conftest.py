@@ -88,7 +88,7 @@ def nearbySourcePorts(duthost, mg_facts, singleMemberPort):
         lanes = duthost.shell(
             'sonic-db-cli {} CONFIG_DB hget "PORT|{}" lanes'.format(
                 ns_spec, intf))['stdout'].split(',')
-        assert len(lanes) > 0, "Lanes not found for port {}".format(port)
+        assert len(lanes) > 0, "Lanes not found for port {}".format(intf)
         slc = int(lanes[0]) >> 9
         if single_slc == None:
             single_slc = slc

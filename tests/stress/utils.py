@@ -1,4 +1,6 @@
 import re
+import time
+
 
 TOPO_FILENAME_TEMPLATE = 'topo_{}.yml'
 SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"

@@ -9,7 +9,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts  # lgtm[py/unused-import]
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # lgtm[py/unused-import]
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -126,12 +126,11 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
-    fanout_obj = None
     for fanout_name, fanout_obj in fanouthosts.items():
         for interface, interface_info in conn_graph_facts['device_conn'][duthost.hostname].items():
             if fanout_name == interface_info.get('peerdevice'):
-                break
-    return fanout_obj
+                return fanout_obj
+    pytest_assert(False, "Failed to get the fanout for dut {}".format(duthost.hostname))
 
 
 @pytest.fixture(scope="module")
@@ -169,14 +168,17 @@ def pkt_fields(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     return test_pkt_data
 
 
-def expected_packet_mask(pkt):
+def expected_packet_mask(pkt, ip_ver):
     """ Return mask for sniffing packet """
     exp_pkt = pkt.copy()
     exp_pkt = mask.Mask(exp_pkt)
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
-    exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
-    exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+    if ip_ver == "ipv4" and pkt.haslayer(packet.IP):
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'ttl')
+        exp_pkt.set_do_not_care_scapy(packet.IP, 'chksum')
+    elif ip_ver == "ipv6" and pkt.haslayer(packet.IPv6):
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'hlim')
     return exp_pkt
 
 
@@ -476,7 +478,7 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=num_packets)
     time.sleep(1)
 
-def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
+def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, enum_fanout_graph_facts):
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
@@ -491,7 +493,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
-            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
+            fanout_graph_facts=enum_fanout_graph_facts, match_mac=src_mac, set_mac=ports_info["dst_mac"], eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -514,7 +516,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields
     group = "L2"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], comparable_pkt=comparable_pkt)
 
-def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, fanout_graph_facts):
+def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields, ports_info, enum_fanout_graph_facts):
     """
     @summary: Create a packet with multicast SMAC.
     """
@@ -531,7 +533,7 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost, pkt_fields,
         src_mac = "00:00:00:00:00:11"
         # Prepare openflow rule
         fanouthost.prepare_drop_counter_config(
-            fanout_graph_facts=fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
+            fanout_graph_facts=enum_fanout_graph_facts, match_mac=src_mac, set_mac=multicast_smac, eth_field="eth_src")
 
     pkt = testutils.simple_tcp_packet(
         eth_dst=ports_info["dst_mac"],  # DUT port
@@ -691,7 +693,7 @@ def test_src_ip_is_multicast_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], ports_info["src_mac"], pkt_fields["ipv4_dst"], ip_src)
 
     group = "L3"
-    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, ip_ver=ip_addr)
 
 
 def test_src_ip_is_class_e(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -768,7 +770,8 @@ def test_ip_is_zero_addr(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, a
     if setup.get("platform_asic") == "broadcom-dnx" and addr_direction == "src":
         pytest.skip("Src IP zero packets are not dropped on Broadcom DNX platform currently")
 
-    do_test(group, pkt, ptfadapter, ports_info, setup["dut_to_ptf_port_map"].values(), tx_dut_ports)
+    do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports,
+            ip_ver=addr_type)
 
 
 def test_dst_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, tx_dut_ports, pkt_fields, ports_info):
@@ -863,7 +866,7 @@ def test_broken_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    setattr(pkt[testutils.scapy.scapy.all.IP], pkt_field, value)
+    setattr(pkt[packet.IP], pkt_field, value)
 
     group = "L3"
     do_test(group, pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports, skip_counter_check=sai_acl_drop_adj_enabled)
@@ -884,8 +887,8 @@ def test_absent_ip_header(do_test, ptfadapter, setup, tx_dut_ports, pkt_fields, 
         tcp_sport=pkt_fields["tcp_sport"],
         tcp_dport=pkt_fields["tcp_dport"]
         )
-    tcp = pkt[testutils.scapy.scapy.all.TCP]
-    del pkt[testutils.scapy.scapy.all.IP]
+    tcp = pkt[packet.TCP]
+    del pkt[packet.IP]
     pkt.type = 0x800
     pkt = pkt/tcp
 

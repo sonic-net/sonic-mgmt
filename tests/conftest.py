@@ -196,17 +196,6 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def install_mergecap_on_ptf(ptfhost):
-    """
-    Temporary fixture which will install "wireshark-common" package on PTF host which has "mergecap" application inside
-    """
-    try:
-        ptfhost.shell("export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install wireshark-common -y")
-    except Exception as err:
-        logger.warning('Unable to install "wireshark-common" on PTF host. Got error: {}'.format(err))
-
-
-@pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
     """
     This fixture is to enhance the capability of parsing the value of pytest cli argument '--inventory'.
@@ -1499,6 +1488,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
@@ -1951,7 +1942,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-    yield
+    yield duts_data
 
     if check_flag:
         for duthost in duthosts:

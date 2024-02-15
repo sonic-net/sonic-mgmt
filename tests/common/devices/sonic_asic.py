@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
@@ -549,8 +550,13 @@ class SonicAsic(object):
 
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
-        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if ports is not None and portname in ports:
+        ports = self.shell(cmd)["stdout_lines"][0]
+        # The variable 'ports' is a string in format below
+        # u"dict_keys(['Ethernet144', 'Ethernet152', 'Ethernet160', 'Ethernet280'])"
+        # doing a regex match for '<interface_name>'' to get the **exact** port.
+        # Without which a check like --> ('Ethernet16' in ports) returns true, because
+        # Ethernet16 matches as a substring to Ethernet160 which is present in 'ports'
+        if ports is not None and re.search(r"'{}'".format(portname), ports):
             return True
         return False
 
@@ -560,7 +566,16 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        # sonic-cfggen returns "'PORTCHANNEL' is undefined" error if no portchannels are defined in config
+        # Wrapping shell cmd in try block to account for that case
+        pcs = None
+        try:
+            pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
+        except RunAnsibleModuleFail as e:
+            if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
+                return False
+            else:
+                raise
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:

@@ -505,7 +505,7 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     # - IP addresses are randomly selected from the given VLAN network
     # - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
     addr_list = list(IPNetwork(vlan_network))
-    for counter, i in enumerate(xrange(2, VLAN_HOSTS + 2)):
+    for counter, i in enumerate(range(2, VLAN_HOSTS + 2)):
         mac = VLAN_BASE_MAC_PATTERN.format(counter)
         port = vlan_ports[i % len(vlan_ports)]
         addr = random.choice(addr_list)
