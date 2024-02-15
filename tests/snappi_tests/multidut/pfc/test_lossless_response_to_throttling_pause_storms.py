@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                          # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfc.files.lossless_response_to_throttling_pause_storms_helper import (
+from tests.snappi_tests.dinesh_response_time_pr.files.lossless_response_to_throttling_pause_storms_helper import (
     run_lossless_response_to_throttling_pause_storms_test)
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 

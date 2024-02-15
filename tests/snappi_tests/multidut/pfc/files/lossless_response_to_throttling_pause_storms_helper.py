@@ -3,7 +3,6 @@
 # Decompiled from: Python 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
 # Embedded file name: /var/johnar/sonic-mgmt/tests/snappi/multi_dut_rdma/files/rdma_helper.py
 # Compiled at: 2023-02-10 09:15:26
-import time
 from math import ceil                                                                                      # noqa: F401
 import logging                                                                                             # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require                                  # noqa: F401
@@ -12,8 +11,10 @@ from tests.common.snappi_tests.snappi_helpers import get_dut_port_id            
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, stop_pfcwd, disable_packet_aging, \
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, sec_to_nanosec                 # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                                    # noqa: F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.traffic_generation import run_traffic, \
+     setup_base_traffic_config, verify_m2o_oversubscribtion_results, verify_pause_flow                                      # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,12 @@ PAUSE_FLOW_NAME = 'PFC Traffic'
 BG_FLOW_AGGR_RATE_PERCENT = 25
 PAUSE_FLOW_RATE = 15
 DATA_PKT_SIZE = 1024
-DATA_FLOW_DURATION_SEC = 2
-DATA_FLOW_DELAY_SEC = 1
+DATA_FLOW_DURATION_SEC = 20
+DATA_FLOW_DELAY_SEC = 0
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+PAUSE_FLOW_DURATION_SEC = 10
+PAUSE_FLOW_DELAY_SEC = 5
 
 
 def run_lossless_response_to_throttling_pause_storms_test(api,
@@ -82,7 +85,12 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    exp_dur_sec = 5
+    port_id = 0
+
+    # Generate base traffic config
+    snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
+                                                                     port_config_list=port_config_list,
+                                                                     port_id=port_id)
 
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
@@ -103,16 +111,29 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
-    flow_stats = __run_traffic(api=api,
-                               config=testbed_config,
-                               all_flow_names=all_flow_names,
-                               exp_dur_sec=exp_dur_sec,
-                               duthost=duthost1)
+    data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
-    __verify_results(rows=flow_stats,
-                     test_flow_name=TEST_FLOW_NAME,
-                     bg_flow_name=BG_FLOW_NAME,
-                     rx_port=rx_port)
+    """ Run traffic """
+    flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
+                                                api=api,
+                                                config=testbed_config,
+                                                data_flow_names=data_flow_names,
+                                                all_flow_names=all_flow_names,
+                                                exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+                                                snappi_extra_params=snappi_extra_params)
+    flag = {'Background': 'no_loss', 'Test Flow': 'loss'}
+
+    verify_m2o_oversubscription_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+                                        flag=flag)
+
+    # Verify pause flows
+    verify_pause_flow(flow_metrics=flow_stats,
+                      pause_flow_name=PAUSE_FLOW_NAME)
 
 
 def __gen_traffic(testbed_config,
@@ -306,7 +327,8 @@ def __gen_data_flow(testbed_config,
                 ipv4.priority.dscp.phb.CS2,
             ]
         elif 'Background Flow 2 -> 0' in flow.name:
-            ipv4.priority.dscp.phb.values = [5]
+            ipv4.priority.dscp.phb.value = ipv4.priority.dscp.phb.DEFAULT
+            ipv4.priority.dscp.phb.value = 5
         else:
             for fp in flow_prio:
                 for val in prio_dscp_map[fp]:
@@ -314,11 +336,10 @@ def __gen_data_flow(testbed_config,
             ipv4.priority.dscp.phb.values = flow_prio_dscp_list
 
         ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+        flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(DATA_FLOW_DELAY_SEC))
         flow.size.fixed = data_pkt_size
         flow.rate.percentage = flow_rate_percent
-        flow.duration.choice = flow.duration.CONTINUOUS
-        flow.duration.continuous.delay.nanoseconds = 0
-
+        flow.duration.fixed_seconds.seconds = flow_dur_sec
         flow.metrics.enable = True
         flow.metrics.loss = True
 
@@ -327,143 +348,37 @@ def __gen_data_flow(testbed_config,
         tx_port_config = next((x for x in port_config_list if x.id == src_port_id), None)
         rx_port_config = next((x for x in port_config_list if x.id == dst_port_id), None)
 
-        for id in range(1):
-            pause_time = []
-            for x in range(8):
-                if x in flow_prio:
-                    pause_time.append(int('b', 16))
-                else:
-                    pause_time.append(int('0000', 16))
+        pause_time = []
+        for x in range(8):
+            if x in flow_prio:
+                pause_time.append(int('b', 16))
+            else:
+                pause_time.append(int('0000', 16))
 
-            vector = pfc_class_enable_vector(flow_prio)
+        vector = pfc_class_enable_vector(flow_prio)
 
-            pause_flow = testbed_config.flows.flow(
-                name="{} {}".format(flow_name_prefix, id))[-1]
-            pause_flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
-            pause_flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
+        pause_flow = testbed_config.flows.flow(
+            name="{}".format(flow_name_prefix))[-1]
+        pause_flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
+        pause_flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
-            pause_pkt = pause_flow.packet.pfcpause()[-1]
+        pause_pkt = pause_flow.packet.pfcpause()[-1]
 
-            pause_pkt.src.value = '00:00:aa:00:00:01'
-            pause_pkt.dst.value = '01:80:c2:00:00:01'
-            pause_pkt.class_enable_vector.value = vector
-            pause_pkt.pause_class_0.value = pause_time[0]
-            pause_pkt.pause_class_1.value = pause_time[1]
-            pause_pkt.pause_class_2.value = pause_time[2]
-            pause_pkt.pause_class_3.value = pause_time[3]
-            pause_pkt.pause_class_4.value = pause_time[4]
-            pause_pkt.pause_class_5.value = pause_time[5]
-            pause_pkt.pause_class_6.value = pause_time[6]
-            pause_pkt.pause_class_7.value = pause_time[7]
+        pause_pkt.src.value = '00:00:aa:00:00:01'
+        pause_pkt.dst.value = '01:80:c2:00:00:01'
+        pause_pkt.class_enable_vector.value = vector
+        pause_pkt.pause_class_0.value = pause_time[0]
+        pause_pkt.pause_class_1.value = pause_time[1]
+        pause_pkt.pause_class_2.value = pause_time[2]
+        pause_pkt.pause_class_3.value = pause_time[3]
+        pause_pkt.pause_class_4.value = pause_time[4]
+        pause_pkt.pause_class_5.value = pause_time[5]
+        pause_pkt.pause_class_6.value = pause_time[6]
+        pause_pkt.pause_class_7.value = pause_time[7]
 
-            pause_flow.rate.percentage = flow_rate_percent
-            pause_flow.size.fixed = 64
-            pause_flow.duration.choice = pause_flow.duration.CONTINUOUS
-
-            pause_flow.metrics.enable = True
-            pause_flow.metrics.loss = True
-
-
-def start_traffic(api, flow_names):
-    logger.info("Starting traffic on :{}".format(flow_names))
-    ts = api.transmit_state()
-    ts.flow_names = flow_names
-    ts.state = ts.START
-    api.set_transmit_state(ts)
-
-
-def stop_traffic(api, flow_names):
-    logger.info("Stopping traffic on :{}".format(flow_names))
-    ts = api.transmit_state()
-    ts.flow_names = flow_names
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
-
-
-def __run_traffic(api, config, all_flow_names, exp_dur_sec, duthost):
-    """
-    Run traffic and dump per-flow statistics
-
-    Args:
-        api (obj): SNAPPI session
-        config (obj): experiment config (testbed config + flow config)
-        all_flow_names (list): list of names of all the flows
-        exp_dur_sec (int): experiment duration in second
-
-    Returns:
-        per-flow statistics (list)
-    """
-    test_traffic, bg_traffic, pfc_traffic = [], [], []
-    api.set_config(config)
-
-    logger.info('Wait for Arp to Resolve ...')
-    wait_for_arp(api, max_attempts=10, poll_interval_sec=2)
-    duthost.command("sonic-clear counters \n")
-    logger.info('Starting transmit on all flows ...')
-    for flow in all_flow_names:
-        if 'Test Flow' in flow:
-            test_traffic.append(flow)
-        elif 'Background Flow' in flow:
-            bg_traffic.append(flow)
-        else:
-            pfc_traffic.append(flow)
-    logger.info('Start Traffic..')
-    start_traffic(api, bg_traffic)
-    start_traffic(api, test_traffic)
-    time.sleep(5)
-    start_traffic(api, pfc_traffic)
-
-    logger.info('Stop Throttling PFC Traffic..')
-    stop_traffic(api, pfc_traffic)
-    time.sleep(5)
-    logger.info('Stop Background and Test Traffic..')
-    stop_traffic(api, all_flow_names)
-    var = duthost.shell("show interface counters")['stdout']
-    """ Dump per-flow statistics """
-    request = api.metrics_request()
-    request.flow.flow_names = all_flow_names
-    rows = api.get_metrics(request).flow_metrics
-    file1 = open('myfile.txt', 'w+')
-    file1.writelines(var)
-    return rows
-
-
-def __verify_results(rows,
-                     test_flow_name,
-                     bg_flow_name,
-                     rx_port):
-    """
-    Verify if we get expected experiment results
-
-    Args:
-        rows (list): per-flow statistics
-        test_flow_name (str): name of test flows
-        bg_flow_name (str): name of background flows
-        rx_port : rx port of the dut
-
-    Returns:
-        N/A
-    """
-    sum = 1
-    for row in rows:
-        tx_frames = row.frames_tx
-        rx_frames = row.frames_rx
-        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-        pytest_assert(tx_frames == rx_frames,
-                      '{} should not have any dropped packet'.format(row.name))
-        pytest_assert(row.loss == 0,
-                      '{} should not have traffic loss'.format(row.name))
-        sum += int(row.frames_rx)
-    logger.info('Total Frames Received on Rx Port : {}'.format(sum))
-
-    with open('myfile.txt') as f:
-        while True:
-            line = f.readline()
-            if not line:
-                break
-            if rx_port['peer_port'] in line:
-                logger.info('DUT Counter for {} : {}'.format(rx_port['peer_port'], line))
-                if str(format(sum, ',')) in line.split(' '):
-                    logger.info('PASS: DUT counters match with the total frames received on Rx port')
-                else:
-                    pytest_assert(False, "FAIL: DUT counters doesn't match with the total frames received on Rx port")
+        pause_flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec(PAUSE_FLOW_DELAY_SEC))
+        pause_flow.rate.percentage = flow_rate_percent
+        pause_flow.size.fixed = 64
+        pause_flow.duration.fixed_seconds.seconds = PAUSE_FLOW_DURATION_SEC
+        pause_flow.metrics.enable = True
+        pause_flow.metrics.loss = True
