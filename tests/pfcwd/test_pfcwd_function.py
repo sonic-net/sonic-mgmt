@@ -4,12 +4,14 @@ import os
 import pytest
 import time
 import six
+import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, fetch_vendor_specific_diagnosis_re
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
 from tests.common import constants
@@ -20,8 +22,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
-EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
-EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 WD_ACTION_MSG_PFX = {"dontcare": "Verify PFCWD detection when queue buffer is not empty "
                      "and proper function of pfcwd drop action",
                      "drop": "Verify proper function of pfcwd drop action",
@@ -51,6 +51,15 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+
+def is_longlink(dut, profile):
+    if dut.sonichost._facts['platform'] in \
+            ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        match = re.search("_([0-9]*)m_", profile)
+        if match:
+            return int(match.group(1)) > 2000
+    return False
 
 
 class PfcCmd(object):
@@ -138,7 +147,7 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, profile):
             asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
@@ -190,8 +199,9 @@ class PfcCmd(object):
             pg_profile = pg_profile.split(DB_SEPARATORS[db])[-1][:-1]
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
+        alpha = 0
         static_th = 0
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
@@ -392,7 +402,7 @@ class SetupPfcwdFunc(object):
         """
         new_alpha = self.alpha
         new_static_th = self.static_th
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, self.pg_profile):
             if int(self.static_th) > 0:
                 new_static_th = int(int(self.static_th) / 2)
         else:
@@ -476,7 +486,7 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, pfc_params, is_dualtor):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
@@ -485,6 +495,7 @@ class SendVerifyTraffic():
         """
         self.ptf = ptf
         self.router_mac = router_mac
+        self.tx_mac = tx_mac
         self.pfc_queue_index = pfc_params['queue_index']
         self.pfc_wd_test_pkt_count = pfc_params['test_pkt_count']
         self.pfc_wd_rx_port_id = pfc_params['rx_port_id']
@@ -547,8 +558,8 @@ class SendVerifyTraffic():
             dst_port = "".join(str(self.pfc_wd_rx_port_id)).replace(',', '')
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -613,8 +624,8 @@ class SendVerifyTraffic():
         else:
             other_pg = self.pfc_queue_index + 1
 
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
+        ptf_params = {'router_mac': self.tx_mac,
+                      'vlan_mac': self.tx_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -693,7 +704,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
         loganalyzer.ignore_regex.extend(reg_exp)
         loganalyzer.expect_regex = []
-        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+        loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
         loganalyzer.match_regex = []
 
         if action != "dontcare":
@@ -821,6 +832,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
 
@@ -910,6 +922,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.traffic_inst = SendVerifyTraffic(
                                                           self.ptf,
                                                           duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                                                          duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                                                           self.pfc_wd,
                                                           self.is_dualtor)
                     self.run_test(self.dut, port, "drop", restore=False)
@@ -986,6 +999,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
@@ -997,6 +1011,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.traffic_inst = SendVerifyTraffic(
                     self.ptf,
                     duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                    duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
@@ -1067,6 +1082,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             self.traffic_inst = SendVerifyTraffic(
                 self.ptf,
                 duthost.get_dut_iface_mac(self.pfc_wd['rx_port'][0]),
+                duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
@@ -1089,7 +1105,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
                 loganalyzer.ignore_regex.extend(reg_exp)
                 loganalyzer.expect_regex = []
-                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE])
+                loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)])
                 loganalyzer.match_regex = []
 
                 port_toggle(self.dut, tbinfo, ports=[port])
