@@ -5,3 +5,5 @@ platform_tests/test_reload_config.py
 platform_tests/api/test_chassis.py
 platform_tests/test_sequential_restart.py
 route/test_route_perf.py
+cisco/platform_tests/test_eth_switch.py
+cisco/platform_tests/test_platform_reboot.py::TestKdumpCisco::test_watchdog_kdump

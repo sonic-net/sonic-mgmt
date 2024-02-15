@@ -78,3 +78,4 @@ cisco/qos/test_wred_config.py
 platform_tests/test_serviceability_pfc.py
 cisco/qos/test_cisco8000_buf_qos.py
 cisco/auto_triage/test_cisco_system_health.py
+cisco/platform_tests/test_platform_reboot.py
