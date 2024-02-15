@@ -37,17 +37,20 @@ def check_image_version(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_env(duthost, tbinfo):
+def setup_env(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Setup/teardown
     Args:
         duthost: DUT.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     for asic_id in duthost.get_asic_ids():
+        if asic_id is None:
+            continue
         config = "/etc/sonic/config_db{}.json".format(asic_id)
         config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
         backup_config(duthost, config, config_backup)
@@ -66,6 +69,8 @@ def setup_env(duthost, tbinfo):
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     for asic_id in duthost.get_asic_ids():
+        if asic_id is None:
+            continue
         config = "/etc/sonic/config_db{}.json".format(asic_id)
         config_backup = "/etc/sonic/config_db{}.json_before_override".format(asic_id)
         restore_config(duthost, config, config_backup)
@@ -218,13 +223,13 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test Golden Config override during load minigraph
     Note: Skip full config override for multi-asic duts for now, because we
     don't have CLI to get new golden config that contains 'localhost' and 'asicxx'
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not duthost.is_multi_asic:
         pytest.skip("Skip override-config-table multi-asic testing on single-asic platforms,\
                     test provided golden config format is not compatible with single-asics")
