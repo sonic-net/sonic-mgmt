@@ -700,46 +700,51 @@ def verify_egress_queue_frame_count(duthost,
                               "Queue counters should increment for invalid PFC pause frames")
 
 
-def verify_m2o_oversubscribe_lossy_result(duthost,
-                                          rows,
-                                          test_flow_name,
-                                          bg_flow_name,
-                                          rx_port,
-                                          rx_frame_count_deviation=0.05):
+def verify_m2o_results(duthost,
+                       rows,
+                       test_flow_name,
+                       bg_flow_name,
+                       rx_port,
+                       rx_frame_count_deviation,
+                       flag):
     """
-    Verify if we get expected experiment results for m2o oversubscribe lossy
+    Verify if we get expected experiment results
 
     Args:
         duthost (obj): DUT host object
-        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
         rows (list): per-flow statistics
         test_flow_name (str): name of test flows
         bg_flow_name (str): name of background flows
         rx_port: Rx port of the dut
+        rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
+        flag (dict): Comprises of flow name and its loss criteria
 
     Returns:
         N/A
     """
+
     sum_rx = 1
-    for row in rows:
-        if bg_flow_name in row.name:
+    for flow_type,criteria in flag1.items():
+        for row in rows:
             tx_frames = row.frames_tx
             rx_frames = row.frames_rx
-            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-            pytest_assert(tx_frames == rx_frames,
-                          '{} should not have any dropped packet'.format(row.name))
-            pytest_assert(row.loss == 0,
-                          '{} should not have traffic loss'.format(row.name))
-            sum_rx += int(row.frames_rx)
-        else:
-            tx_frames = row.frames_tx
-            rx_frames = row.frames_rx
-            logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-            pytest_assert(tx_frames != rx_frames,
-                          '{} should have dropped packet'.format(row.name))
-            pytest_assert(row.loss > 0,
-                          '{} should have traffic loss'.format(row.name))
-            sum_rx += int(row.frames_rx)
+            if flow_type in row.name:
+                if criteria == 'no_loss':
+                    logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                    pytest_assert(tx_frames == rx_frames,
+                                '{} should not have any dropped packet'.format(row.name))
+                    pytest_assert(row.loss == 0,
+                                '{} should not have traffic loss'.format(row.name))
+                    sum_rx += int(row.frames_rx)
+                elif criteria == 'loss':
+                    logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                    pytest_assert(tx_frames != rx_frames,
+                                '{} should have dropped packet'.format(row.name))
+                    pytest_assert(row.loss > 0,
+                                '{} should have traffic loss'.format(row.name))
+                    sum_rx += int(row.frames_rx)
+                else:
+                    pytest_assert(False,"Wrong criteria given in flag")
 
     tx_frames, tx_drop_frames = get_tx_frame_count(duthost, rx_port['peer_port'])
     pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
