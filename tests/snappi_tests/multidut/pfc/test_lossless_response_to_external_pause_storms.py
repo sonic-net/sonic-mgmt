@@ -1,11 +1,11 @@
 import pytest
 import random
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                      # noqa: F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
+    snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                      # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.lossless_response_to_external_pause_storms_helper import (
@@ -18,15 +18,15 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
-def test_lossless_external_pause_storm(snappi_api,                     # noqa: F811
-                                       conn_graph_facts,               # noqa: F811
-                                       fanout_graph_facts,             # noqa: F811
-                                       line_card_choice,
-                                       duthosts,
-                                       prio_dscp_map,                     # noqa: F811
-                                       lossless_prio_list,                # noqa: F811
-                                       linecard_configuration_set,
-                                       get_multidut_snappi_ports,):       # noqa: F811
+def test_lossless_response_to_external_pause_storms_test(snappi_api,                     # noqa: F811
+                                                         conn_graph_facts,               # noqa: F811
+                                                         fanout_graph_facts,             # noqa: F811
+                                                         line_card_choice,
+                                                         duthosts,
+                                                         prio_dscp_map,                     # noqa: F811
+                                                         lossless_prio_list,                # noqa: F811
+                                                         linecard_configuration_set,
+                                                         get_multidut_snappi_ports,):       # noqa: F811
 
     """
     Run PFC watchdog test under many to one traffic pattern
