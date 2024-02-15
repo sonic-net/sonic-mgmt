@@ -58,6 +58,7 @@ parameters:
   - test_warm_upgrade_sad_path
   - test_cancelled_upgrade_path
   - test_cancelled_upgrade_path test_upgrade_path
+  - test_cancelled_upgrade_path test_upgrade_path test_double_upgrade_path
   - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_upgrade_path
   - test_cancelled_upgrade_path test_warm_upgrade_sad_path test_double_upgrade_path
   - " "

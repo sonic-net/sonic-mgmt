@@ -6,7 +6,7 @@ parameters:
   default: warm
 - name: VM_TYPE
   type: string
-  displayName: "VM yype of neighbor devices"
+  displayName: "VM type of neighbor devices"
   default: ceos
 - name: FROM_IMAGE_LIST
   type: string
