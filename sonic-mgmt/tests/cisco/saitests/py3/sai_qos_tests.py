@@ -5308,9 +5308,23 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
         self.dscps = [3]
         self.pgs = [3]
         self.queues = [3]
-        self.all_port_id_to_ip = self.test_params['all_port_id_to_ip']
-        self.all_port_id_to_name = self.test_params['all_port_id_to_name']
-        self.all_port_ids = list(self.all_port_id_to_ip.keys())
+        self.all_src_port_id_to_ip = self.test_params['all_src_port_id_to_ip']
+        self.all_src_port_id_to_name = self.test_params['all_src_port_id_to_name']
+        self.all_dst_port_id_to_ip = self.test_params['all_dst_port_id_to_ip']
+        self.all_dst_port_id_to_name = self.test_params['all_dst_port_id_to_name']
+
+        self.all_port_id_to_ip = dict()
+        self.all_port_id_to_ip.update(self.all_src_port_id_to_ip)
+        self.all_port_id_to_ip.update(self.all_dst_port_id_to_ip)
+
+        self.all_port_id_to_name = dict()
+        self.all_port_id_to_name.update(self.all_src_port_id_to_name)
+        self.all_port_id_to_name.update(self.all_dst_port_id_to_name)
+
+        self.src_port_ids = list(self.all_src_port_id_to_ip.keys())
+        self.dst_port_ids = list(self.all_dst_port_id_to_ip.keys())
+        self.all_port_ids = self.src_port_ids + list(set(self.dst_port_ids) - set(self.src_port_ids))
+
         tprint("Port IDs to IPs:")
         for key in self.all_port_id_to_ip:
             tprint("{} -> {}".format(key, self.all_port_id_to_ip[key]))
@@ -5359,8 +5373,20 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
 
     def runTest(self):
         # get a snapshot of counter values on all ports
-        port_cntrs_bases_map = {sid: sai_thrift_read_port_counters(self.src_client, self.asic_type,
-                                                                   port_list['src'][sid]) for sid in self.all_port_ids}
+        port_cntrs_src_bases_map = {
+            sid: sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][sid])
+            for sid in self.dst_port_ids
+        }
+
+        port_cntrs_dst_bases_map = {
+            sid: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][sid])
+            for sid in self.src_port_ids
+        }
+
+        port_cntrs_bases_map = dict()
+        port_cntrs_bases_map.update(port_cntrs_src_bases_map)
+        port_cntrs_bases_map.update(port_cntrs_dst_bases_map)
+
         try:
             leakout_successes = []
             leakout_fails = []
@@ -5369,12 +5395,14 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
 
             # All-to-all would take a while. Instead, do:
             src_dst_pairs = []
+
             # first-to-all
-            for dst_port_id in self.all_port_ids[1:]:
-                src_dst_pairs.append((self.all_port_ids[0], dst_port_id))
+            first_to_all_pairs = [(self.src_port_ids[0], dst_port_id) for dst_port_id in self.dst_port_ids[1:]]
+
             # all-to-last
-            for src_port_id in self.all_port_ids[:-1]:
-                src_dst_pairs.append((src_port_id, self.all_port_ids[-1]))
+            all_to_last_pairs = [(src_port_id, self.dst_port_ids[-1]) for src_port_id in self.src_port_ids[:-1]]
+            src_dst_pairs = first_to_all_pairs + all_to_last_pairs
+
             tprint("Total traffic src/dst pairings being tested:", len(src_dst_pairs))
             pkt_count = 500
             for src_port_id, dst_port_id in src_dst_pairs:
@@ -5411,15 +5439,15 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
                             tprint("Failed to fill leakout")
                             leakout_fails.append((self.src_port_id, real_dst_port_id, self.dscp, self.pg, ecn_bit))
                     tprint("Sending {} packets".format(pkt_count))
-                    q_cntrs_base = sai_thrift_read_port_counters(self.src_client, self.asic_type,
-                                                                 port_list['dst'][self.dst_port_id])[1]
+                    q_cntrs_base = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
+                                                                 port_list['dst'][real_dst_port_id])[1]
                     send_packet(self, self.src_port_id, self.pkt, pkt_count)
                     self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [real_dst_port_id])
                     time.sleep(1)
-                    q_cntrs = sai_thrift_read_port_counters(self.src_client, self.asic_type,
+                    q_cntrs = sai_thrift_read_port_counters(self.dst_client, self.asic_type,
                                                             port_list['dst'][real_dst_port_id])[1]
                     pkts_enqueued = q_cntrs[QUEUE_3] - q_cntrs_base[QUEUE_3]
-                    tprint("Q count: {}".format(pkts_enqueued))
+                    tprint("PortId {} Q count: {}".format(real_dst_port_id, pkts_enqueued))
                     tprint("")
                     assert pkts_enqueued >= pkt_count
 
@@ -5457,9 +5485,20 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             # Only failing for cases where all packets get dropped, to sanitize other tests.
             tprint("Traffic drops (only fails when drops >= {})".format(pkt_count), header_level=1)
             traffic_dropped = False
-            port_cntrs_map = {port_id: sai_thrift_read_port_counters(self.dst_client, self.asic_type,
-                                                                     port_list['dst'][port_id])
-                              for port_id in self.all_port_ids}
+            port_cntrs_src_map = {
+                port_id: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][port_id])
+                for port_id in self.src_port_ids
+            }
+
+            port_cntrs_dst_map = {
+                port_id: sai_thrift_read_port_counters(self.dst_client, self.asic_type, port_list['dst'][port_id])
+                for port_id in self.dst_port_ids
+            }
+
+            port_cntrs_map = dict()
+            port_cntrs_map.update(port_cntrs_src_map)
+            port_cntrs_map.update(port_cntrs_dst_map)
+
             for port_id in self.all_port_ids:
                 port_cntrs_bases, _ = port_cntrs_bases_map[port_id]
                 port_cntrs, _ = port_cntrs_map[port_id]
@@ -5493,4 +5532,4 @@ class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
             assert passed
 
         finally:
-            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.all_port_id_to_ip.keys())
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.dst_port_ids)
