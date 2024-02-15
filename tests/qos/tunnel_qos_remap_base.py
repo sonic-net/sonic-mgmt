@@ -56,6 +56,37 @@ def build_testing_packet(src_ip, dst_ip, active_tor_mac, standby_tor_mac,
     return pkt, exp_tunnel_pkt
 
 
+def get_queue_watermark(duthost, port, queue, clear_after_read=False):
+    """
+    Return the queue watermark for the given port and queue
+    """
+    # Wait a default interval (60 seconds)
+    time.sleep(60)
+    cmd = "show queue watermark unicast"
+    output = duthost.shell(cmd)['stdout_lines']
+    """
+        Egress shared pool occupancy per unicast queue:
+               Port    UC0    UC1    UC2    UC3    UC4    UC5    UC6    UC7
+        -----------  -----  -----  -----  -----  -----  -----  -----  -----
+          Ethernet0      0      0      0      0      0      0      0      0
+    """
+    port_line = None
+    for line in output:
+        if line.split()[0] == port:
+            port_line = line
+            break
+    assert port_line is not None, "Failed to find queue watermark line in output for port '{}'".format(port)
+    items = port_line.split()
+    index = queue + 1
+    assert index < len(items), "Index {} out of range for line:\n{}".format(index, port_line)
+    wmk_str = items[index]
+    assert wmk_str.isdigit(), "Invalid watermark string '{}' in line:\n{}".format(wmk_str, port_line)
+    wmk = int(items[index])
+    if clear_after_read:
+        duthost.shell("sonic-clear queue watermark unicast")
+    return wmk
+
+
 def get_queue_counter(duthost, port, queue, clear_before_read=False):
     """
     Return the counter for given queue in given port
@@ -75,7 +106,7 @@ def get_queue_counter(duthost, port, queue, clear_before_read=False):
     for line in output:
         fields = line.split()
         if fields[1] == txq:
-            return int(fields[2])
+            return int(fields[2].replace(',', ''))
 
     return 0
 
@@ -313,22 +344,24 @@ def _remove_ssh_tunnel_to_syncd_rpc(duthost):
 
 @pytest.fixture(scope='module')
 def swap_syncd(request, rand_selected_dut, creds):
-    public_docker_reg = request.config.getoption("--public_docker_registry")
-    new_creds = None
-    if public_docker_reg:
-        new_creds = copy.deepcopy(creds)
-        new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
-        new_creds['docker_registry_username'] = ''
-        new_creds['docker_registry_password'] = ''
-    else:
-        new_creds = creds
-    # Swap syncd container
-    docker.swap_syncd(rand_selected_dut, new_creds)
-    _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        public_docker_reg = request.config.getoption("--public_docker_registry")
+        new_creds = None
+        if public_docker_reg:
+            new_creds = copy.deepcopy(creds)
+            new_creds['docker_registry_host'] = new_creds['public_docker_registry_host']
+            new_creds['docker_registry_username'] = ''
+            new_creds['docker_registry_password'] = ''
+        else:
+            new_creds = creds
+        # Swap syncd container
+        docker.swap_syncd(rand_selected_dut, new_creds)
+        _create_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
     yield
-    # Restore syncd container
-    docker.restore_default_syncd(rand_selected_dut, new_creds)
-    _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
+    if request.config.getoption("--qos_swap_syncd"):
+        # Restore syncd container
+        docker.restore_default_syncd(rand_selected_dut, new_creds)
+        _remove_ssh_tunnel_to_syncd_rpc(rand_selected_dut)
 
 
 def _update_docker_service(duthost, docker="", action="", service=""):

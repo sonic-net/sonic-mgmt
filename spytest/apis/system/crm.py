@@ -3,22 +3,38 @@
 import re
 import ast
 import copy
+
 from spytest import st
-from spytest.utils import filter_and_select
+
 from apis.system.rest import config_rest, delete_rest, get_rest
 import apis.system.logging as lapi
+
+from utilities.common import filter_and_select
 import utilities.utils as uapi
 from utilities.common import make_list
+import utilities.common as common_utils
+
+
+try:
+    import apis.yang.codegen.messages.system as umf_sys
+except ImportError:
+    pass
 
 
 # Global values (Any addition, modification and deletion of below list can be done here only.)
 type_list = ['percentage', 'used', 'free']
 mode_list = ['high', 'low']
 g_family_list = ['dnat', 'fdb', 'ipmc', 'ipv4_route', 'ipv4_neighbor', 'ipv4_nexthop', 'ipv6_route', 'ipv6_neighbor', 'ipv6_nexthop',
-               'nexthop_group_member', 'nexthop_group_object', 'acl_table', 'acl_table_stats', 'acl_group', 'acl_group_entry',
-               'acl_group_counter', 'snat', 'all']
+                 'nexthop_group_member', 'nexthop_group_object', 'acl_table', 'acl_table_stats', 'acl_group', 'acl_group_entry',
+                 'acl_group_counter', 'snat', 'all']
 counter_type = {'used': 'usedcount', 'free': 'availablecount'}
 config_error_message = 'Error! Could not get CRM configuration.'
+
+
+def force_cli_type_to_klish(cli_type):
+    cli_type = "klish" if cli_type in uapi.get_supported_ui_type_list() else cli_type
+    return cli_type
+
 
 def crm_get_family_list(dut):
     retval = list(g_family_list)
@@ -26,10 +42,12 @@ def crm_get_family_list(dut):
         exclude = ["dnat", "ipmc", "snat"]
         exclude.extend(['acl_group_entry', 'acl_group_counter'])
         exclude.extend(['acl_table_stats'])
-        for exc in exclude: retval.remove(exc)
+        for exc in exclude:
+            retval.remove(exc)
     return retval
 
-def crm_get_resources_count(dut, family,cli_type=""):
+
+def crm_get_resources_count(dut, family, cli_type="", default=None):
     """
     To get the CRM Resources counter
     Author : Amit Kaushik (amit.kaushik@broadcom.com)
@@ -37,14 +55,15 @@ def crm_get_resources_count(dut, family,cli_type=""):
     :param family:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     family_cmd = family
-    st.log("FAMILY: family={}".format(family))
+    st.debug("FAMILY: family={}".format(family))
     if family == 'acl_table':
         family_cmd = 'acl_group'
     elif family == 'acl_table_stats':
         family_cmd = 'acl_table'
-    st.log("FAMILY: family_cmd={}".format(family_cmd))
-    output = get_crm_resources(dut, family_cmd,cli_type=cli_type)
+    st.debug("FAMILY: family_cmd={}".format(family_cmd))
+    output = get_crm_resources(dut, family_cmd, cli_type=cli_type)
     st.log(output)
     # Handling family change in command and output in verify calls.
     if family == 'fdb':
@@ -65,16 +84,19 @@ def crm_get_resources_count(dut, family,cli_type=""):
         family = 'acl_table'
     entries = filter_and_select(output, None, {"resourcename": family})
     if not entries:
-        st.report_fail("msg", family + ", entry_not_found")
+        if default is None:
+            st.report_fail("msg", family + ", entry_not_found")
+        return default
     max_val = 0
     if family == 'acl_entry':
         for k in range(0, len(entries)):
             if entries[k]['tableid'] > entries[max_val]['tableid']:
                 max_val = k
-    st.log("Max Entries  {}".format(entries[max_val]))
+    st.debug("Max Entries  {}".format(entries[max_val]))
     return (int(entries[max_val][counter_type["used"]]), int(entries[max_val][counter_type["free"]]))
 
-def crm_get_aclgroup_resources_count(dut, family, bindpoint ="None", stage="INGRESS",cli_type=""):
+
+def crm_get_aclgroup_resources_count(dut, family, bindpoint="None", stage="INGRESS", cli_type=""):
     """
     To get the CRM Resources counter
     Author : Amit Kaushik (amit.kaushik@broadcom.com)
@@ -90,13 +112,14 @@ def crm_get_aclgroup_resources_count(dut, family, bindpoint ="None", stage="INGR
     st.log("BindPoint {} Stage {}".format(bindpoint, stage))
 
     # Extract the entry
-    entries = filter_and_select(output, None, {"resourcename": family, "bindpoint": bindpoint, "stage": stage })
+    entries = filter_and_select(output, None, {"resourcename": family, "bindpoint": bindpoint, "stage": stage})
     st.log(entries)
     if not entries:
         st.report_fail("Entry not found")
     return (int(entries[0][counter_type["used"]]), int(entries[0][counter_type["free"]]))
 
-def crm_get_aclgroup_resources_min_allocated(dut, family,cli_type=""):
+
+def crm_get_aclgroup_resources_min_allocated(dut, family, cli_type=""):
     """
     To get the CRM Resources counter
     Author : Amit Kaushik (amit.kaushik@broadcom.com)
@@ -105,7 +128,7 @@ def crm_get_aclgroup_resources_min_allocated(dut, family,cli_type=""):
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     st.log("FAMILY: family={}".format(family))
-    output = get_crm_resources(dut, family,cli_type=cli_type)
+    output = get_crm_resources(dut, family, cli_type=cli_type)
     st.log(output)
 
     # Extract the entry
@@ -121,6 +144,7 @@ def crm_get_aclgroup_resources_min_allocated(dut, family,cli_type=""):
     st.log("Max Entries  {}".format(entries[max_val]))
     return int(entries[max_val][counter_type["used"]])
 
+
 def set_crm_polling_interval(dut, polling_interval, cli_type=""):
     """
     Set CRM polling interval in seconds.
@@ -130,8 +154,13 @@ def set_crm_polling_interval(dut, polling_interval, cli_type=""):
     :param cli_type: click or klish designation:
     :return:
     """
-    cli_type = st.get_ui_type(dut,cli_type=cli_type)
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
     command = ""
+    if cli_type in uapi.get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['config'] = 'yes'
+        kwargs['polling_interval'] = polling_interval
+        return config_crm_properties(dut, **kwargs)
     if cli_type == "click":
         command = "crm config polling interval {}".format(polling_interval)
     elif cli_type == "klish":
@@ -152,7 +181,8 @@ def set_crm_polling_interval(dut, polling_interval, cli_type=""):
             return False
     return True
 
-def set_crm_nopolling_interval(dut,cli_type=""):
+
+def set_crm_nopolling_interval(dut, cli_type=""):
     """
     Set no CRM polling (default).
     :param dut:
@@ -160,6 +190,11 @@ def set_crm_nopolling_interval(dut,cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in uapi.get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['config'] = 'no'
+        kwargs['polling_interval'] = 0
+        return config_crm_properties(dut, **kwargs)
     if cli_type == "click":
         command = "crm config clear"
     elif cli_type == "klish":
@@ -179,6 +214,7 @@ def set_crm_nopolling_interval(dut,cli_type=""):
         return False
     return True
 
+
 def set_crm_nothresholds(dut, cli_type=""):
     """
     Set no thresholds (default).
@@ -192,10 +228,10 @@ def set_crm_nothresholds(dut, cli_type=""):
         command = "crm config clear"
     elif cli_type == "klish":
         command = "no crm thresholds all"
-    elif cli_type in ["rest-patch","rest-put"]:
+    elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['crm_thresholds']
-        if not delete_rest(dut,rest_url=url):
+        if not delete_rest(dut, rest_url=url):
             return False
     else:
         st.error("Unsupported cli type: {}".format(cli_type))
@@ -207,6 +243,7 @@ def set_crm_nothresholds(dut, cli_type=""):
             return False
     return True
 
+
 def get_crm_summary(dut, cli_type=""):
     """
     Get CRM polling interval in seconds.
@@ -216,6 +253,7 @@ def get_crm_summary(dut, cli_type=""):
     :return: List of dictionary polling interface
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     if cli_type == "click":
         command = "crm show summary"
         output = st.show(dut, command, type=cli_type)
@@ -235,6 +273,7 @@ def get_crm_summary(dut, cli_type=""):
         st.error("Unsupported cli type: {}".format(cli_type))
     return output
 
+
 def verify_crm_nopolling_interval(dut, cli_type=""):
     """
     Verify if CRM polling interval is configured
@@ -243,8 +282,9 @@ def verify_crm_nopolling_interval(dut, cli_type=""):
     :return: bool
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    rv = get_crm_summary(dut,cli_type=cli_type)
+    rv = get_crm_summary(dut, cli_type=cli_type)
     return ("Polling Interval" not in rv)
+
 
 def set_crm_thresholds_type(dut, family, type, cli_type=""):
     """
@@ -277,6 +317,12 @@ def set_crm_thresholds_type(dut, family, type, cli_type=""):
         st.error(log)
         return False
     command = ""
+    if cli_type in uapi.get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['config'] = 'yes'
+        kwargs['resource_type'] = family
+        kwargs['type'] = type
+        return config_crm_properties(dut, **kwargs)
     if cli_type == "click":
         command = 'crm config thresholds {} type {}'.format(family.replace('_', ' '), type)
         if family == 'all':
@@ -293,9 +339,9 @@ def set_crm_thresholds_type(dut, family, type, cli_type=""):
         list1 = family.split("_")
         if len(list1) == 3:
             if "acl" in list1:
-                temp = {list1[1]:{list1[2]:k}}
+                temp = {list1[1]: {list1[2]: k}}
             else:
-                temp["{}-{}".format(list1[1], list1[2])] =  k
+                temp["{}-{}".format(list1[1], list1[2])] = k
             config_json["openconfig-system-crm:threshold"][list1[0]] = temp
         elif len(list1) == 2:
             temp[list1[0]] = {list1[1]: k}
@@ -316,7 +362,8 @@ def set_crm_thresholds_type(dut, family, type, cli_type=""):
             return False
     return True
 
-def set_crm_thresholds_value(dut, family, mode, value, cli_type=""):
+
+def set_crm_thresholds_value(dut, family, mode, value, cli_type="", skip_error_check=False):
     """
     Configuring CRM Threshold values.
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -342,6 +389,12 @@ def set_crm_thresholds_value(dut, family, mode, value, cli_type=""):
         st.error(log)
         return False
     command = ""
+    if cli_type in uapi.get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['config'] = 'yes'
+        kwargs['resource_type'] = family
+        kwargs[mode] = value
+        return config_crm_properties(dut, **kwargs)
     if cli_type == "click":
         command = 'crm config thresholds {} {} {}'.format(family.replace('_', ' '), mode, value)
         if family == 'all':
@@ -375,11 +428,12 @@ def set_crm_thresholds_value(dut, family, mode, value, cli_type=""):
         st.error("Unsupported cli type: {}".format(cli_type))
         return False
     if command:
-        rv = st.config(dut, command, type=cli_type)
+        rv = st.config(dut, command, type=cli_type, skip_error_check=skip_error_check)
         if 'Error' in rv:
             st.error("{}".format(rv))
             return False
     return True
+
 
 def get_crm_thresholds(dut, family, cli_type=""):
     """
@@ -391,6 +445,7 @@ def get_crm_thresholds(dut, family, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     family = family.lower()
     # Handling few show crm family cli commands
     if family in ['acl_group_entry', 'acl_group_counter', 'acl_table_stats']:
@@ -408,11 +463,11 @@ def get_crm_thresholds(dut, family, cli_type=""):
     elif cli_type == "klish":
         command = 'show crm thresholds {}'.format(family.replace('_', ' '))
         output = st.show(dut, command, type=cli_type)
-    elif cli_type in ["rest-patch","rest-put"]:
+    elif cli_type in ["rest-patch", "rest-put"]:
         output = list()
         rest_urls = st.get_datastore(dut, "rest_urls")
         url = rest_urls['crm_thresholds']
-        result = get_rest(dut,rest_url=url)["output"]["openconfig-system-crm:threshold"]
+        result = get_rest(dut, rest_url=url)["output"]["openconfig-system-crm:threshold"]
         family_mapping = {"nexthop_group_member": "nexthop_group-member",
                           "nexthop_group_object": "nexthop_group-object"}
         families = make_list(family)
@@ -425,7 +480,7 @@ def get_crm_thresholds(dut, family, cli_type=""):
             family2 = family_mapping.get(family2, family2).split("_")
             for each in family2:
                 result = result[each]
-            if result["state"].get("type",""):
+            if result["state"].get("type", ""):
                 crm_threshold["thresholdtype"] = result["state"]["type"].lower()
                 crm_threshold["highthreshold"] = result["state"]["high"]
                 crm_threshold["lowthreshold"] = result["state"]["low"]
@@ -434,6 +489,7 @@ def get_crm_thresholds(dut, family, cli_type=""):
         st.error("Unsupported cli type: {}".format(cli_type))
         return False
     return output
+
 
 def get_crm_resources(dut, family, cli_type=""):
     """
@@ -445,6 +501,7 @@ def get_crm_resources(dut, family, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
     family = family.lower()
     family_list = crm_get_family_list(dut)
     if family not in family_list:
@@ -462,33 +519,34 @@ def get_crm_resources(dut, family, cli_type=""):
     elif cli_type == "klish":
         command = 'show crm resources {}'.format(family.replace('_', ' '))
         output = st.show(dut, command, type=cli_type)
-    elif cli_type in ["rest-patch","rest-put"]:
+    elif cli_type in ["rest-patch", "rest-put"]:
         output = list()
         rest_urls = st.get_datastore(dut, "rest_urls")
         if family == "all":
-            family = ['dnat', 'fdb', 'ipmc', 'ipv4_route','ipv4_neighbor','ipv4_nexthop','ipv6_route','ipv6_neighbor',
-                      'ipv6_nexthop', 'nexthop_group_member', 'nexthop_group_object', 'acl_table','acl_group']
+            family = ['dnat', 'fdb', 'ipmc', 'ipv4_route', 'ipv4_neighbor', 'ipv4_nexthop', 'ipv6_route', 'ipv6_neighbor',
+                      'ipv6_nexthop', 'nexthop_group_member', 'nexthop_group_object', 'acl_table', 'acl_group']
             for each_family in family:
-                output.append(get_crm_resources(dut,each_family))
+                output.append(get_crm_resources(dut, each_family))
         elif "acl" not in family:
             resource = dict()
             url = rest_urls['crm_resources'].format("statistics")
-            result = get_rest(dut, rest_url=url)["output"]["openconfig-system-crm:statistics"]
+            result = get_rest(dut, rest_url=url)["output"]["openconfig-system-crm:statistics"]['state']
             if "_" not in family:
                 resource["resourcename"] = "{}_entry".format(family)
                 resource["usedcount"] = str(result["{}-entries-used".format(family)])
                 resource["availablecount"] = str(result["{}-entries-available".format(family)])
             else:
-                family = family.replace("_object","")
+                family = family.replace("_object", "")
                 resource["resourcename"] = "{}".format(family)
-                resource["usedcount"] = str(result["{}s-used".format(family.replace("_","-"))])
-                resource["availablecount"] = str(result["{}s-available".format(family.replace("_","-"))])
+                resource["usedcount"] = str(result["{}s-used".format(family.replace("_", "-"))])
+                resource["availablecount"] = str(result["{}s-available".format(family.replace("_", "-"))])
             output.append(resource)
         else:
             if family == "acl_table":
                 url = rest_urls['crm_resources'].format("acl-table-statistics")
                 result = get_rest(dut, rest_url=url)["output"]["openconfig-system-crm:acl-table-statistics"]
                 for each in result["acl-table-statistics-list"]:
+                    each = each['state']
                     temp = {}
                     temp["tableid"] = each["id"]
                     temp["resourcename"] = "acl_counter"
@@ -502,24 +560,25 @@ def get_crm_resources(dut, family, cli_type=""):
             else:
                 url = rest_urls['crm_resources'].format("acl-statistics")
                 result = get_rest(dut, rest_url=url)["output"]["openconfig-system-crm:acl-statistics"]
-                for stage,stage_val in result.items():
+                for stage, stage_val in result.items():
                     resource = {}
                     resource["state"] = stage.upper()
                     for bindpoint, bindpoint_value in stage_val.items():
                         resource["bindpoint"] = bindpoint.upper()
-                        families = ["acl_group","acl_table"]
+                        families = ["acl_group", "acl_table"]
                         for each in families:
                             resource["resourcename"] = each
-                            acl = each.replace("acl_","")+"s"
-                            resource["availablecount"] = int(bindpoint_value["{}-available".format(acl)])
-                            resource["usedcount"] = int(bindpoint_value["{}-used".format(acl)])
+                            acl = each.replace("acl_", "") + "s"
+                            resource["availablecount"] = int(bindpoint_value['state']["{}-available".format(acl)])
+                            resource["usedcount"] = int(bindpoint_value['state']["{}-used".format(acl)])
                             output.append(copy.copy(resource))
     else:
         st.error("Unsupported cli type: {}".format(cli_type))
         return False
     return output
 
-def verify_crm_summary(dut, pollinginterval=None, cli_type=""):
+
+def verify_crm_summary(dut, pollinginterval=None, cli_type="", **kwargs):
     """
     To Verify the CRM parameters
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -529,6 +588,19 @@ def verify_crm_summary(dut, pollinginterval=None, cli_type=""):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in uapi.get_supported_ui_type_list():
+        crm_obj = umf_sys.System()
+        if pollinginterval:
+            setattr(crm_obj, 'PollingInterval', int(pollinginterval))
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = common_utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+
+        result = crm_obj.verify(dut, match_subset=True, target_path='/crm', query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Match Not Found: {}'.format(pollinginterval))
+            return False
+        return True
+
     output = get_crm_summary(dut, cli_type)
     entries = filter_and_select(output, None, {"pollinginterval": str(pollinginterval)})
     if not entries:
@@ -536,7 +608,8 @@ def verify_crm_summary(dut, pollinginterval=None, cli_type=""):
         return False
     return True
 
-def verify_crm_thresholds(dut, family, thresholdtype=None, highthreshold=None, lowthreshold=None, cli_type=""):
+
+def verify_crm_thresholds(dut, family, thresholdtype=None, highthreshold=None, lowthreshold=None, cli_type="", **kwargs):
     """
     To verify the CRM Threshold parameters
     Author : Prudvi Mangadu (prudvi.mangadu@broadcom.com)
@@ -555,6 +628,35 @@ def verify_crm_thresholds(dut, family, thresholdtype=None, highthreshold=None, l
         return True
 
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+
+    if cli_type in uapi.get_supported_ui_type_list():
+        n_kwargs = dict()
+        n_kwargs['resource_type'] = family
+        n_kwargs['config'] = 'verify'
+        if thresholdtype:
+            n_kwargs['type'] = thresholdtype
+        if lowthreshold:
+            n_kwargs['low'] = lowthreshold
+        if highthreshold:
+            n_kwargs['high'] = highthreshold
+        crm_obj = config_crm_properties(dut, **n_kwargs)
+
+        filter_type = kwargs.get('filter_type', 'ALL')
+        query_param_obj = common_utils.get_query_params(yang_data_type=filter_type, cli_type=cli_type)
+
+        temp_family = family
+        if family == 'acl_group_counter':
+            temp_family = 'acl_group/counter'
+        if family == 'acl_group_entry':
+            temp_family = 'acl_group/entry'
+        target_path = '/crm/threshold/' + temp_family.split('_')[0] + '/' + '-'.join(temp_family.split('_')[1:])
+
+        result = crm_obj.verify(dut, match_subset=True, target_path=target_path, query_param=query_param_obj, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: Match Not Found: {}'.format(family))
+            return False
+        return True
+
     output = get_crm_thresholds(dut, family, cli_type)
     # Handling few crm family cli commands for verify
     if cli_type in ['click', 'klish']:
@@ -586,6 +688,7 @@ def verify_crm_thresholds(dut, family, thresholdtype=None, highthreshold=None, l
         st.error("Configured and Provided highthreshold is not match.")
         return False
     return True
+
 
 def verify_crm_resources(dut, family, availablecount=None, usedcount=None, tableid=None, bindpoint=None, stage=None, cli_type=""):
     """
@@ -652,6 +755,7 @@ def verify_crm_resources(dut, family, availablecount=None, usedcount=None, table
         return False
     return True
 
+
 def verify_crm_clear_config(dut, clear_type='all'):
     """
     API to check cleared CRM configuration.
@@ -662,13 +766,14 @@ def verify_crm_clear_config(dut, clear_type='all'):
     """
 
     cmd = "redis-dump -d 4 -k 'CRM|Config' -y"
-    cfg = st.show(dut, cmd, skip_tmpl = True, skip_error_check = True)
+    cfg = st.show(dut, cmd, skip_tmpl=True, skip_error_check=True)
     if clear_type == 'threshold':
         return ("_threshold" not in cfg)
     elif clear_type == 'all':
         return ("_threshold" not in cfg) and ("polling" not in cfg)
 
     return False
+
 
 def get_crm_logging_details(dut, severity=None, filter_list=None, lines=None):
     """
@@ -706,6 +811,7 @@ def get_crm_logging_details(dut, severity=None, filter_list=None, lines=None):
     temp['free'] = ast.literal_eval(out[0][5])
     return temp
 
+
 def threshold_polling(dut, severity=None, filter_list=None, lines=None, iteration=10, delay=1):
     """
     API to poll the threshold
@@ -718,9 +824,9 @@ def threshold_polling(dut, severity=None, filter_list=None, lines=None, iteratio
     :param delay:
     :return:
     """
-    i=1
+    i = 1
     while True:
-        out =  get_crm_logging_details(dut, severity, filter_list, lines)
+        out = get_crm_logging_details(dut, severity, filter_list, lines)
         if out:
             st.log("Threshold message found in {} iteration".format(i))
             return out
@@ -729,6 +835,7 @@ def threshold_polling(dut, severity=None, filter_list=None, lines=None, iteratio
             return False
         i += 1
         st.wait(delay)
+
 
 def set_crm_clear_config(dut, cli_type=""):
     """
@@ -739,6 +846,12 @@ def set_crm_clear_config(dut, cli_type=""):
     :return: Command output
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    if cli_type in uapi.get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['clear_all'] = 'yes'
+        kwargs['resource_type'] = 'all'
+        return config_crm_properties(dut, **kwargs)
+
     if cli_type == "click":
         command = "crm config clear"
         if not st.is_feature_supported("crm-config-clear-command", dut):
@@ -757,3 +870,88 @@ def set_crm_clear_config(dut, cli_type=""):
         return False
     return st.config(dut, command, type=cli_type)
 
+
+def config_crm_properties(dut, **kwargs):
+    st.log('config_crm_properties kwargs: {}'.format(kwargs))
+    cli_type = st.get_ui_type(dut, **kwargs)
+    config = kwargs.get('config', 'yes')
+
+    if cli_type in uapi.get_supported_ui_type_list():
+        crm_obj = umf_sys.System()
+        if 'polling_interval' in kwargs:
+            setattr(crm_obj, 'PollingInterval', int(kwargs['polling_interval']))
+# ['dnat', 'fdb', 'ipmc', 'ipv4_route', 'ipv4_neighbor', 'ipv4_nexthop', 'ipv6_route', 'ipv6_neighbor', 'ipv6_nexthop', 'nexthop_group_member', 'nexthop_group_object', 'acl_table', 'acl_table_stats', 'acl_group', 'acl_group_entry', 'acl_group_counter', 'snat', 'all']
+
+        crm_type_list = {
+            'acl_table': ['TableType', 'TableHigh', 'TableLow'],
+            'acl_group': ['GroupType', 'GroupHigh', 'GroupLow'],
+            'acl_group_counter': ['CounterType', 'CounterHigh', 'CounterLow'],
+            'acl_group_entry': ['EntryType', 'EntryHigh', 'EntryLow'],
+            'ipv4_neighbor': ['Ipv4Type', 'Ipv4High', 'Ipv4Low'],
+            'ipv6_neighbor': ['Ipv6Type', 'Ipv6High', 'Ipv6Low'],
+            'ipv4_nexthop': ['Ipv4NexthopType', 'Ipv4NexthopHigh', 'Ipv4NexthopLow'],
+            'ipv6_nexthop': ['Ipv6NexthopType', 'Ipv6NexthopHigh', 'Ipv6NexthopLow'],
+            'ipv4_route': ['Ipv4RouteType', 'Ipv4RouteHigh', 'Ipv4RouteLow'],
+            'ipv6_route': ['Ipv6RouteType', 'Ipv6RouteHigh', 'Ipv6RouteLow'],
+            'ipmc': ['IpmcType', 'IpmcHigh', 'IpmcLow'],
+            'fdb': ['FdbType', 'FdbHigh', 'FdbLow'],
+            'snat': ['SnatType', 'SnatHigh', 'SnatLow'],
+            'dnat': ['DnatType', 'DnatHigh', 'DnatLow'],
+            'nexthop_group_member': ['GroupMemberType', 'GroupMemberHigh', 'GroupMemberLow'],
+            'nexthop_group_object': ['GroupObjectType', 'GroupObjectHigh', 'GroupObjectLow'],
+
+        }
+
+        if config in ['yes', 'verify']:
+            target_attr_list = list()
+            for crm_type in crm_type_list.keys():
+                if 'resource_type' in kwargs and (kwargs['resource_type'] == 'all' or kwargs['resource_type'] == crm_type):
+                    if 'type' in kwargs:
+                        setattr(crm_obj, crm_type_list[crm_type][0], kwargs['type'].upper())
+                    if 'high' in kwargs:
+                        setattr(crm_obj, crm_type_list[crm_type][1], int(kwargs['high']))
+                    if 'low' in kwargs:
+                        setattr(crm_obj, crm_type_list[crm_type][2], int(kwargs['low']))
+                    if 'clear_all' in kwargs:
+                        target_attr_list.append(getattr(crm_obj, crm_type_list[crm_type][0]))
+                        target_attr_list.append(getattr(crm_obj, crm_type_list[crm_type][1]))
+                        target_attr_list.append(getattr(crm_obj, crm_type_list[crm_type][2]))
+
+        if config == 'verify':
+            return crm_obj
+
+        if config == 'yes' and 'clear_all' not in kwargs:
+            result = crm_obj.configure(dut, cli_type=cli_type)
+        else:
+            if 'polling_interval' in kwargs:
+                result = crm_obj.unConfigure(dut, target_attr=crm_obj.PollingInterval, cli_type=cli_type)
+        if 'clear_all' in kwargs:
+            result = crm_obj.unConfigure(dut, target_attr=target_attr_list, cli_type=cli_type)
+
+        if not result.ok():
+            st.log('test_step_failed: Config CRM Properties {}'.format(result.message))
+            return False
+
+        return True
+
+
+def get_crm_resources_as_dict(dut, **kwargs):
+
+    # cli_type = st.get_ui_type(dut, **kwargs)
+    crm_all_op = get_crm_resources(dut, family='all', **kwargs)
+    crm_acl_group_op = get_crm_resources(dut, family='acl_group', **kwargs)
+
+    new_crm_op = dict()
+    for entry in crm_all_op:
+        new_index = entry['resourcename'] + '_used'
+        new_crm_op[new_index] = entry['usedcount']
+        new_index = entry['resourcename'] + '_avail'
+        new_crm_op[new_index] = entry['availablecount']
+
+    for entry in crm_acl_group_op:
+        new_index = entry['stage'].lower() + '_' + entry['bindpoint'].lower() + '_' + entry['resourcename'] + '_used'
+        new_crm_op[new_index] = entry['usedcount']
+        new_index = entry['stage'].lower() + '_' + entry['bindpoint'].lower() + '_' + entry['resourcename'] + '_avail'
+        new_crm_op[new_index] = entry['availablecount']
+
+    return new_crm_op

@@ -12,6 +12,8 @@ in .csv format etc.
 
 from enum import Enum
 import ipaddr
+import json
+import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
@@ -45,7 +47,7 @@ def ansible_stdout_to_str(ansible_stdout):
     """
     result = ""
     for x in ansible_stdout:
-        result += x.encode('UTF8')
+        result += x
     return result
 
 
@@ -821,6 +823,56 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     return int(pause_frame_count.replace(',', ''))
 
 
+def get_port_stats(duthost, port, stat):
+    """
+    Get the port stats for a given port from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+        stat (str): stat name
+    Returns:
+        int: port stats
+    """
+    raw_out = duthost.shell("portstat -ji {}".format(port))['stdout']
+    raw_out_stripped = re.sub(r'^.*?\n', '', raw_out, count=1)
+    raw_json = json.loads(raw_out_stripped)
+    port_stats = raw_json[port].get(stat)
+
+    return int(port_stats.replace(',', '')) if port_stats else -1
+
+
+def get_tx_frame_count(duthost, port):
+    """
+    Get the Tx_OK and Tx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        tx_frame_count (int): Tx frame count
+        tx_drop_frame_count (int): Tx drop frame count
+    """
+    tx_ok_frame_count = get_port_stats(duthost, port, "TX_OK")
+    tx_drp_frame_count = get_port_stats(duthost, port, "TX_DRP")
+
+    return tx_ok_frame_count, tx_drp_frame_count
+
+
+def get_rx_frame_count(duthost, port):
+    """
+    Get the Rx_OK and Rx_DRP frame count for a given port ex. Ethernet4 from SONiC CLI
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name ex. Ethernet4
+    Returns:
+        rx_frame_count (int): Rx frame count
+        rx_frame_drop_count (int): Rx drop frame count
+    """
+    rx_ok_frame_count = get_port_stats(duthost, port, "RX_OK")
+    rx_drp_frame_count = get_port_stats(duthost, port, "RX_DRP")
+
+    return rx_ok_frame_count, rx_drp_frame_count
+
+
 def get_egress_queue_count(duthost, port, priority):
     """
     Get the egress queue count in packets and bytes for a given port and priority from SONiC CLI.
@@ -833,8 +885,8 @@ def get_egress_queue_count(duthost, port, priority):
         tuple (int, int): total count of packets and bytes in the queue
     """
     raw_out = duthost.shell("show queue counters {} | sed -n '/UC{}/p'".format(port, priority))['stdout']
-    total_pkts = raw_out.split()[2]
-    total_bytes = raw_out.split()[3]
+    total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
+    total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 
@@ -850,7 +902,25 @@ class packet_capture(Enum):
     IP_CAPTURE = "IP_Capture"
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None):
+class traffic_flow_mode(Enum):
+    """
+    ENUM of traffic flow mode settings
+    CONTINUOUS - -100
+        - continuous flow of traffic with no pauses at some specific rate
+    BURST - -99
+        - burst of traffic with breaks in flow for a certain duration at some specific rate
+    FIXED_PACKETS - -98
+        - sending a specific number of packets at some specific rate
+    FIXED_DURATION - -97
+        - sending traffic for a specific duration at some specific rate
+    """
+    CONTINUOUS = -100
+    BURST = -99
+    FIXED_PACKETS = -98
+    FIXED_DURATION = -97
+
+
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -859,7 +929,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
-
+        format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
     """
@@ -868,12 +938,23 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
     cap.port_names = []
     for p_name in port_names:
         cap.port_names.append(p_name)
-    cap.format = cap.PCAP
+    if format == "pcapng" or format == "pcap":
+        cap.format = format
+    else:
+        raise Exception("Unsupported capture format")
 
-    if capture_type == packet_capture.IP_CAPTURE:
-        # Capture IP packets
-        ip_filter = cap.filters.custom()[-1]
-        # Version for IPv4 packets is "4" which has to be in the upper 4 bits of the first byte, hence filter is 0x40
-        ip_filter.value = '40'
-        ip_filter.offset = 14  # Offset is the length of the Ethernet header
-        ip_filter.mask = '0f'  # Mask is 0x0f to only match the upper 4 bits of the first byte which is the version
+
+def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
+    """
+    Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
+    factor.
+    Args:
+        port_speed (int): port speed in gbps ex. 100
+        oversubscription_ratio (int): factor by which to block the port (default: 2)
+    Returns:
+        pps: pause frames to be sent per second to block port by block_factor
+    """
+    pause_dur = 65535 * 64 * 8.0 / (port_speed * 1e9)
+    pps = int(oversubscription_ratio / pause_dur)
+
+    return pps

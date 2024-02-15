@@ -5,10 +5,13 @@ from ipaddress import ip_interface
 from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC,\
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC,\
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP
+    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE
 from dash_utils import render_template_to_host, apply_swssconfig_file
+from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 
 logger = logging.getLogger(__name__)
+
+ENABLE_GNMI_API = True
 
 
 def pytest_addoption(parser):
@@ -34,6 +37,12 @@ def pytest_addoption(parser):
         help="Skip config cleanup after test"
     )
 
+    parser.addoption(
+        "--skip_dataplane_checking",
+        action="store_true",
+        help="Skip dataplane checking"
+    )
+
 
 @pytest.fixture(scope="module")
 def config_only(request):
@@ -48,6 +57,11 @@ def skip_config(request):
 @pytest.fixture(scope="module")
 def skip_cleanup(request):
     return request.config.getoption("--skip_cleanup")
+
+
+@pytest.fixture(scope="module")
+def skip_dataplane_checking(request):
+    return request.config.getoption("--skip_dataplane_checking")
 
 
 @pytest.fixture(scope="module")
@@ -81,8 +95,6 @@ def get_intf_from_ip(local_ip, config_facts):
 
 @pytest.fixture(params=["no-underlay-route", "with-underlay-route"])
 def use_underlay_route(request):
-    if request.param == "with-underlay-route":
-        pytest.skip("Underlay route not supported yet")
     return request.param == "with-underlay-route"
 
 
@@ -100,6 +112,8 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
         REMOTE_ENI_MAC: "F9:22:83:99:22:A2",
         LOCAL_ENI_MAC: "F4:93:9F:EF:C4:7E",
         REMOTE_CA_PREFIX: "20.2.2.0/24",
+        ACL_GROUP: "group1",
+        ACL_STAGE: 5
     }
     loopback_intf_ip = ip_interface(list(list(config_facts["LOOPBACK_INTERFACE"].values())[0].keys())[0])
     dash_info[LOOPBACK_IP] = str(loopback_intf_ip.ip)
@@ -126,7 +140,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, skip_config, skip_cleanup):
+def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -140,7 +154,10 @@ def apply_config(duthost, skip_config, skip_cleanup):
         template_name = "{}.j2".format(config)
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
-        apply_swssconfig_file(duthost, dest_path)
+        if ENABLE_GNMI_API:
+            apply_gnmi_file(duthost, ptfhost, dest_path)
+        else:
+            apply_swssconfig_file(duthost, dest_path)
 
     yield _apply_config
 
@@ -202,3 +219,25 @@ def apply_direct_configs(dash_outbound_configs, apply_config):
     del dash_outbound_configs[VNET2_NAME]
 
     apply_config(dash_outbound_configs)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+    if not ENABLE_GNMI_API:
+        yield
+        return
+
+    duthost = duthosts[rand_one_dut_hostname]
+    generate_gnmi_cert(localhost, duthost)
+    apply_gnmi_cert(duthost, ptfhost)
+    yield
+    recover_gnmi_cert(localhost, duthost)
+
+
+@pytest.fixture(scope="function")
+def asic_db_checker(duthost):
+    def _check_asic_db(tables):
+        for table in tables:
+            output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
+            assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
+    yield _check_asic_db

@@ -125,7 +125,7 @@ def is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions):
     if 'paths' in output.keys():
         for path in output['paths']:
             if 'advertisedTo' in path:
-                peer_info = path['advertisedTo'].keys()
+                peer_info = list(path['advertisedTo'].keys())
                 for item in ibgp_sessions:
                     peer_info.remove(item) if item in peer_info else None
                 if len(peer_info) > 0:
@@ -347,7 +347,7 @@ def get_target_routes(duthost):
         "vtysh -c \'show bgp ipv6 neighbors {} received-routes json\'".format(v6_peer))['stdout'])
 
     target_v6_routes = [route for route in bgp_v6_routes['receivedRoutes'].keys() if '/128' not in route]
-    return bgp_v4_routes['receivedRoutes'].keys(), target_v6_routes
+    return list(bgp_v4_routes['receivedRoutes'].keys()), target_v6_routes
 
 
 @pytest.fixture(scope="module", params=['no-export', None])

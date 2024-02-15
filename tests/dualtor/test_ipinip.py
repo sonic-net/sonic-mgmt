@@ -114,6 +114,7 @@ def test_decap_active_tor(
 
     if is_t0_mocked_dualtor(tbinfo):        # noqa F405
         request.getfixturevalue('apply_active_state_to_orchagent')
+        time.sleep(30)
     else:
         request.getfixturevalue('toggle_all_simulator_ports_to_rand_selected_tor')
 
@@ -126,7 +127,6 @@ def test_decap_active_tor(
 
     ptf_t1_intf = random.choice(get_t1_ptf_ports(tor, tbinfo))
     logging.info("send encapsulated packet from ptf t1 interface %s", ptf_t1_intf)
-    time.sleep(10)
     with stop_garp(ptfhost):
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, int(ptf_t1_intf.strip("eth")), encapsulated_packet)
@@ -248,7 +248,9 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     The mirror session is to trigger the issue. No packet is mirrored actually.
     """
     session_name = "dummy_session"
-    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 1234 0".format(session_name)
+    # Nvidia platforms support only the gre_type 0x8949, which is 35145 in decimal.
+    gre_type = 35145 if "mellanox" == rand_selected_dut.facts['asic_type'] else 1234
+    cmd = "config mirror_session add {} 25.192.243.243 20.2.214.125 8 100 {} 0".format(session_name, gre_type)
     rand_selected_dut.shell(cmd=cmd)
     uplink_port_id = setup_uplink
     yield uplink_port_id
