@@ -724,7 +724,7 @@ def verify_m2o_results(duthost,
     """
 
     sum_rx = 1
-    for flow_type,criteria in flag1.items():
+    for flow_type, criteria in flag.items():
         for row in rows:
             tx_frames = row.frames_tx
             rx_frames = row.frames_rx
@@ -732,19 +732,19 @@ def verify_m2o_results(duthost,
                 if criteria == 'no_loss':
                     logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
                     pytest_assert(tx_frames == rx_frames,
-                                '{} should not have any dropped packet'.format(row.name))
+                                  '{} should not have any dropped packet'.format(row.name))
                     pytest_assert(row.loss == 0,
-                                '{} should not have traffic loss'.format(row.name))
+                                  '{} should not have traffic loss'.format(row.name))
                     sum_rx += int(row.frames_rx)
                 elif criteria == 'loss':
                     logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
                     pytest_assert(tx_frames != rx_frames,
-                                '{} should have dropped packet'.format(row.name))
+                                  '{} should have dropped packet'.format(row.name))
                     pytest_assert(row.loss > 0,
-                                '{} should have traffic loss'.format(row.name))
+                                  '{} should have traffic loss'.format(row.name))
                     sum_rx += int(row.frames_rx)
                 else:
-                    pytest_assert(False,"Wrong criteria given in flag")
+                    pytest_assert(False, "Wrong criteria given in flag")
 
     tx_frames, tx_drop_frames = get_tx_frame_count(duthost, rx_port['peer_port'])
     pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
