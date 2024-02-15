@@ -288,9 +288,11 @@ def run_pfc_test(api,
         # Verify TX frame count on the DUT when traffic is expected to be paused
         # and only test traffic flows are generated
         verify_tx_frame_count_dut(duthost=duthost,
+                                  api=api,
                                   snappi_extra_params=snappi_extra_params)
 
         # Verify TX frame count on the DUT when traffic is expected to be paused
         # and only test traffic flows are generated
         verify_rx_frame_count_dut(duthost=duthost,
+                                  api=api,
                                   snappi_extra_params=snappi_extra_params)
