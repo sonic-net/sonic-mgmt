@@ -1,8 +1,5 @@
 # Dynamic ACL Update via GCU Test Plan
 
-**Table of Contents**
-
-
 ## Overview
 
 This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules.
@@ -17,33 +14,165 @@ No setup pre-configuration is required, the test will configure and return the t
 
 ## Testing Plan
 
-To test the capability of GCU to dynamically update ACLs, we will:
+To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in [JSON Patch Files and Expected Results](json-patch-files-and-expected-results).
 
-- Create a new ACL table type
+### Test Case # 1 - Create and apply custom ACL table without rules
 
-- Create an ACL table from this ACL table type
+#### Test Objective
 
-- Create a duplicate ACL table
+Verify that we can utilize GCU to create a custom ACL Table Type, and then create an ACL Table from this type
 
-- Create various forwarding rules
+#### Testing Steps
 
-- Create a drop rule
+- Create a new ACL Table Type
 
-- Remove the drop rule
+- Create an ACL Table utilizing this ACL Table Type
 
-- Confirm that updating a non-existent rule causes an error
+- Verify that both operations were successful
 
-- Update a rules content
+- Verify that output of "show acl table {tablename}" matches expected output
 
-- Remove all rules
+### Test Case # 2 - Create a drop rule within custom table
 
-- Confirm that removing a non-existent ACL table causes an error
+#### Test Objective
 
-- Remove ACL table
+Verify that we can create a single drop rule utilizing GCU
 
-- Remove ACL table type
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Create a new drop rule on our new ACL Table
+
+- Verify that all operations were successful
+
+- Verify that output of "show acl rule | grep {rule_name}" matches expected output
+
+### Test Case # 3 - Create 2 forward rules witihin custom ACL table
+
+#### Test Objective
+
+Verify that we can create a forward rule utilizing GCU, and that we can create forward rules for both ipv4 and ipv6
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Create 2 new forwarding rules on our new ACL Table
+
+- Verify that all operations were successful
+
+- Verify that for both rules created, "show acl rule | grep {rulename}" matches expected output for both rules
+
+### Test Case # 4 - Remove a drop rule from the ACL table
+
+#### Test Objective
+
+Verify that we can remove a previously created drop rule from our ACL Table
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Create a drop rule on this ACL Table
+
+- Remove the drop rule from this ACL Table
+
+- Verify that all operations were successful
+
+- Verify that the result of "show acl rule {rule_name}" has no relevant output
+
+### Test Case # 5 - Replace the IP Address on an ACL Rule
+
+#### Test Objective
+
+Verify that after creation, ACL Rules can have their match conditions updated
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Create 2 new forwarding rules on ACL Table
+
+- Replace the IP addresses in both forwarding rules
+
+- Verify that all operations were successful
+
+- Verify that the results of "show acl rule | grep {rule_name}" matches expected output for both rules
+
+### Test Case # 6 - Replace the IP Address of a non-existent ACL Rule
+
+#### Test Objective
+
+Verify that attempting to replace the address of a rule that does not exist properly results in an error and does not affect configDB
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Create 2 new forwarding rules on ACL Table
+
+- Replace the IP addresses in non-existent forwarding rules
+
+- Verify that the replace action failed
+
+### Test Case # 7 - Remove non-existent ACL Table
+
+#### Test Objective
+
+Verify that attempting to remove an ACL Table that does not exist properly results in an error and does not affect configDB
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Attempt to remove a table that does not exist
+
+- Verify that this removal fails
+
+### Test Case # 8 - Remove ACL Table
+
+#### Test Objective
+
+Verify that it is possible to remove a custom ACL Table after creating it via GCU
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Create an ACL Table utilizing this ACL Table Type
+
+- Remove this ACL Table Type
+
+- Verify all operations were successful
+
+### Test Case # 9 - Remove ACL Table Type
+
+#### Test Objective
+
+Verify that it is possible to remove a custom ACL Table Type after creating it
+
+#### Testing Steps
+
+- Create a new ACL Table Type
+
+- Remove this ACL Table Type
 
 ## JSON Patch Files and Expected Results
+
+This section contains explicit details on the contents of each JSON Patch file used within the test, as well as the exact way that these operations are  checked for success
 
 ### Create a new ACL table type
 **JSON Patch:**
