@@ -1,0 +1,13 @@
+#
+{% block mgmt_interface %}
+# The management network interface
+auto eth0
+iface eth0 inet static
+    address {{ addr }}
+    netmask {{ mask }}
+    ################ management network policy routing rules
+    #### management port up rules"
+    up ip route add default via {{ gwaddr }} dev eth0 table default
+    up ip rule add from {{ addr }}/32 table default
+{% endblock mgmt_interface %}
+#

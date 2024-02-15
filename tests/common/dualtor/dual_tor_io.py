@@ -446,7 +446,8 @@ class DualTorIO:
                                  ip_src=packet[scapyall.IP].src,
                                  ip_dst=packet[scapyall.IP].dst,
                                  tp_dst=packet[scapyall.TCP].dport)
-            for tcp_sport in range(tcp_packet[scapyall.TCP].sport, 65535):
+            sport_upper = min(65535, self.tcp_sport + 100)
+            for tcp_sport in range(tcp_packet[scapyall.TCP].sport, sport_upper):
                 trace_res = self.vmhost.shell(trace_command.format(tp_src=tcp_sport))
                 if "output:%s" % vmhost_target_dut_port_no in trace_res["stdout"]:
                     packet[scapyall.TCP].sport = tcp_sport
@@ -584,6 +585,11 @@ class DualTorIO:
 
         self.capture_pcap = '/tmp/capture.pcap'
         self.capture_log = '/tmp/capture.log'
+
+        # Do some cleanup first
+        self.ptfhost.file(path=self.capture_pcap, state="absent")
+        if os.path.exists(self.capture_pcap):
+            os.unlink(self.capture_pcap)
 
         self.setup_ptf_sniffer()
         self.start_ptf_sniffer()
