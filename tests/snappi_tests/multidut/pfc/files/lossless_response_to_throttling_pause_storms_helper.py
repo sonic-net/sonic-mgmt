@@ -12,8 +12,8 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, st
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, sec_to_nanosec                 # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                                    # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.snappi_tests.traffic_generation import run_traffic, \
-     setup_base_traffic_config, verify_m2o_oversubscribtion_results, verify_pause_flow                                      # noqa: F401
+from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
+     setup_base_traffic_config, verify_m2o_oversubscribtion_results                                      # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
                                                 snappi_extra_params=snappi_extra_params)
     flag = {'Background': 'no_loss', 'Test Flow': 'loss'}
 
-    verify_m2o_oversubscription_results(duthost=duthost2,
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
                                         rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
                                         bg_flow_name=BG_FLOW_NAME,
