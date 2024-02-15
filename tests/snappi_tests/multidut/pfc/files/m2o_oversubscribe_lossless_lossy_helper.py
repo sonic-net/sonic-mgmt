@@ -13,7 +13,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
-     setup_base_traffic_config, verify_m2o_results                                      # noqa: F401
+     setup_base_traffic_config, verify_m2o_oversubscribtion_results                      # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +112,13 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                                                 snappi_extra_params=snappi_extra_params)
     flag = {'Rate:20': 'no_loss', 'Test Flow': 'no_loss', 'Background Flow 2 -> 0 Rate:40': 'loss'}
     # Background Flow 2 -> 0 Rate:40
-    verify_m2o_results(duthost=duthost2,
-                       rows=flow_stats,
-                       test_flow_name=TEST_FLOW_NAME,
-                       bg_flow_name=BG_FLOW_NAME,
-                       rx_port=rx_port,
-                       rx_frame_count_deviation=TOLERANCE_THRESHOLD,
-                       flag=flag)
+    verify_m2o_oversubscribtion_results(duthost=duthost2,
+                                        rows=flow_stats,
+                                        test_flow_name=TEST_FLOW_NAME,
+                                        bg_flow_name=BG_FLOW_NAME,
+                                        rx_port=rx_port,
+                                        rx_frame_count_deviation=TOLERANCE_THRESHOLD,
+                                        flag=flag)
 
 
 def __gen_traffic(testbed_config,
