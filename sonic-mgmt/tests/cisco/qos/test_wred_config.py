@@ -2,34 +2,19 @@
 Tests for verifying the configuration on the DUT 
 to match the expected WRED probability configuration
 """
+import json
 import re
 import time
 import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.cisco_data import is_cisco_device
-import json
+from tests.cisco.common.utils import enable_serviceability_cli
+
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
-
-def enable_serviceability_cli(duthost):
-    show_command = "sudo show platform npu voq cgm_profile -i Ethernet0 -t 0"
-    err_msg = "debug shell server for asic 0 is not running"
-    output = duthost.command(show_command)['stdout']
-    if err_msg not in output:
-        return
-    duthost.command("config platform cisco sdk-debug enable")
-    time.sleep(20)
-    output = duthost.command(show_command)['stdout']
-    if err_msg not in output:
-        return
-    time.sleep(300)
-    output = duthost.command(show_command)['stdout']
-    if err_msg in output:
-        pytest.fail(
-            "This test failed since serviceability CLI is not available")
 
 
 def get_asic_type(duthost):

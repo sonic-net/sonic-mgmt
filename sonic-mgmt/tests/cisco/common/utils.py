@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 ROOT_DIR = "/root"
 CISCO_DIR = "cisco"
 
-
 class CheckEnvironment:
     _is_sim = None
 
@@ -80,6 +79,24 @@ def verify_command_result(result, cmd):
     traceback_found = "Traceback" in result["stdout"]
     # Raise an AssertionError if "Traceback" is found
     assert not traceback_found, "Traceback found in {}".format(cmd)
+
+
+def enable_serviceability_cli(duthost):
+    show_command = "sudo show platform npu rx cgm_global -n asic0"
+    err_msg = "debug shell server for asic 0 is not running"
+    output = duthost.command(show_command)['stdout']
+    if err_msg not in output:
+        return
+    duthost.command("config platform cisco sdk-debug enable")
+    time.sleep(20)
+    output = duthost.command(show_command)['stdout']
+    if err_msg not in output:
+        return
+    time.sleep(300)
+    output = duthost.command(show_command)['stdout']
+    if err_msg in output:
+        pytest.fail(
+            "This test failed since serviceability CLI is not available")
 
 
 class IPRoutes:

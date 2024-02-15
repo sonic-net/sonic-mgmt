@@ -988,7 +988,7 @@ class QosSaiBase(QosBase):
             testPortIps.update(dutPortIps)
 
         qosConfigs = {}
-        with open(r"qos/files/qos.yml") as file:
+        with open(r"cisco/qos/files/qos.yml") as file:
             qosConfigs = yaml.load(file, Loader=yaml.FullLoader)
         # Assuming the same chipset for all DUTs so can use src_dut to get asic type
         vendor = src_dut.facts["asic_type"]
@@ -1296,7 +1296,7 @@ class QosSaiBase(QosBase):
 
         yield
 
-    @pytest.fixture(scope='class', autouse=True)
+    @pytest.fixture(scope='class')
     def disablePacketAging(
         self, duthosts, get_src_dst_asic_and_duts, stopServices
     ):
@@ -1410,7 +1410,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def releaseAllPorts(
-        self, duthosts, ptfhost, dutTestParams, updateIptables, ssh_tunnel_to_syncd_rpc
+        self, duthosts, ptfhost, dutTestParams, ssh_tunnel_to_syncd_rpc
     ):
         """
             Release all paused ports prior to running QoS SAI test cases
@@ -1418,7 +1418,6 @@ class QosSaiBase(QosBase):
             Args:
                 ptfhost (AnsibleHost): Packet Test Framework (PTF)
                 dutTestParams (Fixture, dict): DUT host test params
-                updateIptables (Fixture, dict): updateIptables to run prior to releasing paused ports
 
             Returns:
                 None
@@ -1566,7 +1565,7 @@ class QosSaiBase(QosBase):
         yield
         return
 
-    @pytest.fixture(scope='class', autouse=True)
+    @pytest.fixture(scope='class')
     def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             docker0_ipv6_addr = \
@@ -1929,7 +1928,7 @@ class QosSaiBase(QosBase):
 
         return dualtor_ports_set
 
-    @pytest.fixture(scope='function', autouse=True)
+    @pytest.fixture(scope='function')
     def set_static_route(
             self, get_src_dst_asic_and_duts, dutTestParams, dutConfig):
         # Get portchannels.
@@ -2153,3 +2152,13 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_src_dst_different_platform(self, get_src_dst_asic_and_duts):
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dst_asic = get_src_dst_asic_and_duts['dst_asic']
+        if src_asic.sonichost.facts['platform'] != dst_asic.sonichost.facts['platform']:
+            pytest.skip(
+                "This test is skipped since platform of ingress and egress are different.")
+        yield
+        return
