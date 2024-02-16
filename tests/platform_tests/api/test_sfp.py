@@ -393,8 +393,10 @@ class TestSfpApi(PlatformApiTestBase):
                                 self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS + \
                                 ["active_apsel_hostlane{}".format(n) for n in range(1, active_apsel_hostlane_count + 1)]
                             firmware_info_dict = sfp.get_transceiver_info_firmware_versions(platform_api_conn, i)
-                            if self.expect(firmware_info_dict is not None, "Unable to retrieve transceiver {} firmware info".format(i)):
-                                if self.expect(isinstance(firmware_info_dict, dict), "Transceiver {} firmware info appears incorrect".format(i)):
+                            if self.expect(firmware_info_dict is not None,
+                                           "Unable to retrieve transceiver {} firmware info".format(i)):
+                                if self.expect(isinstance(firmware_info_dict, dict),
+                                               "Transceiver {} firmware info appears incorrect".format(i)):
                                     actual_keys.extend(list(firmware_info_dict.keys()))
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
