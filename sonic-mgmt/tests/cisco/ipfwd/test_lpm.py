@@ -24,6 +24,20 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+@pytest.fixture(scope='module', autouse=True)
+def common_setup_teardown(duthost):
+    result = duthost.shell("sudo config platform cisco sdk-debug enable", module_ignore_errors=True)
+    logging.info(result['stdout_lines'])
+    assert "Enabling sdk-debug on all ASICs" in result['stdout'], "debug shell not started"
+    time.sleep(120)
+
+    yield
+
+    result = duthost.shell("sudo config platform cisco sdk-debug disable", module_ignore_errors=True)
+    logging.info(result['stdout_lines'])
+    assert "Disabling sdk-debug on all ASICs" in result['stdout'], "debug shell is not stopped"
+    time.sleep(60)
+
 class LPM:
     """
     Program IP routes with next hops on to the DUT
