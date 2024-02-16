@@ -16,10 +16,12 @@ spine0:
         sudo config interface ip rem Ethernet0 11.11.11.1/24
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet16
+        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
-        router bgp 2363070545
+        router bgp 2363070745
         no bgp ebgp-requires-policy
         no bgp default ipv4-unicast
         bgp disable-ebgp-connected-route-check
@@ -53,7 +55,7 @@ spine0:
         exit-address-family
 
       deconfig: |
-        no router bgp 2363070545
+        no router bgp 2363070745
 
 
 spine1:
@@ -74,10 +76,12 @@ spine1:
         sudo config interface ip rem Ethernet0 11.11.13.1/24
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet16
+        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
-        router bgp 2363070546
+        router bgp 2363070746
         no bgp ebgp-requires-policy
         no bgp default ipv4-unicast
         bgp disable-ebgp-connected-route-check
@@ -111,7 +115,7 @@ spine1:
         exit-address-family
 
       deconfig: |
-        no router bgp 2363070546
+        no router bgp 2363070746
 
 
 leaf0:
@@ -132,6 +136,8 @@ leaf0:
         sudo config vxlan add VXLAN 10.200.200.200
         sudo config vxlan evpn_nvo add NVO VXLAN
         sudo config vxlan map add VXLAN 2 5002
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del VXLAN 2 5002
@@ -144,10 +150,13 @@ leaf0:
         sudo config interface ip rem Ethernet0 11.11.11.2/24
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet32
+        sudo config interface shutdown Ethernet16
+        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
-        router bgp 2363073663
+        router bgp 2363073763
         no bgp ebgp-requires-policy
         no bgp default ipv4-unicast
         bgp disable-ebgp-connected-route-check
@@ -178,7 +187,7 @@ leaf0:
         exit
 
       deconfig: |
-        no router bgp 2363073663
+        no router bgp 2363073763
         exit
 
 
@@ -200,6 +209,8 @@ leaf1:
         sudo config vxlan add VXLAN 10.200.200.201
         sudo config vxlan evpn_nvo add NVO VXLAN
         sudo config vxlan map add VXLAN 2 5002
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del VXLAN 2 5002
@@ -212,10 +223,13 @@ leaf1:
         sudo config interface ip rem Ethernet0 11.11.12.2/24
         sudo config interface ipv6 disable use-link-local-only Ethernet16
         sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet32
+        sudo config interface shutdown Ethernet16
+        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
-        router bgp 2363033449
+        router bgp 2363033749
         no bgp ebgp-requires-policy
         no bgp default ipv4-unicast
         bgp disable-ebgp-connected-route-check
@@ -246,5 +260,5 @@ leaf1:
         exit
 
       deconfig: |
-        no router bgp 2363033449
+        no router bgp 2363033749
         exit
