@@ -365,7 +365,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
-            "hwsku":dutTestParams['hwsku'],
+            "hwsku": dutTestParams['hwsku'],
             "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
         })
 
