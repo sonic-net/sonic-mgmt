@@ -2,6 +2,7 @@ import pytest
 import logging
 import random
 import re
+import os
 
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
@@ -39,6 +40,22 @@ INVALID_IP_ERR = r"Error: .* invalid nameserver ip address"
 UNCONFIGURED_IP_ERR = r"Error: DNS nameserver .* is not configured"
 EXCEED_MAX_ERR = r"Error: The maximum number \(3\) of nameservers exceeded"
 DUPLICATED_IP_ERR = r"Error: .* nameserver is already configured"
+
+MGMT_PORT = "eth0"
+DHCLIENT_PID_FILE = "/tmp/dhclient-dns-test.pid"
+
+
+def start_dhclient(duthost):
+    duthost.shell(f"sudo dhclient -pf {DHCLIENT_PID_FILE} {MGMT_PORT}")
+
+
+@pytest.fixture()
+def stop_dhclient(duthost):
+    yield
+
+    if os.path.exists(DHCLIENT_PID_FILE):
+        duthost.shell(f"sudo kill $(cat {DHCLIENT_PID_FILE})")
+        duthost.shell(f"rm -rf {DHCLIENT_PID_FILE}")
 
 
 @pytest.mark.disable_loganalyzer
@@ -97,13 +114,13 @@ def test_static_dns_basic(request, duthost, localhost, mgmt_interfaces):
             if mgmt_interfaces:
                 verify_nameserver_in_conf_file(duthost, [])
             else:
-                origin_dynamic_nameservers = get_nameserver_from_resolvconf(duthost, file_name=RESOLV_CONF_FILE+".bk")
+                origin_dynamic_nameservers = get_nameserver_from_resolvconf(duthost, file_name=RESOLV_CONF_FILE + ".bk")
                 verify_nameserver_in_conf_file(duthost, origin_dynamic_nameservers)
 
 
 @pytest.mark.usefixtures('static_mgmt_ip_configured')
 class TestStaticMgmtPortIP():
-    def test_dynamic_dns_not_working_when_static_ip_configured(self, duthost):
+    def test_dynamic_dns_not_working_when_static_ip_configured(self, duthost, stop_dhclient):
         """
         Test to verify Dynamic DNS not work when static ip address is configured on the mgmt port
         :param duthost: DUT host object
@@ -120,13 +137,13 @@ class TestStaticMgmtPortIP():
             verify_nameserver_in_conf_file(duthost, [])
 
         with allure.step("Renew dhcp to restore the dns configuration."):
-            duthost.shell("sudo dhclient")
+            start_dhclient(duthost)
             verify_nameserver_in_conf_file(duthost, [])
 
 
 @pytest.mark.usefixtures('static_mgmt_ip_not_configured')
 class TestDynamicMgmtPortIP():
-    def test_static_dns_is_not_changing_when_do_dhcp_renew(self, duthost):
+    def test_static_dns_is_not_changing_when_do_dhcp_renew(self, duthost, stop_dhclient):
         """
         Test case to verify Static DNS will not change when do dhcp renew for the mgmt port
         :param duthost: DUT host object
@@ -143,7 +160,7 @@ class TestDynamicMgmtPortIP():
                 verify_nameserver_in_conf_file(duthost, expected_nameservers)
 
         with allure.step("Renew dhcp to restore the dns configuration."):
-            duthost.shell("sudo dhclient")
+            start_dhclient(duthost)
 
         with allure.step(f"Verify that {RESOLV_CONF_FILE} is not modified"):
             verify_nameserver_in_conf_file(duthost, expected_nameservers)
@@ -153,7 +170,7 @@ class TestDynamicMgmtPortIP():
                 del_dns_nameserver(duthost, nameserver)
 
     @pytest.mark.usefixtures('static_mgmt_ip_not_configured')
-    def test_dynamic_dns_working_when_no_static_ip_and_static_dns(self, duthost):
+    def test_dynamic_dns_working_when_no_static_ip_and_static_dns(self, duthost, stop_dhclient):
         """
         The test is to verify Dynamic DNS work as expected when no static ip configured on mgmt port and
         static DNS is configured.
@@ -182,7 +199,7 @@ class TestDynamicMgmtPortIP():
             config_mgmt_ip(duthost, mgmt_interfaces, "remove")
 
         with allure.step("Renew dhcp to restore the dns configuration."):
-            duthost.shell("sudo dhclient")
+            start_dhclient(duthost)
             verify_nameserver_in_conf_file(duthost, origin_dynamic_nameservers)
 
 
