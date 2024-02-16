@@ -134,7 +134,7 @@ def setup_teardown_l2vni():
 
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
+        for node, config in reversed(config_list.items()):
             config_static(node, 'bgp', add=False)
             st.wait(2)
             config_static(node, 'sonic', add=False)
