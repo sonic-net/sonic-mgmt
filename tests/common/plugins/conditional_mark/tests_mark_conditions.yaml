@@ -116,9 +116,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology"
+    reason: "Unsupported topology or mellanox T1-LAG asic"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx'] or ((topo_type in ['t1-lag']) and (asic_type in ['mellanox']))"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -398,6 +398,12 @@ dualtor/test_tor_ecn.py::test_ecn_during_encap_on_standby:
      conditions:
        - https://github.com/sonic-net/sonic-mgmt/issues/8577
        - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
+dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
+  skip:
+    reason: "Testcase ignored on dualtor-64 topology due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11403"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11403 and 'dualtor-64' in topo_name"
 
 dualtor_io/test_link_failure.py::test_active_link_admin_down_config_reload_downstream[active-active]:
   xfail:
@@ -1105,6 +1111,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
 qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoq:
   skip:
     reason: "Lossy Queue Voq test is not supported"
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiLossyQueueVoqMultiSrc:
+  skip:
+    reason: "Lossy Queue Voq multiple source test is not supported"
     conditions:
       - "asic_type not in ['cisco-8000']"
 
