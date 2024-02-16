@@ -32,7 +32,11 @@ from jinja2 import Environment, FileSystemLoader
 import re
 from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
+SUMMARY_REPORT_FILENAME = "results.json"
+COMMON_REPORT_FILENAME = "sonic-whitebox-common.report"
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
+SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
+COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
@@ -501,6 +505,29 @@ def replace_fabric_name(topo_yaml,fabric_name):
                 newline = "sudo config hostname {}-spine0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
+def create_report_json(sanity_success):
+    sum = {"total": 1, "failed": 0, "passed": 0, "status" : "", "success_rate": 0}
+
+    if sanity_success:
+        sum["passed"] = 1
+        sum["status"] = "success"
+        sum["success_rate"] = 100
+    else:
+        sum["failed"] = 1
+        sum["status"] = "failure"
+        sum["success_rate"] = 0
+    
+    sum_f = open(SUMMARY_REPORT_PATH, "w")
+    com_f = open(COMMON_REPORT_PATH, "w") 
+
+    print(f"result summary is: {sum}")
+
+    json.dump(sum, sum_f)
+    json.dump(sum, com_f)
+
+    sum_f.close()
+    com_f.close()
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -603,10 +630,13 @@ def main():
     else:
         leaf_ports, host_ports = print_env_info(data, device_type)
         update_controller_test(data, leaf_ports, host_ports)
-        if start_controller():
+        sanity_success = start_controller()
+        if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
         else:
             print("Test Failed. Something went wrong, Please check the test logs")
+
+        create_report_json(sanity_success)
 
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")

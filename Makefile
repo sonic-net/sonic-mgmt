@@ -71,6 +71,19 @@ run_sanity:
 		$(SIM_ADDITIONAL_PARAMS) \
 	"
 
+run_tortuga_controller_sanity:
+	echo "run spytest sanity..."
+	bash -c " \
+		python3.8 update_topo.py -f ./pyvxr_yaml_files/tortuga_controller.yaml; \
+		cd infra; \
+		source pyats/bin/activate; \
+		python3.8 ./create_tortuga_topo.py \
+		--topo_type tortuga-controller \
+		-f ./../pyvxr_yaml_files/tortuga_controller.yaml \
+		-c --fabric_name sonic-test-${PIPELINE_TYPE}-${BUILD_ID}-1x3 \
+		--cicd \
+	"
+
 run_spytest:
 	echo "run spytest sanity..."
 	bash -c " \
