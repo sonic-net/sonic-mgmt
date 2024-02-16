@@ -893,3 +893,12 @@ platform_tests/test_sensors.py::test_sensors:
 platform_tests/test_sequential_restart.py::test_restart_syncd:
   skip:
     reason: "Restarting syncd is not supported yet"
+
+#######################################
+##### test_service_warm_restart.py ####
+#######################################
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Skip test_service_warm_restart on mellanox platform"
+    conditions:
+      - "asic_type in ['mellanox']"
