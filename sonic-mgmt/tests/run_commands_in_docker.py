@@ -44,7 +44,7 @@ def main():
     time.sleep(3)
 
     print(f"Going into container '{docker_container_name}' to run command")
-    chan.send(f'docker exec -it {docker_container_name} /bin/bash \n')
+    chan.send(f'docker exec {docker_container_name} /bin/bash \n')
     time.sleep(3)
     resp = ''
     while ':~$' not in resp:

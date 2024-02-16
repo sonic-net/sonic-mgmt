@@ -35,13 +35,12 @@ def test_enable_dshell_client(duthosts, enum_rand_one_per_hwsku_hostname):
 
 def test_check_dshell_client_after_enable(duthosts, enum_rand_one_per_hwsku_hostname):
     """
-    @summary: Verify output of `docker exec -it syncd ps -efl "`
+    @summary: Verify output of `docker exec syncd ps -efl "`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    result = duthost.command("docker exec -it syncd ps -efl")
+    result = duthost.command("docker exec syncd ps -efl")
     logging.info(result)
     assert "/usr/bin/dshell_client.py" in result["stdout"], "dshell_client is not running"
-
 
 def test_show_platform_npu_lpts(duthosts, enum_rand_one_per_hwsku_hostname):
     """
