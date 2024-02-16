@@ -116,9 +116,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology"
+    reason: "Unsupported topology or mellanox T1-LAG asic"
     conditions:
-      - "topo_type in ['m0', 'mx']"
+      - "topo_type in ['m0', 'mx'] or ((topo_type in ['t1-lag']) and (asic_type in ['mellanox']))"
 
 bgp/test_bgp_slb.py:
   skip:
