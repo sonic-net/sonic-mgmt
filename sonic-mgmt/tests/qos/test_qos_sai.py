@@ -375,7 +375,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_trig_pfc": qosConfig[xoffProfile]["pkts_num_trig_pfc"],
             "pkts_num_trig_ingr_drp": qosConfig[xoffProfile]["pkts_num_trig_ingr_drp"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -650,8 +651,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku": dutTestParams['hwsku'],
-            "pkts_num_egr_mem": qosConfig[xonProfile].get('pkts_num_egr_mem', None)
-
+            "pkts_num_egr_mem": qosConfig[xonProfile].get('pkts_num_egr_mem', None),
+            "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic'])
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1552,7 +1553,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, _skip_watermark_multi_DUT
+        resetWatermark, _skip_watermark_multi_DUT, skip_src_dst_different_asic
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic

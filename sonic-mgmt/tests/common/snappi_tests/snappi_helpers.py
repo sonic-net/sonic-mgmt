@@ -308,3 +308,21 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
                   "ARP is not resolved in {} seconds".format(max_attempts * poll_interval_sec))
 
     return attempts
+
+
+def fetch_snappi_flow_metrics(api, flow_names):
+    """
+    Fetches the flow metrics from the corresponding snappi session using the api
+
+    Args:
+    api: snappi api
+    flow_names: list of flow names
+
+    Returns:
+    flow_metrics (obj): list of metrics
+    """
+    request = api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_metrics = api.get_metrics(request).flow_metrics
+
+    return flow_metrics
