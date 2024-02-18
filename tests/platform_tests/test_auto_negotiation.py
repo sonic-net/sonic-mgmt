@@ -401,7 +401,6 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
     else:
        print("This Testcase valid only platform: x86_64-8101_32fh_o-r0")
 
-
 @pytest.fixture(scope='module', autouse=True)
 def change_cable_length(duthost):
     if is_mellanox_device(duthost):
