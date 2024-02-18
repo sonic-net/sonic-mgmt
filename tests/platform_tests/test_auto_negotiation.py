@@ -382,7 +382,7 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
     if duthost.facts['platform'] == 'x86_64-8101_32fh_o-r0':
         new_speed = '40000'
         logging.info("Step1:set port speed to 40G")
-        for dut,port in zip([duthost, fanout], [dut_port, fanout_port]):
+        for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
             logger.info('step1: Configure port speed 40G')
             dut.set_speed(dut_port, new_speed)
             logger.info('step2: Wait until the port status is up, expected speed: {}'.format(new_speed))
