@@ -68,7 +68,7 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
     sfp_lpmode = duthost.command(cmd_sfp_lpmode)
-    assert validate_transceiver_lpmode(sfp_lpmode), "Interface mode incorrect in output of 'show interface transceiver lpmode'"
+    assert validate_transceiver_lpmode(sfp_lpmode), "port status incorrect in 'show interface transceiver lpmode'"
 
 
 def validate_transceiver_lpmode(output):
