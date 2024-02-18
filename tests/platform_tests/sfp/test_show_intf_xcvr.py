@@ -57,3 +57,30 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
+
+
+def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              enum_frontend_asic_index, conn_graph_facts):
+    """
+    @summary: verify port mode in  'show interface transceiver lpmode'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    global ans_host
+    ans_host = duthost
+    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
+    sfp_lpmode = duthost.command(cmd_sfp_lpmode)
+    assert validate_transceiver_lpmode(sfp_lpmode), "Interface mode incorrect in output of 'show interface transceiver lpmode'"
+
+
+def validate_transceiver_lpmode(output):
+    lines = output.strip().split('\n')
+    # Check if the header is present
+    if lines[0].strip() != "Port        Low-power Mode":
+        print("Invalid output format: Header missing")
+        return False
+    for line in lines[2:]:
+        port, lpmode = line.strip().split()
+        if lpmode not in ["Off", "On"]:
+            print(f"Invalid low-power mode '{lpmode}' for port '{port}'")
+            return False
+    return True
