@@ -370,6 +370,7 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
     )
 
+
 def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fixture):
     """Verify port configuration across reboot
     Step:1 Configure port speed to 40G
@@ -400,6 +401,7 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
            config_reload(duthost, config_source="config_db", wait=120)
     else:
        print("This Testcase valid only platform: x86_64-8101_32fh_o-r0")
+
 
 @pytest.fixture(scope='module', autouse=True)
 def change_cable_length(duthost):
