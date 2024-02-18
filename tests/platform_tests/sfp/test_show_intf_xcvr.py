@@ -60,13 +60,11 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
 
-def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                              enum_frontend_asic_index, conn_graph_facts):
+def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @summary: verify port mode in  'show interface transceiver lpmode'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
     sfp_lpmode = duthost.command(cmd_sfp_lpmode)
     assert validate_transceiver_lpmode(sfp_lpmode), "port status incorrect in 'show interface transceiver lpmode'"
 
