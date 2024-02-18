@@ -380,13 +380,13 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
     dutname, portname = enum_speed_per_dutport_fixture['dutname'], enum_speed_per_dutport_fixture['port']
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
     if duthost.facts['platform'] == 'x86_64-8101_32fh_o-r0':
-       new_speed = '40000'
-       logging.info("Step1:set port speed to 40G")
-       for dut,port in zip([duthost, fanout],[dut_port, fanout_port]):
-           logger.info('step1: Configure port speed 40G')
-           dut.set_speed(dut_port,new_speed)
-           logger.info('step2: Wait until the port status is up, expected speed: {}'.format(new_speed))
-           wait_result = wait_until(
+        new_speed = '40000'
+        logging.info("Step1:set port speed to 40G")
+        for dut,port in zip([duthost, fanout],[dut_port, fanout_port]):
+            logger.info('step1: Configure port speed 40G')
+            dut.set_speed(dut_port,new_speed)
+            logger.info('step2: Wait until the port status is up, expected speed: {}'.format(new_speed))
+            wait_result = wait_until(
                      SINGLE_PORT_WAIT_TIME,
                      PORT_STATUS_CHECK_INTERVAL,
                      0,
@@ -395,12 +395,12 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
                      [dut_port],
                      new_speed
                      )
-           pytest_assert(wait_result, '{} are still down'.format(dut_port))
-           logging.info("Step3: Perform config save and reload")
-           duthost.shell('sudo config save -y')
-           config_reload(duthost, config_source="config_db", wait=120)
+            pytest_assert(wait_result, '{} are still down'.format(dut_port))
+            logging.info("Step3: Perform config save and reload")
+            duthost.shell('sudo config save -y')
+            config_reload(duthost, config_source="config_db", wait=120)
     else:
-       print("This Testcase valid only platform: x86_64-8101_32fh_o-r0")
+        print("This Testcase valid only platform: x86_64-8101_32fh_o-r0")
 
 
 @pytest.fixture(scope='module', autouse=True)
