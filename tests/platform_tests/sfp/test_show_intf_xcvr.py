@@ -14,6 +14,7 @@ from .util import get_dev_conn
 
 cmd_sfp_presence = "show interface transceiver presence"
 cmd_sfp_eeprom = "show interface transceiver eeprom"
+cmd_sfp_lpmode = "show interface transceiver lpmode"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -65,8 +66,6 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     @summary: verify port mode in  'show interface transceiver lpmode'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    global ans_host
-    ans_host = duthost
     portmap, dev_conn = get_dev_conn(duthost, conn_graph_facts, enum_frontend_asic_index)
     sfp_lpmode = duthost.command(cmd_sfp_lpmode)
     assert validate_transceiver_lpmode(sfp_lpmode), "Interface mode incorrect in output of 'show interface transceiver lpmode'"
