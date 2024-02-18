@@ -22,4 +22,5 @@ def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip):
         logging.info(e)
     finally:
         logger.info("=====Recover finish=====")
+        localhost.pause(seconds=120, prompt="Wait for SONiC initialization")
         dut_console.disconnect()
