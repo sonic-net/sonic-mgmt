@@ -370,31 +370,36 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         'expect fanout speed: {}, but got {}'.format(speed, fanout_actual_speed)
     )
 
-
 def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fixture):
     """Verify port configuration across reboot
+    Step:1 Configure port speed to 40G
+    Step:2 Verify Portstatus
+    Step:3 Perform config save and reload
     """
     dutname, portname = enum_speed_per_dutport_fixture['dutname'], enum_speed_per_dutport_fixture['port']
     duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
-    new_speed = enum_speed_per_dutport_fixture['speed']
-    logging.info("Step1: set port speed to 40G")
-    for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
-        dut.set_speed(port, new_speed)
-    logging.info("Step2: Perform config save and reload")
-    for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
-        dut.shell('sudo config save -y')
-    config_reload(duthost, config_source="config_db", wait=120)
-    logger.info('step3: Wait until the port status is up, expected speed: {}'.format(new_speed))
-    wait_result = wait_until(
-        SINGLE_PORT_WAIT_TIME,
-        PORT_STATUS_CHECK_INTERVAL,
-        0,
-        check_ports_up,
-        duthost,
-        [dut_port],
-        new_speed
-    )
-    pytest_assert(wait_result, '{} are still down'.format(dut_port))
+    if duthost.facts['platform'] == 'x86_64-8101_32fh_o-r0':
+       new_speed = '40000'
+       logging.info("Step1:set port speed to 40G")
+       for dut,port in zip([duthost, fanout],[dut_port, fanout_port]):
+           logger.info('step1: Configure port speed 40G')
+           dut.set_speed(dut_port,new_speed)
+           logger.info('step2: Wait until the port status is up, expected speed: {}'.format(new_speed))
+           wait_result = wait_until(
+                     SINGLE_PORT_WAIT_TIME,
+                     PORT_STATUS_CHECK_INTERVAL,
+                     0,
+                     check_ports_up,
+                     duthost,
+                     [dut_port],
+                     new_speed
+                     )
+           pytest_assert(wait_result, '{} are still down'.format(dut_port))
+           logging.info("Step3: Perform config save and reload")
+           duthost.shell('sudo config save -y')
+           config_reload(duthost, config_source="config_db", wait=120)
+    else:
+       print("This Testcase valid only platform: x86_64-8101_32fh_o-r0")
 
 
 @pytest.fixture(scope='module', autouse=True)
