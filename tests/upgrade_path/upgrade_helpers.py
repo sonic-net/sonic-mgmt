@@ -184,44 +184,36 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
         ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
         reboot_type = reboot_type + " -c {}".format(ptf_ip)
 
+    advancedReboot = None
+
     if upgrade_type == REBOOT_TYPE_COLD:
         # advance-reboot test (on ptf) does not support cold reboot yet
         if preboot_setup:
             preboot_setup()
-
-        for i in range(reboot_count):
-            reboot(duthost, localhost)
-            if postboot_setup:
-                postboot_setup()
-
-            if not allow_fail:
-                logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
-                networking_uptime = duthost.get_networking_uptime().seconds
-                timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-                pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                              "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                                      upgrade_type))
-                check_services(duthost)
-                check_copp_config(duthost)
     else:
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,
                                              advanceboot_loganalyzer=advanceboot_loganalyzer,
                                              allow_fail=allow_fail)
 
-        for i in range(reboot_count):
+    for i in range(reboot_count):
+        if upgrade_type == REBOOT_TYPE_COLD:
+            reboot(duthost, localhost)
+            if postboot_setup:
+                postboot_setup()
+        else:
             advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list,
                                              preboot_setup=preboot_setup if i == 0 else None,
                                              postboot_setup=postboot_setup)
 
-            if not allow_fail:
-                logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
-                networking_uptime = duthost.get_networking_uptime().seconds
-                timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-                pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                              "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                                      upgrade_type))
-                check_services(duthost)
-                check_copp_config(duthost)
+        if not allow_fail:
+            logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
+            networking_uptime = duthost.get_networking_uptime().seconds
+            timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                  upgrade_type))
+            check_services(duthost)
+            check_copp_config(duthost)
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
