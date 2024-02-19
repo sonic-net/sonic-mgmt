@@ -97,16 +97,17 @@ class TestSfpApi(PlatformApiTestBase):
     ]
 
     # some new keys added for QSFP-DD and OSFP in 202205 or later branch
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['active_firmware',
-                                                'host_lane_count',
+    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['host_lane_count',
                                                 'media_lane_count',
                                                 'cmis_rev',
                                                 'host_lane_assignment_option',
-                                                'inactive_firmware',
                                                 'media_interface_technology',
                                                 'media_interface_code',
                                                 'host_electrical_interface',
                                                 'media_lane_assignment_option']
+
+    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS = ['active_firmware',
+                                                         'inactive_firmware']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -389,7 +390,14 @@ class TestSfpApi(PlatformApiTestBase):
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                 self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS + \
                                 ["active_apsel_hostlane{}".format(n) for n in range(1, active_apsel_hostlane_count + 1)]
+                            firmware_info_dict = sfp.get_transceiver_info_firmware_versions(platform_api_conn, i)
+                            if self.expect(firmware_info_dict is not None,
+                                           "Unable to retrieve transceiver {} firmware info".format(i)):
+                                if self.expect(isinstance(firmware_info_dict, dict),
+                                               "Transceiver {} firmware info appears incorrect".format(i)):
+                                    actual_keys.extend(list(firmware_info_dict.keys()))
                             if 'ZR' in info_dict['media_interface_code']:
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
