@@ -78,7 +78,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
     # Perform a cold reboot
     logger.info("Cold reboot the DUT to make the base image as current")
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
-    reboot_type = 'soft' if "6100" in duthost.facts["hwsku"] else 'cold'
+    reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
     reboot(duthost, localhost, reboot_type=reboot_type)
     check_sonic_version(duthost, target_version)
 
