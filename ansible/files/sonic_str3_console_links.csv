@@ -53,7 +53,7 @@ console-197,45,str3-7260cx3-acs-2,ssh,admin
 console-212,3,str3-dx010-acs-1,ssh,admin
 console-194,5,str3-msn4700-01,ssh,admin
 console-194,30,str3-msn4700-fanout-01,ssh,admin
-console-178,17,str3-s6100-acs-6,ssh,admin
+console-178,19,str3-s6100-acs-6,ssh,admin
 console-178,16,str3-s6100-acs-7,ssh,admin
 console-194,11,str3-msn4700-02,ssh,admin
 console-194,32,str3-msn4700-fanout-02,ssh,admin
