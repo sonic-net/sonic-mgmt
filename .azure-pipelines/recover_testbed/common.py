@@ -180,7 +180,7 @@ def posix_shell_aboot(dut_console, mgmt_ip, image_url):
                         dut_console.remote_conn.send("\n")
 
                         for i in range(5):
-                            time.sleep(10)
+                            time.sleep(60)
                             x = dut_console.remote_conn.recv(1024)
                             x = x.decode('ISO-8859-9')
                             if "ETA" in x:
