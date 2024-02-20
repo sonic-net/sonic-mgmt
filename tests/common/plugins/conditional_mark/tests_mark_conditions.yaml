@@ -282,13 +282,19 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####         dhcp_relay        #####
+#####          dhcp_relay         #####
 #######################################
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
+  skip:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
