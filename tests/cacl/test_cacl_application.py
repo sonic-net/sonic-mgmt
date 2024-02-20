@@ -557,9 +557,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     rules_applied_from_config = 0
 
     cacl_tables = get_cacl_tables_and_rules(duthost)
-    # If nightly test uses master or internal image, it should use ACL_SERVICES instead
-    extra_rule_branches = ['201911', '202012', '202111', '202106', '202205']
-    if any(branch in duthost.os_version for branch in extra_rule_branches):
+    # If nightly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
         cacl_services_standard = ACL_SERVICES_INTERNAL
     else:
         cacl_services_standard = ACL_SERVICES
@@ -679,9 +678,8 @@ def generate_nat_expected_rules(duthost, docker_network, asic_index):
     ip6tables_natrules.append("-P OUTPUT ACCEPT")
     ip6tables_natrules.append("-P POSTROUTING ACCEPT")
 
-    # If nightly test uses master or internal image, it should use ACL_SERVICES instead
-    extra_rule_branches = ['201911', '202012', '202111', '202106', '202205']
-    if any(branch in duthost.os_version for branch in extra_rule_branches):
+    # If nightly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
         cacl_services_standard = ACL_SERVICES_INTERNAL
     else:
         cacl_services_standard = ACL_SERVICES
@@ -732,9 +730,8 @@ def generate_expected_cacl_rules(duthost, ip_type):
 
     cacl_tables = get_cacl_tables_and_rules(duthost)
 
-    # If nightly test uses master or internal image, it should use ACL_SERVICES instead
-    extra_rule_branches = ['201911', '202012', '202111', '202106', '202205']
-    if any(branch in duthost.os_version for branch in extra_rule_branches):
+    # If nightly test uses master image, it should use ACL_SERVICES instead
+    if "master" not in duthost.os_version:
         cacl_services_standard = ACL_SERVICES_INTERNAL
     else:
         cacl_services_standard = ACL_SERVICES
