@@ -418,10 +418,11 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            # If we're checking PORT_READY, and there are 0 port state change messages captured instead of however many
-            # was expected, treat it as a success. Some platforms (Mellanox, Dell S6100) have 0, some platforms (Arista
-            #  050cx3) have however many ports are up.
-            if observed_start_count != expected_count and (pattern != 'PORT_READY' or observed_start_count != 0):
+            # If we're checking PORT_READY, allow any number of PORT_READY messages between 0 and the number of ports.
+            # Some platforms appear to have a random number of these messages, other platforms have however many ports
+            # are up.
+            if observed_start_count != expected_count and (
+                    pattern != 'PORT_READY' or observed_start_count > expected_count):
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:
