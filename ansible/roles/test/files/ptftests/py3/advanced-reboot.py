@@ -1475,7 +1475,7 @@ class ReloadTest(BaseTest):
             # Check to see if the warm-reboot script knows about the retry count feature
             stdout, stderr, return_code = self.dut_connection.execCommand(
                 "sudo " + self.reboot_type + " -h", timeout=5)
-            if "retry count" in stdout:
+            if "retry count" in "\n".join(stdout):
                 if self.test_params['neighbor_type'] == "sonic":
                     reboot_command = self.reboot_type + " -N"
                 else:
