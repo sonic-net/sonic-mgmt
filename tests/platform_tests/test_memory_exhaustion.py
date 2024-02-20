@@ -67,7 +67,8 @@ class TestMemoryExhaustion:
         # Swapping is turned off so the OOM is triggered in a shorter time.
 
         res = duthost.command("sudo swapoff -a")
-        logging.info(res)
+        if res['rc']:
+            logging.error("Swapoff command failed: {}".format(res))
 
         cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
         res = duthost.shell(cmd)
