@@ -1587,7 +1587,7 @@ class TestQosSai(QosSaiBase):
         if "wm_pg_shared_lossless" in pgProfile:
             pktsNumFillShared = qosConfig[pgProfile]["pkts_num_trig_pfc"]
         elif "wm_pg_shared_lossy" in pgProfile:
-            if dutConfig['dstDutAsic'] == "pac":
+            if dutConfig.get('dstDutAsic', 'UnknownDstDutAsic') == "pac":
                 pytest.skip(
                     "PGSharedWatermark: Lossy test is not applicable in "
                     "cisco-8000 Q100 platform.")

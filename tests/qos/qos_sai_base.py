@@ -2202,19 +2202,9 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope="function", autouse=False)
     def skip_pacific_dst_asic(self, dutConfig):
-        if dutConfig['dstDutAsic'] == "pac":
+        if dutConfig.get('dstDutAsic', 'UnknownDstDutAsic') == "pac":
             pytest.skip(
                 "This test is skipped since egress asic is cisco-8000 Q100.")
-        yield
-        return
-
-    @pytest.fixture(scope="function", autouse=False)
-    def skip_longlink(self, dutQosConfig):
-        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
-        match = re.search("_([0-9]*)m", portSpeedCableLength)
-        if match and int(match.group(1)) > 2000:
-            pytest.skip(
-                "This test is skipped for longlink.")
         yield
         return
 
