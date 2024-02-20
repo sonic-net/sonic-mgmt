@@ -112,7 +112,7 @@ steps:
               if [[ $from_image == *"latest"* ]]; then
                 from_url=${{ parameters.FROM_IMAGE_URL }}
               elif [[ $from_image == *"prev"* ]]; then
-                from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1 
+                from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1
               fi
             fi
             if [[ $TO_IMAGE_URL == "custom" ]]; then
@@ -169,7 +169,7 @@ steps:
 
     displayName: UpgradeSonic
     continueOnError: true
-  
+
   - task: Bash@3
     displayName: Collect show techsupport results
     inputs:
@@ -207,11 +207,7 @@ steps:
       script: |
         set -x
 
-        echo "Activate python3 virtual environment"
-        source /var/AzDevOps/env-python3/bin/activate
-
         cd ./sonic-mgmt-int/test_reporting
-        pip3 install -r requirements.txt
 
         python3 junit_xml_parser.py -d ../../results -o tr.json
 

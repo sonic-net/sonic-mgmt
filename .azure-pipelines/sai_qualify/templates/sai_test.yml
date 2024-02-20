@@ -944,12 +944,9 @@ jobs:
           script: |
             set -x
 
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
             mv ${BASH_WORKING_FOLDER}/${PYTEST_PATH}/tr.xml ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH}
 
             cd ${BASH_WORKING_FOLDER}/test_reporting
-            pip3 install -r requirements.txt
 
             python3 junit_xml_parser.py -d ${BASH_WORKING_FOLDER}/${SAI_TESTREPORT_PATH} -o tr.json
 
@@ -980,10 +977,6 @@ jobs:
           targetType: 'inline'
           script: |
             set -x
-
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
-            pip3 install -r ${BASH_WORKING_FOLDER}/test_reporting/requirements.txt
 
             SCAN_FILE_PATH=/tmp/scan
             mkdir -p $SCAN_FILE_PATH

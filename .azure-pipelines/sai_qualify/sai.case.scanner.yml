@@ -79,10 +79,7 @@ jobs:
             fi
             popd
 
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
             cd ${BASH_WORKING_FOLDER}/test_reporting
-            pip3 install -r requirements.txt
 
             echo "Generate header"
             cd ${BASH_WORKING_FOLDER}

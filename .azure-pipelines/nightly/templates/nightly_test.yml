@@ -616,11 +616,7 @@ stages:
                     exit 0
                 fi
 
-                echo "Activate python3 virtual environment"
-                source /var/AzDevOps/env-python3/bin/activate
-
                 cd test_reporting
-                pip3 install -r requirements.txt
 
                 python3 junit_xml_parser.py -d ../results -o tr.json
 

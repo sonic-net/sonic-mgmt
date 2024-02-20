@@ -390,9 +390,6 @@ jobs:
             export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
             export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
 
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
-
             SAI_ADHOC_PATH=$BASE_PATH/tests/common/sai_adhoc.py
             DUT_PATH=/tmp/pkg
 
@@ -642,11 +639,7 @@ jobs:
                 exit 0
             fi
 
-            echo "Activate python3 virtual environment"
-            source /var/AzDevOps/env-python3/bin/activate
-
             cd test_reporting
-            pip3 install -r requirements.txt
 
             python3 junit_xml_parser.py -d ../results -o tr.json
 
@@ -693,9 +686,6 @@ jobs:
                   echo "UPLOAD_TEST_REPORT=False, skip uploading test results to Kusto"
                   exit 0
               fi
-
-              echo "Activate python3 virtual environment"
-              source /var/AzDevOps/env-python3/bin/activate
 
               # Non-secret variables in variable group KUSTO_SECRETS are automatically exported as environment
               # variables by Azure Pipeline. They cannot be override by value passed in from the "env" option
