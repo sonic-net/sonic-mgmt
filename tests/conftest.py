@@ -48,9 +48,10 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.connections.console_host import ConsoleHost
+from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 try:
-    from tests.macsec import MacsecPlugin
+    from tests.macsec import MacsecPluginT2, MacsecPluginT0
 except ImportError as e:
     logging.error(e)
 
@@ -62,6 +63,8 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+
+DUTHOSTS_FIXTURE_FAILED_RC = 15
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -77,7 +80,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.decap',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
-                  'tests.common.plugins.conditional_mark')
+                  'tests.common.plugins.conditional_mark',
+                  'tests.common.plugins.random_seed')
 
 
 def pytest_addoption(parser):
@@ -149,6 +153,14 @@ def pytest_addoption(parser):
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
 
+    #########################
+    #   post-test options   #
+    #########################
+    parser.addoption("--posttest_show_tech_since", action="store", default="yesterday",
+                     help="collect show techsupport since <date>. <date> should be a string which can "
+                          "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
+                          "To collect all time spans, please use '@0' as the value.")
+
     ############################
     #  keysight ixanvl options #
     ############################
@@ -188,7 +200,11 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
-        config.pluginmanager.register(MacsecPlugin())
+        topo = config.getoption("topology")
+        if topo is not None and "t2" in topo:
+            config.pluginmanager.register(MacsecPluginT2())
+        else:
+            config.pluginmanager.register(MacsecPluginT0())
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -306,6 +322,12 @@ def get_specified_duts(request):
     return duts
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("duthosts_fixture_failed", None):
+        session.config.cache.set("duthosts_fixture_failed", None)
+        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+
+
 @pytest.fixture(name="duthosts", scope="session")
 def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
@@ -315,7 +337,14 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     """
-    return DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+    try:
+        host = DutHosts(ansible_adhoc, tbinfo, get_specified_duts(request))
+        return host
+    except BaseException as e:
+        logger.error("Failed to initialize duthosts.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! duthosts fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 @pytest.fixture(scope="session")
@@ -340,6 +369,22 @@ def duthost(duthosts, request):
 @pytest.fixture(scope="session")
 def mg_facts(duthost):
     return duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
+
+@pytest.fixture(scope="session")
+def macsec_duthost(duthosts, tbinfo):
+    # get the first macsec capable node
+    macsec_dut = None
+    if 't2' in tbinfo['topo']['name']:
+        # currently in the T2 topo only the uplink linecard will have
+        # macsec enabled
+        for duthost in duthosts:
+            if duthost.is_macsec_capable_node():
+                macsec_dut = duthost
+            break
+    else:
+        return duthosts[0]
+    return macsec_dut
 
 
 @pytest.fixture(scope="module")
@@ -1567,6 +1612,8 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     duthost = duthosts[enum_supervisor_dut_hostname]
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
+    if "/" in console_host:
+        console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
@@ -2002,6 +2049,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
 
     if check_flag:
         for duthost in duthosts:
+            logger.info("Dumping Disk and Memory Space informataion before test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
+
             logger.info("Collecting core dumps before test on {}".format(duthost.hostname))
             duts_data[duthost.hostname] = {}
 
@@ -2030,7 +2081,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
                         json.loads(duthost.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-    yield
+    yield duts_data
 
     if check_flag:
         for duthost in duthosts:
@@ -2038,6 +2089,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
             pre_only_config[duthost.hostname] = {}
             cur_only_config[duthost.hostname] = {}
             new_core_dumps[duthost.hostname] = []
+
+            logger.info("Dumping Disk and Memory Space informataion after test on {}".format(duthost.hostname))
+            duthost.shell("free -h")
+            duthost.shell("df -h")
 
             logger.info("Collecting core dumps after test on {}".format(duthost.hostname))
             if "20191130" in duthost.os_version:
@@ -2191,7 +2246,10 @@ def core_dump_and_config_check(duthosts, tbinfo, request):
         items = request.session.items
         for item in items:
             if item.module.__name__ + ".py" == module_name.split("/")[-1]:
-                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': False})))
+                item.user_properties.append(('CustomMsg', json.dumps({'DutChekResult': {
+                    'core_dump_check_pass': core_dump_check_pass,
+                    'config_db_check_pass': config_db_check_pass
+                }})))
 
 
 @pytest.fixture(scope="function")

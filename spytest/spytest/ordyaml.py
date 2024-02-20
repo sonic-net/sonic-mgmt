@@ -5,7 +5,7 @@ import yaml
 
 from spytest.dicts import SpyTestDict
 import utilities.common as utils
-from utilities.profile import get_cache, set_cache
+from utilities.cache import get_cache, set_cache
 
 
 class NoAliasDumper(yaml.SafeDumper):
