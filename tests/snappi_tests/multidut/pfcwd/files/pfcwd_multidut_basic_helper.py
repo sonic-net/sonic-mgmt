@@ -11,6 +11,7 @@ from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.broadcom_data import is_broadcom_device
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,25 @@ DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.25
 
+
+def skip_pfcwd_test(duthost, trigger_pfcwd):
+    """
+    Skip PFC watchdog tests that may cause fake alerts
+
+    PFC watchdog on Broadcom devices use some approximation techniques to detect
+    PFC storms, which may cause some fake alerts. Therefore, we skip test cases
+    whose trigger_pfcwd is False for Broadcom devices.
+
+    Args:
+        duthost (obj): device to test
+        trigger_pfcwd (bool): if PFC watchdog is supposed to trigger
+
+    Returns:
+        N/A
+    """
+    pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
+                   'Skip trigger_pfcwd=False test cases for Broadcom devices')
+                   
 
 def run_pfcwd_basic_test(api,
                          testbed_config,

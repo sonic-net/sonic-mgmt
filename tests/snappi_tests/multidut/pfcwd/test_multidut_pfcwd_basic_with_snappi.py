@@ -8,8 +8,8 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.common.reboot import reboot                              # noqa: F401
 from tests.common.utilities import wait_until                       # noqa: F401
-from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test
-from tests.snappi_tests.pfcwd.files.helper import skip_pfcwd_test
+from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_basic_helper import run_pfcwd_basic_test, \
+     skip_pfcwd_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
