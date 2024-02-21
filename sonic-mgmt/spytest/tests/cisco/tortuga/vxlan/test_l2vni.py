@@ -169,11 +169,11 @@ def verify_vtep_state (nodes):
     for path in leaf0_parsed:
         vtep_num += 1
         if path['tun_src'] != 'EVPN':
-            report_fail(nodes['leaf0'], msg='Unexpected tunnel type {} in leaf0'.format(path['tun_type']))
+            report_fail(nodes['leaf0'], msg='Unexpected tunnel type {} in leaf0'.format(path['tun_src']))
         if path['src_vtep'] != leaf0_vtep_ip:
             report_fail(nodes['leaf0'], msg='No local vtep {} found in leaf0'.format(leaf0_vtep_ip))
         if path['dst_vtep'] != leaf1_vtep_ip:
-            report_fail(nodes['leaf0'], msg='Unexpected vtep {} found in leaf0'.format(path['rem_vtep']))
+            report_fail(nodes['leaf0'], msg='Unexpected vtep {} found in leaf0'.format(path['dst_vtep']))
         if path['tun_status'] != 'oper_up':
             report_fail(nodes['leaf0'], msg='Tunnel is not in up status in leaf0')
     if vtep_num != 1:
@@ -185,11 +185,11 @@ def verify_vtep_state (nodes):
     for path in leaf1_parsed:
         vtep_num += 1
         if path['tun_src'] != 'EVPN':
-            report_fail(nodes['leaf1'], msg='Unexpected tunnel type {} in leaf1'.format(path['tun_type']))
+            report_fail(nodes['leaf1'], msg='Unexpected tunnel type {} in leaf1'.format(path['tun_src']))
         if path['src_vtep'] != leaf1_vtep_ip:
             report_fail(nodes['leaf1'], msg='No local vtep {} found in leaf1'.format(leaf1_vtep_ip))
         if path['dst_vtep'] != leaf0_vtep_ip:
-            report_fail(nodes['leaf1'], msg='Unexpected vtep {} found in leaf1'.format(path['rem_vtep']))
+            report_fail(nodes['leaf1'], msg='Unexpected vtep {} found in leaf1'.format(path['dst_vtep']))
         if path['tun_status'] != 'oper_up':
             report_fail(nodes['leaf1'], msg='Tunnel is not in up status in leaf1')
     if vtep_num != 1:
