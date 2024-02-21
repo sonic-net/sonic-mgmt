@@ -5,7 +5,7 @@ declare -r SCRIPT_PATH="$(readlink -f "${0}")"
 declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
-declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt"
+declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:py3only"
 declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
 declare -r LOCAL_IMAGE_TAG="master"
 declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"
@@ -100,9 +100,9 @@ function show_help_and_exit() {
     echo "Other options:"
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
-    echo "                         1. The local image named \"docker-sonic-mgmt\""
-    echo "                         2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
-    echo "                         3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
+    echo "                         1. The local image named \"docker-sonic-mgmt:py3only\""
+    echo "                         2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:py3only\""
+    echo "                         3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:py3only\""
     echo "  -d <directory>       specify directory inside container to bind mount to sonic-mgmt root (default: \"/var/src\")"
     echo "  -m <mount_point>     specify directory to bind mount to container"
     echo "  -p <port>            publish container port to the host"
@@ -113,11 +113,13 @@ function show_help_and_exit() {
     echo
     echo "Examples:"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master"
-    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -i sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -i sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:py3only"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
     echo "  ./${SCRIPT_NAME} -h"
+    echo "To create a docker with both Python2 and Python3:"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -i sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest"
     echo
     exit ${1}
 }
@@ -133,6 +135,16 @@ function show_local_container_login() {
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
     echo "SSH:  ssh -i ~/.ssh/id_rsa_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
+    echo
+    echo "******************************************************************************"
+    echo "Warning: A Python 3 *ONLY* container has been created, exclusively supporting the 202305 branch and later."
+    echo "If you require the use of both Python 2 and Python 3, kindly initiate a new container using the following command:"
+    echo "./setup-container -n <container_name> -i sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest"
+    echo "Please be advised, for security reasons:"
+    echo "The sonic-mgmt-docker with both Python 2 and Python 3 is *ONLY* applicable to STaRLab and TK5 lab environments."
+    echo "The sonic-mgmt-docker with Python 3 can be employed in all other contexts."
+    echo "******************************************************************************"
+
 }
 
 function pull_sonic_mgmt_docker_image() {
@@ -140,9 +152,9 @@ function pull_sonic_mgmt_docker_image() {
         DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
         DOCKER_PULL_CMD="docker pull \"${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}\""
 
-        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}:latest$"; then
+        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}:latest$"; then
+        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
