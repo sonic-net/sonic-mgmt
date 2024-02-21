@@ -6,8 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list    # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test, \
-     skip_pfcwd_test
+from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
@@ -75,8 +74,6 @@ def test_multidut_pfcwd_all_to_all(snappi_api,                  # noqa: F811
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
     bg_prio_list = [x for x in all_prio_list if x not in pause_prio_list]
-    # skip_pfcwd_test(duthost=duthost1, trigger_pfcwd=trigger_pfcwd)
-    # skip_pfcwd_test(duthost=duthost2, trigger_pfcwd=trigger_pfcwd)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
