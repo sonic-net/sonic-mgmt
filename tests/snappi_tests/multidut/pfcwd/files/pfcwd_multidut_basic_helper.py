@@ -2,7 +2,7 @@ import time
 from math import ceil
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
