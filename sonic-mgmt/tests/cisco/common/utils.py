@@ -58,6 +58,19 @@ def skip_if_sim(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_require(not CheckEnvironment.is_sim(duthost),
                    'Test not supported in SIM environment')
 
+# A separate fixture for frontend hostname is necessary, since enumerators for
+# duts are mutually exclusive, and test function might be based on frontend
+# hostname
+@pytest.fixture(scope='module')
+def skip_if_sim_for_frontend_hostname(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Skip the test if its a simulation environment
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    pytest_require(not CheckEnvironment.is_sim(duthost),
+                   'Test not supported in SIM environment')
 
 @pytest.fixture(scope='module')
 def skip_if_not_sim(duthosts, enum_rand_one_per_hwsku_hostname):
