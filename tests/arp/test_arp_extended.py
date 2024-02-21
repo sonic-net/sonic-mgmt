@@ -73,15 +73,16 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
 
     if ip_version == 'v6':
         running_config = rand_selected_dut.get_running_config_facts()
+        logger.debug("NDP Debug Logs Start")
         for table_name, table in running_config.items():
             if "VLAN" in table_name:
-                logger.info("{}: {}".format(table_name, table))
+                logger.debug("{}: {}".format(table_name, table))
         swss_status = rand_selected_dut.shell('docker exec swss supervisorctl status',
                                               module_ignore_errors=True)['stdout']
-        logger.info(swss_status)
+        logger.debug(swss_status)
         ndppd_conf = rand_selected_dut.shell('docker exec swss cat /etc/ndppd.conf',
                                              module_ignore_errors=True)['stdout']
-        logger.info(ndppd_conf)
+        logger.debug(ndppd_conf)
 
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
