@@ -21,7 +21,7 @@ BG_FLOW_AGGR_RATE_PERCENT = 45
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
-                   
+
 
 def run_pfcwd_multi_node_test(api,
                               testbed_config,
