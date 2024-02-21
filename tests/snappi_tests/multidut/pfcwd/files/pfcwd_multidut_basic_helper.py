@@ -40,7 +40,7 @@ def skip_pfcwd_test(duthost, trigger_pfcwd):
     """
     pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
                    'Skip trigger_pfcwd=False test cases for Broadcom devices')
-                   
+
 
 def run_pfcwd_basic_test(api,
                          testbed_config,
