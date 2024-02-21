@@ -72,9 +72,19 @@ class MultiAsicSonicHost(object):
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
+
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        # NOTE: Add mux to critical services for dualtor
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+        ):
+            service_list.append("mux")
+
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
-            config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
                 if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
                     logger.info("Removing teamd from default services for switch_type DPU")
@@ -151,6 +161,26 @@ class MultiAsicSonicHost(object):
         except Exception as e:
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
+
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            if self.sonichost.facts['num_asic'] == 1:
+                cmd_prefix = " "
+            else:
+                asic = self.get_port_asic_instance(interface_name)
+                cmd_prefix = "-n {}".format(asic.namespace)
+
+            cmd = 'sonic-db-cli {} STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(cmd_prefix, interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface {} exception: {}'.format(interface_name, repr(e)))
+            return False
 
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
@@ -713,7 +743,7 @@ class MultiAsicSonicHost(object):
         This will work for both single/multi-asic.
         Note that for multi-asic, it will run on specific asic given, or asic0
         """
-        self.asic_instance(asic_index).run_redis_cmd(argv)
+        return self.asic_instance(asic_index).run_redis_cmd(argv)
 
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
