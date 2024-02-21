@@ -6,8 +6,8 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list    # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test
-from tests.snappi_tests.pfcwd.files.helper import skip_pfcwd_test            # noqa: F401
+from tests.snappi_tests.multidut.pfcwd.files.pfcwd_multidut_multi_node_helper import run_pfcwd_multi_node_test, \
+     skip_pfcwd_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
