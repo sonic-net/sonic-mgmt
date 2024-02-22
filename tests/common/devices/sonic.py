@@ -2410,6 +2410,17 @@ Totals               6450                 6449
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
 
+    def get_counter_poll_status(self):
+        result_dict = {}
+        output = self.shell("counterpoll show")["stdout_lines"][2::]
+        for line in output:
+            counter_type, interval, status = re.split(r'\s\s+', line)
+            interval = int(re.search(r'\d+', interval).group(0))
+            result_dict[counter_type] = {}
+            result_dict[counter_type]['interval'] = interval
+            result_dict[counter_type]['status'] = status
+        return result_dict
+
 
 def assert_exit_non_zero(shell_output):
     if shell_output['rc'] != 0:
