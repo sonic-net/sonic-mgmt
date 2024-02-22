@@ -807,10 +807,6 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
-        multi_asic_dut = False
-        if get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic \
-                and get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic:
-            multi_asic_dut = True
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
@@ -1091,8 +1087,7 @@ class QosSaiBase(QosBase):
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario": len(dualtor_ports_for_duts) != 0,
-            "is_multi_asic": multi_asic_dut
+            "dualTorScenario": len(dualtor_ports_for_duts) != 0
         }
 
     @pytest.fixture(scope='class')
@@ -1615,15 +1610,22 @@ class QosSaiBase(QosBase):
                 RunAnsibleModuleFail if ptf test fails
         """
         testParams = dict()
+        src_is_multi_asic = False
+        dst_is_multi_asic = False
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+            if get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic:
+                src_is_multi_asic = True
+            if get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic:
+                dst_is_multi_asic = True
             testParams.update(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"],
-                "is_multi_asic": dutConfig["is_multi_asic"]
+                "src_is_multi_asic": src_is_multi_asic,
+                "dst_is_multi_asic": dst_is_multi_asic
             })
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
