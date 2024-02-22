@@ -84,5 +84,11 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
                                              module_ignore_errors=True)['stdout']
         logger.debug(ndppd_conf)
 
+        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        logger.debug(neigh_table)
+
     testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
+    if ip_version == 'v6':
+        neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
+        logger.debug(neigh_table)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
