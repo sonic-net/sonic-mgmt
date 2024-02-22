@@ -2,6 +2,7 @@ import ipaddr
 import logging
 import os
 import pytest
+import time
 
 from collections import namedtuple
 from collections import defaultdict
@@ -9,6 +10,9 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.utilities import wait_until
+from tests.common.config_reload import config_reload
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.processes_utils import wait_critical_processes
 
 from tests.cisco.common.utils import skip_if_sim
 from tests.cisco.common.utils import Arp
