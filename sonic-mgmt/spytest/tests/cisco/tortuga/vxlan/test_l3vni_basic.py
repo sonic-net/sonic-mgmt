@@ -43,7 +43,6 @@ def report_fail(dut, msg=''):
 #                                                                  #
 #   leaf0.Ethernet0-11.11.11.2  ---- spine0.Ethernet0-11.11.11.1   #
 #   leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet28-11.11.12.1  #
-####leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet8-11.11.12.1 ###
 #                                                                  #
 ####################################################################
 
@@ -192,8 +191,8 @@ def test_l3vni_basic_config(setup_teardown_l3vni):
     '''
     b. add vlan
     '''
-    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet8'], vrf=vrf)
-    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet8'], vrf=vrf)
+    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf)
+    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf)
 
     '''
     c. add dummy vlan
@@ -278,8 +277,8 @@ def test_l3vni_basic_config(setup_teardown_l3vni):
     '''
     b. remove vlan
     '''
-    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet8'], vrf=vrf, add=False)
-    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet8'], vrf=vrf, add=False)
+    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf, add=False)
+    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf, add=False)
 
     '''
     a. delete vrf
@@ -301,9 +300,9 @@ def test_l3vni_multiple_vni(setup_teardown_l3vni):
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : ['Ethernet8'], 'vni' : '2000', 'dummy_vlan' : '200'},
-             'Vrf03' : { 'vlan' : '3', 'members' : ['Ethernet20'], 'vni' : '3000', 'dummy_vlan' : '300' },
-             'Vrf04' : { 'vlan' : '4', 'members' : ['Ethernet24'], 'vni' : '4000', 'dummy_vlan' : '400' }}
+    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : ['Ethernet32'], 'vni' : '2000', 'dummy_vlan' : '200'},
+             'Vrf03' : { 'vlan' : '3', 'members' : ['Ethernet40'], 'vni' : '3000', 'dummy_vlan' : '300' },
+             'Vrf04' : { 'vlan' : '4', 'members' : ['Ethernet48'], 'vni' : '4000', 'dummy_vlan' : '400' }}
 
     svi_ips = { 'leaf0' : [ { 'vlan' : '2', 'ip' : '100.100.102.254/24', 'vni' : '2000' },
                             { 'vlan' : '3', 'ip' : '100.100.103.254/24', 'vni' : '3000' },
@@ -463,8 +462,8 @@ def test_l3vni_remove_add_bgp(setup_teardown_l3vni):
     '''
     b. add vlan
     '''
-    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet8'], vrf=vrf)
-    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet8'], vrf=vrf)
+    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf)
+    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf)
 
     '''
     c. add dummy vlan
@@ -650,8 +649,8 @@ def test_l3vni_remove_add_bgp(setup_teardown_l3vni):
     '''
     b. remove vlan
     '''
-    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet8'], vrf=vrf, add=False)
-    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet8'], vrf=vrf, add=False)
+    config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf, add=False)
+    config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf, add=False)
 
     '''
     a. delete vrf
