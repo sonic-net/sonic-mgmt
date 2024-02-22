@@ -469,11 +469,11 @@ def traffic_test_burst(_mode):
     if (int(total_tg1_tx) == 0) | (int(total_tg2_tx) == 0):
       st.log("Traffic Validation Failed")
       st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
-    elif (abs(int(data.pkts_per_burst)-int(total_tg2_rx)) > data.tgen_stats_threshold):
+    elif (int(data.pkts_per_burst)-int(total_tg2_rx) > data.tgen_stats_threshold):
       st.log("Traffic Validation Failed")
       #st.report_fail("test_case_failed")
       st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
-    elif (abs(int(data.pkts_per_burst)-int(total_tg1_rx)) > data.tgen_stats_threshold):
+    elif (int(data.pkts_per_burst)-int(total_tg1_rx) > data.tgen_stats_threshold):
       st.log("Traffic Validation Failed")
       #st.report_fail("test_case_failed")
       st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
