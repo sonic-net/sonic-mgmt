@@ -226,8 +226,6 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
         if is_mellanox_device(duthost):
             pytest.skip("Skip remove test, because the mellanox device doesn't support removing qos config fields")
         value = ""
-    elif op == "replace" and not field_value:
-        pytest.skip("Skip replace test, because the field does not already exist on the DUT")
     else:
         value = calculate_field_value(duthost, tbinfo, configdb_field)
     logger.info("value to be added to json patch: {} operation: {} field: {}".format(value, op, configdb_field))
@@ -241,6 +239,9 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        if op == "replace" and not field_value:
+            expect_op_failure(output)
+        
         if is_valid_platform_and_version(duthost, "BUFFER_POOL", "Shared/headroom pool size changes", op, field_value):
             expect_op_success(duthost, output)
             ensure_application_of_updated_config(duthost, configdb_field, value)
