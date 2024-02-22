@@ -42,7 +42,8 @@ INSTALL_OS_IN_ONIE = "Install OS"
 
 # After enter into the installation in ONIE, it will discover some configuration
 # And finally, we will get the string "ONIE: Starting ONIE Service Discovery"
-ONIE_START_TO_DISCOVERY = "Discovery"
+# To fit the scenario of Celestica, we finally use the string "covery"
+ONIE_START_TO_DISCOVERY = "covery"
 
 # At last, if installation successes in ONIE, we will get the prompt
 SONIC_PROMPT = "sonic login:"
