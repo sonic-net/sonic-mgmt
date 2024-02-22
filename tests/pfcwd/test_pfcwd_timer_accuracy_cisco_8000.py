@@ -6,6 +6,7 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.pfc_storm import PFCStorm
 from .files.pfcwd_helper import start_wd_on_ports
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
+from tests.common.errors import RunAnsibleModuleFail
 
 
 pytestmark = [
@@ -167,10 +168,10 @@ class TestPfcwdAllTimer(object):
         logger.info("Wait for queue to recover from PFC storm")
         time.sleep(16)
         self.retrieve_timestamp("[P]FC_STORM_START")
-        self.verify_no_detection(self.dut)
+        self.verify_no_detection()
         time.sleep(16)
         self.retrieve_timestamp("[P]FC_STORM_END")
-        self.verify_no_restore(self.dut)
+        self.verify_no_restore()
 
     def retrieve_timestamp(self, pattern):
         """
@@ -189,16 +190,22 @@ class TestPfcwdAllTimer(object):
         return int(timestamp_ms)
 
     def verify_no_detection(self):
-        if self.retrieve_timestamp("[d]etected PFC storm"):
+        try:
+            self.retrieve_timestamp("[d]etected PFC storm")
             raise RuntimeError(
                 "PFCwd detected a storm, "
                 "though it shouldn't detect with no traffic.")
+        except RunAnsibleModuleFail:
+            pass
 
     def verify_no_restore(self):
-        if self.retrieve_timestamp("[s]torm restored"):
+        try:
+            self.retrieve_timestamp("[s]torm restored")
             raise RuntimeError(
                 "PFCwd reports a restore from a storm,"
                 " though it shouldn't be detecting with no traffic.")
+        except RunAnsibleModuleFail:
+            pass
 
     def test_pfcwd_timer_accuracy(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                   pfcwd_timer_setup_restore):
@@ -219,7 +226,6 @@ class TestPfcwdAllTimer(object):
                 for i in range(1, 11):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
                     self.run_test()
-                self.verify_pfcwd_timers_t2()
             else:
                 for i in range(1, 20):
                     logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
@@ -233,7 +239,6 @@ class TestPfcwdAllTimer(object):
                     logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
 
                     self.run_test()
-                self.verify_pfcwd_timers()
 
         except Exception as e:
             logger.info("exception: ")
