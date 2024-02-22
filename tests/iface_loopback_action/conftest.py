@@ -16,7 +16,7 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--rif_loppback_reboot_type",
+        "--rif_loopback_reboot_type",
         action="store",
         type=str,
         default="cold",

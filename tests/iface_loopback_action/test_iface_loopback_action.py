@@ -11,7 +11,7 @@ from .iface_loopback_action_helper import verify_traffic
 from .iface_loopback_action_helper import config_loopback_action
 from .iface_loopback_action_helper import clear_rif_counter
 from .iface_loopback_action_helper import verify_interface_loopback_action
-from .iface_loopback_action_helper import verify_rif_tx_err_count, is_rif_counters_ready
+from .iface_loopback_action_helper import verify_rif_tx_err_count, is_rif_counters_ready, check_ip_interface_up
 from .iface_loopback_action_helper import shutdown_rif_interfaces, startup_rif_interfaces
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 
@@ -88,11 +88,21 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
     count_list = [NUM_OF_TOTAL_PACKETS if action == ACTION_DROP else 0 for action in action_list]
     with allure.step("Configure the loopback action for {} to {}".format(rif_interfaces, action_list)):
         config_loopback_action(duthost, rif_interfaces, action_list)
+    with allure.step("Verify the loopback action is correct before config reload"):
+        with allure.step("Check the looback action is configured correctly with cli command"):
+            verify_interface_loopback_action(duthost, rif_interfaces, action_list)
+        with allure.step("Check the loopback traffic"):
+            with allure.step("Clear the rif counter"):
+                clear_rif_counter(duthost)
+            with allure.step("Check the traffic can be received or dropped as expected"):
+                verify_traffic(duthost, ptfadapter, rif_interfaces, ports_configuration, action_list)
+            with allure.step("Check the TX_ERR in rif counter statistic will increase or not as expected"):
+                verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
     with allure.step("Save configuration"):
         duthost.shell("config save -y")
     with allure.step("System reload"):
 
-        reboot_type = request.config.getoption("--rif_loppback_reboot_type")
+        reboot_type = request.config.getoption("--rif_loopback_reboot_type")
         if reboot_type == "random":
             reload_types = ["reload", "cold", "fast", "warm"]
             reboot_type = random.choice(reload_types)
@@ -110,6 +120,9 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
         with allure.step("Check the looback action is configured correctly with cli command"):
             verify_interface_loopback_action(duthost, rif_interfaces, action_list)
         with allure.step("Check the loopback traffic"):
+            with allure.step("Check all ip interfaces are up"):
+                pytest_assert(wait_until(20, 5, 0, check_ip_interface_up, duthost, rif_interfaces),
+                              "Not all ip interfaces are up.")
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can be received or dropped as expected"):
