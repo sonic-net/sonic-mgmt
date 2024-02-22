@@ -241,3 +241,8 @@ def asic_db_checker(duthost):
             output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
             assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
     yield _check_asic_db
+
+
+@pytest.fixture(scope="function", params=['udp', 'tcp', 'echo_request', 'echo_reply'])
+def inner_packet_type(request):
+    return request.param
