@@ -95,7 +95,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
 def test_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                       nbrhosts, fanouthosts, tbinfo, restore_image,                     # noqa F811
                       get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,  # noqa F811
-                      upgrade_path_lists, create_hole_in_tcam):                         # noqa F811
+                      upgrade_path_lists):                                              # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
