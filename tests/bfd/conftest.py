@@ -30,14 +30,13 @@ def bfd_cleanup_db(
     )
     duts = duthosts.frontend_nodes
     for dut in duts:
-        assert (
-            wait_until(100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold),
-            "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
-                dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                    "stdout"
-                ],
-                orch_cpu_threshold,
-            ),
+        assert wait_until(
+            100, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
+            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
+                "stdout"
+            ],
+            orch_cpu_threshold,
         )
 
     yield
@@ -47,14 +46,13 @@ def bfd_cleanup_db(
         "watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold
     )
     for dut in duts:
-        assert (
-            wait_until(45, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold),
-            "Orch CPU utilization {} > orch cpu threshold {} after the test".format(
-                dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
-                    "stdout"
-                ],
-                orch_cpu_threshold,
-            ),
+        assert wait_until(
+            45, 2, 0, check_orch_cpu_utilization, dut, orch_cpu_threshold
+        ), "Orch CPU utilization {} > orch cpu threshold {} before starting the test".format(
+            dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")[
+                "stdout"
+            ],
+            orch_cpu_threshold,
         )
 
     logger.info("Verifying swss container status on RP")
@@ -63,7 +61,7 @@ def bfd_cleanup_db(
     if hasattr(request.config, "rp_asic_ids"):
         for id in request.config.rp_asic_ids:
             docker_output = rp.shell(
-                "docker ps | grep swss{} | awk '{print $NF}'".format(id)
+                "docker ps | grep swss{} | awk '{{print $NF}}'".format(id)
             )["stdout"]
             if len(docker_output) == 0:
                 container_status = False
