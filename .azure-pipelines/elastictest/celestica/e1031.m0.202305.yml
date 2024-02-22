@@ -65,7 +65,7 @@ parameters:
 
   - name: FEATURES
     type: string
-    default: " "
+    default: "everflow,gnmi"
     displayName: "Features to be executed"
 
   # Custom skip scripts
