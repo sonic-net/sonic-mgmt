@@ -26,6 +26,9 @@ WAIT_TIME = 3
 
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
+    if duthost.topo_type.lower() in ["m0", "mx"]:
+        logger.info("Skipping swss events test on MGFX topologies")
+        return
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
