@@ -65,6 +65,8 @@ def test_show_platform_npu_lpts(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu lpts`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
     result = duthost.shell(f"sudo show platform npu lpts {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
     logging.info(result)
     traceback_found = "Traceback" in result
@@ -76,6 +78,8 @@ def test_show_platform_npu_counters(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu counters`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
     result = duthost.shell(f"sudo show platform npu counters {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
     logging.info(result)
     traceback_found = "Traceback" in result
@@ -87,6 +91,8 @@ def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu ecmp`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
     result = duthost.shell(f"sudo show platform npu ecmp {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
     logging.info(result)
     traceback_found = "Traceback" in result
@@ -98,6 +104,8 @@ def test_show_platform_npu_event_trap(duthosts, enum_rand_one_per_hwsku_hostname
     @summary: Verify output of `show platform npu event-trap`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
     result = duthost.shell(f"sudo show platform npu event-trap {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
     logging.info(result)
     traceback_found = "Traceback" in result
@@ -109,6 +117,8 @@ def test_show_platform_npu_trap(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform npu trap`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.is_supervisor_node():
+        pytest.skip("Not supported on RP")
     result = duthost.shell(f"sudo show platform npu trap {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
     logging.info(result)
     traceback_found = "Traceback" in result
