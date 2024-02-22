@@ -71,6 +71,10 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
             if type(dut_ssh) == tuple:
                 logger.info("SSH success.")
 
+                # May recover from boot loader, need to delete image file
+                sonichost.shell("sudo rm -f /host/{}".format(image_url.split("/")[-1]),
+                                module_ignore_errors=True)
+
                 # Add ip info into /etc/network/interface
                 extra_vars = {
                     'addr': mgmt_ip.split('/')[0],
