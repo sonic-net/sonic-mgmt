@@ -157,6 +157,8 @@ def parse_tacacs_server(duthost):
 def aaa_tc1_add_config(duthost):
     """ Test AAA add initial config for its sub type
     """
+    # Recent AAA YANG update that passkey in TACPLUS must exist first for authorization tacacs+
+    tacacs_global_tc2_add_config(duthost)
     aaa_config = {
         "accounting": {
             "login": "tacacs+,local"
