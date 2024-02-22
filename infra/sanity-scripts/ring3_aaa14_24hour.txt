@@ -8,3 +8,4 @@ route/test_route_perf.py
 cisco/platform_tests/test_eth_switch.py
 cisco/platform_tests/test_platform_reboot.py::TestKdumpCisco::test_watchdog_kdump
 cisco/ipfwd/test_cisco_nhop_group.py
+cisco/ipfwd/test_lpm.py
