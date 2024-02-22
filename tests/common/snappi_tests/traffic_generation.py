@@ -1,7 +1,7 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
-
+import math
 import time
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -717,7 +717,8 @@ def verify_m2o_oversubscribtion_results(duthost,
         bg_flow_name (str): name of background flows
         rx_port: Rx port of the dut
         rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
-        flag (dict): Comprises of flow name and its loss criteria
+        flag (dict): Comprises of flow name and its loss criteria (example: {'PAUSE': 'loss',
+                     Test Flow': 'no_loss', 'Background Flow': {'loss':'10'}})
 
     Returns:
         N/A
@@ -743,10 +744,14 @@ def verify_m2o_oversubscribtion_results(duthost,
                     pytest_assert(row.loss > 0,
                                   '{} should have traffic loss'.format(row.name))
                     sum_rx += int(row.frames_rx)
+                elif isinstance(criteria, dict):
+                    pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']),
+                                  '{} should have traffic loss close to {} %'.format(row.name,
+                                                                                     float(flag[flow_type]['loss'])))
                 else:
                     pytest_assert(False, "Wrong criteria given in flag")
 
-    tx_frames, tx_drop_frames = get_tx_frame_count(duthost, rx_port['peer_port'])
+    tx_frames = get_tx_frame_count(duthost, rx_port['peer_port'])[0]
     pytest_assert(abs(sum_rx - tx_frames)/sum_rx <= rx_frame_count_deviation,
                   "FAIL: DUT counters doesn't match with the total frames received on Rx port, \
                   Deviation of more than {} observed".format(rx_frame_count_deviation))
