@@ -37,7 +37,8 @@ N/A
 ### Setup configuration
 
 This test requires a running SONIC system with fully functioning configuration. 
-This capability is only supported on MSFT hwskus.
+This capability is only supported on systems that have SAI_NOT_DROP_SIP_DIP_LINK_LOCAL=1 in sai.profile.
+the tests are supported on all topologies and are covering router portes, port channel and ports in vlan.
 
 ### Configuration scripts
 
@@ -48,23 +49,27 @@ N/A
 
 #### Test objective
 
-Verify that traffic sent from PTF with IPv4/IPv6 source IP is being forwaded from downlinks to uplink.
-1. sent packets via scapy from PTF with Link local source ip address
+Verify that traffic sent from PTF with IPv4/IPv6 source IP is being forwaded.
+1. send packets via scapy from PTF with Link local source ip address
 2. Verify packets are routed
-3. Verify Counters have increased for both up and down links.
+3. Verify Counters have increased for both links.
 
 ### Test case #3 - IPv4 Link-Local Destination IP Traffic
 
 #### Test objective
-Verify that traffic sent from PTF with IPv4 destination IP is being recived by the dut port.
-1. Add an Ipv4 Link-local address to DUT interface (remove interface from vlan if need be).
-2. Send traffic to the DUT interface IPv4 link-local address. The packet is to be sent directly to the port interface.
-3. Verify Counters have increased for the inteface on dut
+Verify that traffic sent from PTF with IPv4 destination IP is being forwarded by DUT.
+1. Add an Ipv4 Link-local address to PTF interfaces.
+2. Add dut interfaces to Vlan.
+3. Send traffic via scapy from PTF with Link local destination ip address
+4. Verify packets are routed
+5. Verify Counters have increased for both links.
 
 ### Test case #4 - IPv6 Link-Local Destination IP Traffic
 
 #### Test objective
-Verify that traffic sent from PTF with IPv6 destination IP is being recived by the dut port.
-1. Send traffic to the DUT interface IPv6 link-local address (the interfaces has an IPv6 Link-local IP by default). The packet is to be sent directly to the port interface.
-2. Verify Counters have increased for the inteface on dut
+Verify that traffic sent from PTF with IPv6 destination IP is being forwarded by DUT.
+1. Add dut interfaces to Vlan.
+2. Send traffic via scapy from PTF with Link local destination ip address
+3. Verify packets are routed
+4. Verify Counters have increased for both links.
 
