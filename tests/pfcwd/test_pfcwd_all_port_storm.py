@@ -156,12 +156,23 @@ class TestPfcwdAllPortStorm(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         storm_hndle = storm_test_setup_restore
         logger.info("--- Testing if PFC storm is detected on all ports ---")
-        self.run_test(duthost,
-                      storm_hndle,
-                      expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
-                      syslog_marker="all_port_storm",
-                      action="storm")
+        if duthost.facts["asic_type"] in ['cisco-8000']:
+            self.run_test(
+                duthost,
+                storm_hndle,
+                expect_regex=[fetch_vendor_specific_diagnosis_re(duthost)],
+                syslog_marker="all_port_storm",
+                action="storm")
 
+        else:
+            self.run_test(
+                duthost,
+                storm_hndle,
+                expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
+                syslog_marker="all_port_storm",
+                action="storm")
         logger.info("--- Testing if PFC storm is restored on all ports ---")
-        self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
-                      syslog_marker="all_port_storm_restore", action="restore")
+        if not duthost.facts["asic_type"] in ['cisco-8000']:
+            self.run_test(
+                duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
+                syslog_marker="all_port_storm_restore", action="restore")

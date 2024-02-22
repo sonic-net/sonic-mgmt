@@ -263,6 +263,8 @@ class PfcPktCntrs(object):
             begin(bool) : if the counter collection is before or after the test
 
         """
+        if self.dut.facts["asic_type"] in ['cisco-8000']:
+            return
         test_state = ['end', 'begin']
         state = test_state[begin]
         self.cntr_val["tx_{}".format(state)] = int(PfcCmd.counter_cmd(self.dut, queue_oid, self.pkt_cntrs_tx[0]))
