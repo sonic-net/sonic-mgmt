@@ -211,7 +211,7 @@ class TestQosSai(QosSaiBase):
                     startPos += 1
 
     def testQosSaiTrafficSanity(
-            self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts, dut_qos_maps
     ):
         """
             Test QoS SAI traffic sanity
@@ -247,6 +247,20 @@ class TestQosSai(QosSaiBase):
         all_dst_port_id_to_ip = {port_id: dst_testPortIps[port_id]['peer_addr'] for port_id in dst_testPortIps.keys()}
         all_dst_port_id_to_name = {port_id: dutConfig["dutInterfaces"][port_id] for port_id in dst_testPortIps.keys()}
 
+        try:
+            tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
+            tc_to_dscp_map = {v: k for k, v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
+        except KeyError:
+            pytest.skip(
+                "Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP"
+                "and key AZURE to run this test.")
+
+        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS or dutTestParams["topo"] in self.SUPPORTED_T1_TOPOS:
+            dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map if tc != 7}
+        else:
+            # Only run on lossless TC 3
+            dscp_to_q_map = {tc_to_dscp_map[3]: tc_to_q_map[3]}
+
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
         testParams.update({
@@ -255,6 +269,7 @@ class TestQosSai(QosSaiBase):
             "all_src_port_id_to_name": all_src_port_id_to_name,
             "all_dst_port_id_to_ip": all_dst_port_id_to_ip,
             "all_dst_port_id_to_name": all_dst_port_id_to_name,
+            "dscp_to_q_map": dscp_to_q_map,
             "hwsku": dutTestParams['hwsku']
         })
 

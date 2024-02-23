@@ -1,6 +1,7 @@
 qos_params:
     gb:
         topo-any:
+            cell_size: 384
         topo-t2:
             100000_300m:
                 memory_1:
