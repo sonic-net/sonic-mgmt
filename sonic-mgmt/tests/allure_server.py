@@ -114,18 +114,47 @@ class AllureServer:
         url = self.base_url + "/generate-report"
         response = requests.get(url, params=params, headers=self.http_headers)
 
+
+        #sometimes files sent is too much and allure needs more time to process before generating report
+        #in this case, wait a bit and try again
+        if response.status_code == 400 and "Try later" in response.json()["meta_data"]["message"]:
+            logger.info("Got response to try again later. Sleeping for 5 minutes and checking if reports were generated...")
+            get_reports_url = self.base_url + "/projects/" + self.project_id
+            for i in range(5): #try 5 times
+                logger.info("Attempt #{}".format(i))
+                time.sleep(300)
+
+                response = requests.get(get_reports_url, headers=self.http_headers)
+                if not response.ok: 
+                    continue
+
+                resJson = response.json()
+                logger.info("response for GET {}: {}".format(get_reports_url, resJson))
+                reports = resJson["data"]["project"]["reports"]
+                if len(reports) == 0:
+                    continue
+
+                for report_url in reports:
+                    if "latest" in report_url:
+                        return report_url
+                
+                #if code got here, somehow report links exist but 'latest' does not
+                #strangee, but better to return some url than nothing, return 1st element
+                return reports[0]
+
         if not response.ok:
             logger.error("Failed to generate report on allure server, error: {}".format(response.content))
+            return ""
+
+        resJson = response.json()
+        if resJson["data"] and resJson["data"]["report_url"]:
+            report_url = resJson["data"]["report_url"]
         else:
-            resJson = response.json()
-            if resJson["data"] and resJson["data"]["report_url"]:
-                report_url = resJson["data"]["report_url"]
-            else:
-                logger.error(
-                    "ERROR! Data was not found in response for generating allure report. res: {resJson}".format(resJson)
-                )
-                report_url = ""
-            return report_url
+            logger.error(
+                "ERROR! Data was not found in response for generating allure report. res: {}".format(resJson)
+            )
+            report_url = ""
+        return report_url
 
     def clean_results_on_allure_server(self):
         """
