@@ -34,6 +34,12 @@ Verify that we can utilize GCU to create a custom ACL Table Type, and then creat
 
 - Verify that output of "show acl table {tablename}" matches expected output
 
+- Use GCU to remove ACL Table
+
+- Use GCU to remove ACL Table Type
+
+- Verify that both operations were successful
+
 ### Test Case # 2 - Create a drop rule within custom table
 
 #### Test Objective
