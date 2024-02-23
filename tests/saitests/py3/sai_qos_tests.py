@@ -4085,6 +4085,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.src_client, asic_type, port_list['src'][src_port_id])
         dst_pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
             self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print("Initial watermark:{}".format(pg_shared_wm_res_base))
 
         # send packets
         try:
@@ -4106,8 +4107,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
-                assert (fill_leakout_plus_one(
-                    self, src_port_id, dst_port_id, pkt, pg, asic_type))
+                fill_leakout_plus_one(
+                    self, src_port_id, dst_port_id, pkt, pg, asic_type, pkts_num_egr_mem)
             else:
                 pg_min_pkts_num = pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
@@ -4210,12 +4211,14 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin)
                              * (packet_length + internal_hdr_size)))
                 else:
-                    print("lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
-                        expected_wm * cell_size, pg_shared_wm_res[pg], margin, (expected_wm + margin) * cell_size),
-                        file=sys.stderr)
-                    assert (pg_shared_wm_res[pg] <= (
-                        expected_wm + margin) * cell_size)
-                    assert (expected_wm * cell_size <= pg_shared_wm_res[pg])
+                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
+                        expected_wm * cell_size,
+                        pg_shared_wm_res[pg],
+                        margin,
+                        (expected_wm + margin) * cell_size)
+                    assert pg_shared_wm_res[pg] <= (
+                            expected_wm + margin) * cell_size, msg
+                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
@@ -4501,7 +4504,7 @@ class PGDropTest(sai_base_test.ThriftInterfaceDataPlane):
                 # Send packets to trigger PFC
                 print("Iteration {}/{}, sending {} packets to trigger PFC".format(
                     test_i + 1, iterations, pkts_num_trig_pfc), file=sys.stderr)
-                send_packet(self, src_port_id, pkt, pkts_num_trig_pfc)
+                send_packet(self, src_port_id, pkt, pkt_num)
 
                 # Account for leakout
                 if 'cisco-8000' in asic_type:
@@ -5008,7 +5011,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             time.sleep(8)
             buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
-                self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                client_to_use, buf_pool_roid) - buffer_pool_wm_base
             print("Init pkts num sent: %d, min: %d, actual watermark value to start: %d" % (
                 (pkts_num_leak_out + pkts_num_fill_min), pkts_num_fill_min, buffer_pool_wm), file=sys.stderr)
             if pkts_num_fill_min:
@@ -5055,7 +5058,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
                 time.sleep(8)
                 buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
-                    self.src_client, buf_pool_roid) - buffer_pool_wm_base
+                    client_to_use, buf_pool_roid) - buffer_pool_wm_base
                 print(
                       "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d"
                       % (
