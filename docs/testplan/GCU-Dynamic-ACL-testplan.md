@@ -135,7 +135,7 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 - Verify that all operations were successful
 
 - Verify that the results of "show acl rule {rule_name}" are empty for both rule names
-  
+
 - Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
 
 ### Test Case # 7 - Replace the IP Address of a non-existent ACL Rule
