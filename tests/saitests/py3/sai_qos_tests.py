@@ -562,18 +562,20 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
             dst_port_ips = [self.dst_port_ip, self.dst_port_2_ip, self.dst_port_3_ip]
             for ip in dst_port_ips:
                 if dst_is_multi_asic:
-                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                                self.test_params['dut_password'],
-                                                                'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                                    self.dst_asic_index, ip))
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                        self.dst_asic_index, ip))
                     assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                    ip, self.dst_asic_index, self.dst_server_ip)
+                        ip, self.dst_asic_index, self.dst_server_ip)
                 else:
-                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                                self.test_params['dut_password'],
-                                                                'ping -q -c 3 {}'.format(ip))
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'ping -q -c 3 {}'.format(ip))
                     assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
-                    ip, self.dst_server_ip)
+                        ip, self.dst_server_ip)
             if src_is_multi_asic:
                 stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
                                                                 self.test_params['dut_password'],
