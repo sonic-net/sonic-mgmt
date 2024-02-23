@@ -156,6 +156,7 @@ class QosParamCisco(object):
         return autogen
 
     def __mark_skip(self, testcase, reason):
+        self.qos_params[testcase] = {}
         self.qos_params[testcase]["skip"] = reason
 
     def __define_shared_reservation_size(self):
@@ -213,8 +214,13 @@ class QosParamCisco(object):
                      "dst_port_i": [7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13],
                      "pkt_counts": [3527, 3527, 3527, 3527, 3527, 3527, 1798, 1798, 846, 687, 687, 328, 1],
                      "shared_limit_bytes": 41943552}
-        self.qos_params["shared_res_size_1"].update(res_1)
-        self.qos_params["shared_res_size_2"].update(res_2)
+        try:
+            self.qos_params["shared_res_size_1"].update(res_1)
+            self.qos_params["shared_res_size_2"].update(res_2)
+        except KeyError:
+            skip_reason = "Shared Res Size Keys are not found, will be skipping test."
+            self.__mark_skip("shared_res_size_1", skip_reason)
+            self.__mark_skip("shared_res_size_2", skip_reason)
 
     def __define_pfc_xoff_limit(self):
         if not self.should_autogen(["xoff_1", "xoff_2"]):
