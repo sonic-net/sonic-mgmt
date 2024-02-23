@@ -86,6 +86,12 @@ bfd/test_bfd.py::test_bfd_scale:
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
+bfd/test_bfd_static_route.py:
+  skip:
+    reason: "Only supported on chassis system & cisco platform."
+    conditions:
+      - "is_multi_asic is False"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####            bgp              #####
@@ -116,9 +122,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology or mellanox T1-LAG asic"
+    reason: "Unsupported topology"
     conditions:
-      - "topo_type in ['m0', 'mx'] or ((topo_type in ['t1-lag']) and (asic_type in ['mellanox']))"
+      - "topo_type in ['m0', 'mx']"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -282,19 +288,13 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####          dhcp_relay         #####
+#####         dhcp_relay        #####
 #######################################
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
@@ -690,11 +690,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test not supported on Broadcom/Maarvell SKUs or dualtor topology."
+    reason: "Test not supported on Broadcom SKUs or dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "asic_type in ['broadcom', 'marvell']"
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####      iface_namingmode       #####
