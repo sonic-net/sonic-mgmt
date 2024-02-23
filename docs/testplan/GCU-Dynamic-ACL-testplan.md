@@ -2,7 +2,7 @@
 
 ## Overview
 
-This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules.
+This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules, and that these ACL rules and their priorities are respected and appropriate action is taken on packets.
 
 ## Testbed
 
@@ -12,21 +12,23 @@ The test will run on T0 testbeds.
 
 No setup pre-configuration is required, the test will configure and return the testbed to its original state.
 
+Tests themselves will utilize a fixture that automatically creates a ACL_TABLE_TYPE and ACL_TABLE, and then removes them when the test is complete.
+
 ## Testing Plan
 
-To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in the last section of this document, **JSON Patch Files and Expected Results**.
+To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in the last section of this document, [JSON Patch Files and Expected Results](#json-patch-files-and-expected-results).
 
 ### Test Case # 1 - Create and apply custom ACL table without rules
 
 #### Test Objective
 
-Verify that we can utilize GCU to create a custom ACL Table Type, and then create an ACL Table from this type
+Verify that we can utilize GCU to create a custom ACL Table Type, and then create an ACL Table from this type.  This is accomplished with a fixture, which will automatically be run on each subsequent test
 
 #### Testing Steps
 
-- Create a new ACL Table Type
+- Use GCU to create a new ACL Table Type via GCU
 
-- Create an ACL Table utilizing this ACL Table Type
+- Use GCU to create an ACL Table utilizing this ACL Table Type
 
 - Verify that both operations were successful
 
@@ -40,17 +42,33 @@ Verify that we can create a single drop rule utilizing GCU
 
 #### Testing Steps
 
-- Create a new ACL Table Type
+- Use GCU to create a new drop rule on a specific port in our ACL Table
 
-- Create an ACL Table utilizing this ACL Table Type
-
-- Create a new drop rule on our new ACL Table
-
-- Verify that all operations were successful
+- Verify that operation was successful
 
 - Verify that output of "show acl rule | grep {rule_name}" matches expected output
 
-### Test Case # 3 - Create 2 forward rules witihin custom ACL table
+- Verify that a packet sent on this port is dropped for both IPv4 and IPv6
+
+### Test Case # 3 - Remove a drop rule from the ACL table
+
+#### Test Objective
+
+Verify that we can remove a previously created drop rule from our ACL Table with GCU
+
+#### Testing Steps
+
+- Use GCU to create a drop rule on ACL Table
+
+- Remove the drop rule from ACL Table
+
+- Verify that all operations were successful
+
+- Verify that the result of "show acl rule {rule_name}" has no relevant output
+
+- Verify that packets that were previously dropped are now forwarded
+
+### Test Case # 4 - Create forward rules within custom ACL table
 
 #### Test Objective
 
@@ -58,35 +76,17 @@ Verify that we can create a forward rule utilizing GCU, and that we can create f
 
 #### Testing Steps
 
-- Create a new ACL Table Type
+- Use GCU to create 2 new forwarding rules with top priority on our ACL Table, one for IPv4 and one for IPv6
 
-- Create an ACL Table utilizing this ACL Table Type
-
-- Create 2 new forwarding rules on our new ACL Table
+- Use GCU to create drop rule with lower priority in ACL Table
 
 - Verify that all operations were successful
 
 - Verify that for both rules created, "show acl rule | grep {rulename}" matches expected output for both rules
 
-### Test Case # 4 - Remove a drop rule from the ACL table
+- Verify that packets matching forwarding rules are correctly forwarded
 
-#### Test Objective
-
-Verify that we can remove a previously created drop rule from our ACL Table
-
-#### Testing Steps
-
-- Create a new ACL Table Type
-
-- Create an ACL Table utilizing this ACL Table Type
-
-- Create a drop rule on this ACL Table
-
-- Remove the drop rule from this ACL Table
-
-- Verify that all operations were successful
-
-- Verify that the result of "show acl rule {rule_name}" has no relevant output
+- Verify that packets not matching forwarding rules are correctly dropped
 
 ### Test Case # 5 - Replace the IP Address on an ACL Rule
 
@@ -96,17 +96,19 @@ Verify that after creation, ACL Rules can have their match conditions updated
 
 #### Testing Steps
 
-- Create a new ACL Table Type
+- Use GCU to create 2 new forwarding rules on ACL Table
 
-- Create an ACL Table utilizing this ACL Table Type
+- Use GCU to create drop rule with lower priority on ACL Table
 
-- Create 2 new forwarding rules on ACL Table
-
-- Replace the IP addresses in both forwarding rules
+- Use GCU to replace the IP addresses in both forwarding rules
 
 - Verify that all operations were successful
 
 - Verify that the results of "show acl rule | grep {rule_name}" matches expected output for both rules
+
+- Verify that packets with IPs matching original forwarding rules are dropped
+
+- Verify that packets with IPs matching replacement rules are forwarded
 
 ### Test Case # 6 - Replace the IP Address of a non-existent ACL Rule
 
@@ -115,10 +117,6 @@ Verify that after creation, ACL Rules can have their match conditions updated
 Verify that attempting to replace the address of a rule that does not exist properly results in an error and does not affect configDB
 
 #### Testing Steps
-
-- Create a new ACL Table Type
-
-- Create an ACL Table utilizing this ACL Table Type
 
 - Create 2 new forwarding rules on ACL Table
 
@@ -134,41 +132,9 @@ Verify that attempting to remove an ACL Table that does not exist properly resul
 
 #### Testing Steps
 
-- Create a new ACL Table Type
-
-- Create an ACL Table utilizing this ACL Table Type
-
 - Attempt to remove a table that does not exist
 
 - Verify that this removal fails
-
-### Test Case # 8 - Remove ACL Table
-
-#### Test Objective
-
-Verify that it is possible to remove a custom ACL Table after creating it via GCU
-
-#### Testing Steps
-
-- Create a new ACL Table Type
-
-- Create an ACL Table utilizing this ACL Table Type
-
-- Remove this ACL Table Type
-
-- Verify all operations were successful
-
-### Test Case # 9 - Remove ACL Table Type
-
-#### Test Objective
-
-Verify that it is possible to remove a custom ACL Table Type after creating it
-
-#### Testing Steps
-
-- Create a new ACL Table Type
-
-- Remove this ACL Table Type
 
 ## JSON Patch Files and Expected Results
 
@@ -208,7 +174,7 @@ This section contains explicit details on the contents of each JSON Patch file u
                 "policy_desc": "DYNAMIC_ACL_TABLE",
                 "type": "DYNAMIC_ACL_TABLE_TYPE",
                 "stage": "INGRESS",
-                "ports": ["Ethernet4","Ethernet8","Ethernet12","Ethernet16","Ethernet20","Ethernet24","Ethernet28","Ethernet32","Ethernet36","Ethernet40","Ethernet44","Ethernet48","Ethernet52","Ethernet56","Ethernet60","Ethernet64","Ethernet68","Ethernet72","Ethernet76","Ethernet80","Ethernet84","Ethernet88","Ethernet92","Ethernet96"]
+                "ports": {vlan port members from minigraph}
             }
         }
     ]
@@ -220,22 +186,11 @@ This section contains explicit details on the contents of each JSON Patch file u
 **Additional checks**
 - Check that results of the command “show acl table” match this expected output:
 
-Name  | Type | Binding | Description | Stage
-------------- | ------------- | ---------- | ----------| ---------
-DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE | ingress
-  | | Ethernet8 | |
-  | | Ethernet12...
-
-### Create A Duplicate ACL Table
-
-**Json Patch**:
-- Identical to previous test
-
-**Expected result**
-- Operation Success
-
-**Additional checks**
-- None
+Name  | Type | Binding | Description | Stage | Status
+------------- | ------------- | ---------- | ----------| --------- | ---------
+DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_TYPE | ingress | Active
+  | | {vlan port 2} | |
+  | | {vlan port 3}...
 
 ### Create Forwarding Rules
 
@@ -279,7 +234,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
             "value": {
                 "PRIORITY": "9997",
                 "PACKET_ACTION": "DROP",
-                "IN_PORTS": "Ethernet4"
+                "IN_PORTS": {port selected from DUT minigraph}
             }
         }
     ]
@@ -289,7 +244,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | Ethernet4 | DYNAMIC_ACL_TABLE_TYPE 
 
 **Additional checks:**
 + Check that result of “show acl rule | grep RULE_3” matches the following output:
-  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: “Ethernet4”
+  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph}
 
 ### Remove Drop Rule
 
