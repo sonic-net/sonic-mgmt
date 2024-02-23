@@ -1,0 +1,330 @@
+[
+    {
+        "hwsku": "ACS-MSN3800",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "ACS-MSN4600C",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "ACS-MSN4600C",
+        "topo": "t1",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050-QX-32S",
+        "topo": "t0",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050-QX-32S",
+        "topo": "t1",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C32",
+        "topo": "t0",
+        "owner": "Ziting Guo",
+        "email": "zitingguo@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C32",
+        "topo": "dualtor",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C32",
+        "topo": "t1",
+        "owner": "Ziting Guo",
+        "email": "zitingguo@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-D48C8",
+        "topo": "dualtor",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7050QX32S-Q32",
+        "topo": "t1",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060CX-32S-C32",
+        "topo": "t1",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060CX-32S-D48C8",
+        "topo": "t0",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-720DT-G48S4",
+        "topo": "m0",
+        "owner": "Jing Kan",
+        "email": "jika@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-720DT-G48S4",
+        "topo": "mx",
+        "owner": "Jing Kan",
+        "email": "jika@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7260CX3-C64",
+        "topo": "t1",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7260CX3-C64",
+        "topo": "dualtor",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7260CX3-D108C8",
+        "topo": "t0",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7260CX3-D108C8",
+        "topo": "dualtor",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Celestica-E1031-T48S4",
+        "topo": "m0",
+        "owner": "Jing Kan",
+        "email": "jika@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Cisco-8101-O32",
+        "topo": "t1",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8101-O8C48",
+        "topo": "t1",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8102-C64",
+        "topo": "t1",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Cisco-8102-C64",
+        "topo": "dualtor",
+        "owner": "Shengkai Wang",
+        "email": "shengkaiwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-C32",
+        "topo": "t1",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-O32",
+        "topo": "t1",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-O64",
+        "topo": "t0",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-O64",
+        "topo": "t1",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Force10-S6100",
+        "topo": "t0",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Force10-S6100",
+        "topo": "t1",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN2700",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN2700",
+        "topo": "t1",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN2700-D40C8S8",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN3800-D112C8",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN4600C-C64",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN4600C-C64",
+        "topo": "t1",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Mellanox-SN4600C-C64",
+        "topo": "dualtor",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN4700-O8C48",
+        "topo": "t1",
+        "owner": "Shahzad Iqbal",
+        "email": "shahzadiqbal@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Mellanox-SN4700-O8V48",
+        "topo": "t0",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Nexus-3164",
+        "topo": "t1",
+        "owner": "Rita Hui",
+        "email": "ritahui@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Nokia-7215",
+        "topo": "mx",
+        "owner": "Jing Kan",
+        "email": "jika@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Nokia-M0-7215",
+        "topo": "m0",
+        "owner": "Jing Kan",
+        "email": "jika@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    }
+]
