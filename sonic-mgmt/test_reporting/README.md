@@ -1,20 +1,28 @@
 # SONiC Test Reporting
 
 ## Setup environment
-In the sonic-mgmt container:
+
+There are two options to run the test reporting scripts:
+1. Inside the sonic-mgmt container (recommended)
+2. On a Linux host
+
+### Option 1, inside the sonic-mgmt container (recommended)
+Go to this folder in the sonic-mgmt container:
 ```
-source /var/johnar/env-python3/bin/activate
+cd <your_path_to_sonic-mgmt>/test_reporting
 ```
 
+### Option 2, on a Linux host
 On a Linux host (verified against Ubuntu 20.04, but should work anywhere python3/virtualenv are supported):
 ```
 virtualenv env
 source env/bin/activate
+cd <your_path_to_sonic-mgmt>/test_reporting
 pip3 install -r requirements.txt
 ```
 
 ## Uploading test results to a Kusto/Azure Data Explorer (ADX) cluster
-You need to add the following environment variables first:
+You need to export the following environment variables first:
 - TEST_REPORT_INGEST_KUSTO_CLUSTER: The ingest URL of your kusto/ADX cluster
 - TEST_REPORT_AAD_TENANT_ID: The tenant ID of your Azure Active Directory (AAD) tenant
 - TEST_REPORT_AAD_CLIENT_ID: The client ID for your AAD application
@@ -23,7 +31,7 @@ You need to add the following environment variables first:
 Check out [this doc from Kusto](https://docs.microsoft.com/en-us/azure/data-explorer/provision-azure-ad-app) for more details about setting up AAD client applications for accessing Kusto.
 
 If you want to upload data into a new table, please add the related create table commands in setup.kql file and run them manually in Kusto.
-Make sure the table is created and mapping is generated sucessfully.
+Make sure the table is created and mapping is generated successfully.
 
 Once these have been added, you can use the `report_uploader.py` script to upload test report data to Kusto:
 ```

@@ -3,6 +3,7 @@ import pytest
 import time
 from tests.common.utilities import wait_until
 from utils import get_crm_resources, check_queue_status, sleep_to_wait
+from tests.common import config_reload
 
 CRM_POLLING_INTERVAL = 1
 CRM_DEFAULT_POLL_INTERVAL = 300
@@ -54,3 +55,21 @@ def withdraw_and_announce_existing_routes(duthost, localhost, tbinfo):
     sleep_to_wait(CRM_POLLING_INTERVAL * 5)
     logger.info("ipv4 route used {}".format(get_crm_resources(duthost, "ipv4_route", "used")))
     logger.info("ipv6 route used {}".format(get_crm_resources(duthost, "ipv6_route", "used")))
+
+
+@pytest.fixture(scope="module", autouse=True)
+def check_system_memmory(duthost):
+    for index in range(1, 4):
+        cmd = 'echo {} >  /proc/sys/vm/drop_caches'.format(index)
+        duthost.shell(cmd, module_ignore_errors=True)
+
+    cmd = "show system-memory"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("CMD {}: before test {}".format(cmd, cmd_response.get('stdout', None)))
+
+    yield
+    cmd = "show system-memory"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.debug("CMD {}: after test {}".format(cmd, cmd_response.get('stdout', None)))
+
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)

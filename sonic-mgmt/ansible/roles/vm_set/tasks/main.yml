@@ -168,6 +168,13 @@
     sysctl_set: yes
   become: yes
 
+- name: Increase IPv6 route cache size
+  sysctl:
+    name: "net.ipv6.route.max_size"
+    value: "16384"
+    sysctl_set: yes
+  become: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
