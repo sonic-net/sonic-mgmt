@@ -1,0 +1,20 @@
+[
+    {
+        "feature": "tacacs",
+        "hwsku": "*",
+        "topo": "*",
+        "owner": "feature owner"
+    },
+    {
+        "feature": "dhcp_relay",
+        "hwsku": "*",
+        "topo": "dualtor",
+        "owner": "feature owner"
+    },
+    {
+        "feature": "platform_tests",
+        "hwsku": "7260/8102",
+        "topo": "*",
+        "owner": "feature owner"
+    }
+]

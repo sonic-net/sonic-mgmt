@@ -1,0 +1,1468 @@
+[
+    {
+        "feature": "acl",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "acl.custom_acl_table.test_custom_acl_table",
+                    "acl.null_route.test_null_route_helper",
+                    "acl.test_acl",
+                    "acl.test_acl_outer_vlan"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "acl.test_stress_acl"
+                ],
+                "owner": "Xiawei Jiang",
+                "email": "xiaweijiang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "acms",
+        "owner": "Gang lv",
+        "email": "ganglv@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "acms.test_acms_bootstrap",
+                    "acms.test_acms_cert_converter",
+                    "acms.test_acms_cert_downloader",
+                    "acms.test_acms_start"
+                ],
+                "owner": "Gang lv",
+                "email": "ganglv@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "arp",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "arp.test_arp_dualtor",
+                    "arp.test_arp_extended",
+                    "arp.test_arpall",
+                    "arp.test_neighbor_mac_noptf"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "arp.test_tagged_arp"
+                ],
+                "owner": "Gang lv",
+                "email": "ganglv@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "arp.test_unknown_mac"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "arp.test_wr_arp"
+                ],
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "autorestart",
+        "owner": "Chun'ang Li",
+        "email": "chunangli@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "autorestart.test_container_autorestart"
+                ],
+                "owner": "Chun'ang Li",
+                "email": "chunangli@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "bfd",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "bfd.test_bfd"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "bgp",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "bgp.test_bgp_allow_list",
+                    "bgp.test_bgp_allow_list_m0_olt",
+                    "bgp.test_bgp_bbr",
+                    "bgp.test_bgp_bounce",
+                    "bgp.test_bgp_dual_asn",
+                    "bgp.test_bgp_fact",
+                    "bgp.test_bgp_gr_helper",
+                    "bgp.test_bgp_multipath_relax",
+                    "bgp.test_bgp_queue",
+                    "bgp.test_bgp_sentinel",
+                    "bgp.test_bgp_session_flap",
+                    "bgp.test_bgp_slb",
+                    "bgp.test_bgp_speaker",
+                    "bgp.test_bgp_suppress_fib",
+                    "bgp.test_bgp_update_timer",
+                    "bgp.test_bgpmon",
+                    "bgp.test_bgpmon_v6",
+                    "bgp.test_traffic_shift",
+                    "bgp.test_traffic_shift_sup"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "cacl",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "cacl.test_cacl_application",
+                    "cacl.test_cacl_function",
+                    "cacl.test_ebtables_application"
+                ],
+                "owner": "Zhaohui Sun",
+                "email": "zhaohuisun@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "configlet",
+        "owner": "Jingwen Xie",
+        "email": "jingwenxie@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "configlet.test_add_rack"
+                ],
+                "owner": "Jingwen Xie",
+                "email": "jingwenxie@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "console",
+        "owner": "Yutong Zhang",
+        "email": "yutongzhang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "console.test_console_availability",
+                    "console.test_console_driver",
+                    "console.test_console_loopback",
+                    "console.test_console_reversessh",
+                    "console.test_console_udevrule"
+                ],
+                "owner": "Yutong Zhang",
+                "email": "yutongzhang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "container_checker",
+        "owner": "Chun'ang Li",
+        "email": "chunangli@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "container_checker.test_container_checker"
+                ],
+                "owner": "Chun'ang Li",
+                "email": "chunangli@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "container_hardening",
+        "owner": "Chun'ang Li",
+        "email": "chunangli@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "container_hardening.test_container_hardening"
+                ],
+                "owner": "Chun'ang Li",
+                "email": "chunangli@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "copp",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "copp.test_copp"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "crm",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "crm.test_crm"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "database",
+        "owner": "Hua Liu",
+        "email": "liuh@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "database.test_db_scripts"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "decap",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "decap.test_decap"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dhcp_relay",
+        "owner": "Yaqiang Zhu",
+        "email": "yaqiangzhu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dhcp_relay.test_dhcp_pkt_fwd.TestDhcpPktFwd",
+                    "dhcp_relay.test_dhcp_relay",
+                    "dhcp_relay.test_dhcpv6_relay"
+                ],
+                "owner": "Yaqiang Zhu",
+                "email": "yaqiangzhu@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "disk",
+        "owner": "Chun'ang Li",
+        "email": "chunangli@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "disk.test_disk_exhaustion"
+                ],
+                "owner": "Chun'ang Li",
+                "email": "chunangli@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dns",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dns.test_dns_resolv_conf",
+                    "dns.static_dns.test_static_dns"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "drop_packets",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "drop_packets.test_configurable_drop_counters",
+                    "drop_packets.test_drop_counters"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dualtor",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dualtor.test_grpc_periodical_sync",
+                    "dualtor.test_ipinip",
+                    "dualtor.test_orch_stress",
+                    "dualtor.test_orchagent_active_tor_downstream",
+                    "dualtor.test_orchagent_mac_move",
+                    "dualtor.test_orchagent_slb",
+                    "dualtor.test_orchagent_standby_tor_downstream",
+                    "dualtor.test_server_failure",
+                    "dualtor.test_standby_tor_upstream_mux_toggle",
+                    "dualtor.test_toggle_mux",
+                    "dualtor.test_tor_ecn",
+                    "dualtor.test_tunnel_memory_leak"
+                ],
+                "owner": "Ying Xie",
+                "email": "yinxi@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dualtor_io",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dualtor_io.test_grpc_server_failure",
+                    "dualtor_io.test_heartbeat_failure",
+                    "dualtor_io.test_link_drop",
+                    "dualtor_io.test_link_failure",
+                    "dualtor_io.test_normal_op",
+                    "dualtor_io.test_tor_bgp_failure",
+                    "dualtor_io.test_tor_failure"
+                ],
+                "owner": "Ying Xie",
+                "email": "yinxi@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dualtor_mgmt",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dualtor_mgmt.test_dualtor_bgp_update_delay",
+                    "dualtor_mgmt.test_grpc_periodical_sync",
+                    "dualtor_mgmt.test_ingress_drop",
+                    "dualtor_mgmt.test_server_failure",
+                    "dualtor_mgmt.test_toggle_mux"
+                ],
+                "owner": "Ying Xie",
+                "email": "yinxi@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "dut_console",
+        "owner": "Yaqiang Zhu",
+        "email": "yaqiangzhu@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "dut_console.test_console_baud_rate"
+                ],
+                "owner": "Yaqiang Zhu",
+                "email": "yaqiangzhu@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "dut_console.test_escape_character",
+                    "dut_console.test_idle_timeout"
+                ],
+                "owner": "Yutong Zhang",
+                "email": "yutongzhang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "ecmp",
+        "owner": "Anish Narsian",
+        "email": "annarsia@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "ecmp.inner_hashing.test_fgnhg_inner_hashing_internal",
+                    "ecmp.inner_hashing.test_inner_hashing",
+                    "ecmp.inner_hashing.test_inner_hashing_lag",
+                    "ecmp.inner_hashing.test_wr_inner_hashing_lag",
+                    "ecmp.inner_hashing.test_wr_inner_hashing",
+                    "ecmp.test_fgnhg"
+                ],
+                "owner": "Anish Narsian",
+                "email": "annarsia@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "ecmp.test_ecmp_sai_value"
+                ],
+                "owner": "Zhaohui Sun",
+                "email": "zhaohuisun@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "everflow",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "everflow.test_everflow_ipv6",
+                    "everflow.test_everflow_per_interface",
+                    "everflow.test_everflow_testbed"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "fdb",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "fdb.test_fdb",
+                    "fdb.test_fdb_mac_expire",
+                    "fdb.test_fdb_mac_move"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "fdb.test_fdb_flush"
+                ],
+                "owner": "Liping Xu",
+                "email": "xuliping@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "fib",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "fib.test_fib"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "generic_config_updater",
+        "owner": "Jingwen Xie",
+        "email": "jingwenxie@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "generic_config_updater.test_aaa",
+                    "generic_config_updater.test_bgp_prefix",
+                    "generic_config_updater.test_bgp_speaker",
+                    "generic_config_updater.test_bgpl",
+                    "generic_config_updater.test_cacl",
+                    "generic_config_updater.test_dhcp_relay",
+                    "generic_config_updater.test_lo_interface",
+                    "generic_config_updater.test_monitor_config",
+                    "generic_config_updater.test_portchannel_interface",
+                    "generic_config_updater.test_syslog",
+                    "generic_config_updater.test_vlan_interface"
+                ],
+                "owner": "Jingwen Xie",
+                "email": "jingwenxie@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_bgp_sentinel"
+                ],
+                "owner": "Guangyao Zhao",
+                "email": "guangyaozhao@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_ecn_config_update",
+                    "generic_config_updater.test_eth_interface",
+                    "generic_config_updater.test_incremental_qos",
+                    "generic_config_updater.test_ipv6",
+                    "generic_config_updater.test_pg_headroom_update"
+                ],
+                "owner": "Isabel Li",
+                "email": "isl@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_mmu_dynamic_threshold_config_update"
+                ],
+                "owner": "Dev Ojha",
+                "email": "devojha@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_ntp",
+                    "generic_config_updater.test_pfcwd_interval",
+                    "generic_config_updater.test_pfcwd_status"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "gnmi",
+        "owner": "Gang lv",
+        "email": "ganglv@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "gnmi.test_gnmi",
+                    "gnmi.test_gnmi_appldb",
+                    "gnmi.test_gnmi_configdb"
+                ],
+                "owner": "Gang lv",
+                "email": "ganglv@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "http",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "http.test_http_copy"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "iface_loopback_action",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "iface_loopback_action.test_iface_loopback_action"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "iface_namingmode",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "iface_namingmode.test_iface_namingmode"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "ip",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "ip.test_ip_packet"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "ipfwd",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "ipfwd.test_dip_sip",
+                    "ipfwd.test_dir_bcast",
+                    "ipfwd.test_mtu",
+                    "ipfwd.test_nhop_count",
+                    "ipfwd.test_nhop_group"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "k8s",
+        "owner": "longquan sha",
+        "email": "losha@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "k8s.test_config_reload",
+                    "k8s.test_disable_flag",
+                    "k8s.test_join_available_master"
+                ],
+                "owner": "longquan sha",
+                "email": "losha@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "lldp",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "lldp.test_lldp"
+                ],
+                "owner": "Zhaohui Sun",
+                "email": "zhaohuisun@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "log_fidelity",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "log_fidelity.test_bgp_shutdown"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "memory_checker",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "memory_checker.test_memory_checker"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "metadata-scripts",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "metadata-scripts.test_metadata_bgp"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "metadata-scripts.test_metadata_scripts::test_mirror_session_script"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "metadata-scripts.test_metadata_upgrade_path"
+                ],
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "minigraph",
+        "owner": "Zain Budhwani",
+        "email": "zainbudhwani@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "minigraph.test_masked_services"
+                ],
+                "owner": "Zain Budhwani",
+                "email": "zainbudhwani@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "monit",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "monit.test_monit_status"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "mpls",
+        "owner": "Rita Hui",
+        "email": "ritahui@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "mpls.test_mpls"
+                ],
+                "owner": "Rita Hui",
+                "email": "ritahui@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "mvrf",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "mvrf.test_mgmtvrf"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "mx",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "mx.test_acl_rules"
+                ],
+                "owner": "Zhijian Li",
+                "email": "zhijianli@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "mx.test_bgp_policy_private_ip",
+                    "mx.test_dhcp_server",
+                    "mx.test_dhcp_server_init"
+                ],
+                "owner": "Yaqiang Zhu",
+                "email": "yaqiangzhu@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "ntp",
+        "owner": "Saikrishna Arcot",
+        "email": "sarcot@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "ntp.test_ntp"
+                ],
+                "owner": "Saikrishna Arcot",
+                "email": "sarcot@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "override_config_table",
+        "owner": "Jingwen Xie",
+        "email": "jingwenxie@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "override_config_table.test_override_config_table"
+                ],
+                "owner": "Jingwen Xie",
+                "email": "jingwenxie@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "override_config_table.test_override_config_table_masic"
+                ],
+                "owner": "Wenyi Zhang",
+                "email": "wenyizhang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "passw_hardening",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "passw_hardening.test_passw_hardening"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "pc",
+        "owner": "Saikrishna Arcot",
+        "email": "sarcot@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "pc.test_lag_2",
+                    "pc.test_lag_member",
+                    "pc.test_po_cleanup",
+                    "pc.test_po_update",
+                    "pc.test_po_voq",
+                    "pc.test_retry_count"
+                ],
+                "owner": "Saikrishna Arcot",
+                "email": "sarcot@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "pfc",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "pfc.test_unknown_mac"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "pfcwd",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "pfcwd.test_pfc_config"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "pfcwd.test_pfcwd_all_port_storm",
+                    "pfcwd.test_pfcwd_function",
+                    "pfcwd.test_pfcwd_timer_accuracy",
+                    "pfcwd.test_pfcwd_warm_reboot"
+                ],
+                "owner": "Liping Xu",
+                "email": "xuliping@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "platform_tests",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "platform_tests.api.test_chassis",
+                    "platform_tests.api.test_chassis_fans",
+                    "platform_tests.api.test_component",
+                    "platform_tests.api.test_fan_drawer",
+                    "platform_tests.api.test_fan_drawer_fans",
+                    "platform_tests.api.test_module",
+                    "platform_tests.api.test_psu",
+                    "platform_tests.api.test_psu_fans",
+                    "platform_tests.api.test_sfp",
+                    "platform_tests.api.test_thermal",
+                    "platform_tests.api.test_watchdog",
+                    "platform_tests.cli.test_show_platform",
+                    "platform_tests.daemon.test_fancontrol",
+                    "platform_tests.daemon.test_ledd",
+                    "platform_tests.daemon.test_pcied",
+                    "platform_tests.daemon.test_psud",
+                    "platform_tests.daemon.test_syseepromd",
+                    "platform_tests.fwutil.test_fwutil",
+                    "platform_tests.link_flap.test_cont_link_flap.TestContLinkFlap",
+                    "platform_tests.link_flap.test_link_flap",
+                    "platform_tests.mellanox.test_check_sfp_eeprom",
+                    "platform_tests.mellanox.test_check_sfp_presence",
+                    "platform_tests.mellanox.test_check_sfp_using_ethtool",
+                    "platform_tests.mellanox.test_check_sysfs",
+                    "platform_tests.mellanox.test_hw_management_service",
+                    "platform_tests.mellanox.test_psu_power_threshold",
+                    "platform_tests.mellanox.test_reboot_cause",
+                    "platform_tests.mellanox.test_thermal_control",
+                    "platform_tests.sfp.test_sfpshow",
+                    "platform_tests.sfp.test_sfputil",
+                    "platform_tests.sfp.test_show_intf_xcvr",
+                    "platform_tests.test_auto_negotiation",
+                    "platform_tests.test_cpu_memory_usage",
+                    "platform_tests.test_first_time_boot_password_change.test_first_time_boot_password_change",
+                    "platform_tests.test_idle_driver",
+                    "platform_tests.test_memory_exhaustion",
+                    "platform_tests.test_platform_info",
+                    "platform_tests.test_port_toggle",
+                    "platform_tests.test_power_off_reboot",
+                    "platform_tests.test_reboot",
+                    "platform_tests.test_sensors",
+                    "platform_tests.test_service_warm_restart",
+                    "platform_tests.test_var_log_tmpfs",
+                    "platform_tests.test_xcvr_info_in_db"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "platform_tests.broadcom.test_ser"
+                ],
+                "owner": "Liping Xu",
+                "email": "xuliping@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "platform_tests.counterpoll.test_counterpoll_watermark"
+                ],
+                "owner": "Junhua Zhai",
+                "email": "junhuazhai@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "platform_tests.test_advanced_reboot",
+                    "platform_tests.test_cont_warm_reboot"
+                ],
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "platform_tests.test_reload_config",
+                    "platform_tests.test_secure_upgrade",
+                    "platform_tests.test_sequential_restart"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "portstat",
+        "owner": "Junhua Zhai",
+        "email": "junhuazhai@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "portstat.test_portstat"
+                ],
+                "owner": "Junhua Zhai",
+                "email": "junhuazhai@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "process_monitoring",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "process_monitoring.test_critical_process_monitoring"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "pytest",
+        "owner": "Zhaohui Sun",
+        "email": "zhaohuisun@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "pytest"
+                ],
+                "owner": "Zhaohui Sun",
+                "email": "zhaohuisun@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "qos",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "qos.test_buffer",
+                    "qos.test_buffer_traditional",
+                    "qos.test_pfc_counters",
+                    "qos.test_pfc_pause",
+                    "qos.test_qos_dscp_mapping",
+                    "qos.test_qos_sai",
+                    "qos.test_tunnel_qos_remap"
+                ],
+                "owner": "Xu Chen",
+                "email": "xuchen3@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "qos.test_qos_masic"
+                ],
+                "owner": "Rita Hui",
+                "email": "ritahui@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "radv",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "radv.test_radv_ipv6_ra",
+                    "radv.test_radv_restart",
+                    "radv.test_radv_run"
+                ],
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "read_mac",
+        "owner": "bing wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "read_mac.test_read_mac_metadata"
+                ],
+                "owner": "bing wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "reset_factory",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "reset_factory.test_reset_factory"
+                ],
+                "owner": "Bing Wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "restapi",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "restapi.test_restapi",
+                    "restapi.test_restapi_vxlan_ecmp"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "route",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "route.test_default_route",
+                    "route.test_route_consistency",
+                    "route.test_route_flap",
+                    "route.test_route_flow_counter",
+                    "route.test_route_perf",
+                    "route.test_static_route"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "scp",
+        "owner": "Hua Liu",
+        "email": "liuh@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "scp.test_scp_copy"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "show_techsupport",
+        "owner": "jingwen xie",
+        "email": "jingwenxie@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "show_techsupport.test_auto_techsupport",
+                    "show_techsupport.test_techsupport",
+                    "show_techsupport.test_techsupport_no_secret"
+                ],
+                "owner": "jingwen xie",
+                "email": "jingwenxie@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "snappi",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "snappi.ecn.test_dequeue_ecn_with_snappi",
+                    "snappi.ecn.test_red_accuracy_with_snappi",
+                    "snappi.pfc.test_global_pause_with_snappi",
+                    "snappi.pfc.test_pfc_pause_lossless_with_snappi",
+                    "snappi.pfc.test_pfc_pause_lossy_with_snappi",
+                    "snappi.pfc.test_pfc_pause_response_with_snappi",
+                    "snappi.pfc.test_pfc_pause_unset_bit_enable_vector",
+                    "snappi.pfc.test_pfc_pause_zero_mac",
+                    "snappi.pfcwd.test_pfcwd_a2a_with_snappi",
+                    "snappi.pfcwd.test_pfcwd_basic_with_snappi",
+                    "snappi.pfcwd.test_pfcwd_burst_storm_with_snappi",
+                    "snappi.pfcwd.test_pfcwd_m2o_with_snappi",
+                    "snappi.pfcwd.test_pfcwd_runtime_traffic_with_snappi",
+                    "snappi.qos.test_ipip_packet_reorder_with_snappi"
+                ],
+                "owner": "Dev Ojha",
+                "email": "devojha@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "snappi_tests",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "snappi_tests.bgp.test_bgp_convergence_performance",
+                    "snappi_tests.bgp.test_bgp_scalability",
+                    "snappi_tests.ecn.test_dequeue_ecn_with_snappi",
+                    "snappi_tests.ecn.test_red_accuracy_with_snappi",
+                    "snappi_tests.pfc.test_global_pause_with_snappi",
+                    "snappi_tests.pfc.test_pfc_pause_lossless_with_snappi",
+                    "snappi_tests.pfc.test_pfc_pause_lossy_with_snappi",
+                    "snappi_tests.pfc.test_pfc_pause_response_with_snappi",
+                    "snappi_tests.pfc.test_pfc_pause_unset_bit_enable_vector",
+                    "snappi_tests.pfc.test_pfc_pause_zero_mac",
+                    "snappi_tests.pfc.test_valid_pfc_frame_with_snappi",
+                    "snappi_tests.pfcwd.test_pfcwd_a2a_with_snappi",
+                    "snappi_tests.pfcwd.test_pfcwd_basic_with_snappi",
+                    "snappi_tests.pfcwd.test_pfcwd_burst_storm_with_snappi",
+                    "snappi_tests.pfcwd.test_pfcwd_m2o_with_snappi",
+                    "snappi_tests.pfcwd.test_pfcwd_runtime_traffic_with_snappi",
+                    "snappi_tests.qos.test_ipip_packet_reorder_with_snappi"
+                ],
+                "owner": "Dev Ojha",
+                "email": "devojha@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "snmp",
+        "owner": "Suvarna Meenakshi",
+        "email": "sumeenak@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "snmp.test_snmp_cpu",
+                    "snmp.test_snmp_default_route",
+                    "snmp.test_snmp_fdb",
+                    "snmp.test_snmp_interfaces",
+                    "snmp.test_snmp_link_local",
+                    "snmp.test_snmp_lldp",
+                    "snmp.test_snmp_loopback",
+                    "snmp.test_snmp_memory",
+                    "snmp.test_snmp_pfc_counters",
+                    "snmp.test_snmp_phy_entity",
+                    "snmp.test_snmp_psu",
+                    "snmp.test_snmp_queue",
+                    "snmp.test_snmp_v2mib"
+                ],
+                "owner": "Suvarna Meenakshi",
+                "email": "sumeenak@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "span",
+        "owner": "bing wang",
+        "email": "bingwang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "span.test_port_mirroring"
+                ],
+                "owner": "bing wang",
+                "email": "bingwang@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "ssh",
+        "owner": "Hua Liu",
+        "email": "liuh@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "ssh.test_ssh_ciphers",
+                    "ssh.test_ssh_default_password",
+                    "ssh.test_ssh_limit"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "stress",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "stress.test_stress_routes"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "sub_port_interfaces",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "sub_port_interfaces.test_show_subinterface"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "sub_port_interfaces.test_sub_port_interfaces"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "sub_port_interfaces.test_sub_port_l2_forwarding"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "syslog",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "syslog.test_logrotate",
+                    "syslog.test_syslog",
+                    "syslog.test_syslog_rate_limit"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "system_health",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "system_health.test_system_health",
+                    "system_health.test_system_status",
+                    "system_health.test_watchdog"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "tacacs",
+        "owner": "Hua Liu",
+        "email": "liuh@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "tacacs.test_accounting",
+                    "tacacs.test_authorization",
+                    "tacacs.test_jit_user",
+                    "tacacs.test_ro_disk",
+                    "tacacs.test_ro_user",
+                    "tacacs.test_rw_user"
+                ],
+                "owner": "Hua Liu",
+                "email": "liuh@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "telemetry",
+        "owner": "Zain Budhwani",
+        "email": "zainbudhwani@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "telemetry.test_events",
+                    "telemetry.test_telemetry"
+                ],
+                "owner": "Zain Budhwani",
+                "email": "zainbudhwani@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "vlan",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "vlan.test_autostate_disabled",
+                    "vlan.test_host_vlan",
+                    "vlan.test_vlan",
+                    "vlan.test_vlan_ping"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "vxlan",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "vxlan.test_vnet_monitor",
+                    "vxlan.test_vnet_route_leak",
+                    "vxlan.test_vnet_vxlan",
+                    "vxlan.test_vxlan_crm",
+                    "vxlan.test_vxlan_decap",
+                    "vxlan.test_vxlan_ecmp"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
+            }
+        ]
+    },
+    {
+        "feature": "tests",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "tests.test_features",
+                    "tests.test_interfaces"
+                ],
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "tests.test_posttest",
+                    "tests.test_pretest"
+                ],
+                "owner": "Xin Wang",
+                "email": "xiwang5@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "test_procdockerstatsd"
+                ],
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
+            }
+        ]
+    }
+]

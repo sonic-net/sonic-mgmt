@@ -1845,6 +1845,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                     new_kusto_row_data_asic = kusto_row_data.copy()
                     # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                     new_kusto_row_data_asic['trigger_icm'] = True
+                    new_kusto_row_data_asic['failure_level_info']['asic'] = asic
                     if is_module_path:
                         new_kusto_row_data_asic['subject'] = "[" + \
                             module_path + "][" + branch + "][" + asic + "]"
@@ -1886,6 +1887,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_hwsku = kusto_row_data.copy()
                         # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku['trigger_icm'] = True
+                        new_kusto_row_data_hwsku['failure_level_info']['hwsku'] = hwsku
                         if is_module_path:
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + \
                                 "][" + branch + "][" + \
@@ -1933,6 +1935,8 @@ class GeneralAnalyzer(BasicAnalyzer):
                             new_kusto_row_data_hwsku_osversion = kusto_row_data.copy()
                         # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
+                        new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] = hwsku
+                        new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'] = osversion
                         if is_module_path:
                             new_kusto_row_data_hwsku_osversion['subject'] = "[" + \
                                 module_path + "][" + branch + \
@@ -1961,6 +1965,8 @@ class GeneralAnalyzer(BasicAnalyzer):
             #             new_kusto_row_data_hwsku_topo = kusto_row_data.copy()
             #             # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
             #             new_kusto_row_data_hwsku_topo['trigger_icm'] = True
+            #             new_kusto_row_data_hwsku_topo['failure_level_info']['hwsku'] = hwsku
+            #             new_kusto_row_data_hwsku_topo['failure_level_info']['topo'] = topo
             #             if is_module_path:
             #                 new_kusto_row_data_hwsku_topo['subject'] = "[" + module_path + "][" + branch + "][" + hwsku_topo + "]"
             #             else:

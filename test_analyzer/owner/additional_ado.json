@@ -1,0 +1,9 @@
+[
+    {
+        "hwsku": "Cisco-8102-C64",
+        "topo": "dualtor",
+        "feature": "pfc,qos",
+        "owner": "Shengkai Wang",
+        "email": "shengkaiwang@microsoft.com"
+    }
+]
