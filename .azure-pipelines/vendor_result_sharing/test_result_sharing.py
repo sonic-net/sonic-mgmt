@@ -69,7 +69,7 @@ class KustoChecker(object):
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
             let AristaList = dynamic([]);
             let MarvellList = dynamic(["7215"]);
-            let TopologyList = dynamic(['t0', 't1']);
+            let TopologyList = dynamic(['t0', 't1', 'm0', 'mx']);
             let VendorList = dynamic(['arista', 'brcm', 'cisco', 'mellanox']);
             TestReportUnionData
             | where UploadTimestamp > ago(7d)
