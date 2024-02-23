@@ -2,7 +2,7 @@
 
 ## Overview
 
-This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules, and that these ACL rules and their priorities are respected and appropriate action is taken on packets.
+This test plan will certify that Generic Config Updater (GCU) is able to properly add, remove, and update ACL Table Types, ACL Tables, and ACL Rules, and that these ACL rules and their priorities are respected and appropriate action is taken on both IPv4 and IPv6 packets.
 
 ## Testbed
 
@@ -16,7 +16,7 @@ Tests themselves will utilize a fixture that automatically creates a ACL_TABLE_T
 
 ## Testing Plan
 
-To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in the last section of this document, [JSON Patch Files and Expected Results](#json-patch-files-and-expected-results).
+To test the capability of GCU to dynamically update ACLs, we will utilize various Json Patch files to create, update, and remove various ACL Tables and Rules.  The contents of the Json Patch files, as well as additional details about verification processes, will be defined in the last section of this document, [JSON Patch Files and Expected Results](#json-patch-files-and-expected-results).  Traffic tests are performed after applying various rules to confirm expected behavior, and each traffic test is replicated for both IPv4 and IPv6 packets.
 
 ### Test Case # 1 - Create and apply custom ACL table without rules
 
@@ -54,7 +54,9 @@ Verify that we can create a single drop rule utilizing GCU
 
 - Verify that output of "show acl rule | grep {rule_name}" matches expected output
 
-- Verify that a packet sent on this port is dropped for both IPv4 and IPv6
+- Verify that packets sent on this port are dropped
+
+- Verify that packets sent on another port are forwarded
 
 ### Test Case # 3 - Remove a drop rule from the ACL table
 
@@ -64,7 +66,7 @@ Verify that we can remove a previously created drop rule from our ACL Table with
 
 #### Testing Steps
 
-- Use GCU to create a drop rule on ACL Table
+- Use GCU to create a drop rule on a specific port on ACL Table
 
 - Remove the drop rule from ACL Table
 
@@ -84,15 +86,15 @@ Verify that we can create a forward rule utilizing GCU, and that we can create f
 
 - Use GCU to create 2 new forwarding rules with top priority on our ACL Table, one for IPv4 and one for IPv6
 
-- Use GCU to create drop rule with lower priority in ACL Table
+- Use GCU to create drop rule on a specific port with lower priority in ACL Table
 
 - Verify that all operations were successful
 
 - Verify that for both rules created, "show acl rule | grep {rulename}" matches expected output for both rules
 
-- Verify that packets matching forwarding rules are correctly forwarded
+- Verify that packets matching forwarding rules on this specific port are correctly forwarded
 
-- Verify that packets not matching forwarding rules are correctly dropped
+- Verify that packets not matching forwarding rules on this specific port are correctly dropped
 
 ### Test Case # 5 - Replace the IP Address on an ACL Rule
 
@@ -104,7 +106,7 @@ Verify that after creation, ACL Rules can have their match conditions updated
 
 - Use GCU to create 2 new forwarding rules on ACL Table
 
-- Use GCU to create drop rule with lower priority on ACL Table
+- Use GCU to create drop rule on a specific port with lower priority on ACL Table
 
 - Use GCU to replace the IP addresses in both forwarding rules
 
@@ -112,11 +114,31 @@ Verify that after creation, ACL Rules can have their match conditions updated
 
 - Verify that the results of "show acl rule | grep {rule_name}" matches expected output for both rules
 
-- Verify that packets with IPs matching original forwarding rules are dropped
+- Verify that packets with IPs matching original forwarding rules on this specific port are dropped
 
-- Verify that packets with IPs matching replacement rules are forwarded
+- Verify that packets with IPs matching replacement rules on this specific port are forwarded
 
-### Test Case # 6 - Replace the IP Address of a non-existent ACL Rule
+### Test Case # 6 - Remove forward rule from ACL Table
+
+#### Test Objective
+
+Verify that after creation, a forward ACL rule can be removed and packets matching the forward rule are no longer forwarded
+
+#### Testing Steps
+
+- Use GCU to create 2 new forwarding rules on ACL Table
+
+- Use GCU to create drop rule on a specific port with lower priority on ACL Table
+
+- Use GCU to remove the 2 forwarding rules
+
+- Verify that all operations were successful
+
+- Verify that the results of "show acl rule {rule_name}" are empty for both rule names
+  
+- Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
+
+### Test Case # 7 - Replace the IP Address of a non-existent ACL Rule
 
 #### Test Objective
 
@@ -130,7 +152,7 @@ Verify that attempting to replace the address of a rule that does not exist prop
 
 - Verify that the replace action failed
 
-### Test Case # 7 - Remove non-existent ACL Table
+### Test Case # 8 - Remove non-existent ACL Table
 
 #### Test Objective
 
