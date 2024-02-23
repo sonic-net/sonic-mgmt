@@ -87,6 +87,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -224,7 +229,10 @@ class TestBfdStaticRoute(BfdBase):
         bfd_cleanup_db,
     ):
         """
-        Test case #1 - To verify deletion of BFD session between two line cards.
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+
+        To verify deletion of BFD session between two line cards.
         Test Steps:
             1. Delete BFD on Source dut
             2. Verify that on Source dut BFD gets cleaned up and static route exists.
@@ -370,6 +378,10 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
 
         version = "ipv6"
 
@@ -508,14 +520,10 @@ class TestBfdStaticRoute(BfdBase):
         bfd_cleanup_db,
     ):
         """
-        Test case #1 - To verify deletion of BFD session between two line cards.
-        Test Steps:
-            1. Delete BFD on Source dut
-            2. Verify that on Source dut BFD gets cleaned up and static route exists.
-            3. Verify that on Destination dut BFD goes down and static route will be removed.
-            4. Delete BFD on Destination dut.
-            5. Verify that on Destination dut BFD gets cleaned up and static route will be added back.
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
         """
+
         version = "ipv6"
 
         logger.info(
@@ -791,7 +799,10 @@ class TestBfdStaticRoute(BfdBase):
         bfd_cleanup_db,
     ):
         """
-        Test case #2 - To flap the BFD session ( Up <--> Down <---> Up) between linecards for 100 times.
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+
+        To flap the BFD session ( Up <--> Down <---> Up) between linecards for 100 times.
             Test Steps:
             1. Delete BFD on Source dut
             2. Verify that on Source dut BFD gets cleaned up and static route exists.
@@ -963,7 +974,10 @@ class TestBfdStaticRoute(BfdBase):
         bfd_cleanup_db,
     ):
         """
-        Test case #2 - To flap the BFD session ( Up <--> Down <---> Up) between linecards for 100 times.
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+
+        To flap the BFD session ( Up <--> Down <---> Up) between linecards for 100 times.
             Test Steps:
             1. Delete BFD on Source dut
             2. Verify that on Source dut BFD gets cleaned up and static route exists.
@@ -1170,6 +1184,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         rp = duthosts[enum_supervisor_dut_hostname]
@@ -1312,6 +1331,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         request.config.interface_shutdown = True
@@ -1451,6 +1475,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         rp = duthosts[enum_supervisor_dut_hostname]
@@ -1593,6 +1622,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         request.config.interface_shutdown = True
@@ -1730,6 +1764,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         request.config.interface_shutdown = True
@@ -1885,6 +1924,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         request.config.interface_shutdown = True
@@ -2040,6 +2084,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         request.config.interface_shutdown = True
@@ -2211,6 +2260,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -2347,6 +2401,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         request.config.interface_shutdown = True
@@ -2520,6 +2579,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         rp = duthosts[enum_supervisor_dut_hostname]
@@ -2664,6 +2728,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         rp = duthosts[enum_supervisor_dut_hostname]
@@ -2808,6 +2877,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv4"
 
         rp = duthosts[enum_supervisor_dut_hostname]
@@ -2978,6 +3052,11 @@ class TestBfdStaticRoute(BfdBase):
         bfd_base_instance,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         # Selecting source, destination dut & prefix & BFD status verification for all nexthops
@@ -3116,6 +3195,11 @@ class TestBfdStaticRoute(BfdBase):
         enum_supervisor_dut_hostname,
         bfd_cleanup_db,
     ):
+        """
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+
         version = "ipv6"
 
         rp = duthosts[enum_supervisor_dut_hostname]
