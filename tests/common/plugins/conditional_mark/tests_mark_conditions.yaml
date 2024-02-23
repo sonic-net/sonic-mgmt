@@ -1056,6 +1056,12 @@ qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
     conditions:
       - "asic_type in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
+  skip:
+    reason: "This test is only for Mellanox."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
     reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
@@ -1097,12 +1103,14 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     reason: "Headroom pool size not supported."
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['mellanox']"
+      - "asic_type in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
     reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc', 'x86_64-arista_7800r3a_36dm2_lc', 'x86_64-arista_7800r3ak_36dm2_lc'] or asic_type in ['mellanox']"
+      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
