@@ -37,8 +37,8 @@ class AclCapabilityModule(object):
         """
         self.facts['acl_capabilities'] = {}
         namespace_list = multi_asic.get_namespace_list()
-
-        SonicDBConfig.load_sonic_global_db_config()
+        if multi_asic.is_multi_asic():
+            SonicDBConfig.load_sonic_global_db_config()
         conn = SonicV2Connector(namespace=namespace_list[0])
         conn.connect(conn.STATE_DB)
         keys = conn.keys(conn.STATE_DB, 'ACL_STAGE_CAPABILITY_TABLE|*') or []
