@@ -86,6 +86,12 @@ bfd/test_bfd.py::test_bfd_scale:
     conditions:
       - "platform in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0']"
 
+bfd/test_bfd_static_route.py:
+  skip:
+    reason: "Only supported on chassis system & cisco platform."
+    conditions:
+      - "is_multi_asic is False"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 #####            bgp              #####
@@ -122,9 +128,9 @@ bgp/test_bgp_multipath_relax.py:
 
 bgp/test_bgp_queue.py:
   skip:
-    reason: "Unsupported topology or mellanox T1-LAG asic"
+    reason: "Unsupported topology"
     conditions:
-      - "topo_type in ['m0', 'mx'] or ((topo_type in ['t1-lag']) and (asic_type in ['mellanox']))"
+      - "topo_type in ['m0', 'mx']"
 
 bgp/test_bgp_slb.py:
   skip:
@@ -288,19 +294,13 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported uniform ttl mode"
 
 #######################################
-#####          dhcp_relay         #####
+#####         dhcp_relay        #####
 #######################################
 dhcp_relay/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/11404 and 'dualtor-64' in topo_name"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
@@ -707,11 +707,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test not supported on Broadcom/Maarvell SKUs or dualtor topology."
+    reason: "Test not supported on Broadcom SKUs or dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "asic_type in ['broadcom', 'marvell']"
+      - "asic_type in ['broadcom']"
 
 #######################################
 #####      iface_namingmode       #####
@@ -1085,6 +1085,12 @@ qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
     conditions:
       - "asic_type in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testPfcStormWithSharedHeadroomOccupancy:
+  skip:
+    reason: "This test is only for Mellanox."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
   skip:
     reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
@@ -1126,12 +1132,14 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     reason: "Headroom pool size not supported."
     conditions:
       - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['mellanox']"
+      - "asic_type in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   skip:
     reason: "sai_thrift_read_buffer_pool_watermark are not supported on DNX"
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc', 'x86_64-arista_7800r3a_36dm2_lc', 'x86_64-arista_7800r3ak_36dm2_lc'] or asic_type in ['mellanox']"
+      - "asic_type in ['cisco-8000']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
