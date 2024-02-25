@@ -1103,7 +1103,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             if idx != len(final_upload_icm_table) - 1:
                 logger.info(
                     "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
-                time.sleep(1)
+                time.sleep(30 * 60)
 
         ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
         for row in duplicated_icm_table:
