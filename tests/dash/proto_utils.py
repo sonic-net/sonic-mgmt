@@ -17,6 +17,7 @@ from dash_api.acl_group_pb2 import AclGroup
 from dash_api.acl_out_pb2 import AclOut
 from dash_api.acl_in_pb2 import AclIn
 from dash_api.acl_rule_pb2 import AclRule, Action
+from dash_api.prefix_tag_pb2 import PrefixTag
 
 
 ENABLE_PROTO = True
@@ -159,6 +160,24 @@ def acl_rule_from_json(json_obj):
     if "protocol" in json_obj:
         for proto in json_obj["protocol"].split(','):
             pb.protocol.append(int(proto))
+    if "src_tag" in json_obj:
+        for tag in json_obj["src_tag"].split(','):
+            pb.src_tag.append(tag)
+    if "dst_tag" in json_obj:
+        for tag in json_obj["dst_tag"].split(','):
+            pb.dst_tag.append(tag)
+    return pb
+
+
+def prefix_tag_from_json(json_obj):
+    pb = PrefixTag()
+    pb.ip_version = IpVersion.IP_VERSION_IPV4
+    for ip_prefix in json_obj["prefix_list"].split(','):
+        net = ipaddress.IPv4Network(ip_prefix, False)
+        ip = IpPrefix()
+        ip.ip.ipv4 = socket.htonl(int(net.network_address))
+        ip.mask.ipv4 = socket.htonl(int(net.netmask))
+        pb.prefix_list.append(ip)
     return pb
 
 
@@ -175,6 +194,7 @@ handlers_map = {
     "ACL_OUT": acl_out_from_json,
     "ACL_IN": acl_in_from_json,
     "ACL_RULE": acl_rule_from_json,
+    "PREFIX_TAG": prefix_tag_from_json,
 }
 
 
