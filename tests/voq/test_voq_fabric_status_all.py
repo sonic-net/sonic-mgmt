@@ -183,7 +183,7 @@ def test_voq_fabric_link_status(duthosts, refData, fabricSlots):
                         continue
                     else:
                         # check link status
-                        cmd = "sonic-db-cli -n {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' REMOTE_MOD".format(asic,lk)
+                        cmd = "sonic-db-cli -n {} STATE_DB hget 'FABRIC_PORT_TABLE|PORT{}' REMOTE_MOD".format(asic, lk)
                         cmd_output = duthost.shell(cmd, module_ignore_errors=True)["stdout"].split("\n")
                         logger.info(cmd_output)
                         module = cmd_output[0]
