@@ -717,8 +717,22 @@ def verify_m2o_oversubscribtion_results(duthost,
         bg_flow_name (str): name of background flows
         rx_port: Rx port of the dut
         rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
-        flag (dict): Comprises of flow name and its loss criteria (example:
-                     {'PAUSE': {'loss': '100'}, Test Flow': {'loss': '10'}, 'Background Flow': {'loss': '0'}})
+        flag (dict): Comprises of flow name and its loss criteria ,loss criteria value can be integer values
+                     of string type for definite results or 'continuing' for non definite loss value results
+                     example:{
+                                'Test Flow 1 -> 0 Rate:40': {
+                                    'loss': '0'
+                                },
+                                'PFC Pause': {
+                                    'loss': '100'
+                                },
+                                'Background Flow 1 -> 0 Rate:20': {
+                                    'loss': '5'
+                                },
+                                'Background Flow 2 -> 0 Rate:40': {
+                                    'loss': 'continuing'
+                                },
+                            }
 
     Returns:
         N/A
@@ -730,19 +744,30 @@ def verify_m2o_oversubscribtion_results(duthost,
             tx_frames = row.frames_tx
             rx_frames = row.frames_rx
             if flow_type in row.name:
-                if isinstance(criteria, dict) and int(criteria['loss']) == 0:
-                    logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
-                    pytest_assert(tx_frames == rx_frames,
-                                  '{} should not have any dropped packet'.format(row.name))
-                    pytest_assert(row.loss == 0,
-                                  '{} should not have traffic loss'.format(row.name))
-                elif isinstance(criteria, dict) and int(criteria['loss']) != 0:
-                    pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
-                                  math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
-                                  '{} should have traffic loss close to {} percent but got {}'.
-                                  format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
-                else:
-                    pytest_assert(False, "Wrong criteria given in flag")
+                try:
+                    if isinstance(criteria, dict) and isinstance(criteria['loss'], str) and int(criteria['loss']) == 0:
+                        logger.info('{}, TX Frames:{}, RX Frames:{}'.format(row.name, tx_frames, rx_frames))
+                        pytest_assert(tx_frames == rx_frames,
+                                      '{} should not have any dropped packet'.format(row.name))
+                        pytest_assert(row.loss == 0,
+                                      '{} should not have traffic loss'.format(row.name))
+                    elif (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                          and int(criteria['loss']) != 0):
+                        pytest_assert(math.ceil(float(row.loss)) == float(flag[flow_type]['loss']) or
+                                      math.floor(float(row.loss)) == float(flag[flow_type]['loss']),
+                                      '{} should have traffic loss close to {} percent but got {}'.
+                                      format(row.name, float(flag[flow_type]['loss']), float(row.loss)))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')
+                except Exception:
+                    if (isinstance(criteria, dict) and isinstance(criteria['loss'], str)
+                       and criteria['loss'] == 'continuing'):
+                        pytest_assert(int(row.loss) > 0, "{} should have continuing traffic loss greater than 0".
+                                      format(row.name))
+                    else:
+                        pytest_assert(False, 'Wrong criteria given in flag, accepted values are of type \
+                                      string for loss criteria')
             sum_rx += int(row.frames_rx)
 
     tx_frames = get_tx_frame_count(duthost, rx_port['peer_port'])[0]
