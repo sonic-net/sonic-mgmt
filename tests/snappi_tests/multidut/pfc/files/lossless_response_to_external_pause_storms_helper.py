@@ -117,7 +117,14 @@ def run_lossless_response_to_external_pause_storms_test(api,
                                                 all_flow_names=all_flow_names,
                                                 exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                 snappi_extra_params=snappi_extra_params)
-    flag = {'Background': 'no_loss', 'Test Flow': 'no_loss'}
+    flag = {
+        'Test Flow': {
+            'loss': '0'
+        },
+        'Background Flow': {
+            'loss': '0'
+        }
+    }
 
     verify_m2o_oversubscribtion_results(duthost=duthost2,
                                         rows=flow_stats,
