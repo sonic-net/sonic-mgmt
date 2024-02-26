@@ -110,7 +110,21 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                                                 all_flow_names=all_flow_names,
                                                 exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                 snappi_extra_params=snappi_extra_params)
-    flag = {'Rate:20': 'no_loss', 'Test Flow': 'no_loss', 'Background Flow 2 -> 0 Rate:40': 'loss'}
+
+    flag = {
+        'Test Flow 1 -> 0 Rate:40': {
+            'loss': '0'
+        },
+        'Test Flow 2 -> 0 Rate:20': {
+            'loss': '0'
+        },
+        'Background Flow 1 -> 0 Rate:20': {
+            'loss': '0'
+        },
+        'Background Flow 2 -> 0 Rate:40': {
+            'loss': 'continuing'
+        },
+    }
     # Background Flow 2 -> 0 Rate:40
     verify_m2o_oversubscribtion_results(duthost=duthost2,
                                         rows=flow_stats,
