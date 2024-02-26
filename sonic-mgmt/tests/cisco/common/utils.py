@@ -95,7 +95,7 @@ def verify_command_result(result, cmd):
 
 
 def enable_serviceability_cli(duthost):
-    show_command = "sudo show platform npu rx cgm_global -n asic0"
+    show_command = "sudo show platform npu global -n asic0"
     err_msg = "debug shell server for asic 0 is not running"
     output = duthost.command(show_command)['stdout']
     if err_msg not in output:
