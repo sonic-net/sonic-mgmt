@@ -146,9 +146,9 @@ Verify that GCU is capable of adding a large amount of ACL rules and that they a
 
 #### Testing Steps
 
-- Use GCU to create ~100 forwarding rules on ACL Table
+- Use GCU to create 500 forwarding rules on ACL Table
 
-- Use GCU to create ~20 drop rules on ACL Table
+- Use GCU to create drop rules for each server facing port on ACL Table
 
 - Verify that all operations were successful
 
