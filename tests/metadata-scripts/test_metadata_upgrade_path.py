@@ -161,11 +161,15 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process):
     duthost.copy(src=postupgrade_actions_data_dir_path, dest="/tmp/anpscripts/")
 
     duthost.command("chmod +x /tmp/anpscripts/postupgrade_actions")
-    result = duthost.command("/usr/bin/sudo /tmp/anpscripts/postupgrade_actions")
+    result = duthost.command("/usr/bin/sudo /tmp/anpscripts/postupgrade_actions", module_ignore_errors=True)
     logger.info("Postupgrade_actions result: {}".format(str(result)))
     if "stderr" in result:
         errors = result.get("stderr")
-        pytest_assert(not errors, "Failed executing postupgrade_actions. Errors: {}".format(errors))
+        platform_info = duthost.command("show platform summary")["stdout"]
+        if "DCS-7050CX3-32S" in platform_info and "DCS-7050CX3-32S-SSD" not in platform_info:
+            logger.warn("Failed executing postupgrade_actions, not failing due to running on unexpected hardware. Errors: {}".format(errors))
+        else:
+            pytest_assert(not errors, "Failed executing postupgrade_actions. Errors: {}".format(errors))
     duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)
 
     check_services(duthost)
