@@ -267,7 +267,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional Checks**
-+ Check that results of “show acl rule | grep RULE_1” and “show acl rule | grep RULE_2” match the following output:
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output:
   + DYNAMIC_ACL |_TABLE	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32
   + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128
 
@@ -291,7 +291,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional checks:**
-+ Check that result of “show acl rule | grep RULE_3” matches the following output:
++ Check that result of “show acl rule DYNAMIC_ACL_TABLE RULE_3” matches the following output:
   + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph}
 
 ### Remove Drop Rule
@@ -310,7 +310,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
  - Operation Success
 
 **Additional checks**
-- Check that “show acl rule RULE_3” results in no output
+- Check that “show acl rule DYNAMIC_ACL_TABLE RULE_3” results in no output
 
 ### Replace Non-Existent Rule
 **Json Patch**
@@ -386,7 +386,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional checks**
-- Check that “show acl rule RULE_1” and “show acl rule RULE_2” both result in no output
+- Check that “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” both result in no output
 
 ### Remove Non-Existent Table
 **Json Patch**:
