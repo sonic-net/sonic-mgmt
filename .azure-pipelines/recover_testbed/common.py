@@ -104,15 +104,29 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                         dut_console.remote_conn.send("ip route add default via {}".format(gw_ip))
                         dut_console.remote_conn.send("\n")
 
-                        dut_console.remote_conn.send("onie-nos-install {}".format(image_url))
+                        # Remove the image if it already exists
+                        dut_console.remote_conn.send("rm -f {}".format(image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("\n")
+
+                        dut_console.remote_conn.send("wget {}".format(image_url))
                         dut_console.remote_conn.send("\n")
                         # We will wait some time to connect to image server
                         time.sleep(60)
-                        x = dut_console.remote_conn.recv(1024)
-                        x = x.decode('ISO-8859-9')
-                        # TODO: Give a sample output here
-                        if "ETA" in x:
-                            break
+
+                        # Waiting downloading finishing
+                        for i in range(5):
+                            time.sleep(60)
+                            x = dut_console.remote_conn.recv(1024)
+                            x = x.decode('ISO-8859-9')
+                            # If we see "0:00:00", it means we finish downloading sonic image
+                            # Sample output:
+                            # sonic-mellanox-202012 100% |*******************************|  1196M  0:00:00 ETA
+                            if "0:00:00" in x:
+                                break
+
+                        dut_console.remote_conn.send("onie-nos-install {}".format(image_url.split("/")[-1]))
+                        dut_console.remote_conn.send("\n")
+                        break
 
                 if SONIC_PROMPT in x:
                     dut_console.remote_conn.close()
