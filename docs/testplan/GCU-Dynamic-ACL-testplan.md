@@ -138,7 +138,27 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 
 - Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
 
-### Test Case # 7 - Replace the IP Address of a non-existent ACL Rule
+### Test Case # 7 - Stress test of ACL Table, add large amount of forward and drop rules
+
+#### Test Objective
+
+Verify that GCU is capable of adding a large amount of ACL rules and that they are still followed.
+
+#### Testing Setps
+
+- Use GCU to create ~100 forwarding rules on ACL Table
+
+- Use GCU to create ~20 drop rules on ACL Table
+
+- Verify that all operations were successful
+
+- Verify that rules created are properly shown when using "show acl rule"
+
+- Verify that packets with IPs matching a destination IP for one of the forwarding rules are forwarded
+
+- Verify that packets not matching a forwarding IP are dropped
+
+### Test Case # 8 - Replace the IP Address of a non-existent ACL Rule
 
 #### Test Objective
 
@@ -152,7 +172,7 @@ Verify that attempting to replace the address of a rule that does not exist prop
 
 - Verify that the replace action failed
 
-### Test Case # 8 - Remove non-existent ACL Table
+### Test Case # 9 - Remove non-existent ACL Table
 
 #### Test Objective
 
