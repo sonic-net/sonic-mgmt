@@ -138,13 +138,13 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 
 - Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
 
-### Test Case # 7 - Stress test of ACL Table, add large amount of forward and drop rules
+### Test Case # 7 - Scale test of ACL Table, add large amount of forward and drop rules
 
 #### Test Objective
 
 Verify that GCU is capable of adding a large amount of ACL rules and that they are still followed.
 
-#### Testing Setps
+#### Testing Steps
 
 - Use GCU to create ~100 forwarding rules on ACL Table
 
