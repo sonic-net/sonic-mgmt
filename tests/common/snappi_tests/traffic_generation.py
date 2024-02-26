@@ -717,8 +717,8 @@ def verify_m2o_oversubscribtion_results(duthost,
         bg_flow_name (str): name of background flows
         rx_port: Rx port of the dut
         rx_frame_count_deviation (float): deviation for rx frame count (default to 1%)
-        flag (dict): Comprises of flow name and its loss criteria (example: {'PAUSE': 'loss',
-                     Test Flow': 'no_loss', 'Background Flow': {'loss':'10'}})
+        flag (dict): Comprises of flow name and its loss criteria (example:
+                     {'PAUSE': {'loss': '100'}, Test Flow': {'loss': '10'}, 'Background Flow': {'loss': '0'}})
 
     Returns:
         N/A
