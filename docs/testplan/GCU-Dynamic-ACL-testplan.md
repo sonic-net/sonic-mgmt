@@ -287,6 +287,24 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
         }
     ]
 
+    OR
+
+    [
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
+                "DYNAMIC_ACL_TABLE|RULE_3": {
+                    "PRIORITY": "9997",
+                    "PACKET_ACTION": "DROP",
+                    "IN_PORTS": setup["blocked_src_port_name"],
+                }
+            }
+        }
+    ]
+
+    Which patch is applied depends on whether there are already ACL Rules created, or if this is the first ACL rule that we are creating
+
 **Expected result**
 - Operation Success
 
@@ -305,6 +323,18 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
             "value":{}
         }
     ]
+
+    OR
+
+    [
+        {
+            "op": "remove",
+            "path": "/ACL_RULE",
+            "value":{}
+        }
+    ]
+
+    Which of these two patches is applied depends on whether this is the only ACL Rule in the table or not, as we are not allowed to leave a table empty.
 
 **Expected result**
  - Operation Success
@@ -377,7 +407,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
         },
         {
             "op": "remove",
-            "path": "/ACL_RULE",
+            "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_2",
             "value": {}
         }
     ]
