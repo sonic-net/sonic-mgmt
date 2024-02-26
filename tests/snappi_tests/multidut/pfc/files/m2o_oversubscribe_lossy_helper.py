@@ -103,7 +103,14 @@ def run_pfc_m2o_oversubscribe_lossy_test(api,
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
-    flag = {'Background': 'no_loss', 'Test': 'loss'}
+    flag = {
+            'Test Flow': {
+                'loss': '16'
+                },
+            'Background Flow': {
+                'loss': '0'
+                },
+           }
     """ Run traffic """
     flow_stats, switch_flow_stats = run_traffic(duthost=duthost1,
                                                 api=api,
