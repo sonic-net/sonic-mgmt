@@ -45,8 +45,15 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
         ignoreRegex = [
             ".*ERR route_check.py:.*",
             ".*ERR.* \'routeCheck\' status failed.*",
-            ".*Process \'orchagent\' is stuck in namespace \'host\'.*"
+            ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
+            ".*ERR rsyslogd: .*"
         ]
+
+        hwsku = duthost.facts['hwsku']
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX32S-Q32', 'Arista-7050-QX32', 'Arista-7050QX-32S-S4Q31']:
+            ignoreRegex.append(".*ERR memory_threshold_check:.*")
+            ignoreRegex.append(".*ERR monit.*memory_check.*")
+            ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
     normalized_level = get_function_conpleteness_level

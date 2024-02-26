@@ -140,7 +140,7 @@ def dash_config_info(duthost, config_facts, minigraph_facts):
 
 
 @pytest.fixture(scope="function")
-def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
+def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
     configs = []
     op = "SET"
 
@@ -155,7 +155,7 @@ def apply_config(duthost, ptfhost, skip_config, skip_cleanup):
         dest_path = "/tmp/{}.json".format(config)
         render_template_to_host(template_name, duthost, dest_path, config_info, op=op)
         if ENABLE_GNMI_API:
-            apply_gnmi_file(duthost, ptfhost, dest_path)
+            apply_gnmi_file(localhost, duthost, ptfhost, dest_path)
         else:
             apply_swssconfig_file(duthost, dest_path)
 
@@ -241,3 +241,8 @@ def asic_db_checker(duthost):
             output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
             assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
     yield _check_asic_db
+
+
+@pytest.fixture(scope="function", params=['udp', 'tcp', 'echo_request', 'echo_reply'])
+def inner_packet_type(request):
+    return request.param
