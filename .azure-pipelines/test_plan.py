@@ -188,8 +188,8 @@ class TestPlanManager(object):
             "client_secret": self.client_secret,
             "scope": get_scope(self.url)
         }
-        retry_times = 3
-        while retry_times > 0:
+        max_attempts = 3
+        for attempt in range(max_attempts):
             try:
                 resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
                 self._token = resp["access_token"]
@@ -197,9 +197,9 @@ class TestPlanManager(object):
                 return self._token
             except Exception as exception:
                 print("Get token failed with exception: {}. Retry {} times to get token."
-                      .format(repr(exception), retry_times))
-                retry_times -= 1
-        raise Exception("Get token failed with exception: {}".format(repr(exception)))
+                      .format(repr(exception), max_attempts - attempt))
+                attempt += 1
+        raise Exception("Failed to get token after {} attempts".format(max_attempts))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,
