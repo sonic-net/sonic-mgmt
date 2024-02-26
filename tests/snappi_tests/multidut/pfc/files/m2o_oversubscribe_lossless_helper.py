@@ -110,7 +110,16 @@ def run_m2o_oversubscribe_lossless_test(api,
                                                 all_flow_names=all_flow_names,
                                                 exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
                                                 snappi_extra_params=snappi_extra_params)
-    flag = {'Background': 'no_loss', 'Test': 'no_loss'}
+
+    flag = {
+        'Test Flow': {
+            'loss': '0'
+        },
+        'Background Flow': {
+            'loss': '0'
+        }
+    }
+
     verify_m2o_oversubscribtion_results(duthost=duthost2,
                                         rows=flow_stats,
                                         test_flow_name=TEST_FLOW_NAME,
