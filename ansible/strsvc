@@ -23,6 +23,20 @@ all:
           ansible_host: 10.206.144.142
         svc3-1:
           ansible_host: 10.206.144.128
+    pdu:
+      hosts:
+        pdu-124:
+          ansible_host: 10.206.144.124
+          protocol: snmp
+        pdu-125:
+          ansible_host: 10.206.144.125
+          protocol: snmp
+        pdu-117:
+          ansible_host: 10.206.144.117
+          protocol: snmp
+        pdu-118:
+          ansible_host: 10.206.144.118
+          protocol: snmp
 
 fanout:
   hosts:
