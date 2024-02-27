@@ -505,7 +505,6 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
-        self.is_multi_asic = (self.clients['src'] != self.clients['dst'])
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -513,31 +512,39 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        if 't2' in self.testbed_type and self.is_multi_asic:
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_2_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_2_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.dst_asic_index, self.dst_port_3_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.dst_port_3_ip, self.dst_asic_index, self.dst_server_ip)
-            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
-                                                            self.test_params['dut_password'],
-                                                            'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
-                                                            self.src_asic_index, self.src_port_ip))
-            assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
-                self.src_port_ip, self.src_asic_index, self.src_server_ip)
+        if 't2' in self.testbed_type:
+            src_is_multi_asic = self.test_params['src_is_multi_asic']
+            dst_is_multi_asic = self.test_params['dst_is_multi_asic']
+            dst_port_ips = [self.dst_port_ip, self.dst_port_2_ip, self.dst_port_3_ip]
+            for ip in dst_port_ips:
+                if dst_is_multi_asic:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                        self.dst_asic_index, ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                        ip, self.dst_asic_index, self.dst_server_ip)
+                else:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'ping -q -c 3 {}'.format(ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                        ip, self.dst_server_ip)
+            if src_is_multi_asic:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                    self.src_asic_index, self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_asic_index, self.src_server_ip)
+            else:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'ping -q -c 3 {}'.format(self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_server_ip)
         else:
             arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
                                            1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
