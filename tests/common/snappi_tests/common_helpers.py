@@ -16,7 +16,6 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
