@@ -1864,6 +1864,7 @@
   ptf: bjw14-1
   ptf_ip: 10.150.23.70/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.70/17"]
   server: server_bjw_14
   vm_base: VM71000
   dut:
@@ -1882,6 +1883,7 @@
   ptf: bjw13-3
   ptf_ip: 10.150.23.71/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.71/17"]
   server: server_bjw_13
   vm_base: VM74004
   dut:
@@ -1913,6 +1915,7 @@
   ptf: bjw13-4
   ptf_ip: 10.150.23.72/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.72/17"]
   server: server_bjw_13
   vm_base: VM74032
   dut:
@@ -2423,6 +2426,7 @@
   ptf: bjw13-5
   ptf_ip: 10.150.23.73/23
   ptf_ipv6:
+  ptf_extra_mgmt_ip: ["172.16.188.73/17"]
   server: server_bjw_13
   vm_base: VM74056
   dut:
