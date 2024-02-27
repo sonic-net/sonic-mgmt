@@ -73,7 +73,8 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
-    check_result = duthost.shell("(echo >/dev/tcp/{}/49) &>/dev/null && echo \"open\" || echo \"close\"".format(tacacs_server_ip))['stdout']
+    check_result = duthost.shell("(echo >/dev/tcp/{}/49) &>/dev/null && echo \"open\" || echo \"close\""
+                                 .format(tacacs_server_ip))['stdout']
     logger.warning("TACACS server {} check result: {}".format(tacacs_server_ip, check_result))
     if "close" in check_result:
         pytest_assert(False, "TACACS server {} not reachable: {}".format(tacacs_server_ip, check_result))
