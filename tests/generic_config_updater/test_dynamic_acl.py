@@ -1,7 +1,5 @@
 import logging
 import pytest
-import time
-import json
 
 from tests.common.helpers.assertions import pytest_assert
 
@@ -17,7 +15,6 @@ from tests.generic_config_updater.gu_utils import create_checkpoint, delete_chec
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
 logger = logging.getLogger(__name__)
@@ -120,37 +117,21 @@ def verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop):
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=setup["dst_port_indices"],
                                         timeout=20)
 
-def generate_forward_packets(setup, dst_ip = DST_IP_FORWARDED_ORIGINAL, dst_ipv6 = DST_IPV6_FORWARDED_ORIGINAL):
+def generate_packets(setup, dst_ip = DST_IP_FORWARDED_ORIGINAL, dst_ipv6 = DST_IPV6_FORWARDED_ORIGINAL):
     """Generate packets that match the destination IP of given ips.
     If no IP is given, default to our original forwarding ips"""
 
-    forward_packets = {}
+    packets = {}
 
-    forward_packets["IPV4"] = testutils.simple_tcp_packet(eth_dst=setup["router_mac"],
+    packets["IPV4"] = testutils.simple_tcp_packet(eth_dst=setup["router_mac"],
                                 ip_src=IP_SOURCE,
                                 ip_dst=dst_ip)
 
-    forward_packets["IPV6"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
+    packets["IPV6"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
                                 ipv6_src=IPV6_SOURCE,
                                 ipv6_dst=dst_ipv6)
 
-    return forward_packets
-
-
-def generate_drop_packets(setup):
-    """Generate packets with a DST_IP that is never included in our forward rules"""
-
-    drop_packets = {}
-
-    drop_packets["IPV4"] = testutils.simple_tcp_packet(eth_dst=setup["router_mac"],
-                                ip_src=IP_SOURCE,
-                                ip_dst=DST_IP_BLOCKED)
-
-    drop_packets["IPV6"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
-                                ipv6_src=IPV6_SOURCE,
-                                ipv6_dst=DST_IPV6_BLOCKED)
-
-    return drop_packets
+    return packets
 
 def build_exp_pkt(input_pkt):
     """
@@ -160,7 +141,6 @@ def build_exp_pkt(input_pkt):
     exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
     exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
     if input_pkt.haslayer('IP'):
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
         exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
     else:
         exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
@@ -178,47 +158,40 @@ def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first
 
     So we must have separate checks for first line and bindings
     """
+
     cmds = "show acl table {}".format(table_name)
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
-    # Ignore first two lines display. lines less than 3 means no output
-    # Use empty list if no output
-    lines = output['stdout'].splitlines()
-    first_line = [] if len(lines) < 3 else lines[2].split()
+    output = duthost.show_and_parse(cmds)
+    pytest_assert(len(output)>0, "'{}' is not a table on this device".format(table_name))
 
-    pytest_assert(set(expected_first_line_content) == set(first_line), "ACL table definition doesn't match")
-    bindings = [line.strip() for line in lines[3:]]
-    #Second element of the first line is the first binding
-    bindings.append(first_line[2])
-
-    pytest_assert(set(bindings) == set(expected_bindings))
+    first_line = output[0]
+    pytest_assert(set(first_line.values()) == set(expected_first_line_content))
+    table_bindings = [first_line["Binding"]]
+    for i in range(len(output)):
+        table_bindings.append(output[i]["Binding"])
+    pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
 
 def expect_acl_rule_match(duthost, rulename, expected_content_list):
     """Check if acl rule shows as expected"""
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'], "'{}' failed with rc={}".format(cmds, output['rc']))
 
-    lines = output['stdout'].splitlines()
-    actual_list = [] if len(lines) < 3 else lines[2].split()
-    # Ignore the status column
-    expected_len = len(expected_content_list)
-    if len(actual_list) >= expected_len:
-        actual_list = actual_list[0:expected_len]
+    output = duthost.show_and_parse(cmds)
+    pytest_assert(len(output) == 1, "'{}' is not a rule on this device".format(rulename))
 
-    pytest_assert(set(expected_content_list) == set(actual_list), "ACL rule does not match!")
+    pytest_assert(set(output[0].values()) == set(expected_content_list), "ACL Rule details do not match!")
 
 def expect_acl_rule_removed(duthost, rulename):
     """Check if ACL rule has been successfully removed"""
 
     cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
-    output = duthost.shell(cmds)
+    output = duthost.show_and_parse(cmds)
 
-    removed = len(output['stdout'].splitlines()) <= 2
+    removed = len(output) == 0
 
-    pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed: {}".format(cmds, output['stdout']))
+    pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+#TODO - add json patch files to template file or the like.  How to do this?  Answer - use duthost.templtae method with setting environment variables.
 
 @pytest.fixture(scope="module")
 def dynamic_acl_create_table_type(rand_selected_dut):
@@ -713,14 +686,15 @@ def dynamic_acl_remove_table_type(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
+#TODO - add comments for each test case.  Enhance test cases according to bings suggestions
 
 
 def test_gcu_acl_drop_rule_creation(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_create_drop_rule_initial(rand_selected_dut, setup)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_drop_packets(setup), packets_dropped = True)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED), packets_dropped = True)
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
-                               packets = generate_drop_packets(setup),
+                               packets = generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped = False,
                                src_port = setup["unblocked_src_port_indice"])
 
@@ -728,13 +702,13 @@ def test_gcu_acl_drop_rule_creation(rand_selected_dut, ptfadapter, setup, dynami
 def test_gcu_acl_drop_rule_removal(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_create_drop_rule_initial(rand_selected_dut, setup)
     dynamic_acl_remove_drop_rule_initial(rand_selected_dut)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_drop_packets(setup), packets_dropped = False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED), packets_dropped = False)
 
 def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_create_forward_rules(rand_selected_dut)
     dynamic_acl_create_drop_rule(rand_selected_dut, setup)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_forward_packets(setup), packets_dropped = False)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_drop_packets(setup), packets_dropped = True)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup), packets_dropped = False)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED), packets_dropped = True)
 
 def test_gcu_acl_forward_rule_replacement(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_create_forward_rules(rand_selected_dut)
@@ -742,15 +716,15 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut, ptfadapter, setup, 
     dynamic_acl_replace_rules(rand_selected_dut)
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
-                               packets = generate_forward_packets(setup, DST_IP_FORWARDED_REPLACEMENT, DST_IPV6_FORWARDED_REPLACEMENT),
+                               packets = generate_packets(setup, DST_IP_FORWARDED_REPLACEMENT, DST_IPV6_FORWARDED_REPLACEMENT),
                                packets_dropped = False)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_forward_packets(setup), packets_dropped = True)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup), packets_dropped = True)
 
 def test_gcu_acl_forward_rule_removal(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_create_forward_rules(rand_selected_dut)
     dynamic_acl_create_drop_rule(rand_selected_dut, setup)
     dynamic_acl_remove_forward_rules(rand_selected_dut)
-    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_forward_packets(setup), packets_dropped = True)
+    dynamic_acl_verify_packets(setup, ptfadapter, packets = generate_packets(setup), packets_dropped = True)
 
 def test_gcu_acl_scale_rules(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
     dynamic_acl_apply_forward_scale_rules(rand_selected_dut, setup)
@@ -765,10 +739,10 @@ def test_gcu_acl_scale_rules(rand_selected_dut, ptfadapter, setup, dynamic_acl_c
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
-                               generate_forward_packets(setup, v4_dest, v6_dest),
+                               generate_packets(setup, v4_dest, v6_dest),
                                packets_dropped = False,
                                src_port = blocked_scale_port)
-    dynamic_acl_verify_packets(setup, ptfadapter, generate_drop_packets(setup), packets_dropped = True, src_port = blocked_scale_port)
+    dynamic_acl_verify_packets(setup, ptfadapter, generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED), packets_dropped = True, src_port = blocked_scale_port)
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut):
