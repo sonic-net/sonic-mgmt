@@ -1029,20 +1029,22 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 print(list(map(operator.sub, pg_cntrs, pg_cntrs_base)),
                       file=sys.stderr)
                 for i in range(0, PG_NUM):
-                    # In DNX, ip2me packets trapped to cpu mapped to TC 1 -> PG 0 and
-                    # all other control packets trapped to cpu mapped to TC 4 -> PG 4.
-                    if i == pg:
-                        if platform_asic and platform_asic == "broadcom-dnx" and i in [0, 4, 7]:
+                    # DNX/Chassis:
+                    # pg = 0 => Some extra packets with unmarked TC
+                    # pg = 4 => Extra packets for LACP/BGP packets
+                    # pg = 7 => packets from cpu to front panel ports
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        if i == pg:
                             assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
-                        else:
-                            assert (pg_cntrs[pg] ==
-                                    pg_cntrs_base[pg] + len(dscps))
-                    else:
-                        if platform_asic and platform_asic == "broadcom-dnx" and i in [0, 4, 7]:
-                            assert(pg_cntrs[i] >= pg_cntrs_base[i])
+                        elif i in [0, 4, 7]:
+                            assert (pg_cntrs[i] >= pg_cntrs_base[i])
                         else:
                             assert (pg_cntrs[i] == pg_cntrs_base[i])
-
+                    else:
+                        if i == pg:
+                            assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                        else:
+                            assert (pg_cntrs[i] == pg_cntrs_base[i])
                 # confirm that dscp pkts are received
                 total_recv_cnt = 0
                 dscp_recv_cnt = 0
