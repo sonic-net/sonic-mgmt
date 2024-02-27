@@ -37,7 +37,8 @@ class QosBase:
                           "t0-120", "t0-80", "t0-backend"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
-    SUPPORTED_ASIC_LIST = ["gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3", "j2c+", "jr2"]
+    SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "td3", "th3",
+                           "j2c+", "jr2"]
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -725,6 +726,7 @@ class QosSaiBase(QosBase):
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         src_dut = get_src_dst_asic_and_duts['src_dut']
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
 
@@ -920,6 +922,21 @@ class QosSaiBase(QosBase):
 
         pytest_assert(dutAsic, "Cannot identify DUT ASIC type")
 
+        # Get dst_dut asic type
+        if dst_dut != src_dut:
+            vendor = dst_dut.facts["asic_type"]
+            hostvars = dst_dut.host.options['variable_manager']._hostvars[dst_dut.hostname]
+            dstDutAsic = None
+            for asic in self.SUPPORTED_ASIC_LIST:
+                vendorAsic = "{0}_{1}_hwskus".format(vendor, asic)
+                if vendorAsic in hostvars.keys() and dst_mgFacts["minigraph_hwsku"] in hostvars[vendorAsic]:
+                    dstDutAsic = asic
+                    break
+
+            pytest_assert(dstDutAsic, "Cannot identify dst DUT ASIC type")
+        else:
+            dstDutAsic = dutAsic
+
         dutTopo = "topo-"
 
         if dutAsic == "gb" and "t2" in topo:
@@ -985,9 +1002,10 @@ class QosSaiBase(QosBase):
             "testPorts": testPorts,
             "qosConfigs": qosConfigs,
             "dutAsic": dutAsic,
+            "dstDutAsic": dstDutAsic,
             "dutTopo": dutTopo,
             "srcDutInstance" : src_dut,
-            "dstDutInstance": get_src_dst_asic_and_duts['dst_dut'],
+            "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
             "dualTorScenario": len(dualtor_ports_for_duts) != 0
         }
@@ -1377,9 +1395,9 @@ class QosSaiBase(QosBase):
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
             topo = dutTopo
-            if (get_src_dst_asic_and_duts['src_dut_index'] == 
+            if (get_src_dst_asic_and_duts['src_dut_index'] ==
                     get_src_dst_asic_and_duts['dst_dut_index'] and
-                get_src_dst_asic_and_duts['src_asic_index'] == 
+                get_src_dst_asic_and_duts['src_asic_index'] ==
                     get_src_dst_asic_and_duts['dst_asic_index']):
                 topo = "topo-any"
             qpm = qos_param_generator.QosParamCisco(
@@ -1514,6 +1532,8 @@ class QosSaiBase(QosBase):
             testParams = dutTestParams["basicParams"]
             testParams.update(dutConfig["testPorts"])
             testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
                 "testbed_type": dutTestParams["topo"]
             })
             self.runPtfTest(
@@ -1542,41 +1562,15 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-
-        dut_asic = get_src_dst_asic_and_duts['src_asic']
-        duthost = get_src_dst_asic_and_duts['src_dut']
-
         # This is not needed in T2.
         if "t2" in dutTestParams["topo"]:
             yield
             return
 
-        dut_asic.command('sonic-clear fdb all')
-        dut_asic.command('sonic-clear arp')
+        self.populate_arp_entries(
+            get_src_dst_asic_and_duts, ptfhost, dutTestParams,
+            dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
 
-        saiQosTest = None
-        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulate"
-        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
-        else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                result = dut_asic.command("arp -n")
-                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
-                if result["stdout"].find("incomplete") == -1:
-                    saiQosTest = "sai_qos_tests.ARPpopulate"
-
-        if saiQosTest:
-            testParams = dutTestParams["basicParams"]
-            testParams.update(dutConfig["testPorts"])
-            testParams.update({
-                "testPortIds": dutConfig["testPortIds"],
-                "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
-            })
-            self.runPtfTest(
-                ptfhost, testCase=saiQosTest, testParams=testParams
-            )
         yield
         return
 
@@ -2085,6 +2079,22 @@ class QosSaiBase(QosBase):
         yield
         return
 
+    @pytest.fixture(scope="function", autouse=False)
+    def _skip_watermark_multi_DUT(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        if not is_cisco_device(get_src_dst_asic_and_duts['src_dut']):
+            yield
+            return
+        if (get_src_dst_asic_and_duts['src_dut'] !=
+                get_src_dst_asic_and_duts['dst_dut']):
+            pytest.skip(
+                "All WM Tests are skipped for multiDUT for cisco platforms.")
+
+        yield
+        return
+
     def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
@@ -2117,3 +2127,55 @@ class QosSaiBase(QosBase):
                 max_port_num = len(port_list)
         logger.info("Test ports ids is{}".format(test_port_ids))
         return test_port_ids
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_src_dst_different_asic(self, dutConfig):
+        if dutConfig['dutAsic'] != dutConfig['dstDutAsic']:
+            pytest.skip(
+                "This test is skipped since asic types of ingress and egress are different.")
+        yield
+        return
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_pacific_dst_asic(self, dutConfig):
+        if dutConfig['dstDutAsic'] == "pac":
+            pytest.skip(
+                "This test is skipped since egress asic is cisco-8000 Q100.")
+        yield
+        return
+
+    def populate_arp_entries(
+        self, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa F811
+    ):
+        """
+        Update ARP entries of QoS SAI test ports
+        """
+        dut_asic = get_src_dst_asic_and_duts['src_asic']
+
+        dut_asic.command('sonic-clear fdb all')
+        dut_asic.command('sonic-clear arp')
+
+        saiQosTest = None
+        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulate"
+        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
+            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
+        else:
+            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                result = dut_asic.command("arp -n")
+                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
+                if result["stdout"].find("incomplete") == -1:
+                    saiQosTest = "sai_qos_tests.ARPpopulate"
+
+        if saiQosTest:
+            testParams = dutTestParams["basicParams"]
+            testParams.update(dutConfig["testPorts"])
+            testParams.update({
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"]
+            })
+            self.runPtfTest(
+                ptfhost, testCase=saiQosTest, testParams=testParams
+            )
