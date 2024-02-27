@@ -1,6 +1,6 @@
 ---
 # ntp variables
-ntp_servers: ['10.212.65.2']
+ntp_servers: ['10.20.8.129', '10.20.8.130']
 
 # syslog variables
 syslog_servers: ['10.212.65.2']
@@ -9,7 +9,7 @@ syslog_servers: ['10.212.65.2']
 dns_servers: ['10.64.5.5', '10.64.6.6', '10.64.6.7']
 
 # forced_mgmt_routes
-forced_mgmt_routes: ['10.201.148.32/28', '10.1.84.0/24', '10.212.69.0/24', '10.212.65.0/24', '10.64.5.0/24', '10.64.6.0/24']
+forced_mgmt_routes: ['10.201.148.32/28', '10.1.84.0/24', '10.212.69.0/24', '10.212.65.0/24', '10.64.5.0/24', '10.64.6.0/24', '10.20.8.129', '10.20.8.130']
 
 #properties of ErspanDestinationIpv4 in minigraph
 erspan_dest: ['10.20.6.16']
