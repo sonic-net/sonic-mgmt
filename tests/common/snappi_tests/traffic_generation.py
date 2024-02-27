@@ -254,13 +254,22 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
-def clear_dut_counters(duthost):
+def clear_dut_interface_counters(duthost):
     """
     Clears the dut interface counter.
     Args:
         duthost (obj): DUT host object
     """
     duthost.command("sonic-clear counters \n")
+
+
+def clear_dut_que_counters(duthost):
+    """
+    Clears the dut que counter.
+    Args:
+        duthost (obj): DUT host object
+    """
+    duthost.command("sonic-clear queuecounters \n")
 
 
 def run_traffic(duthost,
@@ -302,7 +311,10 @@ def run_traffic(duthost,
         cs.state = cs.START
         api.set_capture_state(cs)
 
-    clear_dut_counters(duthost)
+    clear_dut_interface_counters(duthost)
+
+    clear_dut_que_counters(duthost)
+
     logger.info("Starting transmit on all flows ...")
     ts = api.transmit_state()
     ts.state = ts.START
