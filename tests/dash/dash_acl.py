@@ -155,7 +155,7 @@ class DefaultAclRule(AclRuleTest):
             ACL_PRIORITY: 255,
             ACL_ACTION: self.default_action,
             ACL_TERMINATING: "false",
-            ACL_PROTOCOL: "17",
+            ACL_PROTOCOL: "17, 6, 1",
         })
 
 
