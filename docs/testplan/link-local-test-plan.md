@@ -61,7 +61,7 @@ Verify that traffic sent from PTF with IPv4 destination IP is being forwarded by
 1. Add an Ipv4 Link-local address to PTF interfaces.
 2. Add dut interfaces to Vlan.
 3. Send traffic via scapy from PTF with Link local destination ip address
-4. Verify packets are routed
+4. Verify packets are switched
 5. Verify Counters have increased for both links.
 
 ### Test case #4 - IPv6 Link-Local Destination IP Traffic
@@ -70,6 +70,14 @@ Verify that traffic sent from PTF with IPv4 destination IP is being forwarded by
 Verify that traffic sent from PTF with IPv6 destination IP is being forwarded by DUT.
 1. Add dut interfaces to Vlan.
 2. Send traffic via scapy from PTF with Link local destination ip address
-3. Verify packets are routed
+3. Verify packets are switched
 4. Verify Counters have increased for both links.
+
+### Test case #5 - IPv6 Link-Local Dut Interface Destination IP Traffic
+
+#### Test objective
+Verify that traffic sent from PTF with Dut Interface IPv6 destination IP is being traped by CPU.
+1. Send traffic via scapy from PTF with dut Interface IPv6 Link local destination ip address
+2. Verify packets are traped by tcpdump
+3. Verify Counters have increased for both links.
 
