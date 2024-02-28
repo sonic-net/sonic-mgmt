@@ -1,9 +1,3 @@
-# uncompyle6 version 3.9.0
-# Python bytecode version base 2.7 (62211)
-# Decompiled from: Python 3.10.4 (tags/v3.10.4:9d38120, Mar 23 2022, 23:13:41) [MSC v.1929 64 bit (AMD64)]
-# Embedded file name: /var/johnar/sonic-mgmt/tests/snappi/multi_dut_rdma/files/rdma_helper.py
-# Compiled at: 2023-02-10 09:15:26                                                                         # noqa: F401
-from math import ceil                                                                   # noqa: F401
 import logging                                                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require               # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts  # noqa: F401
