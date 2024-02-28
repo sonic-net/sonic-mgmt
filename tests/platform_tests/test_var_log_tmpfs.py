@@ -34,7 +34,7 @@ def test_var_log_tmpfs(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
     # Skip this test for 201811, 201911 images for all platforms:
-    (skip, reason) = check_skip_release(duthost, ["201811", "201911"])
+    (skip, reason) = check_skip_release(duthost, ["201811", "201911", "master"])
 
     # Skip this test if OS version is < 202012 for all platforms OR Image version >= 202012 and HWSKU of DUT isn't one of the supported HWSKUs
     if skip is True or (skip is False and duthost.facts['hwsku'] not in SUPPORTED_HWSKUS):
