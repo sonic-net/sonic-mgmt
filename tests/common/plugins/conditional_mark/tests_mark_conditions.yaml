@@ -690,11 +690,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test not supported on Broadcom SKUs or dualtor topology."
+    reason: "Test only supported on Mellanox SKUs, didn't supported on dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "asic_type in ['broadcom']"
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####      iface_namingmode       #####
