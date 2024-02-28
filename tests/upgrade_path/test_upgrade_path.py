@@ -8,6 +8,7 @@ from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version,\
     get_reboot_command, check_copp_config
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
+from tests.upgrade_path.upgrade_helpers import setup_ferret
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
@@ -83,6 +84,8 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
             logger.info("Cold reboot the DUT to make the base image as current")
             reboot(duthost, localhost)
             check_sonic_version(duthost, target_version)
+
+            setup_ferret(duthost, ptfhost, tbinfo)
 
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
