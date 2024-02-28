@@ -13,10 +13,6 @@
     restart_pmon: yes
   when: restart_pmon is not defined and restart_pmon|bool == true
 
-# - name: Get host server address
-#   vmhost_server_info: vmhost_server_name={{ testbed_facts['server'] }} vm_file={{ vm_file }}
-#   delegate_to: localhost
-
 - name: Get host server address
   script: scripts/vmhost_server_address.py --inv-file veos_vtb --server-name server_1
   args:
