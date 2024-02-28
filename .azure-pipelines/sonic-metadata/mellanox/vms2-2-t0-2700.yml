@@ -49,7 +49,7 @@ parameters:
 
 - name: FROM_IMAGE_LIST
   type: string
-  default: latest
+  default: 40
   displayName: "All base image numbers (space separated)"
 
 - name: FROM_IMAGE_URL
