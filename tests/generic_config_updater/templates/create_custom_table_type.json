@@ -1,0 +1,13 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_TABLE_TYPE",
+        "value": {
+            "DYNAMIC_ACL_TABLE_TYPE" : {
+            "MATCHES": ["DST_IP","DST_IPV6","ETHER_TYPE","IN_PORTS"],
+            "ACTIONS": ["PACKET_ACTION","COUNTER"],
+            "BIND_POINTS": ["PORT"]
+            }
+        }
+    }
+]
