@@ -54,7 +54,7 @@ def get_testbed(testbed_name):
         return {}
 
 
-def lock_release(testbed, action, hours, user, reason, force, absolute):
+def lock_release(testbed, action, hours, user, reason, force, absolute, ignore_status):
     """
     Lock or release a testbed.
 
@@ -81,7 +81,7 @@ def lock_release(testbed, action, hours, user, reason, force, absolute):
             'lock_reason': reason,
             'absolute_lock': absolute,
             'force_lock': force,
-            'ignore_status': True,
+            'ignore_status': ignore_status,
         }
         if action == 'release':
             data = {
@@ -171,6 +171,13 @@ if __name__ == '__main__':
         default="yes",
         help='Absolute lock. Valid values: true, yes, t, y, false, no, f, n. Case insensitive')
 
+    parser.add_argument('-i', '--ignore-status',
+        type=str,
+        dest='ignore_status',
+        required=False,
+        default='true',
+        help='Ignore status. Valid values: True, False. Case insensitive. Default is True.')
+
     parser.add_argument('-R',
         action='store_true',
         dest='brutal_release',
@@ -193,8 +200,9 @@ if __name__ == '__main__':
     print('Args for lock_release: ' + str(args))
     force_lock = args.force.lower() in ['true', 'yes', 't', 'y']
     absolute_lock = args.absolute.lower() in ['true', 'yes', 't', 'y']
+    ignore_status = args.ignore_status.lower() in ['true', 'yes', 't', 'y']
     if not args.brutal_release:
-        sys.exit(lock_release(args.testbed, args.action, args.hours, args.user, args.reason, force_lock, absolute_lock))
+        sys.exit(lock_release(args.testbed, args.action, args.hours, args.user, args.reason, force_lock, absolute_lock, ignore_status))
     else:
         testbed_res = get_testbed(args.testbed)
 
@@ -207,4 +215,4 @@ if __name__ == '__main__':
             print('Testbed "{}" is not locked by anyone'.format(args.testbed))
             sys.exit(0)
 
-        sys.exit(lock_release(args.testbed, 'release', args.hours, locked_by, args.reason, force_lock, absolute_lock))
+        sys.exit(lock_release(args.testbed, 'release', args.hours, locked_by, args.reason, force_lock, absolute_lock, ignore_status))
