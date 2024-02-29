@@ -63,8 +63,10 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
 
         config_reload(duthost, safe_reload=True)
 
-        logger.info('Start logrotate-config service')
-        duthost.shell('sudo service logrotate-config start')
+        # Restart in case logrotate-config was started already before
+        # Just running 'start' does not update logrotate config
+        logger.info('Restart logrotate-config service')
+        duthost.shell('sudo service logrotate-config restart')
 
     yield
 
