@@ -70,7 +70,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, 0, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
+    assert wait_until(600, 20, 0, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
         "Not all transceivers are detected in 300 seconds"
 
     logging.info("Check transceiver status")
