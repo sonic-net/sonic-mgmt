@@ -3,7 +3,7 @@ ansible_connection: multi_passwd_ssh
 ansible_altpassword: YourPaSsWoRd
 # ansible_altpasswords:
 #   - fakepassword1
-#   - fakepassword3
+#   - fakepassword2
 
 sonic_version: "v2"
 
