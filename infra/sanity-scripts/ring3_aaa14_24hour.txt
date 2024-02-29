@@ -1,4 +1,5 @@
-acl/test_acl.py
+acl/test_acl.py::TestAclWithReboot
+acl/test_acl.py::TestAclWithPortToggle
 ipfwd/test_nhop_group.py
 platform_tests/test_reboot.py
 platform_tests/test_reload_config.py
