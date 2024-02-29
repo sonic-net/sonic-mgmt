@@ -36,6 +36,7 @@ REPLACE_RULES_TEMPLATE = "replace_rules.j2"
 REPLACE_NONEXISTENT_RULE_FILE = "replace_nonexistent_rule.json"
 REMOVE_THIRD_DROP_RULE_FILE = "remove_third_drop_rule.json"
 REMOVE_IPV4_FORWARD_RULE_FILE = "remove_ipv4_forward_rule.json"
+REMOVE_IPV6_FORWARD_RULE_FILE = "remove_ipv6_forward_rule.json"
 REMOVE_TABLE_FILE = "remove_table.json"
 REMOVE_NONEXISTENT_TABLE_FILE = "remove_nonexistent_table.json"
 REMOVE_TABLE_TYPE_FILE = "remove_table_type.json"
@@ -190,6 +191,21 @@ def format_and_apply_template(duthost, template_name, extra_vars):
     return output
 
 
+def load_and_apply_json_patch(duthost, file_name):
+    with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
+        json_patch = json.load(file)
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+    return output
+
+
 def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first_line_content, expected_bindings):
     """Check if acl table show as expected
     Acl table with multiple bindings will show as such
@@ -240,17 +256,10 @@ def expect_acl_rule_removed(duthost, rulename):
 @pytest.fixture(scope="module")
 def dynamic_acl_create_table_type(rand_selected_dut):
     """Create a new ACL table type that can be used"""
-    with open(os.path.join(TEMPLATES_DIR, CREATE_CUSTOM_TABLE_TYPE_FILE)) as file:
-        json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(rand_selected_dut)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(rand_selected_dut, CREATE_CUSTOM_TABLE_TYPE_FILE)
 
-    try:
-        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(rand_selected_dut, output)
-    finally:
-        delete_tmpfile(rand_selected_dut, tmpfile)
+    expect_op_success(rand_selected_dut, output)
 
     yield
 
@@ -285,18 +294,6 @@ def dynamic_acl_create_table(rand_selected_dut, dynamic_acl_create_table_type, s
     yield
 
     dynamic_acl_remove_table(rand_selected_dut)
-
-
-def dynamic_acl_create_duplicate_table(duthost, setup):
-    """Create a duplicate ACL table type that should succeed"""
-
-    extra_vars = {
-        'bind_ports': setup['bind_ports']
-        }
-
-    output = format_and_apply_template(duthost, CREATE_CUSTOM_TABLE_TEMPLATE, extra_vars)
-
-    expect_op_success(duthost, output)
 
 
 def dynamic_acl_create_forward_rules(duthost):
@@ -427,35 +424,20 @@ def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_
 
 def dynamic_acl_remove_third_drop_rule(duthost):
     """Remove the third drop rule of the three created for the drop rule removal test"""
-    with open(os.path.join(TEMPLATES_DIR, REMOVE_THIRD_DROP_RULE_FILE)) as file:
-        json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(duthost, REMOVE_THIRD_DROP_RULE_FILE)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+    expect_op_success(duthost, output)
 
-        expect_acl_rule_removed(duthost, "RULE_5")
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_acl_rule_removed(duthost, "RULE_5")
 
 
 def dynamic_acl_replace_nonexistent_rule(duthost):
     """Verify that replacing a non-existent rule fails"""
 
-    with open(os.path.join(TEMPLATES_DIR, REPLACE_NONEXISTENT_RULE_FILE)) as file:
-        json_patch = json.load(file)
+    output = load_and_apply_json_patch(duthost, REPLACE_NONEXISTENT_RULE_FILE)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_failure(output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_op_failure(output)
 
 
 def dynamic_acl_replace_rules(duthost):
@@ -584,67 +566,45 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
         delete_tmpfile(duthost, tmpfile)
 
 
-def dynamic_acl_remove_ipv4_forward_rule(duthost):
-    """Remove our two forward rules from the acl table"""
+def dynamic_acl_remove_forward_rule(duthost, ip_type):
+    """Remove selected forward rule from the acl table"""
 
-    with open(os.path.join(TEMPLATES_DIR, REMOVE_IPV4_FORWARD_RULE_FILE)) as file:
-        json_patch = json.load(file)
+    if ip_type == "IPV4":
+        file = REMOVE_IPV4_FORWARD_RULE_FILE
+        rule_name = "RULE_1"
+    else:
+        file = REMOVE_IPV6_FORWARD_RULE_FILE
+        rule_name = "RULE_2"
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(duthost, file)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+    expect_op_success(duthost, output)
 
-        expect_acl_rule_removed(duthost, "RULE_1")
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_acl_rule_removed(duthost, rule_name)
 
 
 def dynamic_acl_remove_table(duthost):
     """Remove an ACL Table Type from the duthost"""
-    with open(os.path.join(TEMPLATES_DIR, REMOVE_TABLE_FILE)) as file:
-        json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(duthost, REMOVE_TABLE_FILE)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_op_success(duthost, output)
 
 
 def dynamic_acl_remove_nonexistent_table(duthost):
     """Remove a nonexistent ACL Table from the duthost, verify it fails"""
-    with open(os.path.join(TEMPLATES_DIR, REMOVE_NONEXISTENT_TABLE_FILE)) as file:
-        json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(duthost, REMOVE_NONEXISTENT_TABLE_FILE)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_failure(output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_op_failure(output)
 
 
 def dynamic_acl_remove_table_type(duthost):
     """Remove an ACL Table definition from the duthost"""
-    with open(os.path.join(TEMPLATES_DIR, REMOVE_TABLE_TYPE_FILE)) as file:
-        json_patch = json.load(file)
 
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
+    output = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE)
 
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
+    expect_op_success(duthost, output)
 
 
 def test_gcu_acl_drop_rule_creation(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
@@ -705,16 +665,24 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut, ptfadapter, setup, 
     dynamic_acl_verify_packets(setup, ptfadapter, packets=generate_packets(setup), packets_dropped=True)
 
 
-def test_gcu_acl_forward_rule_removal(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
+@pytest.mark.parametrize("ip_type", ["IPV4", "IPV6"])
+def test_gcu_acl_forward_rule_removal(rand_selected_dut, ptfadapter, setup, ip_type, dynamic_acl_create_table):
     """Test that if a forward rule is created, and then removed, that packets associated with that rule are properly
-    no longer forwarded"""
+    no longer forwarded, and packets associated with the remaining rule are forwarded"""
     dynamic_acl_create_forward_rules(rand_selected_dut)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-    dynamic_acl_remove_ipv4_forward_rule(rand_selected_dut)
-    packets = generate_packets(setup)
-    # generate_packets generates packets for both ipv4 and ipv6, but we only want to test that ipv4 is dropped
-    packets.pop('IPV6')
-    dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped=True)
+    dynamic_acl_remove_forward_rule(rand_selected_dut, ip_type)
+    forward_packets = generate_packets(setup)
+    drop_packets = forward_packets.copy()
+    if ip_type == "IPV4":
+        other_type = "IPV6"
+    else:
+        other_type = "IPV4"
+    # generate_packets returns ipv4 and ipv6 packets. remove vals from two dicts so that only correct packets remain
+    drop_packets.pop(other_type)
+    forward_packets.pop(ip_type)
+    dynamic_acl_verify_packets(setup, ptfadapter, drop_packets, packets_dropped=True)
+    dynamic_acl_verify_packets(setup, ptfadapter, forward_packets, packets_dropped=False)
 
 
 def test_gcu_acl_scale_rules(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
