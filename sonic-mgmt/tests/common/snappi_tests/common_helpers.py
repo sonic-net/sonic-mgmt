@@ -16,7 +16,6 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.broadcom_data import is_broadcom_device as isBroadcomDevice
 from ipaddress import IPv6Network, IPv6Address
 from random import getrandbits
 
@@ -746,7 +745,7 @@ def disable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py disable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif isBroadcomDevice(duthost):
+    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
         try:
             duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog disable"'.format(asic_value))
         except Exception:
@@ -767,7 +766,7 @@ def enable_packet_aging(duthost, asic_value=None):
         duthost.command("docker cp /tmp/packets_aging.py syncd:/")
         duthost.command("docker exec syncd python /packets_aging.py enable")
         duthost.command("docker exec syncd rm -rf /packets_aging.py")
-    elif isBroadcomDevice(duthost):
+    elif "platform_asic" in duthost.facts and duthost.facts["platform_asic"] == "broadcom-dnx":
         try:
             duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value))
         except Exception:
