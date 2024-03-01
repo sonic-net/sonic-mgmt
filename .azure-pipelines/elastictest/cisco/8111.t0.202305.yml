@@ -72,13 +72,10 @@ parameters:
     type: string
     default: "arp/test_wr_arp.py, \
               bgp/test_bgp_slb.py, \
-              dhcp_relay/test_dhcp_relay.py, \
               ipfwd/test_dir_bcast.py, \
               pfcwd/test_pfcwd_warm_reboot.py, \
               platform_tests/test_advanced_reboot.py, \
               platform_tests/test_cont_warm_reboot.py, \
-              platform_tests/test_reload_config.py, \
-              platform_tests/test_service_warm_restart.py, \
               qos/test_qos_sai.py, \
               vxlan/test_vxlan_decap.py"
     displayName: "Scripts to be excluded"
