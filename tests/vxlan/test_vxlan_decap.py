@@ -29,7 +29,7 @@ VNI_BASE = 336
 COUNT = 1
 
 
-def prepare_ptf(ptfhost, mg_facts, duthost, unselected_mg_facts=None):
+def prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts=None):
     """Prepare arp responder configuration and store temporary vxlan decap related information to PTF docker
 
     Args:
@@ -56,8 +56,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost, unselected_mg_facts=None):
 
     vxlan_decap = {
         "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
-        "minigraph_unselected_port_indices": [] if unselected_mg_facts is None
-                                             else unselected_mg_facts["minigraph_ptf_indices"],
+        "mg_unslctd_port_idx": [] if unslctd_mg_facts is None else unslctd_mg_facts["mg_ptf_idx"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
         "minigraph_portchannels": mg_facts["minigraph_portchannels"],
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
@@ -118,14 +117,14 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     if bool(active_active_ports):
         idx = duthosts.index(duthost)
         unselected_duthost = duthosts[1 - idx]
-        unselected_mg_facts = unselected_duthost.minigraph_facts(host=unselected_duthost.hostname)['ansible_facts']
-        unselected_mg_facts['minigraph_ptf_indices'] = unselected_mg_facts['minigraph_port_indices'].copy()
+        unslctd_mg_facts = unselected_duthost.minigraph_facts(host=unselected_duthost.hostname)['ansible_facts']
+        unslctd_mg_facts['mg_ptf_idx'] = unslctd_mg_facts['minigraph_port_indices'].copy()
         try:
             map = tbinfo['topo']['ptf_map'][str(1 - idx)]
             if map:
-                for port, index in list(unselected_mg_facts['minigraph_port_indices'].items()):
+                for port, index in list(unslctd_mg_facts['minigraph_port_indices'].items()):
                     if str(index) in map:
-                        unselected_mg_facts['minigraph_ptf_indices'][port] = map[str(index)]
+                        unslctd_mg_facts['mg_ptf_idx'][port] = map[str(index)]
         except (ValueError, KeyError):
             pass
 
@@ -138,7 +137,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     logger.info("Prepare PTF")
     if bool(active_active_ports):
-        prepare_ptf(ptfhost, mg_facts, duthost, unselected_mg_facts)
+        prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts)
     else:
         prepare_ptf(ptfhost, mg_facts, duthost)
 
