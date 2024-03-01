@@ -18,6 +18,7 @@ ixia_chassis:
 sonic:
   vars:
     mgmt_subnet_mask_length: 23
+    mgmt_subnet_v6_mask_length: 64
   children:
     sonic_dell64_40
 
