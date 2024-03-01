@@ -569,12 +569,18 @@ class QosSaiBase(QosBase):
                 else:
                     new_creds = creds
                 for duthost in get_src_dst_asic_and_duts["all_duts"]:
-                    docker.swap_syncd(duthost, new_creds)
+                    if duthost.facts["asic_type"] == 'cisco-8000':
+                        docker.cisco_swap_syncd(duthost)
+                    else:
+                        docker.swap_syncd(duthost, new_creds)
             yield
         finally:
             if swapSyncd:
                 for duthost in get_src_dst_asic_and_duts["all_duts"]:
-                    docker.restore_default_syncd(duthost, new_creds)
+                    if duthost.facts["asic_type"] == 'cisco-8000':
+                        docker.cisco_swap_syncd(duthost, restore = True)
+                    else:
+                        docker.restore_default_syncd(duthost, new_creds)
 
     @pytest.fixture(scope='class', name="select_src_dst_dut_and_asic",
                     params=("single_asic", "single_dut_multi_asic", "multi_dut"))

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_TMOUT = "900"
 SET_TMOUT = "10"
 IMAGE_LOC = '/tmp/sonic-cisco-8000.bin'
+RPC_SYNCD_LOC = '/home/cisco/docker-syncd-cisco-rpc.gz'
 TS_LOC = '/tmp/showts/*'
 TS_COPY = '/data/tests/.'
 ssh_port = 22
@@ -179,6 +180,7 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
     build_id = request.config.getoption("--build_id")
     enable_bfd = request.config.getoption("--enable_bfd")
     initImage = dict()
+    rpc_copy_res = dict()
     reload_res = dict()
     copy_res = dict()
     install_res = dict()
@@ -193,8 +195,10 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
 
     tar = tarfile.open(tar_file)
     filename = tar.getnames()[0] +'/sonic-cisco-8000.bin'
+    rpc_syncd_filename = tar.getnames()[0] + '/docker-syncd-cisco-rpc.gz'
 
     tar.extract(filename)
+    tar.extract(rpc_syncd_filename)
 
     # Clean up /var/dump before show techsupport is run
     for duthost in duthosts:
@@ -215,6 +219,10 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
     def image_copy(duthost):
         logger.info("Copy Image {} to {}".format(filename,IMAGE_LOC))
         return duthost.copy(src=filename, dest=IMAGE_LOC)
+
+    def rpc_syncd_file_copy(duthost):
+        logger.info("Copy rpc syncd docker file {} to {}".format(rpc_syncd_filename,RPC_SYNCD_LOC))
+        return duthost.copy(src=rpc_syncd_filename, dest=RPC_SYNCD_LOC)
 
     logger.info("Copy file to DUT")
     for duthost in duthosts:
@@ -338,6 +346,24 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
     logger.info("Cleaning up image file from localhost")
     localhost.shell('rm {}'.format(tar_file))
     localhost.shell('rm -rf {}'.format(tar.getnames()[0]))
+    
+    logger.info("Copy rpc syncdfile to DUT")
+    for duthost in duthosts:
+        logger.info('In copy async pool loop')
+        rpc_copy_res[duthost] = pool.apply_async(rpc_syncd_file_copy, (duthost,))
+
+    ctr = 0
+    while True:
+        pool_list = []
+        for duthost in duthosts:
+            print("rpc syncdfile copy results for {} is {}".format(duthost, rpc_copy_res[duthost].ready()))
+            pool_list.append(rpc_copy_res[duthost].ready())
+        if False in pool_list and ctr < 30:
+            time.sleep(30)
+            ctr += 1
+        else:
+            print("Results for pool list : {}".format(pool_list))
+            break
 
     for duthost in duthosts:
         check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][duthost.hostname], xcvr_skip_list, reboot_type=None)

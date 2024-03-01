@@ -103,6 +103,47 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
 
+def cisco_swap_syncd(duthost, namespace=DEFAULT_NAMESPACE, restore = False):
+    """Replaces the running syncd container with the RPC version of it.
+    Args:
+        duthost (SonicHost): The target device.
+    """
+    if namespace == DEFAULT_NAMESPACE and duthost.is_multi_asic:
+        asics_list = duthost.asics
+    else:
+        asics_list = [duthost.asic_instance_from_namespace(namespace)]
+
+    vendor_id = _get_vendor_id(duthost)
+
+    docker_syncd_name = "docker-syncd-{}".format(vendor_id)
+
+    docker_rpc_image = docker_syncd_name + "-rpc"
+
+    for asic in asics_list:
+        asic.stop_service("swss")
+        asic.delete_container("syncd")
+
+    for asic in asics_list:
+        _perform_swap_syncd_shutdown_check(asic)
+
+    if not restore:
+        # Changing tag for current syncd-cisco
+        duthost.command("docker tag {}:latest {}:{}".format(docker_syncd_name, docker_syncd_name, "nonrpc"))
+
+        # Loading rpc image
+        docker_rpc_syncd_file = "/home/cisco/" + docker_rpc_image + ".gz"
+        duthost.command("docker image load -i {}".format(docker_rpc_syncd_file))
+
+        # Changing tag for rpc-syncd
+        duthost.command("docker tag {}:latest {}:latest".format(docker_rpc_image, docker_syncd_name))
+    else:
+        duthost.command("docker tag {}:{} {}:latest".format(docker_syncd_name, "nonrpc", docker_syncd_name))
+
+    logger.info("Reloading config and restarting swss...")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+
+    for asic in asics_list:
+        _perform_syncd_liveness_check(asic)
 
 def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
     """Replaces the running syncd container with the RPC version of it.

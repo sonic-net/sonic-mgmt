@@ -372,7 +372,10 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
-        docker.swap_syncd(dut, creds, test_params.nn_target_namespace)
+        if dut.facts["asic_type"] == 'cisco-8000':
+            docker.cisco_swap_syncd(dut)
+        else:
+            docker.swap_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         # Set sysctl RCVBUF parameter for tests
         dut.command("sysctl -w net.core.rmem_max=609430500")
@@ -406,7 +409,10 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost):
 
     if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
-        docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
+        if dut.facts["asic_type"] == 'cisco-8000':
+            docker.cisco_swap_syncd(dut, restore = True)
+        else:
+            docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
     else:
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
