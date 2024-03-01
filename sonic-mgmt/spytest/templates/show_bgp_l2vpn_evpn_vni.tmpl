@@ -1,0 +1,5 @@
+Value VLAN_ID (\d+)
+Value VNI_TYPE (\S\d)
+
+Start
+  ^\* +${VLAN_ID} +${VNI_TYPE} -> Record

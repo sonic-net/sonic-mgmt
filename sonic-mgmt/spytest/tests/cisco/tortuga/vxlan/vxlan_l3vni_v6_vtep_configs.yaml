@@ -8,15 +8,14 @@ spine0:
         sudo config interface ip add Ethernet0 11.11.11.1/24
         sudo config interface ip add Ethernet28 11.11.12.1/24
         sudo config loopback add Loopback27
-        sudo config interface ip add Loopback27 10.200.200.210/32
+        sudo config interface ip add Loopback27 2001:db8:1::1/128 
+        sudo config interface startup Loopback27
       deconfig: |
-        sudo config interface ip rem Loopback27 10.200.200.210/32
+        sudo config interface ip rem Loopback27 2001:db8:1::1/128
         sudo config interface ip rem Ethernet28 11.11.12.1/24
         sudo config interface ip rem Ethernet0 11.11.11.1/24
         sudo config interface ipv6 disable use-link-local-only Ethernet28
         sudo config interface ipv6 disable use-link-local-only Ethernet0
-        sudo config interface shutdown Ethernet0
-        sudo config interface shutdown Ethernet28
 
     bgp:
       config: |
@@ -34,8 +33,8 @@ spine0:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT bfd
         neighbor TRANSIT ebgp-multihop 255
-        neighbor 10.200.200.200 peer-group OVERLAY
-        neighbor 10.200.200.201 peer-group OVERLAY
+        neighbor 2001:db8:1::2 peer-group OVERLAY
+        neighbor 2001:db8:1::3 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet28 interface peer-group TRANSIT
         address-family ipv4 unicast
@@ -49,7 +48,7 @@ spine0:
         address-family l2vpn evpn
         neighbor OVERLAY activate
         advertise-all-vni
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
 
       deconfig: |
@@ -60,20 +59,23 @@ leaf0:
     sonic:
       config: |
         sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
         sudo config interface ip add Ethernet0 11.11.11.2/24
         sudo config loopback add Loopback27
-        sudo config interface ip add Loopback27 10.200.200.200/32
-        sudo config vxlan add VXLAN 10.200.200.200
+        sudo config interface ip add Loopback27 2001:db8:1::2/128
+        sudo config vxlan add VXLAN 2001:db8:1::2 
         sudo config vxlan evpn_nvo add NVO VXLAN
 
       deconfig: |
+        sudo config interface ip rem Loopback27 2001:db8:1::2/128 
+        sudo config interface ip rem Ethernet0 11.11.11.2/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del VXLAN
-        sudo config interface ip rem Loopback27 10.200.200.200/32
-        sudo config interface ip rem Ethernet0 11.11.11.2/24
-        sudo config interface ipv6 disable use-link-local-only Ethernet0
-        sudo config interface shutdown Ethernet0
 
     bgp:
       config: |
@@ -91,61 +93,66 @@ leaf0:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT bfd
         neighbor TRANSIT ebgp-multihop 255
-        neighbor 10.200.200.201 peer-group OVERLAY
-        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 2001:db8:1::1 peer-group OVERLAY
+        neighbor 2001:db8:1::3 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
         address-family l2vpn evpn
         neighbor OVERLAY activate
         advertise-all-vni
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf01
         vni 1000
         exit
         router bgp 2363073663 vrf Vrf01
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf02
         vni 2000
         exit
         router bgp 2363073663 vrf Vrf02
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf03
         vni 3000
         exit
         router bgp 2363073663 vrf Vrf03
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf04
         vni 4000
         exit
         router bgp 2363073663 vrf Vrf04
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
 
@@ -173,20 +180,23 @@ leaf1:
     sonic:
       config: |
         sudo config interface startup Ethernet12
+        sudo config interface startup Ethernet16
+        sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet12
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
         sudo config interface ip add Ethernet12 11.11.12.2/24
         sudo config loopback add Loopback27
-        sudo config interface ip add Loopback27 10.200.200.201/32
-        sudo config vxlan add VXLAN 10.200.200.201
+        sudo config interface ip add Loopback27 2001:db8:1::3/128
+        sudo config vxlan add VXLAN 2001:db8:1::3
         sudo config vxlan evpn_nvo add NVO VXLAN
 
       deconfig: |
+        sudo config interface ip rem Loopback27 2001:db8:1::3/128 
+        sudo config interface ip rem Ethernet12 11.11.12.2/24
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet12
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del VXLAN
-        sudo config interface ip rem Loopback27 10.200.200.201/32
-        sudo config interface ip rem Ethernet12 11.11.12.2/24
-        sudo config interface ipv6 disable use-link-local-only Ethernet12
-        sudo config interface shutdown Ethernet12
 
     bgp:
       config: |
@@ -204,61 +214,66 @@ leaf1:
         neighbor TRANSIT remote-as external
         neighbor TRANSIT bfd
         neighbor TRANSIT ebgp-multihop 255
-        neighbor 10.200.200.200 peer-group OVERLAY
-        neighbor 10.200.200.210 peer-group OVERLAY
+        neighbor 2001:db8:1::1 peer-group OVERLAY
+        neighbor 2001:db8:1::2  peer-group OVERLAY
         neighbor Ethernet12 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
         redistribute connected
         neighbor TRANSIT activate
         exit-address-family
         address-family l2vpn evpn
         neighbor OVERLAY activate
         advertise-all-vni
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf01
         vni 1000
         exit
         router bgp 2363033449 vrf Vrf01
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf02
         vni 2000
         exit
         router bgp 2363033449 vrf Vrf02
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf03
         vni 3000
         exit
         router bgp 2363033449 vrf Vrf03
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
         vrf Vrf04
         vni 4000
         exit
         router bgp 2363033449 vrf Vrf04
-        address-family ipv4 unicast
+        address-family ipv6 unicast
         redistribute connected
         exit-address-family
         address-family l2vpn evpn
-        advertise ipv4 unicast
+        advertise ipv6 unicast
         exit-address-family
         exit
 

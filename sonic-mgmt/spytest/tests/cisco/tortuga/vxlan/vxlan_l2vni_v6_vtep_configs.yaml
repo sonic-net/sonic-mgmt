@@ -2,14 +2,8 @@ spine0:
     sonic:
       config: |
         sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet4
-        sudo config interface startup Ethernet8
-        sudo config interface startup Ethernet12
         sudo config interface startup Ethernet16
         sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet4
-        sudo config interface ipv6 enable use-link-local-only Ethernet8
-        sudo config interface ipv6 enable use-link-local-only Ethernet12
         sudo config interface ipv6 enable use-link-local-only Ethernet16
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 fd27::2cb:8b5a:196/128
@@ -18,14 +12,8 @@ spine0:
         sudo config interface shutdown Loopback27
         sudo config interface ip rem Loopback27 fd27::2cb:8b5a:196/128
         sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet12
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config interface ipv6 disable use-link-local-only Ethernet4
         sudo config interface ipv6 disable use-link-local-only Ethernet0
         sudo config interface shutdown Ethernet16
-        sudo config interface shutdown Ethernet12
-        sudo config interface shutdown Ethernet8
-        sudo config interface shutdown Ethernet4
         sudo config interface shutdown Ethernet0
 
     bgp:
@@ -46,10 +34,8 @@ spine0:
         neighbor TRANSIT ebgp-multihop 255
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::280:10f1:25f peer-group OVERLAY
+        neighbor fd27::234:377f:6b3 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet4 interface peer-group TRANSIT
-        neighbor Ethernet8 interface peer-group TRANSIT
-        neighbor Ethernet12 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
@@ -69,18 +55,70 @@ spine0:
         no router bgp 2363070545
 
 
+spine1:
+    sonic:
+      config: |
+        sudo config interface startup Ethernet0
+        sudo config interface startup Ethernet16
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config loopback add Loopback27
+        sudo config interface ip add Loopback27 fd27::234:377f:6b3/128
+        sudo config interface startup Loopback27
+      deconfig: |
+        sudo config interface shutdown Loopback27
+        sudo config interface ip rem Loopback27 fd27::234:377f:6b3/128
+        sudo config interface ipv6 disable use-link-local-only Ethernet16
+        sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface shutdown Ethernet16
+        sudo config interface shutdown Ethernet0
+
+    bgp:
+      config: |
+        router bgp 2363062846
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback27
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
+        neighbor fd27::22d:b87f:214b peer-group OVERLAY
+        neighbor fd27::280:10f1:25f peer-group OVERLAY
+        neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet16 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 2363062846
+
+
 leaf0:
     sonic:
       config: |
         sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet4
-        sudo config interface startup Ethernet8
-        sudo config interface startup Ethernet12
         sudo config interface startup Ethernet16
         sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet4
-        sudo config interface ipv6 enable use-link-local-only Ethernet12
         sudo config interface ipv6 enable use-link-local-only Ethernet16
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 fd27::280:10f1:25f/128
@@ -99,15 +137,9 @@ leaf0:
         sudo config interface ip rem Loopback27 fd27::280:10f1:25f/128
         sudo config interface ipv6 disable use-link-local-only Ethernet32
         sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet12
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config interface ipv6 disable use-link-local-only Ethernet4
         sudo config interface ipv6 disable use-link-local-only Ethernet0
         sudo config interface shutdown Ethernet32
         sudo config interface shutdown Ethernet16
-        sudo config interface shutdown Ethernet12
-        sudo config interface shutdown Ethernet8
-        sudo config interface shutdown Ethernet4
         sudo config interface shutdown Ethernet0
 
 
@@ -129,9 +161,8 @@ leaf0:
         neighbor TRANSIT ebgp-multihop 255
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
+        neighbor fd27::234:377f:6b3 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet4 interface peer-group TRANSIT
-        neighbor Ethernet12 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
@@ -155,16 +186,10 @@ leaf1:
     sonic:
       config: |
         sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet4
-        sudo config interface startup Ethernet8
-        sudo config interface startup Ethernet12
         sudo config interface startup Ethernet16
         sudo config interface startup Ethernet32
         sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet4
-        sudo config interface ipv6 enable use-link-local-only Ethernet12
         sudo config interface ipv6 enable use-link-local-only Ethernet16
-        sudo config interface ipv6 enable use-link-local-only Ethernet32
         sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 fd27::22d:b87f:214b/128
         sudo config vxlan add Vtep fd27::22d:b87f:214b
@@ -182,15 +207,9 @@ leaf1:
         sudo config interface ip rem Loopback27 fd27::22d:b87f:214b/128
         sudo config interface ipv6 disable use-link-local-only Ethernet32
         sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet12
-        sudo config interface ipv6 disable use-link-local-only Ethernet8
-        sudo config interface ipv6 disable use-link-local-only Ethernet4
         sudo config interface ipv6 disable use-link-local-only Ethernet0
         sudo config interface shutdown Ethernet32
         sudo config interface shutdown Ethernet16
-        sudo config interface shutdown Ethernet12
-        sudo config interface shutdown Ethernet8
-        sudo config interface shutdown Ethernet4
         sudo config interface shutdown Ethernet0
 
     bgp:
@@ -211,9 +230,8 @@ leaf1:
         neighbor TRANSIT ebgp-multihop 255
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
+        neighbor fd27::234:377f:6b3 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet4 interface peer-group TRANSIT
-        neighbor Ethernet12 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
