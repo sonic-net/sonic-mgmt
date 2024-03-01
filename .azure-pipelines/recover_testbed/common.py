@@ -7,7 +7,7 @@ import time
 import pexpect
 import ipaddress
 from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, \
-    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY
+    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY, BOOTING_INSTALL_OS
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -46,7 +46,7 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     return pdu_managers
 
 
-def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False):
+def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=False, is_celestica=False):
     enter_onie_flag = True
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
 
@@ -83,6 +83,9 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                 if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
                     dut_console.remote_conn.send("\n")
                     enter_onie_flag = False
+
+                if is_celestica and BOOTING_INSTALL_OS in x:
+                    dut_console.remote_conn.send("\n")
 
                 # "ONIE: Starting ONIE Service Discovery"
                 if ONIE_START_TO_DISCOVERY in x:
