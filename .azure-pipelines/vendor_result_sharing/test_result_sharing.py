@@ -8,7 +8,19 @@ import argparse
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.storage.blob import BlobServiceClient, BlobClient
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-import datetime
+try:
+    from azure.kusto.ingest import KustoIngestClient
+except ImportError:
+    from azure.kusto.ingest import QueuedIngestClient as KustoIngestClient
+from azure.kusto.ingest import IngestionProperties
+# Resolve azure.kusto.ingest compatibility issue
+try:
+    from azure.kusto.ingest import DataFormat
+except ImportError:
+    from azure.kusto.data.data_format import DataFormat
+import tempfile
+import json
+from datetime import datetime
 # Install the following package before running this program
 # pip install azure-storage-blob azure-identity
 
@@ -26,12 +38,20 @@ NIGHTLY_TEST_ACCOUNT_URL = 'https://sonicelastictestprodsa.blob.core.windows.net
 NIGHTLY_TEST_CONTAINER_NAME = 'nightlytest'
 VENDOR_CONTAINER = {'arista', 'brcm', 'cisco', 'mellanox'}
 CASE_SHRESHOLD = int(800)
+TEST_RESULT_SHARE_LOG_TABLE = "TestResultSharingLogData"
+TABLE_FORMAT_LOOKUP = {
+    TEST_RESULT_SHARE_LOG_TABLE: DataFormat.JSON
+}
+TABLE_MAPPING_LOOKUP = {
+    TEST_RESULT_SHARE_LOG_TABLE: "TestResultSharingLogDataMappingV1"
+}
 
 
 class KustoChecker(object):
 
     def __init__(self, cluster, tenant_id, client_id, client_key, database):
-        self.cluster = cluster
+        self.ingest_cluster = cluster
+        self.cluster = cluster.replace('ingest-', '')
         self.tenant_id = tenant_id
         self.client_id = client_id
         self.client_key = client_key
@@ -39,14 +59,19 @@ class KustoChecker(object):
 
         self.logger = logging.getLogger('KustoChecker')
 
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(
-            self.cluster,
-            self.client_id,
-            self.client_key,
-            self.tenant_id
-            )
+        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.cluster,
+                                                                                    self.client_id,
+                                                                                    self.client_key,
+                                                                                    self.tenant_id
+                                                                                    )
+        kcsb_ingest = KustoConnectionStringBuilder.with_aad_application_key_authentication(self.ingest_cluster,
+                                                                                           self.client_id,
+                                                                                           self.client_key,
+                                                                                           self.tenant_id
+                                                                                           )
 
         self.client = KustoClient(kcsb)
+        self.ingest_client = KustoIngestClient(kcsb_ingest)
 
     def query(self, query):
         self.logger.debug('Query String: {}'.format(query))
@@ -101,6 +126,31 @@ class KustoChecker(object):
         highest_pass_rate = result.primary_results[0].to_dict()['data']
         print(highest_pass_rate)
         return highest_pass_rate
+
+    def upload_data(self, report_data):
+        self._ingest_data(TEST_RESULT_SHARE_LOG_TABLE, report_data)
+        return
+
+    def _ingest_data(self, table, data):
+        props = IngestionProperties(
+            database=self.database,
+            table=table,
+            data_format=TABLE_FORMAT_LOOKUP[table],
+            ingestion_mapping_reference=TABLE_MAPPING_LOOKUP[table]
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w+") as temp:
+            if isinstance(data, list):
+                temp.writelines(
+                    '\n'.join([json.dumps(entry) for entry in data]))
+            else:
+                temp.write(json.dumps(data))
+            temp.seek(0)
+
+            if self.ingest_client:
+                logger.info("Ingest to backup cluster...")
+                self.ingest_client.ingest_from_file(temp.name, ingestion_properties=props)
+        return
 
 
 class AzureBlobConnecter(object):
@@ -182,9 +232,9 @@ class AzureBlobConnecter(object):
                                      container_name=container_name,
                                      credential=self.token,
                                      blob_name=blob_name,
-                                     max_single_get_size=1024*1024*32,  # 32 MiB
-                                     max_chunk_get_size=1024*1024*4  # 4 MiB
-            )
+                                     max_single_get_size=1024 * 1024 * 32,  # 32 MiB
+                                     max_chunk_get_size=1024 * 1024 * 4  # 4 MiB
+                                    )
 
             # download artifact to the local file
             with open(local_file_path, "wb") as download_file:
@@ -197,7 +247,6 @@ class AzureBlobConnecter(object):
 
         except Exception as ex:
             logger.error("Error {} occurred when downloading {} from container {}".format(ex, blob_name, container_name))
-
 
     def download_artifacts_from_container_recursively(self, container_name, folder_name, local_path):
         logger.debug("Download artifacts from container {} with folder {} to local path {}".format(container_name, folder_name, local_path))
@@ -225,15 +274,14 @@ class AzureBlobConnecter(object):
 def create_kusto_checker():
 
     ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-    cluster = ingest_cluster.replace('ingest-', '')
     tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
     client_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
     client_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
 
-    if not all([cluster, tenant_id, client_id, client_key]):
+    if not all([ingest_cluster, tenant_id, client_id, client_key]):
         raise RuntimeError('Could not load Kusto credentials from environment')
 
-    return KustoChecker(cluster, tenant_id, client_id, client_key, DATABASE)
+    return KustoChecker(ingest_cluster, tenant_id, client_id, client_key, DATABASE)
 
 
 def main(args):
@@ -251,8 +299,12 @@ def main(args):
     vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_storage_token)
 
     result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
+    total_count = len(result)
+    logger.info('Total count of test result: {}'.format(total_count))
 
-    upload_date = datetime.datetime.now().strftime("%Y%m%d")
+    upload_date = datetime.now().strftime("%Y%m%d")
+    ingested_time = str(datetime.now())
+
     base_path = os.getcwd()
     logger.info('Current working directory: {}, current date:{}'.format(base_path, upload_date))
 
@@ -265,6 +317,8 @@ def main(args):
         counter_map['cisco'] = 0
         counter_map['mellanox'] = 0
 
+    report_json = []
+
     buildid_list = dict()
     if vendor:
         buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
@@ -273,6 +327,9 @@ def main(args):
             buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
 
     for res in result:
+        temp_json = dict()
+        temp_json.update({'upload_date': ingested_time, 'upload_status': 'False'})
+
         buildid = res['BuildId']
         hardwaresku = res['HardwareSku']
         topology = res['TopologyType']
@@ -280,20 +337,26 @@ def main(args):
         vendor = res['Vendor']
         run_date = res['RunDate']
         os_version = res['OSVersion']
-        casses_run = int(res['CasesRun'])
+        cases_run = int(res['CasesRun'])
         success_rate = res['SuccessRate']
-        logger.info('BuildId: {}, HardwareSku: {}, TopologyType: {}, BranchName: {}, Vendor: {}, RunDate: {}, OSVersion: {}, CassesRun: {}, SuccessRate: {}'.format(buildid, hardwaresku, topology, branch, vendor, run_date, os_version, casses_run, success_rate))
+        logger.info('BuildId: {}, HardwareSku: {}, TopologyType: {}, BranchName: {}, Vendor: {}, RunDate: {}, OSVersion: {}, CasesRun: {}, SuccessRate: {}'.format(buildid, hardwaresku, topology, branch, vendor, run_date, os_version, cases_run, success_rate))
+
+        temp_json.update({'buildid': buildid, 'hardwaresku': hardwaresku, 'topology': topology, 'branch': branch, 'vendor': vendor, 'run_date': str(run_date), 'os_version': os_version, 'cases_run': cases_run, 'success_rate': success_rate})
+        logger.info("current temp_json: {}".format(temp_json))
 
         if vendor not in VENDOR_CONTAINER:
             logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
+            report_json.append(temp_json)
             continue
 
         if buildid in buildid_list[vendor]:
             logger.info('BuildId: {} already exists in container {}, ignore'.format(buildid, vendor + 'testresult'))
+            report_json.append(temp_json)
             continue
 
-        if casses_run < CASE_SHRESHOLD and vendor != 'cisco':
-            logger.info('Total CassesRun: {} is less than 800, may be not a full run, ingore'.format(str(casses_run)))
+        if cases_run < CASE_SHRESHOLD and vendor != 'cisco':
+            logger.info('Total CassesRun: {} is less than 800, may be not a full run, ingore'.format(str(cases_run)))
+            report_json.append(temp_json)
             continue
 
         nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
@@ -303,15 +366,22 @@ def main(args):
 
         vendor_container_name = vendor + 'testresult'
 
-        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology  + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
+        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
 
         logger.debug('Staring upload artifact {} to container {} with blob name:{}'.format(local_artifact_path, vendor_container_name, remote_file_path))
         vendor_sharing_storage_connecter.upload_artifacts_to_container(container_name=vendor_container_name, artifact=local_artifact_path, blob_name=remote_file_path)
+
+        # update counter and log data
         counter_map[vendor] += 1
+        temp_json.update({'upload_status': 'True'})
+        report_json.append(temp_json)
         shutil.rmtree(base_path + '/' + buildid)
         os.remove(local_artifact_path)
 
-    logger.info('Upload summary: {}'.format(counter_map))
+    logger.info('Actual upload to azure storage counter summary: {}'.format(counter_map))
+    logger.info('Will ingest {} records to kusto'.format(len(report_json)))
+    logger.info('Upload detail summary to kusto: {}'.format(report_json))
+    kustochecker.upload_data(report_json)
 
     return
 
@@ -323,36 +393,41 @@ if __name__ == '__main__':
         description="Sharing nightly test results with vendors")
 
     parser.add_argument('-t', '--topology',
-        type=str,
-        dest='topology',
-        default="All",
-        choices=['t0', 't1', 'All'],
-        help='Topology type, t0 or t1')
+                        type=str,
+                        dest='topology',
+                        default="All",
+                        choices=['t0', 't1', 'm0', 'mx', 'All'],
+                        help='Topology type, t0, t1, m0 or mx, default is all'
+                        )
 
     parser.add_argument('-b', '--branch',
-        type=str,
-        dest='branch',
-        default="All",
-        choices=['20230531', '20231105', 'All'],
-        help='Branch name, 20230531 or 20231105')
+                        type=str,
+                        dest='branch',
+                        default="All",
+                        choices=['20230531', '20231105', 'All'],
+                        help='Branch name, 20230531 or 20231105'
+                        )
 
     parser.add_argument('-s', '--sku',
-        type=str,
-        dest='hardwaresku',
-        default="All",
-        help='Hardware sku')
+                        type=str,
+                        dest='hardwaresku',
+                        default="All",
+                        help='Hardware sku'
+                        )
 
     parser.add_argument('-i', '--buildid',
-        type=str,
-        dest='buildid',
-        default="All",
-        help='Build id')
+                        type=str,
+                        dest='buildid',
+                        default="All",
+                        help='Build id'
+                        )
 
     parser.add_argument('-v', '--vendor',
-        type=str,
-        dest='vendor',
-        default="All",
-        help='Vendor name')
+                        type=str,
+                        dest='vendor',
+                        default="All",
+                        help='Vendor name'
+                        )
 
     args = parser.parse_args()
 
