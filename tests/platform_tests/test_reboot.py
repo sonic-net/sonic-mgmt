@@ -28,7 +28,7 @@ pytestmark = [
 ]
 
 
-MAX_WAIT_TIME_FOR_INTERFACES = 600
+MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
 
 
@@ -39,9 +39,11 @@ def set_max_time_for_interfaces(duthost):
     to let MAX_TIME_TO_REBOOT to be overwritten by specified timeout value
     """
     global MAX_WAIT_TIME_FOR_INTERFACES
+    if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+        MAX_WAIT_TIME_FOR_INTERFACES = 600
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
-        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -104,7 +106,10 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     @param interfaces: DUT's interfaces defined by minigraph
     """
     logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(dut)
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        wait_critical_processes(dut, 600)
+    else:
+        wait_critical_processes(dut)
 
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
