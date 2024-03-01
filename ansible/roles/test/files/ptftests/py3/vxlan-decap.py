@@ -224,7 +224,7 @@ class Vxlan(BaseTest):
                        for member in val['members']]
             self.net_ports.extend(members)
             if self.is_active_active_dualtor:
-                    self.all_active_net_ports.extend(members)
+                self.all_active_net_ports.extend(members)
                     members = [graph['minigraph_unselected_port_indices'][member]
                                for member in val['members']]
                     self.all_active_net_ports.extend(members)

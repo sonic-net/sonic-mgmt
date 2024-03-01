@@ -56,7 +56,8 @@ def prepare_ptf(ptfhost, mg_facts, duthost, unselected_mg_facts=None):
 
     vxlan_decap = {
         "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
-        "minigraph_unselected_port_indices": [] if unselected_mg_facts is None else unselected_mg_facts["minigraph_ptf_indices"],
+        "minigraph_unselected_port_indices": [] if unselected_mg_facts is None
+            else unselected_mg_facts["minigraph_ptf_indices"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
         "minigraph_portchannels": mg_facts["minigraph_portchannels"],
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
