@@ -1,0 +1,29 @@
+###############################################################################
+# TEST RESULT SHARING LOG TABLE SETUP                                         #
+# 1. Create a TestResultSharingLogDataTest table to for uploading log         #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+.create table TestResultSharingLogData (BuildId:string,
+                                            HardwareSku:string,
+                                            TopologyType:string,
+                                            BranchName:string,
+                                            Vendor:string,
+                                            RunDate:datetime,
+                                            OSVersion:string,
+                                            CasesRun:long,
+                                            SuccessRate:real,
+                                            UploadDate:datetime,
+                                            UploadStatus:string)
+
+.create table TestResultSharingLogData ingestion json mapping 'TestResultSharingLogDataMappingV1' @'[{"column":"BuildId","Properties":{"path":"$.buildid"}},'
+                                                                                  '{"column":"HardwareSku","Properties":{"path":"$.hardwaresku"}},'
+                                                                                  '{"column":"TopologyType","Properties":{"path":"$.topology"}},'
+                                                                                  '{"column":"BranchName","Properties":{"path":"$.branch"}},'
+                                                                                  '{"column":"Vendor","Properties":{"path":"$.vendor"}},'
+                                                                                  '{"column":"RunDate","Properties":{"path":"$.run_date"}},'
+                                                                                  '{"column":"OSVersion","Properties":{"path":"$.os_version"}},'
+                                                                                  '{"column":"CasesRun","Properties":{"path":"$.cases_run"}},'
+                                                                                  '{"column":"SuccessRate","Properties":{"path":"$.success_rate"}},'
+                                                                                  '{"column":"UploadDate","Properties":{"path":"$.upload_date"}},'
+                                                                                  '{"column":"UploadStatus","Properties":{"path":"$.upload_status"}}'
+                                                                                  ']'
