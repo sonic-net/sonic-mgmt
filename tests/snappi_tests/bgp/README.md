@@ -15,7 +15,7 @@ The interfaces used for the test needs to be routed ports with IPv4 and IPv6 con
 
 ### Pytest Makers
 
-The BGP cases take into account the user input for customized run in the for of pytest markers (example - @pytest.mark.parametrize('multipath', [2]))
+The BGP cases take into account the user input for customized run using pytest markers (example - @pytest.mark.parametrize('multipath', [2]))
 
 Here are the list of markers available in most of the testcases
 
