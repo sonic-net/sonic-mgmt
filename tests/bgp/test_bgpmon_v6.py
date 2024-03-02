@@ -26,15 +26,59 @@ ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
 
+def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
+    """
+    This function returns all ptf ports from dut which has connectivity to T3 (RNG/AZH) layer.
+    """
+    port_indices = []
+    recv_neigh_list = []
+
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+
+        # First get all T3 neighbors, which are of type RegionalHub, AZNGHub
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
+        for k, v in device_neighbor_metadata.items():
+            if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
+                recv_neigh_list.append(k)
+
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        for port, neighbor in mg_facts["minigraph_neighbors"].items():
+            if neighbor['name'] in recv_neigh_list and port in mg_facts["minigraph_ptf_indices"]:
+                if 'PortChannel' in port:
+                    for member in mg_facts['minigraph_portchannels'][port]['members']:
+                        port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+                else:
+                    port_indices.append(mg_facts['minigraph_ptf_indices'][port])
+
+    return port_indices
+
+def get_uplink_route_mac(duthosts):
+    """
+    This function returns the router mac of dut which has connectivity to T3 (RNG/AZH) layer.
+    """
+    for duthost in duthosts:
+        if duthost.is_supervisor_node():
+            continue
+
+        # First get all T3 neighbors, which are of type RegionalHub, AZNGHub
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        device_neighbor_metadata = config_facts['DEVICE_NEIGHBOR_METADATA']
+        for k, v in device_neighbor_metadata.items():
+            if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
+                return duthost.facts["router_mac"]
+                break;
 
 @pytest.fixture
-def common_v6_setup_teardown(dut_with_default_route, tbinfo, enum_rand_one_frontend_asic_index):
-    duthost = dut_with_default_route
+def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     peer_addr = generate_ip_through_default_v6_route(duthost)
     router_id = generate_ip_through_default_route(duthost)
     pytest_assert(peer_addr, "Failed to generate ip address for test")
     peer_addr = str(IPNetwork(peer_addr).ip)
-    peer_ports = get_default_route_ports(duthost, tbinfo, ZERO_V6_ADDR)
+    peer_ports = get_all_uplink_ptf_recv_ports(duthosts, tbinfo)
 
     # Get loopback4096 address
     if enum_rand_one_frontend_asic_index:
@@ -105,14 +149,12 @@ def build_v6_syn_pkt(local_addr, peer_addr):
 
     return exp_packet
 
-
-def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
+def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                    common_v6_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
-
-    duthost = dut_with_default_route
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
     def bgpmon_peer_connected(duthost, bgpmon_peer):
@@ -149,7 +191,7 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
                    local_asn=asn,
                    peer_asn=asn,
                    port=BGP_MONITOR_PORT, passive=True)
-    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, asichost.get_router_mac(), ptf_interface))
+    ptfhost.shell("ip neigh add %s lladdr %s dev %s" % (local_addr, get_uplink_route_mac(duthosts), ptf_interface))
     ptfhost.shell("ip -6 route add %s dev %s" % (local_addr + "/128", ptf_interface))
     try:
         pytest_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
@@ -159,17 +201,17 @@ def test_bgpmon_v6(dut_with_default_route, localhost, enum_rand_one_frontend_asi
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, duthost.facts["router_mac"], ptf_interface))
+        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, get_uplink_route_mac(duthosts), ptf_interface))
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(dut_with_default_route, enum_rand_one_frontend_asic_index,
+def test_bgpmon_no_ipv6_resolve_via_default(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
                                             common_v6_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
     """
-    duthost = dut_with_default_route
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
     local_addr, peer_addr, peer_ports, _, _ = common_v6_setup_teardown
     exp_packet = build_v6_syn_pkt(local_addr, peer_addr)
