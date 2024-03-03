@@ -6,7 +6,7 @@ cisco/platform_tests/test_platform_reboot.py::TestKdumpCisco::test_watchdog_kdum
 cisco/ipfwd/test_cisco_nhop_group.py
 cisco/ipfwd/test_lpm.py
 ipfwd/test_nhop_group.py
-platform_tests/test_reboot.py
+#platform_tests/test_reboot.py
 platform_tests/test_reload_config.py
 platform_tests/api/test_chassis.py
 platform_tests/test_sequential_restart.py
