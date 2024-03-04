@@ -587,6 +587,9 @@ sonic_e1031:
         "0x2F": "LB"
         "0xFD": "0x2F 0xD4 0xFB"
         "0xFE": "0x407FB542"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
 
 sonic_cisco_8102:
   vars:

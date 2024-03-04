@@ -605,6 +605,9 @@ sonic_e1031:
         "0x2E": "3.0.6"
         "0x2F": "LB"
         "0xFE": "0x86F7C95F"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
   vars:
     hwsku: Celestica-E1031-T48S4
     iface_speed: 1000
