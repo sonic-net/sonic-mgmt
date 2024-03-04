@@ -3596,7 +3596,7 @@
       <InterfaceVlan mode="Trunk" portname="Ethernet65" vlanids="1897-1944"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str-7260-08">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.108/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.91/23"/>
     </DevicesL3Info>
     <DevicesL2Info Hostname="str-7260-08">
       <InterfaceVlan mode="Trunk" portname="Ethernet64" vlanids="349-360,521-536,713-744"/>

@@ -660,7 +660,7 @@ fanout:
     str-7260-06:
       ansible_host: 10.3.146.106
     str-7260-08:
-      ansible_host: 10.3.147.108
+      ansible_host: 10.3.146.91
     str-7260-11:
       ansible_host: 10.3.147.234
     str-7260-13:
