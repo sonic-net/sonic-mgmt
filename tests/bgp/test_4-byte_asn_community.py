@@ -36,7 +36,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
 
-    tor_neighbors = dict()
+    neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neigh_asn = dict()
@@ -53,7 +53,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
                     peer_group_v6 = v['peer group']
             assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
-            tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
+            neighbors[v['description']] = nbrhosts[v['description']]["host"]
 
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1]
@@ -72,12 +72,12 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     setup_info = {
         'duthost': duthost,
-        'neighhost': tor_neighbors[neigh],
+        'neighhost': neighbors[neigh],
         'neigh': neigh,
         'dut_asn': dut_asn,
         'neigh_asn': neigh_asn[neigh],
         'asn_dict':  neigh_asn,
-        'neighbors': tor_neighbors,
+        'neighbors': neighbors,
         'namespace': namespace,
         'dut_ip_v4': dut_ip_v4,
         'dut_ip_v6': dut_ip_v6,
@@ -102,7 +102,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     # restore config to original state
     config_reload(duthost)
-    config_reload(tor_neighbors[neigh], is_dut=False)
+    config_reload(neighbors[neigh], is_dut=False)
 
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
