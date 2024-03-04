@@ -14,7 +14,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import wait_tcp_connection
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
-from test_bgpmon import get_default_route_ports
 pytestmark = [
     pytest.mark.topology('t2'),
 ]
@@ -25,6 +24,7 @@ MAX_TIME_FOR_BGPMON = 180
 ZERO_ADDR = r'0.0.0.0/0'
 ZERO_V6_ADDR = r'::/0'
 logger = logging.getLogger(__name__)
+
 
 def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
     """
@@ -55,6 +55,7 @@ def get_all_uplink_ptf_recv_ports(duthosts, tbinfo):
 
     return port_indices
 
+
 def get_uplink_route_mac(duthosts):
     """
     This function returns the router mac of dut which has connectivity to T3 (RNG/AZH) layer.
@@ -69,10 +70,12 @@ def get_uplink_route_mac(duthosts):
         for k, v in device_neighbor_metadata.items():
             if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
                 return duthost.facts["router_mac"]
-                break;
+                break
+
 
 @pytest.fixture
-def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     peer_addr = generate_ip_through_default_v6_route(duthost)
     router_id = generate_ip_through_default_route(duthost)
@@ -149,8 +152,10 @@ def build_v6_syn_pkt(local_addr, peer_addr):
 
     return exp_packet
 
-def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-                   common_v6_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
+
+def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
+                   enum_rand_one_frontend_asic_index, common_v6_setup_teardown,
+                   set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
     Add a bgp monitor on ptf and verify that DUT is attempting to establish connection to it
     """
@@ -206,8 +211,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
 
-def test_bgpmon_no_ipv6_resolve_via_default(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-                                            common_v6_setup_teardown, ptfadapter):
+def test_bgpmon_no_ipv6_resolve_via_default(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                            enum_rand_one_frontend_asic_index, common_v6_setup_teardown, ptfadapter):
     """
     Verify no syn for BGP is sent when 'ipv6 nht resolve-via-default' is disabled.
     """
