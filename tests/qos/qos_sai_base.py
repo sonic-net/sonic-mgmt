@@ -2088,6 +2088,21 @@ class QosSaiBase(QosBase):
         yield
         return
 
+    @pytest.fixture(autouse=False)
+    def _check_ingress_speed_gte_400g(
+            self,
+            get_src_dst_asic_and_duts,
+            dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        m = re.search("([0-9]+)_([0-9]+m)", portSpeedCableLength)
+        if not m:
+            raise RuntimeError(
+                "Format error in portSpeedCableLength:{}".
+                format(portSpeedCableLength))
+        speed = int(m.group(1))
+        if speed >= 400000:
+            pytest.skip("PGDrop test is not supported for 400G port speed.")
+
     @pytest.fixture(scope="function", autouse=False)
     def _skip_watermark_multi_DUT(
             self,
