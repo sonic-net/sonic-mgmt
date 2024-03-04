@@ -10,6 +10,7 @@ from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
+from tests.platform_tests.verify_dut_health import check_neighbors
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -213,6 +214,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                           "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                                   upgrade_type))
             check_services(duthost)
+            check_neighbors(duthost)
             check_copp_config(duthost)
 
     if enable_cpa and "warm-reboot" in reboot_type:
