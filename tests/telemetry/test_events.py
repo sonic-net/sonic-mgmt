@@ -21,13 +21,13 @@ DATA_DIR = os.path.join(BASE_DIR, "files")
 
 def validate_yang(duthost, op_file="", yang_file=""):
     assert op_file != "" and yang_file != "", "op_file path or yang_file name not provided"
-    cmd = "python /tmp/validate_yang_events.py -f {} -y {}".format(op_file, yang_file)
+    cmd = "python ~/validate_yang_events.py -f {} -y {}".format(op_file, yang_file)
     logger.info("Performing yang validation on {} for {}".format(op_file, yang_file))
     ret = duthost.shell(cmd)
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-@pytest.mark.disable_loganalyzer
+pytest.mark.disable_loganalyzer
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path,
                 test_eventd_healthy):
     """ Run series of events inside duthost and validate that output is correct
