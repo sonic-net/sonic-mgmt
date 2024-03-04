@@ -38,7 +38,8 @@ ONIE_ENTRY_IN_GRUB = "*ONIE"
 #       Press enter to boot the selected OS, `e' to edit the commands
 #       before booting or `c' for a command-line.
 
-INSTALL_OS_IN_ONIE = "Install OS"
+ONIE_INSTALL_MODEL = "Install"
+ONIE_RESCUE_MODEL = "Rescue"
 
 # While entering into ONIE, we will get some output like
 # " Booting `ONIE: Install OS' "
