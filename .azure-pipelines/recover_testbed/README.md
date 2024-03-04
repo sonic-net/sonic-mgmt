@@ -29,3 +29,12 @@ After the image is reinstalled, the script logs in to the device via console aga
 It also writes these configurations to `/etc/network/interfaces` file to prevent losing them after reboot.
 
 Finally, the script verifies that ssh and `sonic-installer` are working on the device. If both are ok, the recovery process is completed.
+
+## Description of parameters
++ `inventory` - Inventory name
++ `testbed-name` - Testbed name
++ `tbfile` - Testbed file (testbed.yaml as default)
++ `verbosity` - Log verbosity (Level 2 as default)
++ `log-level` - Log level (Debug as default)
++ `image` - Golden image url of this testbed
++ `hwsku` - HwSku of this dut
