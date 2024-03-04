@@ -170,8 +170,8 @@
     },
     {
         "feature": "console",
-        "owner": "Yutong Zhang",
-        "email": "yutongzhang@microsoft.com",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -181,8 +181,8 @@
                     "console.test_console_reversessh",
                     "console.test_console_udevrule"
                 ],
-                "owner": "Yutong Zhang",
-                "email": "yutongzhang@microsoft.com"
+                "owner": "Zhijian Li",
+                "email": "zhijianli@microsoft.com"
             }
         ]
     },
@@ -395,8 +395,8 @@
     },
     {
         "feature": "dut_console",
-        "owner": "Yaqiang Zhu",
-        "email": "yaqiangzhu@microsoft.com",
+        "owner": "Yutong Zhang",
+        "email": "yutongzhang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
