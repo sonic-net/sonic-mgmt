@@ -30,17 +30,74 @@ It also writes these configurations to `/etc/network/interfaces` file to prevent
 
 Finally, the script verifies that ssh and `sonic-installer` are working on the device. If both are ok, the recovery process is completed.
 
+## Structure
+Our scripts are under the folder `.azure-pipelines/recover_testbed`
+```buildoutcfg
+ .azure-pipelines
+    |
+    |-- recover_testbed
+        |
+        |-- common.py
+        |-- constants.py
+        |-- dut_connection.py
+        |-- interfaces.j2
+        |-- recover_testbed.py
+        |-- testbed_status.py
+```
+
++ `common.py` - This module contains the common functions that are used for recovering testbeds, such as how to enter the boot loader mode.
+   These functions are imported by other modules that implement the specific recovery steps for different devices.
+
+
++ `constants.py` - This module defines the constants that are used under the recover_testbed folder, such as sonic prompt, key words of timing.
+   These constants are used to avoid hard-coding and to make the code more readable and maintainable.
+
+
++ `dut_connection.py` - This module defines the connection of the DUT, including ssh and console connections.
+   It provides functions to create these connections, as well as to handle exceptions and errors.
+   These functions are used to communicate with the DUT and execute commands on it.
+
+
++ `interfaces.j2` - This is a Jinja2 template file that is used to generate the file `/etc/network/interfaces` on the DUT.
+   It defines the network interfaces and their configurations, such as IP address, netmask, gateway, etc.
+   The template file takes some variables as input, such as the interface name, the IP address range, etc. These variables are passed by the recover_testbed.py module.
+
+
++ `recover_testbed.py` - This is the main module that implements the recovery process for the testbed.
+   It takes some arguments as input, such as the inventory, the device name, the hwsku, etc.
+   It then calls the appropriate functions from the common.py and dut_connection.py modules to establish a connection with the DUT and enter the recovery mode.
+   It also uses the interfaces.j2 template file to generate and apply the network configuration on the DUT.
+   Finally, it verifies that the DUT is successfully recovered and reports the result.
+
+
++ `testbed_status.py` - This module defines some status of the DUT, such as losing management IP address.
+   It provides functions to check and update these status, as well as to log them.
+   These functions are used by the recover_testbed.py module to monitor and troubleshoot the recovery process.
+
+
+
 ## Description of parameters
-+ `inventory` - Inventory name
-+ `testbed-name` - Testbed name
-+ `tbfile` - Testbed file (testbed.yaml as default)
-+ `verbosity` - Log verbosity (Level 2 as default)
-+ `log-level` - Log level (Debug as default)
-+ `image` - Golden image url of this testbed
-+ `hwsku` - HwSku of this dut
++ `inventory` - The name of the inventory file that contains the information about the devices in the testbed, such as hostname, IP address, hwsku, etc.
+
+
++ `testbed-name` - The name of the testbed. The testbed name should match the name of the testbed file that defines the topology and connections of the devices in the testbed.
+
+
++ `tbfile` - The name of the testbed file that defines the topology and connections of the devices in the testbed. The default value is `testbed.yaml`.
+
+
++ `verbosity` - The level of verbosity that is used for logging the automation steps and results. Verbosity level can be 0 (silent), 1 (brief), 2 (detailed), or 3 (verbose). The default value is 2.
+
+
++ `log-level` - The level of severity that is used for logging the automation messages. Log level can be Error, Warning, Info, or Debug. The default value is Debug.
+
+
++ `image` - The URL of the golden image that is used to install DUT. The golden image should be a valid SONiC image file that can be downloaded from a image server.
+
+
++ `hwsku` - The hardware SKU that identifies the model and configuration of the DUT in the testbed.
 
 ## How to run the script
-We can execute the script using such command
+The script should be run from the `sonic-mgmt/ansible` directory with the following command:
 `python3 ../.azure-pipelines/recover_testbed/recover_testbed.py -i {inventory} -t {tbname} --tbfile {tbfile} --log-level {log-level} --image {image url} --hwsku {hwsku}
 `
-under the folder `sonic-mgmt/ansible`
