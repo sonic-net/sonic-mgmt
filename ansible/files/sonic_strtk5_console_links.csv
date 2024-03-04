@@ -33,6 +33,7 @@ strtk5-0101-0200-02c0,21,strtk5-a7170-acs-1,ssh,admin
 strtk5-0101-0200-02c0,24,strtk5-dx010-acs-4,ssh,admin
 strtk5-0101-0200-02c0,25,strtk5-dx010-acs-5,ssh,admin
 strtk5-0101-0200-03c0,5,strtk5-e1031-acs-3,ssh,admin
+strtk5-0101-0200-03c0,8,strtk5-e1031-fan-4,ssh,admin
 strtk5-0101-0200-02c0,5,strtk5-msn2700-01,ssh,admin
 strtk5-0101-0200-01c0,20,strtk5-msn2700-02,ssh,admin
 strtk5-0101-0200-01c0,11,strtk5-msn2700-03,ssh,admin

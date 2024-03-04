@@ -6881,14 +6881,6 @@ vms_tk5_3:
       ansible_host: 172.16.130.42
     VM53011:
       ansible_host: 172.16.130.43
-    VM53012:
-      ansible_host: 172.16.130.44
-    VM53013:
-      ansible_host: 172.16.130.45
-    VM53014:
-      ansible_host: 172.16.130.46
-    VM53015:
-      ansible_host: 172.16.130.47
     VM53016:
       ansible_host: 172.16.130.48
     VM53017:
@@ -7097,6 +7089,18 @@ vms_tk5_3:
       ansible_host: 172.16.130.150
     VM53119:
       ansible_host: 172.16.130.151
+    VM53120:
+      ansible_host: 172.16.130.152
+    VM53121:
+      ansible_host: 172.16.130.153
+    VM53122:
+      ansible_host: 172.16.130.154
+    VM53123:
+      ansible_host: 172.16.130.155
+    VM53124:
+      ansible_host: 172.16.130.156
+    VM53125:
+      ansible_host: 172.16.130.157
 
 vms_tk5_4:
   hosts:

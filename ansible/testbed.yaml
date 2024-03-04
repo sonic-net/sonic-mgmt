@@ -2044,15 +2044,15 @@
   auto_recover: 'True'
   comment: tbtk5-s6000-6
 
-- conf-name: tbtk5-t0-e1031-3
+- conf-name: tbtk5-m0-e1031-3
   group-name: tk5-3-4
-  topo: t0-52
+  topo: m0
   ptf_image_name: docker-ptf
   ptf: ptf3-4
   ptf_ip: 10.212.65.54/24
   ptf_ipv6: 2603:10e2:140:3000::194/122
   server: server_tk5_3
-  vm_base: VM53012
+  vm_base: VM53120
   dut:
     - strtk5-e1031-acs-3
   inv_name: strtk5

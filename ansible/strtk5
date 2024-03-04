@@ -160,6 +160,7 @@ fanout:
       ansible_host: 10.212.69.134
     strtk5-e1031-fan-4:
       ansible_host: 10.212.69.132
+      os: sonic
     strtk5-7260-24:
       ansible_host: 10.212.69.139
 
