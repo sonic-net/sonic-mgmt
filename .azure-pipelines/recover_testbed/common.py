@@ -6,8 +6,8 @@ import socket
 import time
 import pexpect
 import ipaddress
-from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, INSTALL_OS_IN_ONIE, \
-    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY, BOOTING_INSTALL_OS
+from constants import OS_VERSION_IN_GRUB, ONIE_ENTRY_IN_GRUB, ONIE_INSTALL_MODEL, \
+    ONIE_START_TO_DISCOVERY, SONIC_PROMPT, MARVELL_ENTRY, BOOTING_INSTALL_OS, ONIE_RESCUE_MODEL
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -80,9 +80,13 @@ def posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=False, is_nokia=F
                     dut_console.remote_conn.send(b'\x1b[B')
                     continue
 
-                if ONIE_ENTRY_IN_GRUB in x and INSTALL_OS_IN_ONIE not in x:
+                if ONIE_ENTRY_IN_GRUB in x and ONIE_INSTALL_MODEL not in x and ONIE_RESCUE_MODEL not in x:
                     dut_console.remote_conn.send("\n")
                     enter_onie_flag = False
+
+                if ONIE_RESCUE_MODEL in x:
+                    dut_console.remote_conn.send(b'\x1b[A')
+                    dut_console.remote_conn.send("\n")
 
                 if is_celestica and BOOTING_INSTALL_OS in x:
                     dut_console.remote_conn.send("\n")
