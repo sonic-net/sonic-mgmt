@@ -2730,9 +2730,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sys.stderr.write('{}\n{}\n'.format(banner, port_cnt_tbl))
 
     def runTest(self):
-        asic_type = self.test_params['sonic_asic_type']
-        hwsku = self.test_params['hwsku']
-
         margin = self.test_params.get('margin')
         if not margin:
             margin = 0
