@@ -38,3 +38,9 @@ Finally, the script verifies that ssh and `sonic-installer` are working on the d
 + `log-level` - Log level (Debug as default)
 + `image` - Golden image url of this testbed
 + `hwsku` - HwSku of this dut
+
+## How to run the script
+We can execute the script using such command
+`python3 ../.azure-pipelines/recover_testbed/recover_testbed.py -i {inventory} -t {tbname} --tbfile {tbfile} --log-level {log-level} --image {image url} --hwsku {hwsku}
+`
+under the folder `sonic-mgmt/ansible`
