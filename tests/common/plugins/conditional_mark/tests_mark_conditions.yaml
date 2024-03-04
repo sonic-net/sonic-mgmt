@@ -690,11 +690,11 @@ http/test_http_copy.py:
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
   skip:
-    reason: "Test not supported on Broadcom SKUs or dualtor topology."
+    reason: "Test only supported on Mellanox SKUs, didn't supported on dualtor topology."
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "asic_type in ['broadcom']"
+      - "asic_type not in ['mellanox']"
 
 #######################################
 #####      iface_namingmode       #####
@@ -1250,6 +1250,15 @@ show_techsupport/test_techsupport.py::test_techsupport:
       - "asic_type not in ['mellanox']"
 
 #######################################
+#####         snappi_tests        #####
+#######################################
+snappi_tests/ecn/test_red_accuracy_with_snappi:
+  skip:
+    reason: "Test should not be run as part of nightly."
+    conditions:
+      - "topo_type in ['tgen']"
+
+#######################################
 #####            snmp             #####
 #######################################
 snmp/test_snmp_link_local.py:
@@ -1393,10 +1402,8 @@ telemetry/test_telemetry.py:
 #####         pktgen              #####
 #######################################
 test_pktgen.py:
-   skip:
-     reason: "Currently only supported in cisco-8000"
-     conditions:
-        - "asic_type not in ['cisco-8000']"
+  skip:
+    reason: "have known issue, skip for now"
 
 #######################################
 #####            vlan             #####

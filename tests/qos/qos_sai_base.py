@@ -1609,14 +1609,23 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        testParams = dict()
+        src_is_multi_asic = False
+        dst_is_multi_asic = False
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            testParams = dutTestParams["basicParams"]
+            if get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic:
+                src_is_multi_asic = True
+            if get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic:
+                dst_is_multi_asic = True
+            testParams.update(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
+                "testbed_type": dutTestParams["topo"],
+                "src_is_multi_asic": src_is_multi_asic,
+                "dst_is_multi_asic": dst_is_multi_asic
             })
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
