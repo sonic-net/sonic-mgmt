@@ -34,7 +34,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     asic_index = enum_rand_one_frontend_asic_index
     namespace = duthost.get_namespace_from_asic_id(asic_index)
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    tor1 = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
+    neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
 
     tor_neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
@@ -44,7 +44,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'].lower() not in skip_hosts:
-            if v['description'] == tor1:
+            if v['description'] == neigh:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
                     peer_group_v4 = v['peer group']
@@ -55,11 +55,11 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             neigh_asn[v['description']] = v['remote AS']
             tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1]
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
-    neigh_ip_bgp_sum = nbrhosts[tor1]["host"].shell('show ip bgp summary')['stdout']
+    neigh_ip_bgp_sum = nbrhosts[neigh]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
         dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
@@ -67,15 +67,15 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_ipv4_network = duthost.shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
     dut_ipv6_network = duthost.shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
-    neigh_ipv4_network = nbrhosts[tor1]["host"].shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
-    neigh_ipv6_network = nbrhosts[tor1]["host"].shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
+    neigh_ipv4_network = nbrhosts[neigh]["host"].shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
+    neigh_ipv6_network = nbrhosts[neigh]["host"].shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
 
     setup_info = {
         'duthost': duthost,
-        'neighhost': tor_neighbors[tor1],
-        'tor1': tor1,
+        'neighhost': tor_neighbors[neigh],
+        'neigh': neigh,
         'dut_asn': dut_asn,
-        'neigh_asn': neigh_asn[tor1],
+        'neigh_asn': neigh_asn[neigh],
         'asn_dict':  neigh_asn,
         'neighbors': tor_neighbors,
         'namespace': namespace,
@@ -95,14 +95,14 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     }
 
     logger.info("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
-    logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].shell("show run bgp")['stdout']))
+    logger.info("Neighbor BGP Config: {}".format(nbrhosts[neigh]["host"].shell("show run bgp")['stdout']))
     logger.info('Setup_info: {}'.format(setup_info))
 
     yield setup_info
 
     # restore config to original state
     config_reload(duthost)
-    config_reload(tor_neighbors[tor1], is_dut=False)
+    config_reload(tor_neighbors[neigh], is_dut=False)
 
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
@@ -152,9 +152,9 @@ def test_4_byte_asn_community(setup):
     -c "exit-address-family" \
     '.format(setup['namespace'], setup['dut_asn'], dut_4byte_asn, setup['dut_bgp_id'],
              setup['peer_group_v4'], setup['peer_group_v6'], setup['neigh_ip_v4'], neighbor_4byte_asn,
-             setup['neigh_ip_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['tor1'], setup['neigh_ip_v4'],
+             setup['neigh_ip_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['neigh'], setup['neigh_ip_v4'],
              setup['neigh_ip_v4'], setup['neigh_ip_v6'], neighbor_4byte_asn, setup['neigh_ip_v6'],
-             setup['peer_group_v6'], setup['neigh_ip_v6'], setup['tor1'], setup['neigh_ip_v6'], setup['neigh_ip_v6'],
+             setup['peer_group_v6'], setup['neigh_ip_v6'], setup['neigh'], setup['neigh_ip_v6'], setup['neigh_ip_v6'],
              setup['dut_ipv4_network'], setup['peer_group_v4'], setup['peer_group_v4'], setup['peer_group_v4'],
              setup['neigh_ip_v4'], setup['dut_ipv6_network'], setup['peer_group_v6'], setup['peer_group_v6'],
              setup['peer_group_v6'], setup['neigh_ip_v6'])
