@@ -57,13 +57,12 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
-def wait_critical_processes(dut, timeout=None):
+def wait_critical_processes(dut):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
     """
-    if not timeout:
-        timeout = reset_timeout(dut)
+    timeout = reset_timeout(dut)
     # No matter what we set in inventory file, we always set sup timeout to 900
     # because most SUPs have 10+ dockers that need to come up
     if dut.is_supervisor_node():
