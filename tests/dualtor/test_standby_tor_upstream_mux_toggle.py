@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, run_garp_service, \
                                                 run_icmp_responder                  # noqa F401
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__file__)
 
@@ -20,7 +21,10 @@ pytestmark = [
                             'run_garp_service', 'run_icmp_responder')
 ]
 
-PAUSE_TIME = 90
+if is_cisco_device(duthost):
+    PAUSE_TIME = 90
+else:
+    PAUSE_TIME = 10
 
 
 @pytest.fixture(scope='module', autouse=True)

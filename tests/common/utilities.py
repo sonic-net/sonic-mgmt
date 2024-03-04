@@ -30,6 +30,7 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.cisco_data import is_cisco_device
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -489,10 +490,14 @@ def compare_crm_facts(left, right):
         lv = v
         rv = right['resources'][k]
 
-        # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
-        # Hence, the available counter may not increase as per initial value.
-        if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
-            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+        if is_cisco_device(duthost):
+            # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
+            # Hence, the available counter may not increase as per initial value.
+            if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
+                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+        else:
+            if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
 
     left_acl_group = {}
     for ag in left['acl_group']:
@@ -514,11 +519,14 @@ def compare_crm_facts(left, right):
         lv = v
         rv = right_acl_group[k]
 
-        # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
-        # Hence, the available counter may not increase as per initial value.
-        if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
-            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
-
+        if is_cisco_device(duthost):
+            # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
+            # Hence, the available counter may not increase as per initial value.
+            if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
+                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+        else:
+            if lv['available'] != rv['available'] or lv['used'] != rv['used']:
+                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
     return unmatched
 
 
