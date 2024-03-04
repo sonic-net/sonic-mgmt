@@ -27,7 +27,7 @@ def validate_yang(duthost, op_file="", yang_file=""):
     assert ret["rc"] == 0, "Yang validation failed for {}".format(yang_file)
 
 
-pytest.mark.disable_loganalyzer
+@pytest.mark.disable_loganalyzer
 def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_streaming_telemetry, localhost, gnxi_path,
                 test_eventd_healthy):
     """ Run series of events inside duthost and validate that output is correct
