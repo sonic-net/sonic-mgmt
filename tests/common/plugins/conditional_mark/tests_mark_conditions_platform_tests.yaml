@@ -36,10 +36,11 @@ platform_tests/api/test_chassis.py::TestChassisApi::test_get_presence:
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_revision:
   xfail:
-    reason: "Testcase consistently fails, raised issue to track"
+    reason: "[DX010] Testcase consistently fails, raised issue to track; [E1031] API 'get_revision' not implemented"
+    conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6512
+      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6512"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_chassis.py::TestChassisApi::test_get_status:
   # Skip unsupported API test on Mellanox platform
@@ -318,8 +319,10 @@ platform_tests/api/test_module.py::TestModuleApi::test_reboot:
 platform_tests/api/test_psu.py::TestPsuApi::test_fans:
   skip:
     reason: "Unsupported platform API"
+    conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['mellanox']"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
   skip:
@@ -329,10 +332,11 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
   xfail:
-    reason: "case failed and waiting for fix"
+    reason: "[DX010] case failed and waiting for fix; [E1031] API 'get_revision' not implemented"
+    conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6767
+      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6767"
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
   skip:
@@ -412,6 +416,13 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #######################################
 #####        api/test_sfp.py      #####
 #######################################
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
+  xfail:
+    reason: "Platform API 'get_error_description' not implemented"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/18229
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
     reason: "Unsupported platform API"
@@ -902,3 +913,13 @@ platform_tests/test_service_warm_restart.py:
     reason: "Skip test_service_warm_restart on mellanox platform"
     conditions:
       - "asic_type in ['mellanox']"
+
+#######################################
+#####   test_xcvr_info_in_db.py   #####
+#######################################
+platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
+  xfail:
+    reason: "CLI Utility sfpshow not working correctly"
+    conditions:
+      - "platform in ['x86_64-cel_e1031-r0']"
+      - https://github.com/sonic-net/sonic-buildimage/issues/18231
