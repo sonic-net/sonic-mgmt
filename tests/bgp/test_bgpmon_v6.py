@@ -206,7 +206,8 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
     finally:
         ptfhost.exabgp(name=BGP_MONITOR_NAME, state="absent")
         ptfhost.shell("ip -6 route del %s dev %s" % (local_addr + "/128", ptf_interface))
-        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, get_uplink_route_mac(duthosts), ptf_interface))
+        ptfhost.shell("ip -6 neigh del %s lladdr %s dev %s" % (local_addr, get_uplink_route_mac(duthosts),
+                      ptf_interface))
         ptfhost.shell("ip -6 addr del %s dev %s" % (peer_addr + "/128", ptf_interface))
         ptfhost.shell("ifconfig %s hw ether %s" % (ptf_interface, original_mac))
 
