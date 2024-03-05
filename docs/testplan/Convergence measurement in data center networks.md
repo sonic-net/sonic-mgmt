@@ -321,7 +321,7 @@ Different triggers(planned/unplanned) mentioned above are performed at different
 ### Inbound Traffic Topology
 
 <p float="left">
-  <img src="Img/T2_Convergence_Inbound_Traffic.png" width="500"  hspace="150"/>
+  <img src="Img/T2_Convergence_Inbound_Traffic.png" width="800"  hspace="50"/>
 </p>
 
 Tests from 2.1 - 2.11 can be repeated for Inbound traffic as well. 
