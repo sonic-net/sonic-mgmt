@@ -839,13 +839,13 @@ def sai_thrift_read_port_voq_counters(client, voq_list):
     thrift_results = []
     voq_counters_results = []
     cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
-    queue1 = 0
+    counter = 0
     for voq in voq_list:
-        if queue1 <= 7:
+        if counter <= 7:
             thrift_results = client.sai_thrift_get_queue_stats(
                 voq, cnt_ids, len(cnt_ids))
             voq_counters_results.append(thrift_results[0])
-            queue1 += 1
+            counter += 1
     return (voq_counters_results)
 
 

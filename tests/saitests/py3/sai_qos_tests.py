@@ -3656,7 +3656,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         sonic_version = self.test_params['sonic_version']
         router_mac = self.test_params['router_mac']
         dst_port_id = int(self.test_params['dst_port_id'])
-        dst_sys_port_ids = self.test_params['dst_sys_ports']
+        dst_sys_port_ids = self.test_params.get('dst_sys_ports', None)
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])

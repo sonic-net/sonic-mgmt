@@ -969,8 +969,10 @@ class QosSaiBase(QosBase):
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
-            src_system_port = src_dut.config_facts(host=src_dut.hostname, source='running')[
-                'ansible_facts']['SYSTEM_PORT'][src_dut.hostname]
+            if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                    get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                src_system_port = src_dut.config_facts(host=src_dut.hostname, source='running')['ansible_facts'][
+                    'SYSTEM_PORT'][src_dut.hostname]
 
             # Lets get data for the src dut and src asic
             dutPortIps[src_dut_index] = {}
@@ -985,12 +987,14 @@ class QosSaiBase(QosBase):
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                  'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
-                    # Map port IDs to system port IDs
-                    sys_key = src_asic.namespace + '|' + iface
-                    if sys_key in src_system_port:
-                        system_port = src_system_port[sys_key]['system_port_id']
-                        sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
-                        sysPortMap[src_dut_index][src_asic_index].update({portIndex: sysPort})
+                    # Map port IDs to system port for dnx chassis
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        sys_key = src_asic.namespace + '|' + iface
+                        if sys_key in src_system_port:
+                            system_port = src_system_port[sys_key]['system_port_id']
+                            sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
+                            sysPortMap[src_dut_index][src_asic_index].update({portIndex: sysPort})
 
                 elif iface.startswith("PortChannel"):
                     portName = next(
@@ -1000,14 +1004,16 @@ class QosSaiBase(QosBase):
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                  'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
-                    # Map lag port IDs to system port IDs
-                    for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
-                        sys_key = src_asic.namespace + '|' + portName
-                        port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
-                        if sys_key in src_system_port:
-                            system_port = src_system_port[sys_key]['system_port_id']
-                            sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
-                            sysPortMap[src_dut_index][src_asic_index].update({port_Index: sysPort})
+                    # Map lag port IDs to system port IDs for dnx chassis
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
+                            sys_key = src_asic.namespace + '|' + portName
+                            port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
+                            if sys_key in src_system_port:
+                                system_port = src_system_port[sys_key]['system_port_id']
+                                sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
+                                sysPortMap[src_dut_index][src_asic_index].update({port_Index: sysPort})
 
             testPortIds[src_dut_index][src_asic_index] = sorted(dutPortIps[src_dut_index][src_asic_index].keys())
 
@@ -1020,8 +1026,10 @@ class QosSaiBase(QosBase):
                     dutPortIps[dst_dut_index] = {}
                     testPortIds[dst_dut_index] = {}
                     sysPortMap[dst_dut_index] = {}
-                    dst_system_port = dst_dut.config_facts(host=dst_dut.hostname, source='running')[
-                        'ansible_facts']['SYSTEM_PORT'][dst_dut.hostname]
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        dst_system_port = dst_dut.config_facts(host=dst_dut.hostname, source='running')[
+                            'ansible_facts']['SYSTEM_PORT'][dst_dut.hostname]
                 else:
                     dst_mgFacts = src_mgFacts
                     dst_system_port = src_system_port
@@ -1035,11 +1043,13 @@ class QosSaiBase(QosBase):
                                      'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
                         # Map port IDs to system port IDs
-                        sys_key = dst_asic.namespace + '|' + iface
-                        if sys_key in dst_system_port:
-                            system_port = dst_system_port[sys_key]['system_port_id']
-                            sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
-                            sysPortMap[dst_dut_index][dst_asic_index].update({portIndex: sysPort})
+                        if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                                get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                            sys_key = dst_asic.namespace + '|' + iface
+                            if sys_key in dst_system_port:
+                                system_port = dst_system_port[sys_key]['system_port_id']
+                                sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
+                                sysPortMap[dst_dut_index][dst_asic_index].update({portIndex: sysPort})
 
                     elif iface.startswith("PortChannel"):
                         portName = next(
@@ -1050,13 +1060,15 @@ class QosSaiBase(QosBase):
                                      'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
                         # Map lag port IDs to system port IDs
-                        for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
-                            sys_key = dst_asic.namespace + '|' + portName
-                            port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
-                            if sys_key in dst_system_port:
-                                system_port = dst_system_port[sys_key]['system_port_id']
-                                sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
-                                sysPortMap[dst_dut_index][dst_asic_index].update({port_Index: sysPort})
+                        if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                                get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                            for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
+                                sys_key = dst_asic.namespace + '|' + portName
+                                port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
+                                if sys_key in dst_system_port:
+                                    system_port = dst_system_port[sys_key]['system_port_id']
+                                    sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
+                                    sysPortMap[dst_dut_index][dst_asic_index].update({port_Index: sysPort})
 
                 testPortIds[dst_dut_index][dst_asic_index] = sorted(dutPortIps[dst_dut_index][dst_asic_index].keys())
 
