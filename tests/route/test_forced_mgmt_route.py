@@ -32,26 +32,30 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
 
+
 def get_file_hash(duthost, file):
     hash = duthost.command("sha1sum {}".format(file))["stdout"]
     logger.debug("file hash: {}".format(hash))
 
     return hash
 
+
 def wait_for_file_changed(duthost, file, action, *args, **kwargs):
     original_hash = get_file_hash(duthost, file)
 
     action(*args, **kwargs)
 
-    def sha_changed(duthost, file):
+    def hash_changed(duthost, file):
         latest_hash = get_file_hash(duthost, file)
         return latest_hash != original_hash
 
-    exist = wait_until(10, 1, 0, sha_changed, duthost, file)
+    exist = wait_until(10, 1, 0, hash_changed, duthost, file)
     pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
+
 
 def address_type(address):
     return type(ipaddress.ip_network(str(address), False))
+
 
 def check_ip_rule_exist(duthost, ip, check_exist):
     logging.warning("check_ip_rule_exist for ip:{} exist:{}".format(ip, check_exist))
@@ -68,6 +72,7 @@ def check_ip_rule_exist(duthost, ip, check_exist):
         return rule in ip_rules
     else:
         return rule not in ip_rules
+
 
 def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                                     duthosts,
@@ -133,15 +138,15 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
     pytest_assert("iface eth1 inet static" in interfaces)
-    pytest_assert("up ip -4 rule add pref 32764 to {} table default"\
+    pytest_assert("up ip -4 rule add pref 32764 to {} table default"
                   .format(ipv4_forced_mgmt_address) in interfaces)
-    pytest_assert("pre-down ip -4 rule delete pref 32764 to {} table default"\
+    pytest_assert("pre-down ip -4 rule delete pref 32764 to {} table default"
                   .format(ipv4_forced_mgmt_address) in interfaces)
     pytest_assert("iface eth1 inet6 static" in interfaces)
-    pytest_assert("up ip -6 rule add pref 32764 to {} table default"\
+    pytest_assert("up ip -6 rule add pref 32764 to {} table default"
                   .format(ipv6_forced_mgmt_address) in interfaces)
-    pytest_assert("pre-down ip -6 rule delete pref 32764 to {} table default"\
-                  .format(ipv6_forced_mgmt_address)  in interfaces)
+    pytest_assert("pre-down ip -6 rule delete pref 32764 to {} table default"
+                  .format(ipv6_forced_mgmt_address) in interfaces)
 
     # startup eth1 and check forced mgmt route exist
     duthost.command("sudo ifup eth1")
