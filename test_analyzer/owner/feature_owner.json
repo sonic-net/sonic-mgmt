@@ -48,7 +48,13 @@
             {
                 "scripts": [
                     "arp.test_arp_dualtor",
-                    "arp.test_arp_extended",
+                    "arp.test_arp_extended"
+                ],
+                "owner": "Lawrence Lee",
+                "email": "lawlee@microsoft.com"
+            },
+            {
+                "scripts": [
                     "arp.test_arpall",
                     "arp.test_neighbor_mac_noptf"
                 ],
@@ -325,8 +331,8 @@
                     "drop_packets.test_configurable_drop_counters",
                     "drop_packets.test_drop_counters"
                 ],
-                "owner": "Prince Sunny",
-                "email": "prsunny@microsoft.com"
+                "owner": "Lawrence Lee",
+                "email": "lawlee@microsoft.com"
             }
         ]
     },
