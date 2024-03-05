@@ -137,16 +137,16 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 - Verify that the results of "show acl rule {rule_name}" are empty for both rule names
 
 - Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
-- 
+-
 ### Test Case # 7 - DHCP Forwarding Rule
 
 #### Test Objective
 
-Verify that GCU is capable of adding a blanket DHCP forwarding rule, and that traffic follows these rules accordingly
+Verify that GCU is capable of adding blanket DHCP forwarding rules for both IPV4 and IPV6, and that traffic follows these rules accordingly
 
 #### Testing Steps
 
-- Use GCU to create a blanket DHCP packet forwarding rule
+- Use GCU to create blanket DHCP packet forwarding rule for both IPV4 and IPV6
 
 - Use GCU to create a blanket drop rule on a port
 
@@ -170,7 +170,7 @@ Test that GCU is capable of adding a blanket ARP forwarding rule, and that traff
 
 - Verify that all operations were successful
 
-- Verify that ARP packets are forwarded
+- Verify that ARP reply is received from server when ARP packet is sent on this port
 
 - Verify that all other packets on this port are dropped
 
@@ -192,7 +192,7 @@ Verify that GCU is capable of adding a large amount of ACL rules and that they a
 
 - Verify that rules created are properly shown when using "show acl rule"
 
-- Verify ARP and DHCP packets are forwarded correctly
+- Verify ARP and DHCP packets are handled accordingly
 
 - Verify that packets with IPs matching a destination IP for one of the forwarding rules are forwarded
 
@@ -237,7 +237,7 @@ This section contains explicit details on the contents of each JSON Patch file u
             "path": "/ACL_TABLE_TYPE",
             "value": {
                 "DYNAMIC_ACL_TABLE_TYPE" : {
-                "MATCHES": ["DST_IP","DST_IPV6","IN_PORTS","L4_DST_PORT","IP_PROTOCOL","ETHER_TYPE"],
+                "MATCHES": ["DST_IP","DST_IPV6","IN_PORTS","L4_DST_PORT","IP_PROTOCOL","ETHER_TYPE","IP_TYPE"],
                 "ACTIONS": ["PACKET_ACTION","COUNTER"],
                 "BIND_POINTS": ["PORT"]
                 }
@@ -308,10 +308,10 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional Checks**
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output:
-  + DYNAMIC_ACL_TABLE |	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32
-  + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128
+  + DYNAMIC_ACL_TABLE |	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32 | Active
+  + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128 | Active
 
-### Create DHCP Forward Rule
+### Create DHCP Forwarding Rules
 
 **Json Patch:**
 
@@ -321,9 +321,17 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
             "path": "/ACL_RULE",
             "value": {
                 "DYNAMIC_ACL_TABLE|DHCP_RULE": {
-		    "IP_PROTOCOL": "UDP",
-                    "L4_DST_PORT: "67",
+                    "IP_PROTOCOL": "17",
+                    "L4_DST_PORT": "67",
+                    "IP_TYPE": "IPV4",
                     "PRIORITY": "9999",
+                    "PACKET_ACTION": "FORWARD"
+                },
+                "DYNAMIC_ACL_TABLE|DHCPV6_RULE": {
+                    "IP_PROTOCOL": "17",
+                    "L4_DST_PORT": "547",
+                    "IP_TYPE": "IPV6",
+                    "PRIORITY": "9998",
                     "PACKET_ACTION": "FORWARD"
                 }
             }
@@ -335,7 +343,14 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional Checks**
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCP_RULE” matches the following output:
-  + DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67
+  + DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67 | Active
+  + | | | | IP_TYPE: IPV4 |
+  + | | | | IP_PROTOCOL: 17 |
+
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” matches the following output:
+  + DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 547 | Active
+  + | | | | IP_TYPE: IPV6 |
+  + | | | | IP_PROTOCOL: 17 |
 
 ### Create IP Forwarding Rules
 
@@ -360,7 +375,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional Checks**
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE ARP_RULE" matches the following output:
-  + DYNAMIC_ACL_TABLE |	ARP_RULE | 9998 | FORWARD |  ETHER_TYPE: 0x0806
+  + DYNAMIC_ACL_TABLE |	ARP_RULE | 9998 | FORWARD |  ETHER_TYPE: 0x0806 | Active
 
 
 ### Create Drop Rule
@@ -402,7 +417,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional checks:**
 + Check that result of “show acl rule DYNAMIC_ACL_TABLE RULE_3” matches the following output:
-  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph}
+  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph} | Active
 
 ### Remove Drop Rule
 
@@ -482,9 +497,9 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional checks**
-+ Check that results of “show acl rule | grep RULE_1” and “show acl rule | grep RULE_2” match the following output:
-  + DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32
-  + DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output:
+  + DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32 | Active
+  + DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128 | Active
 
 ### Remove Forward Rules
 **Json Patch**:
