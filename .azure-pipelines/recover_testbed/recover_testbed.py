@@ -200,14 +200,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-o", "--output",
-        type=str,
-        dest="output",
-        required=False,
-        help="Output duts version to the specified file."
-    )
-
-    parser.add_argument(
         "--image",
         type=str,
         dest="image",
