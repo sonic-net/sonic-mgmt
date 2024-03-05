@@ -28,7 +28,7 @@ def drop_tcp_packets(duthost):
     ret = duthost.shell("iptables -L")
     assert ret["rc"] == 0, "Unable to list iptables rules"
 
-    time.sleep(10)  # Give time for hold timer expiry notif to fire, val from config db
+    time.sleep(180)  # Give time for hold timer expiry notif to fire, val from frr conf
 
     ret = duthost.shell("iptables -D INPUT -p tcp --dport 179 -j DROP")
     assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
