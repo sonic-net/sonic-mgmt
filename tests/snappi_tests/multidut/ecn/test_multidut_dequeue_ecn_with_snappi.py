@@ -11,7 +11,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.dinesh_response_time_pr.files.multidut_helper import run_ecn_test
+from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
