@@ -19,8 +19,8 @@ pytestmark = [
 ]
 
 
-def test_delete_add_policy(macsec_duthost, startup_macsec, shutdown_macsec, ctrl_links, profile_name, default_priority,
-                           cipher_suite, primary_cak, primary_ckn, policy, send_sci, capsys, rekey_period):
+def test_delete_add_policy(macsec_duthost, ctrl_links, profile_name, default_priority,
+                           cipher_suite, primary_cak, primary_ckn, policy, rekey_period):
     port_name, nbr = list(ctrl_links.items())[0]
     if macsec_duthost.is_multi_asic:
         ns = " -n " + macsec_duthost.get_port_asic_instance(port_name).namespace
