@@ -13,6 +13,7 @@ def generate_expected_rules(duthost):
     ebtables_rules.append("-d BGA -j DROP")
     ebtables_rules.append("-p ARP -j DROP")
     ebtables_rules.append("-p 802_1Q --vlan-encap ARP -j DROP")
+    ebtables_rules.append("-d Multicast -j DROP")
     return ebtables_rules
 
 
