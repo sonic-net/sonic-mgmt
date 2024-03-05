@@ -1,17 +1,26 @@
 import pytest
 import collections
 import random
+import logging
+from tabulate import tabulate # noqa F401
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, cleanup_config                                             # noqa: F401
+    get_multidut_tgen_peer_port_set                                             # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list
+    lossless_prio_list   # noqa F401
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test, is_ecn_marked   # noqa: F401
+from tests.snappi_tests.files.helper import skip_ecn_tests
+from tests.common.snappi_tests.read_pcap import is_ecn_marked
+from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
+from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.config_reload import config_reload
 
+
+logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
@@ -22,10 +31,11 @@ def test_red_accuracy(request,
                       conn_graph_facts,                 # noqa: F811
                       fanout_graph_facts,               # noqa: F811
                       duthosts,
+                      rand_one_dut_lossless_prio,
                       line_card_choice,
                       linecard_configuration_set,
-                      get_multidut_snappi_ports         # noqa: F811
-                      ):
+                      get_multidut_snappi_ports,         # noqa: F811
+                      prio_dscp_map):                    # noqa: F811
     """
     Measure RED/ECN marking accuracy of the device under test (DUT).
     Dump queue length vs. ECN marking probability results into a file.
@@ -47,9 +57,9 @@ def test_red_accuracy(request,
     Returns:
         N/A
     """
-    disable_test = request.config.getoption("--disable_ecn_snappi_test")
-    if disable_test:
-        pytest.skip("test_red_accuracy is disabled")
+    # disable_test = request.config.getoption("--disable_ecn_snappi_test")
+    # if disable_test:
+    #     pytest.skip("test_red_accuracy is disabled")
 
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
@@ -69,22 +79,35 @@ def test_red_accuracy(request,
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
-    lossless_prio = lossless_prio_list
+
+    x, lossless_prio = rand_one_dut_lossless_prio.split('|')
+    skip_ecn_tests(duthost1)
+    skip_ecn_tests(duthost2)
+    lossless_prio = int(lossless_prio)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    pkt_size = 1024
-    pkt_cnt = 2100
 
-    result_file_name = 'result.txt'
+    snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
+    snappi_extra_params.is_snappi_ingress_port_cap = True
+    snappi_extra_params.ecn_params = {'kmin': 500000, 'kmax': 2000000, 'pmax': 5}
+    data_flow_pkt_size = 1024
+    data_flow_pkt_count = 2100
+    num_iterations = 1
+
+    logger.info("Running ECN red accuracy test with ECN params: {}".format(snappi_extra_params.ecn_params))
+    logger.info("Running ECN red accuracy test for {} iterations".format(num_iterations))
+
+    snappi_extra_params.traffic_flow_config.data_flow_config = {
+            "flow_pkt_size": data_flow_pkt_size,
+            "flow_pkt_count": data_flow_pkt_count
+        }
 
     ip_pkts_list = run_ecn_test(api=snappi_api,
                                 testbed_config=testbed_config,
@@ -94,35 +117,42 @@ def test_red_accuracy(request,
                                 dut_port=snappi_ports[0]['peer_port'],
                                 lossless_prio=lossless_prio,
                                 prio_dscp_map=prio_dscp_map,
+                                iters=num_iterations,
                                 snappi_extra_params=snappi_extra_params)
 
-    """ Check if we capture packets of all the rounds """
-    pytest_assert(len(ip_pkts_list) == snappi_extra_params.test_iterations,
-                  'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list),
-                                                                snappi_extra_params.test_iterations))
+    # Check if we capture packets of all the rounds """
+    pytest_assert(len(ip_pkts_list) == num_iterations,
+                  'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list), num_iterations))
 
+    logger.info("Instantiating a queue length vs. ECN marking probability dictionary")
     queue_mark_cnt = {}
-    for i in range(pkt_cnt):
-        queue_len = (pkt_cnt - i) * pkt_size
+    for i in range(data_flow_pkt_count):
+        queue_len = (data_flow_pkt_count - i) * data_flow_pkt_size
         queue_mark_cnt[queue_len] = 0
 
-    for i in range(snappi_extra_params.test_iterations):
+    logger.info("Check that all packets are captured for each iteration")
+    for i in range(num_iterations):
         ip_pkts = ip_pkts_list[i]
-        """ Check if we capture all the packets in each round """
-        pytest_assert(len(ip_pkts) == pkt_cnt,
-                      'Only capture {}/{} packets in round {}'.format(len(ip_pkts), pkt_cnt, i))
+        # Check if we capture all the packets in each round """
+        pytest_assert(len(ip_pkts) == data_flow_pkt_count,
+                      'Only capture {}/{} packets in round {}'.format(len(ip_pkts), data_flow_pkt_count, i))
 
-        for j in range(pkt_cnt):
+        for j in range(data_flow_pkt_count):
             ip_pkt = ip_pkts[j]
-            queue_len = (pkt_cnt - j) * pkt_size
+            queue_len = (data_flow_pkt_count - j) * data_flow_pkt_size
 
             if is_ecn_marked(ip_pkt):
                 queue_mark_cnt[queue_len] += 1
 
-    """ Dump queue length vs. ECN marking probability into a file """
+    # Dump queue length vs. ECN marking probability into logger file """
+    logger.info("------- Dumping queue length vs. ECN marking probability data ------")
+    output_table = []
     queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
-    f = open(result_file_name, 'w')
-    for queue, mark_cnt in queue_mark_cnt.iteritems():
-        f.write('{} {}\n'.format(queue, float(mark_cnt) / snappi_extra_params.test_iterations))
-    f.close()
-    cleanup_config(dut_list, snappi_ports)
+    for queue, mark_cnt in list(queue_mark_cnt.items()):
+        output_table.append([queue, float(mark_cnt)/num_iterations])
+    # logger.info(tabulate(output_table, headers=['Queue Length', 'ECN Marking Probability']))
+
+    # Teardown ECN config through a reload
+    logger.info("Reloading config to teardown ECN config")
+    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
+    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
