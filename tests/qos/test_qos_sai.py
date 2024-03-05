@@ -2090,7 +2090,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueueVoqMultiSrc(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, skip_check_for_hbm_dst_asic
+            get_src_dst_asic_and_duts, skip_longlink
     ):
         """
             Test QoS SAI Lossy queue with multiple source ports, applicable for fair-voq and split-voq
