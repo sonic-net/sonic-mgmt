@@ -41,7 +41,7 @@ def set_max_time_for_interfaces(duthost):
     global MAX_WAIT_TIME_FOR_INTERFACES
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
-        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
 
 
 @pytest.fixture(scope="module", autouse=True)
