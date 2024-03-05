@@ -32,29 +32,42 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
     #  Restore config after test finish
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
 
+def get_file_hash(duthost, file):
+    hash = duthost.command("sha1sum {}".format(file))["stdout"]
+    logger.debug("file hash: {}".format(hash))
 
-def get_interface_reload_timestamp(duthost):
-    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"
-                                " -p ExecMainExitTimestamp --value")["stdout"]
-    logger.info("interfaces config timestamp {}".format(timestamp))
+    return hash
 
-    return timestamp
+def wait_for_file_changed(duthost, file, action, *args, **kwargs):
+    original_hash = get_file_hash(duthost, file)
 
+    action(*args, **kwargs)
 
-def change_and_wait_interface_config_update(duthost, command, last_timestamp=None, timeout=10):
-    if not last_timestamp:
-        last_timestamp = get_interface_reload_timestamp(duthost)
+    def sha_changed(duthost, file):
+        latest_hash = get_file_hash(duthost, file)
+        return latest_hash != original_hash
 
-    duthost.shell(command)
+    exist = wait_until(10, 1, 0, sha_changed, duthost, file)
+    pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
 
-    # Wait interfaces-config service finish
-    def log_exist(duthost):
-        latest_timestamp = get_interface_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+def address_type(address):
+    return type(ipaddress.ip_network(str(address), False))
 
-    exist = wait_until(timeout, 1, 0, log_exist, duthost)
-    pytest_assert(exist, "Not found interfaces-config update log: {}".format(command))
+def check_ip_rule_exist(duthost, ip, check_exist):
+    logging.warning("check_ip_rule_exist for ip:{} exist:{}".format(ip, check_exist))
+    rule_command = "ip rule list"
+    if address_type(ip) is ipaddress.IPv6Network:
+        rule_command = "ip -6 rule list"
 
+    ip_rules = duthost.command(rule_command)["stdout"]
+    logging.warning("ip rule list: {}".format(ip_rules))
+
+    rule = "32764:	from all to {} lookup default".format(ip)
+
+    if check_exist:
+        return rule in ip_rules
+    else:
+        return rule not in ip_rules
 
 def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
                                     duthosts,
@@ -86,15 +99,17 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
         pytest.skip("Skip test_forced_mgmt_route_add_and_remove_by_mgmt_port_status for multi-mgmt device")
 
     # Add eth1 to mgmt interface and port
+    ipv4_forced_mgmt_address = "172.17.1.1/24"
+    ipv6_forced_mgmt_address = "fec1::fffe:afa:1/64"
     config_db_mgmt_interface["eth1|10.250.1.101/24"] = {
         "forced_mgmt_routes": [
-            "172.17.1.1/24"
+            ipv4_forced_mgmt_address
         ],
         "gwaddr": "10.250.1.1"
     }
     config_db_mgmt_interface["eth1|fec1::ffff:afa:1/64"] = {
         "forced_mgmt_routes": [
-            "fec1::fffe:afa:1/64"
+            ipv6_forced_mgmt_address
         ],
         "gwaddr": "fec1::1"
     }
@@ -107,17 +122,26 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     override_config["MGMT_INTERFACE"] = config_db_mgmt_interface
     override_config["MGMT_PORT"] = config_db_port
     logging.debug("override_config: {}".format(override_config))
-    reload_minigraph_with_golden_config(duthost, override_config)
+    wait_for_file_changed(
+                        duthost,
+                        "/etc/network/interfaces",
+                        reload_minigraph_with_golden_config,
+                        duthost,
+                        override_config)
 
     # Get interface and check config generate correct
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
     pytest_assert("iface eth1 inet static" in interfaces)
-    pytest_assert("up ip -4 rule add pref 32764 to 172.17.1.1/24 table default" in interfaces)
-    pytest_assert("pre-down ip -4 rule delete pref 32764 to 172.17.1.1/24 table default" in interfaces)
+    pytest_assert("up ip -4 rule add pref 32764 to {} table default"\
+                  .format(ipv4_forced_mgmt_address) in interfaces)
+    pytest_assert("pre-down ip -4 rule delete pref 32764 to {} table default"\
+                  .format(ipv4_forced_mgmt_address) in interfaces)
     pytest_assert("iface eth1 inet6 static" in interfaces)
-    pytest_assert("up ip -6 rule add pref 32764 to fec1::fffe:afa:1/64 table default" in interfaces)
-    pytest_assert("pre-down ip -6 rule delete pref 32764 to fec1::fffe:afa:1/64 table default" in interfaces)
+    pytest_assert("up ip -6 rule add pref 32764 to {} table default"\
+                  .format(ipv6_forced_mgmt_address) in interfaces)
+    pytest_assert("pre-down ip -6 rule delete pref 32764 to {} table default"\
+                  .format(ipv6_forced_mgmt_address)  in interfaces)
 
     # startup eth1 and check forced mgmt route exist
     duthost.command("sudo ifup eth1")
@@ -125,12 +149,11 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     logging.debug("show ip interfaces: {}".format(interfaces))
 
     # when eth1 up, forced mgmt route on this interface should exit
-    ipv4_rules = duthost.command("ip rule list")["stdout"]
-    logging.debug("ip rule list: {}".format(ipv4_rules))
-    ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
-    logging.debug("ip -6 rule list: {}".format(ipv6_rules))
-    pytest_assert("32764:	from all to 172.17.1.1/24 lookup default" in ipv4_rules)
-    pytest_assert("32764:	from all to fec1::fffe:afa:1/64 lookup default" in ipv6_rules)
+    exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, ipv4_forced_mgmt_address, True)
+    pytest_assert(exist, "IP rule for {} does not exist.".format(ipv4_forced_mgmt_address))
+
+    exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, ipv6_forced_mgmt_address, True)
+    pytest_assert(exist, "IP rule for {} does not exist.".format(ipv6_forced_mgmt_address))
 
     # shutdown eth1 and check forced mgmt route exist
     duthost.command("sudo ifdown eth1")
@@ -138,12 +161,11 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     logging.debug("show ip interfaces: {}".format(interfaces))
 
     # when eth1 down, forced mgmt route on this interface should not exit
-    ipv4_rules = duthost.command("ip rule list")["stdout"]
-    logging.debug("ip rule list: {}".format(ipv4_rules))
-    ipv6_rules = duthost.command("ip -6 rule list")["stdout"]
-    logging.debug("ip -6 rule list: {}".format(ipv6_rules))
-    pytest_assert("32764:	from all to 172.17.1.1/24 lookup default" not in ipv4_rules)
-    pytest_assert("32764:	from all to fec1::fffe:afa:1/64 lookup default" not in ipv6_rules)
+    exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, ipv4_forced_mgmt_address, False)
+    pytest_assert(exist, "IP rule for {} should not exist.".format(ipv4_forced_mgmt_address))
+
+    exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, ipv6_forced_mgmt_address, False)
+    pytest_assert(exist, "IP rule for {} should not exist.".format(ipv6_forced_mgmt_address))
 
 
 def test_update_forced_mgmt(
@@ -185,7 +207,16 @@ def test_update_forced_mgmt(
         logging.debug("updated_forced_mgmt_routes: {}".format(updated_forced_mgmt_routes))
         command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, updated_forced_mgmt_routes)
-        change_and_wait_interface_config_update(duthost, command)
+
+        def update_interface_config(duthost, command):
+            duthost.command(command)
+
+        wait_for_file_changed(
+                            duthost,
+                            "/etc/network/interfaces",
+                            update_interface_config,
+                            duthost,
+                            command)
 
         # Check /etc/network/interfaces generate correct
         interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
@@ -197,15 +228,19 @@ def test_update_forced_mgmt(
                       .format(ip_type, test_route) in interfaces)
 
         # Check forced mgmt route add to route table
-        ip_rules = duthost.command("ip {} rule list".format(ip_type))["stdout"]
-        logging.debug("ip {} rule list: {}".format(ip_type, ip_rules))
-        pytest_assert("32764:	from all to {} lookup default".format(test_route) in ip_rules)
+        exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, test_route, True)
+        pytest_assert(exist, "IP rule for {} does not exist.".format(test_route))
 
         # Revert current forced mgmt routes
         logging.debug("updated_forced_mgmt_routes: {}".format(original_forced_mgmt_routes))
         command = "sonic-db-cli CONFIG_DB HSET '{}' forced_mgmt_routes@ '{}'"\
                   .format(interface_key, original_forced_mgmt_routes)
-        change_and_wait_interface_config_update(duthost, command)
+        wait_for_file_changed(
+                            duthost,
+                            "/etc/network/interfaces",
+                            update_interface_config,
+                            duthost,
+                            command)
 
         # Check /etc/network/interfaces generate correct
         interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
@@ -215,7 +250,6 @@ def test_update_forced_mgmt(
         pytest_assert("pre-down ip {} rule delete pref 32764 to {} table default"
                       .format(ip_type, test_route) not in interfaces)
 
-        # Check forced mgmt route add to route table
-        ip_rules = duthost.command("ip {} rule list".format(ip_type))["stdout"]
-        logging.debug("ip {} rule list: {}".format(ip_type, ip_rules))
-        pytest_assert("32764:	from all to {} lookup default".format(test_route) not in ip_rules)
+        # Check forced mgmt route removed from route table
+        exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, test_route, False)
+        pytest_assert(exist, "IP rule for {} should not exist.".format(test_route))
