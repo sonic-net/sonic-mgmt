@@ -101,6 +101,3 @@ Verify that BFD neighborship is established and BFD peers are sharing BFD peer i
 * Enable BFD echo mode
 * Verify BFD peer information
 * Verify that BFD peers are sharing BFD echo packets
-
-
-
