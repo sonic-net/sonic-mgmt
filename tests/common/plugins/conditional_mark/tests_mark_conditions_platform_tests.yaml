@@ -763,6 +763,15 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
       - https://github.com/sonic-net/sonic-mgmt/issues/11007
 
 #######################################
+####        test_kdump.py         #####
+#######################################
+platform_tests/test_kdump.py:
+  skip:
+    reason: "Not supported on Nokia-7215 platform"
+    conditions:
+      - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+#######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
