@@ -40,4 +40,3 @@ def test_delete_add_policy(macsec_duthost, ctrl_links, profile_name, default_pri
 
     assert "Error: {} already exists".format(profile_name) in str(e_info.value)
     time.sleep(10)
-    logger.info(macsec_duthost.shell("show macsec --profile")['stdout'])
