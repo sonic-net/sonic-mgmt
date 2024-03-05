@@ -1,15 +1,25 @@
 import pytest
 import random
+import logging
+
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts             # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
+    fanout_graph_facts                                                                  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
-    get_multidut_tgen_peer_port_set, cleanup_config                                                 # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list   # noqa: F401
+    get_multidut_tgen_peer_port_set, cleanup_config                                       # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
 
 from tests.snappi_tests.variables import config_set, line_card_choice
-from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test, is_ecn_marked
+from tests.snappi_tests.dinesh_response_time_pr.files.multidut_helper import run_ecn_test
+from tests.common.snappi_tests.read_pcap import is_ecn_marked
+from tests.snappi_tests.files.helper import skip_ecn_tests
+from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
@@ -21,33 +31,28 @@ def test_dequeue_ecn(request,
                      conn_graph_facts,              # noqa: F811
                      fanout_graph_facts,            # noqa: F811
                      duthosts,
+                     rand_one_dut_lossless_prio,
                      line_card_choice,
                      linecard_configuration_set,
-                     get_multidut_snappi_ports      # noqa: F811
-                     ):
+                     get_multidut_snappi_ports,      # noqa: F811
+                     prio_dscp_map):                # noqa: F811
     """
     Test if the device under test (DUT) performs ECN marking at the egress
 
     Args:
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
         N/A
     """
-    disable_test = request.config.getoption("--disable_ecn_snappi_test")
-    if disable_test:
-        pytest.skip("test_dequeue_ecn is disabled")
 
     if line_card_choice not in linecard_configuration_set.keys():
         assert False, "Invalid line_card_choice value passed in parameter"
@@ -68,7 +73,6 @@ def test_dequeue_ecn(request,
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
@@ -76,18 +80,29 @@ def test_dequeue_ecn(request,
         assert False, "Need Minimum of 2 ports for the test"
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    lossless_prio = lossless_prio_list
+    x, lossless_prio = rand_one_dut_lossless_prio.split('|')
+    skip_ecn_tests(duthost1)
+    skip_ecn_tests(duthost2)
+    lossless_prio = int(lossless_prio)
 
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
     snappi_extra_params.multi_dut_params.duthost2 = duthost2
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
+    snappi_extra_params.packet_capture_type = packet_capture.IP_CAPTURE
+    snappi_extra_params.is_snappi_ingress_port_cap = True
+    snappi_extra_params.ecn_params = {'kmin': 50000, 'kmax': 51000, 'pmax': 100}
+    data_flow_pkt_size = 1024
+    data_flow_pkt_count = 101
+    logger.info("Running ECN dequeue test with params: {}".format(snappi_extra_params.ecn_params))
 
-    pkt_cnt = 1000
+    snappi_extra_params.traffic_flow_config.data_flow_config = {
+            "flow_pkt_size": data_flow_pkt_size,
+            "flow_pkt_count": data_flow_pkt_count
+        }
 
     ip_pkts = run_ecn_test(api=snappi_api,
                            testbed_config=testbed_config,
@@ -97,16 +112,22 @@ def test_dequeue_ecn(request,
                            dut_port=snappi_ports[0]['peer_port'],
                            lossless_prio=lossless_prio,
                            prio_dscp_map=prio_dscp_map,
+                           iters=1,
                            snappi_extra_params=snappi_extra_params)[0]
 
-    """ Check if we capture all the packets """
-    pytest_assert(len(ip_pkts) == pkt_cnt,
-                  'Only capture {}/{} IP packets'.format(len(ip_pkts), pkt_cnt))
+    logger.info("Running verification for ECN dequeue test")
+    # Check if all the packets are captured
+    pytest_assert(len(ip_pkts) == data_flow_pkt_count,
+                  'Only capture {}/{} IP packets'.format(len(ip_pkts), data_flow_pkt_count))
 
-    """ Check if the first packet is marked """
+    # Check if the first packet is ECN marked
     pytest_assert(is_ecn_marked(ip_pkts[0]), "The first packet should be marked")
 
-    """ Check if the last packet is not marked """
+    # Check if the last packet is not ECN marked
     pytest_assert(not is_ecn_marked(ip_pkts[-1]),
                   "The last packet should not be marked")
-    cleanup_config(dut_list, snappi_ports)
+
+    # Teardown ECN config through a reload
+    logger.info("Reloading config to teardown ECN config")
+    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
+    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
