@@ -1179,15 +1179,15 @@ class TestBasicAcl(BaseAclTest):
 
         """
         if active_active_ports:
-	    sonichost = dut.get_asic_or_sonic_host(None)
-	    config_facts = sonichost.get_running_config_facts()
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
             tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
-	    if is_ipv4_address(_.split("/")[0])][0]
-	        tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            if is_ipv4_address(_.split("/")[0])][0]
+                tor_ipv4_address = tor_ipv4_address.split("/")[0]
                 dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
 
             tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
-	    if is_ipv4_address(_.split("/")[0])][0]
+            if is_ipv4_address(_.split("/")[0])][0]
                 tor_ipv4_address = tor_ipv4_address.split("/")[0]
                 dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
 
@@ -1221,11 +1221,11 @@ class TestIncrementalAcl(BaseAclTest):
             sonichost = dut.get_asic_or_sonic_host(None)
             config_facts = sonichost.get_running_config_facts()
             tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
-	    if is_ipv4_address(_.split("/")[0])][0]
+            if is_ipv4_address(_.split("/")[0])][0]
                 tor_ipv4_address = tor_ipv4_address.split("/")[0]
                 dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
             tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
-	    if is_ipv4_address(_.split("/")[0])][0]
+            if is_ipv4_address(_.split("/")[0])][0]
                 tor_ipv4_address = tor_ipv4_address.split("/")[0]
                 dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
 
