@@ -62,7 +62,7 @@ To validate BFD session establishment, state transitions (Up, Down, AdminDown), 
    * Initialize BFD on the testing tool or platform.
 
 * Test Execution
-   * Create BFD sessions between network devices.
+   * Create BFD sessions between DUT and neighboring devices.
    * Validate BFD session states and transitions (e.g., Up, Down, AdminDown).
    * Perform specific state transitions for testing (e.g., suspension, restoration).
    Check and validate BFD queue counters or traffic statistics.
