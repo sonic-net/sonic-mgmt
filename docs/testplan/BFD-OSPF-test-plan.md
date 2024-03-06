@@ -9,7 +9,7 @@
 ## Introduction
 
 ### Objective
-The purpose of this test is to evaluate the functionality of BFD in conjunction with the OSPF routing protocol on the SONIC switch DUT.
+The purpose of this test is to evaluate the functionality of BFD in conjunction with the OSPF protocol on the SONIC switch DUT.
 The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that neighboring devices are all SONiC devices. 
 ### Scope
 - Test BFD functionality in conjunction with OSPF protocol.
