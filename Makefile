@@ -4,7 +4,7 @@ TESTFILE ?= sanity-scripts/sanity_scripts.txt
 GOLDENBRANCH ?= 202012
 GOLDENCODE ?= http://172.29.93.10/sonic-images/golden-code/golden_code_$(GOLDENBRANCH).tar.gz
 TEMP_TESTFILE := $(shell mktemp)
-REPORT_REPO ?= /home/report_server_pv/
+REPORT_REPO ?= /longhorn_ws/report_server_pv/
 DUT_USERNAME ?= "cisco"
 DUT_PASSWORD ?= "cisco123"
 
