@@ -1,7 +1,7 @@
 '''
 
 This script is to Verify applied communities manipulate traffic as
-expected between 4-byte and 2-byte AS neighbors. 
+expected between 4-byte and 2-byte AS neighbors.
 
 Step 1: Configure DUT and neighbor with 4Byte ASN
 Step 2: Verify 4-byte BGP session between DUT and neighbor is established
@@ -37,7 +37,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         namespace = "-n " + duthost.get_namespace_from_asic_id(asic_index)
     else:
         namespace = ''
-    
+
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
     logger.info("Neighbor is: {}".format(neigh))
