@@ -20,6 +20,9 @@ from tests.common.dualtor.dual_tor_mock import *        # noqa F403
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_selected_tor                    # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
@@ -263,7 +266,8 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   tunnel_traffic_monitor):                                 # noqa F811
+                                   tunnel_traffic_monitor,                                  # noqa F811
+                                   setup_standby_ports_on_rand_selected_tor):               # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session

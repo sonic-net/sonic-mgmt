@@ -1608,6 +1608,8 @@ def config_active_active_dualtor_active_standby(
     def _config_the_active_active_dualtor(active_tor, standby_tor, ports):
         active_side_commands = []
         standby_side_commands = []
+        logging.info("Configuring {} as active".format(active_tor.hostname))
+        logging.info("Configuring {} as standby".format(standby_tor.hostname))
         for port in ports:
             if port not in active_active_ports:
                 raise ValueError("Port {} is not in the active-active ports".format(port))
@@ -1729,3 +1731,12 @@ def check_simulator_flap_counter(
         if unexpected_flap_mux_ports:
             logging.error(error_str)
             raise ValueError(error_str)
+
+
+@pytest.fixture
+def setup_standby_ports_on_rand_selected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                                             config_active_active_dualtor_active_standby,                                  # noqa F811
+                                             validate_active_active_dualtor_setup):                                        # noqa F811
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+    return
