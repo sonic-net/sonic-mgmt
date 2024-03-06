@@ -1,6 +1,7 @@
 import time
 import pytest
 import logging
+from tests.common.dualtor.dual_tor_common import active_active_ports    # noqa F401
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ def get_queue_counters(asichost, port, queue):
     return -1
 
 
-def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinfo):
+def test_bgp_queues(duthosts, enum_frontend_dut_hostname,
+                   enum_asic_index, tbinfo, active_active_ports):       # noqaF811
     duthost = duthosts[enum_frontend_dut_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
     clear_queue_counters(asichost)
@@ -70,6 +72,10 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
+                        # In case of active-active ports (dualtor-aa/dualtor-mixed) there will always be
+                        # gRPC traffic flowing through UC1
+                        if 'dualtor' in tbinfo['topo']['name'] and active_active_ports and q == 1:
+                            continue
                         assert(get_queue_counters(asichost, port, q) == 0)
             else:
                 logger.info(ifname)
