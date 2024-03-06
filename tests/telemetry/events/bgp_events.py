@@ -17,6 +17,10 @@ def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
 
 
 def drop_tcp_packets(duthost):
+    bgp_neighbor = list(duthost.get_bgp_neighbors().keys())[0]
+
+    holdtime_timer_ms = duthost.get_bgp_neighbor_info(bgp_neighbor)["bgpTimerConfiguredHoldTimeMsecs"]
+
     logger.info("Adding rule to drop TCP packets to test bgp-notification")
 
     ret = duthost.shell("iptables -I INPUT -p tcp --dport 179 -j DROP")
@@ -28,7 +32,7 @@ def drop_tcp_packets(duthost):
     ret = duthost.shell("iptables -L")
     assert ret["rc"] == 0, "Unable to list iptables rules"
 
-    time.sleep(10)  # Give time for hold timer expiry notif to fire, val from config db
+    time.sleep(holdtime_timer_ms / 1000)  # Give time for hold timer expiry event, val from configured bgp neighbor info
 
     ret = duthost.shell("iptables -D INPUT -p tcp --dport 179 -j DROP")
     assert ret["rc"] == 0, "Unable to remove DROP rule from iptables"
