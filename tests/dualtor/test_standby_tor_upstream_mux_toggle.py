@@ -89,7 +89,7 @@ def test_standby_tor_upstream_mux_toggle(
                             server_ip=ip['server_ipv4'].split('/')[0],
                             pkt_num=PKT_NUM,
                             drop=True)
-    unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
+    unmatched_crm_facts = compare_crm_facts(duthost, crm_facts0, crm_facts1)
 
     # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
     # Hence, the available counters may not increase as per initial value for multiple facts collected.

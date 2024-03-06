@@ -474,7 +474,7 @@ def is_ipv4_address(ip_address):
         return False
 
 
-def compare_crm_facts(left, right):
+def compare_crm_facts(duthost, left, right):
     """Compare CRM facts
 
     Args:
