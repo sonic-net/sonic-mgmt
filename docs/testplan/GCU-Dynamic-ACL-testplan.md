@@ -160,7 +160,7 @@ Verify that GCU is capable of adding blanket DHCP forwarding rules for both IPV4
 
 #### Test Objective
 
-Test that GCU is capable of adding a blanket ARP forwarding rule, and that traffic follows this rule accordingly
+Test that GCU is capable of adding a blanket ARP forwarding rule, and that proper ARP responses are sent while other packets are dropped
 
 #### Testing Steps
 
@@ -277,8 +277,8 @@ This section contains explicit details on the contents of each JSON Patch file u
 Name  | Type | Binding | Description | Stage | Status
 ------------- | ------------- | ---------- | ----------| --------- | ---------
 DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_TYPE | ingress | Active
-  | | {vlan port 2} | |
-  | | {vlan port 3}...
+  | | | {vlan port 2} | |
+  | | | {vlan port 3}...
 
 ### Create IP Forwarding Rules
 
@@ -307,9 +307,13 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional Checks**
-+ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output:
-  + DYNAMIC_ACL_TABLE |	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32 | Active
-  + DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128 | Active
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output rows respectively:
+  + Table             | Rule   |Priority| Action| Match | Status
+    ----------------- | -------|------| -------| ------------------------| ----
+    DYNAMIC_ACL_TABLE |	RULE_1 | 9999 | FORWARD |  DST_IP: 103.23.2.1/32 | Active
+  + Table | Rule | Priority | Action | Match | Status
+    ----- | ---- | ---- | ---- | ---- | -----
+    DYNAMIC_ACL_TABLE | RULE_2 | 9998 | FORWARD | DST_IPV6: 103.23.2.1::1/128 | Active
 
 ### Create DHCP Forwarding Rules
 
@@ -323,14 +327,14 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
                 "DYNAMIC_ACL_TABLE|DHCP_RULE": {
                     "IP_PROTOCOL": "17",
                     "L4_DST_PORT": "67",
-                    "IP_TYPE": "IPV4",
+                    "IP_TYPE": "IPv4ANY",
                     "PRIORITY": "9999",
                     "PACKET_ACTION": "FORWARD"
                 },
                 "DYNAMIC_ACL_TABLE|DHCPV6_RULE": {
                     "IP_PROTOCOL": "17",
                     "L4_DST_PORT": "547",
-                    "IP_TYPE": "IPV6",
+                    "IP_TYPE": "IPv6ANY",
                     "PRIORITY": "9998",
                     "PACKET_ACTION": "FORWARD"
                 }
@@ -342,17 +346,20 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional Checks**
-+ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCP_RULE” matches the following output:
-  + DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67 | Active
-  + | | | | IP_TYPE: IPV4 |
-  + | | | | IP_PROTOCOL: 17 |
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCP_RULE” and “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” matche the following outputs respectively:
+  + Table | Rule | Priority | Action | Match | Status
+    ---- | ---- | ------- | ------- | ------| ------
+    DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67 | Active
+    | | | | | IP_TYPE: IPv4ANY |
+    | | | | | IP_PROTOCOL: 17 |
 
-+ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” matches the following output:
-  + DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 547 | Active
-  + | | | | IP_TYPE: IPV6 |
-  + | | | | IP_PROTOCOL: 17 |
+  + Table | Rule | Priority | Action | Match | Status
+     ---- | ---- | ------- | ------- | ------| ------
+     DYNAMIC_ACL_TABLE |	DHCPV6_RULE | 9998 | FORWARD |  L4_DST_PORT: 547 | Active
+     | | | | | IP_TYPE: IPv6ANY |
+     | | | | | IP_PROTOCOL: 17 |
 
-### Create IP Forwarding Rules
+### Create ARP Forwarding Rule
 
 **Json Patch:**
 
@@ -375,7 +382,9 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional Checks**
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE ARP_RULE" matches the following output:
-  + DYNAMIC_ACL_TABLE |	ARP_RULE | 9998 | FORWARD |  ETHER_TYPE: 0x0806 | Active
+  + Table | Rule | Priority | Action | Match | Status
+    ----- | ---- | ---- | ---- | ---- | -----
+    DYNAMIC_ACL_TABLE |	ARP_RULE | 9998 | FORWARD |  ETHER_TYPE: 0x0806 | Active
 
 
 ### Create Drop Rule
@@ -417,7 +426,9 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 
 **Additional checks:**
 + Check that result of “show acl rule DYNAMIC_ACL_TABLE RULE_3” matches the following output:
-  + DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph} | Active
+  + Table | Rule | Priority | Action | Match | Status
+    ----- | ---- | ---- | ---- | ---- | -----
+    DYNAMIC_ACL_TABLE | RULE_3 | 9997  | DROP  | IN_PORTS: {port selected from DUT minigraph} | Active
 
 ### Remove Drop Rule
 
@@ -497,9 +508,13 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional checks**
-+ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following output:
-  + DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32 | Active
-  + DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128 | Active
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE RULE_1” and “show acl rule DYNAMIC_ACL_TABLE RULE_2” match the following outputs respectively:
+  + Table | Rule | Priority | Action | Match | Status
+    ----- | ---- | ---- | ---- | ---- | -----
+    DYNAMIC_ACL_TABLE | RULE_1 | 9999  | FORWARD   | DST_IP: 103.23.2.2/32 | Active
+  + Table | Rule | Priority | Action | Match | Status
+    ----- | ---- | ---- | ---- | ---- | -----
+    DYNAMIC_ACL_TABLE | RULE_2 | 9998  | FORWARD   | DST_IPV6: 103.23.2.1::2/128 | Active
 
 ### Remove Forward Rules
 **Json Patch**:
