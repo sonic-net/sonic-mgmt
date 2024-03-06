@@ -32,7 +32,12 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         pytest.skip("Neighbor type must be sonic")
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
+
+    if duthost.is_multi_asic:
+        namespace = "-n " + duthost.get_namespace_from_asic_id(asic_index)
+    else:
+        namespace = ''
+    
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
 
@@ -113,7 +118,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
 
 def test_4_byte_asn_community(setup):
-    cmd = 'vtysh -n {} \
+    cmd = 'vtysh {} \
     -c "config" \
     -c "no router bgp {}" \
     -c "router bgp {}" \
