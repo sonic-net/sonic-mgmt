@@ -21,10 +21,7 @@ pytestmark = [
                             'run_garp_service', 'run_icmp_responder')
 ]
 
-if is_cisco_device(duthost):
-    PAUSE_TIME = 90
-else:
-    PAUSE_TIME = 10
+PAUSE_TIME = 10
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -37,10 +34,15 @@ def test_cleanup(rand_selected_dut):
 
 
 def test_standby_tor_upstream_mux_toggle(
-    rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,     # noqa F811
+    duthost, rand_selected_dut, tbinfo, ptfadapter, rand_selected_interface,     # noqa F811
     toggle_all_simulator_ports, set_crm_polling_interval):              # noqa F811
     itfs, ip = rand_selected_interface
     PKT_NUM = 100
+
+    if is_cisco_device(duthost):
+        PAUSE_TIME = 90
+    else:
+        PAUSE_TIME = 10
 
     logging.debug("PAUSE_TIME: %s PKT_NUM: %s" % (PAUSE_TIME, PKT_NUM))
     # Step 1. Set mux state to standby and verify traffic is dropped by ACL rule and drop counters incremented
