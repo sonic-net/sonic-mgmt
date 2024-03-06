@@ -28,3 +28,6 @@ ptf_host_pass: root
 vm_host_user: use_own_value
 vm_host_password: use_own_value
 vm_host_become_password: use_own_value
+
+snmp_rocommunity: public
+snmp_rwcommunity: private

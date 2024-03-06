@@ -10,6 +10,7 @@ all:
         acs_ixia_dscp:
         fanout:
         server:
+        pdu:
 
     ptf:
       hosts:

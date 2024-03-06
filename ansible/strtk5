@@ -8,6 +8,7 @@ all:
         sonic:
         fanout:
         server:
+        pdu:
     ptf:
       vars:
         ansible_ssh_user: root
@@ -103,6 +104,30 @@ all:
         ptf5-9:
           ansible_host: 10.212.65.79
           ansible_hostv6: 2603:10e2:140:3000::219
+
+    pdu:
+      hosts:
+        pdu-226:
+          ansible_host: 10.212.69.226
+          protocol: snmp
+        pdu-227:
+          ansible_host: 10.212.69.227
+          protocol: snmp
+        pdu-228:
+          ansible_host: 10.212.69.228
+          protocol: snmp
+        pdu-229:
+          ansible_host: 10.212.69.229
+          protocol: snmp
+        pdu-230:
+          ansible_host: 10.212.69.230
+          protocol: snmp
+        pdu-231:
+          ansible_host: 10.212.69.231
+          protocol: snmp
+        pdu-232:
+          ansible_host: 10.212.69.232
+          protocol: snmp
 
 fanout:
   hosts:

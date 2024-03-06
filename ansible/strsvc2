@@ -8,6 +8,7 @@ all:
       children:
         sonic:
         fanout:
+        pdu:
     ptf:
       vars:
         ansible_ssh_user: root
@@ -259,4 +260,4 @@ server:
   hosts:
     svcstr2-server-5:
       ansible_host: 10.206.144.247
- 
+

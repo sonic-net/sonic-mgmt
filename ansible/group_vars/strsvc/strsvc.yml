@@ -43,7 +43,6 @@ dhcp_servers: ['192.0.0.1', '192.0.0.2', '192.0.0.3', '192.0.0.4', '192.0.0.5', 
 dhcpv6_servers: ['fc02:2000::1', 'fc02:2000::2', 'fc02:2000::3', 'fc02:2000::4']
 
 # snmp variables
-snmp_rocommunity: msft
 snmp_location: str
 
 # NetworkDeviceManager SLB VIP
