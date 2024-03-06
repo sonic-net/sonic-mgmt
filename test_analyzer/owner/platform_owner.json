@@ -26,16 +26,16 @@
     {
         "hwsku": "Arista-7050-QX-32S",
         "topo": "t0",
-        "owner": "Liping Xu",
-        "email": "xuliping@microsoft.com",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
     {
         "hwsku": "Arista-7050-QX-32S",
         "topo": "t1",
-        "owner": "Liping Xu",
-        "email": "xuliping@microsoft.com",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
