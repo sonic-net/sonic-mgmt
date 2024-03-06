@@ -34,6 +34,7 @@ The purpose is to test functionality of BFD echo-mode on the SONIC switch DUT, c
 | show bfd peer | Show all configured BFD peers information and current status |
 
 ## Test structure
+
 ### Testbed
 The test will run on the following testbeds:
 * t0
@@ -42,8 +43,11 @@ The test will run on the following testbeds:
 The test assumes all standard configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no BFD configurations. It is also assumed that the neighboring devices are of SONiC type.
 
 ## Test
+
 ## Existing Test cases
+
 ### Test case # 1 – BFD Basic
+
 #### Test objective
 Verify that BFD neighborship is established and BFD peers are sharing BFD peer information to each other.
 #### Test steps
@@ -51,6 +55,7 @@ Verify that BFD neighborship is established and BFD peers are sharing BFD peer i
 * Enable BFD protocol on BFD peer interfaces.
 * Verify BFD peer information.
 ### Test case # 2 – BFD Scale
+
 #### Test objective
 To validate BFD session establishment, state transitions (Up, Down, AdminDown), suspension, and scale testing with various scenarios including IPv4 and IPv6 addresses, single-hop, and multi-hop configurations, along with queue counter verification for BFD traffic.
 
@@ -73,6 +78,7 @@ To validate BFD session establishment, state transitions (Up, Down, AdminDown), 
 
 
 ### Test case # 3 – BFD Multihop
+
 #### Test objective
 To validate BFD session establishment, state transitions (Up, Down, AdminDown), suspension, and scale testing with various scenarios including IPv4 and IPv6 addresses, single-hop, and multi-hop configurations, along with queue counter verification for BFD traffic.
 #### Test steps
@@ -92,7 +98,9 @@ To validate BFD session establishment, state transitions (Up, Down, AdminDown), 
    * Release IP addresses assigned earlier.
    * Stop BFD on the testing tool or platform.
 ## New Test cases
+
 ### Test case # 4 – BFD Echo Mode
+
 #### Test objective
 Verify that BFD neighborship is established and BFD peers are sharing BFD peer information to each other. Also varify the bidirectional reachability of a network path rather than just monitoring the path for faults.
 #### Test steps
@@ -100,6 +108,3 @@ Verify that BFD neighborship is established and BFD peers are sharing BFD peer i
 * Enable BFD echo mode
 * Verify BFD peer information
 * Verify that BFD peers are sharing BFD echo packets
-
-
-
