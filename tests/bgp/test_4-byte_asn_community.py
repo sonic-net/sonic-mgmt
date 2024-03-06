@@ -1,7 +1,7 @@
 '''
 
 This script is to Verify applied communities manipulate traffic as
-expected between 4-byte and 2-byte AS neighbors.
+expected between 4-byte and 2-byte AS neighbors. 
 
 Step 1: Configure DUT and neighbor with 4Byte ASN
 Step 2: Verify 4-byte BGP session between DUT and neighbor is established
