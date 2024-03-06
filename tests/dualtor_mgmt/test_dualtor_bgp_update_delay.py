@@ -25,6 +25,13 @@ BGP_LOG_TMPL = "/tmp/bgp_neighbor_%s.pcap"
 @contextlib.contextmanager
 def log_bgp_updates(duthost, iface, save_path):
     """Capture bgp packets to file."""
+
+    def _is_tcpdump_running(duthost, cmd):
+        check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
+        if cmd in duthost.shell(check_cmd)['stdout']:
+            return True
+        return False
+
     if iface == "any":
         # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
         # defaults to writing in that format when listening on any interface. Therefore,
@@ -33,13 +40,18 @@ def log_bgp_updates(duthost, iface, save_path):
     else:
         start_pcap = "tcpdump -i %s -w %s port 179" % (iface, save_path)
     # for multi-asic dut, add 'ip netns exec asicx' to the beggining of tcpdump cmd
-    stop_pcap = "sudo pkill -SIGINT -f '%s'" % start_pcap
-    start_pcap = "nohup {} &".format(start_pcap)
-    duthost.shell(start_pcap)
+    stop_pcap_cmd = "sudo pkill -SIGINT -f '%s'" % start_pcap
+    start_pcap_cmd = "nohup {} &".format(start_pcap)
+    duthost.file(path=save_path, state="absent")
+    duthost.shell(start_pcap_cmd)
+    # wait until tcpdump process created
+    if not wait_until(20, 5, 2, lambda: _is_tcpdump_running(duthost, start_pcap),):
+        pytest.fail("Could not start tcpdump")
+
     try:
         yield
     finally:
-        duthost.shell(stop_pcap, module_ignore_errors=True)
+        duthost.shell(stop_pcap_cmd, module_ignore_errors=True)
 
 
 @pytest.fixture(params=["ipv4", "ipv6"])
