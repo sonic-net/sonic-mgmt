@@ -1,4 +1,5 @@
 # Bidirectional Forwarding Detection  (BFD) and OSPF   Interoperability 
+
 ## Test Plan Revision History
 
 | Rev  | Date       | Author            | Change Description           |
@@ -11,6 +12,7 @@
 ### Objective
 The purpose of this test is to evaluate the functionality of BFD in conjunction with the OSPF protocol on the SONIC switch DUT.
 The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that neighboring devices are all SONiC devices. 
+
 ### Scope
 - Test BFD functionality in conjunction with OSPF protocol.
 
@@ -42,6 +44,7 @@ NOTE: OSPF Routing tests will run on all **Tier 0** and **Tier 1** topologies wh
 
 
 ## Test Structure
+
 ### Setup Configuration
 The test assumes all standard configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no OSPF configurations. It is also assumed that the neighboring devices are of SONiC type.
 
@@ -55,7 +58,9 @@ The test will run on the t0 and t1 testbed:
 ![Variation t1](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/img/testbed-t1.png?raw=true)
 
 ## Test Cases
+
 ### Test Case \#0 - Test OSPF Neighborship Status
+
 #### Test Objective
 Verify whether OSPF neighbors are successfully created and appear with active status.
 
@@ -66,6 +71,7 @@ Verify whether OSPF neighbors are successfully created and appear with active st
 4. Restore original routing configurations (if non-OSPF configurations)
 
 ### Test Case \#1 - Test BFD Neighborship Status
+
 #### Test Objective
 Verify whether BFD neighborship is successfully created between DUT and its neighbors and they are sharing BFD packets.
 
@@ -76,6 +82,7 @@ Verify whether BFD neighborship is successfully created between DUT and its neig
 4. Restore original routing configurations (if non-OSPF configurations) 
 
 ### Test Case \#2 - Test BFD Dynamic Switching of Network Traffic
+
 #### Test Objective
 Verify whether BFD is dynamically switching the netwrok traffic to other available routes in response to a link failure.
 #### Test Steps
