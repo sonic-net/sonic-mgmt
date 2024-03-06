@@ -38,6 +38,7 @@ NIGHTLY_TEST_ACCOUNT_URL = 'https://sonicelastictestprodsa.blob.core.windows.net
 NIGHTLY_TEST_CONTAINER_NAME = 'nightlytest'
 VENDOR_CONTAINER = {'arista', 'brcm', 'cisco', 'mellanox'}
 CASE_SHRESHOLD = int(800)
+PASSRATE_SHRESHOLD = float(90.0)
 TEST_RESULT_SHARE_LOG_TABLE = "TestResultSharingLogData"
 TABLE_FORMAT_LOOKUP = {
     TEST_RESULT_SHARE_LOG_TABLE: DataFormat.JSON
@@ -356,6 +357,11 @@ def main(args):
 
         if cases_run < CASE_SHRESHOLD and vendor != 'cisco':
             logger.info('Total CassesRun: {} is less than 800, may be not a full run, ingore'.format(str(cases_run)))
+            report_json.append(temp_json)
+            continue
+
+        if float(success_rate) < PASSRATE_SHRESHOLD:
+            logger.info('SuccessRate: {} is less than 90%, do not upload this, ingore'.format(str(success_rate)))
             report_json.append(temp_json)
             continue
 
