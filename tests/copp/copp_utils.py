@@ -288,16 +288,12 @@ def configure_always_enabled_for_trap(dut, trap_id, always_enabled):
         always_enabled (str): true or false
     """
     copp_trap_config_json = "/tmp/copp_{}.json".format(trap_id)
-    # Need to remove ip2me trap to test no trap condition to avoid packets being trapped by ip2me after bgp trap removal
     cmd_copp_trap_always_enabled_config = """
 cat << EOF >  %s
 {
    "COPP_TRAP": {
        "%s": {
        "always_enabled": "%s"
-       },
-       "ip2me": {
-       "always_enabled": "false"
        }
     }
 }
@@ -377,7 +373,10 @@ def uninstall_trap(dut, feature_name, trap_id):
         feature_name (str): feature name corresponding to the trap
         trap_id (str): trap id
     """
-    disable_feature_entry(dut, feature_name)
+    feature_list, _ = dut.get_feature_status()
+    if feature_name in feature_list.keys():
+        disable_feature_entry(dut, feature_name)
+
     configure_always_enabled_for_trap(dut, trap_id, "false")
 
 
