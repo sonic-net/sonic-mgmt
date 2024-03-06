@@ -15,8 +15,7 @@
 ## Introduction
 
 ### Objective
-The purpose is to test functionality of BFD echo-mode on the SONIC switch DUT, closely resembling production environment. The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no BFD configurations. It is also assumed that neighboring devices are all SONiC devices.
-
+The purpose is to test functionality of BFD echo-mode on the SONIC switch DUT, closely resembling production environment. The test assumes all standard topology configurations, such as BGP neighborship, are pre-configured in the DUT and neighboring systems with no BFD configurations. It is also assumed that neighboring devices are all SONiC devices. 
 
 ### Scope
 - Test BFD Echo-Mode on SONiC DUT and neighboring devices
