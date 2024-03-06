@@ -45,11 +45,7 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
         elif device_type in ["nexus"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
-<<<<<<< HEAD
-        elif device_type in ["mellanox", "cisco", "acs", "celestica"]:
-=======
         elif device_type in ["mellanox", "cisco", "acs", "celestica", "force10"]:
->>>>>>> public/master
             is_celestica = device_type in ["celestica"]
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_celestica=is_celestica)
         elif device_type in ["nokia"]:
