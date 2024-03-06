@@ -8,11 +8,14 @@ import pytest
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from tests.common.dualtor.mux_simulator_control import \
-            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m   # noqa F401
 
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor      # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -377,7 +380,8 @@ def get_dev_port_and_route(duthost, asichost, dst_prefix_set):
 def test_route_flap(duthosts, tbinfo, ptfhost, ptfadapter,
                     get_function_conpleteness_level, announce_default_routes,
                     enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index,
-                    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):
+                    setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m,                     # noqa F811
+                    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m, loganalyzer):    # noqa F811
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})

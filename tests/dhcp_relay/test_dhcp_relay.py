@@ -16,7 +16,9 @@ from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor		# noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
     pytest.mark.device_type('vs')
@@ -306,6 +308,7 @@ def start_dhcp_monitor_debug_counter(duthost):
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,												# noqa F811
                             rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
@@ -508,6 +511,7 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
 
 
 def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
                                 toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology with unicast mac
        Instead of using broadcast MAC, use unicast MAC of DUT and verify that DHCP relay functionality is entact.
@@ -546,6 +550,7 @@ def test_dhcp_relay_unicast_mac(ptfhost, dut_dhcp_relay_data, validate_dut_route
 
 
 def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                 setup_standby_ports_on_rand_unselected_tor,				 # noqa F811
                                  toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     """Test DHCP relay functionality on T0 topology with random source port (sport)
        If the client is SNAT'd, the source port could be changed to a non-standard port (i.e., not 68).

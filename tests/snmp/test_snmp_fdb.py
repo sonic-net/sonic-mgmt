@@ -17,6 +17,10 @@ from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F40
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor      # noqa F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +79,7 @@ def build_icmp_packet(vlan_id, src_mac="00:22:00:00:00:02", dst_mac="ff:ff:ff:ff
 @pytest.mark.po2vlan
 def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,          # noqa F811
                               toggle_all_simulator_ports_to_rand_selected_tor_m,    # noqa F811
+                              setup_standby_ports_on_rand_unselected_tor,           # noqa F811
                               rand_selected_dut, tbinfo, ports_list, localhost, creds_all_duts): # noqa F811
     """
     Send tagged packets from each port.

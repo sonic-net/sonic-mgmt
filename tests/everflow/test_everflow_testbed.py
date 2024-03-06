@@ -14,6 +14,8 @@ from tests.common.fixtures.ptfhost_utils import copy_acstests_directory         
 from .everflow_test_utilities import setup_info, setup_arp_responder, EVERFLOW_DSCP_RULES                # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                   # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor_unconditionally  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "m0")
@@ -126,9 +128,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
-    def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
+    def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,                        # noqa F811
                                        dest_port_type, ptfadapter, tbinfo,
-                                       toggle_all_simulator_ports_to_rand_selected_tor):    # noqa F811
+                                       setup_standby_ports_on_rand_unselected_tor_unconditionally,    # noqa F811
+                                       toggle_all_simulator_ports_to_rand_selected_tor):              # noqa F811
         """
         Verify basic forwarding scenarios for the Everflow feature.
 
@@ -226,9 +229,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
             setup_info[dest_port_type]["remote_namespace"]))
 
-    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
+    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,                       # noqa F811
                                           dest_port_type, ptfadapter, tbinfo,
-                                          toggle_all_simulator_ports_to_rand_selected_tor):     # noqa F811
+                                          setup_standby_ports_on_rand_unselected_tor_unconditionally,   # noqa F811
+                                          toggle_all_simulator_ports_to_rand_selected_tor):             # noqa F811
         """Verify that session destination MAC address is changed after neighbor MAC address update."""
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
@@ -294,9 +298,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
+    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,                         # noqa F811
                                                   dest_port_type, ptfadapter, tbinfo,
-                                                  toggle_all_simulator_ports_to_rand_selected_tor):     # noqa F811
+                                                  setup_standby_ports_on_rand_unselected_tor_unconditionally,     # noqa F811
+                                                  toggle_all_simulator_ports_to_rand_selected_tor):               # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was not in use."""
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
@@ -385,9 +390,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
+    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                        # noqa F811
                                                 dest_port_type, ptfadapter, tbinfo,
-                                                toggle_all_simulator_ports_to_rand_selected_tor):       # noqa F811
+                                                setup_standby_ports_on_rand_unselected_tor_unconditionally,    # noqa F811
+                                                toggle_all_simulator_ports_to_rand_selected_tor):              # noqa F811
         """Verify that session is still active after removal of next hop from ECMP route that was in use."""
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
@@ -492,13 +498,14 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_dscp_with_policer(
             self,
-            setup_info,                                         # noqa F811
+            setup_info,                                                    # noqa F811
             policer_mirror_session,
             dest_port_type,
             partial_ptf_runner,
             config_method,
             tbinfo,
-            toggle_all_simulator_ports_to_rand_selected_tor     # noqa F811
+            setup_standby_ports_on_rand_unselected_tor_unconditionally,    # noqa F811
+            toggle_all_simulator_ports_to_rand_selected_tor                # noqa F811
     ):
         """Verify that we can rate-limit mirrored traffic from the MIRROR_DSCP table.
         This tests single rate three color policer mode and specifically checks CIR value
