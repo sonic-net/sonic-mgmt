@@ -40,6 +40,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
+    logger.info("Neighbor is: {}".format(neigh))
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
