@@ -250,7 +250,7 @@ def deconfigure_basic_l3vni():
     vu.config_vrf(nodes['leaf1'], vrf, add=False)
 
 
-def test_l3vni_basic_config():
+def test_l3vni_v6_vtep_basic_config():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -271,7 +271,7 @@ def test_l3vni_basic_config():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_multiple_vni():
+def test_l3vni_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -413,7 +413,7 @@ def test_l3vni_multiple_vni():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_remove_add_bgp():
+def test_l3vni_v6_vtep_remove_add_bgp():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -545,7 +545,7 @@ def test_l3vni_remove_add_bgp():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_port_flap():
+def test_l3vni_v6_vtep_port_flap():
     vars = st.get_testbed_vars()
 
     nodes = {}
