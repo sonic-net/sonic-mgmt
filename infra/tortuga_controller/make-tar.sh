@@ -12,9 +12,6 @@ fi
 
 DIR="${WS_ROOT}/sandbox/sonic-tests"
 
-# Remove old directory
-rm -rf "${DIR}"
-
 # Make a temp directory.
 mkdir -p "${DIR}/sandbox/certs"
 
@@ -27,6 +24,11 @@ cp "${WS_ROOT}/cloud/tests/for-sonic-team/"* "${DIR}/"
 cp "${WS_ROOT}/cloud/tests/pyvxr/get_ports.sh" "${DIR}/"
 cp "${WS_ROOT}/cloud/tests/pyvxr/reset_sim.sh" "${DIR}/"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl1x3-ref-sim.yaml" "${DIR}/sonic-ref-sim.yaml"
-cp "${WS_ROOT}/sandbox/certs/"* "${DIR}/sandbox/certs"
+cp "${WS_ROOT}/cloud/tests/pyvxr/mesh3-ref-sim.yaml" "${DIR}/mesh3-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/sl1x3-ref-sim.yaml" "${DIR}/sl1x3-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x2-ref-sim.yaml" "${DIR}/sl2x2-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x3-ref-sim.yaml" "${DIR}/sl2x3-ref-sim.yaml"
+cp "${WS_ROOT}/sandbox/certs/cloud.crt" "${DIR}/sandbox/certs/cloud.crt"
+cp "${WS_ROOT}/sandbox/certs/service.key" "${DIR}/sandbox/certs/service.key"
 
-tar -Z -cvf "${WS_ROOT}/sandbox/sonic-tests-$(cat ${WS_ROOT}/sandbox/tortuga_agent_version).tar.gz" "${DIR}"/*
+tar -C "${DIR}" -cvzf "${WS_ROOT}/sandbox/sonic-tests-$(cat ${WS_ROOT}/sandbox/tortuga_agent_version).tar.gz" .

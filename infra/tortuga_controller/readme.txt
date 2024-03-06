@@ -11,13 +11,22 @@ How to use Tortuga to test fabric configuration.
     - Create /nobackup/cfg directory. Copy sonic-ref-sim.yaml to /nobackup/cfg directory.
     - Create /nobackup/sim directory. This is where SIM gets copied to.
 
-3) Customize  /nobackup/cfg/sonic-ref-sim.yaml to match your PyVxr setup.
+3) Customize /nobackup/cfg/sonic-ref-sim.yaml to match your PyVxr setup
     - Change hostname to your PyVxr hostname.
     - Rename 'tortuga-1x3' to match your PyVxr hostname.
     - DO NOT add cisco.com in the hostname.
     - DO NOT use "tortuga" as hostname. Why? Because we have a number of fabrics
       that use tortuga as prefix. It may confuse UI developers, and they may end
       up deleting or modifying your fabric.
+
+   NOTES:
+    Rename hostnames of all nodes (spines and leaves) in the reference YAML from
+    tortuga-1x3-leaf[0-3]/spine[0] to <pyvxr hostname>-leaf[0-3]/spine[0]. If you
+    are sharing same PyVxr and creating multiple SIMs, then come up with a unique
+    prefix for node hostnames. E.g. <cisco-username>-leaf[0-3]/spine[0].
+
+    Prefix of node hostname (E.g. <cisco-username>) must be set as FABRIC_NAME in
+    test.sh file.
 
 4) Execute /nobackup/reset_sim.sh to create PyVxr SIM.
     - This may take up to 15m.
@@ -26,10 +35,13 @@ How to use Tortuga to test fabric configuration.
     - get_ports.sh prints out PyVxr ports for spines, leaves and hosts.
 
 6) Edit ./test.sh and replace variables.
-    - Set PyVxr hostname (without cisco.com) to FABRIC_NAME.
+    - Set PyVxr hostname (without cisco.com) or the prefix (E.g. <cisco-username>) you used
+      for node hostnames to FABRIC_NAME. This is very important. Otherwise, config-gen will
+      not match discovered fabric with your fabric.
     - Set full PyVxr hostname (with cisco.com) to PYVXR_HOST.
     - Set host ports reported by get_ports.sh to HOST_PORTS.
     - Set leaf ports reported by get_ports.sh to LEAF_PORTS.
+    - Set the correct spine count to SPINE_COUNT.
 
 7) Execute ./test.sh from your Linux dev machine to run tests.
    - You may execute test.sh as many times as you want.

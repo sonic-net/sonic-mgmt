@@ -1,0 +1,263 @@
+simulation:
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  sim_dir: /nobackup/sim
+  sim_host: tortuga-2x2
+  skip_auto_bringup: false
+devices:
+  trex1:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+    - hda_ref:
+        file: /nobackup/rhel7_serial.qcow2
+        type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60001]
+  trex2:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+    - hda_ref:
+        file: /nobackup/rhel7_serial.qcow2
+        type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60002]
+  trex3:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+    - hda_ref:
+        file: /nobackup/rhel7_serial.qcow2
+        type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60003]
+  trex4:
+    data_ports:
+      - eth1
+      - eth2
+    disks:
+      - hda_ref:
+          file: /nobackup/rhel7_serial.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    console_ports: [60004]
+
+  L0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+      - churchill
+    vxr_sim_config:
+      shelf:
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
+        ConfigS1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+      - Ethernet0
+      - Ethernet8
+      - Ethernet16
+      - Ethernet24
+      - Ethernet32
+      - Ethernet40
+      - Ethernet48
+      - Ethernet56
+      - Ethernet64
+      - Ethernet72
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60010]
+    cli_commands: |
+      mkdir /home/cisco/.ssh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
+      sudo config hostname tortuga-2x2-leaf0
+      sudo config save -y
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  L1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - churchill
+    vxr_sim_config:
+      shelf:
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
+        ConfigS1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+      - Ethernet0
+      - Ethernet8
+      - Ethernet16
+      - Ethernet24
+      - Ethernet32
+      - Ethernet40
+      - Ethernet48
+      - Ethernet56
+      - Ethernet64
+      - Ethernet72
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60011]
+    cli_commands: |
+      mkdir /home/cisco/.ssh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
+      sudo config hostname tortuga-2x2-leaf1
+      sudo config save -y
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  S0:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - churchill
+    vxr_sim_config:
+      shelf:
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
+        ConfigS1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+      - Ethernet0
+      - Ethernet8
+      - Ethernet16
+      - Ethernet24
+      - Ethernet32
+      - Ethernet40
+      - Ethernet48
+      - Ethernet56
+      - Ethernet64
+      - Ethernet72
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60020]
+    cli_commands: |
+      mkdir /home/cisco/.ssh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
+      sudo config hostname tortuga-2x2-spine0
+      sudo config save -y
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  S1:
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+    - churchill
+    vxr_sim_config:
+      shelf:
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
+        ConfigS1NpsuiteVer: 1.137.1
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    platform: spitfire_f
+    data_ports:
+      - Ethernet0
+      - Ethernet8
+      - Ethernet16
+      - Ethernet24
+      - Ethernet32
+      - Ethernet40
+      - Ethernet48
+      - Ethernet56
+      - Ethernet64
+      - Ethernet72
+    xr_port_redir:
+      - 22
+      - 23
+    console_ports: [60021]
+    cli_commands: |
+      mkdir /home/cisco/.ssh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
+      sudo config hostname tortuga-2x2-spine1
+      sudo config save -y
+      cp /etc/sonic/config_db.json config_db.json.fresh
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+connections:
+  hubs:
+    L0_trex1:
+      - L0.Ethernet48
+      - trex1.eth1
+    L0_trex2:
+      - L0.Ethernet56
+      - trex2.eth1
+    L1_trex3:
+      - L1.Ethernet48
+      - trex3.eth1
+    L1_trex4:
+      - L1.Ethernet56
+      - trex4.eth1
+    S0_L0_conn1:
+      - S0.Ethernet0
+      - L0.Ethernet0
+    S0_L1_conn1:
+      - S0.Ethernet8
+      - L1.Ethernet0
+    S1_L0_conn1:
+      - S1.Ethernet0
+      - L0.Ethernet8
+    S1_L1_conn1:
+      - S1.Ethernet8
+      - L1.Ethernet8
