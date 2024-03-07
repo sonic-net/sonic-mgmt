@@ -485,15 +485,14 @@ def enable_ecn(host_ans, prio, asic_value=None):
     """
     if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
-        result = host_ans.shell('ecnconfig -q {}'.format(prio))
-        if 'on' in str(result['stdout_lines'][1].split(':')[1]):
+        results = host_ans.shell('ecnconfig -q {}'.format(prio))
+        if re.search("queue {}: on".format(prio), results['stdout']):
             return True
     else:
         host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
-        result = host_ans.shell('sudo ip netns exec {} ecnconfig {}'.format(asic_value, prio))
-        if 'on' in str(result['stdout_lines'][1].split(':')[1]):
+        results = host_ans.shell('sudo ip netns exec {} ecnconfig {}'.format(asic_value, prio))
+        if re.search("queue {}: on".format(prio), results['stdout']):
             return True
-
     return False
 
 
