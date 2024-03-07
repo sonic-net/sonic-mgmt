@@ -10,6 +10,7 @@ import optparse
 import logging
 import logging.handlers
 import time
+import os
 from socket import socket, AF_PACKET, SOCK_RAW
 
 logger = logging.getLogger('MyLogger')
@@ -142,10 +143,10 @@ def main():
         # For cisco-nexus, we need to use the "management" namespace
         with Namespace(nsname="management"):
             handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
-            my_logger.addHandler(handler)
+            logger.addHandler(handler)
     else:
         handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
-        my_logger.addHandler(handler)
+        logger.addHandler(handler)
 
     for s, interface in zip(sockets, interfaces):
         s.bind((interface, 0))
