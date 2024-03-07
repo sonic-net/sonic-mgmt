@@ -3677,8 +3677,10 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_base, self, src_port_id, pkt, 10)
-
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
+            # Don't send actual_pkts_num_leak_out number of packets again for SKUs that have leakout
+            # compensation support, as we have already done that inside dynamically_compensate_leakout
+            # in the else branch above and sending anymore packets will now trigger egress drops.
+            if not check_leackout_compensation_support(asic_type, hwsku) or \
                     hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(
                     self.dst_client, asic_type, port_list['dst'][dst_port_id])
