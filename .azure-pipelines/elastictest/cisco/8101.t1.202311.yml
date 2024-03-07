@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 17 * * 0,2,4,6"
+  - cron: "0 13 * * 0"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms21-t1-8111-06"
+    default: "vms61-t1-8101-02, vms61-t1-8101-03"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,21 +45,21 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "1"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_CISCO_202305)
+    default: $(IMAGE_CISCO_202311)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202311
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
     type: string
-    default: "qos/test_qos_sai.py"
+    default: " "
     displayName: "Scripts to be executed"
 
   - name: FEATURES
@@ -80,13 +80,13 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 3600
+    default: 2880
 
 stages:
 - stage: Test
@@ -96,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8111.t1.202305.qos.NightlyTest_by_Elastictest
+    displayName: 8101.t1.202311.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
