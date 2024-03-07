@@ -998,8 +998,33 @@ class GeneralAnalyzer(BasicAnalyzer):
                     final_icm_list.append(candidator)
         logger.info("Count summary: platform_test {}, 202012 {}, 202205 {}, 202305 {}, 202311 {}, master {}, internal {}".format(
             count_platform_test, count_202012, count_202205, count_202305, count_202311, count_master, count_internal))
-
+        logger.info("Check if subject mismatch for setup error IcM")
+        for kusto_row_item in error_final_icm_list:
+            self.check_subject_match(kusto_row_item)
+        logger.info("Check if subject mismatch for failure IcM")
+        for kusto_row_item in final_icm_list:
+            self.check_subject_match(kusto_row_item)
+        logger.info("Check if subject mismatch for duplicated IcM")
+        for kusto_row_item in duplicated_icm_list:
+            self.check_subject_match(kusto_row_item)
         return error_final_icm_list, final_icm_list, duplicated_icm_list
+
+    def check_subject_match(self, kusto_row):
+        """
+        Check if the subject match for setup error IcM
+        """
+        asic_name = kusto_row['failure_level_info']['asic'] if 'asic' in kusto_row['failure_level_info'] else None
+        hwsku_name = kusto_row['failure_level_info']['hwsku'] if 'hwsku' in kusto_row['failure_level_info'] else None
+        osversion_name = kusto_row['failure_level_info']['osversion'] if 'osversion' in kusto_row['failure_level_info'] else None
+        subject_name = kusto_row['subject']
+        if asic_name and asic_name not in subject_name:
+            logger.error("In check_subject_match: asic {} not in subject {}".format(asic_name, subject_name))
+        if hwsku_name and hwsku_name not in subject_name:
+            logger.error("In check_subject_match: hwsku {} not in subject {}".format(hwsku_name, subject_name))
+        if osversion_name and osversion_name not in subject_name:
+            logger.error("In check_subject_match: osversion {} not in subject {}".format(osversion_name, subject_name))
+
+        return
 
     def rearrange_icm_list(self, icm_list):
         """
@@ -1853,7 +1878,14 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_asic['subject'] = "[" + module_path + \
                             "][" + case_name + "][" + \
                             branch + "][" + asic + "]"
+                    logger.info("{} asic level: new_kusto_row_data_asic={} title={}".format(case_name_branch,
+                                                                                             json.dumps(new_kusto_row_data_asic['failure_level_info'], indent=4),
+                                                                                             new_kusto_row_data_asic['subject']))
                     kusto_table.append(new_kusto_row_data_asic)
+                    if new_kusto_row_data_asic['failure_level_info']['asic'] not in new_kusto_row_data_asic['subject']:
+                        logger.error("{} asic level: asic {} mismatches title {}".format(case_name_branch,
+                                                                                         new_kusto_row_data_asic['failure_level_info']['asic'],
+                                                                                         new_kusto_row_data_asic['subject']))
                 else:
                     logger.debug("{} asic_case_df for asic {} is :{}".format(
                         case_name_branch, asic, asic_case_df))
@@ -1887,6 +1919,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_hwsku = kusto_row_data.copy()
                         # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku['trigger_icm'] = True
+                        new_kusto_row_data_hwsku['failure_level_info']['asic'] = asic
                         new_kusto_row_data_hwsku['failure_level_info']['hwsku'] = hwsku
                         if is_module_path:
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + \
@@ -1896,10 +1929,19 @@ class GeneralAnalyzer(BasicAnalyzer):
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + case_name + \
                                 "][" + branch + "][" + \
                                 asic + "][" + hwsku + "]"
+                        logger.info("{} hwsku level: new_kusto_row_data_hwsku={} title={}".format(case_name_branch,
+                                                                                                    json.dumps(new_kusto_row_data_hwsku['failure_level_info'], indent=4),
+                                                                                                    new_kusto_row_data_hwsku['subject']))
                         kusto_table.append(new_kusto_row_data_hwsku)
+                        if new_kusto_row_data_hwsku['failure_level_info']['asic'] not in new_kusto_row_data_hwsku['subject'] \
+                            or new_kusto_row_data_hwsku['failure_level_info']['hwsku'] not in new_kusto_row_data_hwsku['subject']:
+                            logger.error("{} hwsku level: hwsku {} mismatches title {}".format(case_name_branch,
+                                                                                               new_kusto_row_data_hwsku['failure_level_info']['hwsku'],
+                                                                                               new_kusto_row_data_hwsku['subject']))
             if kusto_table:
                 logger.debug("{} Found {} IcMs. Not check hwsku_osversion anymore.".format(
                     case_name_branch, len(kusto_table)))
+                logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # Step 5. Check hwsku_osversion level for release branches
             if branch in self.config_info["branch"]["released_branch"]:
@@ -1945,7 +1987,15 @@ class GeneralAnalyzer(BasicAnalyzer):
                             new_kusto_row_data_hwsku_osversion['subject'] = "[" + module_path + \
                                 "][" + case_name + "][" + branch + \
                                 "][" + hwsku_osversion + "]"
+                        logger.info("{} hwsku osversion level: new_kusto_row_data_hwsku_osversion={} title={}".format(case_name_branch,
+                                                                                                                       json.dumps(new_kusto_row_data_hwsku_osversion['failure_level_info'], indent=4),
+                                                                                                                       new_kusto_row_data_hwsku_osversion['subject']))
                         kusto_table.append(new_kusto_row_data_hwsku_osversion)
+                        if new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] not in new_kusto_row_data_hwsku_osversion['subject'] \
+                            or new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'] not in new_kusto_row_data_hwsku_osversion['subject']:
+                            logger.error("{} hwsku osversion level: hwsku {} osversion {} mismatches title {}".format(case_name_branch,
+                                                                                                                      new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'],
+                                                                                                                      new_kusto_row_data_hwsku_osversion['failure_level_info']['osversion'],new_kusto_row_data_hwsku_osversion['subject']))
                     elif int(success_rate.split("%")[0]) == 100:
                         logger.debug("{} The success rate on hwsku_osversion {} is 100%, skip it.".format(
                             case_name_branch, hwsku_osversion))
@@ -1953,6 +2003,7 @@ class GeneralAnalyzer(BasicAnalyzer):
             if kusto_table:
                 logger.debug("{} Found {} IcMs. Not check hwsku_topo anymore.".format(
                     case_name_branch, len(kusto_table)))
+                logger.debug("{} found IcM: kusto_table={}".format(case_name_branch, json.dumps(kusto_table, indent=4)))
                 return kusto_table
             # # Step 6. Check hwsku_topo level for release branches
             # if branch in self.config_info["branch"]["released_branch"]:
