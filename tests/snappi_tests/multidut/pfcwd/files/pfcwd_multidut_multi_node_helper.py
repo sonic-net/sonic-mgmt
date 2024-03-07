@@ -6,7 +6,8 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
-    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time        # noqa: F401
+    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, \
+    sec_to_nanosec                                                                                # noqa: F401
 from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -14,10 +15,12 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
+WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 TEST_FLOW_NAME = 'Test Flow'
 TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
+WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
@@ -37,7 +40,7 @@ def run_pfcwd_multi_node_test(api,
                               pattern,
                               snappi_extra_params=None):
     """
-    Run PFC watchdog test in a multi-node (>=3) topoology
+    Run multidut PFC watchdog test in a multi-node (>=3) topoology
 
     Args:
         api (obj): SNAPPI session
@@ -45,7 +48,6 @@ def run_pfcwd_multi_node_test(api,
         port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        duthost (Ansible host instance): device under test
         dut_port (str): DUT port to test
         pause_prio_list (list): priorities to pause for PFC pause storm
         test_prio_list (list): priorities of test flows
@@ -76,10 +78,12 @@ def run_pfcwd_multi_node_test(api,
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
+
     start_pfcwd(duthost1, rx_port['asic_value'])
     enable_packet_aging(duthost1)
     start_pfcwd(duthost2, tx_port[0]['asic_value'])
     enable_packet_aging(duthost2)
+
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
     detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
                                             asic_value=rx_port['asic_value']) / 1000.0
@@ -234,6 +238,26 @@ def __gen_traffic(testbed_config,
         N/A
     """
 
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
+    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
+    warm_up_traffic_delay_sec = 0
+    warm_up_traffic_prio_list = test_flow_prio_list
+    warm_up_traffic_rate_percent = test_flow_rate_percent
+
+    """ Generate warm-up traffic """
+    __gen_data_flows(testbed_config=testbed_config,
+                     port_config_list=port_config_list,
+                     src_port_id_list=tx_port_id_list,
+                     dst_port_id_list=rx_port_id_list,
+                     flow_name_prefix=WARM_UP_TRAFFIC_NAME,
+                     flow_prio_list=warm_up_traffic_prio_list,
+                     flow_rate_percent=warm_up_traffic_rate_percent,
+                     flow_dur_sec=warm_up_traffic_dur_sec,
+                     flow_delay_sec=warm_up_traffic_delay_sec,
+                     data_pkt_size=data_pkt_size,
+                     prio_dscp_map=prio_dscp_map)
+
     """ Generate a PFC pause storm """
     pause_port_id = rx_port_id_list[0]
     __gen_pause_flow(testbed_config=testbed_config,
@@ -241,8 +265,10 @@ def __gen_traffic(testbed_config,
                      src_port_id=pause_port_id,
                      flow_name=pause_flow_name,
                      pause_prio_list=pause_prio_list,
-                     flow_dur_sec=pfc_storm_dur_sec)
+                     flow_dur_sec=pfc_storm_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR)
 
+    """ Generate test flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -251,9 +277,11 @@ def __gen_traffic(testbed_config,
                      flow_prio_list=test_flow_prio_list,
                      flow_rate_percent=test_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
 
+    """ Generate background flow traffic """
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id_list=tx_port_id_list,
@@ -262,6 +290,7 @@ def __gen_traffic(testbed_config,
                      flow_prio_list=bg_flow_prio_list,
                      flow_rate_percent=bg_flow_rate_percent,
                      flow_dur_sec=data_flow_dur_sec,
+                     flow_delay_sec=WARM_UP_TRAFFIC_DUR,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map)
 
@@ -274,6 +303,7 @@ def __gen_data_flows(testbed_config,
                      flow_prio_list,
                      flow_rate_percent,
                      flow_dur_sec,
+                     flow_delay_sec,
                      data_pkt_size,
                      prio_dscp_map):
     """
@@ -288,6 +318,7 @@ def __gen_data_flows(testbed_config,
         flow_prio_list (list): priorities of data flows
         flow_rate_percent (int): rate percentage for each flow
         flow_dur_sec (int): duration of each flow in second
+        flow_delay_sec (int): delay before starting pause flow in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
@@ -309,6 +340,7 @@ def __gen_data_flows(testbed_config,
                                 flow_prio=prio,
                                 flow_rate_percent=flow_rate_percent,
                                 flow_dur_sec=flow_dur_sec,
+                                flow_delay_sec=flow_delay_sec,
                                 data_pkt_size=data_pkt_size,
                                 prio_dscp_map=prio_dscp_map)
 
@@ -321,6 +353,7 @@ def __gen_data_flow(testbed_config,
                     flow_prio,
                     flow_rate_percent,
                     flow_dur_sec,
+                    flow_delay_sec,
                     data_pkt_size,
                     prio_dscp_map):
     """
@@ -335,6 +368,7 @@ def __gen_data_flow(testbed_config,
         flow_prio_list (list): priorities of the flow
         flow_rate_percent (int): rate percentage for the flow
         flow_dur_sec (int): duration of the flow in second
+        flow_delay_sec (int): delay before starting pause flow in second
         data_pkt_size (int): packet size of the flow in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
@@ -371,12 +405,14 @@ def __gen_data_flow(testbed_config,
     ipv4.dst.value = rx_port_config.ip
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio]
-    # ipv4.priority.dscp.ecn.value = (
-    #     ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+    ipv4.priority.dscp.ecn.value = (
+        ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
     flow.size.fixed = data_pkt_size
     flow.rate.percentage = flow_rate_percent
     flow.duration.fixed_seconds.seconds = flow_dur_sec
+    flow.duration.fixed_seconds.delay.nanoseconds = int(
+        sec_to_nanosec(flow_delay_sec))
 
     flow.metrics.enable = True
     flow.metrics.loss = True
@@ -387,7 +423,8 @@ def __gen_pause_flow(testbed_config,
                      src_port_id,
                      flow_name,
                      pause_prio_list,
-                     flow_dur_sec):
+                     flow_dur_sec,
+                     flow_delay_sec):
     """
     Generate the configuration for a PFC pause storm
 
@@ -398,6 +435,7 @@ def __gen_pause_flow(testbed_config,
         flow_name (str): flow' name
         pause_prio_list (list): priorities to pause for PFC frames
         flow_dur_sec (float): duration of the flow in second
+        flow_delay_sec (int): delay before starting pause flow in second
 
     Returns:
         N/A
@@ -444,6 +482,8 @@ def __gen_pause_flow(testbed_config,
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pkt_cnt)
     pause_flow.duration.fixed_packets.delay.nanoseconds = 0
+    pause_flow.duration.fixed_packets.delay.nanoseconds = int(
+        sec_to_nanosec(flow_delay_sec))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
