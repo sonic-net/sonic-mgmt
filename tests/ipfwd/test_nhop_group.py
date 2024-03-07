@@ -644,7 +644,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
-     td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
+    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
                          2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
                          4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
                          6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
