@@ -34,13 +34,17 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     asic_index = enum_rand_one_frontend_asic_index
 
     if duthost.is_multi_asic:
-        namespace = "-n " + duthost.get_namespace_from_asic_id(asic_index)
+        cli_options = "-n " + duthost.get_namespace_from_asic_id(asic_index)
     else:
-        namespace = ''
+        cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
     logger.info("Neighbor is: {}".format(neigh))
+    if neigh.is_multi_asic:
+        neigh_cli_options = "-n " + neigh.get_namespace_from_asic_id(asic_index)
+    else:
+        neigh_cli_options = ''
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
@@ -84,7 +88,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'neigh_asn': neigh_asn[neigh],
         'asn_dict':  neigh_asn,
         'neighbors': neighbors,
-        'namespace': namespace,
+        'cli_options': cli_options,
+        'neigh_cli_options': neigh_cli_options,
         'dut_ip_v4': dut_ip_v4,
         'dut_ip_v6': dut_ip_v6,
         'neigh_ip_v4': neigh_ip_v4,
@@ -156,7 +161,7 @@ def test_4_byte_asn_community(setup):
     -c "neighbor {} activate" \
     -c "maximum-paths 64" \
     -c "exit-address-family" \
-    '.format(setup['namespace'], setup['dut_asn'], dut_4byte_asn, setup['dut_bgp_id'],
+    '.format(setup['cli_options'], setup['dut_asn'], dut_4byte_asn, setup['dut_bgp_id'],
              setup['peer_group_v4'], setup['peer_group_v6'], setup['neigh_ip_v4'], neighbor_4byte_asn,
              setup['neigh_ip_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['neigh'], setup['neigh_ip_v4'],
              setup['neigh_ip_v4'], setup['neigh_ip_v6'], neighbor_4byte_asn, setup['neigh_ip_v6'],
@@ -166,7 +171,7 @@ def test_4_byte_asn_community(setup):
              setup['peer_group_v6'], setup['neigh_ip_v6'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
 
-    cmd = 'vtysh \
+    cmd = 'vtysh {}\
     -c "config" \
     -c "no router bgp {}" \
     -c "router bgp {}" \
@@ -203,7 +208,7 @@ def test_4_byte_asn_community(setup):
     -c "neighbor {} activate" \
     -c "maximum-paths 64" \
     -c "exit-address-family" \
-    '.format(setup['neigh_asn'], neighbor_4byte_asn, setup['neigh_bgp_id'],
+    '.format(setup['neigh_cli_options'], setup['neigh_asn'], neighbor_4byte_asn, setup['neigh_bgp_id'],
              setup['peer_group_v4'], setup['peer_group_v6'], setup['dut_ip_v4'], dut_4byte_asn, setup['dut_ip_v4'],
              setup['peer_group_v4'], setup['dut_ip_v4'], 'DUT', setup['dut_ip_v4'], setup['dut_ip_v4'],
              setup['dut_ip_v6'], dut_4byte_asn, setup['dut_ip_v6'], setup['peer_group_v6'], setup['dut_ip_v6'], 'DUT',
