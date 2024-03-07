@@ -1,1 +1,0 @@
-netdev_repo_ssh_key: "{{ secret_group_vars['sonic']['netdev_repo_ssh_key'] }}"
