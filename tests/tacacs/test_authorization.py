@@ -11,6 +11,9 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
 from .utils import check_server_received
+from tests.override_config_table.utilities import backup_config, restore_config, \
+        reload_minigraph_with_golden_config
+from tests.common.helpers.dut_utils import is_container_running
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -203,7 +206,6 @@ def test_authorization_tacacs_only(
         "show interfaces counters -a -p 3",
         "show ip bgp neighbor",
         "show ipv6 bgp neighbor",
-        "show feature status telemetry",
         "touch testfile",
         "chmod +w testfile",
         "echo \"test\" > testfile",
@@ -225,6 +227,14 @@ def test_authorization_tacacs_only(
         "configlet --help",
         "sonic-db-cli  CONFIG_DB HGET \"FEATURE|macsec\" state"
     ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    telemetry_is_running = is_container_running(duthost, 'telemetry')
+    gnmi_is_running = is_container_running(duthost, 'gnmi')
+    if not telemetry_is_running and gnmi_is_running:
+        commands.append("show feature status gnmi")
+    else:
+        commands.append("show feature status telemetry")
 
     for subcommand in commands:
         exit_code, stdout, stderr = ssh_run_command(remote_user_client, subcommand)
@@ -324,10 +334,10 @@ def test_authorization_tacacs_and_local(
     pytest_assert(exit_code == 1)
     check_ssh_output_any_of(stderr, ['Root privileges are required for this operation'])
 
-    # Verify TACACS+ user can run command not in server side whitelist, but have local permission.
+    # Verify TACACS+ user can't run command not in server side whitelist but have local permission.
     exit_code, stdout, stderr = ssh_run_command(remote_user_client, "cat /etc/passwd")
-    pytest_assert(exit_code == 0)
-    check_ssh_output_any_of(stdout, ['root:x:0:0:root:/root:/bin/bash'])
+    pytest_assert(exit_code == 1)
+    check_ssh_output_any_of(stdout, ['/usr/bin/cat authorize failed by TACACS+ with given arguments, not executing'])
 
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip
@@ -624,3 +634,57 @@ def test_stop_request_next_server_after_reject(
     # Remove second server IP
     duthost.shell("sudo config tacacs delete %s" % tacacs_server_ipv6)
     duthost.shell("sudo config tacacs timeout 5")
+
+
+def test_fallback_to_local_authorization_with_config_reload(
+                                    ptfhost,
+                                    duthosts,
+                                    enum_rand_one_per_hwsku_hostname,
+                                    tacacs_creds,
+                                    check_tacacs,
+                                    remote_user_client,
+                                    remote_rw_user_client):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    """
+        During load minigraph BGP service will shutdown and restart.
+        Verify still can run config save command with "tacacs+,local".
+    """
+    # Skip multi-asic because override_config format are different.
+    if duthost.is_multi_asic:
+        pytest.skip("Skip test_fallback_to_local_authorization_with_config_reload for multi-asic device")
+
+    #  Backup config before load minigraph
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
+    backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
+
+    # Reload minigraph with override per-command authorization to "tacacs+,local"
+    tacacs_server_ip = ptfhost.mgmt_ip
+    tacacs_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    override_config = {
+        "AAA": {
+            "authentication": {"login": "tacacs+"},
+            "accounting": {"login": "tacacs+,local"},
+            "authorization": {"login": "tacacs+,local"}
+        },
+        "TACPLUS": {
+            "global": {"auth_type": "login", "passkey": tacacs_passkey}
+        },
+        "TACPLUS_SERVER": {
+            tacacs_server_ip: {"priority": "60", "tcp_port": "49", "timeout": "2"}
+        }
+    }
+    reload_minigraph_with_golden_config(duthost, override_config)
+
+    # Shutdown tacacs server to simulate network unreachable because BGP shutdown
+    stop_tacacs_server(ptfhost)
+
+    # Test "sudo config save -y" can success after reload minigraph
+    exit_code, stdout, stderr = ssh_run_command(remote_rw_user_client, "sudo config save -y")
+    pytest_assert(exit_code == 0)
+
+    #  Cleanup UT.
+    start_tacacs_server(ptfhost)
+
+    #  Restore config after test finish
+    restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
