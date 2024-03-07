@@ -16,24 +16,19 @@ all:
       hosts:
         svc5-1:
           ansible_host: 10.206.144.253
-          ansible_hostv6: 2a01:111:e205:100::ace:90fd
 fanout:
   hosts:
     svcstr2-7260cx3-acs-2:
       ansible_host: 10.206.144.250
-      ansible_hostv6: 2a01:111:e205:100::ace:90fa
     svcstr2-7260cx3-acs-3:
       ansible_host: 10.206.144.251
-      ansible_hostv6: 2a01:111:e205:100::ace:90fb
     svcstr2-z9332f-01:
       ansible_host: 10.206.144.252
-      ansible_hostv6: 2a01:111:e205:100::ace:90fc
       os: sonic
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 23
-    mgmt_subnet_v6_mask_length: 64
   children:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
@@ -50,7 +45,6 @@ sonic_cisco_sup:
   hosts:
     svcstr2-8800-sup-1:
       ansible_host: 10.206.144.119
-      ansible_hostv6: 2a01:111:e205:100::ace:9077
       num_asics: 16
       asic_name: Q200
       serial: FOC2545N2CA
@@ -68,35 +62,35 @@ sonic_cisco_sup:
         "0x2D": "Cisco"
         "0xFE": "0x7B911756"
       skip_logical_modules:
-        'supervisor':
-        - SUPERVISOR1
-        'line-cards':
-        - LINE-CARD0
+          'supervisor':
+            - SUPERVISOR1
+          'line-cards':
+            - LINE-CARD0
       skip_modules:
-        'line-cards':
-        - LINE-CARD0
-        - LINE-CARD4
-        - LINE-CARD5
-        - LINE-CARD6
-        - LINE-CARD7
-        'fabric-cards':
-        - FABRIC-CARD1
-        - FABRIC-CARD3
-        - FABRIC-CARD7
-        'supervisor':
-        - SUPERVISOR1
-        'psus':
-        - psu3.0
-        - psu3.1
-        - psu3.2
-        - psu4.0
-        - psu4.1
-        - psu4.2
-        - psu5.0
-        - psu5.1
-        - psu5.2
-        'thermals':
-        - TEMPERATURE_INFO_2
+          'line-cards':
+            - LINE-CARD0
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'fabric-cards':
+            - FABRIC-CARD1
+            - FABRIC-CARD3
+            - FABRIC-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - psu3.0
+            - psu3.1
+            - psu3.2
+            - psu4.0
+            - psu4.1
+            - psu4.2
+            - psu5.0
+            - psu5.1
+            - psu5.2
+          'thermals':
+            - TEMPERATURE_INFO_2
       asics_present: [0,1,4,5,8,9,10,11,12,13]
       plt_reboot_dict:
         cold:
@@ -126,7 +120,6 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: 10.206.144.120
-      ansible_hostv6: 2a01:111:e205:100::ace:9078
       model: '88-LC0-36FH-M'
       base_mac: C4:4D:84:E0:D6:20
       serial: FOC2543P5E2
@@ -163,7 +156,6 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.12/32,3.3.3.13/32,3.3.3.14/32]
       loopback4096_ipv6: [2603:10e2:400::c/128,2603:10e2:400::d/128,2603:10e2:400::e/128]
       ansible_host: 10.206.144.123
-      ansible_hostv6: 2a01:111:e205:100::ace:907b
       model: '88-LC0-36FH-M'
       base_mac: CC:ED:4D:C6:E3:58
       serial: FOC2548N36J
@@ -200,7 +192,6 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
       ansible_host: 10.206.144.121
-      ansible_hostv6: 2a01:111:e205:100::ace:9079
       model: '88-LC0-36FH'
       base_mac: 50:49:21:63:17:80
       serial: FOC2624KGVU
@@ -237,7 +228,6 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
       loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
       ansible_host: 10.206.144.122
-      ansible_hostv6: 2a01:111:e205:100::ace:907a
       model: '88-LC0-36FH'
       base_mac: 50:49:21:3B:27:F0
       serial: FOC2629NXK2
@@ -270,5 +260,4 @@ server:
   hosts:
     svcstr2-server-5:
       ansible_host: 10.206.144.247
-      ansible_hostv6: 2a01:111:e205:100::ace:90f7
 

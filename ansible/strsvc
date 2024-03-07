@@ -16,19 +16,14 @@ all:
       hosts:
         svc1-1:
           ansible_host: 10.206.144.19
-          ansible_hostv6: 2a01:111:e205:100::ace:9013
         svc1-2:
           ansible_host: 10.206.144.20
-          ansible_hostv6: 2a01:111:e205:100::ace:9014
         svc1-3:
           ansible_host: 10.206.144.140
-          ansible_hostv6: 2a01:111:e205:100::ace:908c
         svc1-4:
           ansible_host: 10.206.144.142
-          ansible_hostv6: 2a01:111:e205:100::ace:908e
         svc3-1:
           ansible_host: 10.206.144.128
-          ansible_hostv6: 2a01:111:e205:100::ace:9080
     pdu:
       hosts:
         pdu-124:
@@ -48,33 +43,24 @@ fanout:
   hosts:
     svcstr-7260cx3-acs-1:
       ansible_host: 10.206.144.8
-      ansible_hostv6: 2a01:111:e205:100::ace:9008
     svcstr-7260cx3-acs-2:
       ansible_host: 10.206.144.9
-      ansible_hostv6: 2a01:111:e205:100::ace:9009
     svcstr-7260cx3-acs-3:
       ansible_host: 10.206.144.10
-      ansible_hostv6: 2a01:111:e205:100::ace:900a
     svcstr-7260cx3-acs-6:
       ansible_host: 10.206.144.135
-      ansible_hostv6: 2a01:111:e205:100::ace:9087
     svcstr-7260cx3-acs-7:
       ansible_host: 10.206.144.136
-      ansible_hostv6: 2a01:111:e205:100::ace:9088
     svcstr-7260cx3-acs-8:
       ansible_host: 10.206.144.137
-      ansible_hostv6: 2a01:111:e205:100::ace:9089
     svcstr-7260cx3-acs-11:
       ansible_host: 10.206.144.129
-      ansible_hostv6: 2a01:111:e205:100::ace:9081
     svcstr-7260cx3-acs-12:
       ansible_host: 10.206.144.130
-      ansible_hostv6: 2a01:111:e205:100::ace:9082
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 24
-    mgmt_subnet_v6_mask_length: 64
   children:
     sonic_nexus_3164:
     sonic_arista:
@@ -90,7 +76,6 @@ sonic_nexus_3164:
   hosts:
     svcstr-n3164-acs-1:
       ansible_host: 10.206.144.15
-      ansible_hostv6: 2a01:111:e205:100::ace:900f
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
       model: 73-16477-04
@@ -98,7 +83,6 @@ sonic_nexus_3164:
       base_mac: 70:0f:6a:61:01:40
     svcstr-n3164-acs-2:
       ansible_host: 10.206.144.14
-      ansible_hostv6: 2a01:111:e205:100::ace:900e
       num_asics: 6
       frontend_asics: [0, 1, 2, 3]
 
@@ -108,7 +92,6 @@ sonic_arista:
   hosts:
     svcstr-7050-acs-1:
       ansible_host: 10.206.144.131
-      ansible_hostv6: 2a01:111:e205:100::ace:9083
       hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21131230
@@ -127,7 +110,6 @@ sonic_arista:
         "0x2F": "JPE21131230"
     svcstr-7050-acs-2:
       ansible_host: 10.206.144.132
-      ansible_hostv6: 2a01:111:e205:100::ace:9084
       hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21131315
@@ -146,7 +128,6 @@ sonic_arista:
         "0x2F": "JPE21131315"
     svcstr-7050-acs-3:
       ansible_host: 10.206.144.133
-      ansible_hostv6: 2a01:111:e205:100::ace:9085
       hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21130688
@@ -165,7 +146,6 @@ sonic_arista:
         "0x2F": "JPE21130688"
     svcstr-7050-acs-4:
       ansible_host: 10.206.144.134
-      ansible_hostv6: 2a01:111:e205:100::ace:9086
       hwsku: Arista-7050CX3-32S-C32
       model: DCS-7050CX3-32S-SSD
       serial: JPE21131246
@@ -205,7 +185,6 @@ sonic_nokia_lc_100G:
       serial: NS222464260
       base_mac:  18:5b:00:50:6b:fe
       ansible_host: 10.206.144.145
-      ansible_hostv6: 2a01:111:e205:100::ace:9091
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
@@ -228,7 +207,6 @@ sonic_nokia_lc_100G:
       serial: NS222464263
       base_mac: 18:5b:00:50:6c:08
       ansible_host: 10.206.144.146
-      ansible_hostv6: 2a01:111:e205:100::ace:9092
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
@@ -251,7 +229,6 @@ sonic_nokia_lc_100G:
       serial: NS222464270
       base_mac: 18:5B:00:50:6B:FC
       ansible_host: 10.206.144.147
-      ansible_hostv6: 2a01:111:e205:100::ace:9093
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
@@ -278,7 +255,6 @@ sonic_nokia_sup:
   hosts:
     svcstr-7250-sup-1:
       ansible_host: 10.206.144.144
-      ansible_hostv6: 2a01:111:e205:100::ace:9090
       hwsku: Nokia-IXR7250E-SUP-10
       model: '3HE16996AARA01'
       serial: NS221860685
@@ -293,30 +269,27 @@ sonic_nokia_sup:
         "0x2A": "5"
         "0xFE": "0x7DA4DF3A"
       skip_modules:
-        'line-cards':
-        - LINE-CARD3
-        - LINE-CARD4
-        - LINE-CARD5
-        - LINE-CARD6
-        - LINE-CARD7
-        'supervisor':
-        - SUPERVISOR1
-        'psus':
-        - PSU8
-        - PSU9
-        - PSU10
-        - PSU11
-        - PSU12
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
       asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 server:
   hosts:
     svcstr-server-1:
       ansible_host: 10.206.144.7
-      ansible_hostv6: 2a01:111:e205:100::ace:9007
     svcstr-server-2:
       ansible_host: 10.206.144.18
-      ansible_hostv6: 2a01:111:e205:100::ace:9012
     svcstr-server-3:
       ansible_host: 10.206.144.149
-      ansible_hostv6: 2a01:111:e205:100::ace:9095

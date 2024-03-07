@@ -18,76 +18,52 @@ all:
         # Please order the followng ptf hosts by IP address
         bjw6-1:
           ansible_host: 10.150.23.50
-          ansible_hostv6: 2404:f801:10:2200::a96:1732
         bjw16-1:
           ansible_host: 10.150.23.51
-          ansible_hostv6: 2404:f801:10:2200::a96:1733
         bjw13-1:
           ansible_host: 10.150.23.52
-          ansible_hostv6: 2404:f801:10:2200::a96:1734
         bjw13-2:
           ansible_host: 10.150.23.53
-          ansible_hostv6: 2404:f801:10:2200::a96:1735
         bjw6-5:
           ansible_host: 10.150.23.54
-          ansible_hostv6: 2404:f801:10:2200::a96:1736
         bjw6-6:
           ansible_host: 10.150.23.55
-          ansible_hostv6: 2404:f801:10:2200::a96:1737
         bjw6-7:
           ansible_host: 10.150.23.56
-          ansible_hostv6: 2404:f801:10:2200::a96:1738
         bjw6-8:
           ansible_host: 10.150.23.57
-          ansible_hostv6: 2404:f801:10:2200::a96:1739
         bjw6-9:
           ansible_host: 10.150.23.58
-          ansible_hostv6: 2404:f801:10:2200::a96:173a
         bjw12-3:
           ansible_host: 10.150.23.59
-          ansible_hostv6: 2404:f801:10:2200::a96:173b
         bjw6-11:
           ansible_host: 10.150.23.60
-          ansible_hostv6: 2404:f801:10:2200::a96:173c
         bjw12-1:
           ansible_host: 10.150.23.61
-          ansible_hostv6: 2404:f801:10:2200::a96:173d
         bjw12-2:
           ansible_host: 10.150.23.62
-          ansible_hostv6: 2404:f801:10:2200::a96:173e
         bjw7-1:
           ansible_host: 10.150.23.63
-          ansible_hostv6: 2404:f801:10:2200::a96:173f
         bjw7-4:
           ansible_host: 10.150.23.64
-          ansible_hostv6: 2404:f801:10:2200::a96:1740
         bjw7-5:
           ansible_host: 10.150.23.65
-          ansible_hostv6: 2404:f801:10:2200::a96:1741
         bjw16-3:
           ansible_host: 10.150.23.66
-          ansible_hostv6: 2404:f801:10:2200::a96:1742
         bjw7-7:
           ansible_host: 10.150.23.67
-          ansible_hostv6: 2404:f801:10:2200::a96:1743
         bjw7-8:
           ansible_host: 10.150.23.68
-          ansible_hostv6: 2404:f801:10:2200::a96:1744
         bjw7-9:
           ansible_host: 10.150.23.69
-          ansible_hostv6: 2404:f801:10:2200::a96:1745
         bjw14-1:
           ansible_host: 10.150.23.70
-          ansible_hostv6: 2404:f801:10:2200::a96:1746
         bjw13-3:
           ansible_host: 10.150.23.71
-          ansible_hostv6: 2404:f801:10:2200::a96:1747
         bjw13-4:
           ansible_host: 10.150.23.72
-          ansible_hostv6: 2404:f801:10:2200::a96:1748
         bjw13-5:
           ansible_host: 10.150.23.73
-          ansible_hostv6: 2404:f801:10:2200::a96:1749
 
     pdu:
       hosts:
@@ -126,127 +102,95 @@ fanout:
   hosts:
     bjw-can-7260-root-1:
       ansible_host: 10.150.22.20
-      ansible_hostv6: 2404:f801:10:2200::a96:1614
     bjw-can-7060-fanout-1:
       ansible_host: 10.150.22.30
-      ansible_hostv6: 2404:f801:10:2200::a96:161e
     bjw-can-z9332f-1:
       ansible_host: 10.150.22.108
-      ansible_hostv6: 2404:f801:10:2200::a96:166c
       os: sonic
     bjw-can-z9332f-2:
       ansible_host: 10.150.22.120
-      ansible_hostv6: 2404:f801:10:2200::a96:1678
       os: sonic
     bjw-can-z9332f-3:
       ansible_host: 10.150.22.126
-      ansible_hostv6: 2404:f801:10:2200::a96:167e
       os: sonic
     bjw-slx-can-4:
       ansible_host: 10.150.22.107
-      ansible_hostv6: 2404:f801:10:2200::a96:166b
       os: sonic
     bjw-can-slx-5:
       ansible_host: 10.150.22.100
-      ansible_hostv6: 2404:f801:10:2200::a96:1664
       os: sonic
     bjw-can-slx-6:
       ansible_host: 10.150.22.114
-      ansible_hostv6: 2404:f801:10:2200::a96:1672
       os: sonic
     bjw-can-slx-7:
       ansible_host: 10.150.22.116
-      ansible_hostv6: 2404:f801:10:2200::a96:1674
       os: sonic
     bjw-can-slx-8:
       ansible_host: 10.150.22.118
-      ansible_hostv6: 2404:f801:10:2200::a96:1676
       os: sonic
     bjw-can-7215-2:
       ansible_host: 10.150.22.111
-      ansible_hostv6: 2404:f801:10:2200::a96:166f
       os: sonic
     bjw-can-7215-3:
       ansible_host: 10.150.22.103
-      ansible_hostv6: 2404:f801:10:2200::a96:1667
       os: sonic
     bjw-can-7215-4:
       ansible_host: 10.150.22.102
-      ansible_hostv6: 2404:f801:10:2200::a96:1666
       os: sonic
     bjw-can-7215-5:
       ansible_host: 10.150.22.122
-      ansible_hostv6: 2404:f801:10:2200::a96:167a
       os: sonic
     bjw-can-7215-7:
       ansible_host: 10.150.22.123
-      ansible_hostv6: 2404:f801:10:2200::a96:167b
       os: sonic
     bjw-can-7215-8:
       ansible_host: 10.150.22.130
-      ansible_hostv6: 2404:f801:10:2200::a96:1682
       os: sonic
     bjw-can-7215-12:
       ansible_host: 10.150.22.133
-      ansible_hostv6: 2404:f801:10:2200::a96:1685
       os: sonic
     bjw-can-7215-13:
       ansible_host: 10.150.22.132
-      ansible_hostv6: 2404:f801:10:2200::a96:1684
       os: sonic
     bjw-can-z9332f-5:
       ansible_host: 10.150.22.141
-      ansible_hostv6: 2404:f801:10:2200::a96:168d
       os: sonic
     bjw-can-z9332f-6:
       ansible_host: 10.150.22.142
-      ansible_hostv6: 2404:f801:10:2200::a96:168e
       os: sonic
     bjw-can-z9332f-7:
       ansible_host: 10.150.22.143
-      ansible_hostv6: 2404:f801:10:2200::a96:168f
       os: sonic
     bjw-slx-can-1:
       ansible_host: 10.150.22.104
-      ansible_hostv6: 2404:f801:10:2200::a96:1668
       os: sonic
     bjw-can-7260-1:
       ansible_host: 10.150.22.147
-      ansible_hostv6: 2404:f801:10:2200::a96:1693
       # serial: JPA2311P515  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-2:
       ansible_host: 10.150.22.148
-      ansible_hostv6: 2404:f801:10:2200::a96:1694
       # serial: JPA2312P0FV  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-3:
       ansible_host: 10.150.22.149
-      ansible_hostv6: 2404:f801:10:2200::a96:1695
       # serial: JPA2311P511  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-4:
       ansible_host: 10.150.22.150
-      ansible_hostv6: 2404:f801:10:2200::a96:1696
       # serial: JPA22392925  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-5:
       ansible_host: 10.150.22.151
-      ansible_hostv6: 2404:f801:10:2200::a96:1697
       # serial: FGN230403RD  # record on physical device, DO NOT MODIFY THIS VALUE.
     bjw-can-7260-6:
       ansible_host: 10.150.22.152
-      ansible_hostv6: 2404:f801:10:2200::a96:1698
     bjw-can-7260-7:
       ansible_host: 10.150.22.127
-      ansible_hostv6: 2404:f801:10:2200::a96:167f
     bjw-can-7260-9:
       ansible_host: 10.150.22.155
-      ansible_hostv6: 2404:f801:10:2200::a96:169b
     bjw-can-7260-10:
       ansible_host: 10.150.22.156
-      ansible_hostv6: 2404:f801:10:2200::a96:169c
 
 sonic:
   vars:
     mgmt_subnet_mask_length: 23
-    mgmt_subnet_v6_mask_length: 52
   children:
     sonic_arista_7050qx_32s_q32:
     sonic_arista_7050qx_32s_s4q31:
@@ -271,7 +215,6 @@ sonic_arista_7050qx_32s_q32:
   hosts:
     bjw-can-7050qx-1:
       ansible_host: 10.150.22.117
-      ansible_hostv6: 2404:f801:10:2200::a96:1675
       hwsku: Arista-7050QX32S-Q32
       model: DCS-7050QX-32S
       serial: JPE18402553
@@ -300,7 +243,6 @@ sonic_arista_7050qx_32s_s4q31:
   hosts:
     bjw-can-7050qx-2:
       ansible_host: 10.150.22.119
-      ansible_hostv6: 2404:f801:10:2200::a96:1677
       hwsku: Arista-7050-QX-32S
       model: DCS-7050QX-32S
       serial: SSJ18381373
@@ -323,7 +265,6 @@ sonic_arista_7050qx_32s_s4q31:
         "0xFE": "0xdeadbeef"
     bjw-can-7050qx-3:
       ansible_host: 10.150.22.121
-      ansible_hostv6: 2404:f801:10:2200::a96:1679
       hwsku: Arista-7050-QX-32S
       model: DCS-7050QX-32S
       serial: JPA22421574
@@ -352,7 +293,6 @@ sonic_arista_720dt:
   hosts:
     bjw-can-720dt-1:
       ansible_host: 10.150.22.112
-      ansible_hostv6: 2404:f801:10:2200::a96:1670
       model: CCS-720DT-48S
       serial: WTW22180040
       base_mac: 2c:dd:e9:fc:df:08
@@ -374,7 +314,6 @@ sonic_arista_720dt:
         "0xFE": "0xdeadbeef"
     bjw-can-720dt-2:
       ansible_host: 10.150.22.113
-      ansible_hostv6: 2404:f801:10:2200::a96:1671
       model: CCS-720DT-48S
       serial: WTW22180032
       base_mac: 2c:dd:e9:fc:dd:58
@@ -396,7 +335,6 @@ sonic_arista_720dt:
         "0xFE": "0xdeadbeef"
     bjw-can-720dt-3:
       ansible_host: 10.150.22.129
-      ansible_hostv6: 2404:f801:10:2200::a96:1681
       model: CCS-720DT-48S-2F
       serial: WTW22420909
       base_mac: c0:69:11:b3:07:ec
@@ -418,7 +356,6 @@ sonic_arista_720dt:
         "0xFE": "0xdeadbeef"
     bjw-can-720dt-4:
       ansible_host: 10.150.22.131
-      ansible_hostv6: 2404:f801:10:2200::a96:1683
       model: CCS-720DT-48S-2F
       serial: WTW22420720
       base_mac: c0:69:11:b2:e0:0e
@@ -447,7 +384,6 @@ sonic_celestica_dx010:
   hosts:
     bjw-slx-can-3:
       ansible_host: 10.150.22.106
-      ansible_hostv6: 2404:f801:10:2200::a96:166a
       model: R0872-F0020-01
       serial: DX010B2F019723BY200005
       base_mac: 00:E0:EC:E7:6A:68
@@ -476,7 +412,6 @@ sonic_intel_ec9516:
   hosts:
     bjw-can-ec9516-1:
       ansible_host: 10.150.22.109
-      ansible_hostv6: 2404:f801:10:2200::a96:166d
       model: NP5ZZ8632007A
       serial: 9516D2208035
       base_mac: 98:19:2c:12:33:ed
@@ -498,7 +433,6 @@ sonic_mlnx_sn2700:
   hosts:
     bjw-can-2700-1:
       ansible_host: 10.150.22.101
-      ansible_hostv6: 2404:f801:10:2200::a96:1665
       model: MSN2700-CS2FOS
       serial: MT1849X08805
       base_mac: 98:03:9B:F5:FF:80
@@ -516,7 +450,6 @@ sonic_mlnx_sn2700:
         "0xfe": "0x1619F9E1"
     bjw-can-2700-2:
       ansible_host: 10.150.22.115
-      ansible_hostv6: 2404:f801:10:2200::a96:1673
       model: MSN2700-CS2FOS
       serial: MT1849X08811
       base_mac: 98:03:9B:F6:02:80
@@ -534,7 +467,6 @@ sonic_mlnx_sn2700:
         "0xfe": "0x05D17C32"
     bjw-can-2700-3:
       ansible_host: 10.150.22.139
-      ansible_hostv6: 2404:f801:10:2200::a96:168b
       model: MSN2700-CS2ROS
       serial: MT2302J00192
       base_mac: 9C:05:91:58:F2:00
@@ -552,7 +484,6 @@ sonic_mlnx_sn2700:
         "0xfe": "0x55EBE5E5"
     bjw-can-2700-4:
       ansible_host: 10.150.22.140
-      ansible_hostv6: 2404:f801:10:2200::a96:168c
       model: MSN2700-CS2ROS
       serial: MT2301T007UT
       base_mac: 9C:05:91:57:B3:00
@@ -575,7 +506,6 @@ sonic_nokia_7215:
   hosts:
     bjw-can-7215-1:
       ansible_host: 10.150.22.110
-      ansible_hostv6: 2404:f801:10:2200::a96:166e
       hwsku: Nokia-M0-7215
       model: 3HE16794AARD01
       serial: NK222413040
@@ -594,7 +524,6 @@ sonic_nokia_7215:
         "0xFE": "0xF02FB771"
     bjw-can-7215-6:
       ansible_host: 10.150.22.124
-      ansible_hostv6: 2404:f801:10:2200::a96:167c
       hwsku: Nokia-M0-7215
       model: 3HE16794AARD01
       serial: NK223210818
@@ -613,7 +542,6 @@ sonic_nokia_7215:
         "0xFE": "0x83B269BF"
     bjw-can-7215-11:
       ansible_host: 10.150.22.134
-      ansible_hostv6: 2404:f801:10:2200::a96:1686
       hwsku: Nokia-7215
       model: 3HE16794AARC01
       serial: NK221912728
@@ -638,7 +566,6 @@ sonic_e1031:
   hosts:
     bjw-can-e1031-1:
       ansible_host: 10.150.22.125
-      ansible_hostv6: 2404:f801:10:2200::a96:167d
       model: R0882-F4111-02
       serial: R0882F2B062829BY200241  # record on physical device, DO NOT MODIFY THIS VALUE.
       base_mac: 34:AD:61:F4:D5:76
@@ -671,7 +598,6 @@ sonic_cisco_8102:
   hosts:
     bjw-can-8102-1:
       ansible_host: 10.150.22.128
-      ansible_hostv6: 2404:f801:10:2200::a96:1680
       model: 8102-64H-O
       serial: FLM2628VDTP
       base_mac: F8:E5:7E:5A:AA:64
@@ -695,7 +621,6 @@ sonic_mlnx_sn3800:
   hosts:
     bjw-can-3800-1:
       ansible_host: 10.150.22.135
-      ansible_hostv6: 2404:f801:10:2200::a96:1687
       model: MSN3800-CS2ROS
       serial: MT2228X04010
       base_mac: 90:0A:84:94:9C:00
@@ -712,7 +637,6 @@ sonic_mlnx_sn3800:
         "0xFE": "0xC12E2792"
     bjw-can-3800-2:
       ansible_host: 10.150.22.136
-      ansible_hostv6: 2404:f801:10:2200::a96:1688
       # todo
 
 sonic_mlnx_sn4600c:
@@ -722,7 +646,6 @@ sonic_mlnx_sn4600c:
   hosts:
     bjw-can-4600c-1:
       ansible_host: 10.150.22.137
-      ansible_hostv6: 2404:f801:10:2200::a96:1689
       model: MSN4600-CS2ROS
       serial: MT2242T00NZ7
       base_mac: 9C:05:91:12:D0:00
@@ -739,7 +662,6 @@ sonic_mlnx_sn4600c:
         "0xFE": "0x4D23FBB2"
     bjw-can-4600c-2:
       ansible_host: 10.150.22.138
-      ansible_hostv6: 2404:f801:10:2200::a96:168a
       # todo
 
 sonic_nokia_sup:
@@ -758,7 +680,6 @@ sonic_nokia_sup:
   hosts:
     bjw-can-7250-sup-1:
       ansible_host: 10.150.22.144
-      ansible_hostv6: 2404:f801:10:2200::a96:1690
       hwsku: Nokia-IXR7250E-SUP-10
       model: '3HE16996AARA01'
       serial: NS225262106
@@ -773,20 +694,20 @@ sonic_nokia_sup:
         "0x2A": "5"
         "0xFE": "0xD37D218D"
       skip_modules:
-        'line-cards':
-        - LINE-CARD3
-        - LINE-CARD4
-        - LINE-CARD5
-        - LINE-CARD6
-        - LINE-CARD7
-        'supervisor':
-        - SUPERVISOR1
-        'psus':
-        - PSU8
-        - PSU9
-        - PSU10
-        - PSU11
-        - PSU12
+          'line-cards':
+            - LINE-CARD3
+            - LINE-CARD4
+            - LINE-CARD5
+            - LINE-CARD6
+            - LINE-CARD7
+          'supervisor':
+            - SUPERVISOR1
+          'psus':
+            - PSU8
+            - PSU9
+            - PSU10
+            - PSU11
+            - PSU12
       asics_present: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
 
 sonic_nokia_lc_400G:
@@ -811,7 +732,6 @@ sonic_nokia_lc_400G:
       serial: 19688-0038
       base_mac:  40:7C:7D:BB:26:0B
       ansible_host: 10.150.22.145
-      ansible_hostv6: 2404:f801:10:2200::a96:1691
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
@@ -834,7 +754,6 @@ sonic_nokia_lc_400G:
       serial: 19688-0041
       base_mac:  40:7C:7D:BB:26:1D
       ansible_host: 10.150.22.146
-      ansible_hostv6: 2404:f801:10:2200::a96:1692
       model: '3HE12578AARA01'
       syseeprom_info:
         "0x21": "Nokia-IXR7250E-36x400G"
@@ -846,7 +765,6 @@ sonic_arista_a7280cr3_c40:
   hosts:
     bjw-can-a7280cr3-1:
       ansible_host: 10.150.22.153
-      ansible_hostv6: 2404:f801:10:2200::a96:1699
       hwsku: Arista-7280CR3-C40
       model: DCS-7280CR3MK-32D4S
       serial: JPA2318P0L5
@@ -870,7 +788,6 @@ sonic_arista_7260cx3:
   hosts:
     bjw-can-7260-8:
       ansible_host: 10.150.22.154
-      ansible_hostv6: 2404:f801:10:2200::a96:169a
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
       serial: JPA2250P2QM
@@ -889,7 +806,6 @@ sonic_arista_7260cx3:
         "0x2F": "JPA2250P2QM"
     bjw-can-7260-11:
       ansible_host: 10.150.22.157
-      ansible_hostv6: 2404:f801:10:2200::a96:169d
       hwsku: Arista-7260CX3-D108C8
       model: DCS-7260CX3-64
       serial: JPA22391787
@@ -913,69 +829,49 @@ server:
   hosts:
     bjw-can-serv-1:
       ansible_host: 10.150.22.222
-      ansible_hostv6: 2404:f801:10:2200::a96:16de
     bjw-can-serv-2:
       ansible_host: 10.150.22.223
-      ansible_hostv6: 2404:f801:10:2200::a96:16df
     bjw-can-serv-3:
       ansible_host: 10.150.22.224
-      ansible_hostv6: 2404:f801:10:2200::a96:16e0
     bjw-can-serv-4:
       ansible_host: 10.150.22.225
-      ansible_hostv6: 2404:f801:10:2200::a96:16e1
     bjw-can-serv-5:
       ansible_host: 10.150.22.226
-      ansible_hostv6: 2404:f801:10:2200::a96:16e2
     bjw-can-serv-6:
       ansible_host: 10.150.22.227
-      ansible_hostv6: 2404:f801:10:2200::a96:16e3
     bjw-can-serv-7:
       ansible_host: 10.150.22.228
-      ansible_hostv6: 2404:f801:10:2200::a96:16e4
     bjw-can-serv-8:
       ansible_host: 10.150.22.229
-      ansible_hostv6: 2404:f801:10:2200::a96:16e5
     bjw-can-serv-9:
       ansible_host: 10.150.22.230
-      ansible_hostv6: 2404:f801:10:2200::a96:16e6
     bjw-can-serv-10:
       ansible_host: 10.150.22.231
-      ansible_hostv6: 2404:f801:10:2200::a96:16e7
     bjw-can-serv-11:
       ansible_host: 10.150.22.232
-      ansible_hostv6: 2404:f801:10:2200::a96:16e8
     bjw-can-serv-12:
       ansible_host: 10.150.22.233
-      ansible_hostv6: 2404:f801:10:2200::a96:16e9
     bjw-can-serv-13:
       ansible_host: 10.150.22.234
-      ansible_hostv6: 2404:f801:10:2200::a96:16ea
     bjw-can-serv-14:
       ansible_host: 10.150.22.235
-      ansible_hostv6: 2404:f801:10:2200::a96:16eb
     bjw-can-serv-15:
       ansible_host: 10.150.22.236
-      ansible_hostv6: 2404:f801:10:2200::a96:16ec
     bjw-can-serv-16:
       ansible_host: 10.150.22.237
-      ansible_hostv6: 2404:f801:10:2200::a96:16ed
 
 mgmt:
   hosts:
     bjw-can-7215-9:
       ansible_host: 10.150.22.11
-      ansible_hostv6: 2404:f801:10:2200::a96:160b
       os: sonic
     bjw-can-7215-10:
       ansible_host: 10.150.22.10
-      ansible_hostv6: 2404:f801:10:2200::a96:160a
       os: sonic
     bjw-can-4kts-1:
       ansible_host: 10.150.22.12
-      ansible_hostv6: 2404:f801:10:2200::a96:160c
     bjw-can-e1031-2:
       ansible_host: 10.150.22.13
-      ansible_hostv6: 2404:f801:10:2200::a96:160d
       os: sonic
       # serial: R0882F2B010212BY200002  # record on physical device, DO NOT MODIFY THIS VALUE.
       # serial of C0: C1010NNN053202BY200006  # record on physical device, DO NOT MODIFY THIS VALUE.
