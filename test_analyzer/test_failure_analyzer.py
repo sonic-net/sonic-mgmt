@@ -34,7 +34,7 @@ except ImportError:
 
 logging.basicConfig(
     stream=sys.stdout,
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s :%(name)s:%(lineno)d %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -1878,7 +1878,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         new_kusto_row_data_asic['subject'] = "[" + module_path + \
                             "][" + case_name + "][" + \
                             branch + "][" + asic + "]"
-                    logger.info("{} asic level: new_kusto_row_data_asic={} title={}".format(case_name_branch,
+                    logger.debug("{} asic level: new_kusto_row_data_asic={} title={}".format(case_name_branch,
                                                                                              json.dumps(new_kusto_row_data_asic['failure_level_info'], indent=4),
                                                                                              new_kusto_row_data_asic['subject']))
                     kusto_table.append(new_kusto_row_data_asic)
@@ -1929,7 +1929,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                             new_kusto_row_data_hwsku['subject'] = "[" + module_path + "][" + case_name + \
                                 "][" + branch + "][" + \
                                 asic + "][" + hwsku + "]"
-                        logger.info("{} hwsku level: new_kusto_row_data_hwsku={} title={}".format(case_name_branch,
+                        logger.debug("{} hwsku level: new_kusto_row_data_hwsku={} title={}".format(case_name_branch,
                                                                                                     json.dumps(new_kusto_row_data_hwsku['failure_level_info'], indent=4),
                                                                                                     new_kusto_row_data_hwsku['subject']))
                         kusto_table.append(new_kusto_row_data_hwsku)
@@ -1987,7 +1987,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                             new_kusto_row_data_hwsku_osversion['subject'] = "[" + module_path + \
                                 "][" + case_name + "][" + branch + \
                                 "][" + hwsku_osversion + "]"
-                        logger.info("{} hwsku osversion level: new_kusto_row_data_hwsku_osversion={} title={}".format(case_name_branch,
+                        logger.debug("{} hwsku osversion level: new_kusto_row_data_hwsku_osversion={} title={}".format(case_name_branch,
                                                                                                                        json.dumps(new_kusto_row_data_hwsku_osversion['failure_level_info'], indent=4),
                                                                                                                        new_kusto_row_data_hwsku_osversion['subject']))
                         kusto_table.append(new_kusto_row_data_hwsku_osversion)
