@@ -20,6 +20,7 @@ from ptf.testutils import (ptf_ports,
                            simple_qinq_tcp_packet,
                            simple_ip_packet,
                            simple_ipv4ip_packet,
+                           simple_ipv6ip_packet,
                            hex_dump_buffer,
                            verify_packet_any_port)
 from ptf.mask import Mask
@@ -277,37 +278,60 @@ def construct_ip_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan, 
     ip_id = kwargs.get('ip_id', None)
     ttl = kwargs.get('ttl', None)
     exp_pkt = kwargs.get('exp_pkt', False)
+    ipv6 = kwargs.get('ipv6', False)
 
     tos = (dscp << 2) | ecn
     pkt_args = {
         'pktlen': pkt_len,
         'eth_dst': dst_mac,
         'eth_src': src_mac,
-        'ip_src': src_ip,
-        'ip_dst': dst_ip,
-        'ip_tos': tos
     }
-    if ip_id is not None:
+
+    if ipv6:
+        pkt_args.update({
+            'ipv6_src': src_ip,
+            'ipv6_dst': dst_ip,
+            'ipv6_dscp': dscp,
+            'ipv6_ecn': ecn
+        })
+    else:
+        pkt_args.update({
+            'ip_src': src_ip,
+            'ip_dst': dst_ip,
+            'ip_tos': tos
+        })
+
+    if ip_id is not None and not ipv6:
         pkt_args['ip_id'] = ip_id
 
     if ttl is not None:
-        pkt_args['ip_ttl'] = ttl
+        if ipv6:
+            pkt_args['ipv6_hlim'] = ttl
+        else:
+            pkt_args['ip_ttl'] = ttl
 
     if src_vlan is not None:
         pkt_args['dl_vlan_enable'] = True
         pkt_args['vlan_vid'] = int(src_vlan)
         pkt_args['vlan_pcp'] = dscp
 
-    pkt = simple_ip_packet(**pkt_args)
+    if ipv6:
+        pkt = simple_ipv6ip_packet(**pkt_args)
+    else:
+        pkt = simple_ip_packet(**pkt_args)
 
     if exp_pkt:
         masked_exp_pkt = Mask(pkt, ignore_extra_bytes=True)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
-        masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
+        if ipv6:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        else:
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "ttl")
+            masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "len")
+
         if src_vlan is not None:
             masked_exp_pkt.set_do_not_care_scapy(scapy.Dot1Q, "vlan")
         return masked_exp_pkt
@@ -334,11 +358,11 @@ def construct_arp_pkt(eth_dst, eth_src, arp_op, src_ip, dst_ip, hw_dst, src_vlan
     return pkt
 
 
-def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vlan=None):
+def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vlan=None, ipv6=False):
     ip_id = 0xBABE
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
-    pkt = construct_ip_pkt(64, dst_mac, src_port_mac,
-                           src_ip, dst_ip, 0, src_vlan, ip_id=ip_id)
+    pkt = construct_ip_pkt(64, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, ipv6=ipv6)
+
     # Send initial packet for any potential ARP resolution, which may cause the LAG
     # destination to change. Can occur especially when running tests in isolation on a
     # first test attempt.
@@ -348,7 +372,7 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
     send_packet(dp, src_port_id, pkt, 1)
 
     masked_exp_pkt = construct_ip_pkt(
-        48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, exp_pkt=True)
+        48, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan, ip_id=ip_id, ipv6=ipv6, exp_pkt=True)
 
     pre_result = dp.dataplane.poll(
         device_number=0, exp_pkt=masked_exp_pkt, timeout=3)
@@ -635,6 +659,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         dual_tor = self.test_params.get('dual_tor', None)
         leaf_downstream = self.test_params.get('leaf_downstream', None)
         asic_type = self.test_params['sonic_asic_type']
+        ipv6 = self.test_params.get('ipv6', False)
         exp_ip_id = 101
         exp_ttl = 63
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
@@ -644,7 +669,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         # in case dst_port_id is part of LAG, find out the actual dst port
         # for given IP parameters
         dst_port_id = get_rx_port(
-            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, ipv6=ipv6
         )
         print("actual dst_port_id: %d" % (dst_port_id), file=sys.stderr)
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
@@ -677,14 +702,24 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
             for dscp in range(0, 64):
                 tos = (dscp << 2)
                 tos |= 1
-                pkt = simple_ip_packet(pktlen=64,
-                                       eth_dst=pkt_dst_mac,
-                                       eth_src=src_port_mac,
-                                       ip_src=src_port_ip,
-                                       ip_dst=dst_port_ip,
-                                       ip_tos=tos,
-                                       ip_id=exp_ip_id,
-                                       ip_ttl=ip_ttl)
+
+                if ipv6:
+                    pkt = simple_ipv6ip_packet(pktlen=64,
+                                               eth_dst=pkt_dst_mac,
+                                               eth_src=src_port_mac,
+                                               ipv6_src=src_port_ip,
+                                               ipv6_dst=dst_port_ip,
+                                               ipv6_tc=tos,
+                                               ipv6_hlim=ip_ttl)
+                else:
+                    pkt = simple_ip_packet(pktlen=64,
+                                           eth_dst=pkt_dst_mac,
+                                           eth_src=src_port_mac,
+                                           ip_src=src_port_ip,
+                                           ip_dst=dst_port_ip,
+                                           ip_tos=tos,
+                                           ip_id=exp_ip_id,
+                                           ip_ttl=ip_ttl)
                 send_packet(self, src_port_id, pkt, 1)
                 print("dscp: %d, calling send_packet()" %
                       (tos >> 2), file=sys.stderr)
@@ -703,11 +738,16 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
 
                     # Verify dscp flag
                     try:
-                        if (recv_pkt.payload.tos == tos and
-                                recv_pkt.payload.src == src_port_ip and
-                                recv_pkt.payload.dst == dst_port_ip and
-                                recv_pkt.payload.ttl == exp_ttl and
-                                recv_pkt.payload.id == exp_ip_id):
+                        if ((recv_pkt.payload.src == src_port_ip and
+                             recv_pkt.payload.dst == dst_port_ip)
+                            and
+                            ((ipv6 and
+                              recv_pkt.payload.hlim == exp_ttl and
+                              recv_pkt.payload.tc == tos)
+                             or
+                             (recv_pkt.payload.ttl == exp_ttl and
+                              recv_pkt.payload.id == exp_ip_id and
+                              recv_pkt.payload.tos == tos))):
                             dscp_received = True
                             print("dscp: %d, total received: %d" %
                                   (tos >> 2, cnt), file=sys.stderr)
