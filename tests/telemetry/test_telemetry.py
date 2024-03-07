@@ -220,7 +220,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
         ret = parse_gnmi_output(result, 1, bgp_neighbor)
         assert ret is True, "Did not find key in update"
 
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results,))
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
