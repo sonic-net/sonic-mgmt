@@ -80,8 +80,7 @@ def test_red_accuracy(request,
                                                                             snappi_api)
 
     _, lossless_prio = rand_one_dut_lossless_prio.split('|')
-    skip_ecn_tests(duthost1)
-    skip_ecn_tests(duthost2)
+    skip_ecn_tests(duthost1) or skip_ecn_tests(duthost2)
     lossless_prio = int(lossless_prio)
 
     snappi_extra_params = SnappiTestParams()
@@ -115,7 +114,7 @@ def test_red_accuracy(request,
                                 iters=num_iterations,
                                 snappi_extra_params=snappi_extra_params)
 
-    # Check if we capture packets of all the rounds """
+    # Check if we capture packets of all the rounds
     pytest_assert(len(ip_pkts_list) == num_iterations,
                   'Only capture {}/{} rounds of packets'.format(len(ip_pkts_list), num_iterations))
 
@@ -128,7 +127,7 @@ def test_red_accuracy(request,
     logger.info("Check that all packets are captured for each iteration")
     for i in range(num_iterations):
         ip_pkts = ip_pkts_list[i]
-        # Check if we capture all the packets in each round """
+        # Check if we capture all the packets in each round
         pytest_assert(len(ip_pkts) == data_flow_pkt_count,
                       'Only capture {}/{} packets in round {}'.format(len(ip_pkts), data_flow_pkt_count, i))
 
@@ -139,13 +138,13 @@ def test_red_accuracy(request,
             if is_ecn_marked(ip_pkt):
                 queue_mark_cnt[queue_len] += 1
 
-    # Dump queue length vs. ECN marking probability into logger file """
+    # Dump queue length vs. ECN marking probability into logger file
     logger.info("------- Dumping queue length vs. ECN marking probability data ------")
     output_table = []
     queue_mark_cnt = collections.OrderedDict(sorted(queue_mark_cnt.items()))
     for queue, mark_cnt in list(queue_mark_cnt.items()):
         output_table.append([queue, float(mark_cnt)/num_iterations])
-    # logger.info(tabulate(output_table, headers=['Queue Length', 'ECN Marking Probability']))
+    logger.info(tabulate(output_table, headers=['Queue Length', 'ECN Marking Probability']))
 
     # Teardown ECN config through a reload
     logger.info("Reloading config to teardown ECN config")
