@@ -310,6 +310,9 @@ class EosHost(AnsibleHostBase):
         autoneg_enabled = output['stdout'][0]['interfaceStatuses'][interface_name]['autoNegotiateActive']
         return autoneg_enabled
 
+    def get_version(self):
+        return self.eos_command(commands=["show version"])
+
     def _reset_port_speed(self, interface_name):
         out = self.eos_config(
                 lines=['default speed'],

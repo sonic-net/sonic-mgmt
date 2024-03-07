@@ -43,6 +43,8 @@ class FanoutHost(object):
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd,
                                 shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
+            # Check eos fanout reachability by running show command
+            self.host.get_version()
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)
