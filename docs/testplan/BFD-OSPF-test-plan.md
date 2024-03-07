@@ -37,7 +37,7 @@ NOTE: OSPF Routing tests will run on all **Tier 0** and **Tier 1** topologies wh
 |ip ospf bfd| Listen for BFD events on peers created on the interface|
 |Show commands|
 |Show ip ospf|show all information about ospf |
-|Show ip ospf neighbors |show all information about ospf neighbors |
+|Show ip ospf neighbors |show all information about OSPF neighbors |
 | Show bfd peer | Show all configured BFD peers information and current status |
 ## Test Structure
 ### Setup Configuration
@@ -65,7 +65,7 @@ Verify whether OSPF neighbors are successfully created and appear with active st
 
 ### Test Case \#1 - Test BFD Neighborship Status
 #### Test Objective
-Verify whether BFD neighborship is successfully created between DUT and its neighbors and they are sharing BFD packets.
+Verify whether BFD neighborship is successfully created between DUT and its neighbors and whether they are sharing BFD packets.
 
 #### Test Steps
 1. Clear existing default routing configurations (if non-OSPF configurations)
@@ -73,12 +73,12 @@ Verify whether BFD neighborship is successfully created between DUT and its neig
 3. Verify BFD packets are being shared between BFD peers.
 4. Restore original routing configurations (if non-OSPF configurations)
 
-### Test Case \#2 - Test BFD Dynamic Switching of Network Traffic
+### Test Case \#2 - Test Dynamic Switching of Network Traffic
 #### Test Objective
-Verify whether BFD is dynamically switching the netwrok traffic to other available routes in response to a link failure.
+Verify whether BFD is reporting a link failure to OSPF and whether it is dynamically switching the network traffic to other available routes in response to a link failure.
 #### Test Steps
 1. Clear existing default routing configurations (if non-OSPF configurations)
 2. Establish BFD session between DUT and neighbors
 3. Simulate one link failure
-4. Verify whether BFD is dynamically switching the netwrok traffic to other available routes
+4. Verify whether BFD is dynamically switching the network traffic to other available routes
 5. Restore original routing configurations (if non-OSPF configurations)
