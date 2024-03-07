@@ -3,8 +3,7 @@ import collections
 import random
 import logging
 from tabulate import tabulate # noqa F401
-
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
@@ -18,8 +17,6 @@ from tests.snappi_tests.multidut.ecn.files.multidut_helper import run_ecn_test
 from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.config_reload import config_reload
-
-
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
@@ -43,16 +40,14 @@ def test_red_accuracy(request,
     Args:
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
-        snappi_testbed_config (pytest fixture): testbed configuration information
         conn_graph_facts (pytest fixture): connection graph
         fanout_graph_facts (pytest fixture): fanout graph
         duthosts (pytest fixture): list of DUTs
-        rand_one_dut_hostname (str): hostname of DUT
-        rand_one_dut_portname_oper_up (str): name of port to test, e.g., 's6100-1|Ethernet0'
         rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
+        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
 
     Returns:
         N/A
@@ -62,7 +57,7 @@ def test_red_accuracy(request,
     #     pytest.skip("test_red_accuracy is disabled")
 
     if line_card_choice not in linecard_configuration_set.keys():
-        assert False, "Invalid line_card_choice value passed in parameter"
+        pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
@@ -71,12 +66,12 @@ def test_red_accuracy(request,
         dut_list = [dut for dut in duthosts if linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]      # noqa: E501
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
-        assert False, "Hostname can't be an empty list"
+        pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
     if len(snappi_port_list) < 2:
-        assert False, "Need Minimum of 2 ports for the test"
+        pytest_require(False, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
 
@@ -84,7 +79,7 @@ def test_red_accuracy(request,
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    x, lossless_prio = rand_one_dut_lossless_prio.split('|')
+    _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     skip_ecn_tests(duthost1)
     skip_ecn_tests(duthost2)
     lossless_prio = int(lossless_prio)
