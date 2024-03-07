@@ -261,7 +261,7 @@ def setup_active_active_as_active_standby(
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
                               toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
-                              setup_active_active_ports):                        # noqa F811
+                              setup_active_active_as_active_standby):            # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
     skip_release(duthost, ["201911", "202106"])
@@ -327,7 +327,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
-                            setup_active_active_ports):                        # noqa F811
+                            setup_active_active_as_active_standby):            # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
