@@ -4,6 +4,7 @@ to match the expected WRED probability configuration
 """
 
 import logging
+import time
 import pytest
 from tests.common.cisco_data import is_cisco_device
 import json
@@ -13,6 +14,50 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
+
+
+def enable_serviceability_cli(duthost, show_cmd):
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if not dshell_disabled:
+        logging.info("Dshell is already enabled")
+        return
+
+    asic_facts = get_asic_facts(duthost)
+    asics = []
+    asics = list(asic_facts.keys()) if duthost.is_multi_asic else ['']
+
+    logging.info("Enabling dshell client")
+    for asic in asics:
+        cmd = "docker exec -i syncd{} supervisorctl start dshell_client".format(asic)
+        result = duthost.command(cmd)
+        verify_command_result(result, cmd)
+
+    time.sleep(20)
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if not dshell_disabled:
+        logging.info("Dshell started successfully")
+        return
+
+    time.sleep(60)
+
+    output = duthost.command(show_cmd)['stdout']
+
+    # Check if "cisco sdk-debug enable" is present in stdout
+    dshell_disabled = "cisco sdk-debug enable" in output
+
+    if dshell_disabled:
+        pytest.fail(
+            "This test failed since debug shell server is not running for command: {}".format(show_cmd))
 
 
 def get_asic_facts(duthost):
@@ -46,11 +91,6 @@ def verify_command_result(result, cmd):
     # Raise an AssertionError if "stdout" is empty
     assert result["stdout"], "No output for {}".format(cmd)
 
-    # Check if "cisco sdk-debug enable" is present in result["stdout"]
-    dshell_disabled = "cisco sdk-debug enable" in result["stdout"]
-    # Raise an AssertionError if "cisco sdk-debug enable" is found
-    assert not dshell_disabled, "debug shell server is not running for command: {}".format(cmd)
-
     # Check if "Traceback" is present in result["stdout"]
     traceback_found = "Traceback" in result["stdout"]
     # Raise an AssertionError if "Traceback" is found
@@ -67,6 +107,9 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
         pytest.skip("Skipping as not a Cisco device")
 
     cmd = "show platform npu rx cgm_global -d"
+
+    enable_serviceability_cli(duthost, cmd)
+
     result = duthost.command(cmd)
     verify_command_result(result, cmd)
 
@@ -100,8 +143,15 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
         if None in asic_facts[asic].keys():
             down_ports = asic_facts[asic][None]
 
-        # Combine both Up and Down
-        all_ports = up_ports + down_ports
+        if up_ports and down_ports:
+            # Combine both Up and Down
+            all_ports = up_ports + down_ports
+        elif up_ports:
+            all_ports = up_ports
+        elif down_ports:
+            all_ports = down_ports
+        else:
+            pytest.skip("No ports available")
 
         show_command = "sudo show platform npu voq cgm_profile -i {} -t {}{} -d"
 
