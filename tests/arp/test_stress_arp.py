@@ -125,12 +125,6 @@ def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     return ns_pkt
 
 
-def get_ipv6_entries_status(duthost, ipv6_addr):
-    ipv6_entry = duthost.shell("ip -6 neighbor | grep -w {}".format(ipv6_addr))["stdout_lines"][0]
-    ipv6_entry_status = ipv6_entry.split(" ")[-1]
-    return (ipv6_entry_status == 'REACHABLE')
-
-
 def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
     for entry in range(0, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
@@ -141,7 +135,6 @@ def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info,
 
         ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        wait_until(20, 1, 0, get_ipv6_entries_status, duthost, fake_src_addr)
         ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
