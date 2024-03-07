@@ -25,6 +25,7 @@ PAM_PASSWORD_CONF = "/etc/pam.d/common-password"
 USERNAME_STRONG = 'user_strong_test'
 USERNAME_SIMPLE_0 = 'user_simple_0_test'
 USERNAME_SIMPLE_1 = 'user_simple_1_test'
+USERNAME_SIMPLE_2 = 'user_simple_2_test'
 USERNAME_ONE_POLICY = 'user_one_policy_test'
 USERNAME_AGE = 'user_test'
 USERNAME_HISTORY = 'user_history_test'
@@ -90,7 +91,8 @@ def compare_passw_policies_in_linux(duthost, pam_file_expected=PAM_PASSWORD_CONF
 
     common_password_diff = [li for li in difflib.ndiff(command_password_stdout, common_password_expected) if
                             li[0] != ' ']
-    pytest_assert(len(common_password_diff) == 0, common_password_diff)
+    error_message = 'password diff: ' + '; '.join(common_password_diff)
+    pytest_assert(len(common_password_diff) == 0, error_message)
 
 
 def config_and_review_policies(duthost, passw_hardening_ob, pam_file_expected):

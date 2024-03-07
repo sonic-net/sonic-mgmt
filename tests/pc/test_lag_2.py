@@ -13,6 +13,7 @@ from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
 from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
+from tests.common.helpers.parallel import parallel_run_threaded
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +26,21 @@ TEST_DIR = "/tmp/acstests/"
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
     """Ignore expected failures logs during test execution."""
     if loganalyzer:
-        loganalyzer[rand_one_dut_hostname].ignore_regex.extend([".*missed_ROUTE_TABLE_routes.*"])
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+                ]
+            )
 
     return
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(ptfhost):
+def common_setup_teardown(ptfhost, duthosts):
     logger.info("########### Setup for lag testing ###########")
 
     ptfhost.shell("mkdir -p {}".format(TEST_DIR))
@@ -48,6 +54,18 @@ def common_setup_teardown(ptfhost):
     yield ptfhost
 
     ptfhost.file(path=TEST_DIR, state="absent")
+    # NOTE: As test_lag always causes the route_check to fail and route_check
+    # takes more than 3 cycles(15mins) to alert, the testcase in the nightly after
+    # the test_lag will suffer from the monit alert, so let's config reload the
+    # device here to reduce any potential impact.
+    parallel_run_threaded(
+        target_functions=[
+            lambda duthost=_: config_reload(
+                duthost, config_source='running_golden_config'
+            ) for _ in duthosts
+        ],
+        timeout=300
+    )
 
 
 def is_vtestbed(duthost):
@@ -286,12 +304,17 @@ def skip_if_no_lags(duthosts):
                                       "lacp_rate",
                                       "fallback"])
 def test_lag(common_setup_teardown, duthosts, tbinfo, nbrhosts, fanouthosts,
-             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase):     # noqa F811
+             conn_graph_facts, enum_dut_portchannel_with_completeness_level, testcase, request):     # noqa F811
     # We can't run single_lag test on vtestbed since there is no leaffanout
     if testcase == "single_lag" and is_vtestbed(duthosts[0]):
         pytest.skip("Skip single_lag test on vtestbed")
     if 'PortChannel201' in enum_dut_portchannel_with_completeness_level:
         pytest.skip("PortChannel201 is a specific configuration of t0-56-po2vlan topo, which is not supported by test")
+
+    # Skip lacp_rate testcases on KVM since setting lacp rate it is not supported on KVM
+    if testcase == "lacp_rate":
+        if request.config.getoption("--neighbor_type") == 'sonic':
+            pytest.skip("lacp_rate is not supported in vsonic")
 
     ptfhost = common_setup_teardown
 
