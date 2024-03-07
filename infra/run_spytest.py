@@ -264,6 +264,7 @@ def collect_result():
 
     os.system(f"mkdir spytest_result_{test_start_time}")
     os.system(f"tar -xvf spytest_result.tar.gz -C spytest_result_{test_start_time}")
+    os.system(f"tar -czvf vxr.out.tar.gz vxr.out")
     
     
     #generate report files for pipeline
@@ -272,30 +273,33 @@ def collect_result():
 
     sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
 
-    spytest_result_sum_file = open(f"./spytest_result_{test_start_time}/results_{test_start_time}_summary.txt", 'r')
-    spytest_result_sum = spytest_result_sum_file.readlines()
+    try:
+        spytest_result_sum_file = open(f"./spytest_result_{test_start_time}/results_{test_start_time}_summary.txt", 'r')
+        spytest_result_sum = spytest_result_sum_file.readlines()
 
-    print(f"Result sum file contents: {spytest_result_sum}")
+        print(f"Result sum file contents: {spytest_result_sum}")
 
-    for line in spytest_result_sum:
-        if "=" not in line:
-            continue
+        for line in spytest_result_sum:
+            if "=" not in line:
+                continue
 
-        key, value = line.split("=")
-        key = key.strip()
-        value = value.strip()
+            key, value = line.split("=")
+            key = key.strip()
+            value = value.strip()
 
-        if key == "PASS":
-            sum["passed"] = int(value)
-        elif key == "FAIL":
-            sum["failed"] = int(value)
-        elif key == "SKIPPED":
-            sum["skipped"] = int(value)
-        elif key == "Test Count":
-            sum["total"] = int(value)
-    
-    sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
-
+            if key == "PASS":
+                sum["passed"] = int(value)
+            elif key == "FAIL":
+                sum["failed"] = int(value)
+            elif key == "SKIPPED":
+                sum["skipped"] = int(value)
+            elif key == "Test Count":
+                sum["total"] = int(value)
+        
+        sum["success_rate"] = round(sum["passed"] / (sum["total"] - sum["skipped"]) * 100, 2)
+    except Exception as e:
+        print("Exception! Failed to open result file!")
+        sum["status"] = "failure"
 
     print(f"result summary is: {sum}")
 
@@ -320,6 +324,7 @@ def upload_result():
     ftp_client.mkdir(f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}")
     
     ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/spytest_result.tar.gz")
+    ftp_client.put(f"./spytest_result.tar.gz", f"/auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}/vxr.out.tar.gz")
     exec_command_raise_error(client,f"cd /auto/vxr1/sonic-images/ringcicd/spytest_result_{test_start_time}; tar -xvf spytest_result.tar.gz")
     
     with open(SUMMARY_REPORT_PATH, "r") as f:
@@ -329,6 +334,7 @@ def upload_result():
     sum_f = open(SUMMARY_REPORT_PATH, "w")
     
     sum["report_link"] = f"http://172.29.93.10/sonic-images/ringcicd/spytest_result_{test_start_time}/dashboard.html"
+    sum["log_tarball_link"] = f"http://172.29.93.10/sonic-images/ringcicd/spytest_result_{test_start_time}"
 
     json.dump(sum, sum_f)
     json.dump(sum, com_f)
