@@ -14,7 +14,7 @@
   when: restart_pmon is not defined and restart_pmon|bool == true
 
 - name: Get host server address
-  script: scripts/vmhost_server_address.py --inv-file veos_vtb --server-name server_1
+  script: scripts/vmhost_server_address.py --inv-file {{ vm_file }} --server-name {{ testbed_facts['server'] }}
   args:
     executable: python
   delegate_to: localhost
