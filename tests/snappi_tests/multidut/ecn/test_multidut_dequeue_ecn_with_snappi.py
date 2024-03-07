@@ -2,7 +2,7 @@ import pytest
 import random
 import logging
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -17,10 +17,7 @@ from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.config_reload import config_reload
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-
-
 logger = logging.getLogger(__name__)
-
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
@@ -55,7 +52,7 @@ def test_dequeue_ecn(request,
     """
 
     if line_card_choice not in linecard_configuration_set.keys():
-        assert False, "Invalid line_card_choice value passed in parameter"
+        pytest_require(False, "Invalid line_card_choice value passed in parameter")
 
     if (len(linecard_configuration_set[line_card_choice]['hostname']) == 2):
         dut_list = random.sample(duthosts, 2)
@@ -65,29 +62,23 @@ def test_dequeue_ecn(request,
                     linecard_configuration_set[line_card_choice]['hostname'] == [dut.hostname]]
         duthost1, duthost2 = dut_list[0], dut_list[0]
     else:
-        assert False, "Hostname can't be an empty list"
+        pytest_require(False, "Hostname can't be an empty list")
 
     snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
                                                  line_card_info=linecard_configuration_set[line_card_choice])
     if len(snappi_port_list) < 2:
-        assert False, "Need Minimum of 2 ports for the test"
+        pytest_require(False, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-
-    snappi_port_list = get_multidut_snappi_ports(line_card_choice=line_card_choice,
-                                                 line_card_info=linecard_configuration_set[line_card_choice])
-    if len(snappi_port_list) < 2:
-        assert False, "Need Minimum of 2 ports for the test"
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
                                                                             snappi_ports,
                                                                             snappi_api)
 
-    x, lossless_prio = rand_one_dut_lossless_prio.split('|')
+    _, lossless_prio = rand_one_dut_lossless_prio.split('|')
     skip_ecn_tests(duthost1)
     skip_ecn_tests(duthost2)
     lossless_prio = int(lossless_prio)
-
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.duthost1 = duthost1
     snappi_extra_params.multi_dut_params.duthost2 = duthost2

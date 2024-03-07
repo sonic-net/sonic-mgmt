@@ -32,7 +32,7 @@ def run_ecn_test(api,
                  iters,
                  snappi_extra_params=None):
     """
-    Run a ECN test
+    Run multidut ECN test
 
     Args:
         api (obj): SNAPPI session
@@ -81,8 +81,8 @@ def run_ecn_test(api,
 
     # Enable ECN marking
     logger.info("Enabling ECN markings")
-    enable_ecn(host_ans=duthost1, prio=lossless_prio)
-    enable_ecn(host_ans=duthost2, prio=lossless_prio)
+    pytest_assert(enable_ecn(host_ans=duthost1, prio=lossless_prio), 'Unable to enable ecn')
+    pytest_assert(enable_ecn(host_ans=duthost2, prio=lossless_prio), 'Unable to enable ecn')
 
     config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost1,
                                                          alpha_log2=3)
@@ -106,7 +106,6 @@ def run_ecn_test(api,
     speed_gbps = int(speed_str.split('_')[1])
 
     # Generate base traffic config
-
     port_id = 0
     logger.info("Generating base flow config")
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
