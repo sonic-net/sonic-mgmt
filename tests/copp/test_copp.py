@@ -145,6 +145,9 @@ class TestCOPP(object):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+        logger.info("Uninstall trap ip2me")
+        copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
+
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
 
