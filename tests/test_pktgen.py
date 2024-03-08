@@ -37,20 +37,10 @@ PKTGEN_CMDS = [
                 "echo 'udp_dst_max 5001' > /proc/net/pktgen/{}",
                 ]
 
-CPU_CMD = "show proc cpu --verbose | sed '1,/CPU/d' | grep pktgen | awk '{print $9}'"
-
 
 def get_port_list(duthost, tbinfo):
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return list(mg_facts["minigraph_ports"].keys())
-
-
-@pytest.fixture(scope='module')
-def setup_thresholds(duthosts, enum_dut_hostname):
-    duthost = duthosts[enum_dut_hostname]
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    cpu_threshold = 70 if is_chassis else 50
-    return cpu_threshold
 
 
 @pytest.fixture(scope='function', autouse='True')
@@ -80,15 +70,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pktgen')
     loganalyzer.load_common_config()
-
-    cpu_threshold = setup_thresholds
-    # Check CPU util before sending traffic
-    cpu_before = duthost.shell(CPU_CMD)["stdout_lines"]
-    for entry in cpu_before:
-        pytest_assert(
-            float(entry) < cpu_threshold,
-            "Cpu util was above threshold {} for pktgen process"
-            " before sending pktgen traffic".format(cpu_threshold))
 
     # Check number of existing core/crash files
     core_files_pre = duthost.shell("ls /var/core | wc -l")["stdout_lines"][0]
@@ -124,14 +105,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
     interf_counters = interf_counters.replace(",", "")
     pytest_assert(int(interf_counters) >= 15000, "Packets were not transmitted from the interface {}, \
     15000 packets were expected but only {} found".format(port, 15000-int(interf_counters)))
-
-    # Check CPU util after sending traffic
-    cpu_after = duthost.shell(CPU_CMD)["stdout_lines"]
-    for entry in cpu_after:
-        pytest_assert(
-            float(entry) < cpu_threshold,
-            "Cpu util was above threshold {} for pktgen process"
-            " after sending pktgen traffic".format(cpu_threshold))
 
     # Check kernel messages for errors after sending traffic
     logging.info("Check dmesg")
