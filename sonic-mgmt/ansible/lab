@@ -3,6 +3,7 @@ all:
     lab:
       vars:
         mgmt_subnet_mask_length: 24
+        mgmt_subnet_v6_mask_length: 64
       children:
         sonic:
           children:

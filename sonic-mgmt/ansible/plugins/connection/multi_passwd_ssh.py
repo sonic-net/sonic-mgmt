@@ -21,6 +21,11 @@ DOCUMENTATION += """
               - name: ansible_altpassword
               - name: ansible_ssh_altpass
               - name: ansible_ssh_altpassword
+      altpasswords:
+          description: Alternative authentication passwords list for the C(remote_user). Can be supplied as CLI option.
+          vars:
+              - name: ansible_altpasswords
+              - name: ansible_ssh_altpasswords
 """.lstrip("\n")
 
 
@@ -28,7 +33,7 @@ def _password_retry(func):
     """
     Decorator to retry ssh/scp/sftp in the case of invalid password
 
-    Will retry for password in (ansible_password, ansible_altpassword):
+    Will retry for password in (ansible_password, ansible_altpassword, ansible_altpasswords):
     """
     @wraps(func)
     def wrapped(self, *args, **kwargs):
@@ -37,6 +42,9 @@ def _password_retry(func):
         altpassword = self.get_option("altpassword")
         if altpassword:
             conn_passwords.append(altpassword)
+        altpasswds = self.get_option("altpasswords")
+        if altpasswds:
+            conn_passwords.extend(altpasswds)
 
         while conn_passwords:
             conn_password = conn_passwords.pop(0)

@@ -150,6 +150,9 @@ class MacsecPlugin(object):
         def filter(interface, neighbor, mg_facts, tbinfo):
             if self.downstream_neighbor(tbinfo, neighbor):
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 links[interface] = {
                     "name": neighbor["name"],
                     "ptf_port_id": mg_facts["minigraph_ptf_indices"][interface],
@@ -172,6 +175,9 @@ class MacsecPlugin(object):
                             # The address of DUT
                             peer_ipv4_addr = item["peer_addr"]
                             break
+                if interface not in mg_facts["minigraph_ptf_indices"]:
+                    logger.info("Interface {} not in minigraph_ptf_indices".format(interface))
+                    return
                 port = mg_facts["minigraph_neighbors"][interface]["port"]
                 links[interface] = {
                     "name": neighbor["name"],

@@ -49,6 +49,7 @@ device_groups:
         children: [sonic, fanout]                                # source: sonic-mgmt/ansible/lab
         vars:
             mgmt_subnet_mask_length: "24"                        # source: sonic-mgmt/ansible/lab
+            mgmt_subnet_v6_mask_length: "64"                     # source: sonic-mgmt/ansible/lab
     sonic:
         children: [sonic_s6000, sonic_s6100, sonic_sn2700_40, sonic_a7260]      # source: sonic-mgmt/ansible/lab
     sonic_s6000:
@@ -138,6 +139,7 @@ devices:
         device_type: server                         # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
         hwsku: TestServ                             # source: sonic-mgmt/ansible/files/sonic_lab_devices-github.csv
         mgmt_subnet_mask_length: "24"               # source: sonic-mgmt/ansible/lab
+        mgmt_subnet_v6_mask_length: "64"            # source: sonic-mgmt/ansible/lab
         alias:
         credentials:
             username:
@@ -153,6 +155,7 @@ devices:
         device_type: blank
         hwsku:
         mgmt_subnet_mask_length:
+        mgmt_subnet_v6_mask_length:
         alias:
         credentials:
             username:
