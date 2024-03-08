@@ -7,7 +7,7 @@ from copy import deepcopy
 from jinja2 import Template
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from dash_utils import apply_swssconfig_file
+from gnmi_utils import apply_gnmi_file
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, \
     EXPECT_EXCEEDED, EXPECT_CLEAR, THR_VERIFY_CMDS
 
@@ -62,7 +62,7 @@ def default_crm_facts(duthost, set_polling_interval):
 
 
 @pytest.fixture(scope="class")
-def apply_resources_configs(default_crm_facts, duthost):
+def apply_resources_configs(default_crm_facts, localhost, duthost, ptfhost):
     """
     Apply CRM configuration before run test
     :param default_crm_facts: CRM resources data collected before apply config
@@ -74,12 +74,12 @@ def apply_resources_configs(default_crm_facts, duthost):
         src_path = os.path.join(os.path.abspath(""), "dash/crm/files/{}".format(config))
         duthost.copy(src=src_path, dest=config)
     pytest.crm_res_cleanup_required = True
-    apply_swssconfig_file(duthost, set_config)
+    apply_gnmi_file(localhost, duthost, ptfhost, set_config)
 
     yield set_config, del_config
 
     if pytest.crm_res_cleanup_required:
-        apply_swssconfig_file(duthost, del_config)
+        apply_gnmi_file(localhost, duthost, ptfhost, del_config)
 
     duthost.shell("rm -f {}".format(set_config))
     duthost.shell("rm -f {}".format(del_config))
@@ -108,8 +108,10 @@ def cleanup(duthost):
 class TestDashCRM:
 
     @pytest.fixture(autouse=True)
-    def setup(self, duthost, default_crm_facts, apply_resources_configs):
+    def setup(self, localhost, duthost, ptfhost, default_crm_facts, apply_resources_configs):
         self.duthost = duthost
+        self.ptfhost = ptfhost
+        self.localhost = localhost
         self.default_crm_facts = default_crm_facts
         self.crm_facts = self.duthost.get_crm_facts()
         self.set_config, self.del_config = apply_resources_configs
@@ -301,7 +303,7 @@ class TestDashCRM:
         """
         Validate that after cleanup CRM resources - CRM output the same as it was before test case(without config)
         """
-        apply_swssconfig_file(self.duthost, self.del_config)
+        apply_gnmi_file(self.localhost, self.duthost, self.ptfhost, self.del_config)
         pytest.crm_res_cleanup_required = False
 
         time.sleep(CRM_UPDATE_TIME)
