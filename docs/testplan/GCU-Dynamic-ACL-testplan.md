@@ -142,21 +142,43 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 
 #### Test Objective
 
-Verify that GCU is capable of adding blanket DHCP forwarding rules for both IPV4 and IPV6, and that traffic follows these rules accordingly
+Verify that GCU is capable of adding blanket DHCP forwarding rules, and that traffic follows these rules accordingly
 
 #### Testing Steps
 
-- Use GCU to create blanket DHCP packet forwarding rule for both IPV4 and IPV6
+- Use GCU to create blanket DHCP packet forwarding rule
 
 - Use GCU to create a blanket drop rule on a port
 
+- Verify that for both rules created, "show acl rule DYNAMIC_ACL_TABLE {rule_name} matches expected output
+
 - Verify that all operations were successful
 
-- Verify that DHCP packets are forwarded
+- Run pre-existing DHCP_Relay test with ACL rules applied and packets sent over the port that is blocked
 
-- Verify that all other packets on this port are dropped
+- Verify that pre-existing DHCP_Relay test is successful with ACL applied
 
-### Test Case # 8 - ARP Forwarding Rule
+### Test Case # 8 - DHCPv6 Forwarding Rule
+
+#### Test Objective
+
+Verify that GCU is capable of adding blanket DHCPv6 forwarding rules, and that traffic follows these rules accordingly
+
+#### Testing Steps
+
+- Use GCU to create blanket DHCPv6 packet forwarding rule
+
+- Use GCU to create a blanket drop rule on a port
+
+- Verify that for both rules created, "show acl rule DYNAMIC_ACL_TABLE {rule_name} matches expected output
+
+- Verify that all operations were successful
+
+- Run pre-existing DHCPv6_Relay test with ACL rules applied and packets sent over the port that is blocked
+
+- Verify that pre-existing DHCPv6_Relay test is successful with ACL applied
+
+### Test Case # 9 - ARP Forwarding Rule
 
 #### Test Objective
 
@@ -174,15 +196,13 @@ Test that GCU is capable of adding a blanket ARP forwarding rule, and that prope
 
 - Verify that all other packets on this port are dropped
 
-### Test Case # 9 - Scale test of ACL Table, add large amount of forward and drop rules
+### Test Case # 10 - Scale test of ACL Table, add large amount of forward and drop rules
 
 #### Test Objective
 
 Verify that GCU is capable of adding a large amount of ACL rules and that they are still followed.
 
 #### Testing Steps
-
-- Use GCU to create top priority DHCP and ARP forwarding rules
 
 - Use GCU to create 150 forwarding rules on ACL Table
 
@@ -192,13 +212,11 @@ Verify that GCU is capable of adding a large amount of ACL rules and that they a
 
 - Verify that rules created are properly shown when using "show acl rule"
 
-- Verify ARP and DHCP packets are handled accordingly
-
 - Verify that packets with IPs matching a destination IP for one of the forwarding rules are forwarded
 
 - Verify that packets not matching a forwarding IP are dropped
 
-### Test Case # 10 - Replace the IP Address of a non-existent ACL Rule
+### Test Case # 11 - Replace the IP Address of a non-existent ACL Rule
 
 #### Test Objective
 
@@ -212,7 +230,7 @@ Verify that attempting to replace the address of a rule that does not exist prop
 
 - Verify that the replace action failed
 
-### Test Case # 11 - Remove non-existent ACL Table
+### Test Case # 12 - Remove non-existent ACL Table
 
 #### Test Objective
 
@@ -327,14 +345,38 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
                 "DYNAMIC_ACL_TABLE|DHCP_RULE": {
                     "IP_PROTOCOL": "17",
                     "L4_DST_PORT": "67",
-                    "IP_TYPE": "IPv4ANY",
+                    "ETHER_TYPE": "0x0800",
                     "PRIORITY": "9999",
                     "PACKET_ACTION": "FORWARD"
-                },
+                }
+            }
+        }
+    ]
+
+**Expected Result**
+- Operation Success
+
+**Additional Checks**
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCP_RULE” match the following output:
+  + Table | Rule | Priority | Action | Match | Status
+    ---- | ---- | ------- | ------- | ------| ------
+    DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67 | Active
+    | | | | | ETHER_TYPE: 0x0800 |
+    | | | | | IP_PROTOCOL: 17 |
+
+### Create DHCPv6 Forwarding Rules
+
+**Json Patch:**
+
+    [
+        {
+            "op": "add",
+            "path": "/ACL_RULE",
+            "value": {
                 "DYNAMIC_ACL_TABLE|DHCPV6_RULE": {
                     "IP_PROTOCOL": "17",
-                    "L4_DST_PORT": "547",
-                    "IP_TYPE": "IPv6ANY",
+                    "L4_DST_PORT_RANGE": "547-548",
+                    "ETHER_TYPE": "0x86DD",
                     "PRIORITY": "9998",
                     "PACKET_ACTION": "FORWARD"
                 }
@@ -346,17 +388,11 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 - Operation Success
 
 **Additional Checks**
-+ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCP_RULE” and “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” matche the following outputs respectively:
-  + Table | Rule | Priority | Action | Match | Status
-    ---- | ---- | ------- | ------- | ------| ------
-    DYNAMIC_ACL_TABLE |	DHCP_RULE | 9999 | FORWARD |  L4_DST_PORT: 67 | Active
-    | | | | | IP_TYPE: IPv4ANY |
-    | | | | | IP_PROTOCOL: 17 |
-
++ Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” match the following output:
   + Table | Rule | Priority | Action | Match | Status
      ---- | ---- | ------- | ------- | ------| ------
-     DYNAMIC_ACL_TABLE |	DHCPV6_RULE | 9998 | FORWARD |  L4_DST_PORT: 547 | Active
-     | | | | | IP_TYPE: IPv6ANY |
+     DYNAMIC_ACL_TABLE |	DHCPV6_RULE | 9998 | FORWARD |  L4_DST_PORT_RANGE: 547-548 | Active
+     | | | | | ETHER_TYPE: 0x86DD |
      | | | | | IP_PROTOCOL: 17 |
 
 ### Create ARP Forwarding Rule
