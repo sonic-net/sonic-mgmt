@@ -134,7 +134,7 @@ class AdvancedReboot:
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
             if self.kvmTest:
-                self.rebootLimit = 200  # Default reboot limit for kvm
+                self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
             else:
