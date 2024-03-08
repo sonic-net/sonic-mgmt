@@ -12,6 +12,16 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+npu_cli_dict = {
+        #feature cli keyword : list of options under the cli
+        "router": ["route-table", "entries", "ports", "port-counters", "details"],
+        "lpts": " ",
+        "ecmp": " ",
+        "trap": " ",
+        "event-trap": " ",
+        "counters": " ",
+}
+
 def get_asic_str(duthost):
     if duthost.is_multi_asic:
         return " -n asic0"
@@ -59,68 +69,30 @@ def test_check_dshell_client_after_enable(duthosts, enum_rand_one_per_hwsku_host
     logging.info(result)
     assert "/usr/bin/dshell_client.py" in result, "dshell_client is not running"
 
-
-def test_show_platform_npu_lpts(duthosts, enum_rand_one_per_hwsku_hostname):
+def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname):
     """
-    @summary: Verify output of `show platform npu lpts`
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("Not supported on RP")
-    result = duthost.shell(f"sudo show platform npu lpts {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
-    logging.info(result)
-    traceback_found = "Traceback" in result
-    assert not traceback_found, "Traceback found in show platform npu lpts output"
-    assert result, "No ouput for this CLI"
-
-def test_show_platform_npu_counters(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Verify output of `show platform npu counters`
+    @summary: Verify output of `show platform npu` , update the npu_cli_dict at the top for new platform npu command check.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.is_supervisor_node():
         pytest.skip("Not supported on RP")
-    result = duthost.shell(f"sudo show platform npu counters {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
-    logging.info(result)
-    traceback_found = "Traceback" in result
-    assert not traceback_found, "Traceback found in show platform npu counters output"
-    assert result, "No ouput for this CLI"
 
-def test_show_platform_npu_ecmp(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Verify output of `show platform npu ecmp`
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("Not supported on RP")
-    result = duthost.shell(f"sudo show platform npu ecmp {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
-    logging.info(result)
-    traceback_found = "Traceback" in result
-    assert not traceback_found, "Traceback found in show platform npu ecmp output"
-    assert result, "No ouput for this CLI"
+    result_list = []
+    for cli in npu_cli_dict:
+        for opt in npu_cli_dict[cli]:
+            result = duthost.shell("sudo show platform npu {} {} {}".
+                    format(cli, opt, get_asic_str(duthost)), module_ignore_errors=True)
+            logging.info(result["stdout"])
+            traceback_found = "Traceback" in result["stdout"]
 
-def test_show_platform_npu_event_trap(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Verify output of `show platform npu event-trap`
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("Not supported on RP")
-    result = duthost.shell(f"sudo show platform npu event-trap {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
-    logging.info(result)
-    traceback_found = "Traceback" in result
-    assert not traceback_found, "Traceback found in show platform npu event-trap"
-    assert result, "No ouput for this CLI"
+            if traceback_found:
+                result_list.append("Traceback found in show platform npu {} {}".format(cli, opt))
+            elif result is None:
+                result_list.append("No ouput for this CLI show platform npu {} {}".format(cli, opt))
+            elif result["failed"]:
+                result_list.append("Failed CLI show platform npu {} {}".format(cli, opt))
 
-def test_show_platform_npu_trap(duthosts, enum_rand_one_per_hwsku_hostname):
-    """
-    @summary: Verify output of `show platform npu trap`
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if duthost.is_supervisor_node():
-        pytest.skip("Not supported on RP")
-    result = duthost.shell(f"sudo show platform npu trap {get_asic_str(duthost)}", module_ignore_errors=True)['stdout']
-    logging.info(result)
-    traceback_found = "Traceback" in result
-    assert not traceback_found, "Traceback found in show platform npu trap"
-    assert result, "No ouput for this CLI"
+    for result in result_list:
+        logging.error(result)
+
+    assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
