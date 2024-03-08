@@ -1784,20 +1784,15 @@ class ReloadTest(BaseTest):
             process.terminate()
 
         for process in processes_list:
-            process.wait(timeout=5)
+            wait_timer = timer.Timer(5, process.kill)
+            try:
+                wait_timer.start()
+                process.wait()
+            finally:
+                wait_timer.cancel()
             # Return code here could be 0, so we need to explicitly check for None
             if process.returncode is not None:
                 self.log("Tcpdump process {} terminated".format(process.args))
-
-        for process in processes_list:
-            if process.returncode is not None:
-                continue
-            self.log("Killing tcpdump process {}".format(process.args))
-            process.kill()
-            process.wait(timeout=5)
-            # Return code here could be 0, so we need to explicitly check for None
-            if process.returncode is not None:
-                self.log("Tcpdump process {} killed".format(process.args))
 
         self.log("Killed all tcpdump processes")
 
