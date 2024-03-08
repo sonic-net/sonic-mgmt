@@ -79,12 +79,12 @@ def create_dhcp_forwarding_rule(rand_selected_dut):
     expect_op_success(rand_selected_dut, output)
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
-                                "DHCP_RULE", "9999",
-                                "FORWARD",
-                                "IP_PROTOCOL: 17",
-                                "L4_DST_PORT: 67",
-                                "ETHER_TYPE: 0x0800",
-                                "Active"]
+                             "DHCP_RULE", "9999",
+                             "FORWARD",
+                             "IP_PROTOCOL: 17",
+                             "L4_DST_PORT: 67",
+                             "ETHER_TYPE: 0x0800",
+                             "Active"]
 
     expect_acl_rule_match(rand_selected_dut, "DHCP_RULE", expected_rule_content)
 
