@@ -19,6 +19,7 @@ FILES_DIR = os.path.join(BASE_DIR, "files")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 TMP_DIR = '/tmp'
 
+
 def generate_tmpfile(duthost):
     """Generate temp file
     """
@@ -372,6 +373,7 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
     except IndexError:
         return False
 
+
 def format_and_apply_template(duthost, template_name, extra_vars):
     dest_path = os.path.join(TMP_DIR, template_name)
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -441,16 +443,12 @@ def expect_acl_rule_match(duthost, rulename, expected_content_list):
 
     first_line = output[0].values()
 
-    missing = set(first_line).difference(set(expected_content_list))
-
-    extra = set(expected_content_list).difference(set(first_line))
-
     pytest_assert(set(first_line) <= set(expected_content_list), "ACL Rule details do not match!")
 
     if rule_lines > 1:
         for i in range(1, rule_lines):
-            pytest_assert(output[i]["match"] in expected_content_list, "Unexpected match condition found: " + str(output[i]["match"]))
-
+            pytest_assert(output[i]["match"] in expected_content_list,
+                          "Unexpected match condition found: " + str(output[i]["match"]))
 
 
 def expect_acl_rule_removed(duthost, rulename):
