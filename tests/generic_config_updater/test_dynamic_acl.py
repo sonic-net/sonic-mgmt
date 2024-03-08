@@ -1,19 +1,28 @@
 import logging
 import pytest
-import os
-import json
 
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require
 
 from ptf.mask import Mask
 import ptf.packet as scapy
 
+from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
+                      ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
+                      in6_getnsma, inet_pton, inet_ntop, socket
+
+from tests.common import constants
 
 import ptf.testutils as testutils
+
+from ipaddress import ip_network, IPv6Network, IPv4Network
+from tests.arp.arp_utils import increment_ipv6_addr, increment_ipv4_addr
 
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, expect_op_failure
 from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
+from tests.generic_config_updater.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
+from tests.generic_config_updater.gu_utils import expect_acl_table_match_multiple_bindings
 
 pytestmark = [
     pytest.mark.topology('t0'),
@@ -21,22 +30,16 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-FILES_DIR = os.path.join(BASE_DIR, "files")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-TMP_DIR = '/tmp'
-
 CREATE_CUSTOM_TABLE_TYPE_FILE = "create_custom_table_type.json"
 CREATE_CUSTOM_TABLE_TEMPLATE = "create_custom_table.j2"
 CREATE_FORWARD_RULES_TEMPLATE = "create_forward_rules.j2"
 CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
 CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
+CREATE_ARP_FORWARD_RULE_FILE = "create_arp_forward_rule.json"
 REPLACE_RULES_TEMPLATE = "replace_rules.j2"
 REPLACE_NONEXISTENT_RULE_FILE = "replace_nonexistent_rule.json"
-REMOVE_THIRD_DROP_RULE_FILE = "remove_third_drop_rule.json"
-REMOVE_IPV4_FORWARD_RULE_FILE = "remove_ipv4_forward_rule.json"
-REMOVE_IPV6_FORWARD_RULE_FILE = "remove_ipv6_forward_rule.json"
+REMOVE_RULE_TEMPLATE = "remove_rule.j2"
 REMOVE_TABLE_FILE = "remove_table.json"
 REMOVE_NONEXISTENT_TABLE_FILE = "remove_nonexistent_table.json"
 REMOVE_TABLE_TYPE_FILE = "remove_table_type.json"
@@ -56,7 +59,7 @@ DST_IPV6_FORWARDED_SCALE_PREFIX = "103:23:4:"
 DST_IP_BLOCKED = "103.23.3.1"
 DST_IPV6_BLOCKED = "103:23:3:1::1"
 
-MAX_RULE_PRIORITY = 9999
+MAX_IP_RULE_PRIORITY = 9900
 MAX_DROP_RULE_PRIORITY = 9000
 
 
@@ -96,6 +99,18 @@ def setup(rand_selected_dut, tbinfo, vlan_name):
         scale_dest_ips[ipv4_rule_name] = ipv4_address
         scale_dest_ips[ipv6_rule_name] = ipv6_address
 
+    config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
+
+    vlans = config_facts['VLAN']
+    topology = tbinfo['topo']['name']
+    dut_mac = ''
+    for vlan_details in list(vlans.values()):
+        if 'dualtor' in topology:
+            dut_mac = vlan_details['mac'].lower()
+        else:
+            dut_mac = rand_selected_dut.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
+        break
+
     setup_information = {
         "blocked_src_port_name": block_src_port,
         "blocked_src_port_indice": block_src_port_indice,
@@ -106,6 +121,7 @@ def setup(rand_selected_dut, tbinfo, vlan_name):
         "dst_port_indices": dst_port_indices,
         "router_mac": router_mac,
         "bind_ports": list_ports,
+        "dut_mac": dut_mac,
     }
 
     return setup_information
@@ -129,6 +145,222 @@ def setup_env(duthosts, rand_one_dut_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
+
+
+@pytest.fixture
+def proxy_arp_enabled(rand_selected_dut, config_facts):
+    """
+    Tries to enable proxy ARP for each VLAN on the ToR
+
+    Also checks CONFIG_DB to see if the attempt was successful
+
+    During teardown, restores the original proxy ARP setting
+
+    Yields:
+        (bool) True if proxy ARP was enabled for all VLANs,
+               False otherwise
+    """
+    duthost = rand_selected_dut
+    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
+
+    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
+    vlans = config_facts['VLAN']
+    vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
+    old_proxy_arp_vals = {}
+    new_proxy_arp_vals = []
+
+    # Enable proxy ARP/NDP for the VLANs on the DUT
+    for vid in vlan_ids:
+        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
+        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
+
+        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
+
+        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
+        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
+        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
+
+    yield all('enabled' in val for val in new_proxy_arp_vals)
+
+    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
+        if 'enabled' not in proxy_arp_val:
+            # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
+            duthost.shell(proxy_arp_del_cmd.format(vid))
+
+
+@pytest.fixture(scope="module")
+def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+
+@pytest.fixture(scope="module")
+def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, config_facts):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic = duthost.asic_instance(enum_frontend_asic_index)
+    mg_facts = asic.get_extended_minigraph_facts(tbinfo)
+    external_ports = [p for p in list(mg_facts['minigraph_ports'].keys()) if 'BP' not in p]
+    ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
+    po1 = None
+    po2 = None
+
+    is_storage_backend = 'backend' in tbinfo['topo']['name']
+
+    if tbinfo['topo']['type'] == 't0':
+        if is_storage_backend:
+            vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
+            intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+        else:
+            if 'PORTCHANNEL_MEMBER' in config_facts:
+                portchannel_members = []
+                for _, v in list(config_facts['PORTCHANNEL_MEMBER'].items()):
+                    portchannel_members += list(v.keys())
+                ports_for_test = [x for x in ports if x not in portchannel_members]
+            else:
+                ports_for_test = ports
+
+            # Select two interfaces for testing which are not in portchannel
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+
+    logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
+
+    if tbinfo['topo']['type'] == 't1' and is_storage_backend:
+        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]]
+        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0]]
+    else:
+        intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
+        intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
+
+    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
+    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
+
+    yield intf1, intf2, intf1_indice, intf2_indice
+
+    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
+    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
+
+    if tbinfo['topo']['type'] != 't0':
+        if po1:
+            asic.config_portchannel_member(po1, intf1, "add")
+        if po2:
+            asic.config_portchannel_member(po2, intf2, "add")
+
+
+@pytest.fixture(scope='module')
+def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
+    """
+    Calculate IP addresses and interface to use for test
+    """
+    ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
+
+    intf1_name, _, intf1_index, _, = intfs_for_test
+    ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
+
+    # Calculate the IPv6 address to assign to the PTF port
+    vlan_addrs = list(list(config_facts['VLAN_INTERFACE'].items())[0][1].keys())
+    intf_ipv6_addr = None
+    intf_ipv4_addr = None
+
+    for addr in vlan_addrs:
+        try:
+            if type(ip_network(addr, strict=False)) is IPv6Network:
+                intf_ipv6_addr = ip_network(addr, strict=False)
+            elif type(ip_network(addr, strict=False)) is IPv4Network:
+                intf_ipv4_addr = ip_network(addr, strict=False)
+        except ValueError:
+            continue
+
+    # Increment address by 3 to offset it from the intf on which the address may be learned
+    if intf_ipv4_addr is not None:
+        ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=3)
+        ptf_intf_ipv4_hosts = intf_ipv4_addr.hosts()
+    else:
+        ptf_intf_ipv4_addr = None
+        ptf_intf_ipv4_hosts = None
+
+    if intf_ipv6_addr is not None:
+        ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=3)
+    else:
+        ptf_intf_ipv6_addr = None
+
+    logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
+
+    return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index, intf1_name
+
+
+def generate_link_local_addr(mac):
+    parts = mac.split(":")
+    parts.insert(3, "ff")
+    parts.insert(4, "fe")
+    parts[0] = "{:x}".format(int(parts[0], 16) ^ 2)
+
+    ipv6Parts = []
+    for i in range(0, len(parts), 2):
+        ipv6Parts.append("".join(parts[i:i+2]))
+    ipv6 = "fe80::{}".format(":".join(ipv6Parts))
+    return ipv6
+
+# Need to check if we need this for v6 as well, otherwise remove v6 ipversion and param
+
+
+@pytest.fixture(params=['v4'])
+def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
+    ip_version = request.param
+    src_addr_v4, _, src_addr_v6, _, ptf_intf_index, _ = ip_and_intf_info
+    ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
+    vlans = config_facts['VLAN']
+    topology = tbinfo['topo']['name']
+    dut_mac = ''
+    for vlan_details in list(vlans.values()):
+        if 'dualtor' in topology:
+            dut_mac = vlan_details['mac'].lower()
+        else:
+            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
+        break
+
+    if ip_version == 'v4':
+        tgt_addr = increment_ipv4_addr(src_addr_v4)
+        out_pkt = testutils.simple_arp_packet(
+                                eth_dst='ff:ff:ff:ff:ff:ff',
+                                eth_src=ptf_intf_mac,
+                                ip_snd=src_addr_v4,
+                                ip_tgt=tgt_addr,
+                                arp_op=1,
+                                hw_snd=ptf_intf_mac
+                            )
+        exp_pkt = testutils.simple_arp_packet(
+                                eth_dst=ptf_intf_mac,
+                                eth_src=dut_mac,
+                                ip_snd=tgt_addr,
+                                ip_tgt=src_addr_v4,
+                                arp_op=2,
+                                hw_snd=dut_mac,
+                                hw_tgt=ptf_intf_mac
+        )
+    elif ip_version == 'v6':
+        tgt_addr = increment_ipv6_addr(src_addr_v6)
+        ll_src_addr = generate_link_local_addr(ptf_intf_mac.decode())
+        multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
+        multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
+        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac)
+        out_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=ll_src_addr)
+        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
+        out_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_intf_mac)
+
+        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac)
+        exp_pkt /= IPv6(dst=ll_src_addr, src=generate_link_local_addr(dut_mac))
+        exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
+        exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
+        exp_pkt = Mask(exp_pkt)
+        exp_pkt.set_do_not_care_scapy(scapy.IPv6, 'fl')
+    return ip_version, out_pkt, exp_pkt
 
 
 def verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop):
@@ -173,84 +405,6 @@ def build_exp_pkt(input_pkt):
         exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
 
     return exp_pkt
-
-
-def format_and_apply_template(duthost, template_name, extra_vars):
-    dest_path = os.path.join(TMP_DIR, template_name)
-    duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    duthost.file(path=dest_path, state='absent')
-    duthost.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
-
-    # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
-    duthost.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
-
-    output = duthost.shell("config apply-patch {}".format(dest_path))
-
-    duthost.file(path=dest_path, state='absent')
-
-    return output
-
-
-def load_and_apply_json_patch(duthost, file_name):
-    with open(os.path.join(TEMPLATES_DIR, file_name)) as file:
-        json_patch = json.load(file)
-
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    return output
-
-
-def expect_acl_table_match_multiple_bindings(duthost, table_name, expected_first_line_content, expected_bindings):
-    """Check if acl table show as expected
-    Acl table with multiple bindings will show as such
-
-    Table_Name  Table_Type  Ethernet4   Table_Description   ingress
-                            Ethernet8
-                            Ethernet12
-                            Ethernet16
-
-    So we must have separate checks for first line and bindings
-    """
-
-    cmds = "show acl table {}".format(table_name)
-
-    output = duthost.show_and_parse(cmds)
-    pytest_assert(len(output) > 0, "'{}' is not a table on this device".format(table_name))
-
-    first_line = output[0]
-    pytest_assert(set(first_line.values()) == set(expected_first_line_content))
-    table_bindings = [first_line["binding"]]
-    for i in range(len(output)):
-        table_bindings.append(output[i]["binding"])
-    pytest_assert(set(table_bindings) == set(expected_bindings), "ACL Table bindings don't fully match")
-
-
-def expect_acl_rule_match(duthost, rulename, expected_content_list):
-    """Check if acl rule shows as expected"""
-
-    cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
-
-    output = duthost.show_and_parse(cmds)
-    pytest_assert(len(output) == 1, "'{}' is not a rule on this device".format(rulename))
-
-    pytest_assert(set(output[0].values()) == set(expected_content_list), "ACL Rule details do not match!")
-
-
-def expect_acl_rule_removed(duthost, rulename):
-    """Check if ACL rule has been successfully removed"""
-
-    cmds = "show acl rule DYNAMIC_ACL_TABLE {}".format(rulename)
-    output = duthost.show_and_parse(cmds)
-
-    removed = len(output) == 0
-
-    pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
 
 
 @pytest.fixture(scope="module")
@@ -329,7 +483,7 @@ def dynamic_acl_create_secondary_drop_rule(duthost, setup):
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
-                             "9997",
+                             "9996",
                              "DROP",
                              "IN_PORTS: " + setup["blocked_src_port_name"],
                              "Active"]
@@ -398,6 +552,18 @@ def dynamic_acl_create_three_drop_rules(duthost, setup):
     expect_acl_rule_match(duthost, "RULE_5", expected_rule_5_content)
 
 
+def dynamic_acl_create_arp_forward_rule(duthost):
+    """Create an ARP forward rule with the highest priority"""
+
+    output = load_and_apply_json_patch(duthost, CREATE_ARP_FORWARD_RULE_FILE)
+
+    expect_op_success(duthost, output)
+
+    expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "9997", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
+
+    expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content)
+
+
 def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None):
     """Verify that the given packets are either dropped/forwarded correctly
 
@@ -425,8 +591,11 @@ def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_
 def dynamic_acl_remove_third_drop_rule(duthost):
     """Remove the third drop rule of the three created for the drop rule removal test"""
 
-    output = load_and_apply_json_patch(duthost, REMOVE_THIRD_DROP_RULE_FILE)
+    extra_vars = {
+        'rule_name': "RULE_5"
+        }
 
+    output = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars)
     expect_op_success(duthost, output)
 
     expect_acl_rule_removed(duthost, "RULE_5")
@@ -476,7 +645,7 @@ def dynamic_acl_replace_rules(duthost):
 def dynamic_acl_apply_forward_scale_rules(duthost, setup):
     """Apply a large amount of forward rules to the duthost"""
 
-    priority = MAX_RULE_PRIORITY
+    priority = MAX_IP_RULE_PRIORITY
     value_dict = {}
     expected_rule_contents = {}
 
@@ -566,17 +735,19 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
         delete_tmpfile(duthost, tmpfile)
 
 
-def dynamic_acl_remove_forward_rule(duthost, ip_type):
+def dynamic_acl_remove_ip_forward_rule(duthost, ip_type):
     """Remove selected forward rule from the acl table"""
 
     if ip_type == "IPV4":
-        file = REMOVE_IPV4_FORWARD_RULE_FILE
         rule_name = "RULE_1"
     else:
-        file = REMOVE_IPV6_FORWARD_RULE_FILE
         rule_name = "RULE_2"
 
-    output = load_and_apply_json_patch(duthost, file)
+    extra_vars = {
+        "rule_name": rule_name
+    }
+
+    output = format_and_apply_template(duthost, REMOVE_RULE_TEMPLATE, extra_vars)
 
     expect_op_success(duthost, output)
 
@@ -605,6 +776,41 @@ def dynamic_acl_remove_table_type(duthost):
     output = load_and_apply_json_patch(duthost, REMOVE_TABLE_TYPE_FILE)
 
     expect_op_success(duthost, output)
+
+
+def test_gcu_acl_arp_rule_creation(rand_selected_dut,
+                                   ptfadapter,
+                                   setup,
+                                   dynamic_acl_create_table,
+                                   packets_for_test,
+                                   ip_and_intf_info,
+                                   proxy_arp_enabled):
+    """Test that we can create a blanket ARP packet forwarding rule with GCU, and that ARP packets
+    are correctly forwarded while all others are dropped"""
+
+    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index, port_name = ip_and_intf_info
+
+    ip_version, outgoing_packet, expected_packet = packets_for_test
+
+    setup["blocked_src_port_name"] = port_name
+    setup["blocked_src_port_indice"] = ptf_intf_index
+
+    dynamic_acl_create_arp_forward_rule(rand_selected_dut)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    if ip_version == 'v4':
+        pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
+    elif ip_version == 'v6':
+        pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+
+    ptfadapter.dataplane.flush()
+    testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
+    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+
+    dynamic_acl_verify_packets(setup,
+                               ptfadapter,
+                               packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True)
 
 
 def test_gcu_acl_drop_rule_creation(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
@@ -671,7 +877,7 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut, ptfadapter, setup, ip_t
     no longer forwarded, and packets associated with the remaining rule are forwarded"""
     dynamic_acl_create_forward_rules(rand_selected_dut)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
-    dynamic_acl_remove_forward_rule(rand_selected_dut, ip_type)
+    dynamic_acl_remove_ip_forward_rule(rand_selected_dut, ip_type)
     forward_packets = generate_packets(setup)
     drop_packets = forward_packets.copy()
     if ip_type == "IPV4":
