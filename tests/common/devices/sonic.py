@@ -18,7 +18,7 @@ from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_host_visible_vars, wait_until
 
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
