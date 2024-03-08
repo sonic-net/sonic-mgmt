@@ -1784,7 +1784,7 @@ class ReloadTest(BaseTest):
             process.terminate()
 
         for process in processes_list:
-            wait_timer = timer.Timer(5, process.kill)
+            wait_timer = threading.Timer(5, process.kill)
             try:
                 wait_timer.start()
                 process.wait()
