@@ -16,6 +16,7 @@ import time
 import prettytable
 import pytz
 import math
+import copy
 
 from azure.kusto.data import KustoConnectionStringBuilder, KustoClient
 from azure.kusto.data.helpers import dataframe_from_result_table
@@ -1007,11 +1008,12 @@ class GeneralAnalyzer(BasicAnalyzer):
         logger.info("Check if subject mismatch for duplicated IcM")
         for kusto_row_item in duplicated_icm_list:
             self.check_subject_match(kusto_row_item)
+        logger.debug("final_icm_list={}".format(json.dumps(final_icm_list, indent=4)))
         return error_final_icm_list, final_icm_list, duplicated_icm_list
 
     def check_subject_match(self, kusto_row):
         """
-        Check if the subject match for setup error IcM
+        Check if the subject match with asic/hwsku/osversion
         """
         asic_name = kusto_row['failure_level_info']['asic'] if 'asic' in kusto_row['failure_level_info'] else None
         hwsku_name = kusto_row['failure_level_info']['hwsku'] if 'hwsku' in kusto_row['failure_level_info'] else None
@@ -1481,6 +1483,7 @@ class GeneralAnalyzer(BasicAnalyzer):
         latest_failure_timestamp_ori = None
         if failed_df.shape[0] != 0:
             latest_row = failed_df.iloc[0]
+            logger.debug("{} latest failure row: {}".format(test_case_branch, latest_row))
             tb_results["latest_failure_testbed"] = latest_row['TestbedName']
             asic_results["latest_failure_asic"] = latest_row['AsicType']
             hwsku_results["latest_failure_hwsku"] = latest_row['HardwareSku']
@@ -1490,16 +1493,25 @@ class GeneralAnalyzer(BasicAnalyzer):
             if branch in self.config_info["branch"]["released_branch"]:
                 hwsku_osversion_results["latest_failure_hwsku_osversion"] = latest_row['HardwareSku'] + \
                     "_" + latest_row['OSVersion']
-            latest_failure_timestamp_ori = latest_row['UploadTimestamp']
-            latest_failure_timestamp = latest_failure_timestamp_ori.to_pydatetime()
-            latest_failure_timestr = latest_failure_timestamp.strftime(fmt)
-            # Get the oldest failure row
-            oldest_row = failed_df.iloc[-1]
-            oldest_failure_timestamp_ori = oldest_row['UploadTimestamp']
-            oldest_failure_timestamp = oldest_failure_timestamp_ori.to_pydatetime()
-            oldest_failure_timestr = oldest_failure_timestamp.strftime(fmt)
-            history_testcases[test_case_branch]['latest_failure_timestamp'] = latest_failure_timestr
-            history_testcases[test_case_branch]['oldest_failure_timestamp'] = oldest_failure_timestr
+            latest_failure_timestr = ''
+            oldest_failure_timestr = ''
+            try:
+                latest_failure_timestamp_ori = latest_row['UploadTimestamp']
+                logger.info("{} latest_row: {}".format(test_case_branch, latest_row))
+                latest_failure_timestamp = latest_failure_timestamp_ori.to_pydatetime()
+                latest_failure_timestr = latest_failure_timestamp.strftime(fmt)
+                # Get the oldest failure row
+                oldest_row = failed_df.iloc[-1]
+                oldest_failure_timestamp_ori = oldest_row['UploadTimestamp']
+                oldest_failure_timestamp = oldest_failure_timestamp_ori.to_pydatetime()
+                oldest_failure_timestr = oldest_failure_timestamp.strftime(fmt)
+                history_testcases[test_case_branch]['latest_failure_timestamp'] = latest_failure_timestr
+                history_testcases[test_case_branch]['oldest_failure_timestamp'] = oldest_failure_timestr
+            except ValueError as e:
+                logger.error("{} Failed to convert the timestamp to datetime: {} ".format(test_case_branch, e))
+                logger.error("{} latest_failure_timestamp_ori: {} latest_failure_timestamp: {}".format(
+                    test_case_branch, latest_failure_timestamp_ori, latest_failure_timestamp))
+
         else:
             logger.error("Attention!!! There is no failure found case for {}.".format(test_case_branch))
 
@@ -1867,7 +1879,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         continue
                     else:
                         logger.info("{} At least one result for asic {} has a timestamp within the past 7 days.".format(case_name_branch, asic))
-                    new_kusto_row_data_asic = kusto_row_data.copy()
+                    new_kusto_row_data_asic = copy.deepcopy(kusto_row_data)
                     # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                     new_kusto_row_data_asic['trigger_icm'] = True
                     new_kusto_row_data_asic['failure_level_info']['asic'] = asic
@@ -1916,7 +1928,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                         else:
                             logger.info("{} At least one result for hwsku {} has a timestamp within the past 7 days.".format(case_name_branch, hwsku))
 
-                        new_kusto_row_data_hwsku = kusto_row_data.copy()
+                        new_kusto_row_data_hwsku = copy.deepcopy(kusto_row_data)
                         # new_kusto_row_data_hwsku['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku['trigger_icm'] = True
                         new_kusto_row_data_hwsku['failure_level_info']['asic'] = asic
@@ -1974,7 +1986,7 @@ class GeneralAnalyzer(BasicAnalyzer):
                             continue
                         else:
                             logger.info("{} At least one result for hwsku_osversion {} has a timestamp within the past 7 days.".format(case_name_branch, hwsku_osversion))
-                            new_kusto_row_data_hwsku_osversion = kusto_row_data.copy()
+                            new_kusto_row_data_hwsku_osversion = copy.deepcopy(kusto_row_data)
                         # new_kusto_row_data_asic['failure_level_info']['is_regression'] = True
                         new_kusto_row_data_hwsku_osversion['trigger_icm'] = True
                         new_kusto_row_data_hwsku_osversion['failure_level_info']['hwsku'] = hwsku
