@@ -65,7 +65,7 @@ In a Tier 2 (T2) data center network environment, route performance and converge
   - Efficient convergence mechanisms ensure rapid recovery of control plane operations and restoration of routing services.
 
 ### Planned Events:
-- #### TSA/TSB (Traffic Shift A/Traffic Shift B) of T2 Device:
+- #### TSA/TSB (Traffic Shift Away/Traffic Shift Back) of T2 Device:
   - Isolating a T2 device for maintenance requires careful planning to prevent service disruptions.
   - Updating route-maps to reroute traffic away from the isolated device enables maintenance activities without impacting service availability.
   - Route convergence mechanisms help redistribute traffic flows seamlessly during the maintenance window.
@@ -103,7 +103,7 @@ Traffic will be sent from remaining tgen ports to the routes which are being adv
 ### Test Methodology
 
 Intially routes will not be advertised and while sending traffic, no packets will be received. <br/> 
-Advertise the routes and measure the time it takes to install the routes in its RIB(Routing Information Base) and then in its FIB(Forwarding Information Base) to forward the traffic. <br/> 
+Advertise the routes and measure the time it takes to install the routes in its asic table and to forward the traffic. <br/> 
 Convergence time should be measured from the instance routes are advertised and when the traffic is receiving at full transmitting rate.<br/> 
 Similarly, withdraw the routes and measure the time it takes to delete the routes from DUT asics. <br/> 
 In order to measure the time it takes to delete the routes from asics after routes withdraw, we have to consider the time when it starts withdrawing the routes and when the traffic receiving rate goes to 0%.<br/> 
@@ -178,7 +178,7 @@ Different triggers(planned/unplanned) mentioned above are performed at different
 
 ### Test Setup
 1. T2 chassis with 2 LCs(Linecards). Each LC is having 2 asics.                            
-2. Tgen ports will be connected to the uplink LC on a port channel with single member and eBGP configuration will be established between them. 
+2. Tgen ports will be connected to the uplink LC on a port channel with two members and eBGP configuration will be established between them. 
 3. eBGP session will be configured between T1 and downlink T2 device. Also, eBGP session will be established between T1 and simulated T2 tgen port.
 4. Same prefixes will be advertised from all the tgen ports connected to T1 and T2 devices.
 5. T1 device will learn the routes from all eBGP neighbors and uses ECMP to forward traffic. 
@@ -246,12 +246,12 @@ Different triggers(planned/unplanned) mentioned above are performed at different
   <img src="Img/T2_Convergence_Uplink_LC_Down.png" width="500"  hspace="150"/>
 </p>
 
-| **Test Name** &nbsp;      | **Measure the convergence time when the uplink LC goes down.**                         |
+| **Test Name** &nbsp;      | **Measure the convergence time when processes of uplink LC goes down.**                         |
 | ------------------- | :--------------------------------------- |
 | **Topology**        | **Topology 2d**                          | 
 | **Type**            | **Scalability and Performance**          |
 | **Traffic**         | **Outbound**                             |
-| **Test Steps**      | 1. Send traffic from server port(tgen) connected to T1 to the eBGP prefixes.<br/>2. Traffic will be equally distributed between the available paths.<br/>3. Bring the uplink linecard down(Process down).<br/>4. iBGP holddown timer between uplink and downlink linecards will expire.<br/>5. Downlink linecard will delete/update the routes coming from the uplink LC.<br/>6. Downlink linecards will update it ASIC table and withdraw routes which are learned from uplink LC.<br/>7. T1 will redirect the traffic to other T2 devices.<br/>8. Measure the time it takes to converge the traffic to other available path without any loss. |
+| **Test Steps**      | 1. Send traffic from server port(tgen) connected to T1 to the eBGP prefixes.<br/>2. Traffic will be equally distributed between the available paths.<br/>3. Bring the processes of uplink linecard down(syncd, swss and bgpd) one after another and measure convergence.<br/>4. iBGP holddown timer between uplink and downlink linecards will expire.<br/>5. Downlink linecard will delete/update the routes coming from the uplink LC.<br/>6. Downlink linecards will update it ASIC table and withdraw routes which are learned from uplink LC.<br/>7. T1 will redirect the traffic to other T2 devices.<br/>8. Measure the time it takes to converge the traffic to other available path without any loss. |
 
 ### Test Case # 2.7
 
@@ -259,12 +259,12 @@ Different triggers(planned/unplanned) mentioned above are performed at different
   <img src="Img/T2_Convergence_Downlink_LC_Down.png" width="500"  hspace="150"/>
 </p>
 
-| **Test Name** &nbsp;      | **Measure the convergence time when the downlink LC goes down.**                         |
+| **Test Name** &nbsp;      | **Measure the convergence time when processes of downlink LC goes down.**                         |
 | ------------------- | :--------------------------------------- |
 | **Topology**        | **Topology 2e**                          | 
 | **Type**            | **Scalability and Performance**          |
 | **Traffic**         | **Outbound**                             |
-| **Test Steps**      | 1. Send traffic from server port(tgen) connected to T1 to the eBGP prefixes.<br/>2. Traffic will be equally distributed between the available paths.<br/>3. Bring the downlink linecard down(Process down).<br/>4. T1 will detect that and redirect the traffic to other T2 devices.<br/>5. Measure the time it takes to converge the traffic to other available path without any loss. |
+| **Test Steps**      | 1. Send traffic from server port(tgen) connected to T1 to the eBGP prefixes.<br/>2. Traffic will be equally distributed between the available paths.<br/>3. Bring the processes of downlink linecard down(syncd, swss and bgpd).<br/>4. T1 will detect that and redirect the traffic to other T2 devices.<br/>5. Measure the time it takes to converge the traffic to other available path without any loss. |
 
 ### Test Case # 2.8
 
@@ -272,7 +272,7 @@ Different triggers(planned/unplanned) mentioned above are performed at different
   <img src="Img/T2_Convergence_TSA_TSB.png" width="500"  hspace="150"/>
 </p>
 
-| **Test Name** &nbsp;      | **Maeasure the convergence time when TSA/TSB(Traffic shit A/Traffic shift B) is performed on T2 chassis.**                         |
+| **Test Name** &nbsp;      | **Maeasure the convergence time when TSA/TSB(Traffic shit Away/Traffic shift Back) is performed on T2 chassis.**                         |
 | ------------------- | :--------------------------------------- |
 | **Topology**        | **Topology 2f**                          | 
 | **Type**            | **Scalability and Performance**          |
