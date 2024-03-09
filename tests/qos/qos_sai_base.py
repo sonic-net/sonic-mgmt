@@ -790,7 +790,7 @@ class QosSaiBase(QosBase):
             "src_port_id": srcPort,
             "src_port_ip": src_port_ip["peer_addr"],
             "src_port_ipv6": src_port_ip["peer_addr_ipv6"],
-            "src_port_vlan": srcVlan
+            "src_port_vlan": srcVlan,
             "dst_sys_ports": dst_all_sys_port
         }
 
