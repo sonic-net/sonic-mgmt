@@ -71,7 +71,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller', 'tortuga-controller-2x2', 'tortuga-controller-2x3'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -406,6 +406,30 @@ def print_env_info(data, device_type):
         print("Ixia Chassis (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {} ".format(data['ixia_chassis']['HostAgent'], data['ixia_chassis']['serial0']))
         print("Ixia Gui (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}  redir3389: {}".format(data['ixia_gui']['HostAgent'], data['ixia_gui']['serial0'], data['ixia_gui']['redir3389']))
         print("Ixia (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}".format(data['ixia']['HostAgent'], data['ixia']['serial0']))
+    elif 'tortuga-controller-2x2' in data['topo_type']:
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22']]
+        host_ports = list()
+        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        for i in range(1,4):
+            print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
+            host_ports.append(data['trex' + str(i)]['xr_redir22'])
+        return leaf_ports, host_ports
+    elif 'tortuga-controller-2x3' in data['topo_type']:
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
+        host_ports = list()
+        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        print("Tortuga Switch - N1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['N1']['HostAgent'], data['N1']['serial0'], data['N1']['xr_mgmt_ip'], data['N0']['xr_redir22']))
+        for i in range(1,5):
+            print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
+            host_ports.append(data['trex' + str(i)]['xr_redir22'])
+        return leaf_ports, host_ports
     else:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         host_ports = list()
@@ -432,6 +456,8 @@ def update_controller_test(data, leaf_ports, host_ports):
     os.system("sed -i 's/.*PYVXR_HOST\=.*/{}/' ./tortuga_controller/test.sh".format(pyvxr_str))
     os.system("sed -i 's/.*HOST_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(host_str))
     os.system("sed -i 's/.*LEAF_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(leaf_str))
+    if 'tortuga-controller-2' in data['topo_type']:
+        os.system("sed -i 's/.*SPINE_COUNT\=.*/2/' ./tortuga_controller/test.sh")
 
 def start_controller():
     test_path = "./tortuga_controller/test.sh"
@@ -504,6 +530,11 @@ def replace_fabric_name(topo_yaml,fabric_name):
             if 'config hostname' in line:
                 newline = "sudo config hostname {}-spine0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        for line in vxr_data['devices']['S1']['cli_commands'].splitlines():
+            if 'config hostname' in line:
+                newline = "sudo config hostname {}-spine1".format(fabric_name)
+                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+
 
 def create_report_json(sanity_success):
     sum = {"total": 1, "failed": 0, "passed": 0, "status" : "", "success_rate": 0}
@@ -516,9 +547,9 @@ def create_report_json(sanity_success):
         sum["failed"] = 1
         sum["status"] = "failure"
         sum["success_rate"] = 0
-    
+
     sum_f = open(SUMMARY_REPORT_PATH, "w")
-    com_f = open(COMMON_REPORT_PATH, "w") 
+    com_f = open(COMMON_REPORT_PATH, "w")
 
     print(f"result summary is: {sum}")
 
