@@ -83,21 +83,39 @@ fi
 # Tests one Vni and one Vlan.
 # E.g. VNI 5100 - Vlan 10 - multiple ports per leaf
 #                 VRF
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "one-vni-vlan" ]]; then
-  cleanup "one-vni-vlan"
+if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "one-vlan" ]]; then
+  cleanup "one-vlan"
 
   "${CONFIG_GEN}" \
     --lldp \
     --auto \
     --prefix \
-    --test "one-vni-vlan" \
+    --test "one-vlan" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
     --hosts "${HOST_PORTS}" \
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
-    -tags "${TEST_TAGS}"
+    --tags "${TEST_TAGS}"
+fi
+
+# Tests static anycast gateway.
+if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "sag" ]]; then
+  cleanup "anycast-gateway"
+
+  "${CONFIG_GEN}" \
+    --lldp \
+    --auto \
+    --prefix \
+    --cloud "${CLOUD_URL}" \
+    --fabric "${FABRIC_NAME}" \
+    --pyvxr "${PYVXR_HOST}" \
+    --hosts "${HOST_PORTS}" \
+    --spines "${SPINE_COUNT}" \
+    --leaves "${LEAF_PORTS}" \
+    --sagMac "00:11:22:33:44:55" \
+    --tags "${TEST_TAGS},add-sag"
 fi
 
 end=$(date +%s)
