@@ -1035,11 +1035,15 @@ class DscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     # pg = 7 => packets from cpu to front panel ports
                     if platform_asic and platform_asic == "broadcom-dnx":
                         if i == pg:
-                            assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
-                        elif i in [0, 4, 7]:
-                            assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            if i == 3:
+                                assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
+                            else:
+                                assert (pg_cntrs[pg] >= pg_cntrs_base[pg] + len(dscps))
                         else:
-                            assert (pg_cntrs[i] == pg_cntrs_base[i])
+                            if i in [0, 4, 7]:
+                                assert (pg_cntrs[i] >= pg_cntrs_base[i])
+                            else:
+                                assert (pg_cntrs[i] == pg_cntrs_base[i])
                     else:
                         if i == pg:
                             assert (pg_cntrs[pg] == pg_cntrs_base[pg] + len(dscps))
