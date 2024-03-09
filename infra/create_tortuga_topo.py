@@ -510,7 +510,7 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
-def replace_fabric_name(data, topo_yaml,fabric_name):
+def replace_fabric_name(topo_type, topo_yaml,fabric_name):
     with open(topo_yaml) as f:
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
         for line in vxr_data['devices']['L0']['cli_commands'].splitlines():
@@ -529,7 +529,7 @@ def replace_fabric_name(data, topo_yaml,fabric_name):
             if 'config hostname' in line:
                 newline = "sudo config hostname {}-spine0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        if 'tortuga-controller-2' in data['topo_type']:
+        if 'tortuga-controller-2' in topo_type:
             for line in vxr_data['devices']['S1']['cli_commands'].splitlines():
                 if 'config hostname' in line:
                     newline = "sudo config hostname {}-spine1".format(fabric_name)
@@ -593,7 +593,7 @@ def main():
             topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]["pyvxr_yaml_file"]
 
     if 'tortuga-controller' in topo_type:
-        replace_fabric_name(data,topo_yaml,fabric_name)
+        replace_fabric_name(topo_type,topo_yaml,fabric_name)
 
     dut_platform = get_dut_platform(device_type)
 
