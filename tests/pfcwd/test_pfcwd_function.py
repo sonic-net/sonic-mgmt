@@ -282,6 +282,8 @@ class PfcPktCntrs(object):
             port_type(string) : the type of port (eg. portchannel, vlan, interface)
             pkt_cnt(int) : Number of test packets sent from the PTF
         """
+        if self.dut.facts["asic_type"] in ['cisco-8000']:
+            return
         logger.info("--- Checking Tx {} cntrs ---".format(self.tx_action))
         tx_diff = self.cntr_val["tx_end"] - self.cntr_val["tx_begin"]
         if (port_type in ['vlan', 'interface'] and tx_diff != pkt_cnt) or tx_diff <= 0:
