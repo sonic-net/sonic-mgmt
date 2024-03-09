@@ -425,8 +425,7 @@ def print_env_info(data, device_type):
         print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
         print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
         print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
-        print("Tortuga Switch - N1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['N1']['HostAgent'], data['N1']['serial0'], data['N1']['xr_mgmt_ip'], data['N0']['xr_redir22']))
-        for i in range(1,5):
+        for i in range(1,3):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports
@@ -511,7 +510,7 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
-def replace_fabric_name(topo_yaml,fabric_name):
+def replace_fabric_name(data, topo_yaml,fabric_name):
     with open(topo_yaml) as f:
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
         for line in vxr_data['devices']['L0']['cli_commands'].splitlines():
@@ -530,10 +529,11 @@ def replace_fabric_name(topo_yaml,fabric_name):
             if 'config hostname' in line:
                 newline = "sudo config hostname {}-spine0".format(fabric_name)
                 os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        for line in vxr_data['devices']['S1']['cli_commands'].splitlines():
-            if 'config hostname' in line:
-                newline = "sudo config hostname {}-spine1".format(fabric_name)
-                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        if 'tortuga-controller-2' in data['topo_type']:
+            for line in vxr_data['devices']['S1']['cli_commands'].splitlines():
+                if 'config hostname' in line:
+                    newline = "sudo config hostname {}-spine1".format(fabric_name)
+                    os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
 
 def create_report_json(sanity_success):
@@ -593,7 +593,7 @@ def main():
             topo_yaml = TOPO_PLATFORM_FILE_DICT[topo_type][device_type]["pyvxr_yaml_file"]
 
     if 'tortuga-controller' in topo_type:
-        replace_fabric_name(topo_yaml,fabric_name)
+        replace_fabric_name(data,topo_yaml,fabric_name)
 
     dut_platform = get_dut_platform(device_type)
 
