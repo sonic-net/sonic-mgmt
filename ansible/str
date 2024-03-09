@@ -306,10 +306,12 @@ sonic:
 sonic_dell32_40:
   hosts:
     str-s6000-acs-10:
-      ansible_host: 10.3.147.237
+      ansible_host: 10.3.146.226
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:93ed
     str-s6000-acs-11:
-      ansible_host: 10.3.147.239
+      ansible_host: 10.3.146.234
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:93ef
       model: 00NX1V
       serial: BQBRX42
@@ -321,7 +323,8 @@ sonic_dell32_40:
 sonic_dell64_40:
   hosts:
     str-s6100-acs-1:
-      ansible_host: 10.3.147.243
+      ansible_host: 10.3.146.16
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:93f3
       model: 06N1J1
       serial: DF9TG02
@@ -357,7 +360,8 @@ sonic_arista_40:
       serial: SSJ16463516
       base_mac: 28:99:3a:20:8e:48
     str-a7050-acs-2:
-      ansible_host: 10.3.147.199
+      ansible_host: 10.3.146.216
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:93c7
       hwsku: Arista-7050-QX32
       model: DCS-7050QX-32
@@ -372,6 +376,7 @@ sonic_arista_40:
       base_mac: 28:99:3a:b6:f5:7c
     str-7050qx-32s-acs-04:
       ansible_host: 10.3.146.113
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:9271
       hwsku: Arista-7050QX32S-Q32
       model: DCS-7050QX-32S
@@ -400,7 +405,8 @@ sonic_mlnx_40:
   hosts:
     str-msn2700-01:
       hwsku: Mellanox-SN2700-A1
-      ansible_host: 10.3.147.188
+      ansible_host: 10.3.146.215
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:93bc
       model: MSN2700-CS2R2OS
       serial: MT2338XZ03WL
@@ -622,6 +628,7 @@ sonic_arista32_100:
         "0x2F": "JPE17051884"
     str-a7280cr3-2:
       ansible_host: 10.3.146.28
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:921c
       hwsku: Arista-7280CR3-C40
       model: DCS-7280CR3K-32P4
@@ -646,6 +653,7 @@ sonic_dell32_100:
   hosts:
     str-z9100-acs-1:
       ansible_host: 10.3.146.191
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:92bf
       hwsku: Force10-Z9100-C32
     str-z9100-acs-2:
@@ -654,6 +662,7 @@ sonic_dell32_100:
       hwsku: Force10-Z9100-C32
     str-s5232f-on-1:
       ansible_host: 10.3.146.247
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:92f7
       hwsku: DellEMC-S5232f-C32
   vars:
@@ -743,12 +752,6 @@ fanout:
     str-7260-08:
       ansible_host: 10.3.146.91
       ansible_hostv6: 2a01:111:e210:3000::a03:925b
-    str-7260-11:
-      ansible_host: 10.3.147.234
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ea
-    str-7260-13:
-      ansible_host: 10.3.147.196
-      ansible_hostv6: 2a01:111:e210:3000::a03:93c4
     str-7260-14:
       ansible_host: 10.3.147.198
       ansible_hostv6: 2a01:111:e210:3000::a03:93c6
@@ -756,13 +759,13 @@ fanout:
       ansible_host: 10.3.147.236
       ansible_hostv6: 2a01:111:e210:3000::a03:93ec
     str-7260-16:
-      ansible_host: 10.3.147.238
+      ansible_host: 10.3.146.231
       ansible_hostv6: 2a01:111:e210:3000::a03:93ee
     str-7260-17:
-      ansible_host: 10.3.147.240
+      ansible_host: 10.3.146.250
       ansible_hostv6: 2a01:111:e210:3000::a03:93f0
     str-7260-18:
-      ansible_host: 10.3.147.242
+      ansible_host: 10.3.146.251
       ansible_hostv6: 2a01:111:e210:3000::a03:93f2
     str-7260-23:
       ansible_host: 10.64.247.253
@@ -771,20 +774,9 @@ fanout:
       ansible_host: 10.64.247.254
       ansible_hostv6: 2a01:111:e210:b000::a40:f7fe
     str-7260-02:
-      ansible_host: 10.3.147.154
+      ansible_host: 10.3.146.168
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:939a
-    str-7260-03:
-      ansible_host: 10.3.147.169
-      ansible_hostv6: 2a01:111:e210:3000::a03:93a9
-    str-7260-04:
-      ansible_host: 10.3.147.164
-      ansible_hostv6: 2a01:111:e210:3000::a03:93a4
-    str-7260-07:
-      ansible_host: 10.3.147.11
-      ansible_hostv6: 2a01:111:e210:3000::a03:930b
-    str-7260-10:
-      ansible_host: 10.3.147.13
-      ansible_hostv6: 2a01:111:e210:3000::a03:930d
     str-7260-20:
       ansible_host: 10.64.247.249
       ansible_hostv6: 2a01:111:e210:b000::a40:f7f9
@@ -839,6 +831,7 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f622
     str-7260cx3-64-16:
       ansible_host: 10.3.146.147
+      mgmt_subnet_mask_length: 23
       ansible_hostv6: 2a01:111:e210:3000::a03:9293
     str-7260cx3-64-17:
       ansible_host: 10.3.146.148
@@ -882,10 +875,10 @@ fanout:
 server:
   hosts:
     str-acs-serv-01:
-      ansible_host: 10.3.147.245
+      ansible_host: 10.3.146.67
       ansible_hostv6: 2a01:111:e210:3000::a03:93f5
     str-acs-serv-02:
-      ansible_host: 10.3.147.192
+      ansible_host: 10.3.146.73
       ansible_hostv6: 2a01:111:e210:3000::a03:93c0
     str-acs-serv-03:
       ansible_host: 10.64.247.45

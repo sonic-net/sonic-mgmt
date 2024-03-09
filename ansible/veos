@@ -192,11 +192,11 @@ all:
 vm_host_1:
   hosts:
     STR-ACS-SERV-01:
-      ansible_host: 10.3.147.245
+      ansible_host: 10.3.146.67
 vm_host_2:
   hosts:
     STR-ACS-SERV-02:
-      ansible_host: 10.3.147.192  # this is str-acs-serv-04 for now
+      ansible_host: 10.3.146.73  # this is str-acs-serv-04 for now
 vm_host_3:
   hosts:
     STR-ACS-SERV-03:
