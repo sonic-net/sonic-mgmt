@@ -969,6 +969,7 @@ class QosSaiBase(QosBase):
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
+            src_system_port = {}
             if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
                     get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
                 src_system_port = src_dut.config_facts(host=src_dut.hostname, source='running')['ansible_facts'][
