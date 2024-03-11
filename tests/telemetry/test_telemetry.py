@@ -227,7 +227,7 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
     duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                             new_state))
-    client_thread.join(60) # max timeout of 60s, expect update to come in <=30s
+    client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
 @pytest.mark.disable_loganalyzer
