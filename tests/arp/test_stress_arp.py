@@ -120,29 +120,17 @@ def ipv6_packets_for_test(ip_and_intf_info, fake_src_mac, fake_src_addr):
     ns_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=fake_src_addr)
     ns_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
     ns_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=fake_src_mac)
-    logging.info(repr(ns_pkt))
 
     return ns_pkt
 
 
-def get_ipv6_entries_status(duthost, ipv6_addr):
-    ipv6_entry = duthost.shell("ip -6 neighbor | grep -w {}".format(ipv6_addr))["stdout_lines"][0]
-    ipv6_entry_status = ipv6_entry.split(" ")[-1]
-    return (ipv6_entry_status == 'REACHABLE')
-
-
-def add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable):
+def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
     for entry in range(0, nd_avaliable):
         nd_entry_mac = IntToMac(MacToInt(ARP_SRC_MAC) + entry)
         fake_src_addr = generate_global_addr(nd_entry_mac)
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
 
-        ptfhost.shell("ip -6 addr add {}/64 dev eth1".format(fake_src_addr))
-
-        ptfadapter.dataplane.flush()
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
-        wait_until(20, 1, 0, get_ipv6_entries_status, duthost, fake_src_addr)
-        ptfhost.shell("ip -6 addr del {}/64 dev eth1".format(fake_src_addr))
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -163,7 +151,7 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
 
     while loop_times > 0:
         loop_times -= 1
-        add_nd(duthost, ptfhost, ptfadapter, config_facts, tbinfo, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+        add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
         pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
                       "Neighbor Table Add failed")
