@@ -447,6 +447,7 @@ def update_controller_test(data, leaf_ports, host_ports):
     pyvxr_str = "PYVXR_HOST={}".format(data['L0']['HostAgent'])
     host_str = "HOST_PORTS={}".format(format(','.join(str(item) for item in host_ports)))
     leaf_str = "LEAF_PORTS={}".format(format(','.join(str(item) for item in leaf_ports)))
+    spine_str = "SPINE_COUNT=2"
     print(fabric_str)
     print(pyvxr_str)
     print(host_str)
@@ -456,7 +457,7 @@ def update_controller_test(data, leaf_ports, host_ports):
     os.system("sed -i 's/.*HOST_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(host_str))
     os.system("sed -i 's/.*LEAF_PORTS\=.*/{}/' ./tortuga_controller/test.sh".format(leaf_str))
     if 'tortuga-controller-2' in data['topo_type']:
-        os.system("sed -i 's/.*SPINE_COUNT\=.*/2/' ./tortuga_controller/test.sh")
+        os.system("sed -i 's/.*SPINE_COUNT\=.*/{}/' ./tortuga_controller/test.sh".format(spine_str))
 
 def start_controller():
     test_path = "./tortuga_controller/test.sh"
@@ -511,28 +512,27 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
             json.dump(sim_cfg, cfg_file, indent=4)
 
 def replace_fabric_name(topo_type, topo_yaml,fabric_name):
+    if 'tortuga-controller-2x2' in topo_type:
+        num_leaf = 2
+        num_spine = 2
+    elif 'tortuga-controller-2x3' in topo_type:
+        num_leaf = 3
+        num_spine = 2
+    else:
+        num_leaf = 3
+        num_spine = 1
+
     with open(topo_yaml) as f:
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
-        for line in vxr_data['devices']['L0']['cli_commands'].splitlines():
-            if 'config hostname' in line:
-                newline = "sudo config hostname {}-leaf0".format(fabric_name)
-                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        for line in vxr_data['devices']['L1']['cli_commands'].splitlines():
-            if 'config hostname' in line:
-                newline = "sudo config hostname {}-leaf1".format(fabric_name)
-                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        for line in vxr_data['devices']['L2']['cli_commands'].splitlines():
-            if 'config hostname' in line:
-                newline = "sudo config hostname {}-leaf2".format(fabric_name)
-                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        for line in vxr_data['devices']['S0']['cli_commands'].splitlines():
-            if 'config hostname' in line:
-                newline = "sudo config hostname {}-spine0".format(fabric_name)
-                os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        if 'tortuga-controller-2' in topo_type:
-            for line in vxr_data['devices']['S1']['cli_commands'].splitlines():
+        for i in range(0, num_leaf):
+            for line in vxr_data['devices']['L{}'.format(i)]['cli_commands'].splitlines():
                 if 'config hostname' in line:
-                    newline = "sudo config hostname {}-spine1".format(fabric_name)
+                    newline = "sudo config hostname {}-leaf{}".format(fabric_name,i)
+                    os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        for i in range(0, num_spine):
+            for line in vxr_data['devices']['S{}'.format(i)]['cli_commands'].splitlines():
+                if 'config hostname' in line:
+                    newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
                     os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
 
