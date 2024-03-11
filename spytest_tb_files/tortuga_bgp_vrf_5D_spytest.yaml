@@ -1,0 +1,64 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    CE1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.81, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    PE1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.37, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    P1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.36, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    PE2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.107, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    CE2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.187, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+topology:
+    CE1:
+        interfaces:
+            Ethernet0: {EndDevice: PE1, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: PE1, EndPort: Ethernet16, params: def_link}
+    PE1:
+        interfaces:
+            Ethernet8: {EndDevice: P1, EndPort: Ethernet0, params: def_link}
+            Ethernet24: {EndDevice: P1, EndPort: Ethernet16, params: def_link}
+    P1:
+        interfaces:
+            Ethernet8: {EndDevice: PE2, EndPort: Ethernet0, params: def_link}
+            Ethernet24: {EndDevice: PE2, EndPort: Ethernet16, params: def_link}
+
+    PE2:
+        interfaces:
+            Ethernet8: {EndDevice: CE2, EndPort: Ethernet0, params: def_link}
+            Ethernet24: {EndDevice: CE2, EndPort: Ethernet8, params: def_link}
