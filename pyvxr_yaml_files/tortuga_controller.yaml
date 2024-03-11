@@ -140,10 +140,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -166,13 +162,11 @@ devices:
       - 23
     console_ports: [60010]
     cli_commands: |
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      mkdir /home/cisco/.ssh
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
       sudo config hostname kindly-1x3-leaf0
       sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
@@ -183,10 +177,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -209,13 +199,11 @@ devices:
       - 23
     console_ports: [60011]
     cli_commands: |
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      mkdir /home/cisco/.ssh
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
       sudo config hostname kindly-1x3-leaf1
       sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
@@ -226,10 +214,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -252,13 +236,11 @@ devices:
       - 23
     console_ports: [60012]
     cli_commands: |
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      mkdir /home/cisco/.ssh
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
       sudo config hostname kindly-1x3-leaf2
       sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
@@ -269,10 +251,6 @@ devices:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types:
       - churchill
-    vxr_sim_config:
-      shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.69.13/npl
-        ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: http://172.29.93.10/sonic-images/tortuga/sonic-cisco-8000.bin
@@ -295,13 +273,11 @@ devices:
       - 23
     console_ports: [60020]
     cli_commands: |
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      mkdir /home/cisco/.ssh
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/authorized_keys -o /home/cisco/.ssh/authorized_keys
       sudo config hostname kindly-1x3-spine0
       sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake

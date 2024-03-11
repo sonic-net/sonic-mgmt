@@ -535,7 +535,6 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
                     newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
                     os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
-
 def create_report_json(sanity_success):
     sum = {"total": 1, "failed": 0, "passed": 0, "status" : "", "success_rate": 0}
 
