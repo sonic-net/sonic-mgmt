@@ -168,4 +168,7 @@ class HostManager():
             res["console_user"][k] = v["user"]
             res["console_password"][k] = v["passwd"]
 
+        if 'snmp_rwcommunity' in vars:
+            res['snmp_rwcommunity'] = jinja2.Template(vars['snmp_rwcommunity']).render(**vars)
+
         return res
