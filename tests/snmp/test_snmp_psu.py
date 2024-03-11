@@ -12,6 +12,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 @pytest.mark.bsl
 def test_snmp_numpsu(duthosts, enum_supervisor_dut_hostname, localhost, creds_all_duts):
     duthost = duthosts[enum_supervisor_dut_hostname]
