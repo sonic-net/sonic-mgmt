@@ -47,7 +47,7 @@ console-212,6,str3-7060-acs-fan-01,ssh,admin
 console-212,7,str3-7060-acs-1,ssh,admin
 console-212,4,str3-7060-acs-2,ssh,admin
 console-212,5,str3-7060-acs-3,ssh,admin
-console-182,12,str3-a7060dx5-acs-1,ssh,admin
+console-182,14,str3-a7060dx5-acs-1,ssh,admin
 console-197,43,str3-7260cx3-acs-1,ssh,admin
 console-197,45,str3-7260cx3-acs-2,ssh,admin
 console-212,3,str3-dx010-acs-1,ssh,admin
