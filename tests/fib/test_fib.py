@@ -387,25 +387,28 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
         dst_ip_range = DST_IPV6_RANGE
     if skip_traffic_test is True:
         return
-    ptf_runner(ptfhost,
-               "ptftests",
-               "hash_test.IPinIPHashTest",
-               platform_dir="ptftests",
-               params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
-                                                              duts_running_config_facts, duts_minigraph_facts),
-                       "hash_keys": hash_keys,
-                       "src_ip_range": ",".join(src_ip_range),
-                       "dst_ip_range": ",".join(dst_ip_range),
-                       "vlan_ids": VLANIDS,
-                       "ignore_ttl": ignore_ttl,
-                       "single_fib_for_duts": single_fib_for_duts,
-                       "ipver": ipver
-                       },
-               log_file=log_file,
-               qlen=PTF_QLEN,
-               socket_recv_size=16384,
-               is_python3=True)
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "hash_test.IPinIPHashTest",
+        platform_dir="ptftests",
+        params={
+            "fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+            "ptf_test_port_map": ptf_test_port_map(ptfhost, tbinfo, duthosts, mux_server_url,
+                                                   duts_running_config_facts, duts_minigraph_facts),
+            "hash_keys": hash_keys,
+            "src_ip_range": ",".join(src_ip_range),
+            "dst_ip_range": ",".join(dst_ip_range),
+            "vlan_ids": VLANIDS,
+            "ignore_ttl": ignore_ttl,
+            "single_fib_for_duts": single_fib_for_duts,
+            "ipver": ipver
+        },
+        log_file=log_file,
+        qlen=PTF_QLEN,
+        socket_recv_size=16384,
+        is_python3=True
+    )
 
 # The test is to verify the hashing logic is not using unexpected field as keys
 # Only inner frame length is tested at this moment
@@ -428,25 +431,27 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
         dst_ip_range = DST_IPV6_RANGE
     if skip_traffic_test is True:
         return
-    ptf_runner(ptfhost,
-               "ptftests",
-               "hash_test.IPinIPHashTest",
-               platform_dir="ptftests",
-               params={"fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
-                       "ptf_test_port_map": ptf_test_port_map_active_active(
-                           ptfhost, tbinfo, duthosts, mux_server_url,
-                           duts_running_config_facts, duts_minigraph_facts,
-                           mux_status_from_nic_simulator()
-               ),
-                   "hash_keys": hash_keys,
-                   "src_ip_range": ",".join(src_ip_range),
-                   "dst_ip_range": ",".join(dst_ip_range),
-                   "vlan_ids": VLANIDS,
-                   "ignore_ttl": ignore_ttl,
-                   "single_fib_for_duts": single_fib_for_duts,
-                   "ipver": ipver
-               },
-               log_file=log_file,
-               qlen=PTF_QLEN,
-               socket_recv_size=16384,
-               is_python3=True)
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "hash_test.IPinIPHashTest",
+        platform_dir="ptftests",
+        params={
+            "fib_info_files": fib_info_files_per_function[:3],   # Test at most 3 DUTs
+            "ptf_test_port_map": ptf_test_port_map_active_active(ptfhost, tbinfo, duthosts, mux_server_url,
+                                                                 duts_running_config_facts, duts_minigraph_facts,
+                                                                 mux_status_from_nic_simulator()),
+            "hash_keys": hash_keys,
+            "src_ip_range": ",".join(src_ip_range),
+            "dst_ip_range": ",".join(dst_ip_range),
+            "vlan_ids": VLANIDS,
+            "ignore_ttl": ignore_ttl,
+            "single_fib_for_duts": single_fib_for_duts,
+            "ipver": ipver
+        },
+        log_file=log_file,
+        qlen=PTF_QLEN,
+        socket_recv_size=16384,
+        is_python3=True
+    )
+
