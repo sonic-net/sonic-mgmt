@@ -161,7 +161,7 @@
 
   - name: find all vlan interface names for T0 topology
     set_fact:
-      vlan_intfs: "{{ vlan_intfs|default([])}} + ['{{ port_alias[item] }}' ]"
+      vlan_intfs: "{{ vlan_intfs|default([]) + [port_alias[item]] }}"
     with_items: "{{ host_if_indexes }}"
     when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
 
@@ -203,11 +203,11 @@
       enable_tunnel_qos_remap: true
     when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
 
-  - name: gather hwsku that supports Compute-AI deployment
+  - name: gather hwsku that supports ComputeAI deployment
     set_fact:
       hwsku_list_compute_ai: "['Cisco-8111-O64']"
 
-  - name: enable Compute-AI deployment
+  - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
     when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
