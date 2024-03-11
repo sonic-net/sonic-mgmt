@@ -917,12 +917,6 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
 
-pfcwd/test_pfcwd_function.py:
-   xfail:
-     reason: "The test is using pfc_gen.py, which leaks out the packets."
-     conditions:
-        - "asic_type in ['cisco-8000']"
-
 pfcwd/test_pfcwd_timer_accuracy.py:
    skip:
      reason: "The test is replaced by pfcwd/test_pfcwd_timer_accuracy_cisco_8000.py"
