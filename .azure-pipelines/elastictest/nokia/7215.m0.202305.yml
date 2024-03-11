@@ -61,12 +61,12 @@ parameters:
   - name: SCRIPTS
     type: string
     default: " "
-    displayName: "Scripts to be executed"
+    displayName: "Scripts to be included"
 
   - name: FEATURES
     type: string
     default: " "
-    displayName: "Features to be executed"
+    displayName: "Features to be included"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
@@ -76,7 +76,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "copp"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
