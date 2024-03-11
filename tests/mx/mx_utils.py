@@ -1,4 +1,75 @@
-from tests.common.helpers.assertions import pytest_require
+from contextlib import contextmanager
+import logging
+from scapy.all import sniff as scapy_sniff
+import tempfile
+import time
+from tests.common.helpers.assertions import pytest_require, pytest_assert
+import uuid
+
+
+@contextmanager
+def capture_and_check_packet_on_dut(duthost, interface='any', pkts_filter='', pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured")):
+    """
+    Capture packets on DUT and check if the packet is expected
+    Parameters:
+        duthost: the DUT to perform the packet capture
+        interface: the interface to capture packets on, default is 'any'
+        pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
+        pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+    """
+    pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
+    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" % (interface, pcap_save_path, pkts_filter)
+    tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
+    cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
+    pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1", "Failed to start tcpdump on DUT")
+    logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s" % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+
+    try:
+        yield
+        time.sleep(1)
+        duthost.shell("kill -s 2 %s" % tcpdump_pid)
+        with tempfile.NamedTemporaryFile() as temp_pcap:
+            duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
+            pkts_validator(scapy_sniff(offline=temp_pcap.name))
+    finally:
+        duthost.file(path=pcap_save_path, state="absent")
+
+def get_vlan_brief(duthost):
+    """
+    Get vlan brief
+    Sample output:
+        {
+            "Vlan1000": {
+                "interface_ipv4": [],
+                "interface_ipv6": [],
+                "members": ['Ethernet0', 'Ethernet1']
+            },
+            "Vlan2000": {
+                "interface_ipv4": [],
+                "interface_ipv6": [],
+                "members": ['Ethernet3', 'Ethernet4']
+            }
+        }
+    """
+    config = duthost.get_running_config_facts()
+    vlan_brief = {}
+    for vlan_name, members in config["VLAN_MEMBER"].items():
+        vlan_brief[vlan_name] = {
+            "interface_ipv4": [],
+            "interface_ipv6": [],
+            "members": list(members.keys())
+        }
+
+    for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+        if vlan_name not in vlan_brief:
+            continue
+        for prefix in vlan_info.keys():
+            ip = prefix.split('/')[0]
+            if '.' in ip:
+                vlan_brief[vlan_name]["interface_ipv4"].append(ip)
+            elif ':' in ip:
+                vlan_brief[vlan_name]["interface_ipv6"].append(ip)
+    return vlan_brief
 
 
 def create_vlan(duthost, vlan_config, dut_port_map):

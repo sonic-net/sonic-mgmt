@@ -22,7 +22,7 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F4
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
-from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
+from mx_utils import create_vlan, get_vlan_config, remove_all_vlans, capture_and_check_packet_on_dut, get_vlan_brief
 from config.generate_acl_rules import (
     acl_entry,
     ACL_ACTION_ACCEPT,
@@ -310,6 +310,15 @@ def setup_python_library_on_dut(duthost, creds):
 
 
 class BmcOtwAclRulesBase:
+
+    def rand_bmc_from_vlan_members(self, bmc_hosts, vlan_members):
+        """
+        Rand one bmc from bmc_hosts whose port_name is in vlan_members
+        """
+        for bmc in self.shuffle_ports(bmc_hosts):
+            if bmc.port_name in vlan_members:
+                return bmc
+        return None
 
     def shuffle_ports(self, pool, max_len=0):
         pool = copy.deepcopy(pool)  # Avoid changing the order in original list
@@ -687,6 +696,56 @@ class BmcOtwAclRulesBase:
             ptfadapter.dataplane.flush()
             duthost.shell(cmd)
             testutils.verify_packet(ptfadapter, exp_pkt, rand_bmc.ptf_port_id, timeout=10)
+
+    def test_bmc_otw_req_5_v4_bmc2mx(self, duthost, ptfadapter, setup_teardown):
+        """
+        Request 5: Mx allows inter-access between the directly connected BMC and itself.
+        TEST 2: Verify BMC can send ICMP packet to Mx
+        """
+        _, _, bmc_hosts, _ = setup_teardown
+        for vlan_name, vlan_info in get_vlan_brief(duthost).items(): 
+            vlan_members = vlan_info["members"]
+            rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
+            if rand_bmc is None:
+                logging.info("No BMC found in %s, skip this vlan" % vlan_name)
+                continue
+
+            def func(pkts):
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IP].tos == test_ipv4_tos]) > 0, "Didn't get packet with expected ipv4 tos")
+            test_ipv4_tos = 134
+            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp[icmptype] == icmp-echo"', pkts_validator=func):
+                router_mac = duthost.facts['router_mac']
+                vlans = vlan_info["interface_ipv4"]
+                vlan_ip = vlans[0]
+                logging.info("Send icmp packet from ptf ip:%s to DUT vlan ip:%s" % (rand_bmc.ipv4_addr, vlan_ip))
+                req_pkt = testutils.simple_icmp_packet(eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip, ip_tos=test_ipv4_tos)
+                ptfadapter.dataplane.flush()
+                testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
+
+    def test_bmc_otw_req_5_v6_bmc2mx(self, duthost, ptfadapter, setup_teardown):
+        """
+        Request 5: Mx allows inter-access between the directly connected BMC and itself.
+        TEST 2: Verify BMC can send ICMPv6 packet to Mx
+        """
+        _, _, bmc_hosts, _ = setup_teardown
+        for vlan_name, vlan_info in get_vlan_brief(duthost).items(): 
+            vlan_members = vlan_info["members"]
+            rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
+            if rand_bmc is None:
+                logging.info("No BMC found in %s, skip this vlan" % vlan_name)
+                continue
+
+            def func(pkts):
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.IPv6].tc == test_ipv6_tc]) > 0, "Didn't get packet with expected ipv6 tc")
+            test_ipv6_tc = 136
+            with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp6[icmp6type]==icmp6-echo"', pkts_validator=func):
+                router_mac = duthost.facts['router_mac']
+                vlans = vlan_info["interface_ipv6"]
+                vlan_ip = vlans[0]
+                logging.info("Send icmp packet from ptf ipv6:%s to DUT vlan ipv6:%s" % (rand_bmc.ipv6_addr, vlan_ip))
+                req_pkt = testutils.simple_icmpv6_packet(eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip, ipv6_tc=test_ipv6_tc, icmp_type=128)
+                ptfadapter.dataplane.flush()
+                testutils.send(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
     def test_bmc_otw_req_6_v4_same_shelf(self, duthost, ptfadapter, setup_teardown):
         """
