@@ -90,16 +90,22 @@ Using SPyTest framework to test this feature. Traffic generators like Ixia and S
 	- Verify 802.1x and MAB client is not authenticated if RADIUS does not assign a VLAN and the port is configured with tagged VLAN.
 	- Verify a port with Multi-auth mode can have authenticated clients in different radius assigned VLANs.
 	- Verify that 802.1x and MAB client is not authenticated if RADIUS does not assign a VLAN and the port's configured untagged VLAN (Access VLAN) is not available
+	- Verify the same MAB client authentication on different port after authenticated and verify MAC movement of the client
+	- Verify the same 802.1x client authentication on different port after authenticated and verify MAC movement of the client
+	- Verify the same 802.1x and MAB client authentication when PAC and ACLs applied on a same port
 
 ### 1.3 Reboot and Trigger Testing
 
 	- Verify Client authentication after reboot
 	- Verify Client authentication after warmboot
+	- Verify Client authentication after config reload
+	- Verify Client authentication after port toggle
 
 ### 1.4 Scale Testing
 
 	- Verify 128 max supported 802.1x clients on DUT.
 	- Verify 128 max supported MAB clients on DUT.
+	- Verify that the 128 maximum supported clients on DUT can be authenticated by using both 802.1x and MAB clients.
 
 
 ## 2 Topologies
@@ -380,7 +386,7 @@ Using SPyTest framework to test this feature. Traffic generators like Ixia and S
 | **Test Name**  | **Verify the same MAB client authentication on different port after authenticated and verify MAC movement of the client.** |
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
-| **Steps**      | 1. Enable 802.1x system auth control globally and enable pae authenticator on interface.<br/>2. Configure host mode as multi-host, enable MAB on the two interface port-1 and port-2.<br/>3. Authenticate MAB client on port-1 and check authentication is successful.<br/>4. Verify the FDB entry is installed properly on port-1.<br/>5. Try to authenticate same MAB client on port-2 and verify authentication is successful on port-2.<br/>6. Verify MAC is moved from port-1 to port-2 properly and verify traffic is forwarded to uplink port.<br/>7. Now again, try to authenticate same MAB client on port-1 and verify authentication is successful on port-1.<br/>6. Verify MAC is moved from port-2 to port-1 properly and verify traffic is forwarded to uplink port.
+| **Steps**      | 1. Enable 802.1x system auth control globally and enable pae authenticator on interface.<br/>2. Configure host mode as multi-host, enable MAB on the two interface port-1 and port-2.<br/>3. Authenticate MAB client on port-1 and check authentication is successful.<br/>4. Verify the FDB entry is installed properly on port-1.<br/>5. Try to authenticate same MAB client on port-2 and verify authentication is successful on port-2.<br/>6. Verify MAC is moved from port-1 to port-2 properly and verify traffic is forwarded to uplink port.<br/>7. Now again, try to authenticate same MAB client on port-1 and verify authentication is successful on port-1.<br/>6. Verify MAC is moved from port-2 to port-1 properly and verify traffic is forwarded to uplink port.<br/> |
 
 
 ### 3.2.26 Verify the same 802.1x client authentication on different port after authenticated and verify MAC movement of the client
@@ -389,7 +395,16 @@ Using SPyTest framework to test this feature. Traffic generators like Ixia and S
 | **Test Name**  | **Verify the same 802.1x client authentication on different port after authenticated and verify MAC movement of the client.** |
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
-| **Steps**      | 1. Enable 802.1x system auth control globally and enable pae authenticator on interface.<br/>2. Configure host mode as multi-host, enable 802.1x on the two interface port-1 and port-2.<br/>3. Authenticate 802.1x client on port-1 and check authentication is successful.<br/>4. Verify the FDB entry is installed properly on port-1.<br/>5. Try to authenticate same 802.1x client on port-2 and verify authentication is successful on port-2.<br/>6. Verify MAC is moved from port-1 to port-2 properly and verify traffic is forwarded to uplink port.<br/>7. Now again, try to authenticate same 802.1x client on port-1 and verify authentication is successful on port-1.<br/>6. Verify MAC is moved from port-2 to port-1 properly and verify traffic is forwarded to uplink port.
+| **Steps**      | 1. Enable 802.1x system auth control globally and enable pae authenticator on interface.<br/>2. Configure host mode as multi-host, enable 802.1x on the two interface port-1 and port-2.<br/>3. Authenticate 802.1x client on port-1 and check authentication is successful.<br/>4. Verify the FDB entry is installed properly on port-1.<br/>5. Try to authenticate same 802.1x client on port-2 and verify authentication is successful on port-2.<br/>6. Verify MAC is moved from port-1 to port-2 properly and verify traffic is forwarded to uplink port.<br/>7. Now again, try to authenticate same 802.1x client on port-1 and verify authentication is successful on port-1.<br/>6. Verify MAC is moved from port-2 to port-1 properly and verify traffic is forwarded to uplink port.<br/> |
+
+### 3.2.27 Verify the same 802.1x and MAB client authentication when PAC and ACLs applied on a same port
+| **Test ID**    | **PAC_FUNC_027**                         |
+| -------------- | :--------------------------------------- |
+| **Test Name**  | **Verify the same 802.1x and MAB client authentication when PAC and ACLs applied on a same port.** |
+| **Test Setup** | **Topology1**                            |
+| **Type**       | **Functional**                           |
+| **Steps**      | 1. Enable 802.1x system auth control globally and enable pae authenticator on interface.<br/>2. Configure host mode as multi-host, enable 802.1x on the two interface port-1 and port-2.<br/>3. Create static ACL and applied on PAC enabled port and verify the ACLs applied properly.<br/>4. The traffic is dropped to uplink port before clients authentication.<br/>5. Authenticate 802.1x client on port-1 and check authentication is successful.<br/>6. Send the traffic matching to configured ACL rules and verify the traffic is forwarded properly.<br/>7. Delete assign the ACLs on the port and verify the authenticated clients won't be impacted.<br/>8. Logoff the clients and verify clients removed on the port without any issue.<br/>.9. Verify applied ACLs on a port is retained and traffic forwarding to uplink port as per rules.<br/> |
+
 
 ### **3.3 Reboot and Trigger Test Cases**
 
@@ -400,17 +415,37 @@ Using SPyTest framework to test this feature. Traffic generators like Ixia and S
 | **Test Name**  | **Verify Client authentication after reboot**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
-| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and "reboot"<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Verify that 802.1x/MAB clients authentication is successful<br/> |
+| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and "reboot"<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Initiate 802.1x and MAB clients and verify that 802.1x/MAB clients authentication is successful after reboot.<br/> |
 
 
-### 3.3.2  Verify Client authentication after warmboot
+### 3.3.2 Verify Client authentication after warmboot
 
 | **Test ID**    | **PAC_FUNC_TRIGGER_002**                 |
 | -------------- | :--------------------------------------- |
 | **Test Name**  | **Verify Client authentication after warmboot**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
-| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and warmboot<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Verify that 802.1x/MAB clients authentication is successful<br/> |
+| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and warmboot<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Initiate 802.1x and MAB clients and verify that 802.1x/MAB clients authentication is successful after warm-reboot.<br/> |
+
+
+### 3.3.3 Verify Client authentication after config reload
+
+| **Test ID**    | **PAC_FUNC_TRIGGER_003**                 |
+| -------------- | :--------------------------------------- |
+| **Test Name**  | **Verify Client authentication after config reload**|
+| **Test Setup** | **Topology1**                            |
+| **Type**       | **Functional**                           |
+| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Do config save and perform config-reload<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Initiate 802.1x and MAB clients and verify that 802.1x/MAB clients authentication is successful after config-reload.<br/> |
+
+
+### 3.3.4 Verify Client authentication after port toggle
+
+| **Test ID**    | **PAC_FUNC_TRIGGER_004**                 |
+| -------------- | :--------------------------------------- |
+| **Test Name**  | **Verify Client authentication after port toggle**|
+| **Test Setup** | **Topology1**                            |
+| **Type**       | **Functional**                           |
+| **Steps**      | 1. Define RADIUS server<br/>2. Enable 802.1x/MAB globally and at interface level<br/>3. Authenticate to the DUT with multiple 802.1x clients and MAB clients<br/>4. Perform shutdown and no shutdown on client authenticated port.<br/>5. 802.1x/MAB clients are removed and authenticated again.<br/>6. Initiate 802.1x and MAB clients and verify that 802.1x/MAB clients authentication is successful after port flap.<br/> |
 
 
 ### **3.4 Scale Test Cases**
@@ -442,7 +477,7 @@ Using SPyTest framework to test this feature. Traffic generators like Ixia and S
 | **Test Name**  | **Verify that the 128 maximum supported clients on DUT can be authenticated by using both 802.1x and MAB clients.**|
 | **Test Setup** | **Topology1**                            |
 | **Type**       | **Functional**                           |
-| **Steps**      | 1. Enable 802.1x authentication globally and at interface level on multiple ports<br/>2. Configure host mode as multi-auth and MAB on multiple ports on the DUT.<br/>3. Try to validate the authentication of a combination of 802.1x and MAB clients across different interfaces, accommodating a scale of up to 128 clients and verify that all 802.1x and MAB clients authenticated properly on different ports.<br/>4. Verify FDB entries for all 128 clients installed properly.<br/>5. Verify all client traffic gets allowed after authentication.<br/>6. Logoff all the 128 clients and verify clients move to unauthorized state and gets blocked from accessing the server<br/>7. Reinitiate the clients and check all are authenticated successfully.|
+| **Steps**      | 1. Enable 802.1x authentication globally and at interface level on multiple ports<br/>2. Configure host mode as multi-auth and MAB on multiple ports on the DUT.<br/>3. Try to validate the authentication of a combination of 802.1x and MAB clients across different interfaces, accommodating a scale of up to 128 clients and verify that all 802.1x and MAB clients authenticated properly on different ports.<br/>4. Verify FDB entries for all 128 clients installed properly.<br/>5. Verify all client traffic gets allowed after authentication.<br/>6. Logoff all the 128 clients and verify clients move to unauthorized state and gets blocked from accessing the server<br/>7. Reinitiate the clients and check all are authenticated successfully.<br/>|
 
 ## **4 Sample Outputs**
 
