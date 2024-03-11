@@ -1,0 +1,82 @@
+simulation:
+  no_image_copy: true
+  slurm_flags:
+    pending_timeout: 60
+    hours: 48
+    partition: regression
+    cluster: rch-slurm-m1
+
+devices:
+  CE1: &sonic_router
+    platform: spitfire_f
+    os_type: sonic
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    xr_config: |
+        snmp-server community public RO
+        ssh server vrf default
+        ssh server netconf vrf default
+        netconf-yang agent ssh
+    xr_port_redir: [22, 161, 830]
+    onie-install: /nobackup/athingal/image/sonic-buildimage-cisco.202305.1.tortuga-p2/sonic-cisco-8000.bin
+    linecard_types: [matilda32]
+    vxr_sim_config:
+        shelf:
+           ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.10/npl
+           ConfigS1NpsuiteVer: 1.137.1
+    data_ports:
+      - Ethernet0
+      - Ethernet8
+      - Ethernet16
+      - Ethernet24
+      - Ethernet32
+      - Ethernet40
+      - Ethernet48
+
+  PE1:
+      <<: *sonic_router
+
+  P1:
+      <<: *sonic_router
+
+  PE2:
+      <<: *sonic_router
+
+  CE2:
+      <<: *sonic_router
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  hubs:
+    CE1_PE1_CONN1:
+      - CE1.Ethernet0
+      - PE1.Ethernet0
+    CE1_P1_CONN2:
+      - CE1.Ethernet8
+      - PE1.Ethernet16
+    PE1_P1_CONN1:
+      - PE1.Ethernet8
+      - P1.Ethernet0
+    PE1_P1_CONN2:
+      - PE1.Ethernet24
+      - P1.Ethernet16
+    P1_PE2_CONN1:
+      - P1.Ethernet8
+      - PE2.Ethernet0
+    P1_PE2_CONN2:
+      - P1.Ethernet24
+      - PE2.Ethernet16
+    PE2_CE2_CONN1:
+      - PE2.Ethernet8
+      - CE2.Ethernet0
+    PE2_CE2_CONN2:
+      - PE2.Ethernet24
+      - CE2.Ethernet8

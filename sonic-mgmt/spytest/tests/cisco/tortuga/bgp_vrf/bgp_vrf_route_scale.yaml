@@ -1,0 +1,26 @@
+P1:
+    bgp:
+      config: |
+        router bgp 1003 vrf Vrf01
+        address-family ipv4 unicast
+        network 1.1.1.1/32
+        network 1.1.1.2/32
+        network 1.1.1.3/32
+        network 1.1.1.4/32
+        network 1.1.1.5/32
+        network 1.1.1.6/32
+        network 1.1.1.7/32
+        network 1.1.1.8/32
+        network 1.1.1.9/32
+        network 1.1.1.10/32
+      deconfig:
+        router bgp 1003 vrf Vrf01
+        address-family ipv4 unicast
+        no network 1.1.1.1/32
+        no network 1.1.1.2/32
+        no network 1.1.1.3/32
+        no network 1.1.1.4/32
+        no network 1.1.1.5/32
+        no network 1.1.1.6/32
+        no network 1.1.1.7/32
+        no network 1.1.1.8/32
