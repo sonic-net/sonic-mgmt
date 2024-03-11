@@ -33,7 +33,7 @@ console-197,14,str3-7260cx3-acs-fan-05,ssh,admin
 console-197,13,str3-7260cx3-acs-fan-06,ssh,admin
 console-197,12,str3-7260cx3-acs-fan-07,ssh,admin
 console-197,11,str3-7260cx3-acs-fan-08,ssh,admin
-console-81,17,str3-7260qx-acs-fan-01,ssh,admin
+console-81,15,str3-7260qx-acs-fan-01,ssh,admin
 console-80,36,str3-7260cx3-acs-14,ssh,admin
 console-80,34,str3-7260cx3-acs-fan-39,ssh,admin
 console-178,10,str3-7260qx-acs-fan-02,ssh,admin

@@ -106,6 +106,8 @@ pdu-100,48,str3-8101-fanout-12,PSU1
 pdu-101,48,str3-8101-fanout-12,PSU2
 pdu-115,38,str3-acs-serv-63,PSU1
 pdu-115,39,str3-acs-serv-63,PSU2
+pdu-88,14,str3-acs-serv-64,PSU1
+pdu-89,14,str3-acs-serv-64,PSU2
 pdu-93,21,str3-acs-serv-66,PSU1
 pdu-94,21,str3-acs-serv-66,PSU2
 pdu-93,17,str3-acs-serv-67,PSU1
