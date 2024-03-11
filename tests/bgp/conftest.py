@@ -638,6 +638,14 @@ def pytest_addoption(parser):
         default="reload",
         help="reboot type such as reload, fast, warm, cold, random"
     )
+    parser.addoption(
+        "--continuous_boot_times",
+        action="store",
+        dest="continuous_boot_times",
+        type=int,
+        default=3,
+        help="continuous reboot time number. default is 3"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
