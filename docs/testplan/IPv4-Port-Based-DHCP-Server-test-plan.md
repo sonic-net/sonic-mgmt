@@ -70,7 +70,7 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 ### Common Function
 
-#### send_and_verify:
+#### send_and_verify
  * Send DHCP discover packets from PTF, check whether configured port receive DHCP offer packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr.
  * Send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
  * For renew scenario, send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
@@ -157,10 +157,10 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * `send_and_verify` with mac A in interface A, expected result: IP assign successfully.
-  * `send_and_verify` with mac B in interface B, expected result: IP assign successfully.
-  * `send_and_verify` with mac A in interface B, expected result: IP assign fail.
-  * `send_and_verify` with mac B in interface A, expected result: IP assign fail.
+  * `send_and_verify` with mac A in interface A, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface B, expected result: client A can get correct IP.
+  * `send_and_verify` with mac A in interface B, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface A, expected result: client A can get correct IP.
 
 #### test_dhcp_server_port_based_assignment_range
 
