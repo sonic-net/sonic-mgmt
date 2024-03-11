@@ -327,25 +327,25 @@ sonic_dell64_40:
       mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:93f3
       model: 06N1J1
-      serial: DF9TG02
+      serial: BXG6SR3
       base_mac: D8:9E:F3:D1:CB:E0
       syseeprom_info:
         "0x21": "S6100-ON"
         "0x22": "06N1J1"
-        "0x23": "CN06N1J1CES008340044"
-        "0x24": "D8:9E:F3:D1:CB:E0"
-        "0x25": "03/07/2018 08:56:47"
+        "0x23": "TH06N1J1CET0041T1DYZ"
+        "0x24": "20:88:10:16:7E:80"
+        "0x25": "01/31/2024 13:35:14"
         "0x26": "1"
-        "0x27": "A04"
+        "0x27": "A11"
         "0x28": "x86_64-dell_s6100_c2538-r0"
         "0x29": "3.15.1.0"
         "0x2A": "384"
-        "0x2B": "CES00"
-        "0x2C": "CN"
+        "0x2B": "CET00"
+        "0x2C": "TH"
         "0x2D": "DELL"
         "0x2E": "3.25.4.1"
-        "0x2F": "DF9TG02"
-        "0xFE": "0x4B04FF49"
+        "0x2F": "BXG6SR3"
+        "0xFE": "0x7EB2122A"
   vars:
     hwsku: Force10-S6100
     iface_speed: 40000
