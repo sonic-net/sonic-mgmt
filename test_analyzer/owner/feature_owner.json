@@ -1058,14 +1058,20 @@
                 "scripts": [
                     "qos.test_buffer",
                     "qos.test_buffer_traditional",
-                    "qos.test_pfc_counters",
-                    "qos.test_pfc_pause",
                     "qos.test_qos_dscp_mapping",
                     "qos.test_qos_sai",
                     "qos.test_tunnel_qos_remap"
                 ],
                 "owner": "Xu Chen",
                 "email": "xuchen3@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "qos.test_pfc_counters",
+                    "qos.test_pfc_pause"
+                ],
+                "owner": "Liping Xu",
+                "email": "xuliping@microsoft.com"
             },
             {
                 "scripts": [
