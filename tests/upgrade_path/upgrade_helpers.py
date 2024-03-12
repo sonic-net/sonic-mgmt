@@ -214,7 +214,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                           "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                                   upgrade_type))
             check_services(duthost)
-            check_neighbors(duthost)
+            check_neighbors(duthost, tbinfo)
             check_copp_config(duthost)
 
     if enable_cpa and "warm-reboot" in reboot_type:
