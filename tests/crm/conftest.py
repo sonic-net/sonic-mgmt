@@ -217,3 +217,26 @@ def collector(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         data[asic.asic_index] = {}
 
     yield data
+
+
+@pytest.fixture(scope="function")
+def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hostname,
+                          enum_frontend_asic_index, ptfhost):
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_frontend_asic_index)
+    if ip_ver == "4":
+        ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+    else:
+        ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+    check_vlan_cmd = "show vlan br | grep -w 'Ethernet1'"
+
+    yield
+
+    if duthost.facts["asic_type"] == "marvell":
+        asichost.shell(ip_remove_cmd)
+        # Check if member not removed
+        output = asichost.shell(check_vlan_cmd, module_ignore_errors=True)
+        if "Ethernet1" not in output['stdout']:
+            asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
+        ptfhost.remove_ip_addresses()
