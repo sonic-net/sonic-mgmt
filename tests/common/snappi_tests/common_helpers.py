@@ -471,22 +471,39 @@ def config_wred(host_ans, kmin, kmax, pmax, profile=None, asic_value=None):
     return True
 
 
-def enable_ecn(host_ans, prio, asic_value=None):
+def enable_ecn(host_ans, prio, asic_value=None, profile=None):
     """
-    Enable ECN marking on a priority
+    Enable ECN marking on a priority for specified profiles
 
     Args:
         host_ans: Ansible host instance of the device
         prio (int): priority
         asic_value: asic value of the host
+        profile (str): name of profile to configure (None means all profiles)
 
     Returns:
-        N/A
+        True if configuration succeeds, False otherwise
     """
-    if asic_value is None:
-        host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
-    else:
-        host_ans.shell('sudo ip netns exec {} ecnconfig -q {} on'.format(asic_value, prio))
+    profiles = get_wred_profiles(host_ans, asic_value)
+    if profiles is None:
+        # Cannot find any WRED/ECN profiles
+        return False
+
+    if profile is not None and profile not in profiles:
+        # Cannot find the profile to configure on the device
+        return False
+
+    for p in profiles:
+        if profile is not None and p != profile:
+            # Not the profile to configure
+            continue
+
+        if asic_value is None:
+            host_ans.shell('sudo ecnconfig -p {} -q {} on'.format(p, prio))
+        else:
+            host_ans.shell('sudo ip netns exec {} ecnconfig -p {} -q {} on'.format(asic_value, p, prio))
+
+    return True
 
 
 def disable_ecn(host_ans, prio, asic_value=None):

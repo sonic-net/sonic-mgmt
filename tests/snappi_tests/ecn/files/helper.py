@@ -69,7 +69,8 @@ def run_ecn_test(api,
 
     # Enable ECN marking
     logger.info("Enabling ECN markings")
-    enable_ecn(host_ans=duthost, prio=lossless_prio)
+    enable_ecn_result = enable_ecn(host_ans=duthost, prio=lossless_prio)
+    pytest_assert(enable_ecn_result is True, 'Failed to enable ECN markings on the DUT')
 
     # Configure PFC threshold to 2 ^ 3
     config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost,
