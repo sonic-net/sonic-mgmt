@@ -14,12 +14,12 @@
 # Documents
 
 # spytest
-sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj jsanghra
+sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra
 
 # test reporting
 
 # tests
 sonic-mgmt/tests/cisco/platform_tests    @mridul @pevenkat @bhavani @rraguraj
-sonic-mgmt/tests/cisco @pevenkat @bhavani @rraguraj @anamehra @mridul
+sonic-mgmt/tests/cisco @pevenkat @bhavani @rraguraj @anamehra @mridul @jsanghra
 sonic-mgmt/tests @pevenkat @bhavani
 sonic-mgmt/ansible @pevenkat @bhavani
