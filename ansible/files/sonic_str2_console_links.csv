@@ -47,3 +47,5 @@ console-199,26,str2-8102-02,ssh,admin
 console-199,30,str2-8102-03,ssh,admin
 console-199,29,str2-8102-04,ssh,admin
 console-199,49,str2-7804-sup-1,ssh,admin
+console-197,35,str2-7260cx3-acs-13,ssh,admin
+console-194,23,str2-7260cx3-acs-fan-13,ssh,admin

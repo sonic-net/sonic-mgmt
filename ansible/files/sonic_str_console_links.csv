@@ -31,5 +31,7 @@ console-81,30,str-s6000-acs-11,ssh,admin
 console-81,16,str-s6000-on-01,ssh,admin
 console-81,10,str-7050qx-32s-acs-04,ssh,admin
 console-81,28,str-s6100-acs-1,ssh,admin
+console-81,29,str-7260-18,ssh,admin
 console-212,16,str-dcs-7050cx3m-32s-02,ssh,admin
 console-82,20,str-z9100-acs-2,ssh,admin
+console-194,21,str-a7280cr3-2,ssh,admin
