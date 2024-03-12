@@ -46,4 +46,3 @@ Example output:
 ## Potential Exception
 
 - [Exception from function get_running_config_facts](get_running_config_facts.md)
-- `KeyError` - If vlan name and count is not match between VLAN_MEMBER and VLAN_INTERFACE in running config.
