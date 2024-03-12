@@ -1,10 +1,10 @@
 {
     "VRF": {
         "Vrf1": {
-            "v4": "False"
+            "v4": "false"
         },
         "Vrf2": {
-            "v6": "False"
+            "v6": "false"
         }
     }
 }

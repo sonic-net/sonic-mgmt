@@ -1,23 +1,20 @@
 import logging
 import random
-import re
 import time
-
+import os
 import pytest
-import yaml
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu, psu_fan
 
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
 import sys
-if sys.version_info.major == 3:
+if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -52,8 +49,11 @@ class TestPsuFans(PlatformApiTestBase):
         if self.num_psus is None:
             try:
                 self.num_psus = chassis.get_num_psus(platform_api_conn)
-            except:
+            except Exception:
                 pytest.fail("num_fans is not an integer")
+            else:
+                if self.num_psus == 0:
+                    pytest.skip("No psus found on device")
 
     #
     # Helper functions
@@ -70,10 +70,27 @@ class TestPsuFans(PlatformApiTestBase):
                     expected_value = expected_fans[fan_idx].get(key)
 
         if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for fan {} within psu {}".format(key, fan_idx, psu_idx)):
+                       "Unable to get expected value for '{}' from platform.json file for fan {} within psu {}"
+                       .format(key, fan_idx, psu_idx)):
             self.expect(value == expected_value,
-                          "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within psu {}".format(key, value, expected_value, fan_idx, psu_idx))
+                        "'{}' value is incorrect. Got '{}', expected '{}' for fan {} within psu {}"
+                        .format(key, value, expected_value, fan_idx, psu_idx))
 
+    def get_fan_facts(self, duthost, psu_idx, fan_idx, def_value, *keys):
+        if duthost.facts.get("chassis"):
+            psus = duthost.facts.get("chassis").get("psus")
+            if psus:
+                fans = psus[psu_idx].get("fans")
+                if fans:
+                    value = fans[fan_idx]
+                    for key in keys:
+                        value = value.get(key)
+                        if value is None:
+                            return def_value
+
+                    return value
+
+        return def_value
 
     #
     # Functions to test methods inherited from DeviceBase class
@@ -84,11 +101,34 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                name = psu_fan.get_name(platform_api_conn, j ,i)
+                name = psu_fan.get_name(platform_api_conn, j, i)
 
                 if self.expect(name is not None, "Unable to retrieve psu {} fan {} name".format(j, i)):
                     self.expect(isinstance(name, STRING_TYPE), "psu {} fan {} name appears incorrect".format(j, i))
-                    self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+                    self.expect(duthost._facts.get("platform") is not None, "Unable to retrieve platform name")
+                    #
+                    # Check whether platform.json file exists for this specific platform. If yes compare names.
+                    # If not, skip comparison.
+                    #
+                    platform_file_path = os.path.join("/usr/share/sonic/device",
+                                                      duthost._facts.get("platform"), "platform.json")
+                    platform_file_check = {}
+                    try:
+                        #
+                        # Check if the JSON file exists in the specific path. Return 0 if it DOES exist.
+                        # The command function throws exception if rc is non-zero, so handle it.
+                        #
+                        platform_file_check = duthost.command("[ -f {} ]".format(platform_file_path))
+                    except Exception:
+                        # The JSON file does not exist, so set rc to 1.
+                        platform_file_check['rc'] = 1
+                    if platform_file_check.get('rc') == 0:
+                        logging.info("{} has a platform.json file. Running comparison with platform facts."
+                                     .format(duthost._facts.get("platform")))
+                        self.compare_value_with_platform_facts(duthost, 'name', name, j, i)
+                    else:
+                        logging.info("{} does not have a platform.json file. Skipping comparison with platform facts."
+                                     .format(duthost._facts.get("platform")))
 
         self.assert_expectations()
 
@@ -98,13 +138,14 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                name = psu_fan.get_name(platform_api_conn, j ,i)
+                name = psu_fan.get_name(platform_api_conn, j, i)    # noqa F841
 
                 presence = psu_fan.get_presence(platform_api_conn, j, i)
 
                 if self.expect(presence is not None, "Unable to retrieve psu {} fan {} presence".format(j, i)):
-                    if self.expect(isinstance(presence, bool), "psu {} fan {} presence appears incorrect".format(j, i)):
-                        self.expect(presence is True, "Fan {} is not present".format(j, i))
+                    if self.expect(isinstance(presence, bool),
+                                   "Psu {} fan {} presence appears incorrect".format(j, i)):
+                        self.expect(presence is True, "Psu {} fan {} is not present".format(j, i))
 
         self.assert_expectations()
 
@@ -114,7 +155,7 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                model = psu_fan.get_model(platform_api_conn, j ,i)
+                model = psu_fan.get_model(platform_api_conn, j, i)
 
                 if self.expect(model is not None, "Unable to retrieve psu {} fan {} model".format(j, i)):
                     self.expect(isinstance(model, STRING_TYPE), "psu {} fan {} model appears incorrect".format(j, i))
@@ -127,10 +168,11 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-                serial = psu_fan.get_serial(platform_api_conn, j ,i)
+                serial = psu_fan.get_serial(platform_api_conn, j, i)
 
                 if self.expect(serial is not None, "Unable to retrieve psu {} fan {} serial number".format(j, i)):
-                    self.expect(isinstance(serial, STRING_TYPE), "psu {} fan {}serial number appears incorrect".format(j, i))
+                    self.expect(isinstance(serial, STRING_TYPE),
+                                "psu {} fan {}serial number appears incorrect".format(j, i))
 
         self.assert_expectations()
 
@@ -152,8 +194,10 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 position = psu_fan.get_position_in_parent(platform_api_conn, j, i)
-                if self.expect(position is not None, "Failed to perform get_position_in_parent for PSU {} fan {}".format(j, i)):
-                    self.expect(isinstance(position, int), "Position value must be an integer value for PSU {} fan {}".format(j, i))
+                if self.expect(position is not None,
+                               "Failed to perform get_position_in_parent for PSU {} fan {}".format(j, i)):
+                    self.expect(isinstance(position, int),
+                                "Position value must be an integer value for PSU {} fan {}".format(j, i))
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):
@@ -161,8 +205,10 @@ class TestPsuFans(PlatformApiTestBase):
             num_fans = psu.get_num_fans(platform_api_conn, j)
             for i in range(num_fans):
                 replaceable = psu_fan.is_replaceable(platform_api_conn, j, i)
-                if self.expect(replaceable is not None, "Failed to perform is_replaceable for PSU {} fan {}".format(j, i)):
-                    self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value for PSU {} fan {}".format(j, i))
+                if self.expect(replaceable is not None,
+                               "Failed to perform is_replaceable for PSU {} fan {}".format(j, i)):
+                    self.expect(isinstance(replaceable, bool),
+                                "Replaceable value must be a bool value for PSU {} fan {}".format(j, i))
 
         self.assert_expectations()
 
@@ -171,17 +217,21 @@ class TestPsuFans(PlatformApiTestBase):
     #
 
     def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
 
             for i in range(num_fans):
-            # Ensure the fan speed is sane
+                # Ensure the fan speed is sane
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    continue
                 speed = psu_fan.get_speed(platform_api_conn, j, i)
                 if self.expect(speed is not None, "Unable to retrieve psu {} fan {} speed".format(j, i)):
                     if self.expect(isinstance(speed, int), "psu {} fan {} speed appears incorrect".format(j, i)):
                         self.expect(speed > 0 and speed <= 100,
-                                    "psu {} fan {} speed {} reading is not within range".format(j , i, speed))
+                                    "psu {} fan {} speed {} reading is not within range".format(j, i, speed))
 
         self.assert_expectations()
 
@@ -199,57 +249,91 @@ class TestPsuFans(PlatformApiTestBase):
             for i in range(num_fans):
                 direction = psu_fan.get_direction(platform_api_conn, j, i)
                 if self.expect(direction is not None, "Unable to retrieve psu {} fan {} direction".format(j, i)):
-                    self.expect(direction in FAN_DIRECTION_LIST, "psu {} fan {} direction is not one of predefined directions".format(j, i))
+                    self.expect(direction in FAN_DIRECTION_LIST,
+                                "psu {} fan {} direction is not one of predefined directions".format(j, i))
 
         self.assert_expectations()
 
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
+
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
-
                 speed_target_val = 25
-                speed_set = psu_fan.set_speed(platform_api_conn, j, i, speed_target_val)
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_get_fans_target_speed: Skipping PSU {} fan {} (speed not controllable)"
+                                .format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                speed_minimum = self.get_fan_facts(duthost, j, i, 25, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
+                    speed_target_val = random.randint(speed_minimum, speed_maximum)
+
+                speed_set = psu_fan.set_speed(platform_api_conn, j, i, speed_target_val)    # noqa F841
                 target_speed = psu_fan.get_target_speed(platform_api_conn, j, i)
                 if self.expect(target_speed is not None, "Unable to retrieve psu {} fan {} target speed".format(j, i)):
-                    if self.expect(isinstance(target_speed, int), "psu {} fan {} target speed appears incorrect".format(j,i)):
-                        self.expect(target_speed == speed_target_val, "psu {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}".format(
-                            j, i, speed_target_val, target_speed))
+                    if self.expect(isinstance(target_speed, int),
+                                   "psu {} fan {} target speed appears incorrect".format(j, i)):
+                        self.expect(
+                            target_speed == speed_target_val,
+                            "psu {} fan {} target speed setting is not correct, speed_target_val {} target_speed = {}"
+                            .format(j, i, speed_target_val, target_speed))
 
-        self.assert_expectations()
+            if num_fans != 0 and fans_skipped == num_fans:
+                psus_skipped += 1
 
-    def test_get_fans_speed_tolerance(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
-
-        for j in range(self.num_psus):
-            num_fans = psu.get_num_fans(platform_api_conn, j)
-
-            for i in range(num_fans):
-                speed_tolerance = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
-                if self.expect(speed_tolerance is not None, "Unable to retrieve psu {} fan {} speed tolerance".format(j, i)):
-                    if self.expect(isinstance(speed_tolerance, int), "psu {} fan {} speed tolerance appears incorrect".format(j, i)):
-                        self.expect(speed_tolerance > 0 and speed_tolerance <= 100, "psu {} fan {} speed tolerance {} reading does not make sense".format(j, i, speed_tolerance))
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' speed is not controllable")
 
         self.assert_expectations()
 
     def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
 
-        for j in range(self.num_psus):
-            num_fans = psu.get_num_fans(platform_api_conn, j)
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
 
+        for j in range(self.num_psus):
             target_speed = random.randint(1, 100)
+            num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
-                speed = psu_fan.get_speed(platform_api_conn, j, i)
-                speed_tol = psu_fan.get_speed_tolerance(platform_api_conn, j, i)
+                speed_controllable = self.get_fan_facts(duthost, j, i, True, "speed", "controllable")
+                if not speed_controllable:
+                    logger.info("test_set_fans_speed: Skipping PSU {} fan {} (speed not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
 
-                speed_set = psu_fan.set_speed(platform_api_conn, j, i, target_speed)
-                time.sleep(5)
+                speed_minimum = self.get_fan_facts(duthost, j, i, 1, "speed", "minimum")
+                speed_maximum = self.get_fan_facts(duthost, j, i, 100, "speed", "maximum")
+                if speed_minimum > target_speed or speed_maximum < target_speed:
+                    target_speed = random.randint(speed_minimum, speed_maximum)
+
+                speed = psu_fan.get_speed(platform_api_conn, j, i)
+
+                speed_set = psu_fan.set_speed(platform_api_conn, j, i, target_speed)    # noqa F841
+                time.sleep(self.get_fan_facts(duthost, j, i, 5, "speed", "delay"))
 
                 act_speed = psu_fan.get_speed(platform_api_conn, j, i)
-                self.expect(abs(act_speed - target_speed) <= speed_tol,
-                            "psu {} fan {} speed change from {} to {} is not within tolerance, actual speed {}".format(j, i, speed, target_speed, act_speed))
+                under_speed = psu_fan.is_under_speed(platform_api_conn, j, i)
+                over_speed = psu_fan.is_over_speed(platform_api_conn, j, i)
+                self.expect(not under_speed and not over_speed,
+                            "psu {} fan {} speed change from {} to {} is not within tolerance, actual speed {}"
+                            .format(j, i, speed, target_speed, act_speed))
+
+            if num_fans != 0 and fans_skipped == num_fans:
+                psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' speed is not controllable")
 
         self.assert_expectations()
 
@@ -260,24 +344,46 @@ class TestPsuFans(PlatformApiTestBase):
             "amber",
             "green",
         ]
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        psus_skipped = 0
 
         for j in range(self.num_psus):
             num_fans = psu.get_num_fans(platform_api_conn, j)
+            fans_skipped = 0
 
             for i in range(num_fans):
+                led_available = self.get_fan_facts(duthost, j, i, True, "status_led", "available")
+                if not led_available:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not available)".format(j, i))
+                    fans_skipped += 1
+                    continue
 
+                led_controllable = self.get_fan_facts(duthost, j, i, True, "status_led", "controllable")
+                if not led_controllable:
+                    logger.info("test_set_fans_led: Skipping PSU {} fan {} (LED not controllable)".format(j, i))
+                    fans_skipped += 1
+                    continue
+
+                LED_COLOR_LIST = self.get_fan_facts(duthost, j, i, LED_COLOR_LIST, "status_led", "colors")
                 for color in LED_COLOR_LIST:
 
                     result = psu_fan.set_status_led(platform_api_conn, j, i, color)
                     if self.expect(result is not None, "Failed to perform set_status_led"):
-                        self.expect(result is True, "Failed to set status_led for psu {} fan {} to {}".format(j , i, color))
+                        self.expect(result is True, "Failed to set status_led for psu {} fan {} to {}"
+                                    .format(j, i, color))
 
                     color_actual = psu_fan.get_status_led(platform_api_conn, j, i)
 
                     if self.expect(color_actual is not None, "Failed to retrieve status_led"):
                         if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {} for fan {})".format(
-                                color, color_actual, i))
+                            self.expect(color == color_actual,
+                                        "Status LED color incorrect (expected: {}, actual: {} for fan {})"
+                                        .format(color, color_actual, i))
+
+            if num_fans != 0 and fans_skipped == num_fans:
+                psus_skipped += 1
+
+        if psus_skipped == self.num_psus:
+            pytest.skip("skipped as all PSU fans' LED is not available/controllable")
 
         self.assert_expectations()

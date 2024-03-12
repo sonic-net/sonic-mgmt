@@ -5,7 +5,7 @@ import tempfile
 import sys
 import time
 
-from io import BytesIO
+from io import StringIO
 from ptf.dataplane import match_exp_pkt
 from scapy.all import sniff
 from scapy.packet import ls
@@ -49,7 +49,8 @@ class ServerTrafficMonitor(object):
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
-    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface, conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
+    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface,
+                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
         """
         @summary: Initialize the monitor.
 
@@ -96,7 +97,7 @@ class ServerTrafficMonitor(object):
     @staticmethod
     def _list_layer_str(packet):
         """Return list layer output string."""
-        _stdout, sys.stdout = sys.stdout, BytesIO()
+        _stdout, sys.stdout = sys.stdout, StringIO()
         try:
             ls(packet)
             return sys.stdout.getvalue()

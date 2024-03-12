@@ -1,5 +1,5 @@
 ##### Overview
-Please find HLD for dut_monitor plugin - https://github.com/Azure/SONiC/blob/master/doc/DUT_monitor_HLD.md
+Please find HLD for dut_monitor plugin - https://github.com/sonic-net/SONiC/blob/master/doc/DUT_monitor_HLD.md
 
 Current plugin implements verification the hardware resources consumed by a device. The hardware resources which are currently verified are CPU, RAM and HDD.
 Verification is based on thresholds defind in "thresholds.yml" file.

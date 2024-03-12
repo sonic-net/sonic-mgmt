@@ -1,35 +1,46 @@
 import json
 import logging
+import os
 import pytest
+import yaml
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common import mellanox_data
 
 pytestmark = [
     pytest.mark.topology('any')
 ]
 
+SENSORS_DATA_FILE = "../../ansible/group_vars/sonic/sku-sensors-data.yml"
+
+
 def to_json(obj):
     return json.dumps(obj, indent=4)
 
-def test_sensors(duthosts, rand_one_dut_hostname, creds):
+
+@pytest.fixture(scope='module')
+def sensors_data():
+    sensors_data_file_fullpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), SENSORS_DATA_FILE)
+    return yaml.safe_load(open(sensors_data_file_fullpath).read())
+
+
+def test_sensors(duthosts, rand_one_dut_hostname, sensors_data):
     duthost = duthosts[rand_one_dut_hostname]
     # Get platform name
     platform = duthost.facts['platform']
 
-    # Prepare check list
-    sensors_checks = creds['sensors_checks']
+    if mellanox_data.is_mellanox_device(duthost):
+        hardware_version = mellanox_data.get_hardware_version(duthost, platform)
+        if hardware_version:
+            platform = platform + '-' + hardware_version
 
-    if platform not in sensors_checks.keys():
+    # Prepare check list
+    sensors_checks = sensors_data['sensors_checks']
+
+    if platform not in list(sensors_checks.keys()):
         pytest.skip("Skip test due to not support check sensors for current platform({})".format(platform))
 
     logging.info("Sensor checks:\n{}".format(to_json(sensors_checks[platform])))
-
-    # Special treatment for Mellanox platforms which have two different A0 and A1 types    
-    if platform in ['x86_64-mlnx_msn4700-r0', 'x86_64-mlnx_msn4600-r0']:
-        # Check the hardware version and choose sensor conf data accordingly
-        output = duthost.command('cat /run/hw-management/system/config1', module_ignore_errors=True)
-        if output["rc"] == 0 and output["stdout"] == '1':
-            platform = platform + '-a1'
 
     # Gather sensor facts
     sensors_facts = duthost.sensors_facts(checks=sensors_checks[platform])['ansible_facts']

@@ -669,4 +669,3 @@
         command_to_run: "pfcwd stop"
         errors_expected: false
       include_tasks: roles/test/tasks/run_command_with_log_analyzer.yml
-

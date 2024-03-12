@@ -33,4 +33,3 @@ config_files:
     - "{{ config_table_type_mirror }}"
     - "{{ config_rule_mirror }}"
     - "{{ config_rule_mirror_delete }}"
-

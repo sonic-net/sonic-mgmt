@@ -6,7 +6,12 @@ import base64
 import re
 import subprocess
 
+from tests.common.helpers.constants import RANDOM_SEED
+
+
 logger = logging.getLogger()
+
+ALLURE_REPORT_URL = 'allure_report_url'
 
 
 def pytest_addoption(parser):
@@ -45,12 +50,21 @@ def pytest_sessionfinish(session, exitstatus):
                 try:
                     allure_server_obj = AllureServer(allure_server_addr, allure_server_port, allure_report_dir,
                                                      allure_server_project_id)
-                    allure_server_obj.generate_allure_report()
+                    report_url = allure_server_obj.generate_allure_report()
+                    session.config.cache.set(ALLURE_REPORT_URL, report_url)
                 except Exception as err:
                     logger.error('Failed to upload allure report to server. Allure report not available. '
                                  '\nError: {}'.format(err))
             else:
                 logger.error('PyTest argument "--alluredir" not provided. Impossible to generate Allure report')
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    report_url = config.cache.get(ALLURE_REPORT_URL, None)
+    if report_url:
+        logger.info('Allure report URL: {}'.format(report_url))
+    else:
+        logger.info('Can not get Allure report URL. Please check logs')
 
 
 def get_setup_session_info(session):
@@ -67,11 +81,14 @@ def get_setup_session_info(session):
     hwsku = re.compile(r"hwsku: +([^\s]+)\s", re.IGNORECASE)
     asic = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
 
+    random_seed = session.config.cache.get(RANDOM_SEED, None)
+
     result = {
         "Version": version.findall(output)[0] if version.search(output) else "",
         "Platform": platform.findall(output)[0] if platform.search(output) else "",
         "HwSKU": hwsku.findall(output)[0] if hwsku.search(output) else "",
-        "ASIC": asic.findall(output)[0] if asic.search(output) else ""
+        "ASIC": asic.findall(output)[0] if asic.search(output) else "",
+        "Random_seed": random_seed
     }
 
     return result
@@ -81,7 +98,7 @@ def export_session_info_to_allure(session_info_dict, allure_report_dir):
     allure_env_file_name = 'environment.properties'
     allure_env_file_path = os.path.join(allure_report_dir, allure_env_file_name)
     with open(allure_env_file_path, 'w') as env_file_obj:
-        for item, value in session_info_dict.items():
+        for item, value in list(session_info_dict.items()):
             env_file_obj.write('{}={}\n'.format(item, value))
 
 
@@ -118,8 +135,9 @@ class AllureServer:
         """
         self.create_project_on_allure_server()
         self.upload_results_to_allure_server()
-        self.generate_report_on_allure_server()
+        report_url = self.generate_report_on_allure_server()
         self.clean_results_on_allure_server()
+        return report_url
 
     def create_project_on_allure_server(self):
         """
@@ -184,7 +202,7 @@ class AllureServer:
             logger.error('Failed to generate report on allure server, error: {}'.format(response.content))
         else:
             report_url = response.json()['data']['report_url']
-            logger.info('Allure report URL: {}'.format(report_url))
+            return report_url
 
     def clean_results_on_allure_server(self):
         """

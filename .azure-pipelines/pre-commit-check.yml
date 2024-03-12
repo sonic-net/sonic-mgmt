@@ -1,0 +1,88 @@
+parameters:
+- name: github_conn
+  type: string
+  default: 'mssonicbld-mgmt'
+
+steps:
+- script: |
+    username=$(id -un)
+    sudo chown -R ${username}.${username} .
+  displayName: 'Cleanup'
+
+- checkout: self
+  clean: true
+  displayName: 'checkout sonic-mgmt repo'
+
+- script: |
+    set -x
+
+    sudo pip install pre-commit
+    pre-commit install-hooks
+  displayName: 'Prepare pre-commit check'
+
+- script: |
+    # Run pre-commit check and capture the output
+    out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
+    RC=$?
+
+    echo "Pre-commit check results:"
+    echo "$out"
+
+    # Truncate the output if it has more than 20 lines
+    if [[ `echo "$out" | wc -l` -gt 20 ]]; then
+      out=`echo "$out" | head -n 20`
+      out="$out\n...\n[truncated extra lines, please run pre-commit locally to view full check results]"
+      out=`printf "$out"`
+    fi
+
+    # Append '<br/>' to each line and join them into a single line. Explanation of this trick:
+    #
+    # The check results need to be passed in an AZP variable to the subsequent task for posting Github comment.
+    # However, AZP does not support multiple lines in variable value. We need a way to join multiple lines into a
+    # single line and then expand them into multiple lines in Github comment.
+    # Luckily we can embed the html new line tag '<br/>' in the variable value. Github web page is able to render
+    # that html tag as a new line.
+    br='<br/>'
+    results=`echo "$out" |  while read line; do echo $line$br; done | tr -d '\n'`
+
+    # Store the check results in an AZP variable, it will be rendered in Github comment
+    echo "##vso[task.setvariable variable=results;]$results"
+
+    exit $RC
+  displayName: 'Run pre-commit check'
+
+- task: GitHubComment@0
+  inputs:
+    gitHubConnection: ${{ parameters.github_conn }}
+    repositoryName: $(Build.Repository.Name)
+    id:
+    comment: |
+      The [pre-commit](http://pre-commit.com/) check detected issues in the files touched by this pull request.
+      The pre-commit check is a mandatory check, please fix detected issues.
+
+      Detailed pre-commit check results:
+      <samp>$(results)</samp>
+
+      To run the pre-commit checks locally, you can follow below steps:
+      1. Ensure that default python is python3. In sonic-mgmt docker container, default python is python2. You can run
+         the check by activating the python3 virtual environment in sonic-mgmt docker container or outside of sonic-mgmt
+         docker container.
+      2. Ensure that the `pre-commit` package is installed:
+      ```
+      sudo pip install pre-commit
+      ```
+      3. Go to repository root folder
+      4. Install the pre-commit hooks:
+      ```
+      pre-commit install
+      ```
+      5. Use pre-commit to check staged file:
+      ```
+      pre-commit
+      ```
+      6. Alternatively, you can check committed files using:
+      ```
+      pre-commit run --from-ref <commit_id> --to-ref <commit_id>
+      ```
+  condition: failed()
+  displayName: 'Post Github comment'

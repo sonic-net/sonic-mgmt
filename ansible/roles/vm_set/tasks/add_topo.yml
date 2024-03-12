@@ -75,6 +75,8 @@
             capabilities:
               - net_admin
             privileged: yes
+            memory: 8G
+            memory_swap: 8G
           become: yes
 
         - name: Bind ptf_ip to keysight_api_server
@@ -84,6 +86,7 @@
             ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
             ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
             ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+            ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
             mgmt_bridge: "{{ mgmt_bridge }}"
             vm_names: ""
           become: yes
@@ -109,6 +112,8 @@
         capabilities:
           - net_admin
         privileged: yes
+        memory: 8G
+        memory_swap: 8G
       become: yes
 
     - name: Get dut ports
@@ -134,6 +139,7 @@
         ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
         ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
         ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+        ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
         ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
         ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
         mgmt_bridge: "{{ mgmt_bridge }}"
@@ -160,10 +166,16 @@
       capabilities:
         - net_admin
       privileged: yes
+      memory: 16G
+      memory_swap: 32G
     become: yes
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    become: yes
+
+  - name: Set ipv6 route max size of ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
     become: yes
 
   - name: Get dut ports
@@ -190,7 +202,7 @@
       cmd: "bind"
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
-      vm_names: "{{ VM_hosts }}"
+      vm_names: "{{ VM_targets }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
@@ -198,6 +210,7 @@
       ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
       ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
       ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
       ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
@@ -206,13 +219,14 @@
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
     become: yes
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
     when: topo != 'fullmesh'
 
-  - name: Send arp ping packet to gw for flusing the ARP table
+  - name: Send arp ping packet to gw for flushing the ARP table
     command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
     become: yes
 
@@ -222,18 +236,27 @@
 
   - name: Start PTF portchannel service
     include_tasks: ptf_portchannel.yml
+    vars:
+      ptf_portchannel_action: start
 
   - name: Announce routes
     include_tasks: announce_routes.yml
     when:
       - topo != 'fullmesh'
       - not 'ptf' in topo
+      - not 'cable' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
     vars:
       mux_simulator_action: start
     when: "'dualtor' in topo"
+
+  - name: Start nic simulator
+    include_tasks: control_nic_simulator.yml
+    vars:
+      nic_simulator_action: start
+    when: topology.host_interfaces_active_active is defined and topology.host_interfaces_active_active|length > 0
 
   when: container_type == "PTF"
 
@@ -244,3 +267,4 @@
   - fetch: src=docker-ptf.tar dest=docker-ptf.tar flat=yes
   - shell: rm -f docker-ptf.tar
   run_once: yes
+  when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

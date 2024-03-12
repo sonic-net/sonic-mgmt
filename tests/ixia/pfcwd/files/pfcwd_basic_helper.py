@@ -2,10 +2,9 @@ import time
 from math import ceil
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                      # noqa F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
@@ -13,7 +12,7 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
 from tests.common.ixia.port import select_ports, select_tx_port
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size,\
-    Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+    Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -28,6 +27,7 @@ DATA_FLOW2_NAME = "Data Flow 2"
 DATA_PKT_SIZE = 1024
 IXIA_POLL_DELAY_SEC = 2
 DEVIATION = 0.25
+
 
 def run_pfcwd_basic_test(api,
                          testbed_config,
@@ -88,7 +88,7 @@ def run_pfcwd_basic_test(api,
         flow2_dur_sec = 1
 
         flow1_max_loss_rate = 1
-        flow1_min_loss_rate = 1- DEVIATION
+        flow1_min_loss_rate = 1 - DEVIATION
 
     else:
         pfc_storm_dur_sec = detect_time_sec * 0.5
@@ -133,7 +133,11 @@ def run_pfcwd_basic_test(api,
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -268,6 +272,7 @@ def __gen_traffic(testbed_config,
 
     return result
 
+
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     """
     Run traffic and dump per-flow statistics
@@ -309,6 +314,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 
     return rows
 
+
 def __verify_results(rows,
                      data_flow_name_list,
                      data_flow_min_loss_rate_list,
@@ -345,5 +351,5 @@ def __verify_results(rows,
         max_loss_rate = data_flow_max_loss_rate_list[i]
 
         pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
-                      'Loss rate of {} ({}) should be in [{}, {}]'.format(
-                      data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
+                      'Loss rate of {} ({}) should be in [{}, {}]'
+                      .format(data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))

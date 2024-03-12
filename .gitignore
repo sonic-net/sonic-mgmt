@@ -14,3 +14,6 @@ tests/metadata
 
 # Dev tools
 .vscode/
+.idea/
+
+.python-version

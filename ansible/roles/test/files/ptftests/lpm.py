@@ -1,4 +1,5 @@
 import random
+import six
 
 from ipaddress import ip_address, ip_network
 from SubnetTree import SubnetTree
@@ -23,12 +24,10 @@ To achieve the LPM functionality, use the LpmDict as a dictionary and use
 
 Please check the test_lpm.py file to see the details of how this class works.
 '''
+
+
 class LpmDict():
     class IpInterval:
-        def __init__(self, s):
-            self._start = s
-            self._end = s
-
         def __init__(self, s, e):
             assert s <= e
             self._start = s
@@ -59,17 +58,20 @@ class LpmDict():
         self._prefix_set = set()
         self._subnet_tree = SubnetTree()
         # 0.0.0.0 is a non-routable meta-address that needs to be skipped
-        self._boundaries = { ip_address(u'0.0.0.0') : 1} if ipv4 else { ip_address(u'::') : 1}
+        self._boundaries = {ip_address(u'0.0.0.0'): 1} if ipv4 else {
+            ip_address(u'::'): 1}
 
     def __setitem__(self, key, value):
-        prefix = ip_network(unicode(key))
+        prefix = ip_network(six.text_type(key))
         # add the current key to self._prefix_set only when it is not the default route and it is not a duplicate key
         if prefix.prefixlen and key not in self._prefix_set:
             boundary = prefix[0]
             self._boundaries[boundary] = self._boundaries.get(boundary, 0) + 1
-            if prefix[-1] != ip_address(u'255.255.255.255') and prefix[-1] != ip_address(u'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'):
+            if prefix[-1] != ip_address(u'255.255.255.255') \
+                    and prefix[-1] != ip_address(u'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'):
                 next_boundary = prefix[-1] + 1
-                self._boundaries[next_boundary] = self._boundaries.get(next_boundary, 0) + 1
+                self._boundaries[next_boundary] = self._boundaries.get(
+                    next_boundary, 0) + 1
             self._prefix_set.add(key)
         self._subnet_tree.__setitem__(key, value)
 
@@ -78,13 +80,14 @@ class LpmDict():
 
     def __delitem__(self, key):
         if '/0' not in key:
-            prefix = ip_network(unicode(key))
+            prefix = ip_network(six.text_type(key))
             boundary = prefix[0]
             next_boundary = prefix[-1] + 1
             self._boundaries[boundary] = self._boundaries.get(boundary) - 1
             if not self._boundaries[boundary]:
                 del self._boundaries[boundary]
-            self._boundaries[next_boundary] = self._boundaries.get(next_boundary) - 1
+            self._boundaries[next_boundary] = self._boundaries.get(
+                next_boundary) - 1
             if not self._boundaries[next_boundary]:
                 del self._boundaries[next_boundary]
             self._prefix_set.remove(key)
@@ -95,12 +98,15 @@ class LpmDict():
         ranges = []
         for index, boundary in enumerate(sorted_boundaries):
             if index != len(sorted_boundaries) - 1:
-                interval = self.IpInterval(sorted_boundaries[index], sorted_boundaries[index + 1] - 1)
+                interval = self.IpInterval(
+                    sorted_boundaries[index], sorted_boundaries[index + 1] - 1)
             else:
                 if self._ipv4:
-                    interval = self.IpInterval(sorted_boundaries[index], ip_address(u'255.255.255.255'))
+                    interval = self.IpInterval(
+                        sorted_boundaries[index], ip_address(u'255.255.255.255'))
                 else:
-                    interval = self.IpInterval(sorted_boundaries[index], ip_address(u'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
+                    interval = self.IpInterval(sorted_boundaries[index], ip_address(
+                        u'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
             ranges.append(interval)
         return ranges
 

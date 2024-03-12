@@ -14,7 +14,7 @@
 - include_tasks: bgp_nei_up.yml
   with_items: "{{ minigraph_bgp }}"
   when: "'T2' in item['name']"
-        
+
 - include_tasks: bgp_entry_flap.yml
   with_items: "{{ minigraph_bgp }}"
 

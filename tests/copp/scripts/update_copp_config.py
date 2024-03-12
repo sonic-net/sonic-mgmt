@@ -70,12 +70,12 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
     if config_format == "app_db":
         trap_groups = copp_config
     elif config_format == "config_db":
-        trap_groups = [{x: y} for x, y in copp_config["COPP_GROUP"].items()]
+        trap_groups = [{x: y} for x, y in list(copp_config["COPP_GROUP"].items())]
     else:
         raise ValueError("Invalid config format specified")
 
     for trap_group in trap_groups:
-        for _, group_config in trap_group.items():
+        for _, group_config in list(trap_group.items()):
             # Notes:
             # CIR (committed information rate) - bandwidth limit set by the policer
             # CBS (committed burst size) - largest burst of packets allowed by the policer

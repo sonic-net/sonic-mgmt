@@ -1,5 +1,14 @@
+- name: set login to tacacs if tacacs is defined
+  set_fact: ansible_ssh_user={{ fanout_tacacs_eos_user }} ansible_ssh_pass={{ fanout_tacacs_eos_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_eos_user is defined and fanout_tacacs_eos_password is defined
+
 - name: prepare fanout switch admin login info
   set_fact: ansible_ssh_user={{ fanout_admin_user }} ansible_ssh_pass={{ fanout_admin_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_eos_user is not defined and fanout_tacacs_eos_password is not defined
 
 - name: create persistent shell login
   file: path=/mnt/flash/rc.eos state=touch

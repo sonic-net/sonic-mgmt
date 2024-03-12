@@ -22,7 +22,7 @@
   switch_counters:
 
 - name: Check switch counters
-  assert: 
+  assert:
     that:
       - "{{ switch_counters['Ethernet4']['0']['ucq']['pkt'] == 61 }}"
       - "{{ switch_counters['Ethernet4']['1']['ucq']['pkt'] == 1 }}"

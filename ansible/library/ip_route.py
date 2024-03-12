@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+import re
+from ansible.module_utils.basic import AnsibleModule
 DOCUMENTATION = '''
 module:         ip_route
 version_added:  "1.0"
@@ -15,13 +17,10 @@ EXAMPLES = '''
   ip_route: "{{ ipv6 }}"
 '''
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
-import json
-import re
 
 DEFAULT_PREFIX = "100.1.1.1/32"
 DEFAULT_IPV6_PREFIX = "2064:200::1/128"
+
 
 class IpRouteModule(object):
     def __init__(self, ipv6, module):
@@ -38,12 +37,12 @@ class IpRouteModule(object):
             Main method of the class
         """
 
-        if (self.ipv6 == False):
+        if (self.ipv6 is False):
             interfaces = self.get_interfaces(DEFAULT_PREFIX)
         else:
             interfaces = self.get_interfaces(DEFAULT_IPV6_PREFIX)
         self.facts = self.parse_interfaces(interfaces)
-        self.module.exit_json(ansible_facts={'ethernet_list':self.facts})
+        self.module.exit_json(ansible_facts={'ethernet_list': self.facts})
 
         return
 
@@ -54,16 +53,16 @@ class IpRouteModule(object):
         """
 
         try:
-            if (self.ipv6 == False):
+            if (self.ipv6 is False):
                 rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh \
-                                                             -c "show ip route ' + prefix \
-                                                             + '"', executable='/bin/bash', \
-                                                             use_unsafe_shell=True)
+                                                             -c "show ip route ' + prefix
+                                                            + '"', executable='/bin/bash',
+                                                            use_unsafe_shell=True)
             else:
                 rc, self.out, err = self.module.run_command('docker exec -i bgp vtysh \
-                                                             -c "show ipv6 route ' + prefix \
-                                                             + '"', executable='/bin/bash', \
-                                                             use_unsafe_shell=True) 
+                                                             -c "show ipv6 route ' + prefix
+                                                            + '"', executable='/bin/bash',
+                                                            use_unsafe_shell=True)
 
         except Exception as e:
             err_msg = "Exception occured while trying to get the list of \
@@ -74,10 +73,10 @@ class IpRouteModule(object):
             if rc != 0:
                 self.module.fail_json(msg="Command 'show ip route <prefix>' \
                                            failed with non-zero return code! \
-                                           out=%s, err=%s" %(self.out, self.err))
+                                           out=%s, err=%s" % (self.out, self.err))
 
         self.facts = self.parse_interfaces(self.out)
-        self.module.exit_json(ansible_facts={'ethernet_list':self.facts})
+        self.module.exit_json(ansible_facts={'ethernet_list': self.facts})
 
         return
 
@@ -91,10 +90,11 @@ class IpRouteModule(object):
         output = output.splitlines()[3:-1]
 
         for item in output:
-            match = re.search('Ethernet\d+', item)
+            match = re.search(r'Ethernet\d+', item)
             ifaces.append(match.group(0))
 
         return ifaces
+
 
 def main():
     module = AnsibleModule(
@@ -110,6 +110,7 @@ def main():
     iproute.run()
 
     return
+
 
 if __name__ == "__main__":
     main()

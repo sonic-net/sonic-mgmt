@@ -5,6 +5,12 @@ pytestmark = [
     pytest.mark.topology('t0')
 ]
 
+
+@pytest.fixture(scope='module', autouse=True)
+def prepare_syncdrpc(swapSyncd):
+    pass
+
+
 def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):
     """
     @summary: Asymmetric PFC is disabled. Verify that DUT generates PFC frames only on lossless priorities when
@@ -16,11 +22,11 @@ def test_pfc_asym_off_tx_pfc(ptfhost, setup, pfc_storm_runner):
     pfc_storm_runner.run()
 
     ptf_runner(ptfhost,
-                "saitests",
-                "pfc_asym.PfcAsymOffOnTxTest",
-                platform_dir="ptftests",
-                params=setup["ptf_test_params"],
-                log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
+               "saitests",
+               "pfc_asym.PfcAsymOffOnTxTest",
+               platform_dir="ptftests",
+               params=setup["ptf_test_params"],
+               log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
 
 
 def test_pfc_asym_off_rx_pause_frames(ptfhost, setup, pfc_storm_runner):
@@ -35,11 +41,11 @@ def test_pfc_asym_off_rx_pause_frames(ptfhost, setup, pfc_storm_runner):
     pfc_storm_runner.run()
 
     ptf_runner(ptfhost,
-                "saitests",
-                "pfc_asym.PfcAsymOffRxTest",
-                platform_dir="ptftests",
-                params=setup["ptf_test_params"],
-                log_file="/tmp/pfc_asym.PfcAsymOffRxTest.log")
+               "saitests",
+               "pfc_asym.PfcAsymOffRxTest",
+               platform_dir="ptftests",
+               params=setup["ptf_test_params"],
+               log_file="/tmp/pfc_asym.PfcAsymOffRxTest.log")
 
 
 def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
@@ -54,11 +60,11 @@ def test_pfc_asym_on_tx_pfc(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
     pfc_storm_runner.run()
 
     ptf_runner(ptfhost,
-                "saitests",
-                "pfc_asym.PfcAsymOffOnTxTest",
-                platform_dir="ptftests",
-                params=setup["ptf_test_params"],
-                log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
+               "saitests",
+               "pfc_asym.PfcAsymOffOnTxTest",
+               platform_dir="ptftests",
+               params=setup["ptf_test_params"],
+               log_file="/tmp/pfc_asym.PfcAsymOffOnTxTest.log")
 
 
 def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_storm_runner):
@@ -74,8 +80,8 @@ def test_pfc_asym_on_handle_pfc_all_prio(ptfhost, setup, enable_pfc_asym, pfc_st
     pfc_storm_runner.run()
 
     ptf_runner(ptfhost,
-                "saitests",
-                "pfc_asym.PfcAsymOnRxTest",
-                platform_dir="ptftests",
-                params=setup["ptf_test_params"],
-                log_file="/tmp/pfc_asym.PfcAsymOnRxTest.log")
+               "saitests",
+               "pfc_asym.PfcAsymOnRxTest",
+               platform_dir="ptftests",
+               params=setup["ptf_test_params"],
+               log_file="/tmp/pfc_asym.PfcAsymOnRxTest.log")

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import re
 import subprocess
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -38,6 +38,7 @@ temp2:
   temp2_input: 26.800
   temp2_crit: 118.000
 '''
+
 
 class SensorsModule(object):
     def __init__(self):
@@ -82,7 +83,7 @@ class SensorsModule(object):
             if ret_code != 0:
                 self.module.fail_json(msg=stderr)
             else:
-                os_version = self.stdout.split('.')[0].strip()
+                os_version = self.stdout.decode('utf-8').split('.')[0].strip()
 
         return os_version
 
@@ -104,8 +105,11 @@ class SensorsModule(object):
             Collect sensors by reading output of 'sensors' utility
         '''
         try:
-            process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            process = subprocess.Popen(
+                ['sensors', '-A', '-u'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.stdout, stderr = process.communicate()
+            self.stdout = self.stdout.decode('utf-8')
+            stderr = stderr.decode('utf-8')
             ret_code = process.returncode
         except Exception as e:
             self.module.fail_json(msg=str(e))
@@ -121,19 +125,21 @@ class SensorsModule(object):
         '''
 
         # Return true if the row is an empty line
-        is_empty = lambda row: row == ''
+        def is_empty(row): return row == ''
 
         # Return true if the row is a row which represent device
         # ('acpitz-virtual-0' in the example above)
-        is_device = lambda row: row[0] != ' ' and row[-1] != ':' and ':' not in row
+        def is_device(
+            row): return row[0] != ' ' and row[-1] != ':' and ':' not in row
 
         # Return true if the row is a row which represent a subsystem of the device
         # ('temp1:' in the example above)
-        is_subsystem = lambda row: row[0] != ' ' and row[-1] == ':'
+        def is_subsystem(row): return row[0] != ' ' and row[-1] == ':'
 
         # Return true if the row is a row which represent a sensor value
         # ('temp1_input: 26.800' in the example above)
-        is_sensor = lambda row: row[0] == ' ' and row[-1] != ':' and ':' in row
+        def is_sensor(
+            row): return row[0] == ' ' and row[-1] != ':' and ':' in row
 
         device = None
         subsystem = None
@@ -164,7 +170,8 @@ class SensorsModule(object):
                 for idev in attrs['skip_list']:
                     self.skip_devices.add(idev)
                 self.facts['warning'] = True
-                self.warnings.append("PSU #%s [%s] is absent" % (attrs['number'], attrs['side']))
+                self.warnings.append("PSU #%s [%s] is absent" % (
+                    attrs['number'], attrs['side']))
 
         return
 
@@ -179,7 +186,8 @@ class SensorsModule(object):
             if version == self.os_version:
                 for attr in attrs['skip_list']:
                     self.skip_sensors_attr.add(attr)
-                    self.warnings.append("sensor attributes [%s] is absent in version %s" % (attr, self.os_version))
+                    self.warnings.append(
+                        "sensor attributes [%s] is absent in version %s" % (attr, self.os_version))
                 self.facts['warning'] = True
 
         return
@@ -251,12 +259,14 @@ class SensorsModule(object):
                 if value_input is None:
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
-                    self.alarms[reasons].append('Path %s is not exist' % path_input)
+                    self.alarms[reasons].append(
+                        'Path %s is not exist' % path_input)
                 elif value_max is None:
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
-                    self.alarms[reasons].append('Path %s is not exist' % path_max)
-                elif float(value_input) >= float(value_max) :
+                    self.alarms[reasons].append(
+                        'Path %s is not exist' % path_max)
+                elif float(value_input) >= float(value_max):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append('Alarm on %s' % path_input)
@@ -279,11 +289,13 @@ class SensorsModule(object):
 
         return
 
+
 def main():
     sensors = SensorsModule()
     sensors.run()
 
     return
+
 
 if __name__ == '__main__':
     main()

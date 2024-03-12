@@ -14,7 +14,7 @@
       block:
         - name: Set default testbed file
           set_fact:
-            testbed_file: testbed.csv
+            testbed_file: testbed.yaml
           when: testbed_file is not defined
 
         - name: Gather testbed information
@@ -90,6 +90,13 @@
         disk_used_pcent: 50
       when: disk_used_pcent is not defined
 
+    # In pr https://github.com/sonic-net/sonic-buildimage/pull/12109, it decrease the sshd timeout
+    # which may cause timeout when executing `generate_dump -s yesterday`.
+    # Increase this time during deploying minigraph
+    - name: Reset sshd timeout
+      become: True
+      shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
+
     - block:
         - fail: msg="image_url is not defined"
           when: image_url is not defined
@@ -97,6 +104,10 @@
         - name: Remove some old sonic image(s) and install new image
           reduce_and_add_sonic_images:
           become: true
+          register: result
+          retries: 5
+          delay: 10
+          until: result is not failed
           args:
             disk_used_pcent: '{{disk_used_pcent}}'
             new_image_url: '{{ image_url }}'

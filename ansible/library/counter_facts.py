@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 import re
 import json
-from pprint import pprint
 
 
 DOCUMENTATION = '''
@@ -21,7 +20,7 @@ options:
           in dictionary format.
           Will be executed only when specified, no value required.
       default: null
-    interfaces_counters: 
+    interfaces_counters:
       description:
         - Execute 'show interfaces counters' CLI command on the DUT. Parse and return output
           in dictionary format.
@@ -38,7 +37,7 @@ EXAMPLES = '''
 # Gather counters from 'show interfaces counters' CLI command
 - name: Get interfaces counters
   counter_facts:
-    interfaces_counters: 
+    interfaces_counters:
 '''
 
 
@@ -67,7 +66,8 @@ def get_flex_counters(module):
 
     rc, stdout, stderr = module.run_command(cli_cmd)
     if rc != 0:
-        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cli_cmd, rc, stdout, stderr))
+        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(
+            cli_cmd, rc, stdout, stderr))
 
     try:
         for line in stdout.splitlines()[skip_lines:]:
@@ -83,7 +83,8 @@ def get_flex_counters(module):
                     result[key]["Interval"] = counter_line[index].strip("(|)")
                     result[key]["Status"] = counter_line[-1]
     except Exception as e:
-        module.fail_json(msg="Failed to parse output of '{}', err={}".format(cli_cmd, str(e)))
+        module.fail_json(
+            msg="Failed to parse output of '{}', err={}".format(cli_cmd, str(e)))
 
     return result
 
@@ -97,7 +98,8 @@ def get_interfaces_counters(module):
     cli_cmd = "portstat -j"
     rc, stdout, stderr = module.run_command(cli_cmd)
     if rc != 0:
-        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cli_cmd, rc, stdout, stderr))
+        module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(
+            cli_cmd, rc, stdout, stderr))
 
     match = re.search("Last cached time was.*\n", stdout)
     if match:
@@ -106,7 +108,8 @@ def get_interfaces_counters(module):
     try:
         return json.loads(stdout)
     except Exception as e:
-        module.fail_json(msg="Failed to parse output of '{}', err={}".format(cli_cmd, str(e)))
+        module.fail_json(
+            msg="Failed to parse output of '{}', err={}".format(cli_cmd, str(e)))
 
 
 def main():
@@ -125,6 +128,7 @@ def main():
             ansible_output[key] = CMD_MAP[key](module)
 
     module.exit_json(ansible_facts=ansible_output)
+
 
 if __name__ == '__main__':
     main()

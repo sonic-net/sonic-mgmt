@@ -7,4 +7,3 @@
     docker_state: reloaded
     docker_volumes:
       -  /etc/sonic/:/etc/sonic/:ro
-

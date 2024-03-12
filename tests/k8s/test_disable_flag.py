@@ -1,5 +1,4 @@
 import pytest
-import time
 import k8s_test_utilities as ku
 
 from tests.common.helpers.assertions import pytest_assert
@@ -7,6 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 pytestmark = [
     pytest.mark.topology('any')
 ]
+
 
 def test_disable_flag(duthost, k8scluster):
     """
@@ -28,10 +28,12 @@ def test_disable_flag(duthost, k8scluster):
     server_connect_exp_status = False
     server_connect_act_status = ku.check_connected(duthost)
     server_connect_status_updated = ku.poll_for_status_change(duthost, server_connect_exp_status)
-    pytest_assert(server_connect_status_updated, "Test disable flag failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
-    
+    pytest_assert(server_connect_status_updated, "Test disable flag failed, Expected server connected status: {}, "
+                  "Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
+
     duthost.shell('sudo config kube server disable off')
     server_connect_exp_status = True
     server_connect_act_status = ku.check_connected(duthost)
     server_connect_status_updated = ku.poll_for_status_change(duthost, server_connect_exp_status)
-    pytest_assert(server_connect_status_updated, "Test disable flag failed, Expected server connected status: {}, Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))
+    pytest_assert(server_connect_status_updated, "Test disable flag failed, Expected server connected status: {}, "
+                  "Found server connected status: {}".format(server_connect_exp_status, server_connect_act_status))

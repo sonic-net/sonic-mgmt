@@ -1,42 +1,61 @@
 - debug: msg="{{ device_info[inventory_hostname] }}"
 
+- name: set login to tacacs if tacacs is defined
+  set_fact: ansible_ssh_user={{ fanout_tacacs_sonic_user }} ansible_ssh_pass={{ fanout_tacacs_sonic_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_sonic_user is defined and fanout_tacacs_sonic_password is defined
+
 - name: prepare fanout switch admin login info
-  set_fact: ansible_user={{ fanout_sonic_user }} ansible_password={{ fanout_sonic_password }}
+  set_fact: ansible_ssh_user={{ fanout_sonic_user }} ansible_ssh_pass={{ fanout_sonic_password }}
+  when: >
+    fanout_tacacs_user is not defined and fanout_tacacs_user is not defined and
+    fanout_tacacs_sonic_user is not defined and fanout_tacacs_sonic_password is not defined
 
-- name: find interface name mapping
-  port_alias: hwsku="{{ device_info[inventory_hostname]["HwSku"] }}"
+- name: retrieve SONiC version
+  shell: cat /etc/sonic/sonic_version.yml | grep ":"
+  register: sonic_version_content
 
-- name: build fanout vlan config
-  fail: msg="SONiC fanout switch with HwSku {{ device_info[inventory_hostname]['HwSku'] }} not supported"
-  when: device_info[inventory_hostname]["HwSku"] != "Arista-7060CX-32S-C32"
+- name: format SONiC version content
+  set_fact:
+    fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
+  with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
-- name: build fanout startup config for Arista 7060 SONiC leaf fanout
-  template: src=sonic_deploy_arista_7060.j2
-            dest=/etc/sonic/vlan.json
-  when: device_info[inventory_hostname]["HwSku"] == "Arista-7060CX-32S-C32"
-  become: yes
+- fail: msg="sonic version other than 202205 does not support incremental update and dry run"
+  when: "'20220531' not in fanout_sonic_version['build_version'] and (incremental is defined or dry_run is defined)"
 
-- name: disable all copp rules
-  shell:
-    cmd: docker exec swss bash -c 'echo [] > /etc/swss/config.d/00-copp.config.json'
-  become: yes
+- name: deploy SONiC fanout with image version 201811
+  include_tasks:
+    sonic/fanout_sonic_201811.yml
+  when: "'20181130' in fanout_sonic_version['build_version']"
 
-- name: generate config_db.json
-  shell: sonic-cfggen -H -j /etc/sonic/vlan.json -j /etc/sonic/init_cfg.json --print-data > /etc/sonic/config_db.json
-  become: yes
+- name: deploy SONiC fanout with image version 202012
+  include_tasks:
+    sonic/fanout_sonic_202012.yml
+  when: "'20201231' in fanout_sonic_version['build_version']"
 
-- name: stop and disable lldp service
-  service: name=lldp state=stopped enabled=no
-  become: yes
+- name: deploy SONiC fanout with image version 202205
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_202205.yml
+      when: dry_run is not defined and incremental is not defined
 
-- name: stop and disable dhcp_relay service
-  service: name=dhcp_relay state=stopped enabled=no
-  become: yes
+    - name: deploy SONiC fanout incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_incremental_202205.yml
+      when: incremental is defined and dry_run is not defined
 
-- name: stop and disable bgp service
-  service: name=bgp state=stopped enabled=no
-  become: yes
+    - name: deploy SONiC fanout dry_run
+      include_tasks:
+        sonic/fanout_sonic_dry_run_202205.yml
+      when: dry_run is defined
+  when: "'20220531' in fanout_sonic_version['build_version'] or 'internal' in fanout_sonic_version['build_version']"
 
-- name: stop and disable teamd service
-  service: name=teamd state=stopped enabled=no
-  become: yes
+- name: deploy SONiC fanout with image version 202305
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run
+      include_tasks:
+        sonic/fanout_sonic_202305.yml
+      when: dry_run is not defined and incremental is not defined
+  when: "'20230531' in fanout_sonic_version['build_version']"

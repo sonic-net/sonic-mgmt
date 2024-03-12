@@ -70,4 +70,3 @@
     - name: Run the script
       shell: nohup python fanout_listener.py {{ ptf_host }} > /tmp/fanout_listener.console.txt 2>&1 &
       when: '"python fanout_listener.py" not in out.stdout'
-

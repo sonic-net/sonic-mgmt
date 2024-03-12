@@ -29,7 +29,7 @@ Manual Everflow configuration can be done using swssconfig utility in swss conta
 
     swssconfig <json-file to apply>
 
-##Test structure 
+##Test structure
 ###Setup configuration
 Everflow configuration should be created on the DUT before running the test. Configuration could be deployed using ansible sonic test playbook with the tag **everflow_tb**.
 

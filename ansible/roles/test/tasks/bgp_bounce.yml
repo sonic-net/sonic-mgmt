@@ -4,7 +4,7 @@
    bgp_no_export_template: bgp_no_export.j2
 
 - set_fact:
-   bgp_templates: 
+   bgp_templates:
     - "{{ bgp_plain_template }}"
     - "{{ bgp_no_export_template }}"
 
@@ -18,20 +18,20 @@
   with_items:
     - "{{ bgp_templates }}"
 
-- name: Generate bgp_gen.sh files 
+- name: Generate bgp_gen.sh files
   template: src=roles/test/templates/bgp_conf_gen.j2 dest={{ run_dir }}/{{ item.file_name }}
   with_items:
     - {file_name: 'bgp_plain.sh', bgp_template_name: 'bgp_plain.j2', bgp_conf_name: 'bgp_plain.conf'}
     - {file_name: 'bgp_no_export.sh', bgp_template_name: 'bgp_no_export.j2', bgp_conf_name: 'bgp_no_export.conf'}
 
-- name: Generate bgp configs 
+- name: Generate bgp configs
   shell: sh {{ run_dir }}/{{ item.file_name }}
   with_items:
     - {file_name: 'bgp_plain.sh'}
     - {file_name: 'bgp_no_export.sh'}
 
 - name: Backup the bgp config
-  command: docker exec -i bgp cp /etc/quagga/bgpd.conf /etc/quagga/bgpd_backup.conf 
+  command: docker exec -i bgp cp /etc/quagga/bgpd.conf /etc/quagga/bgpd_backup.conf
 
 - name: Get vm information
   testbed_vm_info: base_vm={{ vm }} topo={{ testbed_type }}
@@ -44,10 +44,10 @@
 - set_fact:
     bgp_bounce_vm_template: bgp_bounce_vm.j2
 
-- name: Apply bgp plain config    
+- name: Apply bgp plain config
   command: docker cp bgp_plain.conf bgp:/etc/quagga/bgpd.conf
- 
-- name: Restart bgpd 
+
+- name: Restart bgpd
   command: docker exec -i bgp supervisorctl restart bgpd
 
 - name: Wait for bgpd to come up
@@ -78,10 +78,10 @@
   assert: {that: "{{ no_export_route_num }} == 8 "}
 
 # To test the case when adding no_export community on DUT
-- name: Apply bgp plain config    
+- name: Apply bgp plain config
   command: docker cp bgp_no_export.conf bgp:/etc/quagga/bgpd.conf
- 
-- name: Restart bgpd 
+
+- name: Restart bgpd
   command: docker exec -i bgp supervisorctl restart bgpd
 
 - name: Wait for bgpd to come up
@@ -113,7 +113,7 @@
 
 # Restore the orginal bgp configuration on DUT
 - name: Change bgp conf to bgp_no_export config
-  command: docker exec -i bgp cp /etc/quagga/bgpd_backup.conf /etc/quagga/bgpd.conf 
+  command: docker exec -i bgp cp /etc/quagga/bgpd_backup.conf /etc/quagga/bgpd.conf
 
-- name: Restart bgpd 
+- name: Restart bgpd
   command: docker exec -i bgp supervisorctl restart bgpd

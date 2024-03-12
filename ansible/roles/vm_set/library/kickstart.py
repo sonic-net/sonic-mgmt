@@ -1,7 +1,11 @@
 #!/usr/bin/python
 
-import datetime
+from ansible.module_utils.basic import AnsibleModule
 from telnetlib import Telnet
+import logging
+import sys
+from ansible.module_utils.debug_utils import config_module_logging
+
 
 def encode(arg):
     if (sys.version_info.major == 3 and sys.version_info.minor >= 5):
@@ -10,33 +14,7 @@ def encode(arg):
         return arg
 
 
-class MyDebug(object):
-    def __init__(self, filename, enabled=True):
-        if enabled:
-            self.fp = open(filename, 'w')
-        else:
-            self.fp = None
-
-        return
-
-    def cleanup(self):
-        if self.fp:
-            self.fp.close()
-            self.fp = None
-
-        return
-
-    def __del__(self):
-        self.cleanup()
-
-        return
-
-    def debug(self, msg):
-        if self.fp:
-            self.fp.write('%s\n' % msg)
-            self.fp.flush()
-
-        return
+config_module_logging('kickstart')
 
 
 class EMatchNotFound(Exception):
@@ -56,10 +34,9 @@ class ENotInEnabled(Exception):
 
 
 class SerialSession(object):
-    def __init__(self, port, debug):
+    def __init__(self, port):
         self.enabled = False
-        self.d = debug
-        self.d.debug('Starting')
+        logging.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
         self.tn.write(encode('\r\n'))
 
@@ -74,17 +51,18 @@ class SerialSession(object):
         if self.tn:
             self.tn.close()
             self.tn = None
-            self.d.cleanup()
-
         return
 
     def pair(self, action, wait_for, timeout):
-        self.d.debug('output: %s' % action)
-        self.d.debug('match: %s' % ",".join(wait_for))
+        # lgtm [py/clear-text-logging-sensitive-data]
+        logging.debug('output: %s' % action)
+        logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(encode("%s\n" % action))
         if wait_for is not None:
-            index, match, text = self.tn.expect([encode(i) for i in wait_for], timeout)
-            self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
+            index, match, text = self.tn.expect(
+                [encode(i) for i in wait_for], timeout)
+            logging.debug('Result of matching: %d %s %s' %
+                          (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
         else:
@@ -94,20 +72,22 @@ class SerialSession(object):
 
     def login(self, user, password):
         try:
-            self.d.debug('## Getting the login prompt')
+            logging.debug('## Getting the login prompt')
             self.pair('\r', [r'login:'], 240)
         except EMatchNotFound:
-            self.d.debug('No login prompt is found')
+            logging.debug('No login prompt is found')
             raise ELoginPromptNotFound
 
-        self.d.debug('## Getting the password prompt')
+        logging.debug('## Getting the password prompt')
         index_password = self.pair(user, [r'assword:', r'>'], 20)
         if index_password == 0:
             try:
-                self.d.debug('## Inputing password')
+                logging.debug('## Inputing password')
                 self.pair(password, [r'>'], 10)
             except EMatchNotFound:
-                self.d.debug('The original password "%s" is not working' % password)
+                # lgtm [py/clear-text-logging-sensitive-data]
+                logging.debug(
+                    'The original password "%s" is not working' % password)
                 raise EWrongDefaultPassword
 
         return
@@ -153,6 +133,7 @@ class SerialSession(object):
 
         return
 
+
 def session(new_params):
     seq = [
         ('hostname %s' % str(new_params['hostname']), [r'\(config\)#']),
@@ -163,20 +144,22 @@ def session(new_params):
         ('interface management 1', [r'\(config-if-Ma1\)#']),
         ('no shutdown', [r'\(config-if-Ma1\)#']),
         ('vrf forwarding MGMT', [r'\(config-if-Ma1\)#']),
-        ('ip address %s' % str(new_params['mgmt_ip']), [r'\(config-if-Ma1\)#']),
+        ('ip address %s' %
+         str(new_params['mgmt_ip']), [r'\(config-if-Ma1\)#']),
         ('exit', [r'\(config\)#']),
-        ('ip route vrf MGMT 0.0.0.0/0 %s' % str(new_params['mgmt_gw']), [r'\(config\)#']),
-        ('username %s privilege 15 role network-admin secret 0 %s' % (str(new_params['new_login']), str(new_params['new_password'])), [r'\(config\)#']),
-        ('aaa root secret 0 %s' % str(new_params['new_root_password']), [r'\(config\)#']),
+        ('ip route vrf MGMT 0.0.0.0/0 %s' %
+         str(new_params['mgmt_gw']), [r'\(config\)#']),
+        ('username %s privilege 15 role network-admin secret 0 %s' %
+         (str(new_params['new_login']), str(new_params['new_password'])), [r'\(config\)#']),
+        ('aaa root secret 0 %s' %
+         str(new_params['new_root_password']), [r'\(config\)#']),
     ]
 
-    curtime = datetime.datetime.now().isoformat()
-    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
-    ss = SerialSession(new_params['telnet_port'], debug)
+    ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['password'])
     ss.enable()
     ss.wait_for_warmup()
-    ss.rename_boot(seq) # FIXME: do we need this rename?
+    ss.rename_boot(seq)  # FIXME: do we need this rename?
     ss.configure(seq)
     ss.wait_for_warmup()
     ss.logout()
@@ -194,29 +177,34 @@ def core(module):
 def main():
 
     module = AnsibleModule(argument_spec=dict(
-        telnet_port = dict(required=True),
-        login = dict(required=True),
-        password = dict(required=True),
-        hostname = dict(required=True),
-        mgmt_ip = dict(required=True),
-        mgmt_gw = dict(required=True),
-        new_login = dict(required=True),
-        new_password = dict(required=True),
-        new_root_password = dict(required=True),
+        telnet_port=dict(required=True),
+        login=dict(required=True),
+        password=dict(required=True),
+        hostname=dict(required=True),
+        mgmt_ip=dict(required=True),
+        mgmt_gw=dict(required=True),
+        new_login=dict(required=True),
+        new_password=dict(required=True),
+        new_root_password=dict(required=True),
     ))
 
     try:
         result = core(module)
     except ELoginPromptNotFound:
-        result = {'kickstart_code': -1, 'changed': False, 'msg': 'Login prompt not found'}
+        result = {'kickstart_code': -1, 'changed': False,
+                  'msg': 'Login prompt not found'}
     except EWrongDefaultPassword:
-        result = {'kickstart_code': -2, 'changed': False, 'msg': 'Wrong default password, kickstart of VM has been done'}
+        result = {'kickstart_code': -2, 'changed': False,
+                  'msg': 'Wrong default password, kickstart of VM has been done'}
     except EOFError:
-        result = {'kickstart_code': -3, 'changed': False, 'msg': 'EOF during the chat'}
+        result = {'kickstart_code': -3, 'changed': False,
+                  'msg': 'EOF during the chat'}
     except EMatchNotFound:
-        result = {'kickstart_code': -4, 'changed': False, 'msg': "Match for output isn't found"}
+        result = {'kickstart_code': -4, 'changed': False,
+                  'msg': "Match for output isn't found"}
     except ENotInEnabled:
-        result = {'kickstart_code': -5, 'changed': False, 'msg': "Not in enabled mode"}
+        result = {'kickstart_code': -5, 'changed': False,
+                  'msg': "Not in enabled mode"}
     except Exception as e:
         result = {'kickstart_code': -6, 'changed': False, 'msg': str(e)}
 
@@ -225,5 +213,4 @@ def main():
     return
 
 
-from ansible.module_utils.basic import *
 main()

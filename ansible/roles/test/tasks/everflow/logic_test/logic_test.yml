@@ -41,7 +41,7 @@
 
     - name: Create route with prefix that matches session DST IP and unresolved next hop.
       command: ip route add {{ session_ip_prefix_1 }} via {{ neigh_ip }}
-      
+
     - name: Resolve session route.
       command: ip neigh replace {{ neigh_ip }} lladdr {{ neigh_mac_1 }} nud permanent dev {{ sw_if }}
 
@@ -120,4 +120,3 @@
 
     - name: Remove all the temporary files created by the test.
       include_tasks: roles/test/tasks/deinit_config_test.yml
-

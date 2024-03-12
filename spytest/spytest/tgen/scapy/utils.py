@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import time
 import glob
@@ -13,13 +14,15 @@ from collections import deque
 from itertools import islice
 from tempfile import mkstemp
 import subprocess
+from dicts import SpyTestDict
 
 try:
-    from StringIO import StringIO ## for Python 2
+    from StringIO import StringIO  # for Python 2
 except ImportError:
-    from io import StringIO ## for Python 3
+    from io import StringIO  # for Python 3
 
 from logger import Logger
+
 
 class Utils(object):
     def __init__(self, dry=False, logger=None):
@@ -46,17 +49,29 @@ class Utils(object):
             pass
         return default
 
-    def fwrite(self, content, fname = "", mode="w"):
-        if fname == "" or self.dry:
+    @staticmethod
+    def kwargs_get_strip(name, default, **kws):
+        val = kws.get(name, default) or default
+        return val.strip() if val else val
+
+    @staticmethod
+    def file_write(content, fname="", mode="w", tmp_files=None):
+        if fname == "":
             tmp_dir = os.getenv("TMPDIR", "/tmp/scapy-tgen/tmp/")
             Utils.ensure_folder(tmp_dir)
             _, fname = mkstemp(prefix=tmp_dir)
-            self.tmp_files.append(fname)
+            if tmp_files is not None:
+                tmp_files.append(fname)
         else:
             Utils.ensure_parent(fname)
         with open(fname, mode) as fd:
             fd.write(content)
         return fname
+
+    def fwrite(self, content, fname="", mode="w"):
+        if self.dry:
+            fname = ""
+        return Utils.file_write(content, fname, mode, self.tmp_files)
 
     def fhead(self, fname, count, default=""):
         try:
@@ -91,12 +106,20 @@ class Utils(object):
         p = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (out, err) = p.communicate()
         p.wait()
-        return out or err
+        return Utils.decode(out or err)
 
-    def cmdexec(self, cmd, msg=None, dbg=True):
+    @staticmethod
+    def decode(data):
+        try:
+            return data.decode("utf-8")
+        except Exception:
+            return data
+
+    def cmdexec(self, cmd, dbg=True):
         if dbg:
             self.logger.debug("cmdexec: " + cmd)
-        if self.dry: return "skipped-for-dry-run"
+        if self.dry:
+            return "skipped-for-dry-run"
         return self.process_exec(cmd)
 
     def shexec(self, *args):
@@ -104,6 +127,7 @@ class Utils(object):
         fname = self.fwrite(cmds)
         logfile = fname + ".1"
         self.logger.debug("shexec: " + cmds)
+        output = ""
         if not self.dry:
             cmd = "sh -x %s > %s 2>&1" % (fname, logfile)
             os.system(cmd)
@@ -111,10 +135,11 @@ class Utils(object):
             self.logger.debug(output)
             os.unlink(logfile)
         os.unlink(fname)
+        return output
 
     def lshexec(self, cmdlist):
         cmds = [cmd for cmd in cmdlist if cmd.strip()]
-        self.shexec("\n".join(cmds))
+        return self.shexec("\n".join(cmds))
 
     def tshexec(self, cmdlist):
         threads = []
@@ -126,31 +151,37 @@ class Utils(object):
             th.join()
 
     def cat_file(self, filepath):
-        marker = "#######################"
         content = self.fread(filepath).strip()
+        if not content:
+            return ""
+        marker = "#######################"
         return "\n{0} {1}\n{0}\n".format(marker, content)
 
     def line_info(self):
         stk = inspect.stack()
-        self.logger.debug(stk[1][1],":",stk[1][2],":", stk[1][3])
+        self.logger.debug(stk[1][1], ":", stk[1][2], ":", stk[1][3])
 
     @staticmethod
     def min_value(v1, v2):
         return v1 if v1 < v2 else v2
 
     @staticmethod
+    def max_value(v1, v2):
+        return v1 if v1 > v2 else v2
+
+    @staticmethod
     def incrementMac(mac, step):
-        step = step.replace(':', '').replace(".",'')
-        mac = mac.replace(':', '').replace(".",'')
+        step = step.replace(':', '').replace(".", '')
+        mac = mac.replace(':', '').replace(".", '')
         nextMac = int(mac, 16) + int(step, 16)
-        return  ':'.join(("%012X" % nextMac)[i:i+2] for i in range(0, 12, 2))
+        return ':'.join(("%012X" % nextMac)[i:i + 2] for i in range(0, 12, 2))
 
     @staticmethod
     def decrementMac(mac, step):
-        step = step.replace(':', '').replace(".",'')
-        mac = mac.replace(':', '').replace(".",'')
+        step = step.replace(':', '').replace(".", '')
+        mac = mac.replace(':', '').replace(".", '')
         nextMac = int(mac, 16) - int(step, 16)
-        return  ':'.join(("%012X" % nextMac)[i:i+2] for i in range(0, 12, 2))
+        return ':'.join(("%012X" % nextMac)[i:i + 2] for i in range(0, 12, 2))
 
     @staticmethod
     def randomMac():
@@ -158,15 +189,21 @@ class Utils(object):
 
     @staticmethod
     def incrementIPv4(ip, step):
-        ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
-        int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
-        return int2ip(ip2int(ip)+ip2int(step))
+        def ip2int(ipstr):
+            return struct.unpack("!I", socket.inet_aton(ipstr))[0]
+
+        def int2ip(n):
+            return socket.inet_ntoa(struct.pack("!I", n))
+        return int2ip(ip2int(ip) + ip2int(step))
 
     @staticmethod
     def decrementIPv4(ip, step):
-        ip2int = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]
-        int2ip = lambda n: socket.inet_ntoa(struct.pack('!I', n))
-        return int2ip(ip2int(ip)-ip2int(step))
+        def ip2int(ipstr):
+            return struct.unpack("!I", socket.inet_aton(ipstr))[0]
+
+        def int2ip(n):
+            return socket.inet_ntoa(struct.pack("!I", n))
+        return int2ip(ip2int(ip) - ip2int(step))
 
     @staticmethod
     def randomIpv4():
@@ -199,20 +236,20 @@ class Utils(object):
         return lngip
 
     @staticmethod
-    def ipv4_long2ip(l):
-        return '%d.%d.%d.%d' % (l >> 24 & 255, l >> 16 & 255, l >> 8 & 255, l & 255)
+    def ipv4_long2ip(ll):
+        return '%d.%d.%d.%d' % (ll >> 24 & 255, ll >> 16 & 255, ll >> 8 & 255, ll & 255)
 
     @staticmethod
     def ipv6_ip2long(ip):
         if '.' in ip:
-          # convert IPv4 suffix to hex
-          chunks = ip.split(':')
-          v4_int = Utils.ipv4_ip2long(chunks.pop())
-          if v4_int is None:
+            # convert IPv4 suffix to hex
+            chunks = ip.split(':')
+            v4_int = Utils.ipv4_ip2long(chunks.pop())
+            if v4_int is None:
                 return None
-          chunks.append('%x' % ((v4_int >> 16) & 0xffff))
-          chunks.append('%x' % (v4_int & 0xffff))
-          ip = ':'.join(chunks)
+            chunks.append('%x' % ((v4_int >> 16) & 0xffff))
+            chunks.append('%x' % (v4_int & 0xffff))
+            ip = ':'.join(chunks)
 
         halves = ip.split('::')
         hextets = halves[0].split(':')
@@ -222,18 +259,19 @@ class Utils(object):
                 hextets.append('0')
             for h in h2:
                 hextets.append(h)
-          # end if
+            # end if
 
         lngip = 0
         for h in hextets:
-            if h == '': h = '0'
+            if h == '':
+                h = '0'
             lngip = (lngip << 16) | int(h, 16)
         return lngip
 
     @staticmethod
-    def ipv6_long2ip(l):
+    def ipv6_long2ip(ll):
         # format as one big hex value
-        hex_str = '%032x' % l
+        hex_str = '%032x' % ll
         # split into double octet chunks without padding zeros
         hextets = ['%x' % int(hex_str[x:x + 4], 16) for x in range(0, 32, 4)]
 
@@ -249,7 +287,7 @@ class Utils(object):
                     dc_len, dc_start = (run_len, run_start)
             else:
                 run_len, run_start = (0, -1)
-          # end for
+            # end for
         if dc_len > 1:
             dc_end = dc_start + dc_len
             if dc_end == len(hextets):
@@ -263,59 +301,82 @@ class Utils(object):
 
     @staticmethod
     def incrementIPv6(ip, step):
-        return Utils.ipv6_long2ip(Utils.ipv6_ip2long(ip)+Utils.ipv6_ip2long(step))
+        return Utils.ipv6_long2ip(Utils.ipv6_ip2long(ip) + Utils.ipv6_ip2long(step))
 
     @staticmethod
     def decrementIPv6(ip, step):
-        return Utils.ipv6_long2ip(Utils.ipv6_ip2long(ip)-Utils.ipv6_ip2long(step))
+        return Utils.ipv6_long2ip(Utils.ipv6_ip2long(ip) - Utils.ipv6_ip2long(step))
 
     @staticmethod
     def intval(d, prop, default):
         val = d.get(prop, "{}".format(default))
-        return int(val)
+        return int(float(val))
 
     @staticmethod
     def tobytes(s):
-        if sys.version_info[0] < 3:
-            return buffer(s) # pylint: disable=undefined-variable
-        return s.encode()
+        if isinstance(s, bytes):
+            return s
+        try:
+            return s.encode()
+        except Exception:
+            return bytes(s)
 
     @staticmethod
     def get_env_int(name, default):
         try:
-            return int(os.getenv(name, default))
+            return int(os.getenv(name, str(default)))
         except Exception:
             pass
         return default
 
     @staticmethod
+    def clock():
+        return time.time()
+
+    @staticmethod
     def msleep(delay, block=1):
-        mdelay = delay /1000.0
-        now = time.time()
-        while now + mdelay > time.time():
-            time.sleep(block/1000.0)
+        unit_time = block / 1000.0
+        end_time = time.time() + delay / 1000.0
+        while True:
+            time.sleep(unit_time)
+            if end_time <= time.time():
+                break
 
     @staticmethod
     def usleep(delay, block=1):
-        mdelay = delay /1000000.0
-        now = time.time()
-        while now + mdelay > time.time():
-            time.sleep(block/1000000.0)
+        unit_time = block / 1000000.0
+        end_time = time.time() + delay / 1000000.0
+        while True:
+            time.sleep(unit_time)
+            if end_time <= time.time():
+                break
 
     @staticmethod
-    def make_list(arg):
-        if isinstance(arg, list):
-            return arg
-        return [arg]
+    def make_list(arg, uniq=False):
+        rv = arg if isinstance(arg, list) else [arg]
+        return Utils.make_uniq(rv) if uniq else rv
 
-    def exec_func(self, func, *args, **kwargs):
+    @staticmethod
+    def make_uniq(arg):
+        if not isinstance(arg, list):
+            raise ValueError("input should be list")
+        rv = []
+        for ent in arg:
+            if ent not in rv:
+                rv.append(ent)
+        return rv
+
+    def exec_func(self, msg, func, *args, **kwargs):
         this_stderr, this_stdout = StringIO(), StringIO()
         save_stderr, save_stdout = sys.stderr, sys.stdout
         sys.stderr, sys.stdout = this_stderr, this_stdout
         func(*args, **kwargs)
         sys.stderr, sys.stdout = save_stderr, save_stdout
         msgs = map(str.strip, [this_stdout.getvalue(), this_stderr.getvalue()])
-        return self.logger.debug("\n".join([s for s in msgs if s]))
+        msgs = [s for s in msgs if s]
+        if msg:
+            msgs.insert(0, msg)
+        return self.logger.debug("\n".join(msgs))
 
     def exec_cmd(self, cmd):
         ret = self.cmdexec(cmd, dbg=False)
@@ -349,17 +410,117 @@ class Utils(object):
         path = os.path.dirname(filename)
         Utils.ensure_folder(path)
 
-    @staticmethod
-    def get_ip_addr_dev(intf, ns=None):
+    def ns_debug(self, ns, msg):
+        rv = "{}\n{}".format(msg, self.cmdexec("ip netns list"))
+        raise ValueError(self.logger.error(rv))
+
+    def nsexec(self, ns, cmd, abort=True):
+        rv = self.cmdexec("ip netns exec ns_{} {}".format(ns, cmd))
+        if abort and "Cannot open network namespace" in rv:
+            self.ns_debug(ns, rv)
+        return rv
+
+    def get_ip_addr_dev(self, intf, ns=None):
         cmd = "ip addr show dev {}".format(intf)
-        if ns: cmd = "ip netns exec {} {}".format(ns, cmd)
-        output = Utils.process_exec(cmd).split()
+        if ns:
+            output = self.nsexec(ns, cmd).split()
+        else:
+            output = self.cmdexec(cmd).split()
         retval = {}
         for x in ['inet', 'inet6', 'state', 'link/ether', 'ether']:
             if x in output:
                 idx = output.index(x)
-                retval[x] = output[idx+1]
-        print(cmd, output, retval)
-        return retval
+                retval[x] = output[idx + 1]
+        return retval, cmd, output
+
+    @staticmethod
+    def parse_mac(output):
+        match = re.search(r"(([a-f\d]{1,2}\:){5}[a-f\d]{1,2})", output)
+        if not match:
+            return None
+        return match.groups()[0]
+
+    @staticmethod
+    def unused(*args):
+        pass
+
+    @staticmethod
+    def flatten_list(ll, rv=None, uniq=False):
+        rv = rv or []
+        for i in Utils.make_list(ll):
+            if isinstance(i, list):
+                rv.extend(Utils.flatten_list(i, rv))
+            else:
+                rv.append(i)
+        return Utils.make_uniq(rv) if uniq else rv
+
+    @staticmethod
+    def clone(**kws):
+        rv = SpyTestDict()
+        for key, value in kws.items():
+            rv[key] = value
+        return rv
+
+    @staticmethod
+    def success(**kwargs):
+        res = SpyTestDict()
+        res.status = "1"
+        for key, value in kwargs.items():
+            res[key] = value
+        return res
+
+    @staticmethod
+    def os_fork(pid_file):
+        try:
+            pid = os.fork()
+            if pid > 0:
+                os._exit(0)
+            if pid_file:
+                Utils.file_write(str(os.getpid()), pid_file)
+        except OSError as exc:
+            print("Error forking", exc)
+
+    @staticmethod
+    def redirect_logs(log_file):
+        fd = os.open('/dev/null', os.O_RDWR)
+        os.dup2(fd, sys.__stdin__.fileno())
+        if log_file is not None:
+            fake_stdout = open(log_file, 'a', 1)
+            sys.stdout = fake_stdout
+            sys.stderr = fake_stdout
+            fd = fake_stdout.fileno()
+        os.dup2(fd, sys.__stdout__.fileno())
+        os.dup2(fd, sys.__stderr__.fileno())
+        if log_file is None:
+            os.close(fd)
+
+    @staticmethod
+    def deamonize(pid_file, log_file):
+        Utils.os_fork(None)
+        os.setsid()
+        Utils.os_fork(pid_file)
+        Utils.redirect_logs(log_file)
+
+    @staticmethod
+    def md5sum(value):
+        from hashlib import md5
+        # nosemgrep-next-line
+        hasher = md5(value)
+        return hasher.digest()
+
+    @staticmethod
+    def prefix_length_to_netmask(prefix_length):
+        mask = (0xffffffff >> (32 - prefix_length)) << (32 - prefix_length)
+        return (str((0xff000000 & mask) >> 24) + '.'
+                + str((0x00ff0000 & mask) >> 16) + '.'
+                + str((0x0000ff00 & mask) >> 8) + '.'
+                + str((0x000000ff & mask)))
 
 
+class RunTimeException(RuntimeError):
+    def __init__(self, *args):
+        lines = ["Run Time Exception:"]
+        for arg in args:
+            lines.append(str(arg))
+        message = "\n".join(lines)
+        super(RunTimeException, self).__init__(message)

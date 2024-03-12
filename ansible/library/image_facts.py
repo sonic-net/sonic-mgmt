@@ -26,7 +26,7 @@
 #     }
 # }
 
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 
 DOCUMENTATION = '''
@@ -58,7 +58,8 @@ def get_image_info(module):
     cmd = "sudo sonic_installer list"
     rc, stdout, stderr = module.run_command(cmd)
     if rc != 0:
-        module.fail_json(msg='Failed to run %s, rc=%s, stdout=%s, stderr=%s' % (cmd, rc, stdout, stderr))
+        module.fail_json(msg='Failed to run %s, rc=%s, stdout=%s, stderr=%s' % (
+            cmd, rc, stdout, stderr))
 
     try:
         image_info = {}
@@ -77,7 +78,8 @@ def get_image_info(module):
                 image_info['available'].append(line)
         return image_info
     except Exception as e:
-        module.fail_json(msg='Failed to parse image info from output of "%s", err=%s' % (cmd, str(e)))
+        module.fail_json(
+            msg='Failed to parse image info from output of "%s", err=%s' % (cmd, str(e)))
 
     return None
 

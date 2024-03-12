@@ -1,36 +1,11 @@
 #!/usr/bin/python
 
-import datetime
+from ansible.module_utils.basic import AnsibleModule
 from telnetlib import Telnet
+import logging
+from ansible.module_utils.debug_utils import config_module_logging
 
-
-class MyDebug(object):
-    def __init__(self, filename, enabled=True):
-        if enabled:
-            self.fp = open(filename, 'w')
-        else:
-            self.fp = None
-
-        return
-
-    def cleanup(self):
-        if self.fp:
-            self.fp.close()
-            self.fp = None
-
-        return
-
-    def __del__(self):
-        self.cleanup()
-
-        return
-
-    def debug(self, msg):
-        if self.fp:
-            self.fp.write('%s\n' % msg)
-            self.fp.flush()
-
-        return
+config_module_logging('sonic_kickstart')
 
 
 class EMatchNotFound(Exception):
@@ -38,9 +13,8 @@ class EMatchNotFound(Exception):
 
 
 class SerialSession(object):
-    def __init__(self, port, debug):
-        self.d = debug
-        self.d.debug('Starting')
+    def __init__(self, port):
+        logging.debug('Starting')
         self.tn = Telnet('127.0.0.1', port)
         self.tn.write(b"\r\n")
 
@@ -55,17 +29,19 @@ class SerialSession(object):
         if self.tn:
             self.tn.close()
             self.tn = None
-            self.d.cleanup()
 
         return
 
     def pair(self, action, wait_for, timeout=60):
-        self.d.debug('output: %s' % action)
-        self.d.debug('match: %s' % ",".join(wait_for))
+        # lgtm [py/clear-text-logging-sensitive-data]
+        logging.debug('output: %s' % action)
+        logging.debug('match: %s' % ",".join(wait_for))
         self.tn.write(b"%s\n" % action.encode('ascii'))
         if wait_for is not None:
-            index, match, text = self.tn.expect([ x.encode('ascii') for x in wait_for ], timeout)
-            self.d.debug('Result of matching: %d %s %s' % (index, str(match), text))
+            index, match, text = self.tn.expect(
+                [x.encode('ascii') for x in wait_for], timeout)
+            logging.debug('Result of matching: %d %s %s' %
+                          (index, str(match), text))
             if index == -1:
                 raise EMatchNotFound
         else:
@@ -106,29 +82,44 @@ class SerialSession(object):
 
         return
 
+
 def session(new_params):
-    seq = [
-        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+    if new_params['disable_updategraph']:
+        seq = [
+            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
+             'echo $(systemctl is-active swss); '
+             'sed -i -e "s/enabled=true/enabled=false/" /etc/sonic/updategraph.conf; '
+             'systemctl restart updategraph; sleep 1; done', [r'#'], 180),
+        ]
+    else:
+        seq = [
+            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
+             'echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+        ]
+
+    seq.extend([
         ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
-        ('sed -i s:sonic:%s: /etc/hosts' % str(new_params['hostname']), [r'#']),
+        ('sed -i s:sonic:%s: /etc/hosts' %
+         str(new_params['hostname']), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
         ('ifconfig eth0', [r'#']),
-        ('ip route add 0.0.0.0/0 via %s table default' % str(new_params['mgmt_gw']), [r'#']),
+        ('ip route add 0.0.0.0/0 via %s table default' %
+         str(new_params['mgmt_gw']), [r'#']),
         ('ip route', [r'#']),
-        ('echo %s:%s | chpasswd' % (str(new_params['login']), str(new_params['new_password'])), [r'#']),
-    ]
+        ('arping -c 2 -U -P -I eth0 %s' % str(new_params['mgmt_ip']).split("/")[0], [r'#']),
+        ('echo %s:%s | chpasswd' %
+         (str(new_params['login']), str(new_params['new_password'])), [r'#']),
+    ])
     # For multi-asic VS there is no default config generated.
     # interfaces-config service will not add eth0 IP address as there
     # no default config. Multiple SWSS service will not start until
     # topology service is loaded. Hence remove swss check and proceed
     # with eth0 IP address assignment.
-    if int(new_params['num_asic']) > 1:	
+    if int(new_params['num_asic']) > 1:
         seq.pop(0)
 
-    curtime = datetime.datetime.now().isoformat()
-    debug = MyDebug('/tmp/debug.%s.%s.txt' % (new_params['hostname'], curtime), enabled=True)
-    ss = SerialSession(new_params['telnet_port'], debug)
+    ss = SerialSession(new_params['telnet_port'])
     ss.login(new_params['login'], new_params['passwords'])
     ss.configure(seq)
     ss.logout()
@@ -146,22 +137,25 @@ def core(module):
 def main():
 
     module = AnsibleModule(argument_spec=dict(
-        telnet_port = dict(required=True),
-        login = dict(required=True),
-        passwords = dict(required=True, type='list'),
-        hostname = dict(required=True),
-        mgmt_ip = dict(required=True),
-        mgmt_gw = dict(required=True),
-        new_password = dict(required=True),
-        num_asic = dict(required=True),
+        telnet_port=dict(required=True),
+        login=dict(required=True),
+        passwords=dict(required=True, type='list'),
+        hostname=dict(required=True),
+        mgmt_ip=dict(required=True),
+        mgmt_gw=dict(required=True),
+        new_password=dict(required=True),
+        num_asic=dict(required=True),
+        disable_updategraph=dict(required=True, type='bool'),
     ))
 
     try:
         result = core(module)
     except EOFError:
-        result = {'kickstart_code': -1, 'changed': False, 'msg': 'EOF during the chat'}
+        result = {'kickstart_code': -1, 'changed': False,
+                  'msg': 'EOF during the chat'}
     except EMatchNotFound:
-        result = {'kickstart_code': -1, 'changed': False, 'msg': "Match for output isn't found"}
+        result = {'kickstart_code': -1, 'changed': False,
+                  'msg': "Match for output isn't found"}
     except Exception as e:
         module.fail_json(msg=str(e))
 
@@ -170,5 +164,4 @@ def main():
     return
 
 
-from ansible.module_utils.basic import *
 main()

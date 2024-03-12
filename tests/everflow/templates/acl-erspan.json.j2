@@ -4,7 +4,7 @@
             "acl-set": {
                 "{{ acl_table_name }}": {
                     "acl-entries": {
-                        "acl-entry": { 
+                        "acl-entry": {
                             {% for rule in rules %}
                             "{{ loop.index }}": {
                                 "actions": {
@@ -17,11 +17,19 @@
                                 },
                                 {% for qset in rule["qualifiers"].keys() %}
                                 "{{ qset }}": {
+                                {% if qset == "input_interface" %}
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "{{ rule["qualifiers"]["input_interface"] }}"
+                                            }
+                                        }
+                                {% else %}
                                     "config": {
                                         {% for qualifier, value in rule["qualifiers"][qset].items() %}
                                         "{{ qualifier }}": {{ value|to_nice_json }}{% if not loop.last %},{% endif %}
                                         {% endfor %}
                                     }
+                                {% endif %}
                                 }{% if not loop.last %},{% endif %}
                                 {% endfor %}
                             }{% if not loop.last %},{% endif %}

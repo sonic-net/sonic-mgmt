@@ -22,13 +22,13 @@ x86_64-mlnx_msn2.*-r0:
   default:
     valid_timeout: 10
     greater_timeout: 20
-    too_big_timeout: 100
+    too_big_timeout: 66000
 
 # Mellanox watchdog type 2
 x86_64-mlnx_msn3.*-r0:
   default:
     greater_timeout: 100
-    too_big_timeout: 300
+    too_big_timeout: 66000
 
 # Mellanox watchdog type 3
 x86_64-mlnx_msn4.*-r0:
@@ -51,11 +51,21 @@ x86_64-mlnx_msn2700-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+x86_64-nvidia_sn2201-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
+x86_64-nvidia_sn5600-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
 # Dell watchdog
 x86_64-dell.*:
   default:
     greater_timeout: 180
-    too_big_timeout: 660
+    too_big_timeout: 1200
 
 # Arista watchdog
 x86_64-arista.*:
@@ -76,3 +86,72 @@ x86_64-cel_e1031-r0:
     valid_timeout: 30
     greater_timeout: 180
     too_big_timeout: 200
+
+# Nokia IXS-7215 watchdog
+armhf-nokia_ixs7215_52x-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 200
+
+# Cisco-8000 watchdog
+x86_64-8102_64h_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_rp_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-88_lc0_36fh_mo-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_lc_48h_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-88_lc0_36fh_m-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-88_lc0_36fh-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_lc_48h-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8800_rp-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+# Cisco-Churchill-Mono watchdog
+x86_64-8101_32fh_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8111_32eh_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554

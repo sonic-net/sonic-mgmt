@@ -1,4 +1,5 @@
 #!/usr/bin/python
+from ansible.module_utils.basic import AnsibleModule
 import netaddr
 
 DOCUMENTATION = '''
@@ -58,13 +59,13 @@ def main():
 
     for port_id in testing_ports_id:
         for peer in minigraph_bgp:
-            if peer['name'] == minigraph_neighbors[dut_switch_ports[int(port_id)]]['name'] and netaddr.valid_ipv4(peer['addr']):
+            if peer['name'] == minigraph_neighbors[dut_switch_ports[int(port_id)]]['name'] \
+                    and netaddr.valid_ipv4(peer['addr']):
                 testing_ports_ip[port_id] = peer['addr']
                 break
 
     module.exit_json(ansible_facts={'testing_ports_ip': testing_ports_ip})
 
-from ansible.module_utils.basic import *
-if __name__== "__main__":
-    main()
 
+if __name__ == "__main__":
+    main()

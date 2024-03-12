@@ -16,4 +16,3 @@
   become: true
   copy: src=cron.logrotate
         dest=/etc/cron.hourly/logrotate
-    

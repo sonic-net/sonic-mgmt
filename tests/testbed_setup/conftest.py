@@ -1,5 +1,5 @@
 from .args.populate_fdb_args import add_populate_fdb_args
-from tests.common.fixtures.populate_fdb import populate_fdb
+from tests.common.fixtures.populate_fdb import populate_fdb     # noqa F401
 
 # FDB pytest arguments
 

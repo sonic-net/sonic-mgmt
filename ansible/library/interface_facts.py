@@ -1,23 +1,8 @@
 #!/usr/bin/python
 import os
-import sys
-import stat
-import array
-import errno
-import fcntl
-import fnmatch
-import platform
-import re
-import signal
-import datetime
-import getpass
-import pwd
-import ConfigParser
-import StringIO
 import json
 
-from ansible.module_utils.basic import *
-from collections import defaultdict
+from ansible.module_utils.basic import AnsibleModule
 try:
     from sonic_py_common import multi_asic
     NAMESPACE_LIST = multi_asic.get_namespace_list()
@@ -92,7 +77,7 @@ def get_default_interfaces(ip_path):
             # v6 routing may result in
             #   RTNETLINK answers: Invalid argument
             continue
-        words = out.split('\n')[0].split()
+        words = out.decode('utf8').split('\n')[0].split()
         # A valid output starts with the queried address on the first line
         if len(words) > 0 and words[0] == command[key][-1]:
             for i in range(len(words) - 1):
@@ -148,7 +133,8 @@ def gather_ip_interface_info():
             except:
                 pass
         if os.path.exists(os.path.join(path, 'device','driver', 'module')):
-            interfaces[device]['module'] = os.path.basename(os.path.realpath(os.path.join(path, 'device', 'driver', 'module')))
+            interfaces[device]['module'] = \
+                os.path.basename(os.path.realpath(os.path.join(path, 'device', 'driver', 'module')))
         if os.path.exists(os.path.join(path, 'type')):
             protocol_type = get_file_content(os.path.join(path, 'type'))
             if protocol_type == '1':
@@ -159,17 +145,22 @@ def gather_ip_interface_info():
                 interfaces[device]['type'] = 'loopback'
         if os.path.exists(os.path.join(path, 'bridge')):
             interfaces[device]['type'] = 'bridge'
-            interfaces[device]['interfaces'] = [ os.path.basename(b) for b in glob.glob(os.path.join(path, 'brif', '*')) ]
+            interfaces[device]['interfaces'] = \
+                [os.path.basename(b) for b in glob.glob(os.path.join(path, 'brif', '*'))]
             if os.path.exists(os.path.join(path, 'bridge', 'bridge_id')):
                 interfaces[device]['id'] = get_file_content(os.path.join(path, 'bridge', 'bridge_id'), default='')
             if os.path.exists(os.path.join(path, 'bridge', 'stp_state')):
                 interfaces[device]['stp'] = get_file_content(os.path.join(path, 'bridge', 'stp_state')) == '1'
         if os.path.exists(os.path.join(path, 'bonding')):
             interfaces[device]['type'] = 'bonding'
-            interfaces[device]['slaves'] = get_file_content(os.path.join(path, 'bonding', 'slaves'), default='').split()
-            interfaces[device]['mode'] = get_file_content(os.path.join(path, 'bonding', 'mode'), default='').split()[0]
-            interfaces[device]['miimon'] = get_file_content(os.path.join(path, 'bonding', 'miimon'), default='').split()[0]
-            interfaces[device]['lacp_rate'] = get_file_content(os.path.join(path, 'bonding', 'lacp_rate'), default='').split()[0]
+            interfaces[device]['slaves'] = \
+                get_file_content(os.path.join(path, 'bonding', 'slaves'), default='').split()
+            interfaces[device]['mode'] = \
+                get_file_content(os.path.join(path, 'bonding', 'mode'), default='').split()[0]
+            interfaces[device]['miimon'] = \
+                get_file_content(os.path.join(path, 'bonding', 'miimon'), default='').split()[0]
+            interfaces[device]['lacp_rate'] = \
+                get_file_content(os.path.join(path, 'bonding', 'lacp_rate'), default='').split()[0]
             primary = get_file_content(os.path.join(path, 'bonding', 'primary'))
             if primary:
                 interfaces[device]['primary'] = primary
@@ -190,7 +181,7 @@ def gather_ip_interface_info():
             interfaces[device]['promisc'] = promisc_mode
 
         def parse_ip_output(output, secondary=False):
-            for line in output.split('\n'):
+            for line in output.decode('utf8').split('\n'):
                 if not line:
                     continue
                 words = line.split()
@@ -286,10 +277,11 @@ def gather_ip_interface_info():
         parse_ip_output(secondary_data, secondary=True)
 
     buffer = {'interfaces':interfaces, 'ips':ips}
-    print json.dumps(buffer)
+    print(json.dumps(buffer))
 
 gather_ip_interface_info()
 """
+
 
 def main():
     module = AnsibleModule(
@@ -310,8 +302,8 @@ def main():
 
     interfaces = dict()
     ips = dict(
-         all_ipv4_addresses = [],
-         all_ipv6_addresses = [],
+        all_ipv4_addresses=[],
+        all_ipv6_addresses=[],
     )
 
     # Initialize the cmd string which to invoke the python script which we created on the DUT.
@@ -324,9 +316,11 @@ def main():
         # If the user passed a namespace parameter invoke that script with the cmd_prefix
         if namespace:
             cmd_prefix = 'sudo ip netns exec {} '.format(namespace)
-        rc, output, err = module.run_command(cmd_prefix + cmd, use_unsafe_shell=True)
+        rc, output, err = module.run_command(
+            cmd_prefix + cmd, use_unsafe_shell=True)
         if rc != 0:
-            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(cmd, rc, output, err))
+            module.fail_json(msg="Failed to run {}, rc={}, stdout={}, stderr={}".format(
+                cmd, rc, output, err))
 
         # Get the output from the gather interface info script.
         if output:
@@ -344,7 +338,7 @@ def main():
         try:
             if not interfaces[name]['link']:
                 down_ports += [name]
-        except:
+        except Exception:
             down_ports += [name]
             pass
 
@@ -352,5 +346,6 @@ def main():
     results['ansible_interface_ips'] = ips
     results['ansible_interface_link_down_ports'] = down_ports
     module.exit_json(ansible_facts=results)
+
 
 main()

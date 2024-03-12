@@ -4,6 +4,19 @@
 - hosts: servers:&vm_host
   gather_facts: no
   tasks:
+
+    - name: Get absolute path of {{ root_path }}
+      command: "realpath {{ root_path }}"
+      register: real_root_path
+
+    - name: Set variable abs_root_path
+      set_fact:
+        abs_root_path: "{{ real_root_path.stdout }}"
+
+    - name: Install cleanup script
+      template: src=roles/vm_set/templates/cleanup.sh.j2
+                dest={{ abs_root_path }}/cleanup.sh
+
     - name: run apt update and upgrade
       include_tasks: update_reboot.yml
 
@@ -13,5 +26,5 @@
       with_items: '{{ range(0,3)|list }}'
 
     - name: run cleanup script
-      shell: bash /home/azure/veos-vm/cleanup.sh
+      shell: bash {{ abs_root_path }}/cleanup.sh
       become: yes

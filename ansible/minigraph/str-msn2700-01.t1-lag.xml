@@ -1066,6 +1066,11 @@
       <DataAcls/>
       <AclInterfaces>
         <AclInterface>
+          <InAcl>NTP_ACL</InAcl>
+          <AttachTo>NTP</AttachTo>
+          <Type>NTP</Type>
+        </AclInterface>
+        <AclInterface>
           <InAcl>SNMP_ACL</InAcl>
           <AttachTo>SNMP</AttachTo>
           <Type>SNMP</Type>

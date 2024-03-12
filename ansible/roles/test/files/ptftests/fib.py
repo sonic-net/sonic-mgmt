@@ -1,4 +1,6 @@
 import re
+import six
+
 from ipaddress import ip_address, ip_network
 from lpm import LpmDict
 
@@ -7,27 +9,28 @@ from lpm import LpmDict
 #            RFC 5156 Special Use IPv6 Addresses
 
 EXCLUDE_IPV4_PREFIXES = [
-        '0.0.0.0/8',            # "This" Network        RFC 1122, Section 3.2.1.3
-        '10.0.0.0/8',           # Private-Use Networks  RFC 1918
-        '127.0.0.0/8',          # Loopback              RFC 1122, Section 3.2.1.3
-        '169.254.0.0/16',       # Link Local            RFC RFC 3927
-        '224.0.0.0/4',          # Multicast             RFC 3171
-        '255.255.255.255/32'    # Limited Broadcast     RFC 919, Section 7
-                                #                       RFC 922, Section 7
+    '0.0.0.0/8',            # "This" Network        RFC 1122, Section 3.2.1.3
+    '10.0.0.0/8',           # Private-Use Networks  RFC 1918
+    '127.0.0.0/8',          # Loopback              RFC 1122, Section 3.2.1.3
+    '169.254.0.0/16',       # Link Local            RFC RFC 3927
+    '224.0.0.0/4',          # Multicast             RFC 3171
+    '255.255.255.255/32'    # Limited Broadcast     RFC 919, Section 7
+    #                       RFC 922, Section 7
 ]
 
 EXCLUDE_IPV6_PREFIXES = [
-        '::/128',               # Unspecified           RFC 4291
-        '::1/128',              # Loopback              RFC 4291
-        'fe80::/10',            # Link local            RFC 4291
-        'ff00::/8'              # Multicast             RFC 4291
-        ]
+    '::/128',               # Unspecified           RFC 4291
+    '::1/128',              # Loopback              RFC 4291
+    'fe80::/10',            # Link local            RFC 4291
+    'ff00::/8'              # Multicast             RFC 4291
+]
+
 
 class Fib():
     class NextHop():
-        def __init__(self, next_hop = ''):
+        def __init__(self, next_hop=''):
             self._next_hop = []
-            matches = re.findall('\[([\s\d]+)\]', next_hop)
+            matches = re.findall(r'\[([\s\d]+)\]', next_hop)
             for match in matches:
                 self._next_hop.append([int(s) for s in match.split()])
 
@@ -56,24 +59,25 @@ class Fib():
 
         with open(file_path, 'r') as f:
             for line in f.readlines():
-                if pattern.match(line): continue
+                if pattern.match(line):
+                    continue
                 entry = line.split(' ', 1)
-                prefix = ip_network(unicode(entry[0]))
+                prefix = ip_network(six.text_type(entry[0]))
                 next_hop = self.NextHop(entry[1])
-                if prefix.version is 4:
+                if prefix.version == 4:
                     self._ipv4_lpm_dict[str(prefix)] = next_hop
-                elif prefix.version is 6:
+                elif prefix.version == 6:
                     self._ipv6_lpm_dict[str(prefix)] = next_hop
 
     def __getitem__(self, ip):
-        ip = ip_address(unicode(ip))
-        if ip.version is 4:
+        ip = ip_address(six.text_type(ip))
+        if ip.version == 4:
             return self._ipv4_lpm_dict[str(ip)]
-        elif ip.version is 6:
+        elif ip.version == 6:
             return self._ipv6_lpm_dict[str(ip)]
 
     def __contains__(self, ip):
-        ip_obj = ip_address(unicode(ip))
+        ip_obj = ip_address(six.text_type(ip))
         if ip_obj.version == 4:
             return self._ipv4_lpm_dict.contains(ip)
         elif ip_obj.version == 6:

@@ -156,7 +156,7 @@
   include_tasks: lag_2.yml
   tags: lag_2
 
-- name: ACL test 
+- name: ACL test
   include_tasks: acltb.yml
   tags: acl
 
@@ -168,7 +168,7 @@
   include_tasks: ecn_wred.yml
   tags: ecn_wred
 
-### when calling this test, please add command line of testbed_type 
+### when calling this test, please add command line of testbed_type
 ### -e testbed_type=t1
 - name: BGP multipath relax
   include_tasks: bgp_multipath_relax.yml

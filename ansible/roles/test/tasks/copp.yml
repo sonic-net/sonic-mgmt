@@ -128,4 +128,3 @@
       with_items:
         - lldpd
         - lldp-syncd
-

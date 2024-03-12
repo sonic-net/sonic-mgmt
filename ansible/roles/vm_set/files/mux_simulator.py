@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import traceback
+import time
 
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -42,14 +43,21 @@ DROP = 'drop'
 app = Flask(__name__)
 
 g_muxes = None              # Global variable holding instance of the class Muxes
+g_get_mux_counter = 0
+g_start_time = time.time()
 
-################################################## Error Handlers ####################################################
+if sys.version_info[0] >= 3:
+    unicode = str
+
+
+# ============================================ Error Handlers ============================================ #
 
 @app.errorhandler(Exception)
 def handle_exception(e):
     """Register exception handler.
 
-    For simplicity, we don't use too much try...except in code. Any uncaught exception will be handled by this function.
+    For simplicity, we don't use too much try...except in code.
+    Any uncaught exception will be handled by this function.
 
     Exceptions handled by this hander:
         * 4XX HTTP client side issue
@@ -70,20 +78,22 @@ def handle_exception(e):
         res.update({'traceback': tb.splitlines()})
     return res, err_code
 
-###################################################### Utils #########################################################
 
-def adaptive_name(template, host, index):
+# ==================================================== Utils ==================================================== #
+
+def adaptive_name(template, vm_set, index):
     """
     A helper function for interface/bridge name calculation.
     Since the name of interface must be less than 15 bytes. This util is to adjust the template automatically
-    according to the length of vmhost name and port index. The leading characters (inje, muxy, mbr) will be shorten if necessary
+    according to the length of vm_set name and port index.
+    The leading characters (inje, muxy, mbr) will be shorten if necessary
     e.g.
     port 21 on vms7-6 -> inje-vms7-6-21
     port 121 on vms21-1 -> inj-vms21-1-121
     port 121 on vms121-1 -> in-vms121-1-121
     """
     MAX_LEN = 15
-    host_index_str = '-%s-%d' % (host, int(index))
+    host_index_str = '-%s-%d' % (vm_set, int(index))
     leading_len = MAX_LEN - len(host_index_str)
     leading_characters = template.split('-')[0][:leading_len]
     rendered_name = leading_characters + host_index_str
@@ -104,7 +114,7 @@ def run_cmd(cmdline):
     """
     app.logger.debug(cmdline)
     process = subprocess.Popen(
-        shlex.split(cmdline),                          # lgtm [py/command-line-injection]
+        shlex.split(cmdline),
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE)
@@ -114,8 +124,8 @@ def run_cmd(cmdline):
     msg = {
         'cmd': cmdline,
         'ret_code': ret_code,
-        'stdout': stdout.splitlines(),
-        'stderr': stderr.splitlines()
+        'stdout': stdout.decode('utf-8').splitlines(),
+        'stderr': stderr.decode('utf-8').splitlines()
     }
     app.logger.debug(json.dumps(msg, indent=2))
 
@@ -125,7 +135,7 @@ def run_cmd(cmdline):
     return stdout.decode('utf-8')
 
 
-def config_logging():
+def config_logging(http_port):
     """Configure log to rotating file
 
     * Remove the default handler from app.logger.
@@ -135,16 +145,17 @@ def config_logging():
     * The Werkzeug handler is untouched.
     """
     rfh = RotatingFileHandler(
-        '/tmp/mux_simulator.log',
+        '/tmp/mux_simulator_{}.log'.format(http_port),
         maxBytes=10*1024*1024,  # 10MB
-        backupCount=3)
+        backupCount=15)
     fmt = logging.Formatter('%(asctime)s %(levelname)s #%(lineno)d: %(message)s')
     rfh.setFormatter(fmt)
     rfh.setLevel(logging.DEBUG)
     app.logger.addHandler(rfh)
     app.logger.removeHandler(default_handler)
 
-###################################################### Models ########################################################
+
+# ==================================================== Models ==================================================== #
 
 class Mux(object):
     '''Object represents a single mux bridge
@@ -172,12 +183,12 @@ class Mux(object):
 
         self._init_ports()
 
-        # If the mux does not have valid ports attahed, it is invalid
+        # If the mux does not have valid ports attached, it is invalid
         if not self._get_ports():
             self.isvalid = False
             return
 
-        # Initilize the flows configured on the mux bridge
+        # Initialize the flows configured on the mux bridge
         self._init_flows()
         self._get_flows()
 
@@ -248,12 +259,13 @@ class Mux(object):
             tor_ports[1]: LOWER_TOR
         }
 
+        self.info('Sides map: {}'.format(self.sides))
         return True
 
     def _active_standby_state_helper(self, active_side):
         if active_side is None:
             active_side = random.choice([UPPER_TOR, LOWER_TOR])
-        standby_side = LOWER_TOR if active_side == UPPER_TOR else LOWER_TOR
+        standby_side = LOWER_TOR if active_side == UPPER_TOR else UPPER_TOR
 
         self.active_side = active_side
         self.active_port = self.ports[active_side]
@@ -279,12 +291,15 @@ class Mux(object):
 
         Example output of the 'ovs-ofctl dump-flows' command:
         azure@str2-acs-serv-17:~$ sudo ovs-ofctl --names dump-flows mbr-vms17-8-0
-        cookie=0x0, duration=86737.831s, table=0, n_packets=446, n_bytes=44412, in_port="muxy-vms17-8-0" actions=output:"enp59s0f1.3216",output:"enp59s0f1.3272"
-        cookie=0x0, duration=86737.819s, table=0, n_packets=10251, n_bytes=1179053, in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
+        cookie=0x0, duration=86737.831s, table=0, n_packets=446, n_bytes=44412,
+            in_port="muxy-vms17-8-0" actions=output:"enp59s0f1.3216",output:"enp59s0f1.3272"
+        cookie=0x0, duration=86737.819s, table=0, n_packets=10251, n_bytes=1179053,
+            in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
 
         Example result of parsing the output using regex:
-        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)
-        [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'), ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
+        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa W605
+        [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'),
+         ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
         """
 
         # By default, there are only two flows per bridge:
@@ -314,16 +329,18 @@ class Mux(object):
             if self.sides[in_port] == NIC:
                 # From NIC to TORs, upstream flow
                 self.flows['upstream']['in_side'] = NIC
-                self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
+                self.flows['upstream']['out_sides'] = [self.sides[out_port] for out_port, action in
+                                                       flows[in_port].items() if action == OUTPUT]
             else:
                 # From TOR to NIC, downstream flow
                 self._active_standby_state_helper(self.sides[in_port])
                 self.flows['downstream']['in_side'] = self.sides[in_port]
-                self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in flows[in_port].items() if action == OUTPUT]
+                self.flows['downstream']['out_sides'] = [self.sides[out_port] for out_port, action in
+                                                         flows[in_port].items() if action == OUTPUT]
 
     @property
     def status(self):
-        """Property for statu of the mux bridge.
+        """Property for status of the mux bridge.
 
         Status of the mux bridge is maintained in instance attributes. This property is to gather the attributes and
         return them in a dict.
@@ -332,14 +349,16 @@ class Mux(object):
             # Transform mux flows to json expected by mux simulator client
             flows = {}
             flows[self.ports[NIC]] = [
-                {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['upstream']['out_sides']
+                {'action': OUTPUT, 'out_port': self.ports[out_side]}
+                for out_side in self.flows['upstream']['out_sides']
             ]
 
             if self.flows['downstream']['in_side'] is not None:
                 in_side = self.flows['downstream']['in_side']
                 in_port = self.ports[in_side]
                 flows[in_port] = [
-                    {'action': OUTPUT, 'out_port': self.ports[out_side]} for out_side in self.flows['downstream']['out_sides']
+                    {'action': OUTPUT, 'out_port': self.ports[out_side]}
+                    for out_side in self.flows['downstream']['out_sides']
                 ]
 
             healthy = True
@@ -364,7 +383,7 @@ class Mux(object):
     def set_active_side(self, new_active_side):
         """Set the active side of the mux bridge to the specified side.
 
-        If the specified side is same as the current active side of bridge, no config change is reuqired. Otherwise,
+        If the specified side is same as the current active side of bridge, no config change is required. Otherwise,
         this method will run ovs-ofctl command to remove flow and add a new flow to switch active side. All the
         related instance attributes are updated after open flow rules are changed.
         """
@@ -374,7 +393,8 @@ class Mux(object):
                 new_active_side = random.choice([UPPER_TOR, LOWER_TOR])
 
             if self.active_side == new_active_side:
-                self.info('current active_side={}, new_active_side={}, no need to change. <<<<<<'.format(self.active_side, new_active_side))
+                self.info('current active_side={}, new_active_side={}, no need to change. <<<<<<'
+                          .format(self.active_side, new_active_side))
                 return
 
             # Need to toggle active side
@@ -448,7 +468,8 @@ class Mux(object):
             self.flows['downstream']['in_side'] = active_side
             self.flows['downstream']['out_sides'] = [NIC]
 
-        self.debug('updated downstream flow, new_action={}, flows={}'.format(new_action, json.dumps(self.flows, indent=2)))
+        self.debug('updated downstream flow, new_action={}, flows={}'
+                   .format(new_action, json.dumps(self.flows, indent=2)))
 
     def _update_upstream_flow(self, new_action, out_sides=[]):
         """Update upstream flow. Apply new action to sides specified in out_sides.
@@ -465,7 +486,8 @@ class Mux(object):
 
         # Figure out target upstream out_sides
         if new_action == DROP:
-            target_out_sides = [out_side for out_side in self.flows['upstream']['out_sides'] if out_side not in out_sides]
+            target_out_sides = [out_side for out_side in self.flows['upstream']['out_sides']
+                                if out_side not in out_sides]
         else:
             target_out_sides = list(set(self.flows['upstream']['out_sides'] + out_sides))
 
@@ -501,7 +523,8 @@ class Mux(object):
                     self.ports[NIC],
                     action_desc))
             self.flows['upstream']['out_sides'] = target_out_sides
-        self.debug('updated upstream flow, new_action={}, out_sides={}, flows={}'.format(new_action, out_sides, json.dumps(self.flows, indent=2)))
+        self.debug('updated upstream flow, new_action={}, out_sides={}, flows={}'
+                   .format(new_action, out_sides, json.dumps(self.flows, indent=2)))
 
     def update_flows(self, new_action, out_sides):
         """
@@ -510,7 +533,8 @@ class Mux(object):
         Item in out_sides could be any of: 'nic', 'upper_tor', 'lower_tor'.
         """
         with self.lock:
-            self.info('>>>>> calling update_flows, new_action={}, out_sides={}, current flow:\n{}'.format(new_action, out_sides, json.dumps(self.flows, indent=2)))
+            self.info('>>>>> calling update_flows, new_action={}, out_sides={}, current flow:\n{}'
+                      .format(new_action, out_sides, json.dumps(self.flows, indent=2)))
             if NIC in out_sides:
                 self._update_downstream_flow(new_action)
             tor_sides = [out_side for out_side in out_sides if out_side != NIC]
@@ -534,90 +558,90 @@ class Mux(object):
 
 class Muxes(object):
 
-    def __init__(self):
+    def __init__(self, vm_set):
+        self.vm_set = vm_set
         self.muxes = {}
         for bridge in self._mux_bridges():
             bridge_fields = bridge.split('-')
-            vm_set = '-'.join(bridge_fields[1:-1])
             port_index = int(bridge_fields[-1])
             mux = Mux(vm_set, port_index)
             if mux.isvalid:
                 self.muxes[bridge] = mux
 
     def _mux_bridges(self):
-        return [intf for intf in os.listdir('/sys/class/net') if intf.startswith(MUX_BRIDGE_PREFIX)]
+        """Only collect bridges belong to self.vm_set
 
-    def filter_muxes(self, vm_set, port_index=None):
-        """Filter mux objects belong to specified vm_set.
+        Returns:
+            list: List of bridges belong to self.vm_set
         """
-        if port_index is not None:
-            bridge = adaptive_name(MUX_BRIDGE_TEMPLATE, vm_set, port_index)
-            return self.muxes[bridge]
-        else:
-            return [mux for bridge, mux in self.muxes.items() if vm_set in bridge]
+        pattern = r'{}[^-]*-{}-[\d]+'.format(MUX_BRIDGE_PREFIX, self.vm_set)
+        return [intf for intf in os.listdir('/sys/class/net') if re.search(pattern, intf)]
 
-    def get_mux_status(self, vm_set, port_index=None):
-        if port_index is not None:
-            return self.filter_muxes(vm_set, port_index).status
-        else:
-            return {mux.bridge: mux.status for mux in self.filter_muxes(vm_set)}
+    def _port_to_mux(self, port_index):
+        """Get the mux object by port_index.
+        """
+        bridge = adaptive_name(MUX_BRIDGE_TEMPLATE, self.vm_set, port_index)
+        return self.muxes[bridge]
 
-    def set_active_side(self, vm_set, new_active_side, port_index=None):
+    def get_mux_status(self, port_index=None):
         if port_index is not None:
-            mux = self.filter_muxes(vm_set, port_index)
+            return self._port_to_mux(port_index).status
+        else:
+            return {mux.bridge: mux.status for mux in self.muxes.values()}
+
+    def set_active_side(self, new_active_side, port_index=None):
+        if port_index is not None:
+            mux = self._port_to_mux(port_index)
             mux.set_active_side(new_active_side)
             return mux.status
         else:
-            vm_set_muxes = self.filter_muxes(vm_set)
-            [mux.set_active_side(new_active_side) for mux in vm_set_muxes]
-            return {mux.bridge: mux.status for mux in vm_set_muxes}
+            [mux.set_active_side(new_active_side) for mux in self.muxes.values()]
+            return {mux.bridge: mux.status for mux in self.muxes.values()}
 
-    def update_flows(self, vm_set, new_action, out_sides, port_index=None):
+    def update_flows(self, new_action, out_sides, port_index=None):
         if port_index is not None:
-            mux = self.filter_muxes(vm_set, port_index)
+            mux = self._port_to_mux(port_index)
             mux.update_flows(new_action, out_sides)
             return mux.status
         else:
-            vm_set_muxes = self.filter_muxes(vm_set)
-            [mux.update_flows(new_action, out_sides) for mux in vm_set_muxes]
-            return {mux.bridge: mux.status for mux in vm_set_muxes}
+            [mux.update_flows(new_action, out_sides) for mux in self.muxes.values()]
+            return {mux.bridge: mux.status for mux in self.muxes.values()}
 
-    def reset_flows(self, vm_set, port_index=None):
-        return self.update_flows(vm_set, OUTPUT, [NIC, UPPER_TOR, LOWER_TOR], port_index=port_index)
+    def reset_flows(self, port_index=None):
+        return self.update_flows(OUTPUT, [NIC, UPPER_TOR, LOWER_TOR], port_index=port_index)
 
-    def get_flap_counter(self, vm_set, port_index=None):
+    def get_flap_counter(self, port_index=None):
         if port_index is not None:
-            mux = self.filter_muxes(vm_set, port_index)
+            mux = self._port_to_mux(port_index)
             return {mux.bridge: mux.status['flap_counter']}
         else:
-            vm_set_muxes = self.filter_muxes(vm_set)
-            return {mux.bridge: mux.status['flap_counter'] for mux in vm_set_muxes}
+            return {mux.bridge: mux.status['flap_counter'] for mux in self.muxes.values()}
 
-    def clear_flap_counter(self, vm_set, port_index=None):
+    def clear_flap_counter(self, port_index=None):
         if port_index is not None:
-            mux = self.filter_muxes(vm_set, port_index)
+            mux = self._port_to_mux(port_index)
             mux.clear_flap_counter()
             return {mux.bridge: mux.status['flap_counter']}
         else:
-            vm_set_muxes = self.filter_muxes(vm_set)
-            [mux.clear_flap_counter() for mux in vm_set_muxes]
-            return {mux.bridge: mux.status['flap_counter'] for mux in vm_set_muxes}
+            [mux.clear_flap_counter() for mux in self.muxes.values()]
+            return {mux.bridge: mux.status['flap_counter'] for mux in self.muxes.values()}
 
-    def has_mux(self, vm_set, port_index=None):
+    def has_mux(self, port_index=None):
         if port_index is not None:
-            bridge = adaptive_name(MUX_BRIDGE_TEMPLATE, vm_set, port_index)
+            bridge = adaptive_name(MUX_BRIDGE_TEMPLATE, self.vm_set, port_index)
             return bridge in self.muxes
         else:
-            vm_set_muxes = self.filter_muxes(vm_set)
-            return len(vm_set_muxes) > 0
+            return len(self.muxes) > 0
 
 
-def create_muxes():
+def create_muxes(vm_set):
+    app.logger.info('####################### COLLECTING BRIDGE STATUS #######################')
     global g_muxes
-    g_muxes = Muxes()
+    g_muxes = Muxes(vm_set)
+    app.logger.info('####################### COLLECTING BRIDGE STATUS DONE #######################')
 
 
-###################################################### Views #########################################################
+# ===================================================== Views ===================================================== #
 
 def _validate_posted_data(request):
     """Validate json data in POST request.
@@ -632,7 +656,7 @@ def _validate_posted_data(request):
         dict: Return the posted data dict.
     """
     data = request.get_json()
-    if not 'active_side' in data or not data['active_side'] in [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]:
+    if not data or 'active_side' not in data or data['active_side'] not in [UPPER_TOR, LOWER_TOR, TOGGLE, RANDOM]:
         msg = 'Bad posted data, expected: {"active_side": "upper_tor|lower_tor|toggle|random"}'
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
                 request.remote_addr,
@@ -642,6 +666,11 @@ def _validate_posted_data(request):
                 msg
             ))
     return data
+
+
+def _validate_vm_set(vm_set):
+    if g_muxes.vm_set != vm_set:
+        abort(404, 'Unknown vm_set "{}"'.format(vm_set))
 
 
 @app.route('/mux/<vm_set>/<int:port_index>', methods=['GET', 'POST'])
@@ -658,16 +687,28 @@ def mux_status(vm_set, port_index):
     Returns:
         object: Return a flask response object.
     """
-    if not g_muxes.has_mux(vm_set, port_index):
+    global g_get_mux_counter
+    global g_start_time
+    _validate_vm_set(vm_set)
+    if not g_muxes.has_mux(port_index):
         abort(404, 'Unknown bridge, vm_set={}, port_index={}'.format(vm_set, port_index))
 
     if request.method == 'GET':
-        return g_muxes.get_mux_status(vm_set, port_index)
+        response = g_muxes.get_mux_status(port_index)
+        g_get_mux_counter += 1
+        elapsed_time = time.time() - g_start_time
+        if elapsed_time > 60 or g_get_mux_counter % 100 == 0:
+            app.logger.info('===== No.{} GET method since last log ====='.format(g_get_mux_counter))
+            app.logger.info('===== {} GET {} with port {} ====='.format(request.remote_addr, request.url, port_index))
+            app.logger.info('===== GET port {} with response {} ====='.format(port_index, response))
+            g_get_mux_counter = 0
+            g_start_time = time.time()
+        return response
     elif request.method == 'POST':
         # Set the active side of mux
         data = _validate_posted_data(request)
-        app.logger.info('{} POST {} with {}'.format(request.remote_addr, request.url, json.dumps(data)))
-        return g_muxes.set_active_side(vm_set, data['active_side'], port_index)
+        app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+        return g_muxes.set_active_side(data['active_side'], port_index)
 
 
 @app.route('/mux/<vm_set>', methods=['GET', 'POST'])
@@ -685,14 +726,17 @@ def all_mux_status(vm_set):
     Returns:
         object: Return a flask response object.
     """
-
+    _validate_vm_set(vm_set)
     if request.method == 'GET':
-        return g_muxes.get_mux_status(vm_set)
+        response = g_muxes.get_mux_status()
+        app.logger.info('===== {} GET {} with all ports ====='.format(request.remote_addr, request.url))
+        app.logger.info('===== GET all ports with response {} ====='.format(response))
+        return response
     elif request.method == 'POST':
         # Set the active side for all mux bridges
         data = _validate_posted_data(request)
-        app.logger.info('{} POST {} with {}'.format(request.remote_addr, request.url, json.dumps(data)))
-        return g_muxes.set_active_side(vm_set, data['active_side'])
+        app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+        return g_muxes.set_active_side(data['active_side'])
 
 
 def _validate_out_sides(request):
@@ -709,9 +753,9 @@ def _validate_out_sides(request):
     data = request.get_json()
     supported_out_sides = [NIC, UPPER_TOR, LOWER_TOR]
     msg = 'Invalid posted data: {}, expected: {"out_sides": ["nic|upper_tor|lower_tor", ...]}'
-    if not 'out_sides' in data \
-        or not isinstance(data['out_sides'], list) \
-        or len([port for port in data['out_sides'] if port not in supported_out_sides]) > 0:
+    if not data or 'out_sides' not in data \
+            or not isinstance(data['out_sides'], list) \
+            or len([port for port in data['out_sides'] if port not in supported_out_sides]) > 0:
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
             request.remote_addr,
             request.method,
@@ -739,8 +783,8 @@ def mux_cable_flow_update(vm_set, port_index, action):
     Returns:
         object: Return a flask response object.
     """
-
-    if action not in ['output', 'drop', 'reset'] or not g_muxes.has_mux(vm_set, port_index):
+    _validate_vm_set(vm_set)
+    if action not in ['output', 'drop', 'reset'] or not g_muxes.has_mux(port_index):
         msg = 'Expected url "/mux/<vm_set>/<port_index>/<action>", action must be "output", "drop", or "reset".'
         abort(404, description='remote_addr={} method={} url={} msg={}'.format(
                 request.remote_addr,
@@ -750,18 +794,59 @@ def mux_cable_flow_update(vm_set, port_index, action):
             ))
 
     if action == 'reset':
-        app.logger.info('{} POST {}'.format(request.remote_addr, request.url))
-        return g_muxes.reset_flows(vm_set, port_index)
+        app.logger.info('===== {} POST {} ====='.format(request.remote_addr, request.url))
+        return g_muxes.reset_flows(port_index)
     else:
         data = _validate_out_sides(request)
-        app.logger.info('{} POST {} with {}'.format(request.remote_addr, request.url, json.dumps(data)))
-        return g_muxes.update_flows(vm_set, action, data['out_sides'], port_index)
+        app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+        return g_muxes.update_flows(action, data['out_sides'], port_index)
 
 
 @app.route('/mux/<vm_set>/reset', methods=['POST'])
 def reset_flow_handler(vm_set):
-    app.logger.info('{} POST {}'.format(request.remote_addr, request.url))
-    return g_muxes.reset_flows(vm_set)
+    _validate_vm_set(vm_set)
+    app.logger.info('===== {} POST {} ====='.format(request.remote_addr, request.url))
+    return g_muxes.reset_flows()
+
+
+@app.route('/mux/<vm_set>/output', methods=['POST'])
+def output_flow_handler(vm_set):
+    """Handler for updating flow action to output
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('output', data['out_sides'])
+
+
+@app.route('/mux/<vm_set>/drop', methods=['POST'])
+def drop_flow_handler(vm_set):
+    """Handler for updating all flow to drop
+
+    Args:
+        vm_set (string): The vm_set of test setup. Parsed by flask from request URL.
+
+    Posted json data should be like:
+        {"out_sides": [<side>, <side>, ...]}
+    where <side> could be "nic", "upper_tor" or "lower_tor".
+
+    Returns:
+        object: Return a flask response object.
+    """
+    _validate_vm_set(vm_set)
+    data = _validate_out_sides(request)
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
+    return g_muxes.update_flows('drop', data['out_sides'])
 
 
 @app.route('/mux/<vm_set>/<int:port_index>/flap_counter', methods=['GET'])
@@ -769,7 +854,8 @@ def flap_counter_port(vm_set, port_index):
     """
     Handler for retrieving flap counter for a given port
     """
-    return g_muxes.get_flap_counter(vm_set, port_index)
+    _validate_vm_set(vm_set)
+    return g_muxes.get_flap_counter(port_index)
 
 
 @app.route('/mux/<vm_set>/flap_counter', methods=['GET'])
@@ -777,20 +863,22 @@ def flap_counter_all(vm_set):
     """
     Handler for retrieving flap counter for all ports
     """
-    return g_muxes.get_flap_counter(vm_set)
+    _validate_vm_set(vm_set)
+    return g_muxes.get_flap_counter()
 
 
 @app.route('/mux/<vm_set>/clear_flap_counter', methods=['POST'])
 def clear_flap_counter_handler(vm_set):
     """
     Handler for clearing flap counter for all ports or a given port
-    Data posted should be {'port_to_clear': '0|1...'} or {'port_to_clear': 'all'}
+    Data posted should be {"port_to_clear": "0|1..."} or {"port_to_clear": "all"}
     """
+    _validate_vm_set(vm_set)
     data = request.get_json()
     msg = 'Invalid posted data: {}, expected: {"port_to_clear": "0|1|2..."} or {"port_to_clear": "all"}'
-    if not 'port_to_clear' in data \
-        or not (isinstance(data['port_to_clear'], str) or isinstance(data['port_to_clear'], unicode)) \
-        or (data['port_to_clear']!='all' and not re.match('^\d+(\|\d+)*$', data['port_to_clear'])):
+    if not data or 'port_to_clear' not in data \
+            or not (isinstance(data['port_to_clear'], str) or isinstance(data['port_to_clear'], unicode)) \
+            or (data['port_to_clear'] != 'all' and not re.match(r'^\d+(\|\d+)*$', data['port_to_clear'])):
         abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
             request.remote_addr,
             request.method,
@@ -799,26 +887,61 @@ def clear_flap_counter_handler(vm_set):
             msg
         ))
 
-    app.logger.info('{} POST {} with {}'.format(request.remote_addr, request.url, json.dumps(data)))
+    app.logger.info('===== {} POST {} with {} ====='.format(request.remote_addr, request.url, json.dumps(data)))
 
     if data['port_to_clear'] == "all":
-        return g_muxes.clear_flap_counter(vm_set)
+        return g_muxes.clear_flap_counter()
     else:
         ret = {}
         for port_index in data['port_to_clear'].split('|'):
-            ret.update(g_muxes.clear_flap_counter(vm_set, port_index))
+            ret.update(g_muxes.clear_flap_counter(port_index))
         return ret
+
+
+@app.route('/mux/<vm_set>/reload', methods=['POST'])
+def reload_muxes(vm_set):
+    """Handler for reloading the mux objects
+    """
+    _validate_vm_set(vm_set)
+    create_muxes(vm_set)
+    return g_muxes.get_mux_status()
+
+
+@app.route('/mux/<vm_set>/log', methods=['POST'])
+def log_message(vm_set):
+    """
+    Handler for logging a supplied message.
+
+    Client can call this API with json data like {"message": "Something to log, eg: <test_case_name>"}. The message
+    contained in json data will be logged to mux simulator server's log file. Test cases can call this API before and
+    after testing to add start/end markers in mux simulator log. Troubleshooting would be easier with these markers.
+    """
+    _validate_vm_set(vm_set)
+    data = request.get_json()
+    if not data or 'message' not in data:
+        abort(400, description='remote_addr={} method={} url={} data={} msg={}'.format(
+            request.remote_addr,
+            request.method,
+            request.url,
+            json.dumps(data),
+            'Expect key "message" in posted json'
+        ))
+    app.logger.info('***** {} logged: {} *****'.format(request.remote_addr, data['message']))
+    return {"success": True}
 
 
 if __name__ == '__main__':
     usage = '\n'.join([
         'Start mux simulator server at specified port:',
-        '  $ sudo python <prog> <port> [-v]',
+        '  $ sudo python <prog> <port> <vm_set> [-v]',
         'Specify "-v" for DEBUG level logging and enabling traceback in response in case of exception.'])
 
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print(usage)
         sys.exit(1)
+
+    http_port = sys.argv[1]
+    arg_vm_set = sys.argv[2]
 
     if '-v' in sys.argv:
         app.logger.setLevel(logging.DEBUG)
@@ -827,20 +950,20 @@ if __name__ == '__main__':
         app.logger.setLevel(logging.INFO)
         app.config['VERBOSE'] = False
 
-    config_logging()
-    create_muxes()
-
-    app.logger.info('Starting server on port {}'.format(sys.argv[1]))
+    config_logging(http_port)
     MUX_LOGO = '\n'.join([
         '',
-        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',
-        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',
-        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',
-        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',
-        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',
-        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',
-        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',
+        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
+        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
+        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
+        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
+        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
+        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
+        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
         '',
     ])
     app.logger.info(MUX_LOGO)
-    app.run(host='0.0.0.0', port=sys.argv[1], threaded=False)
+    app.logger.info('Starting server on port {}'.format(sys.argv[1]))
+    create_muxes(arg_vm_set)
+    app.logger.info('####################### STARTING HTTP SERVER #######################')
+    app.run(host='0.0.0.0', port=http_port, threaded=False)

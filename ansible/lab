@@ -3,6 +3,7 @@ all:
     lab:
       vars:
         mgmt_subnet_mask_length: 24
+        mgmt_subnet_v6_mask_length: 64
       children:
         sonic:
           children:
@@ -12,6 +13,8 @@ all:
             sonic_a7260:
             sonic_multi_asic:
             sonic_multi_asic_2:
+            sonic_msft_sup:
+            sonic_msft_lc_100G:
         fanout:
           hosts:
             str-7260-10:
@@ -20,6 +23,16 @@ all:
               ansible_host: 10.251.0.234
             str-msn2700-02:
               ansible_host: 10.251.0.235
+              os: sonic
+        mgmt:
+          hosts:
+            console-1:
+              ansible_host: 192.168.10.1
+            console-2:
+              ansible_host: 192.168.10.2
+              os: sonic
+            management-1:
+              ansible_host: 192.168.10.3
               os: sonic
     ptf:
       hosts:
@@ -82,6 +95,12 @@ sonic_s6000:
     vlab-06:
       ansible_host: 10.250.0.111
       ansible_hostv6: fec0::ffff:afa:b
+    vlab-09:
+      ansible_host: 10.250.0.115
+      ansible_hostv6: fec0::ffff:afb:1
+    vlab-10:
+      ansible_host: 10.250.0.117
+      ansible_hostv6: fec0::ffff:afb:3
     vlab-t2-01:
       ansible_host: 10.250.0.120
       ansible_hostv6: fec0::ffff:afa:10
@@ -101,7 +120,7 @@ sonic_s6100:
     lab-s6100-01:
       ansible_host: 10.251.0.190
     vlab-02:
-      ansible_host: 10.250.0.102
+      ansible_host: 10.250.0.114
 
 sonic_a7260:
   vars:
@@ -132,6 +151,8 @@ sonic_multi_asic:
     num_asics: 6
     start_topo_service: True
     frontend_asics: [0,1,2,3]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32, 8.0.0.4/32, 8.0.0.5/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128, 2603:10e2:400::4/128, 2603:10e2:400::5/128]
   hosts:
     vlab-07:
       ansible_host: 10.250.0.109
@@ -144,7 +165,45 @@ sonic_multi_asic_2:
     num_asics: 4
     start_topo_service: True
     frontend_asics: [0,1]
+    loopback4096_ip: [8.0.0.0/32, 8.0.0.1/32, 8.0.0.2/32, 8.0.0.3/32]
+    loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128, 2603:10e2:400::2/128, 2603:10e2:400::3/128]
   hosts:
     vlab-08:
       ansible_host: 10.250.0.112
       ansible_hostv6: fec0::ffff:afa:c
+
+sonic_msft_sup:
+  vars:
+    HwSku:  msft-RP-O
+    slot_num: slot0
+    card_type: supervisor
+  hosts:
+    lab-msft-sup-1:
+      ansible_host: 2.2.2.2
+      hwsku: msft-RP-O
+      num_asics: 2
+
+sonic_msft_lc_100G:
+  vars:
+    switch_type: chassis-packet
+    num_asics: 2
+    frontend_asics: [0,1]
+  hosts:
+    lab-msft-lc0-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot1
+      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      ansible_host: 2.2.2.3
+    lab-msft-lc1-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot2
+      loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
+      ansible_host: 2.2.2.4
+    lab-msft-lc2-1:
+      hwsku: msft-LC-48H-O
+      slot_num: slot3
+      loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
+      ansible_host: 2.2.2.5

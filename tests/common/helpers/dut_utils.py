@@ -2,11 +2,13 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
+from collections import defaultdict
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 
 logger = logging.getLogger(__name__)
+
 
 def is_supervisor_node(inv_files, hostname):
     """Check if the current node is a supervisor node in case of multi-DUT.
@@ -14,8 +16,9 @@ def is_supervisor_node(inv_files, hostname):
             you can be get it from get_inventory_files in tests.common.utilities
      @param hostname: hostname as defined in the inventory
     Returns:
-          Currently, we are using 'card_type' in the inventory to make the decision. If 'card_type' for the node is defined in
-          the inventory, and it is 'supervisor', then return True, else return False. In future, we can change this
+          Currently, we are using 'card_type' in the inventory to make the decision.
+          If 'card_type' for the node is defined in the inventory, and it is 'supervisor',
+          then return True, else return False. In future, we can change this
           logic if possible to derive it from the DUT.
     """
     dut_vars = get_host_visible_vars(inv_files, hostname)
@@ -30,10 +33,18 @@ def is_frontend_node(inv_files, hostname):
             you can be get it from get_inventory_files in tests.common.utilities
      @param hostname: hostname as defined in the inventory
      Returns:
-          True if it is not any other type of node. Currently, the only other type of node supported is 'supervisor'
-          node. If we add more types of nodes, then we need to exclude them from this method as well.
+          True if it is not any other type of node.
+          Currently, the only other type of node supported is 'supervisor' node.
+          If we add more types of nodes, then we need to exclude them from this method as well.
     """
     return not is_supervisor_node(inv_files, hostname)
+
+
+def is_macsec_capable_node(inv_files, hostname):
+    dut_vars = get_host_visible_vars(inv_files, hostname)
+    if dut_vars and 'macsec_card' in dut_vars and dut_vars['macsec_card']:
+        return True
+    return False
 
 
 def is_container_running(duthost, container_name):
@@ -88,6 +99,7 @@ def clear_failed_flag_and_restart(duthost, container_name):
     duthost.shell("sudo systemctl start {}.service".format(container_name))
     restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
                            CONTAINER_CHECK_INTERVAL_SECS,
+                           0,
                            check_container_state, duthost, container_name, True)
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
@@ -111,7 +123,8 @@ def get_group_program_info(duthost, container_name, group_name):
     program_status = None
     program_pid = None
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(group_name) != -1:
             program_name = program_info.split()[0].split(':')[1].strip()
@@ -146,7 +159,8 @@ def get_program_info(duthost, container_name, program_name):
     program_status = None
     program_pid = -1
 
-    program_list = duthost.shell("docker exec {} supervisorctl status".format(container_name), module_ignore_errors=True)
+    program_list = duthost.shell("docker exec {} supervisorctl status"
+                                 .format(container_name), module_ignore_errors=True)
     for program_info in program_list["stdout_lines"]:
         if program_info.find(program_name) != -1:
             program_status = program_info.split()[1].strip()
@@ -175,8 +189,133 @@ def get_disabled_container_list(duthost):
     container_status, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get status ('enabled'|'disabled') of containers. Exiting...")
 
-    for container_name, status in container_status.items():
+    for container_name, status in list(container_status.items()):
         if "disabled" in status:
             disabled_containers.append(container_name)
 
     return disabled_containers
+
+
+def check_link_status(duthost, iface_list, expect_status):
+    """
+    check if the link status specified in the iface_list equal to expect status
+    :param duthost: dut host object
+    :param iface_list: the interface list
+    :param expect_status: expected status for the interface specified in the iface_list
+    :return: True if the status of all the interfaces specified in the iface_list equal to expect status, else False
+    """
+    int_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    for intf in iface_list:
+        if int_status[intf]['admin_state'] == 'up' and int_status[intf]['oper_state'] != expect_status:
+            return False
+    return True
+
+
+def encode_dut_and_container_name(dut_name, container_name):
+    """Gets a string by combining dut name and container name.
+
+    Args:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+
+    Returns:
+      A string includes the DuT and container names.
+    """
+
+    return dut_name + "|" + container_name
+
+
+def decode_dut_and_container_name(name_str):
+    """Gets DuT name and container name by parsing the string 'name_str'.
+
+    Args:
+      A string includes the DuT and container names.
+
+    Returns:
+      dut_name: A string represents name of DuT.
+      container_name: A string represents name of container.
+    """
+    dut_name = ""
+    container_name = ""
+
+    name_list = name_str.strip().split("|")
+    if len(name_list) >= 2:
+        dut_name = name_list[0]
+        container_name = name_list[1]
+    elif len(name_list) == 1:
+        container_name = name_list[0]
+
+    return dut_name, container_name
+
+
+def verify_features_state(duthost):
+    """Checks whether the state of each feature is valid.
+
+    Args:
+      duthost: An Ansible object of DuT.
+
+    Returns:
+      If states of all features are valid, returns True; otherwise,
+      returns False.
+    """
+    feature_status, succeeded = duthost.get_feature_status()
+    if not succeeded:
+        logger.info("Failed to get list of feature names.")
+        return False
+
+    for feature_name, status in list(feature_status.items()):
+        logger.info("The state of '{}' is '{}'.".format(feature_name, status))
+
+        if status not in ("enabled", "always_enabled", "disabled", "always_disabled"):
+            logger.info("The state of '{}' is invalid!".format(feature_name))
+            return False
+
+        logger.info("The state of '{}' is valid.".format(feature_name))
+
+    return True
+
+
+def verify_orchagent_running_or_assert(duthost):
+    """
+    Verifies that orchagent is running, asserts otherwise
+
+    Args:
+        duthost: Device Under Test (DUT)
+    """
+
+    def _orchagent_running():
+        cmds = 'docker exec swss supervisorctl status orchagent'
+        output = duthost.shell(cmds, module_ignore_errors=True)
+        pytest_assert(not output['rc'], "Unable to check orchagent status output")
+        return 'RUNNING' in output['stdout']
+
+    pytest_assert(
+        wait_until(120, 10, 0, _orchagent_running),
+        "Orchagent is not running"
+    )
+
+
+def ignore_t2_syslog_msgs(duthost):
+
+    """
+        When we reboot / config_reload on T2 chassis cards, we see 2 error messages in the linecards
+
+        1) During config_reload/reboot of linecard, LAGS are deleted, but ports are up,
+        and we get mac learning events from SAI to orchagent
+        which is in middle of cleanup and doesn't have the right data.
+        This causes error message like Failed to get port by bridge port ID
+
+        2) reboot/config_reload on supoervisor  will cause all the fabric links in the linecard to
+        bounce which results in SAI sending messages orchagent regarding the fabric port state change.
+        However, in linecards in T2 chassis, there is modelling of fabric ports in orchagent. Thus, orchagent generates
+        error message indication to port object found for the port.
+        Please see https://github.com/sonic-net/sonic-buildimage/issues/9033 for details.
+    """
+    if duthost.topo_type == "t2" and duthost.facts.get('platform_asic') == "broadcom-dnx":
+        ignoreRegex = [".*orchagent.*Failed to get port by bridge port ID.*"]
+        if duthost.is_supervisor_node():
+            ignoreRegex.extend([".*orchagent.*Failed to get port object for port id.*"])
+        for a_dut in duthost.duthosts.frontend_nodes:
+            # DUT's loganalyzer would be null if we have disable_loganalyzer specified
+            if a_dut.loganalyzer:
+                a_dut.loganalyzer.ignore_regex.extend(ignoreRegex)

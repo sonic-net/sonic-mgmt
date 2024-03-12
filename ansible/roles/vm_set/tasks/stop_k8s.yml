@@ -10,5 +10,3 @@
     vm_name: "{{ item }}"
     vm_folder: "{{ k8s_root_path }}/{{ vm_name }}/"
   with_items: "{{ kvm_hosts }}"
-
-

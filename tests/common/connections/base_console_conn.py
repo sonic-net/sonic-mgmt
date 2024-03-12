@@ -3,13 +3,13 @@ Base class for console connection of SONiC devices
 """
 
 import logging
+
 from netmiko.cisco_base_connection import CiscoBaseConnection
 from netmiko.ssh_exception import NetMikoAuthenticationException
 
 # For interactive shell
 import sys
 import socket
-from paramiko.py3compat import u
 import termios
 import tty
 import select
@@ -22,18 +22,19 @@ CONSOLE_SSH = "console_ssh"
 # Console login via SSH, then login to devices by 'menu ports'
 CONSOLE_SSH_MENU_PORTS = "console_ssh_menu_ports"
 
+
 class BaseConsoleConn(CiscoBaseConnection):
 
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
         # Clear additional args before passing to BaseConsoleConn
         all_passwords = kwargs['console_password']
-        key_to_rm = ['console_username', 'console_password', 
-                    'console_host', 'console_port',
-                    'sonic_username', 'sonic_password',
-                    'console_type']
+        key_to_rm = ['console_username', 'console_password',
+                     'console_host', 'console_port',
+                     'sonic_username', 'sonic_password',
+                     'console_type']
         for key in key_to_rm:
-            if kwargs.has_key(key):
+            if key in kwargs:
                 del kwargs[key]
 
         for i in range(0, len(all_passwords)):
@@ -55,7 +56,7 @@ class BaseConsoleConn(CiscoBaseConnection):
 
     def write_and_poll(self, command, pattern):
         """
-        Write a command to terminal and poll until expected pattern is found or timeout 
+        Write a command to terminal and poll until expected pattern is found or timeout
         """
         self.write_channel(command + self.RETURN)
         self.read_until_pattern(pattern=pattern)
@@ -100,10 +101,12 @@ class BaseConsoleConn(CiscoBaseConnection):
                 r, w, e = select.select([self.remote_conn, sys.stdin], [], [])
                 if self.remote_conn in r:
                     try:
-                        x = u(self.remote_conn.recv(1024))
+                        x = self.remote_conn.recv(1024)
                         if len(x) == 0:
                             sys.stdout.write("\r\n*** EOF\r\n")
                             break
+
+                        x = x.decode('ISO-8859-9')
                         sys.stdout.write(x)
                         sys.stdout.flush()
                     except socket.timeout:

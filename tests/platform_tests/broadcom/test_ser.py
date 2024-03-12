@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.broadcom,
+    pytest.mark.asic('broadcom'),
     pytest.mark.topology('any')
 ]
 
@@ -67,25 +67,33 @@ def test_setup_teardown(duthosts, rand_one_dut_hostname, localhost):
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.broadcom
-def test_ser(duthosts, rand_one_dut_hostname):
+def test_ser(duthosts, rand_one_dut_hostname, enum_asic_index):
     '''
-    @summary: Broadcom SER injection test use Broadcom SER injection utility to insert SER
-              into different memory tables. Before the SER injection, Broadcom mem/sram scanners
-              are started and syslog file location is marked.
-              The test is invoked using:
-              pytest platform/broadcom/test_ser.py --testbed=vms12-t0-s6000-1 --inventory=../ansible/str --testbed_file=../ansible/testbed.csv
-                                                   --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
+    @summary: Broadcom SER injection test use Broadcom SER injection utility
+              to insert SER into different memory tables. Before the SER
+              injection, Broadcom mem/sram scanners are started and syslog
+              file location is marked.  The test is invoked using:
+
+              pytest platform/broadcom/test_ser.py --testbed=vms12-t0-s6000-1 \
+              --inventory=../ansible/str --testbed_file=../ansible/testbed.csv \
+              --host-pattern=vms12-t0-s6000-1 --module-path=../ansible/library
+
     @param duthost: Ansible framework testbed DUT device
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    asic_type = duthost.facts["asic_type"]
-    if "broadcom" not in asic_type:
-        pytest.skip('Skipping SER test for asic_type: %s' % asic_type)
 
     logger.info('Copying SER injector to dut: %s' % duthost.hostname)
-    duthost.copy(src=os.path.join(FILES_DIR, SER_INJECTOR_FILE), dest=DUT_WORKING_DIR)
+    duthost.copy(
+        src=os.path.join(FILES_DIR, SER_INJECTOR_FILE),
+        dest=DUT_WORKING_DIR
+    )
 
     logger.info('Running SER injector test')
-    rc = duthost.shell('python {}'.format(os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE)), executable="/bin/bash")
+    args = "" if enum_asic_index is None else "-n {}".format(enum_asic_index)
+    rc = duthost.shell(
+        'python {} {}'.format(
+            os.path.join(DUT_WORKING_DIR, SER_INJECTOR_FILE), args
+        ),
+        executable="/bin/bash"
+    )
     logger.info('Test complete with %s: ' % rc)
-
