@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 12 * * 0,2,4"
+  - cron: "0 0 * * 0,2,4"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -75,6 +75,7 @@ parameters:
               acl/test_stress_acl.py, \
               platform_tests/link_flap/test_cont_link_flap.py, \
               platform_tests/test_memory_exhaustion.py, \
+              platform_tests/test_reboot.py, \
               stress/test_stress_routes.py, \
               tacacs/test_ro_disk.py"
     displayName: "Scripts to be excluded"

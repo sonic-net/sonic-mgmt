@@ -1,4 +1,16 @@
 StartDevice,StartPort,EndDevice,Console_type,Proxy
+console-212,48,str2-7260cx3-acs-fan-10,ssh,admin
+console-212,46,str2-7260cx3-acs-fan-11,ssh,admin
+console-212,44,str2-7260cx3-acs-fan-12,ssh,admin
+console-212,36,str2-7260cx3-acs-fan-21,ssh,admin
+console-199,48,str2-7260cx3-acs-fan-26,ssh,admin
+console-199,47,str2-7260cx3-acs-fan-27,ssh,admin
+console-199,35,str2-7260cx3-acs-fan-28,ssh,admin
+console-199,46,str2-7260cx3-acs-fan-29,ssh,admin
+console-199,40,str2-7260cx3-acs-fan-30,ssh,admin
+console-199,41,str2-7260cx3-acs-fan-31,ssh,admin
+console-199,43,str2-7260cx3-acs-fan-32,ssh,admin
+console-199,36,str2-7260cx3-acs-fan-33,ssh,admin
 console-212,18,str2-7050cx3-acs-01,ssh,admin
 console-212,24,str2-7050cx3-acs-02,ssh,admin
 console-212,23,str2-7050cx3-acs-03,ssh,admin
@@ -9,11 +21,12 @@ console-194,26,str2-7050cx3-acs-09,ssh,admin
 console-199,15,str2-7050cx3-acs-10,ssh,admin
 console-199,17,str2-7050cx3-acs-11,ssh,admin
 console-182,4,str2-7050cx3-acs-12,ssh,admin
-console-212,24,str2-7050cx3-acs-13,ssh,admin
+console-212,25,str2-7050cx3-acs-13,ssh,admin
 console-194,13,str2-7050cx3-acs-14,ssh,admin
 console-212,19,str2-7050qx-32s-acs-01,ssh,admin
 console-212,21,str2-7060cx-32s-29,ssh,admin
 console-199,5,str2-7260cx3-acs-9,ssh,admin
+console-199,27,str2-7260cx3-acs-12,ssh,admin
 console-199,12,str2-msn2700-spy-1,ssh,admin
 console-212,26,str2-msn2700-spy-2,ssh,admin
 console-80,45,str2-n3164-acs-1,ssh,admin
@@ -47,3 +60,5 @@ console-199,26,str2-8102-02,ssh,admin
 console-199,30,str2-8102-03,ssh,admin
 console-199,29,str2-8102-04,ssh,admin
 console-199,49,str2-7804-sup-1,ssh,admin
+console-197,35,str2-7260cx3-acs-13,ssh,admin
+console-194,23,str2-7260cx3-acs-fan-13,ssh,admin

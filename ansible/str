@@ -743,21 +743,9 @@ acs_ixia_dscp:
 
 fanout:
   hosts:
-    str-7260-05:
-      ansible_host: 10.3.146.105
-      ansible_hostv6: 2a01:111:e210:3000::a03:9269
-    str-7260-06:
-      ansible_host: 10.3.146.106
-      ansible_hostv6: 2a01:111:e210:3000::a03:926a
     str-7260-08:
       ansible_host: 10.3.146.91
       ansible_hostv6: 2a01:111:e210:3000::a03:925b
-    str-7260-14:
-      ansible_host: 10.3.147.198
-      ansible_hostv6: 2a01:111:e210:3000::a03:93c6
-    str-7260-15:
-      ansible_host: 10.3.147.236
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ec
     str-7260-16:
       ansible_host: 10.3.146.231
       ansible_hostv6: 2a01:111:e210:3000::a03:93ee
