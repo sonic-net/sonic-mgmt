@@ -49,6 +49,8 @@ devices:
     data_ports:
     - data0
     - data1
+    - data2
+    - data3
 
   sonic_mgmt :
     platform: linux
@@ -84,5 +86,12 @@ connections:
       - SD3.Ethernet8
       - spt.data0
     hub7:
+      - SD3.Ethernet9
+      - spt.data2
+    hub8:
       - SD4.Ethernet8
       - spt.data1
+    hub9:
+      - SD4.Ethernet9
+      - spt.data3
+	  
