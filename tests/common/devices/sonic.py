@@ -1791,9 +1791,9 @@ Totals               6450                 6449
             if vlan_name not in vlan_brief:
                 continue
             for prefix in vlan_info.keys():
-                if '.' in ip:
+                if '.' in prefix:
                     vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
-                elif ':' in ip:
+                elif ':' in prefix:
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
