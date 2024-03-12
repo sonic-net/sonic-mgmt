@@ -136,6 +136,11 @@ class TestPfcwdAllPortStorm(object):
         loganalyzer.expect_regex.extend(expect_regex)
 
         loganalyzer.match_regex = []
+        if duthost.facts["asic_type"] in ['cisco-8000']:
+            if action == "storm":
+                loganalyzer.match_regex.append(EXPECT_PFC_WD_DETECT_RE)
+            elif action == "restore":
+                loganalyzer.match_regex.append(EXPECT_PFC_WD_RESTORE_RE)
 
         with loganalyzer:
             if action == "storm":
