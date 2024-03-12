@@ -1791,11 +1791,10 @@ Totals               6450                 6449
             if vlan_name not in vlan_brief:
                 continue
             for prefix in vlan_info.keys():
-                ip = prefix.split('/')[0]
                 if '.' in ip:
-                    vlan_brief[vlan_name]["interface_ipv4"].append(ip)
+                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
                 elif ':' in ip:
-                    vlan_brief[vlan_name]["interface_ipv6"].append(ip)
+                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
     def get_interfaces_status(self):
