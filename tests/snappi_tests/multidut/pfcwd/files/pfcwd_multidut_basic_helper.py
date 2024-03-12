@@ -2,44 +2,26 @@ import time
 from math import ceil
 import logging
 
-from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
     get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
-    enable_packet_aging, start_pfcwd                                                        # noqa: F401
+    enable_packet_aging, start_pfcwd, sec_to_nanosec                                              # noqa: F401
 from tests.common.snappi_tests.port import select_ports, select_tx_port                           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.common.broadcom_data import is_broadcom_device
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = "Pause Storm"
+WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
+WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
-DEVIATION = 0.25
-
-
-def skip_pfcwd_test(duthost, trigger_pfcwd):
-    """
-    Skip PFC watchdog tests that may cause fake alerts
-
-    PFC watchdog on Broadcom devices use some approximation techniques to detect
-    PFC storms, which may cause some fake alerts. Therefore, we skip test cases
-    whose trigger_pfcwd is False for Broadcom devices.
-
-    Args:
-        duthost (obj): device to test
-        trigger_pfcwd (bool): if PFC watchdog is supposed to trigger
-
-    Returns:
-        N/A
-    """
-    pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
-                   'Skip trigger_pfcwd=False test cases for Broadcom devices')
+DEVIATION = 0.3
 
 
 def run_pfcwd_basic_test(api,
@@ -80,18 +62,26 @@ def run_pfcwd_basic_test(api,
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
     tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
     tx_port_id = tx_port["port_id"]
-
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
     start_pfcwd(duthost1, rx_port['asic_value'])
     enable_packet_aging(duthost1)
     start_pfcwd(duthost2, tx_port['asic_value'])
     enable_packet_aging(duthost2)
+
+    # Set appropriate pfcwd loss deviation - these values are based on empirical testing
+    DEVIATION = 0.35 if duthost1.facts['asic_type'] in ["broadcom"] or duthost2.facts['asic_type'] in ["broadcom"] else 0.3
+
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
     detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
                                             asic_value=rx_port['asic_value']) / 1000.0
     restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,
                                               asic_value=rx_port['asic_value']) / 1000.0
+
+    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
+    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
+    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
+    warm_up_traffic_delay_sec = 0
 
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
@@ -128,9 +118,12 @@ def run_pfcwd_basic_test(api,
                   rx_port_id=rx_port_id,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
+                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
+                                       DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                  data_flow_delay_sec_list=[
+                      warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
+                  data_flow_dur_sec_list=[
+                      warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -148,10 +141,6 @@ def run_pfcwd_basic_test(api,
                      data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
                      data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
                      data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
-
-
-def sec_to_nanosec(x):
-    return x * 1e9
 
 
 def __gen_traffic(testbed_config,
@@ -172,7 +161,8 @@ def __gen_traffic(testbed_config,
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        port_id (int): ID of DUT port to test.
+        tx_port_id: ID of tx port
+        rx_port_id: ID of rx port
         pause_flow_name (str): name of pause storm
         pause_flow_dur_sec (float): duration of pause storm in second
         data_flow_name_list (list): list of data flow names
@@ -233,14 +223,15 @@ def __gen_traffic(testbed_config,
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pause_pkt_cnt)
-    pause_flow.duration.fixed_packets.delay.nanoseconds = 0
+    pause_flow.duration.fixed_packets.delay.nanoseconds = int(
+        sec_to_nanosec(WARM_UP_TRAFFIC_DUR))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
 
     tx_port_name = testbed_config.ports[tx_port_id].name
     rx_port_name = testbed_config.ports[rx_port_id].name
-    data_flow_rate_percent = int(100 / len(prio_list))
+    data_flow_rate_percent = int(20 / len(prio_list))
 
     """ For each data flow """
     for i in range(len(data_flow_name_list)):
@@ -261,8 +252,8 @@ def __gen_traffic(testbed_config,
             ipv4.dst.value = rx_port_config.ip
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-            # ipv4.priority.dscp.ecn.value = (
-            #     ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+            ipv4.priority.dscp.ecn.value = (
+                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
             data_flow.size.fixed = data_pkt_size
             data_flow.rate.percentage = data_flow_rate_percent
