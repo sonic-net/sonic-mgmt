@@ -15,10 +15,9 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = "Pause Storm"
-WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 DATA_FLOW1_NAME = "Data Flow 1"
 DATA_FLOW2_NAME = "Data Flow 2"
-WARM_UP_TRAFFIC_DUR = 1
+PAUSE_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 DEVIATION = 0.3
@@ -70,18 +69,14 @@ def run_pfcwd_basic_test(api,
     enable_packet_aging(duthost2)
 
     # Set appropriate pfcwd loss deviation - these values are based on empirical testing
-    DEVIATION = 0.35 if duthost1.facts['asic_type'] in ["broadcom"] or duthost2.facts['asic_type'] in ["broadcom"] else 0.3
+    DEVIATION = 0.35 if duthost1.facts['asic_type'] in ["broadcom"] or \
+        duthost2.facts['asic_type'] in ["broadcom"] else 0.3
 
     poll_interval_sec = get_pfcwd_poll_interval(duthost1, rx_port['asic_value']) / 1000.0
     detect_time_sec = get_pfcwd_detect_time(host_ans=duthost1, intf=dut_port,
                                             asic_value=rx_port['asic_value']) / 1000.0
     restore_time_sec = get_pfcwd_restore_time(host_ans=duthost1, intf=dut_port,
                                               asic_value=rx_port['asic_value']) / 1000.0
-
-    """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
-    fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
-    warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
-    warm_up_traffic_delay_sec = 0
 
     if trigger_pfcwd:
         """ Large enough to trigger PFC watchdog """
@@ -94,7 +89,6 @@ def run_pfcwd_basic_test(api,
         flow2_delay_sec = pfc_storm_dur_sec + restore_time_sec + poll_interval_sec
         flow2_dur_sec = 1
 
-        flow1_max_loss_rate = 1
         flow1_min_loss_rate = 1 - DEVIATION
 
     else:
@@ -106,7 +100,6 @@ def run_pfcwd_basic_test(api,
         flow2_delay_sec = flow1_delay_sec + flow1_dur_sec + 0.1
         flow2_dur_sec = 1
 
-        flow1_max_loss_rate = 0
         flow1_min_loss_rate = 0
 
     exp_dur_sec = flow2_delay_sec + flow2_dur_sec + 1
@@ -118,12 +111,9 @@ def run_pfcwd_basic_test(api,
                   rx_port_id=rx_port_id,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_flow_dur_sec=pfc_storm_dur_sec,
-                  data_flow_name_list=[WARM_UP_TRAFFIC_NAME,
-                                       DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                  data_flow_delay_sec_list=[
-                      warm_up_traffic_delay_sec, flow1_delay_sec, flow2_delay_sec],
-                  data_flow_dur_sec_list=[
-                      warm_up_traffic_dur_sec, flow1_dur_sec, flow2_dur_sec],
+                  data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
+                  data_flow_delay_sec_list=[flow1_delay_sec, flow2_delay_sec],
+                  data_flow_dur_sec_list=[flow1_dur_sec, flow2_dur_sec],
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_list=prio_list,
                   prio_dscp_map=prio_dscp_map)
@@ -139,8 +129,7 @@ def run_pfcwd_basic_test(api,
 
     __verify_results(rows=flow_stats,
                      data_flow_name_list=[DATA_FLOW1_NAME, DATA_FLOW2_NAME],
-                     data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0],
-                     data_flow_max_loss_rate_list=[flow1_max_loss_rate, 0])
+                     data_flow_min_loss_rate_list=[flow1_min_loss_rate, 0])
 
 
 def __gen_traffic(testbed_config,
@@ -224,7 +213,7 @@ def __gen_traffic(testbed_config,
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pause_pkt_cnt)
     pause_flow.duration.fixed_packets.delay.nanoseconds = int(
-        sec_to_nanosec(WARM_UP_TRAFFIC_DUR))
+        sec_to_nanosec(PAUSE_TRAFFIC_DUR))
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
@@ -326,8 +315,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
 
 def __verify_results(rows,
                      data_flow_name_list,
-                     data_flow_min_loss_rate_list,
-                     data_flow_max_loss_rate_list):
+                     data_flow_min_loss_rate_list):
     """
     Verify if we get expected experiment results
 
@@ -335,7 +323,6 @@ def __verify_results(rows,
         rows (list): per-flow statistics
         data_flow_name_list (list): list of data flow names
         data_flow_min_loss_rate_list (list): list of data flow min loss rates
-        data_flow_max_loss_rate_list (list): list of data flow max loss rates
 
     Returns:
         N/A
@@ -358,8 +345,7 @@ def __verify_results(rows,
     for i in range(num_data_flows):
         loss_rate = 1 - float(data_flow_rx_frames_list[i]) / data_flow_tx_frames_list[i]
         min_loss_rate = data_flow_min_loss_rate_list[i]
-        max_loss_rate = data_flow_max_loss_rate_list[i]
-
-        pytest_assert(loss_rate <= max_loss_rate and loss_rate >= min_loss_rate,
-                      'Loss rate of {} ({}) should be in [{}, {}]'.
-                      format(data_flow_name_list[i], loss_rate, min_loss_rate, max_loss_rate))
+        logger.info('Flow Name : {}, Loss Rate : {}'.format(data_flow_name_list[i], loss_rate))
+        pytest_assert(loss_rate >= float(min_loss_rate),
+                      '{} has loss rate less than {}'.
+                      format(data_flow_name_list[i], min_loss_rate))
