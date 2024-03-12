@@ -41,10 +41,6 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
     logger.info("Neighbor is: {}".format(neigh))
-    if neigh.is_multi_asic:
-        neigh_cli_options = "-n " + neigh.get_namespace_from_asic_id(asic_index)
-    else:
-        neigh_cli_options = ''
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
@@ -64,6 +60,11 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
             neighbors[v['description']] = nbrhosts[v['description']]["host"]
+
+    if neighbors[neigh].is_multi_asic:
+        neigh_cli_options = "-n " + neigh.get_namespace_from_asic_id(asic_index)
+    else:
+        neigh_cli_options = ''
 
     dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
     dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1]
