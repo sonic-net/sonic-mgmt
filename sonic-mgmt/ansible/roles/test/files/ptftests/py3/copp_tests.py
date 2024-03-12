@@ -251,17 +251,25 @@ class PolicyTest(ControlPlaneBaseTest):
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         self.log("")
-        self.log("Checking constraints (PolicyApplied):")
-        self.log(
-            "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
-            (int(self.PPS_LIMIT_MIN),
-             int(rx_pps),
-             int(self.PPS_LIMIT_MAX),
-             str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
-        )
-
-        assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(
-            rx_pps)
+        if self.has_trap:
+            self.log("Checking constraints (PolicyApplied):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+        else:
+            self.log("Checking constraints (NoPolicyApplied):")
+            self.log(
+                "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
+                (int(rx_pps),
+                 int(self.PPS_LIMIT_MIN),
+                 str(rx_pps <= self.PPS_LIMIT_MIN))
+            )
+            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
 
 
 # SONIC config contains policer CIR=600 for ARP
