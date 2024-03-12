@@ -4,6 +4,7 @@ import pprint
 from ptf.mask import Mask
 import ptf.testutils as testutils
 import ptf.packet as scapy
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -28,6 +29,12 @@ def IntToMac(intMac):
 
 
 def get_crm_resources(duthost, resource, status):
+    retry_count = 5
+    count = 0
+    while len(duthost.get_crm_resources()) == 0 and count < retry_count:
+        logger.debug("CRM resources not fully populated, retry after 2 seconds: count: {}".format(count))
+        time.sleep(2)
+        count = count + 1
     return duthost.get_crm_resources().get("main_resources").get(resource).get(status)
 
 

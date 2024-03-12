@@ -1,0 +1,8 @@
+Value ip_addr (\S+)
+Value metric (\d+)
+Value paths (\d+)
+Value peers ([-()\w/. ]+)
+
+
+Start
+  ^\s*${ip_addr}\s+valid\s+\[IGP metric ${metric}\],\s+#paths\s+${paths},\s+peer\s+${peers}\s*$$ -> Record

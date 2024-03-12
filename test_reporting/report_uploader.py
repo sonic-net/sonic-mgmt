@@ -121,6 +121,12 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
             except Exception as e:
                 print("Failed to parse expected runs data '{}', exception: {}".format(path_name, repr(e)))
         kusto_db.upload_expected_runs(expected_runs)
+    elif args.category == 'case_numbers':
+        case_numbers = []
+        for path_name in args.path_list:
+            with open(path_name) as f:
+                case_numbers.extend(json.load(f))
+        kusto_db.upload_case_numbers(case_numbers)
     elif args.category == "case_invoc":
         for path_name in args.path_list:
             fns = os.listdir(path_name)

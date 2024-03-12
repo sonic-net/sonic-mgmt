@@ -2,12 +2,31 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
     pytest.mark.topology("t0", "m0", "mx")
 ]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer and duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+        loganalyzer_ignore_regex = [
+            ".*ERR swss#orchagent:.*:- doPortTask: .*: autoneg is not supported.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
 
 
 class TestAutostateDisabled:
@@ -111,6 +130,17 @@ class TestAutostateDisabled:
         logging.info('waiting for "{interfaces}" shutdown'.format(interfaces=interfaces))
         if not wait_until(60, 5, 0, self.check_interface_oper_state, duthost, interfaces, "down"):
             err_handler('shutdown "{interfaces}" failed'.format(interfaces=interfaces))
+
+        config_entry = []
+        config = {}
+        config["PORT"] = {}
+
+        for interface in interfaces:
+            config["PORT"].update({interface: {"admin_status": "down"}})
+
+        config_entry.append(config)
+
+        delete_running_config(config_entry, duthost)
 
     def startup_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
         """

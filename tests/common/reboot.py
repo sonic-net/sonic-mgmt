@@ -6,10 +6,17 @@ import sys
 import os
 from multiprocessing.pool import ThreadPool
 from collections import deque
+
+from .helpers.assertions import pytest_assert
+from .platform.interface_utils import check_interface_status_of_up_ports
+from .platform.processes_utils import wait_critical_processes
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
+
+# Create the waiting power on event
+power_on_event = threading.Event()
 
 # SSH defines
 SONIC_SSH_PORT = 22
@@ -24,9 +31,9 @@ REBOOT_TYPE_POWEROFF = "power off"
 REBOOT_TYPE_WATCHDOG = "watchdog"
 REBOOT_TYPE_UNKNOWN = "Unknown"
 REBOOT_TYPE_THERMAL_OVERLOAD = "Thermal Overload"
-REBOOT_TYPE_CPU = "cpu"
 REBOOT_TYPE_BIOS = "bios"
 REBOOT_TYPE_ASIC = "asic"
+REBOOT_TYPE_KERNEL_PANIC = "Kernel Panic"
 
 # Event to signal DUT activeness
 DUT_ACTIVE = threading.Event()
@@ -92,12 +99,6 @@ reboot_ctrl_dict = {
         "cause": "warm-reboot",
         "test_reboot_cause_only": False
     },
-    REBOOT_TYPE_CPU: {
-        "timeout": 300,
-        "wait": 120,
-        "cause": "CPU",
-        "test_reboot_cause_only": True
-    },
     REBOOT_TYPE_BIOS: {
         "timeout": 300,
         "wait": 120,
@@ -108,6 +109,13 @@ reboot_ctrl_dict = {
         "timeout": 300,
         "wait": 120,
         "cause": "ASIC",
+        "test_reboot_cause_only": True
+    },
+    REBOOT_TYPE_KERNEL_PANIC: {
+        "command": 'nohup bash -c "sleep 5 && echo c > /proc/sysrq-trigger" &',
+        "timeout": 300,
+        "wait": 120,
+        "cause": "Kernel Panic",
         "test_reboot_cause_only": True
     }
 }
@@ -177,7 +185,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
     def execute_reboot_helper():
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
-        return reboot_helper(reboot_kwargs)
+        return reboot_helper(reboot_kwargs, power_on_event)
 
     dut_datetime = duthost.get_now_time(utc_timezone=True)
     DUT_ACTIVE.clear()
@@ -188,14 +196,15 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     if reboot_type != REBOOT_TYPE_POWEROFF:
         reboot_res = pool.apply_async(execute_reboot_command)
     else:
-        assert reboot_helper is not None, "A reboot function must be provided for power off reboot"
+        assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
     return [reboot_res, dut_datetime]
 
 
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
-           reboot_helper=None, reboot_kwargs=None):
+           reboot_helper=None, reboot_kwargs=None, plt_reboot_ctrl_overwrite=True,
+           safe_reboot=False, check_intf_up_ports=False):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -208,6 +217,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     :param wait_warmboot_finalizer=True: Wait for WARMBOOT_FINALIZER done
     :param reboot_helper: helper function to execute the power toggling
     :param reboot_kwargs: arguments to pass to the reboot_helper
+    :param safe_reboot: arguments to wait DUT ready after reboot
+    :param check_intf_up_ports: arguments to check interface after reboot
     :return:
     """
     pool = ThreadPool()
@@ -221,9 +232,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
             timeout = reboot_ctrl['timeout']
         if wait == 0:
             wait = reboot_ctrl['wait']
-        if plt_reboot_ctrl:
-            wait = plt_reboot_ctrl['wait']
-            timeout = plt_reboot_ctrl['timeout']
+        if plt_reboot_ctrl_overwrite and plt_reboot_ctrl:
+            # get 'wait' and 'timeout' from inventory if they are specified, otherwise use current values
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
         if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
             warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
     except KeyError:
@@ -232,6 +244,10 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper, reboot_kwargs, reboot_type)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
+
+    # Release event to proceed poweron for PDU.
+    power_on_event.set()
+
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
         return
@@ -239,7 +255,20 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     logger.info('waiting for switch {} to initialize'.format(hostname))
 
-    time.sleep(wait)
+    if safe_reboot:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
+                      "All critical services should be fully started!")
+        wait_critical_processes(duthost)
+
+        if check_intf_up_ports:
+            pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "Not all ports that are admin up on are operationally up")
+    else:
+        time.sleep(wait)
 
     # Wait warmboot-finalizer service
     if reboot_type == REBOOT_TYPE_WARM and wait_warmboot_finalizer:
@@ -253,8 +282,25 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     pool.terminate()
     dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
+    # some device does not have onchip clock and requires obtaining system time a little later from ntp
+    # or SUP to obtain the correct time so if the uptime is less than original device time, it means it
+    # is most likely due to this issue which we can wait a little more until the correct time is set in place.
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        logger.info('DUT {} timestamp went backwards'.format(hostname))
+        wait_until(120, 5, 0, positive_uptime, duthost, dut_datetime)
+
+    dut_uptime = duthost.get_up_time()
+
     assert float(dut_uptime.strftime("%s")) > float(dut_datetime.strftime("%s")), "Device {} did not reboot". \
         format(hostname)
+
+
+def positive_uptime(duthost, dut_datetime):
+    dut_uptime = duthost.get_up_time()
+    if float(dut_uptime.strftime("%s")) < float(dut_datetime.strftime("%s")):
+        return False
+
+    return True
 
 
 def get_reboot_cause(dut):

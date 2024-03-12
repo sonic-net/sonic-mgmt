@@ -15,11 +15,12 @@ data.vlan_int_1 = "Vlan{}".format(data.vlan_1)
 data.clear_parallel = False
 data.local_ip6_addr = ["2001::1", "3001::1"]
 data.local_ip6_addr_rt = ["2001::", "3001::", "4001::"]
-data.neigh_ip6_addr_gw = ["2001::100", "3001::100", "4001::100"]
+data.neigh_ip6_addr_gw = ["2001::100", "3001::100", "4001::100", "2001::500"]
 data.af_ipv6 = "ipv6"
 data.tg_mac1 = '00:0a:01:01:23:01'
 data.tg_mac2 = '00:0b:01:01:23:01'
 data.tg_mac3 = '00:0c:01:01:23:01'
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ndp_module_hooks(request):
@@ -47,21 +48,22 @@ def ndp_module_hooks(request):
     # TG protocol interface creation
     st.log("TG protocol interface creation")
     h1 = tg.tg_interface_config(port_handle=tg_handler["tg_ph_1"], mode='config',
-             ipv6_intf_addr=data.neigh_ip6_addr_gw[0],ipv6_prefix_length='64',
-             ipv6_gateway=data.local_ip6_addr[0],src_mac_addr=data.tg_mac1,
-             arp_send_req='1', count=data.count)
+                                ipv6_intf_addr=data.neigh_ip6_addr_gw[0], ipv6_prefix_length='64',
+                                ipv6_gateway=data.local_ip6_addr[0], src_mac_addr=data.tg_mac1,
+                                arp_send_req='1', count=data.count)
     st.log("INTFCONF: " + str(h1))
     h2 = tg.tg_interface_config(port_handle=tg_handler["tg_ph_2"], mode='config',
-             ipv6_intf_addr=data.neigh_ip6_addr_gw[1],ipv6_prefix_length='64',
-             ipv6_gateway=data.local_ip6_addr[1],src_mac_addr=data.tg_mac2 ,
-             arp_send_req='1', vlan_id=data.vlan_1, vlan=1, count=data.count)
+                                ipv6_intf_addr=data.neigh_ip6_addr_gw[1], ipv6_prefix_length='64',
+                                ipv6_gateway=data.local_ip6_addr[1], src_mac_addr=data.tg_mac2,
+                                arp_send_req='1', vlan_id=data.vlan_1, vlan=1, count=data.count)
     st.log("INTFCONF: " + str(h2))
 
     yield
     # NDP module cleanup
     st.log("NDP module cleanup.")
-    ip_obj.clear_ip_configuration(dut1,family="ipv6",thread=data.clear_parallel)
-    vlan_obj.clear_vlan_configuration(dut1,thread= data.clear_parallel)
+    ip_obj.clear_ip_configuration(dut1, family="ipv6", thread=data.clear_parallel)
+    vlan_obj.clear_vlan_configuration(dut1, thread=data.clear_parallel)
+
 
 @pytest.fixture(scope="function", autouse=True)
 def ndp_func_hooks(request):
@@ -69,24 +71,29 @@ def ndp_func_hooks(request):
     yield
     # NDP function cleanup
 
+
 @pytest.mark.regression
 @pytest.mark.community
 @pytest.mark.community_fail
+@pytest.mark.inventory(feature='Regression', release='Arlo+')
+@pytest.mark.inventory(testcases=['ft_ipv6_neighbor_entry'])
+@pytest.mark.inventory(testcases=['ft_ipv6_ndp_clear_cache'])
+@pytest.mark.inventory(testcases=['ft_ipv6_neighbor_static_entry'])
 def test_ft_ipv6_neighbor_entry():
-    ################# Author Details ################
+    # ################ Author Details ################
     # Name: Raja Sekhar Uppara
     # Email: raja-sekhar.uppara@broadcom.com
     #################################################
     # Objective - 1.Verify that IPv6 neighbor entries are created successfully.
     #             2.Verify that Ipv6 Static neighbor entries are created successfully.
     #             3.'sudo sonic-clear ndp' flushes the existing dymanic entries
-    ############### Test bed details ################
+    # ############## Test bed details ################
     #  TG1-----DUT-----TG2
     #################################################
     vars = st.get_testbed_vars()
     arp_obj.show_ndp(vars.D1)
     ndp_dut_count_initial = arp_obj.get_ndp_count(vars.D1)
-    if ndp_dut_count_initial < 2*data.count:
+    if ndp_dut_count_initial < 2 * data.count:
         st.report_fail("ndp_dynamic_entry_fail")
     arp_obj.clear_ndp_table(vars.D1)
     ndp_dut_count_post_clear = int(arp_obj.get_ndp_count(vars.D1))
@@ -95,10 +102,9 @@ def test_ft_ipv6_neighbor_entry():
         entries = filter_and_select(out, [None], {'status': 'NOARP'})
         if not len(out) == len(entries):
             st.report_fail("ndp_entries_clearing_failed")
-    arp_obj.config_static_ndp(vars.D1, data.neigh_ip6_addr_gw[2],data.tg_mac3, vars.D1T1P1)
+    arp_obj.config_static_ndp(vars.D1, data.neigh_ip6_addr_gw[3], data.tg_mac3, vars.D1T1P1)
     ndp_dut_count_static = int(arp_obj.get_ndp_count(vars.D1))
     if not ndp_dut_count_static:
         st.report_fail("static_ndp_create_fail")
-    arp_obj.config_static_ndp(vars.D1, data.neigh_ip6_addr_gw[2], data.tg_mac3 , vars.D1T1P1, 'del')
+    arp_obj.config_static_ndp(vars.D1, data.neigh_ip6_addr_gw[3], data.tg_mac3, vars.D1T1P1, 'del')
     st.report_pass("test_case_passed")
-

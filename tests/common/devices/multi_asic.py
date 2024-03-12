@@ -72,12 +72,22 @@ class MultiAsicSonicHost(object):
                 a_asic_instance = self.asic_instance_from_namespace(namespace=a_asic_name)
                 active_asics.append(a_asic_instance)
         service_list += self._DEFAULT_SERVICES
+
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        # NOTE: Add mux to critical services for dualtor
+        if (
+            "DEVICE_METADATA" in config_facts and
+            "localhost" in config_facts["DEVICE_METADATA"] and
+            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
+                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR"
+        ):
+            service_list.append("mux")
+
         if self.get_facts().get("modular_chassis"):
             # Update the asic service based on feature table state and asic flag
-            config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
             for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
                 if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                    logger.warning("Removing teamd from default services for switch_type DPU")
+                    logger.info("Removing teamd from default services for switch_type DPU")
                     self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                     continue
                 if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
@@ -151,6 +161,26 @@ class MultiAsicSonicHost(object):
         except Exception as e:
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(iface_name, repr(e)))
             return None
+
+    def iface_macsec_ok(self, interface_name):
+        """
+        Check if macsec is functional on specified interface.
+
+        Returns: True or False
+        """
+        try:
+            if self.sonichost.facts['num_asic'] == 1:
+                cmd_prefix = " "
+            else:
+                asic = self.get_port_asic_instance(interface_name)
+                cmd_prefix = "-n {}".format(asic.namespace)
+
+            cmd = 'sonic-db-cli {} STATE_DB HGET \"MACSEC_PORT_TABLE|{}\" state'.format(cmd_prefix, interface_name)
+            state = self.shell(cmd)['stdout'].strip()
+            return state == 'ok'
+        except Exception as e:
+            logger.error('Failed to get macsec status for interface {} exception: {}'.format(interface_name, repr(e)))
+            return False
 
     def get_frontend_asic_ids(self):
         if self.sonichost.facts['num_asic'] == 1:
@@ -661,6 +691,59 @@ class MultiAsicSonicHost(object):
                 config_facts.get("BGP_INTERNAL_NEIGHBOR", {})
             )
         return bgp_internal_neighbors
+
+    def get_voq_inband_interfaces(self):
+        """
+        This Function is only applicable on VOQ Chassis.
+        Get VOQ Internal Inband Interfaces. API iterates through frontend ASIC
+        index to get the VOQ Inband Interfaces from running configuration.
+        Not using BGP_VOQ_CHASSIS_NEIGHBOUR peer ips  since they are not referenced in
+        next hops of route.
+        Returns:
+              List of [voq_inband_interfaces]
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        voq_inband_interfaces = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            voq_inband_interfaces.update(
+                config_facts.get("VOQ_INBAND_INTERFACE", {})
+            )
+        return voq_inband_interfaces.keys()
+
+    def get_portchannel_member(self):
+        """
+        This Function is applicable on packet Chassis, or
+        any dut that has PORTCHANNEL_MEMBER in config dbs.
+        Get PORTCHANNEL_MEMBER from config db of all asics.
+        Returns:
+              List of [portchannel]. e.g. ["PortChannel101|Ethernet104", "PortChannel01|EthernetBPxx", ...]
+              {} if VOQ chassis or other dut that doesn't have PORTCHANNEL_MEMBER
+        """
+        if not self.sonichost.is_multi_asic:
+            return {}
+        pcs = {}
+        for asic in self.frontend_asics:
+            config_facts = self.config_facts(
+                host=self.hostname, source="running",
+                namespace=asic.namespace
+            )['ansible_facts']
+            pcs.update(
+                config_facts.get("PORTCHANNEL_MEMBER", {})
+            )
+        return pcs.keys()
+
+    def run_redis_cmd(self, argv=[], asic_index=DEFAULT_ASIC_ID):
+        """
+        Wrapper function to call run_redis_cmd on sonic_asic.py
+        This will work for both single/multi-asic.
+        Note that for multi-asic, it will run on specific asic given, or asic0
+        """
+        return self.asic_instance(asic_index).run_redis_cmd(argv)
 
     def docker_cmds_on_all_asics(self, cmd, container_name):
         """This function iterate for ALL asics and execute cmds"""
