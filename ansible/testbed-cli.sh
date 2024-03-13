@@ -54,7 +54,6 @@ function usage
   echo "To deploy topology for specified testbed on a server: $0 add-topo 'testbed-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
-  echo "        -e disable_updategraph=<true|false>    # Disable updategraph service when deploying testbed"
   echo "To deploy topology with the help of the last cached deployed topology for the specified testbed on a server:"
   echo "        $0 deploy-topo-with-cache 'testbed-name' 'inventory' ~/.password"
   echo "To remove topology for specified testbed on a server: $0 remove-topo 'testbed-name' ~/.password"
