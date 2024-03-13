@@ -49,14 +49,11 @@ for validation and the process will proceed as it did in the old design.
 
 In the case the PSU is not found in the psu-sensors-data.yml file, we will use the old approach and fetch all sensors from sku-sensors-data.yml file.
 
-# Tests
-The flow of the test by itself does not change - we validate the values of sensors that reside on our system. Manual testing of different
-cases will be done to verify the modification works as expected.
+## Tests
+The flow of the test by itself does not change - we validate the values of sensors that reside on our system. We run the test with diffreent scenarios to verify the modification works as expected.
 
-## Manual Tests
-
-We will conduct the following manual tests:
-- New functionality check with a single PSU source - Run the test on platforms whose PSUs are all of the same model and are listed in psu-sensors-data.yml.
-- New functionality check with multiple PSU sources - Run the test on platforms with different PSUs, all listed in psu-sensors-data.yml.
-- Regression check with a single PSU source - Run the test on platforms whose PSUs are all of the same model and are not listed in psu-sensors-data.yml.
-- Regression check with multiple PSU sources - Run the test on platforms with different PSUs, some (or all) not listed in psu-sensors-data.yml. 
+We will check the following scenarios:
+- New functionality check with a single PSU source - run the test on platforms whose PSUs are all of the same model and are listed in psu-sensors-data.yml.
+- New functionality check with multiple PSU sources - run the test on platforms with different PSUs, all listed in psu-sensors-data.yml.
+- Regression check with a single PSU source - run the test on platforms whose PSUs are all of the same model and are not listed in psu-sensors-data.yml.
+- Regression check with multiple PSU sources - run the test on platforms with different PSUs, some (or all) not listed in psu-sensors-data.yml. 
