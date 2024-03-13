@@ -58,7 +58,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
         python_version = "python"
     duthost.command("{} perform_scp.py in {} /root/{} /home/{} {} {}"
                     .format(python_version, ptf_ip, TEST_FILE_NAME,
-                        creds['sonicadmin_user'], creds["ptf_host_user"], creds["ptf_host_pass"]))
+                            creds['sonicadmin_user'], creds["ptf_host_user"], creds["ptf_host_pass"]))
 
     # Validate file was received
     res = duthost.command(
