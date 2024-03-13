@@ -127,9 +127,13 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             sonic_host.shell(cmd, executable="/bin/bash")
 
     elif config_source == 'running_golden_config':
-        cmd = 'config reload -y -l /etc/sonic/running_golden_config.json &>/dev/null'
+        golden_path = '/etc/sonic/running_golden_config.json'
+        if sonic_host.is_multi_asic:
+            for asic in sonic_host.asics:
+                golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic.asic_index}.json'
+        cmd = f'config reload -y -l {golden_path} &>/dev/null'
         if config_force_option_supported(sonic_host):
-            cmd = 'config reload -y -f -l /etc/sonic/running_golden_config.json &>/dev/null'
+            cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
