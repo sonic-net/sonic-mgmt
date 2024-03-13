@@ -40,5 +40,20 @@
         "mth64": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
         }
+    },
+    "tortuga-controller": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller.yaml"
+        }
+    },
+    "tortuga-controller-2x2": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2.yaml"
+        }
+    },
+    "tortuga-controller-2x3": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x3.yaml"
+        }
     }
 }

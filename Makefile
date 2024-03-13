@@ -78,8 +78,8 @@ run_tortuga_controller_sanity:
 		cd infra; \
 		source pyats/bin/activate; \
 		python3.8 ./create_tortuga_topo.py \
-		--topo_type tortuga-controller \
-		-f ./../pyvxr_yaml_files/tortuga_controller.yaml \
+		--topo_type ${TOPOLOGY} \
+		--device_type ${PLATFORM} \
 		-c --fabric_name sonic-test-${PIPELINE_TYPE}-${BUILD_ID}-1x3 \
 		--cicd \
 	"
