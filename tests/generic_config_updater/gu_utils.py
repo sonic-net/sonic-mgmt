@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd", "bgp", "pmon", "telemetry", "acms"]
 DEFAULT_CHECKPOINT_NAME = "test"
+GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
+GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 
 
 def generate_tmpfile(duthost):
@@ -286,3 +288,81 @@ def check_vrf_route_for_intf(duthost, vrf_name, intf_name, is_ipv4=True):
     output = duthost.shell("show {} route vrf {} | grep -w {}".format(address_family, vrf_name, intf_name))
 
     pytest_assert(not output['rc'], "Route not found for {} in vrf {}".format(intf_name, vrf_name))
+
+
+def get_gcu_field_operations_conf(duthost):
+    get_gcu_dir_path_cmd = 'python3 -c \"import generic_config_updater ; print(generic_config_updater.__path__)\"'
+    gcu_dir_path = duthost.shell("{}".format(get_gcu_dir_path_cmd))['stdout'].replace("[", "").replace("]", "")
+    gcu_conf = duthost.shell('cat {}/{}'.format(gcu_dir_path, GCU_FIELD_OPERATION_CONF_FILE))['stdout']
+    gcu_conf_json = json.loads(gcu_conf)
+    return gcu_conf_json
+
+
+def get_asic_name(duthost):
+    asic_type = duthost.facts["asic_type"]
+    asic = "unknown"
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+    asic_mapping = gcu_conf["helper_data"]["rdma_config_update_validator"]
+
+    def _get_asic_name(asic_type):
+        cur_hwsku = duthost.shell(GET_HWSKU_CMD)['stdout'].rstrip('\n')
+        # The key name is like "mellanox_asics" or "broadcom_asics"
+        asic_key_name = asic_type + "_asics"
+        if asic_key_name not in asic_mapping:
+            return "unknown"
+        asic_hwskus = asic_mapping[asic_key_name]
+        for asic_name, hwskus in asic_hwskus.items():
+            if cur_hwsku.lower() in [hwsku.lower() for hwsku in hwskus]:
+                return asic_name
+        return "unknown"
+
+    if asic_type == 'cisco-8000':
+        asic = "cisco-8000"
+    elif asic_type in ('mellanox', 'broadcom'):
+        asic = _get_asic_name(asic_type)
+    elif asic_type == 'vs':
+        # We need to check both mellanox and broadcom asics for vs platform
+        dummy_asic_list = ['broadcom', 'mellanox', 'cisco-8000']
+        for dummy_asic in dummy_asic_list:
+            tmp_asic = _get_asic_name(dummy_asic)
+            if tmp_asic != "unknown":
+                asic = tmp_asic
+                break
+
+    return asic
+
+
+def is_valid_platform_and_version(duthost, table, scenario, operation, field_value=None):
+    asic = get_asic_name(duthost)
+    os_version = duthost.os_version
+    if asic == "unknown":
+        return False
+    gcu_conf = get_gcu_field_operations_conf(duthost)
+
+    if operation == "add":
+        if field_value:
+            operation = "replace"
+
+    # Ensure that the operation is supported by comparing with conf
+    try:
+        valid_ops = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["operations"]
+        if operation not in valid_ops:
+            return False
+    except KeyError:
+        return False
+    except IndexError:
+        return False
+
+    # Ensure that the version is suported by comparing with conf
+    if "master" in os_version or "internal" in os_version:
+        return True
+    try:
+        version_required = gcu_conf["tables"][table]["validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic] # noqa E501
+        if version_required == "":
+            return False
+        # os_version is in format "20220531.04", version_required is in format "20220500"
+        return os_version[0:8] >= version_required[0:8]
+    except KeyError:
+        return False
+    except IndexError:
+        return False

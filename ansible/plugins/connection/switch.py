@@ -33,7 +33,10 @@ class Connection(ConnectionBase):
 
     def _build_command(self):
         self._ssh_command = ['ssh', '-tt', '-q']
-        ansible_ssh_args = C.ANSIBLE_SSH_ARGS
+        if hasattr(C, 'ANSIBLE_SSH_ARGS'):
+            ansible_ssh_args = C.ANSIBLE_SSH_ARGS
+        else:
+            ansible_ssh_args = None
         if ansible_ssh_args:
             self._ssh_command += shlex.split(ansible_ssh_args)
         else:
@@ -250,7 +253,7 @@ class Connection(ConnectionBase):
             self._display.vvv('> %s' % (cmd), host=self.host)
             client.sendline(cmd)
             client.expect(prompts)
-            before = self._remove_unprintable(client.before.decode())
+            before = self._remove_unprintable(client.before.decode('utf-8'))
             stdout += before
             self._display.vvv('< %s' % (before), host=self.host)
 

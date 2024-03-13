@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import pytest
@@ -50,6 +51,13 @@ def restore_rate_limit(rand_selected_dut):
     Args:
         rand_selected_dut (object): DUT host object
     """
+    output = rand_selected_dut.command('config syslog --help')['stdout']
+    manually_enable_feature = False
+    if 'rate-limit-feature' in output:
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        rand_selected_dut.command('config syslog rate-limit-feature enable')
+        manually_enable_feature = True
     container_data = rand_selected_dut.show_and_parse('show syslog rate-limit-container')
     host_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
 
@@ -62,6 +70,8 @@ def restore_rate_limit(rand_selected_dut):
     rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(
         host_data[0]['burst'], host_data[0]['interval']))
     rand_selected_dut.command('config save -y')
+    if manually_enable_feature:
+        rand_selected_dut.command('config syslog rate-limit-feature disable')
 
 
 @pytest.mark.disable_loganalyzer
@@ -175,7 +185,9 @@ def verify_host_rate_limit(rand_selected_dut):
         rand_selected_dut (object): DUT host object
     """
     logger.info('Start syslog rate limit test for host')
-    rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL))
+    with expect_host_rsyslog_restart(rand_selected_dut):
+        cmd = 'config syslog rate-limit-host -b {} -i {}'.format(RATE_LIMIT_BURST, RATE_LIMIT_INTERVAL)
+        rand_selected_dut.command(cmd)
     rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
     pytest_assert(rate_limit_data[0]['interval'] == str(RATE_LIMIT_INTERVAL),
                   'Expect rate limit interval {}, actual {}'.format(RATE_LIMIT_INTERVAL,
@@ -191,7 +203,8 @@ def verify_host_rate_limit(rand_selected_dut):
                                          RATE_LIMIT_BURST + 1,
                                          is_host=True)
 
-    rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(0, 0))
+    with expect_host_rsyslog_restart(rand_selected_dut):
+        rand_selected_dut.command('config syslog rate-limit-host -b {} -i {}'.format(0, 0))
     rate_limit_data = rand_selected_dut.show_and_parse('show syslog rate-limit-host')
     pytest_assert(rate_limit_data[0]['interval'] == '0',
                   'Expect rate limit interval {}, actual {}'.format(0, rate_limit_data[0]['interval']))
@@ -242,6 +255,32 @@ def verify_rate_limit_with_log_generator(duthost, service_name, log_marker, expe
 
     with loganalyzer:
         duthost.command(run_generator_cmd)
+
+
+def get_host_rsyslogd_pid(duthost):
+    cmd = 'systemctl show --property MainPID --value rsyslog'
+    return int(duthost.command(cmd)['stdout'].strip())
+
+
+@contextlib.contextmanager
+def expect_host_rsyslog_restart(duthost, timeout=30):
+    current_pid = get_host_rsyslogd_pid(duthost)
+
+    yield
+
+    logger.info('Waiting for host rsyslogd to restart')
+    begin = time.time()
+    cmd = 'systemctl is-active rsyslog'
+    while time.time() < begin + timeout:
+        if get_host_rsyslogd_pid(duthost) != current_pid:
+            output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
+            if output == 'active':
+                logger.info('Host rsyslogd restarted')
+                return
+
+        time.sleep(1)
+
+    raise TimeoutError('Timeout waiting for host rsyslogd to restart')
 
 
 def wait_rsyslogd_restart(duthost, service_name, old_pid):

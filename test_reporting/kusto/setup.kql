@@ -144,6 +144,17 @@
                                                                              '{"column":"TestbedName","Properties":{"path":"$.testbed"}}]'
 
 ###############################################################################
+# TEST CASE NUMBERS TABLE SETUP                                               #
+# 1. Create a TestCaseNumbers table to store expected test case numbers       #
+# 2. Add a JSON mapping for the table                                         #
+###############################################################################
+
+.create-merge table TestCaseNumbers (Timestamp:datetime, Branch:string, TotalCount:int)
+.create table TestCaseNumbers ingestion json mapping 'TestCaseNumbersV1' @'[{"column":"Timestamp","Properties":{"path":"$.timestamp"}},'
+                                                                           '{"column":"Branch","Properties":{"path":"$.branch"}},'
+                                                                           '{"column":"TotalCount","Properties":{"path":"$.count"}}]'
+
+###############################################################################
 # RAW REBOOT REPORT TABLE SETUP                                               #
 # 1. Create a RawRebootTimingData table to store reboot test timings          #
 # 2. Add a JSON mapping for the table                                         #

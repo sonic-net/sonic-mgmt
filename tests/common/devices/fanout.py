@@ -43,6 +43,8 @@ class FanoutHost(object):
             self.os = 'eos'
             self.host = EosHost(ansible_adhoc, hostname, user, passwd,
                                 shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
+            # Check eos fanout reachability by running show command
+            self.host.get_version()
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)
@@ -97,6 +99,9 @@ class FanoutHost(object):
                 return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.no_shutdown(interface_name)
+
+    def check_intf_link_state(self, interface_name):
+        return self.host.check_intf_link_state(interface_name)
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
