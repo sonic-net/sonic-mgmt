@@ -52,8 +52,8 @@
         "topo": "dualtor",
         "owner": "Ying Xie",
         "email": "yinxi@microsoft.com",
-        "new_platform": "",
-        "tag": ""
+        "new_platform": "Yes",
+        "tag": "Yes"
     },
     {
         "hwsku": "Arista-7050CX3-32S-C32",
@@ -68,8 +68,8 @@
         "topo": "dualtor",
         "owner": "Ying Xie",
         "email": "yinxi@microsoft.com",
-        "new_platform": "",
-        "tag": ""
+        "new_platform": "Yes",
+        "tag": "Yes"
     },
     {
         "hwsku": "Arista-7050QX32S-Q32",
@@ -124,8 +124,8 @@
         "topo": "dualtor",
         "owner": "Ying Xie",
         "email": "yinxi@microsoft.com",
-        "new_platform": "",
-        "tag": ""
+        "new_platform": "Yes",
+        "tag": "Yes"
     },
     {
         "hwsku": "Arista-7260CX3-D108C8",
@@ -140,8 +140,8 @@
         "topo": "dualtor",
         "owner": "Ying Xie",
         "email": "yinxi@microsoft.com",
-        "new_platform": "",
-        "tag": ""
+        "new_platform": "Yes",
+        "tag": "Yes"
     },
     {
         "hwsku": "Celestica-E1031-T48S4",
