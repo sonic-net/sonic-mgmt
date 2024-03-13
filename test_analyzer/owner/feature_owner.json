@@ -1176,8 +1176,8 @@
     },
     {
         "feature": "show_techsupport",
-        "owner": "jingwen xie",
-        "email": "jingwenxie@microsoft.com",
+        "owner": "Gang lv",
+        "email": "ganglv@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1185,8 +1185,8 @@
                     "show_techsupport.test_techsupport",
                     "show_techsupport.test_techsupport_no_secret"
                 ],
-                "owner": "jingwen xie",
-                "email": "jingwenxie@microsoft.com"
+                "owner": "Gang lv",
+                "email": "ganglv@microsoft.com"
             }
         ]
     },
