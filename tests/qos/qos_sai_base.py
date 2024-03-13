@@ -123,13 +123,17 @@ class QosBase:
         """
         custom_options = " --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
+        # Append a suffix to the logfile name if log_suffix is present in testParams
+        log_suffix = testParams.get("log_suffix", "")
+        logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
+
         ptf_runner(
             ptfhost,
             "saitests",
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}.log".format(testCase),
+            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
             qlen=10000,
             is_python3=True,
             relax=relax,
@@ -890,7 +894,7 @@ class QosSaiBase(QosBase):
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
 
-        elif topo in self.SUPPORTED_T1_TOPOS:
+        elif topo in self.SUPPORTED_T1_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and is_cisco_device(src_dut)):
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
             use_separated_upkink_dscp_tc_map = separated_dscp_to_tc_map_on_uplink(dut_qos_maps)
