@@ -1,7 +1,7 @@
 simulation:
   no_image_copy: true
   slurm_flags:
-    hours: 26
+    hours: 48
     pending_timeout: 60
     partition: regression
     cluster: rch-slurm-m1
@@ -29,14 +29,17 @@ devices:
     os_type: sonic
     lcc_type: havoc-gb
     num_linecards: 2
-    linecard_types: [ 'gauntlet', 'gauntlet' ]
+    linecard_types: [ 'vanguard', 'gauntlet' ]
     xr_port_redir: [22]
     linux_username: "cisco"
     linux_password: "cisco123"
     linux_config: udhcpc -q -s /lib/onie/udhcp4_net -n -i eth0
-    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    image: /auto/sonic/anamehra/onie-recovery-x86_64-cisco_8000-r0.iso.unsigned
     onie-install: ./sonic-cisco-8000.bin
     vxr_sim_config:
+      #shelf:
+      #   ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.11.80/npl
+      #   ConfigS1NpsuiteVer: 1.137.1
       rp:
           ConfigNicOrder: "mgmt-ce-punt"
       lc:
@@ -77,35 +80,35 @@ connections:
   custom:
     ptf_injected_01_T3_1:
       ports:
-      - sonic_dut.HundredGigE0/0/0/4
+      - sonic_dut.FourHundredGigE0/0/0/4
       - veos1.Ethernet1
       - docker_ptf.eth0
     ptf_injected_01_T3_2:
       ports:
-      - sonic_dut.HundredGigE0/0/0/5
+      - sonic_dut.FourHundredGigE0/0/0/5
       - veos1.Ethernet2
       - docker_ptf.eth1
 
     ptf_injected_03_T3:
       ports:
-      - sonic_dut.HundredGigE0/0/0/8
+      - sonic_dut.FourHundredGigE0/0/0/8
       - veos2.Ethernet1
       - docker_ptf.eth2
 
     ptf_injected_04_T3_1:
       ports:
-      - sonic_dut.HundredGigE0/0/0/25
+      - sonic_dut.FourHundredGigE0/0/0/25
       - veos3.Ethernet1
       - docker_ptf.eth3
     ptf_injected_04_T3_2:
       ports:
-      - sonic_dut.HundredGigE0/0/0/28
+      - sonic_dut.FourHundredGigE0/0/0/28
       - veos3.Ethernet2
       - docker_ptf.eth4
 
     ptf_injected_06_T3:
       ports:
-      - sonic_dut.HundredGigE0/0/0/23
+      - sonic_dut.FourHundredGigE0/0/0/23
       - veos4.Ethernet1
       - docker_ptf.eth5
 

@@ -34,6 +34,19 @@ from run_scripts_remote import run_scripts_remote, handle_sim_failure
 
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 
+# SFD T2 MIN MAX LC supported for SIM
+SFD_SUPPORTED_NUM_LC = 2
+
+# LC combinations supported for SFD T2 min topology
+SFD_SUPPORTED_LC_TOPO = {'GG', 'VG', 'VL'}
+
+# LC type and code mapping for SFD LCs
+SFD_LC_TOPO_CODE = {
+        "vanguard" : "V",
+        "gauntlet" : "G",
+        "lancer"   : "V"
+    }
+
 # Return a list of device names beginning with "sonic_dut_", for use with the data[] dictionary
 # For example: ['sonic_dut_1', 'sonic_dut_2']
 def get_dut_names(data):
@@ -67,7 +80,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t2-min-VG", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -98,6 +111,8 @@ def _create_parser():
                       default=False)
     parser.add_argument('--sim_attach', action='store_true', help='Use the existing SIM',
                       default=False)
+    parser.add_argument('--test_file', type=str, help='Input test case file',
+                      required=False,default=None)
     return parser
 
 def repo_update(data):
@@ -205,7 +220,7 @@ def repo_update(data):
 
     ssh.close()
 
-def deploy_mg(data,topo_type,base_topo_file):
+def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -248,7 +263,7 @@ def deploy_mg(data,topo_type,base_topo_file):
     print(resp.decode("ascii"))
 
     if topo_type in ['t2-min', 't2-vs']:
-        overwrite_lab_file(data)
+        overwrite_lab_file(data, lc_topo_code)
         print("Overwrote lab file for T2 specific oddities")
 
     chan.send('./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml\n')
@@ -525,7 +540,7 @@ def upload_file_stream(data, stream, dest):
                 fd.write(stream)
 
 
-def upload_tb_files(data,topo_type,base_topo_file,device_type):
+def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
@@ -555,9 +570,11 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type):
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
         ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
-        ftp_client.put('topo_Cisco-8800-LC-48H-C48.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
-        ftp_client.put('topo_Cisco-8800-RP.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-RP.yml')
-        ftp_client.put('topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
+        ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
+        ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-88-LC0-36FH-M-O36.yml')
+        ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-88-LC0-36FH-O36.yml')
+        ftp_client.put(f'sonic_t2/topo_8800-RP-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-RP.yml')
+        ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
@@ -723,9 +740,9 @@ def add_vEOS_cfg(data):
 # The lab file generated by TestbedProcessing.py does not work well for T2-2lc-min topology
 # We still run TestbedProcessing.py to generate other important output files
 # But then we overwrite the lab file with our own (in YAML instead of ini, for readability)
-def overwrite_lab_file(vxr_ports):
+def overwrite_lab_file(vxr_ports, lc_topo_code):
     environment = Environment(loader=FileSystemLoader("lab-templates"))
-    template = environment.get_template("t2-2lc-min-ports.yaml.j2")
+    template = environment.get_template(f"t2-2lc-min-ports-{lc_topo_code}.yaml.j2")
     upload_file_stream(
         vxr_ports,
         template.render(vxr_ports=vxr_ports),
@@ -855,7 +872,7 @@ def attach_vxr():
     os.system("{} ports > vxr_ports.yaml".format(vxr_path))
     return vxr_path, "vxr_ports.yaml"
 
-def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type):
+def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code):
     # Create admin user in vEOS vm
     print("****** Create admin user in vEOS vm *******")
     vEOS_inital_cfg(data,vEOS_count)
@@ -869,7 +886,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Upload t1 specific files to sonic mgmt container
     print("********** Upload testbed specific files to sonic mgmt container ***********")
-    upload_tb_files(data,topo_type,base_topo_file,device_type)
+    upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code)
 
     # Untar cisco directory
     print("********** Untar the uploaded cisco directory **********")
@@ -882,7 +899,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Start docker container, deploy DUT minigraph
     print("********** Start docker container, deploy DUT minigraph ***********")
-    deploy_mg(data,topo_type,base_topo_file)
+    deploy_mg(data,topo_type,base_topo_file, lc_topo_code)
 
     # Add vEOS config
     print("********** Add vEOS config ***********")
@@ -961,6 +978,24 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
     with open(sim_cfg_filename,'w') as cfg_file:
             json.dump(sim_cfg, cfg_file, indent=4)
 
+def get_lc_topo_type(topo_yaml):
+    """ Generates LC topology code based on LC types used in Chassis topology.
+        V - Vanguard
+        G - Gauntlet
+        L - Lancer
+        e.g.: VG - Vangauard - LC0, Gauntlet - LC1
+    """
+    with open(topo_yaml) as f:
+        topo_data = yaml.load(f, Loader=yaml.FullLoader)
+        lc_list = topo_data['devices']['sonic_dut']['linecard_types']
+        if len(lc_list) != SFD_SUPPORTED_NUM_LC:
+            sys.exit(f"Only {SFD_SUPPORTED_NUM_LC} LC config is supported. Provided list {lc_list}. Exiting now")
+        lc_topo_code = ''
+        for lc in lc_list:
+            lc_topo_code = lc_topo_code + SFD_LC_TOPO_CODE[lc]
+        print(f'LC topo code: {lc_topo_code}')
+        return lc_topo_code
+
 def main():
     argparser = _create_parser()
     args = vars(argparser.parse_args())
@@ -972,6 +1007,7 @@ def main():
     topo_type = args['topo_type']
     device_type = args['device_type']
     script_file = args['script_file']
+    test_file = args['test_file']
     drop_version = args['drop_version']
     log_dir = args['log_dir']
     tar_ball = args['tar_ball']
@@ -997,6 +1033,10 @@ def main():
 
     dut_platform = get_dut_platform(device_type)
 
+    if topo_type == 't2-min-VG':
+        # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
+        topo_type = 't2-min'
+
     base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type)
 
     print("USING BASE TOPO {}".format(base_topo_file))
@@ -1020,7 +1060,14 @@ def main():
     data['tar_ball'] = tar_ball
     data['ptf_intf_count'] = ptf_intfcount
 
-    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type)
+    # For SFD, generate the LC topology Code. Topology code is based on
+    # LC types used in teh chassis for this topology instance bringup
+    if device_type == 'sfd' and topo_type == 't2-min':
+        lc_topo_code = get_lc_topo_type(topo_yaml)
+    else:
+        lc_topo_code = None
+
+    configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, device_type, lc_topo_code)
 
     print_env_info(data, device_type, vEOS_count)
 
@@ -1040,7 +1087,8 @@ def main():
             create_allure_report,
             ssh_port=data['sonic_mgmt']['xr_redir22'],
             additional_tests=additional_tests,
-            skip_sanity=skip_sanity
+            skip_sanity=skip_sanity,
+            test_file=test_file
         )
 
     sim_time_delta = (vxr_start_end - vxr_start_begin).total_seconds()

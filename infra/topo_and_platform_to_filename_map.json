@@ -11,6 +11,11 @@
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_5d.yaml"
         }
     },
+    "t2-min-VG": {
+        "sfd": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-VG.yaml"
+        }
+    },
     "t2-min": {
         "sfd": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
