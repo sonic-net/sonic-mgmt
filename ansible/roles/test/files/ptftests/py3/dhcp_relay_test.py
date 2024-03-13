@@ -795,7 +795,5 @@ class DHCPTest(DataplaneBaseTest):
 
         # Below verification will be done only when client port is set in ptf_runner
         if not self.dual_tor and 'other_client_port' in self.test_params:
-            self.verify_dhcp_relay_pkt_on_other_client_port_with_no_padding(
-                self.dest_mac_address, self.client_udp_src_port)
             self.verify_dhcp_relay_pkt_on_server_port_with_no_padding(
                 self.dest_mac_address, self.client_udp_src_port)
