@@ -8,7 +8,6 @@
     - [Testbed](#testbed)
     - [Design](#design)
 - [Tests](#tests)
-    - [Manual Tests](#manual-tests)
 
 ## Revision  
 
