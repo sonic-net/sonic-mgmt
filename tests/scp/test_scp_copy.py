@@ -14,9 +14,8 @@ BLOCK_SIZE = 500000000
 
 
 @pytest.fixture
-
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, creds):
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     
     # Copies script to DUT
     duthost.copy(src="scp/perform_scp.py", dest="/home/{}/perform_scp.py".format(creds['sonicadmin_user']))
