@@ -73,7 +73,9 @@ parameters:
     type: string
     default: "acl/test_acl.py, \
               acl/test_stress_acl.py, \
+              copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot, \
               platform_tests/link_flap/test_cont_link_flap.py, \
+              platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status, \
               platform_tests/test_memory_exhaustion.py, \
               platform_tests/test_reboot.py, \
               stress/test_stress_routes.py, \
