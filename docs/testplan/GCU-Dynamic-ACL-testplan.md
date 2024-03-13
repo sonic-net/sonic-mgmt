@@ -138,15 +138,15 @@ Verify that after creation, a forward ACL rule can be removed and packets matchi
 
 - Verify that packets with IPs matching the removed forwarding rules are dropped on this specific port
 -
-### Test Case # 7 - DHCP Forwarding Rule
+### Test Case # 7 - DHCP Forwarding Rules
 
 #### Test Objective
 
-Verify that GCU is capable of adding blanket DHCP forwarding rules, and that traffic follows these rules accordingly
+Verify that GCU is capable of adding blanket DHCP and DHCPv6 forwarding rules, and that traffic follows these rules accordingly
 
 #### Testing Steps
 
-- Use GCU to create blanket DHCP packet forwarding rule
+- Use GCU to create blanket DHCP and DHCPv6 packet forwarding rules
 
 - Use GCU to create a blanket drop rule on a port
 
@@ -154,31 +154,13 @@ Verify that GCU is capable of adding blanket DHCP forwarding rules, and that tra
 
 - Verify that all operations were successful
 
-- Run pre-existing DHCP_Relay test with ACL rules applied and packets sent over the port that is blocked
+- Create DHCP Discovery and DHCPv6 Solicit packets and send them over the port the drop rule is applied on
 
-- Verify that pre-existing DHCP_Relay test is successful with ACL applied
+- Verify that DHCP and DHCPv6 packets are properly relayed
 
-### Test Case # 8 - DHCPv6 Forwarding Rule
+- Verify that all other packets sent over this port are dropped
 
-#### Test Objective
-
-Verify that GCU is capable of adding blanket DHCPv6 forwarding rules, and that traffic follows these rules accordingly
-
-#### Testing Steps
-
-- Use GCU to create blanket DHCPv6 packet forwarding rule
-
-- Use GCU to create a blanket drop rule on a port
-
-- Verify that for both rules created, "show acl rule DYNAMIC_ACL_TABLE {rule_name} matches expected output
-
-- Verify that all operations were successful
-
-- Run pre-existing DHCPv6_Relay test with ACL rules applied and packets sent over the port that is blocked
-
-- Verify that pre-existing DHCPv6_Relay test is successful with ACL applied
-
-### Test Case # 9 - ARP Forwarding Rule
+### Test Case # 8 - ARP Forwarding Rule
 
 #### Test Objective
 
@@ -192,11 +174,11 @@ Test that GCU is capable of adding a blanket ARP forwarding rule, and that prope
 
 - Verify that all operations were successful
 
-- Verify that ARP reply is received from server when ARP packet is sent on this port
+- Verify that ARP reply is received from server when ARP packet is sent on an IP configured to this ptf port
 
 - Verify that all other packets on this port are dropped
 
-### Test Case # 10 - Scale test of ACL Table, add large amount of forward and drop rules
+### Test Case # 9 - Scale test of ACL Table, add large amount of forward and drop rules
 
 #### Test Objective
 
@@ -216,7 +198,7 @@ Verify that GCU is capable of adding a large amount of ACL rules and that they a
 
 - Verify that packets not matching a forwarding IP are dropped
 
-### Test Case # 11 - Replace the IP Address of a non-existent ACL Rule
+### Test Case # 10 - Replace the IP Address of a non-existent ACL Rule
 
 #### Test Objective
 
@@ -230,7 +212,7 @@ Verify that attempting to replace the address of a rule that does not exist prop
 
 - Verify that the replace action failed
 
-### Test Case # 12 - Remove non-existent ACL Table
+### Test Case # 11 - Remove non-existent ACL Table
 
 #### Test Objective
 
