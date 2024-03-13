@@ -1,14 +1,22 @@
 import logging
 import pytest
+import binascii
+import netaddr
+import struct
 
 from tests.common.helpers.assertions import pytest_require
+import scapy
 
 from ptf.mask import Mask
-import ptf.packet as scapy
+import ptf.packet as packet
 
-from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6ND_NA, \
+from scapy.all import Ether, ICMPv6ND_NS, ICMPv6ND_NA, \
                       ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
+
+from scapy.fields import MACField, ShortEnumField, FieldLenField, ShortField
+from scapy.data import ETHER_ANY
+from scapy.layers.dhcp6 import _DHCP6OptGuessPayload
 
 from tests.common import constants
 
@@ -37,6 +45,7 @@ CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
 CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
 CREATE_ARP_FORWARD_RULE_FILE = "create_arp_forward_rule.json"
+CREATE_DHCP_FORWARD_RULE_FILE = "create_dhcp_forward_rule_both.json"
 REPLACE_RULES_TEMPLATE = "replace_rules.j2"
 REPLACE_NONEXISTENT_RULE_FILE = "replace_nonexistent_rule.json"
 REMOVE_RULE_TEMPLATE = "remove_rule.j2"
@@ -62,25 +71,87 @@ DST_IPV6_BLOCKED = "103:23:3:1::1"
 MAX_IP_RULE_PRIORITY = 9900
 MAX_DROP_RULE_PRIORITY = 9000
 
+# DHCP Constants
+
+BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
+BROADCAST_IP = '255.255.255.255'
+DEFAULT_ROUTE_IP = '0.0.0.0'
+DHCP_CLIENT_PORT = 68
+DHCP_SERVER_PORT = 67
+DHCP_PKT_BOOTP_MIN_LEN = 300
+
+# DHCPv6 Constants
+
+IPv6 = scapy.layers.inet6.IPv6
+DHCP6_Solicit = scapy.layers.dhcp6.DHCP6_Solicit
+DHCP6_RelayForward = scapy.layers.dhcp6.DHCP6_RelayForward
+DHCP6OptRelayMsg = scapy.layers.dhcp6.DHCP6OptRelayMsg
+
+DHCP6OptClientId = scapy.layers.dhcp6.DHCP6OptClientId
+DHCP6OptOptReq = scapy.layers.dhcp6.DHCP6OptOptReq
+DHCP6OptElapsedTime = scapy.layers.dhcp6.DHCP6OptElapsedTime
+DHCP6OptIA_NA = scapy.layers.dhcp6.DHCP6OptIA_NA
+DUID_LL = scapy.layers.dhcp6.DUID_LL
+DHCP6OptIfaceId = scapy.layers.dhcp6.DHCP6OptIfaceId
+
+BROADCAST_MAC_V6 = '33:33:00:01:00:02'
+BROADCAST_IP_V6 = 'ff02::1:2'
+DHCP_CLIENT_PORT_V6 = 546
+DHCP_SERVER_PORT_V6 = 547
+
+dhcp6opts = {79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
+             }
+
+
+class _LLAddrField(MACField):
+    pass
+
+
+class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
+    name = "DHCP6 Option - Client Link Layer address"
+    fields_desc = [ShortEnumField("optcode", 79, dhcp6opts),
+                   FieldLenField("optlen", None, length_of="clladdr",
+                                 adjust=lambda pkt, x: x + 2),
+                   ShortField("lltype", 1),  # ethernet
+                   _LLAddrField("clladdr", ETHER_ANY)]
+
+# Fixtures
+
 
 @pytest.fixture(scope="module")
-def setup(rand_selected_dut, tbinfo, vlan_name):
+def setup(rand_selected_dut, tbinfo, vlan_name, ptfadapter):
+    """Setup various variables neede for different tests"""
+
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    is_dualtor = False
     if "dualtor" in tbinfo["topo"]["name"]:
         vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
         # Use VLAN MAC as router MAC on dual-tor testbed
         router_mac = rand_selected_dut.get_dut_iface_mac(vlan_name)
+        is_dualtor = True
     else:
         router_mac = rand_selected_dut.facts['router_mac']
 
+    res = rand_selected_dut.shell('cat /sys/class/net/{}/address'.format(vlan_name))
+    v4_vlan_mac = res['stdout']
+
     list_ports = mg_facts["minigraph_vlans"][vlan_name]["members"]
+    switch_loopback_ip = mg_facts['minigraph_lo_interfaces'][0]['addr']
 
     # Get all vlan ports
     vlan_ports = list(mg_facts['minigraph_vlans'].values())[0]['members']
-    block_src_port = vlan_ports[0]
+
+    for port in vlan_ports:
+        if port in mg_facts['minigraph_port_name_to_alias_map']:
+            break
+        else:
+            continue
+    block_src_port = port
+
     unblocked_src_port = vlan_ports[1]
     scale_ports = vlan_ports[:]
     block_src_port_indice = mg_facts['minigraph_ptf_indices'][block_src_port]
+    block_src_port_alias = mg_facts['minigraph_port_name_to_alias_map'][block_src_port]
     unblocked_src_port_indice = mg_facts['minigraph_ptf_indices'][unblocked_src_port]
     scale_ports_indices = [mg_facts['minigraph_ptf_indices'][port_name] for port_name in scale_ports]
     # Put all portchannel members into dst_ports
@@ -99,6 +170,14 @@ def setup(rand_selected_dut, tbinfo, vlan_name):
         scale_dest_ips[ipv4_rule_name] = ipv4_address
         scale_dest_ips[ipv6_rule_name] = ipv6_address
 
+    vlan_ips = {}
+
+    for vlan_interface_info_dict in mg_facts['minigraph_vlan_interfaces']:
+        if netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 6:
+            vlan_ips["V6"] = vlan_interface_info_dict['addr']
+        elif netaddr.IPAddress(str(vlan_interface_info_dict['addr'])).version == 4:
+            vlan_ips["V4"] = vlan_interface_info_dict['addr']
+
     config_facts = rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
     vlans = config_facts['VLAN']
@@ -111,9 +190,46 @@ def setup(rand_selected_dut, tbinfo, vlan_name):
             dut_mac = rand_selected_dut.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
         break
 
+    # Obtain uplink port indicies for this DHCP relay agent
+    uplink_interfaces = []
+    uplink_port_indices = []
+    for iface_name, neighbor_info_dict in list(mg_facts['minigraph_neighbors'].items()):
+        if neighbor_info_dict['name'] in mg_facts['minigraph_devices']:
+            neighbor_device_info_dict = mg_facts['minigraph_devices'][neighbor_info_dict['name']]
+            if 'type' in neighbor_device_info_dict and neighbor_device_info_dict['type'] in \
+                    ['LeafRouter', 'MgmtLeafRouter']:
+                # If this uplink's physical interface is a member of a portchannel interface,
+                # we record the name of the portchannel interface here, as this is the actual
+                # interface the DHCP relay will listen on.
+                iface_is_portchannel_member = False
+                for portchannel_name, portchannel_info_dict in list(mg_facts['minigraph_portchannels'].items()):
+                    if 'members' in portchannel_info_dict and iface_name in portchannel_info_dict['members']:
+                        iface_is_portchannel_member = True
+                        if portchannel_name not in uplink_interfaces:
+                            uplink_interfaces.append(portchannel_name)
+                        break
+                # If the uplink's physical interface is not a member of a portchannel,
+                # add it to our uplink interfaces list
+                if not iface_is_portchannel_member:
+                    uplink_interfaces.append(iface_name)
+                uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
+
+    # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
+    res = rand_selected_dut.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
+    uplink_mac = res['stdout']
+
+    """ update_payload method which is automatically called in ptfadapter on .send() or any .verify_packet() method
+        is bugged for dhcp_discover packets.  Need to override it to do nothing."""
+
+    def new_update_payload(pkt):
+        return pkt
+
+    ptfadapter.update_payload = new_update_payload
+
     setup_information = {
         "blocked_src_port_name": block_src_port,
         "blocked_src_port_indice": block_src_port_indice,
+        "blocked_src_port_alias": block_src_port_alias,
         "unblocked_src_port_indice": unblocked_src_port_indice,
         "scale_port_names": scale_ports,
         "scale_port_indices": scale_ports_indices,
@@ -122,6 +238,11 @@ def setup(rand_selected_dut, tbinfo, vlan_name):
         "router_mac": router_mac,
         "bind_ports": list_ports,
         "dut_mac": dut_mac,
+        "vlan_ips": vlan_ips,
+        "is_dualtor": is_dualtor,
+        "switch_loopback_ip": switch_loopback_ip,
+        "ipv4_vlan_mac": v4_vlan_mac,
+        "uplink_mac": uplink_mac,
     }
 
     return setup_information
@@ -192,12 +313,14 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
 
 @pytest.fixture(scope="module")
 def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Get config facts for the duthost"""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
 @pytest.fixture(scope="module")
 def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, tbinfo, config_facts):
+    """Get the interfaces that will be used in our ARP test"""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
     mg_facts = asic.get_extended_minigraph_facts(tbinfo)
@@ -296,6 +419,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 def generate_link_local_addr(mac):
+    """Generate ipv6 link local"""
     parts = mac.split(":")
     parts.insert(3, "ff")
     parts.insert(4, "fe")
@@ -307,11 +431,11 @@ def generate_link_local_addr(mac):
     ipv6 = "fe80::{}".format(":".join(ipv6Parts))
     return ipv6
 
-# Need to check if we need this for v6 as well, otherwise remove v6 ipversion and param
+# If/When NDP on ARPv6 becomes necessary and possible, will need to re-add in IPV6 parameterization option to this
 
 
 @pytest.fixture(params=['v4'])
-def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
+def arp_packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
     ip_version = request.param
     src_addr_v4, _, src_addr_v6, _, ptf_intf_index, _ = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
@@ -359,8 +483,163 @@ def packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_
         exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
         exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
         exp_pkt = Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(scapy.IPv6, 'fl')
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'fl')
     return ip_version, out_pkt, exp_pkt
+
+
+def generate_dhcp_packets(rand_selected_dut, setup, ptfadapter):
+    """Generate a DHCP Discovery packet, as well as the expected relay packet"""
+    # Create discover packet
+
+    client_mac = ptfadapter.dataplane.get_mac(0, setup["blocked_src_port_indice"]).decode()
+
+    my_chaddr = binascii.unhexlify(client_mac.replace(':', ''))
+    my_chaddr += b'\x00\x00\x00\x00\x00\x00'
+
+    discover_packet = testutils.dhcp_discover_packet(
+        eth_client=client_mac, set_broadcast_bit=True)
+
+    discover_packet[packet.Ether].dst = BROADCAST_MAC
+    discover_packet[packet.IP].sport = DHCP_CLIENT_PORT
+
+    # testutils.dhcp_discover_packet is bugged and forms chaddr wrong.  We need to overwrite it.
+
+    discover_packet[packet.BOOTP].chaddr = my_chaddr
+
+    # Create discover relayed packet
+
+    ether = packet.Ether(dst=BROADCAST_MAC, src=setup["uplink_mac"], type=0x0800)
+    ip = packet.IP(src=DEFAULT_ROUTE_IP, dst=BROADCAST_IP, len=328, ttl=64)
+    udp = packet.UDP(sport=DHCP_SERVER_PORT, dport=DHCP_SERVER_PORT, len=308)
+    bootp = packet.BOOTP(op=1,
+                         htype=1,
+                         hlen=6,
+                         hops=1,
+                         xid=0,
+                         secs=0,
+                         flags=0x8000,
+                         ciaddr=DEFAULT_ROUTE_IP,
+                         yiaddr=DEFAULT_ROUTE_IP,
+                         siaddr=DEFAULT_ROUTE_IP,
+                         giaddr=setup["vlan_ips"]["V4"] if not setup["is_dualtor"] else setup["switch_loopback_ip"],
+                         chaddr=my_chaddr)
+    circuit_id_string = rand_selected_dut.hostname + ":" + setup["blocked_src_port_alias"]
+    option82 = struct.pack('BB', 1, len(circuit_id_string))
+    option82 += circuit_id_string.encode('utf-8')
+    remote_id_string = setup["ipv4_vlan_mac"]
+    option82 += struct.pack('BB', 2, len(remote_id_string))
+    option82 += remote_id_string.encode('utf-8')
+    if setup["is_dualtor"]:
+        link_selection = bytes(list(map(int, setup["vlan_ips"]["V4"].split('.'))))
+        option82 += struct.pack('BB', 5, 4)
+        option82 += link_selection
+    bootp /= packet.DHCP(options=[('message-type', 'discover'),
+                                  (82, option82),
+                                  ('end')])
+    # If our bootp layer is too small, pad it
+    pad_bytes = DHCP_PKT_BOOTP_MIN_LEN - len(bootp)
+    if pad_bytes > 0:
+        bootp /= packet.PADDING('\x00' * pad_bytes)
+
+    discover_relay_pkt = ether / ip / udp / bootp
+
+    # Mask off fields we don't care to match
+
+    masked_discover = Mask(discover_relay_pkt)
+
+    masked_discover.set_do_not_care_scapy(packet.Ether, "dst")
+
+    masked_discover.set_do_not_care_scapy(packet.IP, "version")
+    masked_discover.set_do_not_care_scapy(packet.IP, "ihl")
+    masked_discover.set_do_not_care_scapy(packet.IP, "tos")
+    masked_discover.set_do_not_care_scapy(packet.IP, "len")
+    masked_discover.set_do_not_care_scapy(packet.IP, "id")
+    masked_discover.set_do_not_care_scapy(packet.IP, "flags")
+    masked_discover.set_do_not_care_scapy(packet.IP, "frag")
+    masked_discover.set_do_not_care_scapy(packet.IP, "ttl")
+    masked_discover.set_do_not_care_scapy(packet.IP, "proto")
+    masked_discover.set_do_not_care_scapy(packet.IP, "chksum")
+    masked_discover.set_do_not_care_scapy(packet.IP, "src")
+    masked_discover.set_do_not_care_scapy(packet.IP, "dst")
+    masked_discover.set_do_not_care_scapy(packet.IP, "options")
+
+    masked_discover.set_do_not_care_scapy(packet.UDP, "chksum")
+    masked_discover.set_do_not_care_scapy(packet.UDP, "len")
+
+    masked_discover.set_do_not_care_scapy(packet.BOOTP, "sname")
+    masked_discover.set_do_not_care_scapy(packet.BOOTP, "file")
+
+    return discover_packet, masked_discover
+
+
+def generate_dhcpv6_packets(setup, ptfadapter):
+    """Generate a DHCPv6 solicit packet, as well as the expected relay packet"""
+
+    client_mac = ptfadapter.dataplane.get_mac(0, setup["blocked_src_port_indice"]).decode()
+    client_link_local = generate_link_local_addr(client_mac)
+
+    solicit_packet = packet.Ether(src=client_mac, dst=BROADCAST_MAC_V6)
+    solicit_packet /= IPv6(src=client_link_local, dst=BROADCAST_IP_V6)
+    solicit_packet /= packet.UDP(sport=DHCP_CLIENT_PORT_V6, dport=DHCP_SERVER_PORT_V6)
+    solicit_packet /= DHCP6_Solicit(trid=12345)
+    solicit_packet /= DHCP6OptClientId(duid=DUID_LL(lladdr=client_mac))
+    solicit_packet /= DHCP6OptIA_NA()
+    solicit_packet /= DHCP6OptOptReq(reqopts=[23, 24, 29])
+    solicit_packet /= DHCP6OptElapsedTime(elapsedtime=0)
+
+    # build expected relay forward packet
+
+    solicit_relay_forward_packet = packet.Ether(src=setup["uplink_mac"])
+    solicit_relay_forward_packet /= IPv6()
+    solicit_relay_forward_packet /= packet.UDP(
+        sport=DHCP_SERVER_PORT_V6, dport=DHCP_SERVER_PORT_V6)
+    solicit_relay_forward_packet /= DHCP6_RelayForward(msgtype=12,
+                                                       linkaddr=setup["vlan_ips"]["V6"],
+                                                       peeraddr=client_link_local)
+    solicit_relay_forward_packet /= DHCP6OptRelayMsg(message=[DHCP6_Solicit(trid=12345) /
+                                                              DHCP6OptClientId(duid=DUID_LL(lladdr=client_mac)) /
+                                                              DHCP6OptIA_NA()/DHCP6OptOptReq(reqopts=[23, 24, 29]) /
+                                                              DHCP6OptElapsedTime(elapsedtime=0)])
+    if setup["is_dualtor"]:
+        solicit_relay_forward_packet /= DHCP6OptIfaceId(ifaceid=socket.inet_pton(socket.AF_INET6,
+                                                                                 setup["vlan_ips"]["V6"]))
+    solicit_relay_forward_packet /= DHCP6OptClientLinkLayerAddr()
+
+    masked_packet = Mask(solicit_relay_forward_packet)
+    masked_packet.set_do_not_care_scapy(packet.Ether, "dst")
+    masked_packet.set_do_not_care_scapy(packet.Ether, "src")
+    masked_packet.set_do_not_care_scapy(IPv6, "src")
+    masked_packet.set_do_not_care_scapy(IPv6, "dst")
+    masked_packet.set_do_not_care_scapy(IPv6, "fl")
+    masked_packet.set_do_not_care_scapy(IPv6, "tc")
+    masked_packet.set_do_not_care_scapy(IPv6, "plen")
+    masked_packet.set_do_not_care_scapy(IPv6, "nh")
+    masked_packet.set_do_not_care_scapy(packet.UDP, "chksum")
+    masked_packet.set_do_not_care_scapy(packet.UDP, "len")
+    masked_packet.set_do_not_care_scapy(
+        scapy.layers.dhcp6.DHCP6_RelayForward, "linkaddr")
+    masked_packet.set_do_not_care_scapy(
+        DHCP6OptClientLinkLayerAddr, "clladdr")
+
+    return solicit_packet, masked_packet
+
+
+def dynamic_acl_send_and_verify_dhcp_packets(rand_selected_dut, setup, ptfadapter):
+    """Send and verify proper relay of dhcp and dhcpv6 packets"""
+
+    dhcp_discovery, expected_dhcp_discovery = generate_dhcp_packets(rand_selected_dut, setup, ptfadapter)
+
+    dhcpv6_solicit, expected_dhcpv6_solicit = generate_dhcpv6_packets(setup, ptfadapter)
+
+    ptfadapter.dataplane.flush()
+
+    testutils.send(ptfadapter, setup["blocked_src_port_indice"], dhcp_discovery)
+    verify_expected_packet_behavior(expected_dhcp_discovery, ptfadapter, setup, expect_drop=False)
+
+    ptfadapter.dataplane.flush()
+
+    testutils.send(ptfadapter, setup["blocked_src_port_indice"], dhcpv6_solicit)
+    verify_expected_packet_behavior(expected_dhcpv6_solicit, ptfadapter, setup, expect_drop=False)
 
 
 def verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop):
@@ -397,12 +676,12 @@ def build_exp_pkt(input_pkt):
     if pkt_copy.haslayer('IP'):
         pkt_copy['IP'].ttl -= 1
     exp_pkt = Mask(pkt_copy)
-    exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
-    exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
+    exp_pkt.set_do_not_care_scapy(packet.Ether, "dst")
+    exp_pkt.set_do_not_care_scapy(packet.Ether, "src")
     if input_pkt.haslayer('IP'):
-        exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
+        exp_pkt.set_do_not_care_scapy(packet.IP, "chksum")
     else:
-        exp_pkt.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        exp_pkt.set_do_not_care_scapy(packet.IPv6, "hlim")
 
     return exp_pkt
 
@@ -562,6 +841,34 @@ def dynamic_acl_create_arp_forward_rule(duthost):
     expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "9997", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
 
     expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content)
+
+
+def dynamic_acl_create_dhcp_forward_rule(duthost):
+    """Create DHCP forwarding rules"""
+
+    output = load_and_apply_json_patch(duthost, CREATE_DHCP_FORWARD_RULE_FILE)
+
+    expect_op_success(duthost, output)
+
+    expected_v6_rule_content = ["DYNAMIC_ACL_TABLE",
+                                "DHCPV6_RULE", "9998",
+                                "FORWARD",
+                                "IP_PROTOCOL: 17",
+                                "L4_DST_PORT_RANGE: 547-548",
+                                "ETHER_TYPE: 0x86DD",
+                                "Active"]
+
+    expected_rule_content = ["DYNAMIC_ACL_TABLE",
+                             "DHCP_RULE", "9999",
+                             "FORWARD",
+                             "IP_PROTOCOL: 17",
+                             "L4_DST_PORT: 67",
+                             "ETHER_TYPE: 0x0800",
+                             "Active"]
+
+    expect_acl_rule_match(duthost, "DHCP_RULE", expected_rule_content)
+
+    expect_acl_rule_match(duthost, "DHCPV6_RULE", expected_v6_rule_content)
 
 
 def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None):
@@ -782,7 +1089,7 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    ptfadapter,
                                    setup,
                                    dynamic_acl_create_table,
-                                   packets_for_test,
+                                   arp_packets_for_test,
                                    ip_and_intf_info,
                                    proxy_arp_enabled):
     """Test that we can create a blanket ARP packet forwarding rule with GCU, and that ARP packets
@@ -790,7 +1097,7 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
 
     ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index, port_name = ip_and_intf_info
 
-    ip_version, outgoing_packet, expected_packet = packets_for_test
+    ip_version, outgoing_packet, expected_packet = arp_packets_for_test
 
     setup["blocked_src_port_name"] = port_name
     setup["blocked_src_port_indice"] = ptf_intf_index
@@ -804,8 +1111,23 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
         pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
     ptfadapter.dataplane.flush()
-    testutils.send_packet(ptfadapter, ptf_intf_index, outgoing_packet)
+    testutils.send(ptfadapter, ptf_intf_index, outgoing_packet)
     testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+
+    dynamic_acl_verify_packets(setup,
+                               ptfadapter,
+                               packets=generate_packets(setup, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets_dropped=True)
+
+
+def test_gcu_acl_dhcp_rule_creation(rand_selected_dut, ptfadapter, setup, dynamic_acl_create_table):
+    """Verify that DHCP and DHCPv6 forwarding rules can be created, and that dhcp packets are properyl forwarded
+    whereas others are dropped"""
+
+    dynamic_acl_create_dhcp_forward_rule(rand_selected_dut)
+    dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup)
+
+    dynamic_acl_send_and_verify_dhcp_packets(rand_selected_dut, setup, ptfadapter)
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
