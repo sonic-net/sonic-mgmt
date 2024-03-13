@@ -495,21 +495,6 @@
             line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
         become: true
 
-      - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
-        lineinfile:
-            name: /etc/sonic/updategraph.conf
-            regexp: '^enabled='
-            line: 'enabled=false'
-        become: true
-        register: updategraph_conf
-
-      - name: restart automatic minigraph update service
-        become: true
-        service:
-          name: updategraph
-          state: restarted
-        when: updategraph_conf.changed
-
       - name: docker status
         shell: docker ps
         register: docker_status

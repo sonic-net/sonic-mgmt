@@ -2,10 +2,6 @@
     sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
     when: sonic_vm_storage_location is not defined
 
-- set_fact:
-    disable_updategraph: False
-  when: disable_updategraph is not defined
-
 - name: Create directory for vm images and vm disks
   file: path={{ item }} state=directory mode=0755
   with_items:
@@ -66,7 +62,6 @@
              mgmt_gw={{ vm_mgmt_gw | default(mgmt_gw) }}
              new_password={{ sonic_password }}
              num_asic={{ num_asic }}
-             disable_updategraph={{ disable_updategraph }}
   register: kickstart_output
 
 - name: Fail if kickstart gives error for {{ dut_name }}
