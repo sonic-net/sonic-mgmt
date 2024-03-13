@@ -28,14 +28,14 @@ The test could run on any testbed.
 
 The original design of the test is as follows:
 
-![test_sensors-Original Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/e9056e64-52d4-468b-b58e-d0b4f3b18985)
+![test_sensors-Original Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/beb04857-56cb-4842-8a3f-2e3f97620f05)
 
 As can be seen, the sensor data of the platform is loaded from the static sku-sensors-data.yml file and is then sent for validation.
 The PSUs sesnors checked are those present in this file.
 
 The new design of the test will be as follows:
 
-![test_sensors-New Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/e8260544-60e6-463c-9003-6cb99cf97876)
+![test_sensors-New Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/026dbd32-ffab-47b0-a70d-8d8fd7667660)
 
 As can be seen, there are now two static files in play. The original sku-sensors-data.yml file is still used to fetch the sensors unrelated to the PSUs. 
 However, there is a second file, called psu-sensors-data.yml which will be used to fetch the sensors relevant to the PSUs installed on the device. That is, we will check dynamically which PSUs are installed on the device and, using that information, fetch the relevant sensor information from the psu-sensors-data.yml file which will act as a mapping between PSUs and their relevant sesnors.
