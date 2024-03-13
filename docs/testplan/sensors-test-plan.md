@@ -35,12 +35,10 @@ The PSUs sesnors checked are those present in this file.
 
 The new design of the test will be as follows:
 
-![test_sensors-New Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/09a8479f-dc9c-4aa0-96d7-b05fb9022341)
+![test_sensors-New Design drawio](https://github.com/mhen1/sonic-mgmt/assets/155874991/e8260544-60e6-463c-9003-6cb99cf97876)
 
 As can be seen, there are now two static files in play. The original sku-sensors-data.yml file is still used to fetch the sensors unrelated to the PSUs. 
-However, there is a second file, called psu-sensors-data.yml which will be used to fetch the sensors relevant for the PSUs installed on the device. That is, we will
-check dynamically which PSUs are installed on the device, and using that information, fetch the relevant sensor information from the psu-sensors-data.yml file which will act as a mapping
-between PSUs and their relevant sesnors.
+However, there is a second file, called psu-sensors-data.yml which will be used to fetch the sensors relevant to the PSUs installed on the device. That is, we will check dynamically which PSUs are installed on the device and, using that information, fetch the relevant sensor information from the psu-sensors-data.yml file which will act as a mapping between PSUs and their relevant sesnors.
 
 After fetching the information from both files, we will merge them together to a single source of data for the validation. This data will contain
 all the non-psu sensors from the original sku-sensors-data.yml, and the PSU sensors as listed in the new psu-sensors-data.yml file. The merged data will be sent
