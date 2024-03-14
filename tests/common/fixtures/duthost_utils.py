@@ -1,5 +1,6 @@
 from typing import Dict, List
 
+import paramiko
 import pytest
 import logging
 import itertools
@@ -7,6 +8,8 @@ import collections
 import ipaddress
 import time
 import json
+
+from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
@@ -639,12 +642,15 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                                      for duthost in duthosts.nodes}
     ipv6_address: Dict[str, List] = {duthost.hostname: []
                                      for duthost in duthosts.nodes}
-    # Check IPv6 mgmt-ip is set, otherwise the DUT will lose control after v4 mgmt-ip is removed
+    # Check IPv6 mgmt-ip is set and available, otherwise the DUT will lose control after v4 mgmt-ip is removed
     for duthost in duthosts.nodes:
         mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
                                                   module_ignore_errors=True)["stdout"])
         # Use list() to make a copy of mgmt_interface.keys() to avoid
         # "RuntimeError: dictionary changed size during iteration" error
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        has_available_ipv6_addr = False
         for key in list(mgmt_interface):
             ip_addr = key.split("|")[1]
             ip_addr_without_mask = ip_addr.split('/')[0]
@@ -653,8 +659,18 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                 if is_ipv6:
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
                     ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    try:
+                        ssh_client.connect(ip_addr_without_mask,
+                                           username="WRONG_USER", password="WRONG_PWD", timeout=15)
+                    except AuthenticationException:
+                        has_available_ipv6_addr = has_available_ipv6_addr or True
+                    except BaseException:
+                        pass
+
         pytest_assert(len(ipv6_address[duthost.hostname]) > 0,
                       f"{duthost.hostname} doesn't have IPv6 Management IP address")
+        pytest_assert(has_available_ipv6_addr,
+                      f"{duthost.hostname} doesn't have available IPv6 Management IP address")
 
     # Remove IPv4 mgmt-ip
     for duthost in duthosts.nodes:
