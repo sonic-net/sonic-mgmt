@@ -86,6 +86,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
+    parser.addoption("--testbed_idx", action="store", default=None, help="testbed name index")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
 
     # test_vrf options
