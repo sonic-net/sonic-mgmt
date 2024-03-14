@@ -247,7 +247,7 @@ ACL_SERVICES = {
     }
 }
 
-# For internal test, it has additional 50051 dst port for SSH iptable rules
+# For internal test, it has additional 50051 and 50052 dst port for SSH iptable rules
 ACL_SERVICES_INTERNAL = {
     "NTP": {
         "ip_protocols": ["udp"],
@@ -261,7 +261,7 @@ ACL_SERVICES_INTERNAL = {
     },
     "SSH": {
         "ip_protocols": ["tcp"],
-        "dst_ports": ["22", "50051"],
+        "dst_ports": ["22", "50051", "50052"],
         "multi_asic_ns_to_host_fwd": True
     }
 }
