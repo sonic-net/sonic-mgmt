@@ -1,9 +1,7 @@
 ansible_ssh_user: admin
 ansible_connection: multi_passwd_ssh
 ansible_altpassword: YourPaSsWoRd
-# ansible_altpasswords:
-#   - fakepassword1
-#   - fakepassword2
+ansible_altpasswords: "{{ secret_group_vars['str']['altpasswords'] }}"
 
 sonic_version: "v2"
 
