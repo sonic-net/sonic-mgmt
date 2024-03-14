@@ -74,6 +74,8 @@ def _password_retry(func):
                         ssh_args[idx] = hostv6
                 self.host = hostv6
                 self.set_option("host", hostv6)
+            except BaseException:
+                pass
 
         password = self.get_option("password") or self._play_context.password
         conn_passwords = [password]
