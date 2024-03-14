@@ -739,6 +739,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
 #######################################
 #####            ip               #####
 #######################################
+ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+  skip:
+    reason: "Skipping mgmt ipv6 test for mgmt topo"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
+
 ip/test_ip_packet.py:
   skip:
     reason: "Skipping ip packet test since can't provide enough interfaces"
