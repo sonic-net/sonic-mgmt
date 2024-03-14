@@ -357,7 +357,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
             "value": {
                 "DYNAMIC_ACL_TABLE|DHCPV6_RULE": {
                     "IP_PROTOCOL": "17",
-                    "L4_DST_PORT_RANGE": "547-548",
+                    "L4_DST_PORT_RANGE": "546-547",
                     "ETHER_TYPE": "0x86DD",
                     "PRIORITY": "9998",
                     "PACKET_ACTION": "FORWARD"
@@ -373,7 +373,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE DHCPV6_RULE” match the following output:
   + Table | Rule | Priority | Action | Match | Status
      ---- | ---- | ------- | ------- | ------| ------
-     DYNAMIC_ACL_TABLE |	DHCPV6_RULE | 9998 | FORWARD |  L4_DST_PORT_RANGE: 547-548 | Active
+     DYNAMIC_ACL_TABLE |	DHCPV6_RULE | 9998 | FORWARD |  L4_DST_PORT_RANGE: 546-547 | Active
      | | | | | ETHER_TYPE: 0x86DD |
      | | | | | IP_PROTOCOL: 17 |
 
@@ -388,7 +388,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
             "value": {
                 "DYNAMIC_ACL_TABLE|ARP_RULE": {
                     "ETHER_TYPE": "0x0806",
-                    "PRIORITY": "9998",
+                    "PRIORITY": "9997",
                     "PACKET_ACTION": "FORWARD"
                 }
             }
@@ -402,7 +402,7 @@ DYNAMIC_ACL_TABLE | DYNAMIC_ACL_TABLE_TYPE | {vlan port 1} | DYNAMIC_ACL_TABLE_T
 + Check that results of “show acl rule DYNAMIC_ACL_TABLE ARP_RULE" matches the following output:
   + Table | Rule | Priority | Action | Match | Status
     ----- | ---- | ---- | ---- | ---- | -----
-    DYNAMIC_ACL_TABLE |	ARP_RULE | 9998 | FORWARD |  ETHER_TYPE: 0x0806 | Active
+    DYNAMIC_ACL_TABLE |	ARP_RULE | 9997 | FORWARD |  ETHER_TYPE: 0x0806 | Active
 
 
 ### Create Drop Rule
