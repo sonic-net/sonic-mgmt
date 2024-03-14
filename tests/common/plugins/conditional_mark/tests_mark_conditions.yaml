@@ -616,9 +616,11 @@ generic_config_updater:
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 or backend topology"
+    conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "'backend' in topo_name"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
