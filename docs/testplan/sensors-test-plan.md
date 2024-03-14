@@ -19,7 +19,7 @@ The current test checks the sensors per platform, using a predefined list of sen
 We want to modify the test to depend on the PSUs sensors of the PSUs installed currently on the device and not those in the yml file.
 
 ### Scope
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to test sensor validation after change of test.
+The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify sensor validation is done correctly after modification of the test.
 
 ### Testbed
 The test could run on any testbed.
