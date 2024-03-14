@@ -8,7 +8,7 @@ from natsort import natsorted
 from .qos_fixtures import lossless_prio_dscp_map                                            # noqa F401
 from .qos_helpers import ansible_stdout_to_str, get_phy_intfs, get_addrs_in_subnet,\
     get_active_vlan_members, get_vlan_subnet, natural_keys, get_max_priority
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m     # noqa F401
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
@@ -37,7 +37,7 @@ MAX_TEST_INTFS_COUNT = 2
 
 
 @pytest.fixture(scope="module", autouse=True)
-def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost, toggle_all_simulator_ports_to_rand_selected_tor_m):
+def pfc_test_setup(duthosts, rand_one_dut_hostname, tbinfo, ptfhost, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """
     Generate configurations for the tests
 
