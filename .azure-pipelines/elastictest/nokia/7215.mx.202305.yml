@@ -71,12 +71,12 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "copp"
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "copp"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS

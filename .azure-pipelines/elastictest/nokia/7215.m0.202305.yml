@@ -53,11 +53,6 @@ parameters:
     default: $(BJW_IMAGE_MARVELL_202305)
     displayName: "Image URL"
 
-  - name: UPGRADE_IMAGE_PARAM
-    type: string
-    default: "--enable-fips"
-    displayName: "Upgrade image parameter"
-
   - name: MGMT_BRANCH
     type: string
     default: internal-202305
@@ -125,7 +120,6 @@ stages:
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
-        UPGRADE_IMAGE_PARAM: ${{ parameters.UPGRADE_IMAGE_PARAM }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
