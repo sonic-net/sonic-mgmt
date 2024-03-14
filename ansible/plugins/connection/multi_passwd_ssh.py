@@ -62,9 +62,6 @@ def _password_retry(func):
             ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             try:
                 ssh_client.connect(self.host, username="WRONG_USER", password="WRONG_PWD", timeout=15)
-            except AuthenticationException:
-                # Authentication Exception means host(generally IPv4) is available, no need to use IPv6 IP
-                pass
             except NoValidConnectionsError:
                 self._play_context.remote_addr = hostv6
                 # args sample:
@@ -77,7 +74,9 @@ def _password_retry(func):
                         ssh_args[idx] = hostv6
                 self.host = hostv6
                 self.set_option("host", hostv6)
-            except BaseException:
+            except (AuthenticationException, BaseException):
+                # Authentication Exception means host(generally IPv4) is available, no need to use IPv6 IP
+                # Ignore other exceptions to unblock multi password logic
                 pass
 
         password = self.get_option("password") or self._play_context.password
