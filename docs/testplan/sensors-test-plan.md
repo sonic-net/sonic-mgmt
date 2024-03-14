@@ -19,7 +19,7 @@ The current test checks the sensors per platform, using a predefined list of sen
 We want to modify the test to depend on the PSUs sensors of the PSUs installed currently on the device and not those in the yml file.
 
 ### Scope
-The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify sensor validation is done correctly after modification of the test.
+The test is targeting a running SONIC system with fully functioning configuration. The purpose of the test is to verify sensor validation is done correctly after modification of the test. The modification to the test is only targeted on nvidia platforms at the moment.
 
 ### Testbed
 The test could run on any testbed.
@@ -45,6 +45,10 @@ all the non-psu sensors from the original sku-sensors-data.yml, and the PSU sens
 for validation and the process will proceed as it did in the old design.
 
 In the case the PSU is not found in the psu-sensors-data.yml file, we will use the old approach and fetch all sensors from sku-sensors-data.yml file.
+
+Example of how sensors look in sku-sensors-data.yml vs. how they look in psu-sensors-data.yml:
+![image](https://github.com/mhen1/sonic-mgmt/assets/155874991/b8f6f37f-47b4-4d61-8af2-7f81105e85d6)
+
 
 ## Tests
 The flow of the test by itself does not change - we validate the values of sensors that reside on our system. We run the test with diffreent scenarios to verify the modification works as expected.
