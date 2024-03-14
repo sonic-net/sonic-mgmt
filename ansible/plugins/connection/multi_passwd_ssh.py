@@ -10,7 +10,7 @@ from paramiko.ssh_exception import AuthenticationException, NoValidConnectionsEr
 from ansible.plugins import connection
 
 logging.basicConfig()
-logging.getLogger("paramiko").setLevel(logging.WARNING)
+logging.getLogger("paramiko").setLevel(logging.CRITICAL)
 
 logger = logging.getLogger(__name__)
 
