@@ -489,7 +489,7 @@ def compare_crm_facts(duthost, left, right):
         lv = v
         rv = right['resources'][k]
 
-        if duthosts.facts['platform_type'] == "cisco-8000":
+        if duthost.facts['platform_type'] == "cisco-8000":
             # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
             # Hence, the available counter may not increase as per initial value.
             if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
@@ -518,7 +518,7 @@ def compare_crm_facts(duthost, left, right):
         lv = v
         rv = right_acl_group[k]
 
-        if duthosts.facts['platform_type'] == "cisco-8000":
+        if duthost.facts['platform_type'] == "cisco-8000":
             # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
             # Hence, the available counter may not increase as per initial value.
             if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
