@@ -86,10 +86,10 @@ def check_ip_rule_exist(duthost, address, check_exist):
     dstlen = address.split("/")[1]
     for ip_rule in ip_rules:
         if (ip_rule.get("priority", "") == FORCED_MGMT_ROUTE_PRIORITY and
-            ip_rule.get("src", "") == 'all' and
-            ip_rule.get("dst", "") == dst and
-            ip_rule.get("dstlen", "") == int(dstlen) and
-            ip_rule.get("table", "") == 'default'):
+                ip_rule.get("src", "") == 'all' and
+                ip_rule.get("dst", "") == dst and
+                ip_rule.get("dstlen", "") == int(dstlen) and
+                ip_rule.get("table", "") == 'default'):
             exist = True
 
     return check_exist == exist
