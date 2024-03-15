@@ -22,12 +22,12 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, localhost):
     with open(file_name, 'w') as file:
         file.write(text)
     # Add DASH_VNET_TABLE
-    update_list = ["/sonic-db:APPL_DB/DASH_VNET_TABLE:@./%s" % (file_name)]
+    update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@./%s" % (file_name)]
     ret, msg = gnmi_set(duthost, localhost, [], update_list, [])
     assert ret == 0, msg
     # Check gnmi_get result
-    path_list1 = ["/sonic-db:APPL_DB/DASH_VNET_TABLE/Vnet1/vni"]
-    path_list2 = ["/sonic-db:APPL_DB/_DASH_VNET_TABLE/Vnet1/vni"]
+    path_list1 = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1/vni"]
+    path_list2 = ["/sonic-db:APPL_DB/localhost/_DASH_VNET_TABLE/Vnet1/vni"]
     ret1, msg_list1 = gnmi_get(duthost, localhost, path_list1)
     ret2, msg_list2 = gnmi_get(duthost, localhost, path_list2)
     output = ""
@@ -38,12 +38,12 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, localhost):
     assert output == "\"1000\"", output
 
     # Remove DASH_VNET_TABLE
-    delete_list = ["/sonic-db:APPL_DB/DASH_VNET_TABLE/Vnet1"]
+    delete_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1"]
     ret, msg = gnmi_set(duthost, localhost, delete_list, [], [])
     assert ret == 0, msg
     # Check gnmi_get result
-    path_list1 = ["/sonic-db:APPL_DB/DASH_VNET_TABLE/Vnet1/vni"]
-    path_list2 = ["/sonic-db:APPL_DB/_DASH_VNET_TABLE/Vnet1/vni"]
+    path_list1 = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1/vni"]
+    path_list2 = ["/sonic-db:APPL_DB/localhost/_DASH_VNET_TABLE/Vnet1/vni"]
     ret1, msg_list1 = gnmi_get(duthost, localhost, path_list1)
     ret2, msg_list2 = gnmi_get(duthost, localhost, path_list2)
     assert ret1 != 0 and ret2 != 0, msg_list1[0] + msg_list2[0]

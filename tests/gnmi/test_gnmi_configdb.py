@@ -50,8 +50,8 @@ def test_gnmi_configdb_incremental_01(duthosts, rand_one_dut_hostname, localhost
     file_name = "port.txt"
     interface = get_first_interface(duthost)
     assert interface is not None, "Invalid interface"
-    update_list = ["/sonic-db:CONFIG_DB/PORT/%s/admin_status:@./%s" % (interface, file_name)]
-    path_list = ["/sonic-db:CONFIG_DB/PORT/%s/admin_status" % (interface)]
+    update_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status:@./%s" % (interface, file_name)]
+    path_list = ["/sonic-db:CONFIG_DB/localhost/PORT/%s/admin_status" % (interface)]
 
     # Shutdown interface
     text = "\"down\""
@@ -87,7 +87,7 @@ def test_gnmi_configdb_incremental_02(duthosts, rand_one_dut_hostname, localhost
     '''
     duthost = duthosts[rand_one_dut_hostname]
     file_name = "port.txt"
-    update_list = ["/sonic-db:CONFIG_DB/PORTABC/Ethernet100/admin_status:@./%s" % (file_name)]
+    update_list = ["/sonic-db:CONFIG_DB/localhost/PORTABC/Ethernet100/admin_status:@./%s" % (file_name)]
 
     # GNMI set request with invalid path
     text = "\"down\""
@@ -117,8 +117,8 @@ def test_gnmi_configdb_full_01(duthosts, rand_one_dut_hostname, localhost):
     filename = "full.txt"
     with open(filename, 'w') as file:
         json.dump(dic, file)
-    delete_list = ["/sonic-db:CONFIG_DB/"]
-    update_list = ["/sonic-db:CONFIG_DB/:@%s" % filename]
+    delete_list = ["/sonic-db:CONFIG_DB/localhost/"]
+    update_list = ["/sonic-db:CONFIG_DB/localhost/:@%s" % filename]
     ret, msg = gnmi_set(duthost, localhost, delete_list, update_list, [])
     assert ret == 0, msg
     # Check interface status and gnmi_get result
