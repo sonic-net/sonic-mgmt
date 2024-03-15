@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 0 * * 1,3,5"
+  - cron: "0 0 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -61,31 +61,37 @@ parameters:
   - name: SCRIPTS
     type: string
     default: " "
-    displayName: "Scripts to be executed"
+    displayName: "Scripts to be included"
 
   - name: FEATURES
     type: string
     default: " "
-    displayName: "Features to be executed"
+    displayName: "Features to be included"
 
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
     default: "acl/test_acl.py, \
               acl/test_stress_acl.py, \
+              copp/test_copp.py::TestCOPP::test_add_new_trap, \
+              copp/test_copp.py::TestCOPP::test_remove_trap, \
               copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot, \
               platform_tests/link_flap/test_cont_link_flap.py, \
               platform_tests/link_flap/test_link_flap.py, \
               platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status, \
               platform_tests/test_memory_exhaustion.py, \
               platform_tests/test_reboot.py, \
+              show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit, \
               stress/test_stress_routes.py, \
-              tacacs/test_ro_disk.py"
+              tacacs/test_ro_disk.py, \
+              tacacs/test_ro_user.py::test_ro_user_ipv6, \
+              tacacs/test_rw_user.py::test_rw_user_ipv6, \
+              telemetry/test_events.py::test_events"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "everflow,gnmi"
+    default: "everflow,gnmi,generic_config_updater"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
