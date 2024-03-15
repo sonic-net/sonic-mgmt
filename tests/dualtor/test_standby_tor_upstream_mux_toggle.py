@@ -39,7 +39,7 @@ def test_standby_tor_upstream_mux_toggle(
     PKT_NUM = 100
 
     duthost = rand_selected_dut
-    if duthosts.facts['platform_type'] == "cisco-8000":
+    if duthost.facts['platform_type'] == "cisco-8000":
         PAUSE_TIME = 90
     else:
         PAUSE_TIME = 10
