@@ -125,6 +125,7 @@
                                         "destination-port": "179"
                                     }
                                 }
+{% if dualtor == True -%}
                             },
                             "29": {
                                 "actions": {
@@ -156,6 +157,9 @@
                                     }
                                 }
                             }
+{%- else -%}
+                            }
+{%- endif %}
                         }
                     }
                 }

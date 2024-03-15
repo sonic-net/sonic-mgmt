@@ -510,6 +510,7 @@
                                         "destination-ip-address": "192.168.0.122/32"
                                     }
                                 }
+{% if dualtor == True -%}
                             },
                             "34": {
                                 "actions": {
@@ -541,6 +542,9 @@
                                     }
                                 }
                             }
+{%- else -%}
+                            }
+{%- endif %}
                         }
                     }
                 }
