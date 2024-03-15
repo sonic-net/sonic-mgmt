@@ -17,6 +17,11 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+# forced mgmt route priority hardcoded to 32764 in following j2 template:
+# https://github.com/sonic-net/sonic-buildimage/blob/master/files/image_config/interfaces/interfaces.j2#L82
+FORCED_MGMT_ROUTE_PRIORITY = 32764
+
+
 @pytest.fixture
 def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
     """make sure tacacs server running after UT finish"""
@@ -79,10 +84,8 @@ def check_ip_rule_exist(duthost, address, check_exist):
     exist = False
     dst = address.split("/")[0]
     dstlen = address.split("/")[1]
-    # forced mgmt route priority hardcoded to 32764 in following j2 template:
-    # https://github.com/sonic-net/sonic-buildimage/blob/a33330941c26a98927c57ed93beeddbe98281fd3/files/image_config/interfaces/interfaces.j2#L82
     for ip_rule in ip_rules:
-        if (ip_rule.get("priority", "") == 32764 and
+        if (ip_rule.get("priority", "") == FORCED_MGMT_ROUTE_PRIORITY and
             ip_rule.get("src", "") == 'all' and
             ip_rule.get("dst", "") == dst and
             ip_rule.get("dstlen", "") == int(dstlen) and
@@ -156,15 +159,15 @@ def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
     interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
     logging.debug("interfaces: {}".format(interfaces))
     pytest_assert("iface eth1 inet static" in interfaces)
-    pytest_assert("up ip -4 rule add pref 32764 to {} table default"
-                  .format(ipv4_forced_mgmt_address) in interfaces)
-    pytest_assert("pre-down ip -4 rule delete pref 32764 to {} table default"
-                  .format(ipv4_forced_mgmt_address) in interfaces)
+    pytest_assert("up ip -4 rule add pref {} to {} table default"
+                  .format(FORCED_MGMT_ROUTE_PRIORITY, ipv4_forced_mgmt_address) in interfaces)
+    pytest_assert("pre-down ip -4 rule delete pref {} to {} table default"
+                  .format(FORCED_MGMT_ROUTE_PRIORITY, ipv4_forced_mgmt_address) in interfaces)
     pytest_assert("iface eth1 inet6 static" in interfaces)
-    pytest_assert("up ip -6 rule add pref 32764 to {} table default"
-                  .format(ipv6_forced_mgmt_address) in interfaces)
-    pytest_assert("pre-down ip -6 rule delete pref 32764 to {} table default"
-                  .format(ipv6_forced_mgmt_address) in interfaces)
+    pytest_assert("up ip -6 rule add pref {} to {} table default"
+                  .format(FORCED_MGMT_ROUTE_PRIORITY, ipv6_forced_mgmt_address) in interfaces)
+    pytest_assert("pre-down ip -6 rule delete pref {} to {} table default"
+                  .format(FORCED_MGMT_ROUTE_PRIORITY, ipv6_forced_mgmt_address) in interfaces)
 
     # startup eth1 and check forced mgmt route exist
     duthost.command("sudo ifup eth1")
@@ -245,10 +248,10 @@ def test_update_forced_mgmt(
         interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
         logging.debug("interfaces: {}".format(interfaces))
 
-        pytest_assert("up ip {} rule add pref 32764 to {} table default"
-                      .format(ip_type, test_route) in interfaces)
-        pytest_assert("pre-down ip {} rule delete pref 32764 to {} table default"
-                      .format(ip_type, test_route) in interfaces)
+        pytest_assert("up ip {} rule add pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces)
+        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) in interfaces)
 
         # Check forced mgmt route add to route table
         exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, test_route, True)
@@ -268,10 +271,10 @@ def test_update_forced_mgmt(
         # Check /etc/network/interfaces generate correct
         interfaces = duthost.command("cat /etc/network/interfaces")['stdout']
         logging.debug("interfaces: {}".format(interfaces))
-        pytest_assert("up ip {} rule add pref 32764 to {} table default"
-                      .format(ip_type, test_route) not in interfaces)
-        pytest_assert("pre-down ip {} rule delete pref 32764 to {} table default"
-                      .format(ip_type, test_route) not in interfaces)
+        pytest_assert("up ip {} rule add pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) not in interfaces)
+        pytest_assert("pre-down ip {} rule delete pref {} to {} table default"
+                      .format(ip_type, FORCED_MGMT_ROUTE_PRIORITY, test_route) not in interfaces)
 
         # Check forced mgmt route removed from route table
         exist = wait_until(10, 1, 0, check_ip_rule_exist, duthost, test_route, False)
