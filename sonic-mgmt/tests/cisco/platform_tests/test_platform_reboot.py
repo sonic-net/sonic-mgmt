@@ -29,7 +29,7 @@ def check_watchdog_service_status(duthost):
     else:
         return False
 
-def test_reboot_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+def test_reboot_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, localhost, skip_if_sim):
     """
     @summary: Check cisco watchdog is disabled in boot by watchdog control service
     """
