@@ -9,6 +9,7 @@ RUN apt -y update \
     && apt -y install git \
     && apt -y install wget \
     && apt -y install python3 \
+    && apt -y install python-is-python3 \
     && apt -y install python3-setuptools \
     && apt -y install python3-pip \
     && apt -y install python3-tk \
