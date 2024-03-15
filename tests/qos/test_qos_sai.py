@@ -2257,8 +2257,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiFullMeshTrafficSanity(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, dut_qos_maps, duthosts, # noqa F811
-            enum_frontend_dut_hostname, enum_frontend_asic_index
+            get_src_dst_asic_and_duts, dut_qos_maps, # noqa F811
+            set_static_route_ptf64
     ):
         """
             Test QoS SAI traffic sanity
@@ -2273,7 +2273,7 @@ class TestQosSai(QosSaiBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        # Concurrent execution with a specific set of dst port
+        # Execution with a specific set of dst port
         def run_test_for_dst_port(start, end):
             test_params = dict()
             test_params.update(dutTestParams["basicParams"])
@@ -2291,48 +2291,6 @@ class TestQosSai(QosSaiBase):
 
             self.runPtfTest(ptfhost, testCase="sai_qos_tests.FullMeshTrafficSanity", testParams=test_params)
 
-        def generate_ip_address(base_ip, new_first_octet):
-            octets = base_ip.split('.')
-            if len(octets) != 4:
-                raise ValueError("Invalid IP address format")
-            octets[0] = str(new_first_octet)
-            octets[2] = octets[3]
-            octets[3] = '1'
-            return '.'.join(octets)
-
-        def combine_ips(src_ips, dst_ips, new_first_octet):
-            combined_ips_map = {}
-
-            for key, src_info in src_ips.items():
-                src_ip = src_info['peer_addr']
-                new_ip = generate_ip_address(src_ip, new_first_octet)
-                combined_ips_map[key] = {'original_ip': src_ip, 'generated_ip': new_ip}
-
-            for key, dst_info in dst_ips.items():
-                dst_ip = dst_info['peer_addr']
-                new_ip = generate_ip_address(dst_ip, new_first_octet)
-                combined_ips_map[key] = {'original_ip': dst_ip, 'generated_ip': new_ip}
-
-            return combined_ips_map
-
-        def set_static_route(combined_ips_map, add_route=True):
-            action = "add" if add_route else "del"
-            for port, entry in combined_ips_map.items():
-                if enum_frontend_asic_index is None:
-                    duthost.shell("config route {} prefix {}.0/24 nexthop {}".format(
-                        action, '.'.join(entry['generated_ip'].split('.')[:3]), entry['original_ip']))
-                else:
-                    duthost.shell("ip netns exec asic{} config route {} prefix {}.0/24 nexthop {}".format(
-                        enum_frontend_asic_index,
-                        action, '.'.join(entry['generated_ip'].split('.')[:3]),
-                        entry['original_ip'])
-                      )
-
-        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
-            pytest.skip("Traffic sanity test is not supported")
-
-        duthost = duthosts[enum_frontend_dut_hostname]
-
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -2340,9 +2298,6 @@ class TestQosSai(QosSaiBase):
 
         src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
         dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
-
-        new_first_octet = 100
-        combined_ips_map = combine_ips(src_testPortIps, dst_testPortIps, new_first_octet)
 
         # Fetch all port IDs and IPs
         all_src_port_id_to_ip = {port_id: src_testPortIps[port_id]['peer_addr'] for port_id in src_testPortIps.keys()}
@@ -2353,7 +2308,7 @@ class TestQosSai(QosSaiBase):
                                   }
 
         all_dst_port_id_to_ip = {
-                                    port_id: combined_ips_map[port_id]['generated_ip']
+                                    port_id: set_static_route_ptf64[port_id]['generated_ip']
                                     for port_id in dst_testPortIps.keys()
                                 }
 
@@ -2370,14 +2325,7 @@ class TestQosSai(QosSaiBase):
                 "Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP"
                 "and key AZURE to run this test.")
 
-        if (dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS or
-                dutTestParams["topo"] in self.SUPPORTED_T1_TOPOS or
-                dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS):
-            dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map if tc != 7}
-        else:
-            pytest.skip("Test not supported in T2 topology")
-
-        set_static_route(combined_ips_map, True)
+        dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map if tc != 7}
 
         # Define the number of splits
         # for the dst port list
@@ -2392,5 +2340,3 @@ class TestQosSai(QosSaiBase):
         # Execute with one set of dst port at a time,  avoids ptf run getting timed out
         for start, end in zip([0] + split_points, split_points + [len(all_keys)]):
             run_test_for_dst_port(start, end)
-
-        set_static_route(combined_ips_map, False)
