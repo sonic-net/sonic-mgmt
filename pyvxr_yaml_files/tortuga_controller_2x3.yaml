@@ -6,8 +6,6 @@ simulation:
   slurm_flags:
     pending_timeout: 60
     hours: 30
-    partition: regression
-    cluster: rch-slurm-m1
 devices:
   trex1:
     data_ports:
