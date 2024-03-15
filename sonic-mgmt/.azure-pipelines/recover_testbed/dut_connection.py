@@ -97,7 +97,6 @@ def get_ssh_info(sonichost):
         host=sonichost.im.get_hosts(pattern='sonic')[0]).get("ansible_altpassword")
     sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
     sonic_ip = sonichost.im.get_host(sonichost.hostname).vars['ansible_host']
-    logging.info("sonic username: {}, password: {}".format(sonic_username, sonic_password))
     return sonic_username, sonic_password, sonic_ip
 
 

@@ -50,3 +50,8 @@
       shell: "bcmcmd 'fp detach' && bcmcmd 'fp init'"
       become: yes
   when: "'broadcom' in fanout_sonic_version.asic_type"
+
+- name: Run config qos reload command to load qos settings in order to fix 9332 Wdrr testcase failure
+  shell: config qos reload
+  become: yes
+  when: "'DellEMC-Z9332f-O32' in device_info[inventory_hostname]['HwSku']"

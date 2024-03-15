@@ -207,6 +207,8 @@ def test_fun(duthosts, rand_one_dut_hostname, ptfhost):
 
 - [get_vlan_intfs](sonichost_methods/get_vlan_intfs.md) - Retrieves list of interfaces belonging to a VLAN.
 
+- [get_vlan_brief](sonichost_methods/get_vlan_brief.md) - Returns a dict contians all vlans with their brief information
+
 - [hostname](sonichost_methods/hostname.md) - Provides hostname for device.
 
 - [is_backend_portchannel](sonichost_methods/is_backend_portchannel.md) - Returns whether or not a provided portchannel is a backend portchannel.
