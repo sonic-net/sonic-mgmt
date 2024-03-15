@@ -33,6 +33,14 @@ def backup_restore_config(duthosts, enum_rand_one_per_hwsku_hostname):
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
 
 
+def get_interface_reload_timestamp(duthost):
+    timestamp = duthost.command("sudo systemctl show --no-pager interfaces-config"
+                                " -p ExecMainExitTimestamp --value")["stdout"]
+    logger.info("interfaces config timestamp {}".format(timestamp))
+
+    return timestamp
+
+
 def get_file_hash(duthost, file):
     hash = duthost.command("sha1sum {}".format(file))["stdout"]
     logger.debug("file hash: {}".format(hash))
@@ -42,14 +50,16 @@ def get_file_hash(duthost, file):
 
 def wait_for_file_changed(duthost, file, action, *args, **kwargs):
     original_hash = get_file_hash(duthost, file)
+    last_timestamp = get_interface_reload_timestamp(duthost)
 
     action(*args, **kwargs)
 
-    def hash_changed(duthost, file):
+    def hash_and_timestamp_changed(duthost, file):
         latest_hash = get_file_hash(duthost, file)
-        return latest_hash != original_hash
+        latest_timestamp = get_interface_reload_timestamp(duthost)
+        return latest_hash != original_hash and latest_timestamp != last_timestamp
 
-    exist = wait_until(10, 1, 0, hash_changed, duthost, file)
+    exist = wait_until(10, 1, 0, hash_and_timestamp_changed, duthost, file)
     pytest_assert(exist, "File {} does not change after 10 seconds.".format(file))
 
 
@@ -57,21 +67,27 @@ def address_type(address):
     return type(ipaddress.ip_network(str(address), False))
 
 
-def check_ip_rule_exist(duthost, ip, check_exist):
-    logging.warning("check_ip_rule_exist for ip:{} exist:{}".format(ip, check_exist))
-    rule_command = "ip rule list"
-    if address_type(ip) is ipaddress.IPv6Network:
-        rule_command = "ip -6 rule list"
+def check_ip_rule_exist(duthost, address, check_exist):
+    logging.debug("check_ip_rule_exist for ip:{} exist:{}".format(address, check_exist))
+    rule_command = "ip --json rule list"
+    if address_type(address) is ipaddress.IPv6Network:
+        rule_command = "ip --json -6 rule list"
 
-    ip_rules = duthost.command(rule_command)["stdout"]
-    logging.warning("ip rule list: {}".format(ip_rules))
+    ip_rules = json.loads(duthost.command(rule_command)["stdout"])
+    logging.debug("ip rule list: {}".format(ip_rules))
 
-    rule = "32764:	from all to {} lookup default".format(ip)
+    exist = False
+    dst = address.split("/")[0]
+    dstlen = address.split("/")[1]
+    for ip_rule in ip_rules:
+        if (ip_rule.get("priority", "") == 32764 and
+            ip_rule.get("src", "") == 'all' and
+            ip_rule.get("dst", "") == dst and
+            ip_rule.get("dstlen", "") == int(dstlen) and
+            ip_rule.get("table", "") == 'default'):
+            exist = True
 
-    if check_exist:
-        return rule in ip_rules
-    else:
-        return rule not in ip_rules
+    return check_exist == exist
 
 
 def test_forced_mgmt_route_add_and_remove_by_mgmt_port_status(
