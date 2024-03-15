@@ -79,6 +79,8 @@ def check_ip_rule_exist(duthost, address, check_exist):
     exist = False
     dst = address.split("/")[0]
     dstlen = address.split("/")[1]
+    # forced mgmt route priority hardcoded to 32764 in following j2 template:
+    # https://github.com/sonic-net/sonic-buildimage/blob/a33330941c26a98927c57ed93beeddbe98281fd3/files/image_config/interfaces/interfaces.j2#L82
     for ip_rule in ip_rules:
         if (ip_rule.get("priority", "") == 32764 and
             ip_rule.get("src", "") == 'all' and
