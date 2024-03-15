@@ -863,7 +863,19 @@ class QosParamBroadcom(object):
         self.calc_param_for_wm_pg_headroom(pg_min, total_share_buf, buf_mode, buf_threshold, avail_share_buf,
                                            pg_reset_offset, pg_hdrm, eg_lossless_que_min, eg_lossy_que_min,
                                            eg_avail_share_buf, self.selected_profile)
-        # TODO: breakout case support
+        self.update_param_for_breakout()
+
+
+    def update_param_for_breakout(self):
+        if 'breakout' in self.qos_params[self.speed_cable_len]:
+            profile_list = list(self.qos_params[self.speed_cable_len]['breakout'].keys())
+            for profile_name in profile_list:
+                profile = self.qos_params[self.speed_cable_len].get(profile_name, None)
+                if profile is not None:
+                    self.msg('Update qos_params[{}]["breakout"][{}] from {} to {}'.format(self.speed_cable_len, profile_name,
+                        self.qos_params[self.speed_cable_len]['breakout'][profile_name], profile))
+                    self.qos_params[self.speed_cable_len]['breakout'].update({profile_name: profile})
+
 
     def calc_param_for_xoff(self, pg_min, total_share_buf, buf_mode, buf_threshold, avail_share_buf, pg_reset_offset,
                             pg_hdrm, eg_lossless_que_min, eg_lossy_que_min, eg_avail_share_buf, selected_profile):
