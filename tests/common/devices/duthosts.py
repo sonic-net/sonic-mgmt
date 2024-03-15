@@ -54,9 +54,15 @@ class DutHosts(object):
                    DUTs in the testbed should be used
 
         """
+        self.ansible_adhoc = ansible_adhoc
+        self.tbinfo = tbinfo
+        self.duts = duts
+        self.__initialize_nodes()
+
+    def __initialize_nodes(self):
         # TODO: Initialize the nodes in parallel using multi-threads?
-        self.nodes = self._Nodes([MultiAsicSonicHost(ansible_adhoc, hostname, self, tbinfo['topo']['type'])
-                                  for hostname in tbinfo["duts"] if hostname in duts])
+        self.nodes = self._Nodes([MultiAsicSonicHost(self.ansible_adhoc, hostname, self, self.tbinfo['topo']['type'])
+                                  for hostname in self.tbinfo["duts"] if hostname in self.duts])
         self.supervisor_nodes = self._Nodes([node for node in self.nodes if node.is_supervisor_node()])
         self.frontend_nodes = self._Nodes([node for node in self.nodes if node.is_frontend_node()])
 
@@ -125,3 +131,6 @@ class DutHosts(object):
             complex_args['host'] = node.hostname
             result[node.hostname] = node.config_facts(*module_args, **complex_args)['ansible_facts']
         return result
+
+    def reset(self):
+        self.__initialize_nodes()
