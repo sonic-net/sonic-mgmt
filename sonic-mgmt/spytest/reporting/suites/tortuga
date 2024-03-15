@@ -8,6 +8,7 @@
 
 #Runtime Arguments
 +args:--device-feature-group master
++args:--load-config-method=reboot
 +args:--module-init-max-timeout 9000
 +args:--tc-max-timeout 5400
 +args:--logs-level=debug
