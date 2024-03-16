@@ -169,7 +169,7 @@ class Vxlan(BaseTest):
                 else:
                     addr += 1  # skip gw
             res[port] = host_ip
-            #skip soc IPs for aa dualtor
+            # skip soc IPs for aa dualtor
             if self.is_active_active_dualtor:
                 addr += 2
             else:
@@ -495,7 +495,7 @@ class Vxlan(BaseTest):
 
         exp_packet = Mask(exp_packet)
         exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-        #skip smac check for aa dualtor
+        # skip smac check for aa dualtor
         if self.is_active_active_dualtor:
             exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
 
