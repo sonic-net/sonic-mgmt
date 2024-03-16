@@ -566,7 +566,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         ttl = 64
         if setup['topo'] in ['t0']:
             ttl = 1
-						   
+
         pkt = testutils.simple_tcpv6_packet(
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
             eth_dst=setup[direction]["ingress_router_mac"],
@@ -597,7 +597,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         ttl = 64
         if setup['topo'] in ['t0']:
             ttl = 1
- 
+
         pkt = testutils.simple_udpv6_packet(
             eth_src=ptfadapter.dataplane.get_mac(0, 0),
             eth_dst=setup[direction]["ingress_router_mac"],
