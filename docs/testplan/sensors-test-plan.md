@@ -40,11 +40,11 @@ The new design of the test will be as follows:
 As can be seen, there are now two static files in play. The original sku-sensors-data.yml file is still used to fetch the sensors unrelated to the PSUs. 
 However, there is a second file, called psu-sensors-data.yml which will be used to fetch the sensors relevant to the PSUs installed on the device. That is, we will check dynamically which PSUs are installed on the device and, using that information, fetch the relevant sensor information from the psu-sensors-data.yml file which will act as a mapping between PSUs and their relevant sesnors.
 
-After fetching the information from both files, we will merge them together to a single source of data for the validation. This data will contain
-all the non-psu sensors from the original sku-sensors-data.yml, and the PSU sensors as listed in the new psu-sensors-data.yml file. The merged data will be sent
-for validation and the process will proceed as it did in the old design.
+After fetching the information from both files, we will merge them together to a single source of data for the validation. This data will contain all the non-psu sensors from the original sku-sensors-data.yml, and the PSU sensors as listed in the new psu-sensors-data.yml file. The merged data will be sent for validation and the process will proceed as it did in the old design.
 
 In the case the PSU is not found in the psu-sensors-data.yml file, we will use the old approach and fetch all sensors from sku-sensors-data.yml file.
+
+Since some of the information of the psu sensor can rely on aspects like the psu slot and platform (for example, bus number and address), we use an additional file called psu_sensors.json to fetch the necessary data.
 
 Example of how sensors look in sku-sensors-data.yml vs. how they look in psu-sensors-data.yml:
 ![image](https://github.com/mhen1/sonic-mgmt/assets/155874991/b8f6f37f-47b4-4d61-8af2-7f81105e85d6)
