@@ -73,26 +73,30 @@ parameters:
     type: string
     default: "acl/test_acl.py, \
               acl/test_stress_acl.py, \
-              copp/test_copp.py::TestCOPP::test_add_new_trap, \
-              copp/test_copp.py::TestCOPP::test_remove_trap, \
-              copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot, \
               platform_tests/link_flap/test_cont_link_flap.py, \
               platform_tests/link_flap/test_link_flap.py, \
-              platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status, \
               platform_tests/test_memory_exhaustion.py, \
               platform_tests/test_reboot.py, \
-              show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit, \
               stress/test_stress_routes.py, \
-              tacacs/test_ro_disk.py, \
-              tacacs/test_ro_user.py::test_ro_user_ipv6, \
-              tacacs/test_rw_user.py::test_rw_user_ipv6, \
-              telemetry/test_events.py::test_events"
+              tacacs/test_ro_disk.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
     default: "everflow,gnmi,generic_config_updater"
     displayName: "Features to be excluded"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "copp/test_copp.py", "param": "--deselect=copp/test_copp.py::TestCOPP::test_add_new_trap --deselect=copp/test_copp.py::TestCOPP::test_remove_trap --deselect=copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot"},
+      {"name": "platform_tests/sfp/test_sfputil.py", "param": "--deselect=platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status"},
+      {"name": "show_techsupport/test_auto_techsupport.py", "param": "--deselect=show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit"},
+      {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
+      {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"},
+      {"name": "telemetry/test_events.py", "param": "--deselect=telemetry/test_events.py::test_events"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
@@ -124,6 +128,7 @@ stages:
         FEATURES: ${{ parameters.FEATURES }}
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
