@@ -173,6 +173,12 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
+  skip:
+    reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"

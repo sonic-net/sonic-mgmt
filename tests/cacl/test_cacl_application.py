@@ -189,6 +189,30 @@ def clean_scale_rules(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignore
     logger.info("Reload config to recover configuration.")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
+@pytest.fixture(scope="function")
+def setup_acl_tables(duthost):
+    """
+    Setup ACL table for test case.
+    """
+    # Add ipv6 ACL tables which are not default table in the DUT
+    duthost.shell('redis-cli -n 4 HMSET "ACL_TABLE|SNMP_ACL_IPV6" policy_desc "SNMP_ACL_IPV6" services@ "SNMP" stage "ingress" type "CTRLPLANE"')
+    duthost.copy(src='cacl/old_acl.json', dest="/tmp/old_acl.json")
+    duthost.copy(src='cacl/new_acl.json', dest='/tmp/new_acl.json')
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/old_acl.json")
+    assert result["rc"] == 0, "Failed to load old acl rules"
+
+    duthost.shell('redis-cli -n 4 HMSET "ACL_TABLE|IPV6_SSH_ONLY" policy_desc "IPV6_SSH_ONLY" services@ "SSH" stage "ingress" type "CTRLPLANE"')
+    duthost.shell('redis-cli -n 4 HMSET "ACL_TABLE|IPV6_SNMP_ACL" policy_desc "IPV6_SNMP_ACL" services@ "SNMP" stage "ingress" type "CTRLPLANE"')
+
+    yield
+    duthost.shell("/usr/local/bin/acl-loader delete IPV6_SNMP_ACL")
+    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL_IPV6")
+    duthost.shell("/usr/local/bin/acl-loader delete IPV6_SSH_ONLY")
+    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL")
+    duthost.shell("/usr/local/bin/acl-loader delete SSH_ONLY")
+    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|SNMP_ACL_IPV6"')
+    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|IPV6_SSH_ONLY"')
+    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|IPV6_SNMP_ACL"')
 
 def is_acl_rule_empty(duthost):
     """
@@ -385,6 +409,10 @@ def get_cacl_tables_and_rules(duthost):
                 # So we add them to the last rule we appended, stripping the trailing colon from the key name
                 key = tokens[0][:-1]
                 table["rules"][-1][key] = tokens[1]
+            elif len(tokens) == len(fld_rngs):
+                key, val = tokens[4].split()
+                key = key[:-1]
+                table["rules"][-1][key] = val
             else:
                 pytest.fail("Unexpected ACL rule data: {}".format(repr(tokens)))
 
@@ -1097,3 +1125,27 @@ def test_cacl_scale_rules_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, colle
         set(ignored_iptable_rules_v6)
     pytest_assert(len(unexpected_ip6tables_rules) == 0, "Unexpected ip6tables rules: {}"
                   .format(repr(unexpected_ip6tables_rules)))
+
+def test_cacl_acl_loader_commands_internal(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, setup_acl_tables,
+                                     localhost, creds, docker_network):
+    """
+    Test case to cover acl-loader commands which are used to do acl repave for Prod devices
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL_IPV6")
+    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL")
+    duthost.shell("/usr/local/bin/acl-loader delete SSH_ONLY")
+
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/new_acl.json --table_name IPV6_SNMP_ACL")
+    assert result["rc"] == 0, "Failed to delete IPV6_SNMP_ACL rules"
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/new_acl.json --table_name SNMP_ACL")
+    assert result["rc"] == 0, "Failed to delete SNMP_ACL rules"
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/new_acl.json --table_name IPV6_SSH_ONLY")
+    assert result["rc"] == 0, "Failed to delete IPV6_SSH_ONLY rules"
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/new_acl.json --table_name SSH_ONLY")
+    assert result["rc"] == 0, "Failed to load SSH_ONLY rules"
+    result = duthost.shell("/usr/local/bin/acl-loader update full /tmp/new_acl.json --table_name SNMP_ACL_IPV6")
+    assert result["rc"] == 0, "Failed to load SNMP_ACL_IPV6 rules"
+
+    verify_cacl(duthost, tbinfo, localhost, creds, docker_network)

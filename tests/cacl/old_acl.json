@@ -1,0 +1,402 @@
+{
+    "acl": {
+      "acl-sets": {
+        "acl-set": {
+          "everflow": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "127.0.0.1/32",
+                      "destination-ip-address": "127.0.0.1/32"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "source-port": "0",
+                      "destination-port": "0"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "everflow"
+            }
+          },
+          "everflowV6": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "::1/128",
+                      "destination-ip-address": "::1/128"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "source-port": "0",
+                      "destination-port": "0"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "everflowV6"
+            }
+          },
+          "SNMP_ACL": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "10.0.0.0/8"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                },
+                "2": {
+                  "config": {
+                    "sequence-id": 2
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "100.64.0.0/10"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                },
+                "3": {
+                  "config": {
+                    "sequence-id": 3
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "100.127.64.0/18"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                },
+                "4": {
+                  "config": {
+                    "sequence-id": 4
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "100.126.0.0/16"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                },
+                "5": {
+                  "config": {
+                    "sequence-id": 5
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "25.0.0.0/8"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "SNMP_ACL"
+            }
+          },
+          "SNMP_ACL-IPv6": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "2001:506:28::/48"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                },
+                "2": {
+                  "config": {
+                    "sequence-id": 2
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_UDP",
+                      "source-ip-address": "2603:10e2::/36"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "161"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "SNMP_ACL-IPv6"
+            }
+          },
+          "ipv6-ssh-only": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "2001:506:28::/48"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                },
+                "2": {
+                  "config": {
+                    "sequence-id": 2
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "2603:10e2::/36"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "ipv6-ssh-only"
+            }
+          },
+          "ssh-only": {
+            "acl-entries": {
+              "acl-entry": {
+                "1": {
+                  "config": {
+                    "sequence-id": 1
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "10.0.0.0/8"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                },
+                "2": {
+                  "config": {
+                    "sequence-id": 2
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "100.64.0.0/10"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                },
+                "3": {
+                  "config": {
+                    "sequence-id": 3
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "100.127.64.0/18"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                },
+                "4": {
+                  "config": {
+                    "sequence-id": 4
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "100.126.0.0/16"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                },
+                "5": {
+                  "config": {
+                    "sequence-id": 5
+                  },
+                  "actions": {
+                    "config": {
+                      "forwarding-action": "ACCEPT"
+                    }
+                  },
+                  "ip": {
+                    "config": {
+                      "protocol": "IP_TCP",
+                      "source-ip-address": "25.0.0.0/8"
+                    }
+                  },
+                  "transport": {
+                    "config": {
+                      "destination-port": "22"
+                    }
+                  }
+                }
+              }
+            },
+            "config": {
+              "name": "ssh-only"
+            }
+          }
+        }
+      }
+    }
+  }
