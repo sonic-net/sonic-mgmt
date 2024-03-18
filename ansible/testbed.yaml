@@ -1432,22 +1432,6 @@
   auto_recover: 'True'
   comment: Beijing lab
 
-- conf-name: testbed-bjw-can-ec9516-1
-  group-name: bjw16-1
-  topo: t1-lag
-  ptf_image_name: docker-ptf
-  ptf: bjw16-1
-  ptf_ip: 10.150.23.51/23
-  ptf_ipv6:
-  ptf_extra_mgmt_ip: ["172.16.188.51/17"]
-  server: server_bjw_16
-  vm_base: VM73000
-  dut:
-    - bjw-can-ec9516-1
-  inv_name: bjw
-  auto_recover: 'True'
-  comment: SAI Qualification
-
 - conf-name: testbed-bjw-can-2700-1
   group-name: bjw13-1
   topo: t0
