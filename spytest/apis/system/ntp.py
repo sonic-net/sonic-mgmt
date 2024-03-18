@@ -3,11 +3,12 @@ import re
 import datetime
 import copy
 from spytest import st
-
-from utilities.common import filter_and_select, iterable, make_list
-from utilities.utils import ensure_service_params, get_interface_number_from_name
-
+from utilities.common import filter_and_select
+from utilities.utils import ensure_service_params, get_interface_number_from_name, get_supported_ui_type_list
+from utilities.common import make_list
 from apis.system.rest import config_rest, get_rest, delete_rest
+import apis.system.system_server as sys_server_api
+from pkg_resources import parse_version
 errors_list = ['error', 'invalid', 'usage', 'illegal', 'unrecognized']
 
 
@@ -21,13 +22,22 @@ def add_ntp_servers(dut, iplist=[], cli_type=''):
     st.log("add ntp servers")
     final_data = {}
     temp_data = {}
+    iplist = make_list(iplist)
     if iplist:
         for ip in iplist:
             temp_data[ip] = {}
     else:
         st.log("please provide atleast 1 server to configure")
         return False
-    if cli_type == "click":
+    if cli_type in get_supported_ui_type_list():
+        kwargs = dict()
+        kwargs['config'] = 'yes'
+        for ip in iplist:
+            kwargs['server_address'] = ip
+            result = sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **kwargs)
+            if not result:
+                return result
+    elif cli_type == "click":
         final_data['NTP_SERVER'] = temp_data
         final_data = json.dumps(final_data)
         st.apply_json(dut, final_data)
@@ -37,17 +47,17 @@ def add_ntp_servers(dut, iplist=[], cli_type=''):
             st.config(dut, commands, type=cli_type)
     elif cli_type in ['rest-patch', 'rest-put']:
         for ip in iplist:
-            data={
-              "openconfig-system:servers": {
-                  "server": [
-                {
-                  "address": str(ip),
-                  "config": {
-                    "address": str(ip)
-                  }
+            data = {
+                "openconfig-system:servers": {
+                    "server": [
+                        {
+                            "address": str(ip),
+                            "config": {
+                                "address": str(ip)
+                            }
+                        }
+                    ]
                 }
-                ]
-              }
             }
             rest_urls = st.get_datastore(dut, "rest_urls")
             url1 = rest_urls['config_ntp_server'].format(ip)
@@ -62,6 +72,7 @@ def add_ntp_servers(dut, iplist=[], cli_type=''):
     st.config(dut, command)
     return True
 
+
 def delete_ntp_servers(dut, cli_type=''):
     """
     :param dut:
@@ -75,9 +86,16 @@ def delete_ntp_servers(dut, cli_type=''):
         st.log("No servers to delete")
         return True
     else:
-        for ent in iterable(output):
+        for ent in output:
             server_ip = ent["remote"].strip("+*#o-x").strip()
-            if cli_type == "click":
+            if cli_type in get_supported_ui_type_list():
+                kwargs = dict()
+                kwargs['config'] = 'no'
+                kwargs['server_address'] = server_ip
+                result = sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **kwargs)
+                if not result:
+                    return True
+            elif cli_type == "click":
                 commands.append("config ntp del {}".format(server_ip))
             elif cli_type == "klish":
                 commands.append("no ntp server {}".format(server_ip))
@@ -160,6 +178,7 @@ def show_ntp_server(dut, cli_type=''):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     st.log("show ntp servers")
     if cli_type == "click":
         command = "show ntp"
@@ -179,22 +198,23 @@ def show_ntp_server(dut, cli_type=''):
     output = _get_show_ntp_with_hostname_to_ip_conversion(data)
     return output
 
+
 def verify_ntp_server_details(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
     flag = 1
     if not output:
-       flag = 0
+        flag = 0
     if server_ip is None:
-        if "No association ID's returned" in str(output):
+        if "No association ID's returned" in output:
             return True
-        elif "%Error: Resource not found" in str(output):
+        elif "%Error: Resource not found" in output:
             return True
         else:
             return False
     else:
-        server_ips = [server_ip] if type(server_ip) is str else list([str(e) for e in server_ip])
+        server_ips = [server_ip] if isinstance(server_ip, str) else list([str(e) for e in server_ip])
         data = kwargs
-        for ent in iterable(output):
+        for ent in output:
             remote_ip = ent["remote"].strip("+*#o-x").strip()
             if remote_ip in server_ips:
                 if 'remote' in data and remote_ip not in data['remote']:
@@ -237,15 +257,27 @@ def verify_ntp_server_details(dut, server_ip=None, **kwargs):
             st.log("Server IP's not matched.")
             return False
 
-def show_ntp_status(dut,mvrf=False):
+
+def show_ntp_status(dut, mvrf=False):
     """
 
     :param dut:
     :return:
     """
     st.log("show ntp status")
+    isBuster = False
+    # os_info will be like 'Linux sonic 4.9.0-11-2-amd64 #1 SMP Debian 4.9.189-3+deb9u2 ...'
+    os_info = st.config(dut, "uname -a")
+    release = os_info.split(' ')
+    release = release[2]
+    release = release.split('-')
+    if parse_version(release[0]) > parse_version("4.9.0"):
+        isBuster = True
     if mvrf:
-        command = "sudo cgexec -g l3mdev:mgmt ntpstat"
+        if isBuster:
+            command = "sudo ip vrf exec mgmt ntpstat"
+        else:
+            command = "sudo cgexec -g l3mdev:mgmt ntpstat"
     else:
         command = "ntpstat"
     output = st.show(dut, command)
@@ -270,6 +302,7 @@ def config_date(dut, date):
     command = "date --set='{}'".format(date)
     st.config(dut, command)
     return True
+
 
 def set_date_ntp(dut):
     """
@@ -303,6 +336,7 @@ def show_clock(dut, cli_type=''):
     :return:
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     st.log("show clock")
     if cli_type in ["click", "klish"]:
         command = "show clock"
@@ -310,8 +344,8 @@ def show_clock(dut, cli_type=''):
     elif cli_type in ['rest-patch', 'rest-put']:
         rest_urls = st.get_datastore(dut, "rest_urls")
         url1 = rest_urls['show_clock']
-        data=get_rest(dut, rest_url=url1)
-        data = data['output']['openconfig-system-ext:clock']
+        data = get_rest(dut, rest_url=url1)
+        data = data['output']['openconfig-system:current-datetime']
         output = get_time_zone_info(data)
     else:
         st.log("UNSUPPORTED CLI TYPE -- {}".format(cli_type))
@@ -394,7 +428,7 @@ def verify_ntp_status(dut, iteration=1, delay=1, mvrf=False, **kwargs):
     else:
         while True:
             flag = 0
-            retval = show_ntp_status(dut,mvrf)
+            retval = show_ntp_status(dut, mvrf)
             if not retval:
                 st.log("No o/p from ntpstat command")
                 if i > iteration:
@@ -508,17 +542,18 @@ def verify_ntp_service_status(dut, status, iteration=1, delay=1):
         i += 1
         st.wait(delay)
 
+
 def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
     output = show_ntp_server(dut)
     if server_ip is None:
-        if "No association ID's returned" in str(output):
+        if "No association ID's returned" in output:
             return True
         else:
             return False
     else:
-        server_ips = [server_ip] if type(server_ip) is str else list([str(e) for e in server_ip])
+        server_ips = [server_ip] if isinstance(server_ip, str) else list([str(e) for e in server_ip])
         data = kwargs
-        for ent in iterable(output):
+        for ent in output:
             remote_ip = ent["remote"].strip("+*#o-x").strip()
             if remote_ip in server_ips:
                 if 'remote' in data and remote_ip not in data['remote']:
@@ -528,7 +563,7 @@ def verify_ntp_server_exists(dut, server_ip=None, **kwargs):
                     return True
 
 
-def ensure_ntp_config(dut,iplist=[], cli_type=''):
+def ensure_ntp_config(dut, iplist=[], cli_type=''):
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     if not iplist:
         iplist = ensure_service_params(dut, "ntp", "default")
@@ -538,7 +573,15 @@ def ensure_ntp_config(dut,iplist=[], cli_type=''):
     commands = []
     for ip in iplist:
         if not verify_ntp_server_exists(dut, ip, remote=ip):
-            if cli_type == "click":
+            if cli_type in get_supported_ui_type_list():
+                kwargs = dict()
+                kwargs['config'] = 'yes'
+                for ip in iplist:
+                    kwargs['server_address'] = ip
+                    result = sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **kwargs)
+                    if not result:
+                        return result
+            elif cli_type == "click":
                 commands.append("config ntp add {}".format(ip))
             elif cli_type == "klish":
                 commands.append("ntp server {}".format(ip))
@@ -546,15 +589,15 @@ def ensure_ntp_config(dut,iplist=[], cli_type=''):
                 data = {
                     "openconfig-system:servers": {
                         "server": [
-                        {
-                        "address": str(ip),
-                        "config": {
-                            "address": str(ip)
-                        }
-                        }
+                            {
+                                "address": str(ip),
+                                "config": {
+                                    "address": str(ip)
+                                }
+                            }
                         ]
                     }
-                    }
+                }
                 rest_urls = st.get_datastore(dut, "rest_urls")
                 url1 = rest_urls['config_ntp_server'].format(ip)
                 if not config_rest(dut, http_method=cli_type, rest_url=url1, json_data=data):
@@ -566,15 +609,17 @@ def ensure_ntp_config(dut,iplist=[], cli_type=''):
     st.config(dut, commands, type=cli_type)
     return True
 
+
 def _get_show_ntp_with_hostname_to_ip_conversion(data):
     ret_val = list()
-    ntp_server_hostname_ip_map = {"io.crash-override.org": "47.190.36.230", "horp-bsd01.horp.io": "192.111.144.114", "time3.google.com":"216.239.35.8", "time4.google.com":"216.239.35.12", "time2.google.com":"216.239.35.4"}
+    ntp_server_hostname_ip_map = {"io.crash-override.org": "47.190.36.230", "horp-bsd01.horp.io": "192.111.144.114", "time3.google.com": "216.239.35.8", "time4.google.com": "216.239.35.12", "time2.google.com": "216.239.35.4"}
     for entry in data:
         for hostname, ip in ntp_server_hostname_ip_map.items():
             if ('remote' in entry) and (entry['remote'][1:] in hostname):
                 entry.update(remote=ip)
         ret_val.append(entry)
     return ret_val
+
 
 def get_rest_server_info(server_output):
     ret_val = []
@@ -583,18 +628,18 @@ def get_rest_server_info(server_output):
         for server in servers:
             temp = dict()
             server_details = server['state']
-            req_params = ['address', 'openconfig-system-ext:reach', 'openconfig-system-ext:now', 'stratum', 'openconfig-system-ext:peerdelay', 'openconfig-system-ext:peertype', 'openconfig-system-ext:peeroffset', 'openconfig-system-ext:peerjitter', 'poll-interval', 'openconfig-system-ext:refid', 'openconfig-system-ext:selmode']
+            req_params = ['address', 'reach', 'now', 'stratum', 'peer-delay', 'peer-type', 'peer-offset', 'peer-jitter', 'poll-interval', 'refid', 'sel-mode']
             if all(param in server_details for param in req_params):
-                temp['remote'] = str(server_details['openconfig-system-ext:selmode']+server_details['address'])
-                temp['reach'] = str(server_details['openconfig-system-ext:reach'])
-                temp['when'] = str(server_details['openconfig-system-ext:now'])
+                temp['remote'] = str(server_details['sel-mode'] + server_details['address'])
+                temp['reach'] = str(server_details['reach'])
+                temp['when'] = str(server_details['now'])
                 temp['st'] = str(server_details['stratum'])
-                temp['delay'] = str(server_details['openconfig-system-ext:peerdelay'])
-                temp['t'] = str(server_details['openconfig-system-ext:peertype'])
-                temp['offset'] = str(server_details['openconfig-system-ext:peeroffset'])
-                temp['jitter'] = str(server_details['openconfig-system-ext:peerjitter'])
+                temp['delay'] = str(server_details['peer-delay'])
+                temp['t'] = str(server_details['peer-type'])
+                temp['offset'] = str(server_details['peer-offset'])
+                temp['jitter'] = str(server_details['peer-jitter'])
                 temp['poll'] = str(server_details['poll-interval'])
-                temp['refid'] = str(server_details['openconfig-system-ext:refid'])
+                temp['refid'] = str(server_details['refid'])
                 ret_val.append(temp)
         st.debug(ret_val)
         return ret_val
@@ -603,20 +648,20 @@ def get_rest_server_info(server_output):
         st.debug("Given data is: {}".format(server_output))
         return ret_val
 
+
 def get_time_zone_info(data):
-    elements =  re.findall(r"(\S+)\,\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\:(\d+)\:(\d+)\s+(\S+)", data)
-    if len(elements[0])==8:
+    elements = re.findall(r"(\d+)\-(\d+)\-(\d+)T(\d+)\:(\d+)\:(\d+)Z", data)
+    if len(elements[0]) == 6:
         data = elements[0]
         ret_val = list()
         out = dict()
-        out['day'] = data[0]
-        out['monthday'] = data[1]
-        out['month'] = data[2]
-        out['year'] = data[3]
-        out['hours'] = data[4]
-        out['minutes'] = data[5]
-        out['seconds'] = data[6]
-        out['timezone'] = data[7]
+        month_dict = {"01": "jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun", "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"}
+        out['monthday'] = data[2]
+        out['month'] = month_dict[data[1]]
+        out['year'] = data[0]
+        out['hours'] = data[3]
+        out['minutes'] = data[4]
+        out['seconds'] = data[5]
         ret_val.append(out)
         return ret_val
     else:
@@ -641,7 +686,7 @@ def get_ntp_logs(dut, filter=None):
 
 
 def verify_time_synch(server_time, client_time):
-    diff=10
+    diff = 10
     month_dict = {"Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6, "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12}
     try:
         time1 = datetime.datetime(int(server_time['year']), month_dict[server_time['month']], int(server_time['monthday']), int(server_time['hours']), int(server_time['minutes']), int(server_time['seconds']))
@@ -650,7 +695,7 @@ def verify_time_synch(server_time, client_time):
     except Exception as e:
         st.error("'{}' exception occurred".format(e))
         return False
-    return True if int(difference) < diff else False
+    return True if int(abs(difference)) < diff else False
 
 
 def verify_ntp_synch(dut, server):
@@ -668,10 +713,52 @@ def config_ntp_parameters(dut, **kwargs):
     Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom.com)
     """
     cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = "klish" if cli_type == "click" else cli_type
     config = kwargs.get('config', True)
     skip_error = kwargs.get('skip_error', False)
+    prefer = kwargs.get('prefer', None)
     commands = list()
-    if cli_type == "klish":
+    if cli_type in get_supported_ui_type_list():
+        if 'source_intf' in kwargs and not config:
+            cli_type = "klish"
+    if cli_type in get_supported_ui_type_list():
+        config_gbl_paramm = False
+        ret_val = True
+        kwargs['config'] = 'yes' if config else 'no'
+        if 'source_intf' in kwargs:
+            for src_intf in make_list(kwargs['source_intf']):
+                kwargs['src_intf'] = src_intf
+                sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **kwargs)
+            kwargs.pop('source_intf')
+            kwargs.pop('src_intf')
+        if 'vrf' in kwargs:
+            kwargs['vrf_name'] = kwargs.pop('vrf')
+            config_gbl_paramm = True
+        if 'authenticate' in kwargs:
+            config_gbl_paramm = True
+            kwargs['enable_auth'] = kwargs.pop('authenticate')
+        if 'trusted_key' in kwargs:
+            config_gbl_paramm = True
+        if 'auth_key_id' in kwargs:
+            config_gbl_paramm = True
+        if config_gbl_paramm:
+            ret_val = sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **kwargs)
+        if 'servers' in kwargs:
+            servers = make_list(kwargs.get('servers'))
+            s_kwargs = dict()
+            for server in servers:
+                s_kwargs['server_address'] = server
+                s_kwargs['config'] = 'yes' if config else 'no'
+                if prefer:
+                    s_kwargs['prefer'] = prefer
+                if kwargs.get('minpoll') and kwargs.get('maxpoll'):
+                    s_kwargs['minpoll'] = kwargs['minpoll']
+                    s_kwargs['maxpoll'] = kwargs['maxpoll']
+                if kwargs.get('server_key'):
+                    s_kwargs['server_key'] = kwargs['server_key']
+                sys_server_api.config_system_server_properties(dut, server_name='NTP-SERVER', **s_kwargs)
+        return ret_val
+    elif cli_type == "klish":
         if 'source_intf' in kwargs:
             config_string = '' if config else 'no '
             for src_intf in make_list(kwargs['source_intf']):
@@ -700,7 +787,14 @@ def config_ntp_parameters(dut, **kwargs):
                 if not config:
                     commands.append('no ntp server {}'.format(server))
                 else:
-                    commands.append('ntp server {} key {}'.format(server, kwargs['server_key']) if kwargs.get('server_key') else 'ntp server {}'.format(server))
+                    command = 'ntp server {}'.format(server)
+                    if kwargs.get("prefer"):
+                        command += " prefer {}".format(prefer)
+                    if kwargs.get("minpoll") and kwargs.get("maxpoll"):
+                        command += " minpoll {} maxpoll {}".format(kwargs.get("minpoll"), kwargs.get("maxpoll"))
+                    if kwargs.get("server_key"):
+                        command += ' key {}'.format(kwargs['server_key'])
+                    commands.append(command)
     elif cli_type in ["rest-patch", "rest-put"]:
         rest_urls = st.get_datastore(dut, "rest_urls")
         if 'source_intf' in kwargs:
@@ -708,8 +802,8 @@ def config_ntp_parameters(dut, **kwargs):
                 src_intf = 'eth0' if src_intf == "Management0" else src_intf
                 if config:
                     url = rest_urls['ntp_config_source_interface']
-                    payload = json.loads("""{"openconfig-system-ext:ntp-source-interface": ["string"]}""")
-                    payload["openconfig-system-ext:ntp-source-interface"] = [src_intf]
+                    payload = json.loads("""{"openconfig-system:source-interface": ["string"]}""")
+                    payload["openconfig-system:source-interface"] = [src_intf]
                     if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                         return False
                 else:
@@ -718,9 +812,9 @@ def config_ntp_parameters(dut, **kwargs):
                         return False
         if 'vrf' in kwargs:
             if config:
-                url = rest_urls['ntp_config_vrf_delete']
-                payload = json.loads("""{"openconfig-system-ext:vrf": "string"}""")
-                payload["openconfig-system-ext:vrf"] = kwargs['vrf']
+                url = rest_urls['ntp_config_vrf']
+                payload = json.loads("""{"openconfig-system:config": {"network-instance": "string"}}""")
+                payload["openconfig-system:config"]["network-instance"] = kwargs['vrf']
                 if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                     return False
             else:
@@ -738,7 +832,7 @@ def config_ntp_parameters(dut, **kwargs):
                 if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                     return False
         if kwargs.get('auth_key_id'):
-            keymap = {"md5" : "NTP_AUTH_MD5", 'sha1' : 'NTP_AUTH_SHA1', 'sha2-256' : 'NTP_AUTH_SHA2_256'}
+            keymap = {"md5": "NTP_AUTH_MD5", 'sha1': 'NTP_AUTH_SHA1', 'sha2-256': 'NTP_AUTH_SHA2_256'}
             if not config:
                 url = rest_urls['ntp_key_delete'].format(kwargs['auth_key_id'])
                 if not delete_rest(dut, rest_url=url):
@@ -816,6 +910,10 @@ def config_ntp_parameters(dut, **kwargs):
                                                 }""")
                         payload["openconfig-system:servers"]["server"][0]["address"] = server
                         payload["openconfig-system:servers"]["server"][0]["config"]["address"] = server
+                    if kwargs.get("minpoll") and kwargs.get("maxpoll"):
+                        payload["openconfig-system:servers"]["server"][0]["config"].update({"openconfig-system:minpoll": kwargs.get("minpoll"), "openconfig-system:maxpoll": kwargs.get("maxpoll")})
+                    if prefer:
+                        payload["openconfig-system:servers"]["server"][0]["config"].update({"prefer": bool(prefer)})
                     if not config_rest(dut, http_method=cli_type, rest_url=url, json_data=payload):
                         return False
     else:
@@ -828,17 +926,19 @@ def config_ntp_parameters(dut, **kwargs):
             return False
     return True
 
-def show(dut, kwargs):
+
+def show(dut, **kwargs):
     """
     To get the show output of NTP servers/global configuration
     Author: Jagadish Chatrasi (jagadish.chatrasi@broadcom)
     """
     cli_type = st.get_ui_type(dut, **kwargs)
     cli_type = 'klish' if cli_type == 'click' else cli_type
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
     if cli_type == 'klish':
-        if kwargs.get('server'):
+        if kwargs.get('server', None):
             command = 'show ntp server'
-        elif kwargs.get('global'):
+        elif kwargs.get('global', None):
             command = 'show ntp global'
         else:
             st.error('show command is not called for server/global')
@@ -851,11 +951,12 @@ def show(dut, kwargs):
             url = rest_urls["show_ntp_server"]
             payload = get_rest(dut, rest_url=url)["output"]["openconfig-system:server"]
             for row in payload:
-                table_data = {'server': row["state"]["address"]}
+                table_data = {'server': row["state"]["address"], 'prefer': row["state"]["prefer"],
+                              'minpoll': row["state"]["minpoll"], 'maxpoll': row["state"]["maxpoll"]}
                 output.append(copy.deepcopy(table_data))
         elif kwargs.get('global'):
             url = rest_urls["show_ntp_global"]
-            table_data = {'source_intf' : "", 'vrf' : ""}
+            table_data = {'source_intf': "", 'vrf': ""}
             payload = get_rest(dut, rest_url=url)["output"]["openconfig-system:state"]
             if "openconfig-system-ext:ntp-source-interface" in payload:
                 table_data['source_intf'] = payload["openconfig-system-ext:ntp-source-interface"]
@@ -871,3 +972,86 @@ def show(dut, kwargs):
         st.error("Unsupported CLI_TYPE: {}".format(cli_type))
         return False
 
+
+def ntp_server_offset_config(dut, vrf="default"):
+    st.log("config ntp_server_offset value")
+    isBuster = False
+    if st.is_dry_run():
+        os_info = 'Linux sonic 4.9.0-11-2-amd64 #1 SMP Debian 4.9.189-3+deb9u2 ...'
+    else:
+        os_info = st.config(dut, "uname -a")
+    release = os_info.split(' ')
+    release = release[2]
+    release = release.split('-')
+    if parse_version(release[0]) > parse_version("4.9.0"):
+        isBuster = True
+    if vrf != "default":
+        if isBuster:
+            command = "sudo  ip vrf exec mgmt /usr/sbin/ntpd -q -g &\n"
+        else:
+            command = "sudo  cgexec -g l3mdev:mgmt /usr/sbin/ntpd -q -g &\n"
+    else:
+        command = "sudo  /usr/sbin/ntpd -q -g &\n"
+    st.config(dut, command, skip_error_check=True)
+    return True
+
+
+def verify_ntp(dut, **kwargs):
+    '''
+    To verify the 'show ntp' server parameters
+    '''
+    output = show(dut, server='server')
+    if filter_and_select(output, match=kwargs):
+        return True
+    else:
+        return False
+
+
+def show_running_ntp(dut, **kwargs):
+    """
+    API to verify ntp on DUT
+    Author : Nagarjuna Suravarapu (nagarjuna.survarapu@broadcom.com)
+    :param dut:
+    :return:
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type in get_supported_ui_type_list() else cli_type
+    if cli_type in ["klish", "rest-patch", "rest-put", "click"]:
+        cmd = 'show running-config | grep ntp'
+        output = st.show(dut, cmd, skip_tmpl=True, type="klish")
+    else:
+        st.log("UNSUPPORTED CLI TYPE")
+        return False
+    return output
+
+
+def set_rtc_clock(dut, **kwargs):
+    """
+    API to set rtc clock to system clock and vice-versa
+    Author : Nagarjuna Suravarapu (nagarjuna.survarapu@broadcom.com)
+    :param dut:
+    :param refclock: rtc/system
+    :return:
+    """
+    refclock = kwargs.get('refclock', 'rtc')
+    if refclock == "rtc":
+        st.log("Set system time from hardware clock")
+        command = "hwclock -s"
+    else:
+        st.log("Set hardware clock from system time")
+        command = "hwclock -w"
+    st.config(dut, command)
+    return True
+
+
+def hw_set_date(dut, date):
+    """
+
+    :param dut:
+    :param date:
+    :return:
+    """
+    st.log("config date")
+    command = "hwclock --set --date {}".format(date)
+    st.config(dut, command)
+    return True

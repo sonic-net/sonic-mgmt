@@ -4,6 +4,7 @@ import logging
 import time
 
 from run_events_test import run_test
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
@@ -26,6 +27,9 @@ WAIT_TIME = 3
 
 
 def test_event(duthost, gnxi_path, ptfhost, data_dir, validate_yang):
+    if duthost.topo_type.lower() in ["m0", "mx"]:
+        logger.info("Skipping swss events test on MGFX topologies")
+        return
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
@@ -45,8 +49,14 @@ def shutdown_interface(duthost):
     ret = duthost.shell("config interface shutdown {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to shutdown interface {}".format(if_state_test_port)
 
+    # Wait until port goes down
+    wait_until(15, 1, 0, verify_port_admin_oper_status, duthost, if_state_test_port, "down")
+
     ret = duthost.shell("config interface startup {}".format(if_state_test_port))
     assert ret["rc"] == 0, "Failing to startup interface {}".format(if_state_test_port)
+
+    # Wait until port comes back up
+    wait_until(15, 1, 0, verify_port_admin_oper_status, duthost, if_state_test_port, "up")
 
 
 def generate_pfc_storm(duthost):
@@ -86,3 +96,10 @@ def trigger_crm_threshold_exceeded(duthost):
     duthost.shell("crm config thresholds ipv4 route type free")
     duthost.shell("crm config thresholds ipv4 route low {}".format(CRM_DEFAULT_IPV4_ROUTE_LOW))
     duthost.shell("crm config thresholds ipv4 route high {}".format(CRM_DEFAULT_IPV4_ROUTE_HIGH))
+
+
+def verify_port_admin_oper_status(duthost, interface, state):
+    interface_facts = duthost.get_interfaces_status()[interface]
+    admin_status = interface_facts["admin"]
+    oper_status = interface_facts["oper"]
+    return admin_status == state and oper_status == state

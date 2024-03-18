@@ -9,6 +9,7 @@ import os
 import sys
 import six
 import copy
+import time
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -33,8 +34,8 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-120", "dualtor",
-                          "t0-120", "t0-80", "t0-backend", "t0-56-o8v48"]
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56-po2vlan", "t0-64", "t0-116", "t0-35", "dualtor-56", "dualtor-64", "dualtor-120",
+                          "dualtor", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
@@ -120,7 +121,7 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
+        custom_options = " --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
         ptf_runner(
             ptfhost,
@@ -754,18 +755,24 @@ class QosSaiBase(QosBase):
         dstVlan3 = dst_test_port_ips[dstPort3]['vlan_id'] if 'vlan_id' in dst_test_port_ips[dstPort3] else None
         srcPort = srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
+
+        src_port_ip = src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]
         return {
          "dst_port_id": dstPort,
          "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
+         "dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6'],
          "dst_port_vlan": dstVlan,
          "dst_port_2_id": dstPort2,
          "dst_port_2_ip": dst_test_port_ips[dstPort2]['peer_addr'],
+         "dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6'],
          "dst_port_2_vlan": dstVlan2,
          'dst_port_3_id': dstPort3,
          "dst_port_3_ip": dst_test_port_ips[dstPort3]['peer_addr'],
+         "dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6'],
          "dst_port_3_vlan": dstVlan3,
          "src_port_id": srcPort,
-         "src_port_ip": src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]["peer_addr"],
+         "src_port_ip": src_port_ip["peer_addr"],
+         "src_port_ipv6": src_port_ip["peer_addr_ipv6"],
          "src_port_vlan": srcVlan
         }
 
@@ -866,6 +873,15 @@ class QosSaiBase(QosBase):
                             uplinkPortIds.append(portIndex)
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
+                elif ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 6:
+                    portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
+                    if portIndex in testPortIds[src_dut_index][src_asic_index]:
+                        if portIndex in dutPortIps[src_dut_index][src_asic_index]:
+                            dutPortIps[src_dut_index][src_asic_index][portIndex].update(
+                                {'peer_addr_ipv6': portConfig['peer_addr']})
+                        else:
+                            portIpMap = {'peer_addr_ipv6': portConfig['peer_addr']}
+                            dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
 
             testPortIps[src_dut_index] = {}
             testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
@@ -882,14 +898,14 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                 dutPortIps[src_dut_index][dut_asic.asic_index] = {}
-                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
+                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True).items():
                     vlan_id = None
                     if iface.startswith("Ethernet"):
                         portName = iface
                         if "." in iface:
                             portName, vlan_id = iface.split(".")
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr["peer_ipv6"]}
                         if vlan_id is not None:
                             portIpMap['vlan_id'] = vlan_id
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
@@ -898,7 +914,7 @@ class QosSaiBase(QosBase):
                             iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr["peer_ipv6"]}
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
@@ -939,18 +955,20 @@ class QosSaiBase(QosBase):
             dutPortIps[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
-            active_ips = src_asic.get_active_ip_interfaces(tbinfo)
+            active_ips = src_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                     portIndex = src_mgFacts["minigraph_ptf_indices"][iface]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
+                                 'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
                 elif iface.startswith("PortChannel"):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                     )
                     portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
+                    portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
+                                 'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
 
             testPortIds[src_dut_index][src_asic_index] = sorted(dutPortIps[src_dut_index][src_asic_index].keys())
@@ -966,18 +984,20 @@ class QosSaiBase(QosBase):
                 else:
                     dst_mgFacts = src_mgFacts
                 dutPortIps[dst_dut_index][dst_asic_index] = {}
-                active_ips = dst_asic.get_active_ip_interfaces(tbinfo)
+                active_ips = dst_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][iface]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': iface}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
+                                     'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
                     elif iface.startswith("PortChannel"):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = dst_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'port': portName}
+                        portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
+                                     'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
 
                 testPortIds[dst_dut_index][dst_asic_index] = sorted(dutPortIps[dst_dut_index][dst_asic_index].keys())
@@ -1476,7 +1496,6 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
-            dutTopo = "topo-any"
             if (get_src_dst_asic_and_duts['src_dut_index'] ==
                     get_src_dst_asic_and_duts['dst_dut_index'] and
                 get_src_dst_asic_and_duts['src_asic_index'] ==
@@ -1609,12 +1628,23 @@ class QosSaiBase(QosBase):
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
+        testParams = dict()
+        src_is_multi_asic = False
+        dst_is_multi_asic = False
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            testParams = dutTestParams["basicParams"]
+            if get_src_dst_asic_and_duts['src_dut'].sonichost.is_multi_asic:
+                src_is_multi_asic = True
+            if get_src_dst_asic_and_duts['dst_dut'].sonichost.is_multi_asic:
+                dst_is_multi_asic = True
+            testParams.update(dutTestParams["basicParams"])
             testParams.update(dutConfig["testPorts"])
             testParams.update({
-                "testbed_type": dutTestParams["topo"]
+                "testPortIds": dutConfig["testPortIds"],
+                "testPortIps": dutConfig["testPortIps"],
+                "testbed_type": dutTestParams["topo"],
+                "src_is_multi_asic": src_is_multi_asic,
+                "dst_is_multi_asic": dst_is_multi_asic
             })
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.ARPpopulate", testParams=testParams
@@ -1958,7 +1988,9 @@ class QosSaiBase(QosBase):
         for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark enable")
             dut_asic.command("counterpoll queue enable")
-            dut_asic.command("sleep 70")
+
+        time.sleep(70)
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
 
@@ -2200,7 +2232,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope="function", autouse=False)
     def skip_pacific_dst_asic(self, dutConfig):
-        if dutConfig['dstDutAsic'] == "pac":
+        if dutConfig.get('dstDutAsic', 'UnknownDstDutAsic') == "pac":
             pytest.skip(
                 "This test is skipped since egress asic is cisco-8000 Q100.")
         yield
