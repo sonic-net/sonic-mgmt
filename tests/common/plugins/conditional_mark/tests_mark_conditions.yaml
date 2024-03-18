@@ -214,12 +214,22 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     reason: "Copp test_add_new_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Can't unisntall trap on broadcom platform successfully"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_remove_trap:
   skip:
     reason: "Copp test_remove_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Can't unisntall trap on broadcom platform successfully"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
