@@ -35,6 +35,12 @@
   gather_facts: no
   tasks:
 
+  - name: Rotate the password
+    command: "echo {{ ansible_ssh_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+    no_log: True
+    become: false
+    ignore_errors: true
+
   - block:
     - name: set default testbed file
       set_fact:

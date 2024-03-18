@@ -130,10 +130,6 @@ fanout:
     bjw-can-7060-fanout-1:
       ansible_host: 10.150.22.30
       ansible_hostv6: 2404:f801:10:2200::a96:161e
-    bjw-can-z9332f-1:
-      ansible_host: 10.150.22.108
-      ansible_hostv6: 2404:f801:10:2200::a96:166c
-      os: sonic
     bjw-can-z9332f-2:
       ansible_host: 10.150.22.120
       ansible_hostv6: 2404:f801:10:2200::a96:1678
@@ -252,7 +248,6 @@ sonic:
     sonic_arista_7050qx_32s_s4q31:
     sonic_arista_720dt:
     sonic_celestica_dx010:
-    sonic_intel_ec9516:
     sonic_mlnx_sn2700:
     sonic_nokia_7215:
     sonic_e1031:
@@ -468,28 +463,6 @@ sonic_celestica_dx010:
         "0x2E": "1.1.1"
         "0x2F": "LB"
         "0xFE": "0x7F82BDBB"
-
-sonic_intel_ec9516:
-  vars:
-    hwsku: newport
-    iface_speed: 400000
-  hosts:
-    bjw-can-ec9516-1:
-      ansible_host: 10.150.22.109
-      ansible_hostv6: 2404:f801:10:2200::a96:166d
-      model: NP5ZZ8632007A
-      serial: 9516D2208035
-      base_mac: 98:19:2c:12:33:ed
-      syseeprom_info:
-        "0x21": "Newport"
-        "0x22": "NP5ZZ8632007A"
-        "0x23": "9516D2208035"
-        "0x24": "98:19:2C:12:33:ED"
-        "0x25": "03/04/2022 00:00:00"
-        "0x26": "1"
-        "0x2A": "260"
-        "0x2B": "Intel"
-        "0xFE": "0xA6E0E529"
 
 sonic_mlnx_sn2700:
   vars:
