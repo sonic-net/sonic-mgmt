@@ -112,9 +112,9 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall(r'"build_version": "sonic\.', result)),
+    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
                  1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'sonic\.NA', result, flags=re.IGNORECASE)),
+    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
                  0, "invalid build_version value at {0}".format(result))
 
 

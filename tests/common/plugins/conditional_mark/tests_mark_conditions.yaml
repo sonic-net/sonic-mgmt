@@ -1416,6 +1416,12 @@ telemetry/test_telemetry.py:
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
 
+telemetry/test_telemetry.py::test_osbuild_version:
+  skip:
+    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/12021"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12021
+
 #######################################
 #####         pktgen              #####
 #######################################
