@@ -26,7 +26,7 @@ console-194,13,str2-7050cx3-acs-14,ssh,admin
 console-212,19,str2-7050qx-32s-acs-01,ssh,admin
 console-212,21,str2-7060cx-32s-29,ssh,admin
 console-199,5,str2-7260cx3-acs-9,ssh,admin
-console-199,27,str2-7260cx3-acs-12,ssh,admin
+console-197,34,str2-7260cx3-acs-12,ssh,admin
 console-199,12,str2-msn2700-spy-1,ssh,admin
 console-212,26,str2-msn2700-spy-2,ssh,admin
 console-80,45,str2-n3164-acs-1,ssh,admin
@@ -60,5 +60,6 @@ console-199,26,str2-8102-02,ssh,admin
 console-199,30,str2-8102-03,ssh,admin
 console-199,29,str2-8102-04,ssh,admin
 console-199,49,str2-7804-sup-1,ssh,admin
-console-197,35,str2-7260cx3-acs-13,ssh,admin
+console-197,36,str2-7260cx3-acs-13,ssh,admin
 console-194,23,str2-7260cx3-acs-fan-13,ssh,admin
+console-197,37,str2-7260cx3-acs-fan-34,ssh,admin
