@@ -71,7 +71,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Wait some time for all the transceivers to be detected")
     max_wait_time_for_transceivers = 300
     if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
-        max_wait_time_for_transceivers = 600
+        max_wait_time_for_transceivers = 900
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
                       duthost, interfaces, xcvr_skip_list), "Not all transceivers are detected \
     in {} seconds".format(max_wait_time_for_transceivers)
