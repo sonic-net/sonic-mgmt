@@ -3,11 +3,8 @@ import pytest
 import binascii
 import netaddr
 import struct
-import time
 
 from tests.common.helpers.assertions import pytest_require
-from tests.arp.arp_utils import collect_info, get_po
-
 
 import scapy
 
@@ -291,49 +288,6 @@ def setup_env(duthosts, rand_one_dut_hostname):
         delete_checkpoint(duthost)
 
 
-@pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
-    """
-    Tries to enable proxy ARP for each VLAN on the ToR
-
-    Also checks CONFIG_DB to see if the attempt was successful
-
-    During teardown, restores the original proxy ARP setting
-
-    Yields:
-        (bool) True if proxy ARP was enabled for all VLANs,
-               False otherwise
-    """
-    duthost = rand_selected_dut
-    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'), "Proxy ARP command does not exist on device")
-
-    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
-    vlans = config_facts['VLAN']
-    vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
-    old_proxy_arp_vals = {}
-    new_proxy_arp_vals = []
-
-    # Enable proxy ARP/NDP for the VLANs on the DUT
-    for vid in vlan_ids:
-        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
-
-        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
-
-        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
-        new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
-        new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
-
-    yield all('enabled' in val for val in new_proxy_arp_vals)
-
-    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
-    for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
-        if 'enabled' not in proxy_arp_val:
-            # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
-            duthost.shell(proxy_arp_del_cmd.format(vid))
-
-
 @pytest.fixture(scope="module")
 def config_facts(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Get config facts for the duthost"""
@@ -349,8 +303,12 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     mg_facts = asic.get_extended_minigraph_facts(tbinfo)
     external_ports = [p for p in list(mg_facts['minigraph_ports'].keys()) if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
-    po1 = None
-    po2 = None
+
+    vlan_ipv4_subnet = ""
+    for version in mg_facts['minigraph_vlan_interfaces']:
+        if type(ip_network(version["addr"], strict=False)) is IPv4Network:
+            vlan_ipv4_subnet = version['subnet']
+            break
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
 
@@ -361,7 +319,6 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
-            intf2 = ports_for_test[1]
         else:
             if 'PORTCHANNEL_MEMBER' in config_facts:
                 portchannel_members = []
@@ -371,63 +328,32 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             else:
                 ports_for_test = ports
 
-            # Select two interfaces for testing which are not in portchannel
             intf1 = ports_for_test[0]
-            intf2 = ports_for_test[1]
     else:
-        # Select first 2 ports that are admin 'up'
+        # Select first port that is admin 'up'
         intf_status = asic.show_interface(command='status')['ansible_facts']['int_status']
 
         intf1 = None
-        intf2 = None
         for a_port in ports:
             if intf_status[a_port]['admin_state'] == 'up':
                 if intf1 is None:
                     intf1 = a_port
-                elif intf2 is None:
-                    intf2 = a_port
                 else:
                     break
 
-        if intf1 is None or intf2 is None:
+        if intf1 is None:
             pytest.skip("Not enough interfaces on this host/asic (%s/%s) to support test." % (duthost.hostname,
                                                                                               asic.asic_index))
-        po1 = get_po(mg_facts, intf1)
-        po2 = get_po(mg_facts, intf2)
 
-        if po1:
-            asic.config_portchannel_member(po1, intf1, "del")
-            collect_info(duthost)
-            asic.startup_interface(intf1)
-            collect_info(duthost)
-
-        if po2:
-            asic.config_portchannel_member(po2, intf2, "del")
-            collect_info(duthost)
-            asic.startup_interface(intf2)
-            collect_info(duthost)
-
-        if po1 or po2:
-            time.sleep(40)
-
-    logger.info("Selected ints are {0} and {1}".format(intf1, intf2))
+    logger.info("Selected int is {0}".format(intf1))
 
     intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
-    intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
+    asic.config_ip_intf(intf1, vlan_ipv4_subnet, "add")
 
-    yield intf1, intf2, intf1_indice, intf2_indice
+    yield intf1, intf1_indice
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
-
-    if tbinfo['topo']['type'] != 't0':
-        if po1:
-            asic.config_portchannel_member(po1, intf1, "add")
-        if po2:
-            asic.config_portchannel_member(po2, intf2, "add")
+    asic.config_ip_intf(intf1, vlan_ipv4_subnet, "remove")
 
 
 @pytest.fixture(scope='module')
@@ -437,7 +363,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     """
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
 
-    intf1_name, _, intf1_index, _, = intfs_for_test
+    intf1_name, intf1_index = intfs_for_test
     ptf_intf_name = ptf_ports_available_in_topo[intf1_index]
 
     # Calculate the IPv6 address to assign to the PTF port
@@ -1150,7 +1076,6 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    dynamic_acl_create_table,
                                    arp_packets_for_test,
                                    ip_and_intf_info,
-                                   proxy_arp_enabled,
                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
     """Test that we can create a blanket ARP packet forwarding rule with GCU, and that ARP packets
     are correctly forwarded while all others are dropped"""
