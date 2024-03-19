@@ -102,6 +102,3 @@ def check_fabric_link_status(host, port, state):
         return True
     else:
         return False
-
-
-
