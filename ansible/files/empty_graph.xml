@@ -1,7 +1,0 @@
-<LabConnectionGraph>
-  <PhysicalNetworkGraphDeclaration>
-    <Devices/>
-    <DeviceInterfaceLinks/>
-  </PhysicalNetworkGraphDeclaration>
-  <DataPlaneGraph/>
-</LabConnectionGraph>

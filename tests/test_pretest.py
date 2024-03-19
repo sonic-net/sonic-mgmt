@@ -163,17 +163,33 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
     except KeyError:
         is_dhcp_server_enable = None
+
+    output = duthost.command('config syslog --help')['stdout']
+    manually_enable_feature = False
+    if 'rate-limit-feature' in output:
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        duthost.command('config syslog rate-limit-feature enable')
+        manually_enable_feature = True
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
         # Skip dhcp_relay check if dhcp_server is enabled
         if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
             continue
+        if feature_name == "telemetry":
+            # Skip telemetry if there's no docker image
+            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
+            if "sonic-telemetry" not in output:
+                continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+    if manually_enable_feature:
+        duthost.command('config syslog rate-limit-feature disable')
 
 
 def collect_dut_lossless_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return []
@@ -192,7 +208,8 @@ def collect_dut_lossless_prio(dut):
 
 
 def collect_dut_all_prio(dut):
-    config_facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
+    dut_asic = dut.asic_instance()
+    config_facts = dut_asic.config_facts(host=dut.hostname, source="running")['ansible_facts']
 
     if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return []
@@ -231,7 +248,7 @@ def collect_dut_pfc_pause_delay_params(dut):
         pfc_pause_delay_test_params[1023] = True
     elif 'arista' and '7050cx3' in platform.lower():
         pfc_pause_delay_test_params[0] = True
-        pfc_pause_delay_test_params[200] = False
+        pfc_pause_delay_test_params[1023] = True
     else:
         pfc_pause_delay_test_params = None
 

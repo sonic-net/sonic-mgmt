@@ -78,6 +78,7 @@ class Poller(object):
 class BFDResponder(object):
     def __init__(self, sessions):
         self.sessions = sessions
+        self.bfd_default_ip_tos = 192
         return
 
     def action(self, interface):
@@ -110,9 +111,13 @@ class BFDResponder(object):
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
+        ip_tos = ether.payload.tos
         bfdpkt = BFD(ether.payload.payload.payload.load)
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
+        if ip_tos != self.bfd_default_ip_tos:
+            raise RuntimeError("Received BFD packet with incorrect tos: {}".format(ip_tos))
+        logging.debug('BFD packet info: sip {}, dip {}, tos {}'.format(ip_src, ip_dst, ip_tos))
         return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):

@@ -8,7 +8,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def ptf_collect(host, log_file):
+def ptf_collect(host, log_file, skip_pcap=False):
     pos = log_file.rfind('.')
     filename_prefix = log_file[0:pos] if pos > -1 else log_file
 
@@ -18,11 +18,17 @@ def ptf_collect(host, log_file):
     filename_log = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.log'
     host.fetch(src=log_file, dest=filename_log, flat=True, fail_on_missing=False)
     allure.attach.file(filename_log, 'ptf_log: ' + filename_log, allure.attachment_type.TEXT)
+    if skip_pcap:
+        return
     pcap_file = filename_prefix + '.pcap'
     output = host.shell("[ -f {} ] && echo exist || echo null".format(pcap_file))['stdout']
     if output == 'exist':
-        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap'
-        host.fetch(src=pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
+        # Compress the file
+        compressed_pcap_file = pcap_file + '.tar.gz'
+        host.archive(path=pcap_file, dest=compressed_pcap_file, format='gz')
+        # Copy compressed file from ptf to sonic-mgmt
+        filename_pcap = './logs/ptf_collect/' + rename_prefix + '.' + suffix + '.pcap.tar.gz'
+        host.fetch(src=compressed_pcap_file, dest=filename_pcap, flat=True, fail_on_missing=False)
         allure.attach.file(filename_pcap, 'ptf_pcap: ' + filename_pcap, allure.attachment_type.PCAP)
 
 
@@ -88,7 +94,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     try:
         result = host.shell(cmd, chdir="/root", module_ignore_errors=module_ignore_errors)
         if log_file:
-            ptf_collect(host, log_file)
+            # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
+            ptf_collect(host, log_file, result is not None and result.get("rc", -1) == 0)
         if result:
             allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
         if module_ignore_errors:

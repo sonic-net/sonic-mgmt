@@ -14,7 +14,7 @@ from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 
 from tests.common import reboot, port_toggle
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.config_reload import config_reload
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py, run_garp_service, change_mac_addresses   # noqa F401
@@ -25,6 +25,7 @@ from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts # noqa F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
+from tests.common.utilities import is_ipv4_address
 
 logger = logging.getLogger(__name__)
 
@@ -91,16 +92,29 @@ DOWNSTREAM_IP_TO_BLOCK_M0_L3 = {
 
 # Below M0_VLAN IPs are ip in vlan range
 DOWNSTREAM_DST_IP_VLAN = {
-    "ipv4": "192.168.0.253",
+    "ipv4": "192.168.0.123",
     "ipv6": "fc02:1000::5"
 }
 DOWNSTREAM_IP_TO_ALLOW_VLAN = {
-    "ipv4": "192.168.0.252",
+    "ipv4": "192.168.0.122",
     "ipv6": "fc02:1000::6"
 }
 DOWNSTREAM_IP_TO_BLOCK_VLAN = {
-    "ipv4": "192.168.0.251",
+    "ipv4": "192.168.0.121",
     "ipv6": "fc02:1000::7"
+}
+
+DOWNSTREAM_DST_IP_VLAN2000 = {
+    "ipv4": "192.168.0.253",
+    "ipv6": "fc02:1000:0:1::5"
+}
+DOWNSTREAM_IP_TO_ALLOW_VLAN2000 = {
+    "ipv4": "192.168.0.252",
+    "ipv6": "fc02:1000:0:1::6"
+}
+DOWNSTREAM_IP_TO_BLOCK_VLAN2000 = {
+    "ipv4": "192.168.0.251",
+    "ipv6": "fc02:1000:0:1::7"
 }
 
 DOWNSTREAM_IP_PORT_MAP = {}
@@ -238,7 +252,7 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -251,6 +265,7 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
 
     """
 
+    pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
 
@@ -266,9 +281,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
     # Announce routes for m0 is something different from t1/t0
     if topo_scenario == "m0_vlan_scenario":
         topo = "m0_vlan"
-        DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
-        DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
-        DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
+        if tbinfo["topo"]["name"] == "m0-2vlan":
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN2000 if vlan_name == "Vlan2000" else DOWNSTREAM_DST_IP_VLAN
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN2000 if vlan_name == "Vlan2000" \
+                else DOWNSTREAM_IP_TO_ALLOW_VLAN
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN2000 if vlan_name == "Vlan2000" \
+                else DOWNSTREAM_IP_TO_BLOCK_VLAN
+        else:
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
     elif topo_scenario == "m0_l3_scenario":
         topo = "m0_l3"
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
@@ -276,11 +298,10 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
     if topo in ["t0", "mx", "m0_vlan"]:
         vlan_ports = [mg_facts["minigraph_ptf_indices"][ifname]
-                      for ifname in list(mg_facts["minigraph_vlans"].values())[0]["members"]]
+                      for ifname in mg_facts["minigraph_vlans"][vlan_name]["members"]]
 
         config_facts = rand_selected_dut.get_running_config_facts()
         vlan_table = config_facts["VLAN"]
-        vlan_name = list(vlan_table.keys())[0]
         if "mac" in vlan_table[vlan_name]:
             vlan_mac = vlan_table[vlan_name]["mac"]
 
@@ -307,9 +328,14 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         downstream_neigh_type = get_downstream_neigh_type(topo)
         pytest_require(upstream_neigh_type is not None and downstream_neigh_type is not None,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
+        mg_vlans = mg_facts["minigraph_vlans"]
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             port_id = mg_facts["minigraph_ptf_indices"][interface]
             if downstream_neigh_type in neighbor["name"].upper():
+                if topo in ["t0", "mx", "m0_vlan"]:
+                    if interface not in mg_vlans[vlan_name]["members"]:
+                        continue
+
                 downstream_ports[neighbor['namespace']].append(interface)
                 downstream_port_ids.append(port_id)
                 downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
@@ -507,6 +533,8 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
             logger.info("Removing ACL table \"{}\" in namespace {} on device {}"
                         .format(acl_table_config["table_name"], namespace, duthost))
             sonic_host_or_asic_inst.command("config acl remove table {}".format(acl_table_config["table_name"]))
+    # Give the dut some time for the ACL to be applied and LOG message generated
+    time.sleep(30)
 
 
 @pytest.fixture(scope="module")
@@ -577,7 +605,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     ACL_COUNTERS_UPDATE_INTERVAL_SECS = 10
 
     @abstractmethod
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -642,7 +670,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 # Ignore any other errors to reduce noise
                 loganalyzer.ignore_regex = [r".*"]
                 with loganalyzer:
-                    self.setup_rules(duthost, acl_table, ip_version)
+                    self.setup_rules(duthost, acl_table, ip_version, tbinfo)
+                    # Give the dut some time for the ACL rules to be applied and LOG message generated
+                    time.sleep(30)
 
                 self.post_setup_hook(duthost, localhost, populate_vlan_arp_entries, tbinfo, conn_graph_facts)
 
@@ -932,7 +962,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         self._verify_acl_traffic(setup, direction, ptfadapter, pkt, True, ip_version)
         counters_sanity_check.append(7)
 
-    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_forwarded(self, setup, direction, ptfadapter, counters_sanity_check, ip_version, vlan_name):
         """Verify that we can match and forward a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_ALLOW[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_ALLOW[ip_version]
@@ -948,16 +978,16 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 30
             elif setup["topo"] in ["m0_vlan", "mx"]:
                 if ip_version == "ipv6":
-                    rule_id = 34
+                    rule_id = 34 if vlan_name == "Vlan1000" else 36
                 else:
-                    rule_id = 2
+                    rule_id = 33 if vlan_name == "Vlan1000" else 2
             else:
                 rule_id = 2
         else:
             rule_id = 3
         counters_sanity_check.append(rule_id)
 
-    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version):
+    def test_dest_ip_match_dropped(self, setup, direction, ptfadapter, counters_sanity_check, ip_version, vlan_name):
         """Verify that we can match and drop a packet on destination IP."""
         dst_ip = DOWNSTREAM_IP_TO_BLOCK[ip_version] \
             if direction == "uplink->downlink" else UPSTREAM_IP_TO_BLOCK[ip_version]
@@ -973,9 +1003,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 31
             elif setup["topo"] in ["m0_vlan", "mx"]:
                 if ip_version == "ipv6":
-                    rule_id = 35
+                    rule_id = 35 if vlan_name == "Vlan1000" else 37
                 else:
-                    rule_id = 15
+                    rule_id = 32 if vlan_name == "Vlan1000" else 15
             else:
                 rule_id = 15
         else:
@@ -1139,7 +1169,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
 class TestBasicAcl(BaseAclTest):
     """Test Basic functionality of ACL rules (i.e. setup with full update on a running device)."""
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1147,6 +1177,23 @@ class TestBasicAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
 
@@ -1167,7 +1214,7 @@ class TestIncrementalAcl(BaseAclTest):
     multiple parts.
     """
 
-    def setup_rules(self, dut, acl_table, ip_version):
+    def setup_rules(self, dut, acl_table, ip_version, tbinfo):
         """Setup ACL rules for testing.
 
         Args:
@@ -1175,6 +1222,21 @@ class TestIncrementalAcl(BaseAclTest):
             acl_table: Configuration info for the ACL table.
 
         """
+        if 'dualtor' in tbinfo['topo']['name']:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": True})
+            sonichost = dut.get_asic_or_sonic_host(None)
+            config_facts = sonichost.get_running_config_facts()
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback2"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback2": tor_ipv4_address})
+            tor_ipv4_address = [_ for _ in config_facts["LOOPBACK_INTERFACE"]["Loopback3"]
+                                if is_ipv4_address(_.split("/")[0])][0]
+            tor_ipv4_address = tor_ipv4_address.split("/")[0]
+            dut.host.options["variable_manager"].extra_vars.update({"Loopback3": tor_ipv4_address})
+        else:
+            dut.host.options["variable_manager"].extra_vars.update({"dualtor": False})
+
         table_name = acl_table["table_name"]
         dut.host.options["variable_manager"].extra_vars.update({"acl_table_name": table_name})
 

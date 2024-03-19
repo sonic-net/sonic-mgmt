@@ -1,3 +1,6 @@
+from typing import Dict, List
+
+import paramiko
 import pytest
 import logging
 import itertools
@@ -5,10 +8,14 @@ import collections
 import ipaddress
 import time
 import json
+
+from paramiko.ssh_exception import AuthenticationException
+
+from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from jinja2 import Template
-from netaddr import valid_ipv4
+from netaddr import valid_ipv4, valid_ipv6
 
 
 logger = logging.getLogger(__name__)
@@ -354,6 +361,8 @@ def utils_vlan_intfs_dict_orig(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     vlan_intfs_dict = {}
+    if 'VLAN_INTERFACE' not in cfg_facts:
+        return vlan_intfs_dict
     for k, v in list(cfg_facts['VLAN'].items()):
         vlanid = v['vlanid']
         for addr in cfg_facts['VLAN_INTERFACE']['Vlan'+vlanid]:
@@ -448,10 +457,9 @@ def utils_create_test_vlans(duthost, cfg_facts, vlan_ports_list, vlan_intfs_dict
     duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope='module')
-def dut_qos_maps(rand_selected_front_end_dut):
+def _dut_qos_map(dut):
     """
-    A module level fixture to get QoS map from DUT host.
+    A helper function to get QoS map from DUT host.
     Return a dict
     {
         "dscp_to_tc_map": {
@@ -467,43 +475,62 @@ def dut_qos_maps(rand_selected_front_end_dut):
     """
     maps = {}
     try:
-        if rand_selected_front_end_dut.is_multi_asic:
+        if dut.is_multi_asic:
             sonic_cfggen_cmd = "sonic-cfggen -n asic0 -d --var-json"
         else:
             sonic_cfggen_cmd = "sonic-cfggen -d --var-json"
 
         # port_qos_map
-        port_qos_map_data = rand_selected_front_end_dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['port_qos_map'] = json.loads(port_qos_map_data) if port_qos_map_data else None
+        port_qos_map = dut.shell("{} 'PORT_QOS_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['port_qos_map'] = json.loads(port_qos_map) if port_qos_map else None
+
         # dscp_to_tc_map
-        dscp_to_tc_map_data = rand_selected_front_end_dut.shell(
-            "{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map_data) if dscp_to_tc_map_data else None
+        dscp_to_tc_map = dut.shell("{} 'DSCP_TO_TC_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['dscp_to_tc_map'] = json.loads(dscp_to_tc_map) if dscp_to_tc_map else None
+
         # tc_to_queue_map
-        tc_to_queue_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map_data) if tc_to_queue_map_data else None
+        tc_to_queue_map = dut.shell("{} 'TC_TO_QUEUE_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_queue_map'] = json.loads(tc_to_queue_map) if tc_to_queue_map else None
+
         # tc_to_priority_group_map
-        tc_to_priority_group_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_priority_group_map'] = json.loads(
-            tc_to_priority_group_map_data) if tc_to_priority_group_map_data else None
+        tc_to_priority_group_map = dut.shell("{} 'TC_TO_PRIORITY_GROUP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_priority_group_map'] = json.loads(tc_to_priority_group_map) if tc_to_priority_group_map else None
+
         # tc_to_dscp_map
-        tc_to_dscp_map_data = rand_selected_front_end_dut.shell(
-            "{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
-        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map_data) if tc_to_dscp_map_data else None
+        tc_to_dscp_map = dut.shell("{} 'TC_TO_DSCP_MAP'".format(sonic_cfggen_cmd))['stdout']
+        maps['tc_to_dscp_map'] = json.loads(tc_to_dscp_map) if tc_to_dscp_map else None
     except Exception as e:
         logger.error("Got exception: " + repr(e))
     return maps
 
 
-def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
+@pytest.fixture(scope='class')
+def dut_qos_maps(get_src_dst_asic_and_duts):
+    """
+    A class level fixture to get QoS map from DUT host.
+    Return a dict
+    """
+    dut = get_src_dst_asic_and_duts['src_dut']
+    return _dut_qos_map(dut)
+
+
+@pytest.fixture(scope='module')
+def dut_qos_maps_module(rand_selected_front_end_dut):
+    """
+    A module level fixture to get QoS map from DUT host.
+    return a dict
+    """
+    dut = rand_selected_front_end_dut
+    return _dut_qos_map(dut)
+
+
+def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
     downlink/unlink ports.
     """
     dscp_to_tc_map_names = set()
-    for port_name, qos_map in list(dut_qos_maps['port_qos_map'].items()):
+    for port_name, qos_map in dut_qos_maps_module['port_qos_map'].items():
         if port_name == "global":
             continue
         dscp_to_tc_map_names.add(qos_map.get("dscp_to_tc_map", ""))
@@ -512,20 +539,20 @@ def separated_dscp_to_tc_map_on_uplink(duthost, dut_qos_maps):
     return False
 
 
-def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
+def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to PG map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_PG_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_pg_map_name = port_qos_map[port]['tc_to_pg_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
         # Load tc_to_pg_map
-        tc_to_pg_map = dut_qos_maps['tc_to_priority_group_map'][tc_to_pg_map_name]
+        tc_to_pg_map = dut_qos_maps_module['tc_to_priority_group_map'][tc_to_pg_map_name]
         # Calculate dscp to pg map
         dscp_to_pg_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):
@@ -536,20 +563,20 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps):
         return {}
 
 
-def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
+def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
     """
     Helper function to calculate DSCP to Queue map for a port.
     The map is derived from DSCP_TO_TC_MAP + TC_TO_QUEUE_MAP
     return a dict like {0:0, 1:1...}
     """
     try:
-        port_qos_map = dut_qos_maps['port_qos_map']
+        port_qos_map = dut_qos_maps_module['port_qos_map']
         dscp_to_tc_map_name = port_qos_map[port]['dscp_to_tc_map'].split('|')[-1].strip(']')
         tc_to_queue_map_name = port_qos_map[port]['tc_to_queue_map'].split('|')[-1].strip(']')
         # Load dscp_to_tc_map
-        dscp_to_tc_map = dut_qos_maps['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
+        dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name][dscp_to_tc_map_name]
         # Load tc_to_queue_map
-        tc_to_queue_map = dut_qos_maps['tc_to_queue_map'][tc_to_queue_map_name]
+        tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
         # Calculate dscp to queue map
         dscp_to_queue_map = {}
         for dscp, tc in list(dscp_to_tc_map.items()):
@@ -558,3 +585,167 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps):
     except:     # noqa E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
+
+
+def check_bgp_router_id(duthost, mgFacts):
+    """
+    Check bgp router ID is same as Loopback0
+    """
+    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
+    try:
+        bgp_summary_json = json.loads(bgp_summary['stdout'])
+        router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
+        loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
+        if router_id == loopback0:
+            logger.info("BGP router identifier: %s == Loopback0 address %s" % (router_id, loopback0))
+            return True
+        else:
+            logger.info("BGP router identifier %s != Loopback0 address %s" % (router_id, loopback0))
+            return False
+    except Exception as e:
+        logger.error("Error loading BGP routerID - {}".format(e))
+
+
+@pytest.fixture(scope="module")
+def convert_and_restore_config_db_to_ipv6_only(duthosts):
+    """Back up the existing config_db.json file and restore it once the test ends.
+
+    Some cases will update the running config during the test and save the config
+    to be recovered after reboot. In such a case we need to backup config_db.json before
+    the test starts and then restore it after the test ends.
+    """
+    config_db_file = "/etc/sonic/config_db.json"
+    config_db_bak_file = "/etc/sonic/config_db.json.before_ipv6_only"
+
+    # Sample MGMT_INTERFACE:
+    #     "MGMT_INTERFACE": {
+    #         "eth0|192.168.0.2/24": {
+    #             "forced_mgmt_routes": [
+    #                 "192.168.1.1/24"
+    #             ],
+    #             "gwaddr": "192.168.0.1"
+    #         },
+    #         "eth0|fc00:1234:5678:abcd::2/64": {
+    #             "gwaddr": "fc00:1234:5678:abcd::1",
+    #             "forced_mgmt_routes": [
+    #                 "fc00:1234:5678:abc1::1/64"
+    #             ]
+    #         }
+    #     }
+
+    # duthost_name: config_db_modified
+    config_db_modified: Dict[str, bool] = {duthost.hostname: False
+                                           for duthost in duthosts.nodes}
+    # duthost_name: [ip_addr]
+    ipv4_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    ipv6_address: Dict[str, List] = {duthost.hostname: []
+                                     for duthost in duthosts.nodes}
+    # Check IPv6 mgmt-ip is set and available, otherwise the DUT will lose control after v4 mgmt-ip is removed
+    for duthost in duthosts.nodes:
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        ssh_client = paramiko.SSHClient()
+        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        has_available_ipv6_addr = False
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv6 = valid_ipv6(ip_addr_without_mask)
+                if is_ipv6:
+                    logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
+                    ipv6_address[duthost.hostname].append(ip_addr_without_mask)
+                    try:
+                        ssh_client.connect(ip_addr_without_mask,
+                                           username="WRONG_USER", password="WRONG_PWD", timeout=15)
+                    except AuthenticationException:
+                        logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
+                        has_available_ipv6_addr = has_available_ipv6_addr or True
+                    except BaseException:
+                        pass
+                    finally:
+                        ssh_client.close()
+
+        pytest_assert(len(ipv6_address[duthost.hostname]) > 0,
+                      f"{duthost.hostname} doesn't have IPv6 Management IP address")
+        pytest_assert(has_available_ipv6_addr,
+                      f"{duthost.hostname} doesn't have available IPv6 Management IP address")
+
+    # Remove IPv4 mgmt-ip
+    for duthost in duthosts.nodes:
+        logger.info(f"Backup {config_db_file} to {config_db_bak_file} on {duthost.hostname}")
+        duthost.shell(f"cp {config_db_file} {config_db_bak_file}")
+        mgmt_interface = json.loads(duthost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                  module_ignore_errors=True)["stdout"])
+
+        # Use list() to make a copy of mgmt_interface.keys() to avoid
+        # "RuntimeError: dictionary changed size during iteration" error
+        for key in list(mgmt_interface):
+            ip_addr = key.split("|")[1]
+            ip_addr_without_mask = ip_addr.split('/')[0]
+            if ip_addr:
+                is_ipv4 = valid_ipv4(ip_addr_without_mask)
+                if is_ipv4:
+                    ipv4_address[duthost.hostname].append(ip_addr_without_mask)
+                    logger.info(f"Removing host[{duthost.hostname}] IPv4[{ip_addr}]")
+                    duthost.shell(f"""jq 'del(."MGMT_INTERFACE"."{key}")' {config_db_file} > temp.json"""
+                                  f"""&& mv temp.json {config_db_file}""", module_ignore_errors=True)
+                    config_db_modified[duthost.hostname] = True
+                    config_reload(duthost, wait=120)
+    duthosts.reset()
+
+    # Verify mgmt-interface status
+    mgmt_intf_name = "eth0"
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
+        mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
+        assert_addr_in_ifconfig(addr_set=ipv4_address, hostname=duthost.hostname,
+                                expect_exists=False, ifconfig_output=mgmt_intf_ifconfig)
+        assert_addr_in_ifconfig(addr_set=ipv6_address, hostname=duthost.hostname,
+                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
+
+    yield
+
+    # Recover IPv4 mgmt-ip
+    for duthost in duthosts.nodes:
+        if config_db_modified[duthost.hostname]:
+            logger.info(f"Restore {config_db_file} with {config_db_bak_file} on {duthost.hostname}")
+            duthost.shell(f"mv {config_db_bak_file} {config_db_file}")
+            config_reload(duthost, safe_reload=True)
+    duthosts.reset()
+
+    # Verify mgmt-interface status
+    for duthost in duthosts.nodes:
+        logger.info(f"Checking host[{duthost.hostname}] mgmt interface[{mgmt_intf_name}]")
+        mgmt_intf_ifconfig = duthost.shell(f"ifconfig {mgmt_intf_name}", module_ignore_errors=True)["stdout"]
+        assert_addr_in_ifconfig(addr_set=ipv4_address, hostname=duthost.hostname,
+                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
+        assert_addr_in_ifconfig(addr_set=ipv6_address, hostname=duthost.hostname,
+                                expect_exists=True, ifconfig_output=mgmt_intf_ifconfig)
+
+
+def assert_addr_in_ifconfig(addr_set: Dict[str, List], hostname: str, expect_exists: bool, ifconfig_output: str):
+    """
+    Assert the address status in the ifconfig output,
+    if status not as expected, assert as failure
+
+    @param addr_set: addr_set, key is dut hostname, value is the list of ip addresses
+    @param hostname: hostname
+    @param expect_exists: Expectation of the ip,
+            True means expect all ip addresses in addr_set appears in the output of ifconfig
+            False means expect no ip addresses in addr_set appears in the output of ifconfig
+    @param ifconfig_output: output of 'ifconfig'
+    """
+    for addr in addr_set[hostname]:
+        if expect_exists:
+            pytest_assert(addr in ifconfig_output,
+                          f"{addr} not appeared in {hostname} mgmt interface")
+            logger.info(f"{addr} exists in the output of ifconfig")
+        else:
+            pytest_assert(addr not in ifconfig_output,
+                          f"{hostname} mgmt interface still with addr {addr}")
+            logger.info(f"{addr} not exists in the output of ifconfig which is expected")
