@@ -14,12 +14,22 @@ pytestmark = [
 
 npu_cli_dict = {
         #feature cli keyword : list of options under the cli
-        "router": ["route-table", "entries", "ports", "port-counters", "details"],
-        "lpts": " ",
-        "ecmp": " ",
-        "trap": " ",
-        "event-trap": " ",
+        "asic-errors": " ",
         "counters": " ",
+        "ecmp": " ",
+        "event-trap": " ",
+        "global": " ",
+        "lag": ["members"],
+        "lpts": " ",
+        "next-hop": ["entries", "usage"],
+        "port": ["counters", "entries"],
+        "rate-check": " ",
+        "resource": " ",
+        "router": ["route-table", "entries", "ports", "port-counters", "details"],
+        "switch": ["entries", "ports"],
+        "temperatures": " ",
+        "trap": " "
+
 }
 
 def get_asic_str(duthost):
