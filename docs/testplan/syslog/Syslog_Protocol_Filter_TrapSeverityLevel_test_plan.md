@@ -23,6 +23,7 @@ The test is to verify syslog new functionality
 No scale/performance test involved in this test plan
 
 ### Related **DUT** CLI commands
+
 ```
 User interface:
 
