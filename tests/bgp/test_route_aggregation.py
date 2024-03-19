@@ -110,25 +110,74 @@ def setup(tbinfo, duthosts, enum_frontend_dut_hostname, nbrhosts, enum_rand_one_
 
 
 def test_ebgp_route_aggregation(setup):
+    logger.debug("DUT BGP Sum: {}".format(setup['duthost'].shell("show ip bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGP Sum: {}".format(setup['neighhost'].shell("show ip bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGPv6 Sum: {}".format(setup['neighhost'].shell("show ipv6 bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    
+    logger.debug("DUT BGP route: {}".format(setup['duthost'].shell("show ip route",
+                 module_ignore_errors=True)['stdout']))
+    logger.debug("DUT BGP IPv6 route: {}".format(setup['duthost'].shell("show ipv6 route",
+                 module_ignore_errors=True)['stdout']))
+    logger.debug("Neigh BGP route: {}".format(setup['neighhost'].shell("show ip route",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGP IPv6 route: {}".format(setup['neighhost'].shell("show ipv6 route",
+                 module_ignore_errors=True)['stdout']))
+
+    # # cmd = "show ip bgp neighbors {} received-routes".format(setup['dut_ip_v4'])
+    # cmd = "show ip route | grep via {}".format(setup['dut_ip_v4'])
+    # nei_show_neigh_v4 = setup['neighhost'].shell(cmd, module_ignore_errors=True)['stdout']
+    # # cmd = "show ipv6 bgp neighbors {} received-routes".format(setup['dut_ip_v6'])
+    # cmd = "show ipv6 route | grep via {}".format(setup['dut_ip_v6'])
+    # nei_show_neigh_v6 = setup['neighhost'].shell(cmd, module_ignore_errors=True)['stdout']
+    # logger.info("BGP Neighbors IPv4: {}\n\nBGP Neighbors IPv6: {}".format(nei_show_neigh_v4, nei_show_neigh_v6))
+
+
     # aggregate directly connected routes
     cmd = 'vtysh{} -c "config" -c "router bgp {}" -c "address-family ipv4 unicast" \
         -c "aggregate-address {} summary-only" -c "address-family ipv6 unicast" \
         -c "aggregate-address {} summary-only"'.format(setup['cli_options'], setup['dut_asn'], NEI_IPv4_AGG_ROUTE,
                                                        NEI_IPv6_AGG_ROUTE)
-    setup['duthost'].shell(cmd, module_ignore_errors=True)
+    logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
 
-    cmd = 'vtysh{} -c "clear bgp * soft"'.format(setup['cli_options'])
+    cmd = 'vtysh{} -c "clear bgp *"'.format(setup['cli_options'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
+    cmd = 'vtysh -c "clear bgp *"'
+    setup['neighhost'].shell(cmd, module_ignore_errors=True)
     time.sleep(establish_bgp_session_time)
 
     logger.debug("DUT Config After Aggregation: {}".format(setup['duthost'].shell("show run bgp",
                  module_ignore_errors=True)['stdout']))
+    logger.info("Neigh Config After Aggregation: {}".format(setup['neighhost'].shell("show run bgp",
+                 module_ignore_errors=True)['stdout']))
+    logger.debug("DUT BGP Sum: {}".format(setup['duthost'].shell("show ip bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGP Sum: {}".format(setup['neighhost'].shell("show ip bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGPv6 Sum: {}".format(setup['neighhost'].shell("show ipv6 bgp summary",
+                 module_ignore_errors=True)['stdout']))
+    
+    logger.debug("DUT BGP route: {}".format(setup['duthost'].shell("show ip route",
+                 module_ignore_errors=True)['stdout']))
+    logger.debug("DUT BGP IPv6 route: {}".format(setup['duthost'].shell("show ipv6 route",
+                 module_ignore_errors=True)['stdout']))
+    logger.debug("Neigh BGP route: {}".format(setup['neighhost'].shell("show ip route",
+                 module_ignore_errors=True)['stdout']))
+    logger.info("Neigh BGP IPv6 route: {}".format(setup['neighhost'].shell("show ipv6 route",
+                 module_ignore_errors=True)['stdout']))
 
     cmd = "show ip bgp neighbors {} received-routes".format(setup['dut_ip_v4'])
+    logger.info(setup['neighhost'].shell(cmd, module_ignore_errors=True))
+    cmd = "show ip route | grep \"via {}\"".format(setup['dut_ip_v4'])
     nei_show_neigh_v4 = setup['neighhost'].shell(cmd, module_ignore_errors=True)['stdout']
     cmd = "show ipv6 bgp neighbors {} received-routes".format(setup['dut_ip_v6'])
+    logger.info(setup['neighhost'].shell(cmd, module_ignore_errors=True))
+    cmd = "show ipv6 route | grep \"via {}\"".format(setup['dut_ip_v6'])
     nei_show_neigh_v6 = setup['neighhost'].shell(cmd, module_ignore_errors=True)['stdout']
-    logger.debug("BGP Neighbors IPv4: {}\n\nBGP Neighbors IPv6: {}".format(nei_show_neigh_v4, nei_show_neigh_v6))
+    logger.info("BGP Neighbors IPv4: {}\n\nBGP Neighbors IPv6: {}".format(nei_show_neigh_v4, nei_show_neigh_v6))
+    logger.info("Neigh agg route: {} v6: {} dut ipv6 addr: {}".format(NEI_IPv4_AGG_ROUTE, NEI_IPv6_AGG_ROUTE, setup['dut_ip_v6']))
     ipv4_agg_route_present = False
     ipv6_agg_route_present = False
     if NEI_IPv4_AGG_ROUTE in nei_show_neigh_v4:
