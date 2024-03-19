@@ -117,7 +117,7 @@ parameters:
 
   - name: DUMP_KVM_IF_FAIL
     type: string
-    default: "True"
+    default: "False"  # KVM dump has beed deleted
     values:
       - "True"
       - "False"
