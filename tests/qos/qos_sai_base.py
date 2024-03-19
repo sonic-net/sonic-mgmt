@@ -780,9 +780,32 @@ class QosSaiBase(QosBase):
          "src_port_vlan": srcVlan
         }
 
+    @pytest.fixture(scope='class', autouse=False)
+    def configure_ip_on_ptf_intfs(self, ptfhost, get_src_dst_asic_and_duts, tbinfo):
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
+        topo = tbinfo["topo"]["name"]
+
+        # if PTF64 and is Cisco, set ip IP address on eth interfaces of the ptf"
+        if topo == 'ptf64' and is_cisco_device(src_dut):
+            minigraph_ip_interfaces = src_mgFacts['minigraph_interfaces']
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr add {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            yield
+            for entry in minigraph_ip_interfaces:
+                ptfhost.shell("ip addr del {}/31 dev eth{}".format(
+                      entry['peer_addr'], src_mgFacts["minigraph_ptf_indices"][entry['attachto']])
+                    )
+            return
+        else:
+            yield
+            return
+
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
-        self, request, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
         lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps):  # noqa F811
         """
             Build DUT host config pertaining to QoS SAI tests
