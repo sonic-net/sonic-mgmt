@@ -1,19 +1,18 @@
 import logging
+import time
 import pytest
 import binascii
 import netaddr
 import struct
 
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 
 import scapy
 
 from ptf.mask import Mask
 import ptf.packet as packet
 
-from scapy.all import Ether, ICMPv6ND_NS, ICMPv6ND_NA, \
-                      ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
-                      in6_getnsma, inet_pton, inet_ntop, socket
+from scapy.all import socket
 
 from scapy.fields import MACField, ShortEnumField, FieldLenField, ShortField
 from scapy.data import ETHER_ANY
@@ -304,12 +303,6 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     external_ports = [p for p in list(mg_facts['minigraph_ports'].keys()) if 'BP' not in p]
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
 
-    vlan_ipv4_subnet = ""
-    for version in mg_facts['minigraph_vlan_interfaces']:
-        if type(ip_network(version["addr"], strict=False)) is IPv4Network:
-            vlan_ipv4_subnet = version['subnet']
-            break
-
     is_storage_backend = 'backend' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
@@ -349,17 +342,13 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
 
-    asic.config_ip_intf(intf1, vlan_ipv4_subnet, "add")
-
-    yield intf1, intf1_indice
-
-    asic.config_ip_intf(intf1, vlan_ipv4_subnet, "remove")
+    return intf1, intf1_indice
 
 
-@pytest.fixture(scope='module')
-def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
+@pytest.fixture(scope='function')
+def prepare_ptf_intf_and_ip(config_facts, intfs_for_test, ptfhost):
     """
-    Calculate IP addresses and interface to use for test
+    Calculate IP addresses and interface to use for test.  Add the ip address to the ptf port.
     """
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
 
@@ -383,19 +372,21 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
     # Increment address by 3 to offset it from the intf on which the address may be learned
     if intf_ipv4_addr is not None:
         ptf_intf_ipv4_addr = increment_ipv4_addr(intf_ipv4_addr.network_address, incr=3)
-        ptf_intf_ipv4_hosts = intf_ipv4_addr.hosts()
     else:
         ptf_intf_ipv4_addr = None
-        ptf_intf_ipv4_hosts = None
 
     if intf_ipv6_addr is not None:
         ptf_intf_ipv6_addr = increment_ipv6_addr(intf_ipv6_addr.network_address, incr=3)
     else:
         ptf_intf_ipv6_addr = None
 
+    ptfhost.shell("ifconfig {} {}".format(ptf_intf_name, ptf_intf_ipv4_addr))
+
     logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
 
-    return ptf_intf_ipv4_addr, ptf_intf_ipv4_hosts, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index, intf1_name
+    yield ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index, intf1_name
+
+    ptfhost.shell("ifconfig {} 0.0.0.0".format(ptf_intf_name))
 
 
 def generate_link_local_addr(mac):
@@ -410,61 +401,6 @@ def generate_link_local_addr(mac):
         ipv6Parts.append("".join(parts[i:i+2]))
     ipv6 = "fe80::{}".format(":".join(ipv6Parts))
     return ipv6
-
-# If/When NDP on ARPv6 becomes necessary and possible, will need to re-add in IPV6 parameterization option to this
-
-
-@pytest.fixture(params=['v4'])
-def arp_packets_for_test(request, ptfadapter, duthost, config_facts, tbinfo, ip_and_intf_info):
-    ip_version = request.param
-    src_addr_v4, _, src_addr_v6, _, ptf_intf_index, _ = ip_and_intf_info
-    ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
-    vlans = config_facts['VLAN']
-    topology = tbinfo['topo']['name']
-    dut_mac = ''
-    for vlan_details in list(vlans.values()):
-        if 'dualtor' in topology:
-            dut_mac = vlan_details['mac'].lower()
-        else:
-            dut_mac = duthost.shell('sonic-cfggen -d -v \'DEVICE_METADATA.localhost.mac\'')["stdout_lines"][0]
-        break
-
-    if ip_version == 'v4':
-        tgt_addr = increment_ipv4_addr(src_addr_v4)
-        out_pkt = testutils.simple_arp_packet(
-                                eth_dst='ff:ff:ff:ff:ff:ff',
-                                eth_src=ptf_intf_mac,
-                                ip_snd=src_addr_v4,
-                                ip_tgt=tgt_addr,
-                                arp_op=1,
-                                hw_snd=ptf_intf_mac
-                            )
-        exp_pkt = testutils.simple_arp_packet(
-                                eth_dst=ptf_intf_mac,
-                                eth_src=dut_mac,
-                                ip_snd=tgt_addr,
-                                ip_tgt=src_addr_v4,
-                                arp_op=2,
-                                hw_snd=dut_mac,
-                                hw_tgt=ptf_intf_mac
-        )
-    elif ip_version == 'v6':
-        tgt_addr = increment_ipv6_addr(src_addr_v6)
-        ll_src_addr = generate_link_local_addr(ptf_intf_mac.decode())
-        multicast_tgt_addr = in6_getnsma(inet_pton(socket.AF_INET6, tgt_addr))
-        multicast_tgt_mac = in6_getnsmac(multicast_tgt_addr)
-        out_pkt = Ether(src=ptf_intf_mac, dst=multicast_tgt_mac)
-        out_pkt /= IPv6(dst=inet_ntop(socket.AF_INET6, multicast_tgt_addr), src=ll_src_addr)
-        out_pkt /= ICMPv6ND_NS(tgt=tgt_addr)
-        out_pkt /= ICMPv6NDOptSrcLLAddr(lladdr=ptf_intf_mac)
-
-        exp_pkt = Ether(src=dut_mac, dst=ptf_intf_mac)
-        exp_pkt /= IPv6(dst=ll_src_addr, src=generate_link_local_addr(dut_mac))
-        exp_pkt /= ICMPv6ND_NA(tgt=tgt_addr, S=1, R=1, O=0)
-        exp_pkt /= ICMPv6NDOptSrcLLAddr(type=2, lladdr=dut_mac)
-        exp_pkt = Mask(exp_pkt)
-        exp_pkt.set_do_not_care_scapy(packet.IPv6, 'fl')
-    return ip_version, out_pkt, exp_pkt
 
 
 def generate_dhcp_packets(rand_selected_dut, setup, ptfadapter):
@@ -1074,27 +1010,26 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    ptfadapter,
                                    setup,
                                    dynamic_acl_create_table,
-                                   arp_packets_for_test,
-                                   ip_and_intf_info,
+                                   prepare_ptf_intf_and_ip,
                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
     """Test that we can create a blanket ARP packet forwarding rule with GCU, and that ARP packets
-    are correctly forwarded while all others are dropped"""
+    are correctly forwarded while all others are dropped.  IPv6 NDP testing not supported at this time."""
 
-    ptf_intf_ipv4_addr, _, ptf_intf_ipv6_addr, _, ptf_intf_index, port_name = ip_and_intf_info
-
-    ip_version, outgoing_packet, expected_packet = arp_packets_for_test
+    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
 
     dynamic_acl_create_arp_forward_rule(rand_selected_dut)
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 
-    if ip_version == 'v4':
-        pytest_require(ptf_intf_ipv4_addr is not None, 'No IPv4 VLAN address configured on device')
-    elif ip_version == 'v6':
-        pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
+    rand_selected_dut.shell("sonic-clear arp")
+    # give command time to finish
+    time.sleep(10)
+    rand_selected_dut.shell("ping -c 3 {}".format(ptf_intf_ipv4_addr))
 
-    ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_intf_index, outgoing_packet)
-    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+    time.sleep(5)
+    output = rand_selected_dut.show_and_parse("show arp {}".format(ptf_intf_ipv4_addr))
+
+    pytest_assert(len(output) >= 1, "ARP for {} was not learned!".format(ptf_intf_ipv4_addr))
+    pytest_assert(output[0]["iface"] == port_name, "ARP was learned for wrong port!")
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
