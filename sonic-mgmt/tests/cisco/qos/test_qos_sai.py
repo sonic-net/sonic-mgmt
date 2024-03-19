@@ -30,7 +30,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa F401
-from tests.cisco.common.utils import copy_cisco_directory
+from tests.cisco.common.utils import copy_cisco_directory                                   # noqa F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
@@ -211,7 +211,7 @@ class TestQosSai(QosSaiBase):
                     startPos += 1
 
     def testQosSaiTrafficSanity(
-            self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts, dut_qos_maps
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts, dut_qos_maps # noqa F811
     ):
         """
             Test QoS SAI traffic sanity
@@ -277,3 +277,132 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.TrafficSanity",
             testParams=testParams
         )
+
+    def testQosSaiFullMeshTrafficSanity(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+            get_src_dst_asic_and_duts, dut_qos_maps, duthosts,  # noqa F811
+            enum_frontend_dut_hostname, set_static_route_ptf64
+    ):
+        """
+            Test QoS SAI traffic sanity
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        # Execution with a specific set of dst port
+        def run_test_for_dst_port(start, end):
+            test_params = dict()
+            test_params.update(dutTestParams["basicParams"])
+            test_params.update({
+                "testbed_type": dutTestParams["topo"],
+                "all_src_port_id_to_ip": all_src_port_id_to_ip,
+                "all_src_port_id_to_name": all_src_port_id_to_name,
+                "all_dst_port_id_to_ip": {port_id: all_dst_port_id_to_ip[port_id] for port_id in range(start, end)},
+                "all_dst_port_id_to_name": {port_id: all_dst_port_id_to_name[port_id] for port_id in range(start, end)},
+                "dscp_to_q_map": dscp_to_q_map,
+                # Add a log_suffix to have separate log and pcap file name
+                "log_suffix": "_".join([str(port_id) for port_id in range(start, end)]),
+                "hwsku": dutTestParams['hwsku']
+            })
+
+            self.runPtfTest(ptfhost, testCase="sai_qos_tests.FullMeshTrafficSanity", testParams=test_params)
+
+        duthost = duthosts[enum_frontend_dut_hostname]
+
+        '''
+            /Interface Slice IFG Serdes/: This pattern matches the line containing
+                                          the header "Interface Slice IFG Serdes".
+            {flag=1; next}: When the header is found, it sets a flag to 1 and skips to the next line.
+            /Port/{flag=0}: This pattern matches the line containing "Port" and resets the flag to 0.
+            flag: If the flag is set (i.e., if we are in the desired section), it prints the line.
+            flag && NF ensures that only non-empty lines are printed.
+            'NF': This built-in variable in awk holds the number of fields in the current record
+        '''
+        result = duthost.shell("""
+                    show platform npu global |
+                    awk '/Interface   Slice  IFG    Serdes/{flag=1; next} /Port/{flag=0} flag && NF' |
+                    tr -s ' ' |
+                    cut -d ' ' -f1,2
+                """)
+
+        if not result['stdout'] or result['stderr']:
+            pytest.fail("Couldn't find the Ethernet ports belonging to a slice")
+
+        lines = result['stdout'].split('\n')
+
+        slice_ports = {}
+        for line in lines:
+            if line.strip():  # Check if the line is not empty
+                port, slice_val = line.split()
+                slice_val = int(slice_val)
+                if slice_val not in slice_ports:
+                    slice_ports[slice_val] = []
+                slice_ports[slice_val].append(port)
+
+        # Find the slice with the largest number of ports
+        largest_slice = max(slice_ports, key=lambda x: len(slice_ports[x]))
+
+        # Construct a list of Ethernet ports from the largest slice
+        ports_in_slice = slice_ports[largest_slice]
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+
+        # Filter in src ports belonging to the ports_in_slice list
+        all_src_port_id_to_name = {
+                                    port_id: dutConfig["dutInterfaces"][port_id]
+                                    for port_id in src_testPortIps.keys()
+                                    if dutConfig["dutInterfaces"][port_id] in ports_in_slice
+                                  }
+
+        # Fetch all port IDs and IPs
+        all_src_port_id_to_ip = {
+                                  port_id: src_testPortIps[port_id]['peer_addr']
+                                  for port_id in all_src_port_id_to_name.keys()
+                                }
+
+        all_dst_port_id_to_ip = {
+                                    port_id: set_static_route_ptf64[port_id]['generated_ip']
+                                    for port_id in dst_testPortIps.keys()
+                                }
+
+        all_dst_port_id_to_name = {
+                                    port_id: dutConfig["dutInterfaces"][port_id]
+                                    for port_id in all_dst_port_id_to_ip.keys()
+                                  }
+
+        try:
+            tc_to_q_map = dut_qos_maps['tc_to_queue_map']['AZURE']
+            tc_to_dscp_map = {v: k for k, v in dut_qos_maps['dscp_to_tc_map']['AZURE'].items()}
+        except KeyError:
+            pytest.skip(
+                "Need both TC_TO_PRIORITY_GROUP_MAP and DSCP_TO_TC_MAP"
+                "and key AZURE to run this test.")
+
+        dscp_to_q_map = {tc_to_dscp_map[tc]: tc_to_q_map[tc] for tc in tc_to_dscp_map if tc != 7}
+
+        # Define the number of splits
+        # for the dst port list
+        num_splits = 4
+
+        # Get all keys and sort them
+        all_keys = sorted(all_dst_port_id_to_ip.keys())
+
+        # Calculate the split points
+        split_points = [all_keys[i * len(all_keys) // num_splits] for i in range(1, num_splits)]
+
+        # Execute with one set of dst port at a time,  avoids ptf run getting timed out
+        for start, end in zip([0] + split_points, split_points + [len(all_keys)]):
+            run_test_for_dst_port(start, end)
