@@ -1767,7 +1767,9 @@ class ReloadTest(BaseTest):
         processes_list = []
         for iface in self.tcpdump_data_ifaces:
             iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-            process = subprocess.Popen(['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path])
+            command = ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path]
+            process = subprocess.Popen(command)
+            process.command = command
             self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
             processes_list.append(process)
 
@@ -1792,7 +1794,7 @@ class ReloadTest(BaseTest):
                 wait_timer.cancel()
             # Return code here could be 0, so we need to explicitly check for None
             if process.returncode is not None:
-                self.log("Tcpdump process {} terminated".format(process.args))
+                self.log("Tcpdump process {} terminated".format(' '.join(process.command)))
 
         self.log("Killed all tcpdump processes")
 
