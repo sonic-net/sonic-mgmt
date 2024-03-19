@@ -21,7 +21,7 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 dut_4byte_asn = 400003
 neighbor_4byte_asn = 400001
-bgp_sleep = 60
+bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
@@ -36,12 +36,17 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         pytest.skip("Neighbor type must be sonic")
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    tor1 = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
-    tor2 = duthost.shell("show lldp table")['stdout'].split("\n")[5].split()[1]
 
-    tor_neighbors = dict()
+    if duthost.is_multi_asic:
+        cli_options = "-n " + duthost.get_namespace_from_asic_id(asic_index)
+    else:
+        cli_options = ''
+
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    neigh1 = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
+    neigh2 = duthost.shell("show lldp table")['stdout'].split("\n")[5].split()[1]
+
+    neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
     neigh_asn = dict()
@@ -49,28 +54,28 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     # verify sessions are established and gather neighbor information
     for k, v in bgp_facts['bgp_neighbors'].items():
         if v['description'].lower() not in skip_hosts:
-            if v['description'] == tor1:
+            if v['description'] == neigh1:
                 if v['ip_version'] == 4:
                     neigh_ip_v4 = k
                     peer_group_v4 = v['peer group']
                 elif v['ip_version'] == 6:
                     neigh_ip_v6 = k
                     peer_group_v6 = v['peer group']
-            if v['description'] == tor2:
+            if v['description'] == neigh2:
                 if v['ip_version'] == 4:
                     neigh2_ip_v4 = k
                 elif v['ip_version'] == 6:
                     neigh2_ip_v6 = k
             assert v['state'] == 'established'
             neigh_asn[v['description']] = v['remote AS']
-            tor_neighbors[v['description']] = nbrhosts[v['description']]["host"]
+            neighbors[v['description']] = nbrhosts[v['description']]["host"]
 
-    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][0]
-    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][tor1]['bgp']['peers'][dut_asn][1]
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh1]['bgp']['peers'][dut_asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh1]['bgp']['peers'][dut_asn][1]
 
     dut_ip_bgp_sum = duthost.shell('show ip bgp summary')['stdout']
-    neigh_ip_bgp_sum = nbrhosts[tor1]["host"].shell('show ip bgp summary')['stdout']
-    neigh2_ip_bgp_sum = nbrhosts[tor1]["host"].shell('show ip bgp summary')['stdout']
+    neigh_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
+    neigh2_ip_bgp_sum = nbrhosts[neigh1]["host"].shell('show ip bgp summary')['stdout']
     with open(bgp_id_textfsm) as template:
         fsm = textfsm.TextFSM(template)
         dut_bgp_id = fsm.ParseText(dut_ip_bgp_sum)[0][0]
@@ -79,21 +84,21 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     dut_ipv4_network = duthost.shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
     dut_ipv6_network = duthost.shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
-    neigh_ipv4_network = nbrhosts[tor1]["host"].shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
-    neigh_ipv6_network = nbrhosts[tor1]["host"].shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
+    neigh_ipv4_network = nbrhosts[neigh1]["host"].shell("show run bgp | grep 'ip prefix-list'")['stdout'].split()[6]
+    neigh_ipv6_network = nbrhosts[neigh1]["host"].shell("show run bgp | grep 'ipv6 prefix-list'")['stdout'].split()[6]
 
     setup_info = {
         'duthost': duthost,
-        'neighhost': tor_neighbors[tor1],
-        'neigh2host': tor_neighbors[tor2],
-        'tor1': tor1,
-        'tor2': tor2,
+        'neighhost': neighbors[neigh1],
+        'neigh2host': neighbors[neigh2],
+        'neigh1': neigh1,
+        'neigh2': neigh2,
         'dut_asn': dut_asn,
-        'neigh_asn': neigh_asn[tor1],
-        'neigh2_asn': neigh_asn[tor2],
+        'neigh_asn': neigh_asn[neigh1],
+        'neigh2_asn': neigh_asn[neigh2],
         'asn_dict':  neigh_asn,
-        'neighbors': tor_neighbors,
-        'namespace': namespace,
+        'neighbors': neighbors,
+        'cli_options': cli_options,
         'dut_ip_v4': dut_ip_v4,
         'dut_ip_v6': dut_ip_v6,
         'neigh_ip_v4': neigh_ip_v4,
@@ -112,15 +117,15 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'neigh_ipv6_network': neigh_ipv6_network
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
-    logger.info("Neighbor BGP Config: {}".format(nbrhosts[tor1]["host"].shell("show run bgp")['stdout']))
-    logger.info('Setup_info: {}'.format(setup_info))
+    logger.debug("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
+    logger.debug("Neighbor BGP Config: {}".format(nbrhosts[neigh1]["host"].shell("show run bgp")['stdout']))
+    logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
 
     # restore config to original state
     config_reload(duthost)
-    config_reload(tor_neighbors[tor1], is_dut=False)
+    config_reload(neighbors[neigh1], is_dut=False)
 
     # verify sessions are established
     bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
@@ -131,7 +136,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
 
 def test_4_byte_asn_translation(setup):
-    cmd = 'vtysh -n {} \
+    # copy existing BGP config to a new 4-byte ASN.  Use existing route-maps for consistancy.
+    cmd = 'vtysh{} \
     -c "config" \
     -c "no router bgp {}" \
     -c "router bgp {}" \
@@ -180,18 +186,18 @@ def test_4_byte_asn_translation(setup):
     -c "neighbor {} activate" \
     -c "maximum-paths 64" \
     -c "exit-address-family" \
-    '.format(setup['namespace'], setup['dut_asn'], dut_4byte_asn, setup['dut_bgp_id'],
+    '.format(setup['cli_options'], setup['dut_asn'], dut_4byte_asn, setup['dut_bgp_id'],
              setup['peer_group_v4'], setup['peer_group_v6'], setup['neigh_ip_v4'], neighbor_4byte_asn,
-             setup['neigh_ip_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['tor1'], setup['neigh_ip_v4'],
+             setup['neigh_ip_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['neigh1'], setup['neigh_ip_v4'],
              setup['neigh_ip_v4'], setup['neigh_ip_v6'], neighbor_4byte_asn, setup['neigh_ip_v6'],
-             setup['peer_group_v6'], setup['neigh_ip_v6'], setup['tor1'], setup['neigh_ip_v6'], setup['neigh_ip_v6'],
+             setup['peer_group_v6'], setup['neigh_ip_v6'], setup['neigh1'], setup['neigh_ip_v6'], setup['neigh_ip_v6'],
              setup['neigh2_ip_v4'], setup['neigh2_asn'], setup['neigh2_ip_v4'], setup['peer_group_v4'],
-             setup['neigh2_ip_v4'], setup['tor2'], setup['neigh2_ip_v4'], setup['neigh2_ip_v4'], setup['neigh2_ip_v6'],
-             setup['neigh2_asn'], setup['neigh2_ip_v6'], setup['peer_group_v6'], setup['neigh2_ip_v6'], setup['tor2'],
-             setup['neigh2_ip_v6'], setup['neigh2_ip_v6'], setup['dut_ipv4_network'], setup['peer_group_v4'],
-             setup['peer_group_v4'], setup['peer_group_v4'], setup['neigh_ip_v4'], setup['neigh2_ip_v4'],
-             setup['dut_ipv6_network'], setup['peer_group_v6'], setup['peer_group_v6'], setup['peer_group_v6'],
-             setup['neigh_ip_v6'], setup['neigh2_ip_v6'])
+             setup['neigh2_ip_v4'], setup['neigh2'], setup['neigh2_ip_v4'], setup['neigh2_ip_v4'],
+             setup['neigh2_ip_v6'], setup['neigh2_asn'], setup['neigh2_ip_v6'], setup['peer_group_v6'],
+             setup['neigh2_ip_v6'], setup['neigh2'], setup['neigh2_ip_v6'], setup['neigh2_ip_v6'],
+             setup['dut_ipv4_network'], setup['peer_group_v4'], setup['peer_group_v4'], setup['peer_group_v4'],
+             setup['neigh_ip_v4'], setup['neigh2_ip_v4'], setup['dut_ipv6_network'], setup['peer_group_v6'],
+             setup['peer_group_v6'], setup['peer_group_v6'], setup['neigh_ip_v6'], setup['neigh2_ip_v6'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
 
     cmd = 'vtysh \
@@ -241,31 +247,31 @@ def test_4_byte_asn_translation(setup):
 
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
 
-    logger.info("DUT BGP Config: {}".format(setup['duthost'].shell("show run bgp")['stdout']))
-    logger.info("Neighbor BGP Config: {}".format(setup['neighhost'].shell("show run bgp")['stdout']))
+    logger.debug("DUT BGP Config: {}".format(setup['duthost'].shell("show run bgp")['stdout']))
+    logger.debug("Neighbor BGP Config: {}".format(setup['neighhost'].shell("show run bgp")['stdout']))
 
     time.sleep(bgp_sleep)
 
     # verify session to 4-byte neighbor is established and 2-byte neighbor is down
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() == setup['tor1']:
+        if v['description'].lower() == setup['neigh1']:
             logger.debug(v['description'])
             assert v['state'] == 'established'
-        elif v['description'].lower() == setup['tor2']:
+        elif v['description'].lower() == setup['neigh2']:
             logger.debug(v['description'])
             assert v['state'] != 'established'
 
     # Configure DUT to use 2-byte local-ASN for 2-byte neighbors
-    cmd = 'vtysh -n {} \
+    cmd = 'vtysh{} \
     -c "config" \
     -c "router bgp {}" \
     -c "neighbor {} local-as {}" \
     -c "neighbor {} local-as {}" \
-    '.format(setup['namespace'], dut_4byte_asn, setup['peer_group_v4'], setup['dut_asn'], setup['peer_group_v6'],
+    '.format(setup['cli_options'], dut_4byte_asn, setup['peer_group_v4'], setup['dut_asn'], setup['peer_group_v6'],
              setup['dut_asn'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
-    cmd = 'vtysh -n {} -c "clear bgp *"'.format(setup['namespace'])
+    cmd = 'vtysh{} -c "clear bgp *"'.format(setup['cli_options'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
 
     time.sleep(bgp_sleep)
@@ -273,10 +279,10 @@ def test_4_byte_asn_translation(setup):
     # verify session to 4-byte and 2-byte neighbor is established
     bgp_facts = setup['duthost'].bgp_facts(instance_id=setup['asic_index'])['ansible_facts']
     for k, v in bgp_facts['bgp_neighbors'].items():
-        if v['description'].lower() == setup['tor1']:
+        if v['description'].lower() == setup['neigh1']:
             logger.debug(v['description'])
             assert v['state'] == 'established'
-        elif v['description'].lower() == setup['tor2']:
+        elif v['description'].lower() == setup['neigh2']:
             logger.debug(v['description'])
             assert v['state'] == 'established'
 
