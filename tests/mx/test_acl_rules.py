@@ -29,6 +29,7 @@ from config.generate_acl_rules import (
     ETHERTYPE_IPV6,
     IP_PROTOCOL_TCP,
     IP_PROTOCOL_UDP,
+    IP_PROTOCOL_ICMPV6,
     IP_PROTOCOL_MAP,
 )
 
@@ -65,8 +66,8 @@ SAMPLE_UPSTREAM_IPV4_PREFIX = 32
 SAMPLE_UPSTREAM_IPV6_ADDR = "fc03::1"
 SAMPLE_UPSTREAM_IPV6_PREFIX = 128
 
-L4_PORT_MODE_SINGLE = "L4_SINGLE_PORT"
-L4_PORT_MODE_RANGE = "L4_PORT_RANGE"
+ICMPV6_TYPE_ECHO_REQUEST = 128
+ICMPV6_TYPE_ECHO_REPLY = 129
 
 
 def add_acl_table(duthost, table_name, table_type, ports, stage):
@@ -145,9 +146,9 @@ def build_gcu_acl_rule_patch(seq_id, action, ethertype=None, interfaces=None, ip
     if dst_ipv6:
         rule_value["DST_IPV6"] = str(dst_ipv6)
     if l4_src_port:
-        rule_value["L4_SRC_PORT_RANGE" if l4_src_port.mode() == L4Ports.MODE_RANGE else "L4_SRC_PORT"] = str(l4_src_port)
+        rule_value["L4_SRC_PORT_RANGE" if l4_src_port.get_mode() == L4Ports.MODE_RANGE_RANDOM else "L4_SRC_PORT"] = str(l4_src_port)
     if l4_dst_port:
-        rule_value["L4_DST_PORT_RANGE" if l4_dst_port.mode() == L4Ports.MODE_RANGE else "L4_DST_PORT"] = str(l4_dst_port)
+        rule_value["L4_DST_PORT_RANGE" if l4_dst_port.get_mode() == L4Ports.MODE_RANGE_RANDOM else "L4_DST_PORT"] = str(l4_dst_port)
     return {rule_name: rule_value}
 
 
@@ -191,34 +192,44 @@ class PortInfo:
 
 
 class L4Ports:
-    MODE_SINGLE = "L4_SINGLE_PORT"
-    MODE_RANGE = "L4_PORT_RANGE"
+    MODE_RANGE_RANDOM = "L4_PORT_RANGE"
+    MODE_SINGLE_RANDOM = "L4_SINGLE_RANDOM_PORT"
+    MODE_SINGLE_SSH = "L4_SINGLE_SSH"
+    MODE_SINGLE_HTTPS = "L4_SINGLE_HTTPS"
 
-    def __init__(self, lo=0, hi=0):
+    TCP_SSH_PORT = 22
+    TCP_HTTPS_PORT = 443
+
+    def __init__(self, lo=0, hi=0, mode=MODE_SINGLE_RANDOM):
         self.lo = lo
         self.hi = hi
+        self.mode = mode
 
     def __str__(self):
         return self.format_config_db()
 
     @classmethod
     def rand(cls, mode, lo=1024, hi=65535):
-        if mode == cls.MODE_SINGLE:
+        if mode == cls.MODE_SINGLE_RANDOM:
             return cls.rand_single(lo, hi)
-        elif mode == cls.MODE_RANGE:
+        elif mode == cls.MODE_RANGE_RANDOM:
             return cls.rand_range(lo, hi)
+        elif mode == cls.MODE_SINGLE_SSH:
+            return cls(L4Ports.TCP_SSH_PORT, L4Ports.TCP_SSH_PORT, cls.MODE_SINGLE_SSH)
+        elif mode == cls.MODE_SINGLE_HTTPS:
+            return cls(L4Ports.TCP_HTTPS_PORT, L4Ports.TCP_HTTPS_PORT, cls.MODE_SINGLE_HTTPS)
         else:
             raise ValueError("Invalid mode: {}".format(mode))
 
     @classmethod
-    def rand_single(cls, lo=1024, hi=60000):
+    def rand_single(cls, lo=1024, hi=65535):
         port = random.randint(lo, hi)
-        return cls(port, port)
+        return cls(port, port, cls.MODE_SINGLE_RANDOM)
 
     @classmethod
-    def rand_range(cls, lo=1024, hi=60000):
+    def rand_range(cls, lo=1024, hi=65535):
         range_lo, range_hi = sorted(random.sample(range(lo, hi), 2))
-        return cls(range_lo, range_hi)
+        return cls(range_lo, range_hi, cls.MODE_RANGE_RANDOM)
 
     def format_acl_loader(self):
         if self.lo == self.hi:
@@ -230,10 +241,8 @@ class L4Ports:
             return str(self.lo)
         return "{}-{}".format(self.lo, self.hi)
 
-    def mode(self):
-        if self.lo == self.hi:
-            return self.MODE_SINGLE
-        return self.MODE_RANGE
+    def get_mode(self):
+        return self.mode
 
     def sample_port(self):
         return random.sample(range(self.lo, self.hi + 1), 1)[0]
@@ -457,7 +466,7 @@ class BmcOtwAclRulesBase:
         if ACL_TABLE_BMC_SOUTHBOUND_V6 in acl_tables:
             remove_acl_rule(duthost, acl_tables[ACL_TABLE_BMC_SOUTHBOUND_V6])
 
-    def setup_dynamic_v6_acl_rules_by_acl_loader(self, duthost, rack_topo, bmc, upstream, bmc_l4_ports, upstream_l4_ports, ip_protocol=None):
+    def setup_dynamic_v6_acl_rules_by_acl_loader(self, duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6):
         if 'dynamic_acl_rule_template_file' not in rack_topo['config']:
             pytest.skip("No dynamic acl rule template file")
         dynamic_acl_rule_template_file = rack_topo['config']['dynamic_acl_rule_template_file']
@@ -465,25 +474,6 @@ class BmcOtwAclRulesBase:
         acl_tables = rack_topo['config']['acl_tables']
         if ACL_TABLE_BMC_NORTHBOUND_V6 not in acl_tables or ACL_TABLE_BMC_SOUTHBOUND_V6 not in acl_tables:
             pytest.skip("No IPv6 ACL tables")
-
-        seq_id = 3000
-        dynamic_northbound_v6 = {
-            '{}_AD_HOC'.format(seq_id): json.dumps(acl_entry(
-                seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                interfaces=[bmc.port_name], ip_protocol=ip_protocol,
-                src_ip=bmc.ipv6_addr + "/128", dst_ip=upstream.ipv6_addr + "/128",
-                l4_src_port=bmc_l4_ports.format_acl_loader(),
-                l4_dst_port=upstream_l4_ports.format_acl_loader()
-            )),
-        }
-        dynamic_southbound_v6 = {
-            '{}_AD_HOC'.format(seq_id): json.dumps(acl_entry(
-                seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6, ip_protocol=ip_protocol,
-                src_ip=upstream.ipv6_addr + "/128", dst_ip=bmc.ipv6_addr + "/128",
-                l4_src_port=upstream_l4_ports.format_acl_loader(),
-                l4_dst_port=bmc_l4_ports.format_acl_loader()
-            )),
-        }
 
         j2_env = jinja2.Environment(loader=jinja2.FileSystemLoader(ACL_RULE_SRC_FILE_PREFIX))
         j2_tpl = j2_env.get_template(dynamic_acl_rule_template_file)
@@ -602,35 +592,108 @@ class BmcOtwAclRulesBase:
         for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=10):
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop")
 
-    @pytest.mark.parametrize("ip_protocol", [IP_PROTOCOL_TCP, IP_PROTOCOL_UDP])
-    @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE, L4Ports.MODE_RANGE])
-    def test_bmc_otw_req_4_v6_acl_loader_full_update(self, duthost, ptfadapter, setup_teardown, ip_protocol, l4_port_mode):
+    @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE_RANDOM, L4Ports.MODE_RANGE_RANDOM, L4Ports.MODE_SINGLE_SSH, L4Ports.MODE_SINGLE_HTTPS])
+    def test_bmc_otw_req_4_v6_tcp(self, duthost, ptfadapter, setup_teardown, l4_port_mode):
         """
         Request 4: Direct access is conditional allowed after loading AD-HOC ACL rules
         TEST 1: Setup full ACL rules (including AD-HOC) via acl-loader
+        Senarico: Check if mx can forward TCP packets with specific destination L4 port in both directions
         """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
+        rack_topo, _, bmc_hosts, upstream_ports = setup_teardown
         for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=5):
             rand_upstream = self.rand_one(upstream_ports)
             bmc_l4_ports = L4Ports.rand(l4_port_mode)
             upstream_l4_ports = L4Ports.rand(l4_port_mode)
-            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, rand_bmc, rand_upstream, bmc_l4_ports, upstream_l4_ports, ip_protocol)
-            if ip_protocol == IP_PROTOCOL_TCP:
-                northbound_pkt = testutils.simple_tcpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=rand_upstream.ipv6_addr,
-                                                               tcp_sport=bmc_l4_ports.sample_port(), tcp_dport=upstream_l4_ports.sample_port())
-                southbound_pkt = testutils.simple_tcpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr, ipv6_dst=rand_bmc.ipv6_addr,
-                                                               tcp_sport=upstream_l4_ports.sample_port(), tcp_dport=bmc_l4_ports.sample_port())
-            elif ip_protocol == IP_PROTOCOL_UDP:
-                northbound_pkt = testutils.simple_udpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=rand_upstream.ipv6_addr,
-                                                               udp_sport=bmc_l4_ports.sample_port(), udp_dport=upstream_l4_ports.sample_port())
-                southbound_pkt = testutils.simple_udpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr, ipv6_dst=rand_bmc.ipv6_addr,
-                                                               udp_sport=upstream_l4_ports.sample_port(), udp_dport=bmc_l4_ports.sample_port())
+            dynamic_northbound_v6_seq_id = 3000
+            dynamic_northbound_v6 = {
+                '{}_AD_HOC'.format(dynamic_northbound_v6_seq_id): json.dumps(
+                    acl_entry(
+                        dynamic_northbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                        ip_protocol=IP_PROTOCOL_TCP,
+                        dst_ip=rand_upstream.ipv6_addr + "/128",
+                        l4_src_port=bmc_l4_ports.format_acl_loader()
+                    )
+                )
+            }
+            dynamic_southbound_v6_seq_id = 3000
+            dynamic_southbound_v6 = {
+                '{}_AD_HOC'.format(dynamic_southbound_v6_seq_id): json.dumps(
+                    acl_entry(
+                        dynamic_southbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6, ip_protocol=IP_PROTOCOL_TCP,
+                        src_ip=rand_upstream.ipv6_addr + "/128",
+                        l4_dst_port=bmc_l4_ports.format_acl_loader()
+                    )
+                )
+            }
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
+            northbound_pkt = testutils.simple_tcpv6_packet(
+                eth_dst=duthost.facts['router_mac'],
+                ipv6_src=rand_bmc.ipv6_addr,
+                ipv6_dst=rand_upstream.ipv6_addr,
+                tcp_sport=bmc_l4_ports.sample_port(),
+                tcp_dport=upstream_l4_ports.sample_port()
+            )
+            southbound_pkt = testutils.simple_tcpv6_packet(
+                eth_dst=duthost.facts['router_mac'],
+                ipv6_src=rand_upstream.ipv6_addr,
+                ipv6_dst=rand_bmc.ipv6_addr,
+                tcp_sport=upstream_l4_ports.sample_port(),
+                tcp_dport=bmc_l4_ports.sample_port()
+            )
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
+
+    def test_bmc_otw_req_4_v6_icmpv6_echo(self, duthost, ptfadapter, setup_teardown):
+        """
+        Request 4: Direct access is conditional allowed after loading AD-HOC ACL rules
+        TEST 1: Setup full ACL rules (including AD-HOC) via acl-loader
+        Senarico: Check if mx can forward ICMPv6 echo for southbound and reply for northbound
+        """
+        rack_topo, _, bmc_hosts, upstream_ports = setup_teardown
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=5):
+            rand_upstream = self.rand_one(upstream_ports)
+            dynamic_northbound_v6_seq_id = 3000
+            dynamic_northbound_v6 = {
+                '{}_AD_HOC'.format(dynamic_northbound_v6_seq_id): json.dumps(
+                    acl_entry(
+                        dynamic_northbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                        interfaces=[rand_bmc.port_name], ip_protocol=IP_PROTOCOL_ICMPV6,
+                        dst_ip=rand_upstream.ipv6_addr + "/128",
+                        icmp_type=ICMPV6_TYPE_ECHO_REPLY,
+                        icmp_code=0
+                    )
+                )
+            }
+            dynamic_southbound_v6_seq_id = 3000
+            dynamic_southbound_v6 = {
+                '{}_AD_HOC'.format(dynamic_southbound_v6_seq_id): json.dumps(
+                    acl_entry(
+                        dynamic_southbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6, ip_protocol=IP_PROTOCOL_ICMPV6,
+                        src_ip=rand_upstream.ipv6_addr + "/128",
+                        icmp_type=ICMPV6_TYPE_ECHO_REQUEST,
+                        icmp_code=0
+                    )
+                )
+            }
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
+            northbound_pkt = testutils.simple_icmpv6_packet(
+                eth_dst=duthost.facts['router_mac'],
+                ipv6_src=rand_bmc.ipv6_addr,
+                ipv6_dst=rand_upstream.ipv6_addr,
+                icmp_type=ICMPV6_TYPE_ECHO_REPLY
+            )
+            southbound_pkt = testutils.simple_icmpv6_packet(
+                eth_dst=duthost.facts['router_mac'],
+                ipv6_src=rand_upstream.ipv6_addr,
+                ipv6_dst=rand_bmc.ipv6_addr,
+                icmp_type=ICMPV6_TYPE_ECHO_REQUEST
+            )
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="accept", pkt=northbound_pkt)
             send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="accept", pkt=southbound_pkt)
 
     @pytest.mark.xfail(reason="Expect fail until ICMPv6 ACL Yang model is fixed")
     @pytest.mark.parametrize("ip_protocol", [IP_PROTOCOL_TCP, IP_PROTOCOL_UDP])
-    @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE, L4Ports.MODE_RANGE])
+    @pytest.mark.parametrize("l4_port_mode", [L4Ports.MODE_SINGLE_RANDOM, L4Ports.MODE_RANGE_RANDOM])
     def test_bmc_otw_req_4_v6_gcu_inc_update(self, duthost, ptfadapter, setup_teardown, ip_protocol, l4_port_mode):
         """
         Request 4: Direct access is conditional allowed after loading AD-HOC ACL rules
@@ -703,7 +766,7 @@ class BmcOtwAclRulesBase:
         TEST 2: Verify BMC can send ICMP packet to Mx
         """
         _, _, bmc_hosts, _ = setup_teardown
-        for vlan_name, vlan_info in get_vlan_brief(duthost).items(): 
+        for vlan_name, vlan_info in get_vlan_brief(duthost).items():
             vlan_members = vlan_info["members"]
             rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
             if rand_bmc is None:
@@ -728,7 +791,7 @@ class BmcOtwAclRulesBase:
         TEST 2: Verify BMC can send ICMPv6 packet to Mx
         """
         _, _, bmc_hosts, _ = setup_teardown
-        for vlan_name, vlan_info in get_vlan_brief(duthost).items(): 
+        for vlan_name, vlan_info in get_vlan_brief(duthost).items():
             vlan_members = vlan_info["members"]
             rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
             if rand_bmc is None:
