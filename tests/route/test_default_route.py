@@ -37,8 +37,6 @@ def get_upstream_neigh(tb, device_neigh_metadata):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if neigh_type not in neigh_name:
             continue
-        if neigh_type == 'T3' and device_neigh_metadata[neigh_name]['type'] == 'AZNGHub':
-            continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
@@ -65,8 +63,6 @@ def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
     asics = set()
     for name, asic in list(bgp_name_to_ns_mapping.items()):
         if neigh_type not in name:
-            continue
-        if neigh_type == 'T3' and device_neigh_metadata[name]['type'] == 'AZNGHub':
             continue
         asics.add(asic)
     return asics
