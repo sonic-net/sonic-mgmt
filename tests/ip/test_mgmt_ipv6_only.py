@@ -1,12 +1,22 @@
+import os
+import time
 import pytest
+import logging
+from scapy.all import rdpcap
 
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.syslog.test_syslog import check_dummy_addr_and_default_route, _check_pcap, check_default_route
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+DUT_PCAP_FILEPATH = "/tmp/test_syslog_tcpdump.pcap"
+DOCKER_TMP_PATH = "/tmp/"
 
 
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
@@ -78,3 +88,75 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
     else:
         pytest.fail("Failed to download image from image_url {} via any of {}"
                     .format(image_url, list(mgmt_interfaces)))
+
+
+@pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
+                         [("fd82:b34f:cc99::100", None),
+                          ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
+def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
+                check_default_route, convert_and_restore_config_db_to_ipv6_only):
+    duthost = rand_selected_dut
+    logger.info("Starting syslog tests")
+    test_message = "Basic Test Message"
+
+    check_dummy_addr_and_default_route(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
+                                       check_default_route['IPv4'], check_default_route['IPv6'])
+
+    if dummy_syslog_server_ip_a:
+        duthost.command("sudo ip -6 rule add from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+
+    if dummy_syslog_server_ip_b:
+        duthost.command("sudo ip -6 rule add from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+
+    logger.info("Configuring the DUT")
+    # Add dummy rsyslog destination for testing
+    if dummy_syslog_server_ip_a is not None:
+        if "201911" in duthost.os_version and ":" in dummy_syslog_server_ip_a:
+            pytest.skip("IPv6 syslog server IP not supported on 201911")
+        duthost.shell("sudo config syslog add {}".format(dummy_syslog_server_ip_a))
+        logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_a))
+    if dummy_syslog_server_ip_b is not None:
+        if "201911" in duthost.os_version and ":" in dummy_syslog_server_ip_b:
+            pytest.skip("IPv6 syslog server IP not supported on 201911")
+        duthost.shell("sudo config syslog add {}".format(dummy_syslog_server_ip_b))
+        logger.debug("Added new rsyslog server IP {}".format(dummy_syslog_server_ip_b))
+
+    logger.info("Start tcpdump")
+    # Make sure that the DUT_PCAP_FILEPATH dose not exist
+    duthost.shell("sudo rm -f {}".format(DUT_PCAP_FILEPATH))
+    # Scapy doesn't support LINUX_SLL2 (Linux cooked v2), and tcpdump on Bullseye
+    # defaults to writing in that format when listening on any interface. Therefore,
+    # have it use LINUX_SLL (Linux cooked) instead.
+    tcpdump_task, tcpdump_result = duthost.shell(
+        "sudo timeout 20 tcpdump -y LINUX_SLL -i any -s0 -A -w {} \"udp and port 514\""
+        .format(DUT_PCAP_FILEPATH), module_async=True)
+    # wait for starting tcpdump
+    time.sleep(5)
+
+    logger.debug("Generating log message from DUT")
+    # Generate a syslog from the DUT
+    duthost.shell("logger --priority INFO {}".format(test_message))
+
+    # wait for stoping tcpdump
+    tcpdump_task.close()
+    tcpdump_task.join()
+
+    # Remove the syslog configuration
+    if dummy_syslog_server_ip_a is not None:
+        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_a))
+        duthost.command("sudo ip -6 rule del from all to {} pref 1 lookup default".format(dummy_syslog_server_ip_a))
+
+    if dummy_syslog_server_ip_b is not None:
+        duthost.shell("sudo config syslog del {}".format(dummy_syslog_server_ip_b))
+        duthost.command("sudo ip -6 rule del from all to {} pref 2 lookup default".format(dummy_syslog_server_ip_b))
+
+    duthost.fetch(src=DUT_PCAP_FILEPATH, dest=DOCKER_TMP_PATH)
+    filepath = os.path.join(DOCKER_TMP_PATH, duthost.hostname, DUT_PCAP_FILEPATH.lstrip(os.path.sep))
+
+    if not _check_pcap(dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, filepath):
+        default_route_v6 = duthost.shell("ip -6 route show default table default")['stdout']
+        logger.debug("DUT's IPv6 default route:\n%s" % default_route_v6)
+        syslog_config = duthost.shell("grep 'remote syslog server' -A 7 /etc/rsyslog.conf")['stdout']
+        logger.debug("DUT's syslog server IPs:\n%s" % syslog_config)
+
+        pytest.fail("Dummy syslog server IP not seen in the pcap file")
