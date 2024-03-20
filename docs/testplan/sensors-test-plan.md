@@ -1,4 +1,4 @@
-# HLD - Dynamic PSU Support in Sensor Test #
+# Test Plan - Dynamic PSU Support in Sensor Test #
 
 # Table of Content 
 
