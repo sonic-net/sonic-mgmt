@@ -779,6 +779,11 @@ def creds_on_dut(duthost):
         console_login_creds = {}
     else:
         console_login_creds = hostvars["console_login"]
+
+    creds["ansible_altpasswords"] = []
+    if "secret_group_vars" in list(hostvars.keys()):
+        creds["ansible_altpasswords"] = hostvars["secret_group_vars"].get("str").get("altpasswords")
+
     creds["console_user"] = {}
     creds["console_password"] = {}
 
@@ -1639,6 +1644,10 @@ def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_grap
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
+    sonicadmin_alt_passwords = creds["ansible_altpasswords"]
+
+    sonicadmin_alt_password = sonicadmin_alt_password.extend(sonicadmin_alt_passwords)
+
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,
                        console_port=console_port,
