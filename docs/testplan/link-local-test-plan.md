@@ -71,7 +71,7 @@ N/A
 
 ### Test case #1 and #2 - IPv4 and IPv6 Link-Local Source IP Traffic
 
-![ traffic with Link Local source IP](Img/link_local_v4_v6.png)
+![ traffic with Link Local source IP](Img/link_local_v4_v6_sip.png)
 
 #### Test objective
 
@@ -108,10 +108,11 @@ Verify that traffic sent from PTF with IPv6 destination IP is being forwarded by
 
 ### Test case #5 - IPv6 Link-Local Dut Interface Destination IP Traffic
 
+![ traffic to Dut Interface IPv6 Link Local destination IP](Img/link_local_dut_v6_dip.png)
+
 #### Test objective
 
 Verify that traffic sent from PTF with Dut Interface IPv6 destination IP is being traped by CPU.
-![ traffic to Dut Interface IPv6 Link Local destination IP](Img/link_local_dut_v6_dip.png)
 1. Send traffic via scapy from PTF with dut Interface IPv6 Link local destination ip address
 2. Verify packets are traped by tcpdump
 3. Verify Counters have increased on the link.
