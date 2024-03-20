@@ -48,6 +48,7 @@ CREATE_INITIAL_DROP_RULE_TEMPLATE = "create_initial_drop_rule.j2"
 CREATE_SECONDARY_DROP_RULE_TEMPLATE = "create_secondary_drop_rule.j2"
 CREATE_THREE_DROP_RULES_TEMPLATE = "create_three_drop_rules.j2"
 CREATE_ARP_FORWARD_RULE_FILE = "create_arp_forward_rule.json"
+CREATE_NDP_FORWARD_RULE_FILE = "create_ndp_forward_rule.json"
 CREATE_DHCP_FORWARD_RULE_FILE = "create_dhcp_forward_rule_both.json"
 REPLACE_RULES_TEMPLATE = "replace_rules.j2"
 REPLACE_NONEXISTENT_RULE_FILE = "replace_nonexistent_rule.json"
@@ -345,11 +346,14 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     return intf1, intf1_indice
 
 
-@pytest.fixture(scope='function')
-def prepare_ptf_intf_and_ip(config_facts, intfs_for_test, ptfhost):
+@pytest.fixture(params=['IPV4', 'IPV6'])
+def prepare_ptf_intf_and_ip(request, rand_selected_dut, config_facts, intfs_for_test, ptfhost):
     """
     Calculate IP addresses and interface to use for test.  Add the ip address to the ptf port.
     """
+
+    ip_type = request.param
+
     ptf_ports_available_in_topo = ptfhost.host.options['variable_manager'].extra_vars.get("ifaces_map")
 
     intf1_name, intf1_index = intfs_for_test
@@ -380,13 +384,32 @@ def prepare_ptf_intf_and_ip(config_facts, intfs_for_test, ptfhost):
     else:
         ptf_intf_ipv6_addr = None
 
-    ptfhost.shell("ifconfig {} {}".format(ptf_intf_name, ptf_intf_ipv4_addr))
-
     logger.info("Using {}, {}, and PTF interface {}".format(ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name))
 
-    yield ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, ptf_intf_name, intf1_index, intf1_name
+    if ip_type == "IPV4":
+        ip_for_test = ptf_intf_ipv4_addr
+        add_command = "ifconfig {} {}".format(ptf_intf_name, ip_for_test)
+        remove_command = "ifconfig {} 0.0.0.0".format(ptf_intf_name)
+        clear_command = "sonic-clear arp"
+    elif ip_type == "IPV6":
+        ip_for_test = ptf_intf_ipv6_addr
+        add_command = "ifconfig {} inet6 add {}".format(ptf_intf_name, ip_for_test)
+        remove_command = "ifconfig {} inet6 del {}".format(ptf_intf_name, ip_for_test)
+        clear_command = "sonic-clear ndp"
 
-    ptfhost.shell("ifconfig {} 0.0.0.0".format(ptf_intf_name))
+    ptfhost.shell(add_command)
+
+    rand_selected_dut.shell(clear_command)
+
+    # give table time to clear before starting test
+
+    time.sleep(10)
+
+    yield ip_for_test, ptf_intf_name, intf1_index, intf1_name
+
+    ptfhost.shell(remove_command)
+
+    rand_selected_dut.shell(clear_command)
 
 
 def generate_link_local_addr(mac):
@@ -680,7 +703,7 @@ def dynamic_acl_create_secondary_drop_rule(duthost, setup, blocked_port_name=Non
 
     expected_rule_content = ["DYNAMIC_ACL_TABLE",
                              "RULE_3",
-                             "9996",
+                             "9995",
                              "DROP",
                              "IN_PORTS: " + blocked_name,
                              "Active"]
@@ -762,6 +785,18 @@ def dynamic_acl_create_arp_forward_rule(duthost):
     expected_rule_content = ["DYNAMIC_ACL_TABLE", "ARP_RULE", "9997", "FORWARD", "ETHER_TYPE: 0x0806", "Active"]
 
     expect_acl_rule_match(duthost, "ARP_RULE", expected_rule_content)
+
+
+def dynamic_acl_create_ndp_forward_rule(duthost):
+    "Create an NDP forwarding rule with high priority"
+
+    output = load_and_apply_json_patch(duthost, CREATE_NDP_FORWARD_RULE_FILE)
+
+    expect_op_success(duthost, output)
+
+    expected_rule_content = ["DYNAMIC_ACL_TABLE", "NDP_RULE", "9996", "FORWARD", "IP_PROTOCOL: 58", "Active"]
+
+    expect_acl_rule_match(duthost, "NDP_RULE", expected_rule_content)
 
 
 def dynamic_acl_create_dhcp_forward_rule(duthost):
@@ -1012,24 +1047,31 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    dynamic_acl_create_table,
                                    prepare_ptf_intf_and_ip,
                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
-    """Test that we can create a blanket ARP packet forwarding rule with GCU, and that ARP packets
-    are correctly forwarded while all others are dropped.  IPv6 NDP testing not supported at this time."""
+    """Test that we can create a blanket ARP/NDP packet forwarding rule with GCU, and that ARP/NDP packets
+    are correctly forwarded while all others are dropped."""
 
-    ptf_intf_ipv4_addr, ptf_intf_ipv6_addr, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
+    ip_address_for_test, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
 
-    dynamic_acl_create_arp_forward_rule(rand_selected_dut)
+    is_ipv4_test = type(ip_network(ip_address_for_test, strict=False)) is IPv4Network
+
+    if is_ipv4_test:
+        show_cmd = "show arp"
+        ipv6_ping_option = ""
+        dynamic_acl_create_arp_forward_rule(rand_selected_dut)
+    else:
+        show_cmd = "nbrshow -6 -ip"
+        ipv6_ping_option = "-6"
+        dynamic_acl_create_ndp_forward_rule(rand_selected_dut)
+
     dynamic_acl_create_secondary_drop_rule(rand_selected_dut, setup, port_name)
 
-    rand_selected_dut.shell("sonic-clear arp")
-    # give command time to finish
+    rand_selected_dut.shell("ping -c 3 {} {}".format(ipv6_ping_option, ip_address_for_test), module_ignore_errors=True)
+
     time.sleep(10)
-    rand_selected_dut.shell("ping -c 3 {}".format(ptf_intf_ipv4_addr))
+    output = rand_selected_dut.show_and_parse("{} {}".format(show_cmd, ip_address_for_test))
 
-    time.sleep(5)
-    output = rand_selected_dut.show_and_parse("show arp {}".format(ptf_intf_ipv4_addr))
-
-    pytest_assert(len(output) >= 1, "ARP for {} was not learned!".format(ptf_intf_ipv4_addr))
-    pytest_assert(output[0]["iface"] == port_name, "ARP was learned for wrong port!")
+    pytest_assert(len(output) >= 1, "MAC for {} was not learned!".format(ip_address_for_test))
+    pytest_assert(output[0]["iface"] == port_name, "MAC was learned for wrong port!")
 
     dynamic_acl_verify_packets(setup,
                                ptfadapter,
