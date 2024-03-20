@@ -373,7 +373,10 @@ def uninstall_trap(dut, feature_name, trap_id):
         feature_name (str): feature name corresponding to the trap
         trap_id (str): trap id
     """
-    disable_feature_entry(dut, feature_name)
+    feature_list, _ = dut.get_feature_status()
+    if feature_name in feature_list.keys():
+        disable_feature_entry(dut, feature_name)
+
     configure_always_enabled_for_trap(dut, trap_id, "false")
 
 

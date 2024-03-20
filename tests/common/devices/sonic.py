@@ -1762,6 +1762,41 @@ Totals               6450                 6449
 
         return vlan_intfs
 
+    def get_vlan_brief(self):
+        """
+        Get vlan brief
+        Sample output:
+            {
+                "Vlan1000": {
+                    "interface_ipv4": [ "192.168.0.1/24" ],
+                    "interface_ipv6": [ "fc02:1000::1/64" ],
+                    "members": ["Ethernet0", "Ethernet1"]
+                },
+                "Vlan2000": {
+                    "interface_ipv4": [ "192.168.1.1/24" ],
+                    "interface_ipv6": [ "fc02:1001::1/64" ],
+                    "members": ["Ethernet3", "Ethernet4"]
+                }
+            }
+        """
+        config = self.get_running_config_facts()
+        vlan_brief = {}
+        for vlan_name, members in config["VLAN_MEMBER"].items():
+            vlan_brief[vlan_name] = {
+                "interface_ipv4": [],
+                "interface_ipv6": [],
+                "members": list(members.keys())
+            }
+        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+            if vlan_name not in vlan_brief:
+                continue
+            for prefix in vlan_info.keys():
+                if '.' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                elif ':' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        return vlan_brief
+
     def get_interfaces_status(self):
         '''
         Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
@@ -2146,6 +2181,32 @@ Totals               6450                 6449
             return False
         return True
 
+    def ping_v6(self, ipv6, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
+        try:
+            self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                netns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
@@ -2156,17 +2217,21 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ipv6_ifs=None):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
+        If ipv6_ifs exists, also returns the interfaces' IPv6 address and its peer
+        IPv6 addresses if found for each interface.
+
         Returns:
-            Dict of Interfaces and their IPv4 address
+            Dict of Interfaces and their IPv4 address (with IPv6 if ipv6_ifs exists)
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
+
         for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
@@ -2181,6 +2246,15 @@ Totals               6450                 6449
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
                     active_ip_intf_cnt += 1
+
+                    if ipv6_ifs:
+                        ipv6_intf = ipv6_ifs[k]
+                        if (ipv6_intf["peer_ipv6"] != "N/A" and self.ping_v6(ipv6_intf["peer_ipv6"],
+                                                                             count=3, ns_arg=ns_arg)):
+                            ip_ifaces[k].update({
+                                "ipv6": ipv6_intf["ipv6"],
+                                "peer_ipv6": ipv6_intf["peer_ipv6"]
+                            })
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
