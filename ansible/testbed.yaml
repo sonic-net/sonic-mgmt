@@ -1983,6 +1983,21 @@
   auto_recover: 'True'
   comment: paravind
 
+- conf-name: vms66-t0-4700-5
+  group-name: vms66-5
+  topo: t0-56-o8v48
+  ptf_image_name: docker-ptf
+  ptf: vms66-5
+  ptf_ip: 10.64.247.82/23
+  ptf_ipv6:
+  server: server_66
+  vm_base: VM66114
+  dut:
+    - str3-msn4700-03
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yanmo
+
 - conf-name: tbtk5-ptf32-s6000-9
   group-name: tk5-3-0
   topo: ptf32

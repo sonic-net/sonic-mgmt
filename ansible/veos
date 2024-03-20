@@ -3653,6 +3653,22 @@ vms_66:
       ansible_host: 172.16.138.113
     VM66113:
       ansible_host: 172.16.138.114
+    VM66114:
+      ansible_host: 172.16.138.115
+    VM66115:
+      ansible_host: 172.16.138.116
+    VM66116:
+      ansible_host: 172.16.138.117
+    VM66117:
+      ansible_host: 172.16.138.118
+    VM66118:
+      ansible_host: 172.16.138.119
+    VM66119:
+      ansible_host: 172.16.138.120
+    VM66120:
+      ansible_host: 172.16.138.121
+    VM66121:
+      ansible_host: 172.16.138.122
 
 vms_67:
   hosts:

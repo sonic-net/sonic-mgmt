@@ -89,6 +89,8 @@ all:
         vms66-4:
           ansible_host: 10.64.247.81
           ansible_hostv6: 2a01:111:e210:b000::a40:f751
+        vms66-5:
+          ansible_host: 10.64.247.82
         vms68-1:
           ansible_host: 10.64.247.51
           ansible_hostv6: 2a01:111:e210:b000::a40:f733
@@ -139,6 +141,9 @@ all:
           protocol: snmp
         pdu-101:
           ansible_host: 10.3.155.101
+          protocol: snmp
+        pdu-102:
+          ansible_host: 10.3.155.102
           protocol: snmp
         pdu-103:
           ansible_host: 10.3.155.103
@@ -292,6 +297,9 @@ fanout:
     str3-msn4700-fanout-02:
       ansible_host: 10.3.146.153
       ansible_hostv6: 2a01:111:e210:3000::a03:938a
+      os: sonic
+    str3-msn4700-fanout-03:
+      ansible_host: 10.3.146.12
       os: sonic
     str3-msn4700-fanout-04:
       ansible_host: 10.3.146.131
@@ -1385,6 +1393,22 @@ sonic_mlnx_4700:
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-115200"
+        "0x2B": "Mellanox"
+    str3-msn4700-03:
+      ansible_host: 10.3.146.11
+      hwsku: Mellanox-SN4700-O8V48
+      model: MSN4700-WS2ROS
+      serial: MT2340XZ127B
+      base_mac: 9C:05:91:B9:EA:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2340XZ127B"
+        "0x24": "9C:05:91:B9:EA:00"
+        "0x25": "11/12/2023 00:04:56"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
     str3-msn4700-04:
       ansible_host: 10.3.146.175
