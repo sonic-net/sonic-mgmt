@@ -1,5 +1,6 @@
 # Convergence measurement in data center networks
-
+  - [Authors: Kamal Sahu, Keysight Techonologies & 
+              Deepak Singhal, Microsoft Technologies]
   - [Objective](#objective)
     - [Scope](#scope)
     - [Overview](#overview)
