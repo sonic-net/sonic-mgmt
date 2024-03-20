@@ -77,7 +77,7 @@ aiml_pid_sku = [
            {"x86_64-8111_32eh_o-r0": ["Cisco-8111-O62C2"]}
            ]
 aiml_special_cfg = {'DEVICE_METADATA|localhost': 
-          {"resource_type": "Compute-AI", "type" : "BackEndLeafRouter"} }
+          {"resource_type": "ComputeAI", "type" : "BackEndLeafRouter"} }
 
 class AIML_Config:
   def __init__(self, duthost, aiml_special_cfg, mmucommand):
