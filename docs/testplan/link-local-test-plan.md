@@ -11,6 +11,7 @@
 The goal of these tests is to verify that systems that support forwarding Link-local traffic allow packets with link-local source/destination IP to be forwarded by the dut.
 
 ## Link-Local Address
+
 In computer networking, a link-local address is the IP address that is to be used for communication within a logical division of the network or in the broadcast domain to which the host is connected.
 
 The uniqueness in addresses is not assured in another network segment. Therefore, do not forward by routers.
@@ -33,7 +34,7 @@ IPv6 link-local addresses are in the FE80::/10 range. The /10 indicates that the
 
 ### Scope
 
-The tests is targeting a running SONIC system with fully functioning configuration. 
+The tests is targeting a running SONIC system with fully functioning configuration.
 The purpose of the tests is to check that traffic with link-local source/destination IP is recived and routed by the dut.
 
 ### Related DUT CLI commands
@@ -113,6 +114,8 @@ Verify that traffic sent from PTF with IPv6 destination IP is being forwarded by
 #### Test objective
 
 Verify that traffic sent from PTF with Dut Interface IPv6 destination IP is being traped by CPU.
+
 1. Send traffic via scapy from PTF with dut Interface IPv6 Link local destination ip address
 2. Verify packets are traped by tcpdump
 3. Verify Counters have increased on the link.
+
