@@ -118,4 +118,3 @@ Verify that traffic sent from PTF with Dut Interface IPv6 destination IP is bein
 1. Send traffic via scapy from PTF with dut Interface IPv6 Link local destination ip address
 2. Verify packets are traped by tcpdump
 3. Verify Counters have increased on the link.
-
