@@ -10,7 +10,7 @@
     - [Linecard Ungraceful Restarts:](#linecard-ungraceful-restarts)
     - [Supervisor Ungraceful Restart:](#supervisor-ungraceful-restart)
   - [Planned Events](#planned-events)
-    - [TSA/TSB (Traffic Shift A/Traffic Shift B) of T2 Device:](#tsatsb-traffic-shift-atraffic-shift-b-of-t2-device)
+    - [TSA/TSB (Traffic Shift Away/Traffic Shift Back) of T2 Device:](#tsatsb-traffic-shift-awaytraffic-shift-back-of-t2-device)
   - [SONiC Architecture for T2 Data Centers:](#sonic-architecture-for-t2-data-centers)
   - [Testbed](#testbed)
       - [Route Performance Topology](#route-performance-topology)
