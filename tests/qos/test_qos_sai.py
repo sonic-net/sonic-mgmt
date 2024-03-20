@@ -1169,6 +1169,7 @@ class TestQosSai(QosSaiBase):
             "buffer_max_size": ingressLossyProfile["static_th"],
             "headroom_size": ingressLossyProfile["size"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_sys_ports": dutConfig["testPorts"]["dst_sys_ports"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "dst_port_2_id": dutConfig["testPorts"]["dst_port_2_id"],
             "dst_port_2_ip": dutConfig["testPorts"]["dst_port_2_ip"],
