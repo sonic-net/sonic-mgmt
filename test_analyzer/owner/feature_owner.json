@@ -362,10 +362,6 @@
                     "dualtor.test_grpc_periodical_sync",
                     "dualtor.test_ipinip",
                     "dualtor.test_orch_stress",
-                    "dualtor.test_orchagent_active_tor_downstream",
-                    "dualtor.test_orchagent_mac_move",
-                    "dualtor.test_orchagent_slb",
-                    "dualtor.test_orchagent_standby_tor_downstream",
                     "dualtor.test_server_failure",
                     "dualtor.test_standby_tor_upstream_mux_toggle",
                     "dualtor.test_toggle_mux",
@@ -374,6 +370,16 @@
                 ],
                 "owner": "Ying Xie",
                 "email": "yinxi@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "dualtor.test_orchagent_active_tor_downstream",
+                    "dualtor.test_orchagent_mac_move",
+                    "dualtor.test_orchagent_slb",
+                    "dualtor.test_orchagent_standby_tor_downstream"
+                ],
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             }
         ]
     },
@@ -1203,33 +1209,6 @@
                 ],
                 "owner": "Gang lv",
                 "email": "ganglv@microsoft.com"
-            }
-        ]
-    },
-    {
-        "feature": "snappi",
-        "owner": "Dev Ojha",
-        "email": "devojha@microsoft.com",
-        "scripts": [
-            {
-                "scripts": [
-                    "snappi.ecn.test_dequeue_ecn_with_snappi",
-                    "snappi.ecn.test_red_accuracy_with_snappi",
-                    "snappi.pfc.test_global_pause_with_snappi",
-                    "snappi.pfc.test_pfc_pause_lossless_with_snappi",
-                    "snappi.pfc.test_pfc_pause_lossy_with_snappi",
-                    "snappi.pfc.test_pfc_pause_response_with_snappi",
-                    "snappi.pfc.test_pfc_pause_unset_bit_enable_vector",
-                    "snappi.pfc.test_pfc_pause_zero_mac",
-                    "snappi.pfcwd.test_pfcwd_a2a_with_snappi",
-                    "snappi.pfcwd.test_pfcwd_basic_with_snappi",
-                    "snappi.pfcwd.test_pfcwd_burst_storm_with_snappi",
-                    "snappi.pfcwd.test_pfcwd_m2o_with_snappi",
-                    "snappi.pfcwd.test_pfcwd_runtime_traffic_with_snappi",
-                    "snappi.qos.test_ipip_packet_reorder_with_snappi"
-                ],
-                "owner": "Dev Ojha",
-                "email": "devojha@microsoft.com"
             }
         ]
     },
