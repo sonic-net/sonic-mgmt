@@ -3,7 +3,7 @@ import logging
 import os
 
 from functools import wraps
-from ansible.errors import AnsibleAuthenticationFailure
+from ansible.errors import AnsibleAuthenticationFailure, AnsibleConnectionFailure
 from ansible.plugins import connection
 
 
@@ -34,6 +34,12 @@ DOCUMENTATION += """
           vars:
               - name: ansible_hostv6
 """.lstrip("\n")
+
+# Sample error messages that host unreachable:
+# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: Connection timed out'
+# 'Failed to connect to the host via ssh: ssh: connect to host 192.168.0.2 port 22: No route to host'
+CONNECTION_TIMEOUT_ERR_FLAG1 = "Connection timed out"
+CONNECTION_TIMEOUT_ERR_FLAG2 = "No route to host"
 
 
 def _password_retry(func):
@@ -74,14 +80,19 @@ def _password_retry(func):
         try:
             # First, try with original host(generally IPv4) with multi-password
             return _conn_with_multi_pwd(self, *args, **kwargs)
-        except BaseException as e:
+        except AnsibleConnectionFailure as e:
             # If a non-authentication related exception is raised and IPv6 host is set,
             # Retry with IPv6 host with multi-password
             try:
                 hostv6 = self.get_option("hostv6")
             except KeyError:
                 hostv6 = None
-            if (type(e) != AnsibleAuthenticationFailure) and hostv6:
+
+            ipv4_addr_unavailable = (CONNECTION_TIMEOUT_ERR_FLAG1 in e.message) or \
+                                    (CONNECTION_TIMEOUT_ERR_FLAG2 in e.message)
+
+            try_ipv6_addr = (type(e) != AnsibleAuthenticationFailure) and ipv4_addr_unavailable and hostv6
+            if try_ipv6_addr:
                 # This is a retry, so the fd/pipe for sshpass is closed, and we need a new one
                 self.sshpass_pipe = os.pipe()
                 self._play_context.remote_addr = hostv6
