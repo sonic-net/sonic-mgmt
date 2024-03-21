@@ -273,9 +273,12 @@ def collect_result():
 
     sum = {"total": 0, "failed": 0, "passed": 0, "skipped": 0, "success_rate": 0.0, "status" : "sim_success"}
 
+
+    ret = 0 
     try:
         spytest_result_sum_file = open(f"./spytest_result_{test_start_time}/results_{test_start_time}_summary.txt", 'r')
         spytest_result_sum = spytest_result_sum_file.readlines()
+        spytest_result_sum_file.close()
 
         print(f"Result sum file contents: {spytest_result_sum}")
 
@@ -300,6 +303,7 @@ def collect_result():
     except Exception as e:
         print("Exception! Failed to open result file!")
         sum["status"] = "failure"
+        ret = 1
 
     print(f"result summary is: {sum}")
 
@@ -308,10 +312,8 @@ def collect_result():
 
     sum_f.close()
     com_f.close()
-    spytest_result_sum_file.close()
 
-
-    return 0, ""
+    return ret, ""
 
 def upload_result():
     print("Uploading result to server")
