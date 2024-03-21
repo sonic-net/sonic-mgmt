@@ -1,6 +1,6 @@
 import pytest
 
-from tests.syslog.test_syslog import run_syslog, check_default_route
+from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
@@ -85,5 +85,5 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
                          [("fd82:b34f:cc99::100", None),
                           ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
 def test_syslog_ipv6_only(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
-                          check_default_route, convert_and_restore_config_db_to_ipv6_only):
+                          check_default_route, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
