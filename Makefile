@@ -74,7 +74,7 @@ run_sanity:
 run_tortuga_controller_sanity:
 	echo "run spytest sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} \
+		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM}; \
 		cd infra; \
 		source pyats/bin/activate; \
 		python3.8 ./create_tortuga_topo.py \
