@@ -69,6 +69,8 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
         ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
         ".*configure.*command was failed.*times, disabling retry.*"
+        # Error related to syncd socket-timeout intermittenly
+        ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
 
     if loganalyzer:
@@ -1167,6 +1169,7 @@ class TestQosSai(QosSaiBase):
             "buffer_max_size": ingressLossyProfile["static_th"],
             "headroom_size": ingressLossyProfile["size"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_sys_ports": dutConfig["testPorts"]["dst_sys_ports"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "dst_port_2_id": dutConfig["testPorts"]["dst_port_2_id"],
             "dst_port_2_ip": dutConfig["testPorts"]["dst_port_2_ip"],
