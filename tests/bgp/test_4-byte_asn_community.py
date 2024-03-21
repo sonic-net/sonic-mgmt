@@ -17,7 +17,7 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 dut_4byte_asn = 400003
 neighbor_4byte_asn = 400001
-bgp_sleep = 60
+bgp_sleep = 120
 bgp_id_textfsm = "./bgp/templates/bgp_id.template"
 
 pytestmark = [
@@ -34,13 +34,13 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
     asic_index = enum_rand_one_frontend_asic_index
 
     if duthost.is_multi_asic:
-        cli_options = "-n " + duthost.get_namespace_from_asic_id(asic_index)
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
     else:
         cli_options = ''
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
     neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
-    logger.info("Neighbor is: {}".format(neigh))
+    logger.debug("Neighbor is: {}".format(neigh))
 
     neighbors = dict()
     skip_hosts = duthost.get_asic_namespace_list()
@@ -62,7 +62,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
             neighbors[v['description']] = nbrhosts[v['description']]["host"]
 
     if neighbors[neigh].is_multi_asic:
-        neigh_cli_options = "-n " + neigh.get_namespace_from_asic_id(asic_index)
+        neigh_cli_options = " -n " + neigh.get_namespace_from_asic_id(asic_index)
     else:
         neigh_cli_options = ''
 
@@ -106,9 +106,9 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
         'neigh_ipv6_network': neigh_ipv6_network
     }
 
-    logger.info("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
-    logger.info("Neighbor BGP Config: {}".format(nbrhosts[neigh]["host"].shell("show run bgp")['stdout']))
-    logger.info('Setup_info: {}'.format(setup_info))
+    logger.debug("DUT BGP Config: {}".format(duthost.shell("show run bgp", module_ignore_errors=True)['stdout']))
+    logger.debug("Neighbor BGP Config: {}".format(nbrhosts[neigh]["host"].shell("show run bgp")['stdout']))
+    logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
 
@@ -125,7 +125,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
 
 def test_4_byte_asn_community(setup):
-    cmd = 'vtysh {} \
+    # configure BGP with 4-byte ASN using the standard T2 config and existing route-maps on DUT
+    cmd = 'vtysh{} \
     -c "config" \
     -c "no router bgp {}" \
     -c "router bgp {}" \
@@ -172,7 +173,8 @@ def test_4_byte_asn_community(setup):
              setup['peer_group_v6'], setup['neigh_ip_v6'])
     logger.debug(setup['duthost'].shell(cmd, module_ignore_errors=True))
 
-    cmd = 'vtysh {}\
+    # configure BGP with 4-byte ASN using the standard T2 config and existing route-maps on neighbor device
+    cmd = 'vtysh{}\
     -c "config" \
     -c "no router bgp {}" \
     -c "router bgp {}" \
@@ -219,25 +221,25 @@ def test_4_byte_asn_community(setup):
 
     logger.debug(setup['neighhost'].shell(cmd, module_ignore_errors=True))
 
-    logger.info("DUT BGP Config: {}".format(setup['duthost'].shell("show run bgp")['stdout']))
-    logger.info("Neighbor BGP Config: {}".format(setup['neighhost'].shell("show run bgp")['stdout']))
+    logger.debug("DUT BGP Config: {}".format(setup['duthost'].shell("show run bgp")['stdout']))
+    logger.debug("Neighbor BGP Config: {}".format(setup['neighhost'].shell("show run bgp")['stdout']))
 
     time.sleep(bgp_sleep)
 
     output = setup['duthost'].shell("show ip bgp summary | grep {}".format(setup['neigh_ip_v4']))['stdout']
-    assert str(neighbor_4byte_asn) in output
+    assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ipv6 bgp summary | grep {}".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in output
+    assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
-    assert str(neighbor_4byte_asn) in output
+    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    assert str(neighbor_4byte_asn) in output
+    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
 
     output = setup['neighhost'].shell("show ip bgp summary | grep {}".format(setup['dut_ip_v4']))['stdout']
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in output.split()[2]
     output = setup['neighhost'].shell("show ipv6 bgp summary | grep {}".format(setup['dut_ip_v6'].lower()))['stdout']
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in output.split()[2]
     output = setup['neighhost'].shell("show ip bgp neighbors {} routes".format(setup['dut_ip_v4']))['stdout']
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in str(output.split('\n')[9].split()[5])
     output = setup['neighhost'].shell("show ipv6 bgp neighbors {} routes".format(setup['dut_ip_v6'].lower()))['stdout']
-    assert str(dut_4byte_asn) in output
+    assert str(dut_4byte_asn) in str(output.split('\n')[9].split()[5])

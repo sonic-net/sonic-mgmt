@@ -49,4 +49,4 @@ N/A
 
 Configure 4-Byte ASN Community and ensure neighbor relationships become established
 1. Configure DUT and neighbor with 4Byte ASN
-2. Verify 4-byte BGP session between DUT and neighbor is established
+2. Verify 4-byte BGP session between DUT and neighbor is established and using the correct ASN
