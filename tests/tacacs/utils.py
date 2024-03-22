@@ -5,7 +5,6 @@ import logging
 import os
 import pytest
 import re
-import binascii
 import yaml
 
 from tests.common.errors import RunAnsibleModuleFail

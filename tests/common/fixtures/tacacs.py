@@ -59,7 +59,7 @@ def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_cred
         tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     logger.warning("Setup TACACS server: use_lab_tacacs_server:{}, tacacs_server_ip:{}, tacacs_server_passkey:{}"
-                    .format(use_lab_tacacs_server, tacacs_server_ip, tacacs_server_passkey))
+                   .format(use_lab_tacacs_server, tacacs_server_ip, tacacs_server_passkey))
 
     # setup per-command authorization with 'tacacs+ local', when command blocked by TACACS server, UT still can pass.
     setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, "\"tacacs+ local\"")
