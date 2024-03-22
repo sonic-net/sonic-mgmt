@@ -54,13 +54,13 @@ def loganalyzer(duthosts, request):
         for duthost in duthosts:
             try:
                 duthost.shell("touch %s" % mark_file)
-            except RunAnsibleModuleFail, AnsibleConnectionFailure as e:
+            except (RunAnsibleModuleFail, AnsibleConnectionFailure) as e:
                 logging.warning("command failed: \n", str(e))
         yield
         for duthost in duthosts:
             try:
                 duthost.shell("rm -f %s" % mark_file)
-            except RunAnsibleModuleFail, AnsibleConnectionFailure as e:
+            except (RunAnsibleModuleFail, AnsibleConnectionFailure) as e:
                 logging.warning("command failed: \n", str(e))
         return
 
