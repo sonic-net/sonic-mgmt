@@ -61,8 +61,6 @@ def snappi_api(snappi_api_serv_ip,
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-    api._username = "admin"
-    api._password = "********"
 
     yield api
 
