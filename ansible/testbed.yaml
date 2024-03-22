@@ -6,11 +6,11 @@
   ptf_image_name: docker-ptf
   ptf: vms2-2
   ptf_ip: 10.64.246.27/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f61b/64
   server: server_2
   vm_base: VM02032
   dut:
-    - str-msn2700-20
+  - str-msn2700-20
   inv_name: str
   auto_recover: 'True'
   comment: weibai
@@ -21,11 +21,11 @@
   ptf_image_name: docker-ptf
   ptf: vms2-4
   ptf_ip: 10.64.246.131/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f683/64
   server: server_2
   vm_base: VM02040
   dut:
-    - str-msn2700-22
+  - str-msn2700-22
   inv_name: str
   auto_recover: 'True'
   comment: stumkurv
@@ -36,11 +36,11 @@
   ptf_image_name: docker-ptf
   ptf: vms3-61
   ptf_ip: 10.64.246.21/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f615/64
   server: server_3
   vm_base: VM03056
   dut:
-    - str-s6100-acs-1
+  - str-s6100-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: Pavel
@@ -51,11 +51,11 @@
   ptf_image_name: docker-ptf
   ptf: vms3-5
   ptf_ip: 10.64.247.15/23
-  ptf_ipv6: 2a01:111:e210:b000::7/64
+  ptf_ipv6: 2a01:111:e210:b000::a40:f70f/64
   server: server_3
   vm_base: VM03000
   dut:
-    - str-dx010-acs-1
+  - str-dx010-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: nejo
@@ -66,11 +66,11 @@
   ptf_image_name: docker-ptf
   ptf: vms3-7
   ptf_ip: 10.64.246.87/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f657/64
   server: server_3
   vm_base: VM03024
   dut:
-    - str-a7280cr3-2
+  - str-a7280cr3-2
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -81,11 +81,11 @@
   ptf_image_name: docker-ptf
   ptf: vms6-1
   ptf_ip: 10.64.247.6/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f706/64
   server: server_6
   vm_base: VM06000
   dut:
-    - str-a7050-acs-2
+  - str-a7050-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: jleveque
@@ -96,11 +96,11 @@
   ptf_image_name: docker-ptf
   ptf: vms6-2
   ptf_ip: 10.64.247.18/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f712/64
   server: server_6
   vm_base: VM06032
   dut:
-    - str-z9100-acs-2
+  - str-z9100-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: Sujin
@@ -111,11 +111,11 @@
   ptf_image_name: docker-ptf
   ptf: vms6-4
   ptf_ip: 10.64.247.20/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f714/64
   server: server_6
   vm_base: VM06036
   dut:
-    - str-a7060cx-acs-1
+  - str-a7060cx-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -126,11 +126,11 @@
   ptf_image_name: docker-ptf
   ptf: vms6-3
   ptf_ip: 10.64.247.19/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f713/64
   server: server_6
   vm_base: VM06040
   dut:
-    - str-a7060cx-acs-10
+  - str-a7060cx-acs-10
   inv_name: str
   auto_recover: 'True'
   comment: prsunny
@@ -141,11 +141,11 @@
   ptf_image_name: docker-ptf
   ptf: vms7-7
   ptf_ip: 10.64.247.17/23
-  ptf_ipv6: 2a01:111:e210:b000::6/64
+  ptf_ipv6: 2a01:111:e210:b000::a40:f711/64
   server: server_7
   vm_base: VM07036
   dut:
-    - str-7260cx3-acs-1
+  - str-7260cx3-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: yingxie
@@ -156,11 +156,11 @@
   ptf_image_name: docker-ptf
   ptf: vms7-8
   ptf_ip: 10.64.247.21/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f715/64
   server: server_7
   vm_base: VM07040
   dut:
-    - str-7260cx3-acs-2
+  - str-7260cx3-acs-2
   inv_name: str
   auto_recover: 'True'
   comment: yingxie
@@ -171,11 +171,11 @@
   ptf_image_name: docker-ptf
   ptf: v11-31
   ptf_ip: 10.64.246.22/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f616/64
   server: server_11
   vm_base: VM11064
   dut:
-    - str-s6000-acs-11
+  - str-s6000-acs-11
   inv_name: str
   auto_recover: 'True'
   comment: Travis
@@ -186,11 +186,11 @@
   ptf_image_name: docker-ptf
   ptf: vms11-4
   ptf_ip: 10.64.246.83/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f653/64
   server: server_11
   vm_base: VM11016
   dut:
-    - str-s6000-acs-10
+  - str-s6000-acs-10
   inv_name: str
   auto_recover: 'True'
   comment: Pradnya
@@ -201,11 +201,11 @@
   ptf_image_name: docker-ptf
   ptf: vms11-7
   ptf_ip: 10.64.246.42/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f62a/64
   server: server_11
   vm_base: VM11096
   dut:
-    - str-e1031-acs-1
+  - str-e1031-acs-1
   inv_name: str
   auto_recover: 'True'
   comment: gulv
@@ -216,11 +216,11 @@
   ptf_image_name: docker-ptf
   ptf: vms18-1
   ptf_ip: 10.64.246.141/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68d/64
   server: server_18
   vm_base: VM18000
   dut:
-    - str2-msn4600c-acs-01
+  - str2-msn4600c-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -231,11 +231,11 @@
   ptf_image_name: docker-ptf
   ptf: vms18-2
   ptf_ip: 10.64.246.143/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68f/64
   server: server_18
   vm_base: VM18096
   dut:
-    - str2-7215-acs-1
+  - str2-7215-acs-1
   inv_name: str2
   auto_recover: 'True'
   comment: yaqiangzhu
@@ -246,11 +246,11 @@
   ptf_image_name: docker-ptf
   ptf: vms18-6
   ptf_ip: 10.64.246.158/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f69e/64
   server: server_18
   vm_base: VM18028
   dut:
-    - str2-7050qx-32s-acs-02
+  - str2-7050qx-32s-acs-02
   inv_name: str2
   auto_recover: 'True'
   comment: topo_with_12_vms
@@ -261,11 +261,11 @@
   ptf_image_name: docker-ptf
   ptf: vms18-7
   ptf_ip: 10.64.246.159/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f69f/64
   server: server_18
   vm_base: VM18084
   dut:
-    - str2-7050qx-32s-acs-03
+  - str2-7050qx-32s-acs-03
   inv_name: str2
   auto_recover: 'True'
   comment: topo_with_12_vms
@@ -276,11 +276,11 @@
   ptf_image_name: docker-ptf
   ptf: vms11-5
   ptf_ip: 10.64.246.108/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f66c/64
   server: server_11
   vm_base: VM11020
   dut:
-    - str-7050qx-32s-acs-04
+  - str-7050qx-32s-acs-04
   inv_name: str
   auto_recover: 'True'
   comment: 7050qx
@@ -291,11 +291,11 @@
   ptf_image_name: docker-ptf
   ptf: vms18-8
   ptf_ip: 10.64.246.60/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f63c/64
   server: server_18
   vm_base: VM18102
   dut:
-    - str2-pikez-acs-1
+  - str2-pikez-acs-1
   inv_name: str2
   auto_recover: 'True'
   comment: zhijianli
@@ -306,11 +306,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-6
   ptf_ip: 10.64.246.120/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f678/64
   server: server_20
   vm_base: VM20000
   dut:
-    - str2-dx010-acs-6
+  - str2-dx010-acs-6
   inv_name: str2
   auto_recover: 'True'
   comment: Jenkins
@@ -321,11 +321,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-8
   ptf_ip: 10.64.246.126/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f67e/64
   server: server_20
   vm_base: VM20024
   dut:
-    - str2-7050cx3-acs-03
+  - str2-7050cx3-acs-03
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -336,11 +336,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-9
   ptf_ip: 10.64.246.134/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f686/64
   server: server_20
   vm_base: VM20048
   dut:
-    - str2-n3164-acs-4
+  - str2-n3164-acs-4
   inv_name: str2
   auto_recover: 'True'
   comment: suvarna
@@ -351,11 +351,11 @@
   ptf_image_name: docker-ptf-brcm
   ptf: vms20-3
   ptf_ip: 10.64.246.144/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f690/64
   server: server_20
   vm_base: VM20076
   dut:
-    - str2-7170-azd
+  - str2-7170-azd
   inv_name: str2
   auto_recover: 'True'
   comment: v-llucy
@@ -366,11 +366,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-5
   ptf_ip: 10.64.246.118/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f676/64
   server: server_20
   vm_base: VM20080
   dut:
-    - str2-7050cx3-acs-01
+  - str2-7050cx3-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -381,11 +381,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-7
   ptf_ip: 10.64.246.125/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f67d/64
   server: server_20
   vm_base: VM20084
   dut:
-    - str2-7050cx3-acs-02
+  - str2-7050cx3-acs-02
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -396,11 +396,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-1
   ptf_ip: 10.64.246.105/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f669/64
   server: server_20
   vm_base: VM20088
   dut:
-    - str2-sn3800-02
+  - str2-sn3800-02
   inv_name: str2
   auto_recover: 'True'
   comment: stumkurv
@@ -411,11 +411,11 @@
   ptf_image_name: docker-ptf
   ptf: vms20-2
   ptf_ip: 10.64.246.58/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f63a/64
   server: server_20
   vm_base: VM20092
   dut:
-    - str2-7060cx-32s-29
+  - str2-7060cx-32s-29
   inv_name: str2
   auto_recover: 'True'
   comment: vadixit
@@ -430,7 +430,7 @@
   server: server_20
   vm_base:
   dut:
-    - STR-8111-C14-U18
+  - STR-8111-C14-U18
   inv_name: ixia
   auto_recover: 'False'
   comment: devojha
@@ -445,7 +445,7 @@
   server: server_20
   vm_base:
   dut:
-    - STR-8102-C19-U24
+  - STR-8102-C19-U24
   inv_name: ixia
   auto_recover: 'False'
   comment: devojha
@@ -460,7 +460,7 @@
   server: server_20
   vm_base:
   dut:
-    - STR-7050CX3-C19-U37
+  - STR-7050CX3-C19-U37
   inv_name: ixia
   auto_recover: 'False'
   comment: devojha
@@ -471,11 +471,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-1
   ptf_ip: 10.64.246.145/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f691/64
   server: server_21
   vm_base: VM21000
   dut:
-    - str2-msn2700-spy-1
+  - str2-msn2700-spy-1
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -486,11 +486,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-2
   ptf_ip: 10.64.246.146/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f692/64
   server: server_21
   vm_base: VM21004
   dut:
-    - str2-msn2700-spy-2
+  - str2-msn2700-spy-2
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -501,12 +501,12 @@
   ptf_image_name: docker-ptf
   ptf: vms21-3
   ptf_ip: 10.64.246.147/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f693/64
   server: server_21
   vm_base: VM21028
   dut:
-    - str2-7050cx3-acs-10
-    - str2-7050cx3-acs-11
+  - str2-7050cx3-acs-10
+  - str2-7050cx3-acs-11
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -517,11 +517,11 @@
   ptf_image_name: docker-ptf
   ptf: vms61-3
   ptf_ip: 10.64.246.148/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f694/64
   server: server_61
   vm_base: VM61032
   dut:
-    - str3-8101-32fh-01
+  - str3-8101-32fh-01
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
@@ -532,11 +532,11 @@
   ptf_image_name: docker-ptf
   ptf: vms61-5
   ptf_ip: 10.64.247.37/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f725/64
   server: server_61
   vm_base: VM61128
   dut:
-    - str3-8101-01
+  - str3-8101-01
   inv_name: str3
   auto_recover: 'True'
   comment: shengkaiwang
@@ -547,11 +547,11 @@
   ptf_image_name: docker-ptf
   ptf: vms61-6
   ptf_ip: 10.64.247.38/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f726/64
   server: server_61
   vm_base: VM61152
   dut:
-    - str3-8101-02
+  - str3-8101-02
   inv_name: str3
   auto_recover: 'True'
   comment: shengkaiwang
@@ -562,11 +562,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-5
   ptf_ip: 10.64.246.149/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f695/64
   server: server_21
   vm_base: VM21056
   dut:
-    - str2-8111-06
+  - str2-8111-06
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -577,11 +577,11 @@
   ptf_image_name: docker-ptf
   ptf: vms66-1
   ptf_ip: 10.64.247.50/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f732/64
   server: server_66
   vm_base: VM66000
   dut:
-    - str3-8111-01
+  - str3-8111-01
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
@@ -592,11 +592,11 @@
   ptf_image_name: docker-ptf
   ptf: vms68-1
   ptf_ip: 10.64.247.51/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f733/64
   server: server_68
   vm_base: VM68000
   dut:
-    - str3-8111-02
+  - str3-8111-02
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
@@ -607,11 +607,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-9
   ptf_ip: 10.64.247.56/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f738/64
   server: server_63
   vm_base: VM63164
   dut:
-    - str3-8111-04
+  - str3-8111-04
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
@@ -622,11 +622,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-10
   ptf_ip: 10.64.247.58/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f73a/64
   server: server_63
   vm_base: VM63228
   dut:
-    - str3-8111-05
+  - str3-8111-05
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
@@ -637,12 +637,12 @@
   ptf_image_name: docker-ptf
   ptf: vms63-7
   ptf_ip: 10.64.247.62/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f73e/64
   server: server_63
   vm_base: VM63104
   dut:
-    - str3-msn4600c-acs-07
-    - str3-msn4600c-acs-08
+  - str3-msn4600c-acs-07
+  - str3-msn4600c-acs-08
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
@@ -654,11 +654,11 @@
   ptf_image_name: docker-ptf
   ptf: vms64-1
   ptf_ip: 10.64.247.64/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f740/64
   server: server_64
   vm_base: VM64000
   dut:
-    - str3-msn4700-01
+  - str3-msn4700-01
   inv_name: str3
   auto_recover: 'True'
   comment: bingwang
@@ -669,11 +669,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-9
   ptf_ip: 10.64.246.236/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6ec/64
   server: server_21
   vm_base: VM21096
   dut:
-    - str2-7215-acs-3
+  - str2-7215-acs-3
   inv_name: str2
   auto_recover: 'True'
   comment: yaqiangzhu
@@ -684,11 +684,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-8
   ptf_ip: 10.64.246.231/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6e7/64
   server: server_21
   vm_base: VM21102
   dut:
-    - str2-8102-01
+  - str2-8102-01
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -699,11 +699,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-10
   ptf_ip: 10.64.247.29/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f71d/64
   server: server_21
   vm_base: VM21040
   dut:
-    - str2-bluefield-01
+  - str2-bluefield-01
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -714,11 +714,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-11
   ptf_ip: 10.64.247.241/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7f1/64
   server: server_21
   vm_base: VM21042
   dut:
-    - str2-bluefield-02
+  - str2-bluefield-02
   inv_name: str2
   auto_recover: 'True'
   comment: lawlee
@@ -729,11 +729,11 @@
   ptf_image_name: docker-ptf
   ptf: vms27-1
   ptf_ip: 10.64.246.234/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6ea/64
   server: server_27
   vm_base: VM27000
   dut:
-    - str2-pensando-3
+  - str2-pensando-3
   inv_name: str2
   auto_recover: 'True'
   comment: junhuazhai
@@ -744,11 +744,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-1
   ptf_ip: 10.64.246.238/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6ee/64
   server: server_28
   vm_base: VM28000
   dut:
-    - str2-8102-02
+  - str2-8102-02
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -759,13 +759,13 @@
   ptf_image_name: docker-ptf
   ptf: vms28-2
   ptf_ip: 10.64.246.239/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6ef/64
   netns_mgmt_ip: 10.64.247.70/23
   server: server_28
   vm_base: VM28024
   dut:
-    - str2-8102-03
-    - str2-8102-04
+  - str2-8102-03
+  - str2-8102-04
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -776,13 +776,13 @@
   ptf_image_name: docker-ptf
   ptf: vms61-1
   ptf_ip: 10.64.246.5/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f605/64
   netns_mgmt_ip: 10.64.247.40/23
   server: server_61
   vm_base: VM61000
   dut:
-    - str3-8102-05
-    - str3-8102-06
+  - str3-8102-05
+  - str3-8102-06
   inv_name: str3
   auto_recover: 'True'
   comment: shiyanwang
@@ -793,11 +793,11 @@
   ptf_image_name: docker-ptf
   ptf: vms61-2
   ptf_ip: 10.64.247.36/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f724/64
   server: server_61
   vm_base: VM61004
   dut:
-    - str3-8102-01
+  - str3-8102-01
   inv_name: str3
   auto_recover: 'True'
   comment: shengkaiwang
@@ -808,11 +808,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-3
   ptf_ip: 10.64.246.240/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f0/64
   server: server_28
   vm_base: VM28028
   dut:
-    - str2-msn4600c-acs-03
+  - str2-msn4600c-acs-03
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -823,11 +823,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-4
   ptf_ip: 10.64.246.241/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f1/64
   server: server_28
   vm_base: VM28032
   dut:
-    - str2-msn4600c-acs-04
+  - str2-msn4600c-acs-04
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -838,11 +838,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-5
   ptf_ip: 10.64.246.242/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f2/64
   server: server_28
   vm_base: VM28036
   dut:
-    - str2-a7280cr3-3
+  - str2-a7280cr3-3
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -853,12 +853,12 @@
   ptf_image_name: docker-ptf
   ptf: vms28-6
   ptf_ip: 10.64.246.243/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f3/64
   server: server_28
   vm_base: VM28040
   dut:
-    - str2-7260cx3-acs-12
-    - str2-7260cx3-acs-13
+  - str2-7260cx3-acs-12
+  - str2-7260cx3-acs-13
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -869,11 +869,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-7
   ptf_ip: 10.64.246.246/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f6/64
   server: server_28
   vm_base: VM28044
   dut:
-    - str2-a7280cr3-4
+  - str2-a7280cr3-4
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -884,11 +884,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-8
   ptf_ip: 10.64.247.9/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f709/64
   server: server_28
   vm_base: VM28048
   dut:
-    - str2-7050cx3-acs-12
+  - str2-7050cx3-acs-12
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -899,11 +899,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-9
   ptf_ip: 10.64.246.127/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f67f/64
   server: server_28
   vm_base: VM28052
   dut:
-    - str2-7050cx3-acs-13
+  - str2-7050cx3-acs-13
   inv_name: str2
   auto_recover: 'True'
   comment: kellyyeh
@@ -914,11 +914,11 @@
   ptf_image_name: docker-ptf
   ptf: vms28-10
   ptf_ip: 10.64.246.128/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f680/64
   server: server_28
   vm_base: VM28056
   dut:
-    - str2-7050cx3-acs-14
+  - str2-7050cx3-acs-14
   inv_name: str2
   auto_recover: 'True'
   comment: kellyyeh
@@ -929,12 +929,12 @@
   ptf_image_name: docker-ptf
   ptf: vms21-6
   ptf_ip: 10.64.246.152/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f698/64
   server: server_21
   vm_base: VM21088
   dut:
-    - str2-7260cx3-acs-10
-    - str2-7260cx3-acs-11
+  - str2-7260cx3-acs-10
+  - str2-7260cx3-acs-11
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -945,11 +945,11 @@
   ptf_image_name: docker-ptf
   ptf: vms21-7
   ptf_ip: 10.64.246.229/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6e5/64
   server: server_21
   vm_base: VM21092
   dut:
-    - str2-dx010-acs-7
+  - str2-dx010-acs-7
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -960,11 +960,11 @@
   ptf_image_name: docker-ptf
   ptf: vms24-2
   ptf_ip: 10.64.246.106/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f66a/64
   server: server_24
   vm_base: VM24004
   dut:
-    - str2-n3164-acs-3
+  - str2-n3164-acs-3
   inv_name: str2
   auto_recover: 'True'
   comment: abdosi
@@ -975,11 +975,11 @@
   ptf_image_name: docker-ptf
   ptf: vms24-3
   ptf_ip: 10.64.246.107/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f66b/64
   server: server_24
   vm_base: VM24028
   dut:
-    - str2-sn3800-azd
+  - str2-sn3800-azd
   inv_name: str2
   auto_recover: 'True'
   comment: annarsia
@@ -990,11 +990,11 @@
   ptf_image_name: docker-ptf
   ptf: vms24-5
   ptf_ip: 10.64.246.137/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f689/64
   server: server_24
   vm_base: VM24036
   dut:
-    - str2-7050qx-32s-acs-01
+  - str2-7050qx-32s-acs-01
   inv_name: str2
   auto_recover: 'True'
   comment: gechiang
@@ -1005,11 +1005,11 @@
   ptf_image_name: docker-ptf
   ptf: vms24-6
   ptf_ip: 10.64.246.138/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68a/64
   server: server_24
   vm_base: VM24060
   dut:
-    - str2-n3164-acs-1
+  - str2-n3164-acs-1
   inv_name: str2
   auto_recover: 'True'
   comment: Judy
@@ -1020,12 +1020,12 @@
   ptf_image_name: docker-ptf
   ptf: vms24-7
   ptf_ip: 10.64.246.139/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68b/64
   server: server_24
   vm_base: VM24084
   dut:
-    - str2-7050cx3-acs-06
-    - str2-7050cx3-acs-07
+  - str2-7050cx3-acs-06
+  - str2-7050cx3-acs-07
   inv_name: str2
   auto_recover: 'True'
   comment: hellogemini
@@ -1036,12 +1036,12 @@
   ptf_image_name: docker-ptf
   ptf: vms24-8
   ptf_ip: 10.64.246.140/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68c/64
   server: server_24
   vm_base: VM24088
   dut:
-    - str2-7050cx3-acs-08
-    - str2-7050cx3-acs-09
+  - str2-7050cx3-acs-08
+  - str2-7050cx3-acs-09
   inv_name: str2
   auto_recover: 'True'
   comment: hellogemini
@@ -1052,11 +1052,11 @@
   ptf_image_name: docker-ptf
   ptf: vms24-9
   ptf_ip: 10.64.246.142/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f68e/64
   server: server_24
   vm_base: VM24092
   dut:
-    - str2-7260cx3-acs-9
+  - str2-7260cx3-acs-9
   inv_name: str2
   auto_recover: 'True'
   comment: yingxie
@@ -1067,14 +1067,14 @@
   ptf_image_name: docker-ptf
   ptf: vms26-1
   ptf_ip: 10.64.246.230/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6e6/64
   server: server_26
   vm_base: VM26000
   dut:
-    - str2-7804-lc5-1
-    - str2-7804-lc3-1
-    - str2-7804-lc7-1
-    - str2-7804-sup-1
+  - str2-7804-lc5-1
+  - str2-7804-lc3-1
+  - str2-7804-lc7-1
+  - str2-7804-sup-1
 
   inv_name: str2
   auto_recover: 'True'
@@ -1086,14 +1086,14 @@
   ptf_image_name: docker-ptf
   ptf: vms29-1
   ptf_ip: 10.64.246.244/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f4/64
   server: server_29
   vm_base: VM29000
   dut:
-    - str2-8800-lc1-3
-    - str2-8800-lc2-3
-    - str2-8800-lc3-3
-    - str2-8800-sup-3
+  - str2-8800-lc1-3
+  - str2-8800-lc2-3
+  - str2-8800-lc3-3
+  - str2-8800-sup-3
 
   inv_name: str2
   auto_recover: 'True'
@@ -1105,14 +1105,14 @@
   ptf_image_name: docker-ptf
   ptf: vms68-2
   ptf_ip: 10.64.246.37/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f625/64
   server: server_68
   vm_base: VM68024
   dut:
-    - str3-8800-lc1-1
-    - str3-8800-lc2-1
-    - str3-8800-lc3-1
-    - str3-8800-sup-1
+  - str3-8800-lc1-1
+  - str3-8800-lc2-1
+  - str3-8800-lc3-1
+  - str3-8800-sup-1
 
   inv_name: str3
   auto_recover: 'True'
@@ -1124,14 +1124,14 @@
   ptf_image_name: docker-ptf
   ptf: vms68-2
   ptf_ip: 10.64.246.37/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f625/64
   server: server_68
   vm_base: VM68024
   dut:
-    - str3-8800-lc4-1
-    - str3-8800-lc2-1
-    - str3-8800-lc3-1
-    - str3-8800-sup-2
+  - str3-8800-lc4-1
+  - str3-8800-lc2-1
+  - str3-8800-lc3-1
+  - str3-8800-sup-2
 
   inv_name: str3
   auto_recover: 'True'
@@ -1143,13 +1143,13 @@
   ptf_image_name: docker-ptf
   ptf: vms29-3
   ptf_ip: 10.64.246.247/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f7/64
   server: server_29
   vm_base: VM29080
   dut:
-    - str2-8800-lc1-2
-    - str2-8800-lc2-2
-    - str2-8800-sup-2
+  - str2-8800-lc1-2
+  - str2-8800-lc2-2
+  - str2-8800-sup-2
   inv_name: str2
   auto_recover: 'True'
   comment: abdosi
@@ -1160,13 +1160,13 @@
   ptf_image_name: docker-ptf
   ptf: vms29-2
   ptf_ip: 10.64.246.245/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f5/64
   server: server_29
   vm_base: VM29072
   dut:
-    - str2-7250-lc1-1
-    - str2-7250-lc2-1
-    - str2-7250-sup-1
+  - str2-7250-lc1-1
+  - str2-7250-lc2-1
+  - str2-7250-sup-1
 
   inv_name: str2
   auto_recover: 'True'
@@ -1178,13 +1178,13 @@
   ptf_image_name: docker-ptf
   ptf: vms29-4
   ptf_ip: 10.64.246.71/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f647/64
   server: server_29
   vm_base: VM29088
   dut:
-    - str2-7250-lc1-2
-    - str2-7250-lc2-2
-    - str2-7250-sup-2
+  - str2-7250-lc1-2
+  - str2-7250-lc2-2
+  - str2-7250-sup-2
 
   inv_name: str2
   auto_recover: 'True'
@@ -1196,13 +1196,13 @@
   ptf_image_name: docker-ptf
   ptf: vms62-1
   ptf_ip: 10.64.246.38/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f626/64
   server: server_62
   vm_base: VM62000
   dut:
-    - str3-7800-lc9-1
-    - str3-7800-lc10-1
-    - str3-7808-sup-1
+  - str3-7800-lc9-1
+  - str3-7800-lc10-1
+  - str3-7808-sup-1
 
   inv_name: str3
   auto_recover: 'True'
@@ -1215,14 +1215,14 @@
   ptf_image_name: docker-ptf
   ptf: vms62-2
   ptf_ip: 10.64.246.39/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f627/64
   server: server_62
   vm_base: VM62008
   dut:
-    - str3-7800-lc3-1
-    - str3-7800-lc5-1
-    - str3-7800-lc6-1
-    - str3-7808-sup-1
+  - str3-7800-lc3-1
+  - str3-7800-lc5-1
+  - str3-7800-lc6-1
+  - str3-7808-sup-1
 
   inv_name: str3
   auto_recover: 'True'
@@ -1234,16 +1234,16 @@
   ptf_image_name: docker-ptf
   ptf: vms62-3
   ptf_ip: 10.64.246.41/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f629/64
   server: server_62
   vm_base: VM62008
   dut:
-    - str3-7800-lc3-1
-    - str3-7800-lc4-1
-    - str3-7800-lc5-1
-    - str3-7800-lc6-1
-    - str3-7800-lc7-1
-    - str3-7808-sup-1
+  - str3-7800-lc3-1
+  - str3-7800-lc4-1
+  - str3-7800-lc5-1
+  - str3-7800-lc6-1
+  - str3-7800-lc7-1
+  - str3-7808-sup-1
 
   inv_name: str3
   auto_recover: 'True'
@@ -1255,14 +1255,14 @@
   ptf_image_name: docker-ptf
   ptf: svc3-1
   ptf_ip: 10.206.144.128/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:9080/64
   server: server_svc_3
   vm_base: VM30000
   dut:
-    - svcstr-7250-lc1-1
-    - svcstr-7250-lc2-1
-    - svcstr-7250-lc3-1
-    - svcstr-7250-sup-1
+  - svcstr-7250-lc1-1
+  - svcstr-7250-lc2-1
+  - svcstr-7250-lc3-1
+  - svcstr-7250-sup-1
 
   inv_name: strsvc
   auto_recover: 'True'
@@ -1274,14 +1274,14 @@
   ptf_image_name: docker-ptf
   ptf: svc5-1
   ptf_ip: 10.206.144.253/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:90fd/64
   server: server_svc_5
   vm_base: VM50000
   dut:
-    - svcstr2-8800-lc1-1
-    - svcstr2-8800-lc2-1
-    - svcstr2-8800-lc3-1
-    - svcstr2-8800-sup-1
+  - svcstr2-8800-lc1-1
+  - svcstr2-8800-lc2-1
+  - svcstr2-8800-lc3-1
+  - svcstr2-8800-sup-1
 
   inv_name: strsvc2
   auto_recover: 'True'
@@ -1293,14 +1293,14 @@
   ptf_image_name: docker-ptf
   ptf: svc5-1
   ptf_ip: 10.206.144.253/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:90fd/64
   server: server_svc_5
   vm_base: VM50000
   dut:
-    - svcstr2-8800-lc4-1
-    - svcstr2-8800-lc2-1
-    - svcstr2-8800-lc3-1
-    - svcstr2-8800-sup-1
+  - svcstr2-8800-lc4-1
+  - svcstr2-8800-lc2-1
+  - svcstr2-8800-lc3-1
+  - svcstr2-8800-sup-1
 
   inv_name: strsvc2
   auto_recover: 'True'
@@ -1312,11 +1312,11 @@
   ptf_image_name: docker-ptf
   ptf: svc1-1
   ptf_ip: 10.206.144.19/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:9013/64
   server: server_svc_1
   vm_base: VM10000
   dut:
-    - svcstr-n3164-acs-1
+  - svcstr-n3164-acs-1
   inv_name: strsvc
   auto_recover: 'False'
   comment: Mahesh
@@ -1327,11 +1327,11 @@
   ptf_image_name: docker-ptf
   ptf: svc1-2
   ptf_ip: 10.206.144.20/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:9014/64
   server: server_svc_1
   vm_base: VM10024
   dut:
-    - svcstr-n3164-acs-2
+  - svcstr-n3164-acs-2
   inv_name: strsvc
   auto_recover: 'False'
   comment: genhwa
@@ -1342,13 +1342,13 @@
   ptf_image_name: docker-ptf
   ptf: svc1-3
   ptf_ip: 10.206.144.140/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:908c/64
   netns_mgmt_ip: 10.206.144.141/24
   server: server_svc_1
   vm_base: VM10048
   dut:
-    - svcstr-7050-acs-1
-    - svcstr-7050-acs-2
+  - svcstr-7050-acs-1
+  - svcstr-7050-acs-2
   inv_name: strsvc
   auto_recover: 'False'
   comment: v-saidia
@@ -1359,13 +1359,13 @@
   ptf_image_name: docker-ptf
   ptf: svc1-4
   ptf_ip: 10.206.144.142/24
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e205:100::ace:908e/64
   netns_mgmt_ip: 10.206.144.143/24
   server: server_svc_1
   vm_base: VM10052
   dut:
-    - svcstr-7050-acs-3
-    - svcstr-7050-acs-4
+  - svcstr-7050-acs-3
+  - svcstr-7050-acs-4
   inv_name: strsvc
   auto_recover: 'False'
   comment: v-saidia
@@ -1380,7 +1380,7 @@
   server: server_6
   vm_base: VM06000
   dut:
-    - example-s6100-dut-1
+  - example-s6100-dut-1
   inv_name: ''
   auto_recover: 'False'
   comment: superman
@@ -1395,7 +1395,7 @@
   server: server_1
   vm_base:
   dut:
-    - vlab-01
+  - vlab-01
   inv_name: lab
   auto_recover: 'True'
   comment: Test ptf ANVL SONIC VM
@@ -1410,10 +1410,10 @@
   server: dummy_1
   vm_base: DUMMY0001
   dut:
-    - lab-msft-lc0-1
-    - lab-msft-lc1-1
-    - lab-msft-lc2-1
-    - lab-msft-sup-1
+  - lab-msft-lc0-1
+  - lab-msft-lc1-1
+  - lab-msft-lc2-1
+  - lab-msft-sup-1
   comment: Chasiss Testbed
 
 - conf-name: testbed-bjw-can-720dt-1
@@ -1422,12 +1422,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-1
   ptf_ip: 10.150.23.50/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1732/52
   ptf_extra_mgmt_ip: ["172.16.188.50/17"]
   server: server_bjw_6
   vm_base: VM56000
   dut:
-    - bjw-can-720dt-1
+  - bjw-can-720dt-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing lab
@@ -1438,12 +1438,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw13-1
   ptf_ip: 10.150.23.52/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1734/52
   ptf_extra_mgmt_ip: ["172.16.188.52/17"]
   server: server_bjw_13
   vm_base: VM74000  # 4 VMs
   dut:
-    - bjw-can-2700-1
+  - bjw-can-2700-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1454,12 +1454,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-5
   ptf_ip: 10.150.23.54/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1736/52
   ptf_extra_mgmt_ip: ["172.16.188.54/17"]
   server: server_bjw_6
   vm_base: VM56038
   dut:
-    - bjw-can-720dt-2
+  - bjw-can-720dt-2
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1470,12 +1470,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-6
   ptf_ip: 10.150.23.55/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1737/52
   ptf_extra_mgmt_ip: ["172.16.188.55/17"]
   server: server_bjw_6
   vm_base: VM56044
   dut:
-    - bjw-can-7215-1
+  - bjw-can-7215-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1486,12 +1486,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-7
   ptf_ip: 10.150.23.56/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1738/52
   ptf_extra_mgmt_ip: ["172.16.188.56/17"]
   server: server_bjw_6
   vm_base: VM56050
   dut:
-    - bjw-slx-can-3
+  - bjw-slx-can-3
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1502,12 +1502,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-8
   ptf_ip: 10.150.23.57/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1739/52
   ptf_extra_mgmt_ip: ["172.16.188.57/17"]
   server: server_bjw_6
   vm_base: VM56054
   dut:
-    - bjw-can-7050qx-3
+  - bjw-can-7050qx-3
   inv_name: bjw
   auto_recover: 'True'
   comment: SAI Qualification
@@ -1518,12 +1518,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-9
   ptf_ip: 10.150.23.58/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173a/52
   ptf_extra_mgmt_ip: ["172.16.188.58/17"]
   server: server_bjw_6
   vm_base: VM56078
   dut:
-    - bjw-can-7050qx-2
+  - bjw-can-7050qx-2
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1534,12 +1534,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw6-11
   ptf_ip: 10.150.23.60/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173c/52
   ptf_extra_mgmt_ip: ["172.16.188.60/17"]
   server: server_bjw_6
   vm_base: VM56082
   dut:
-    - bjw-can-2700-2
+  - bjw-can-2700-2
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1550,12 +1550,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-1
   ptf_ip: 10.150.23.63/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173f/52
   ptf_extra_mgmt_ip: ["172.16.188.63/17"]
   server: server_bjw_7
   vm_base: VM57000
   dut:
-    - bjw-can-e1031-1
+  - bjw-can-e1031-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1566,12 +1566,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-4
   ptf_ip: 10.150.23.64/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1740/52
   ptf_extra_mgmt_ip: ["172.16.188.64/17"]
   server: server_bjw_7
   vm_base: VM57006
   dut:
-    - bjw-can-8102-1
+  - bjw-can-8102-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1582,12 +1582,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-5
   ptf_ip: 10.150.23.65/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1741/52
   ptf_extra_mgmt_ip: ["172.16.188.65/17"]
   server: server_bjw_7
   vm_base: VM57030
   dut:
-    - bjw-can-7215-11
+  - bjw-can-7215-11
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1598,12 +1598,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw16-3
   ptf_ip: 10.150.23.66/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1742/52
   ptf_extra_mgmt_ip: ["172.16.188.66/17"]
   server: server_bjw_16
   vm_base: VM73028
   dut:
-    - bjw-can-720dt-3
+  - bjw-can-720dt-3
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1614,12 +1614,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw12-1
   ptf_ip: 10.150.23.61/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173d/52
   ptf_extra_mgmt_ip: ["172.16.188.61/17"]
   server: server_bjw_12
   vm_base: VM72000
   dut:
-    - bjw-can-7050qx-1
+  - bjw-can-7050qx-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1630,12 +1630,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw12-2
   ptf_ip: 10.150.23.62/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173e/52
   ptf_extra_mgmt_ip: ["172.16.188.62/17"]
   server: server_bjw_12
   vm_base: VM72024
   dut:
-    - bjw-can-7215-6
+  - bjw-can-7215-6
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1646,12 +1646,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw12-3
   ptf_ip: 10.150.23.59/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:173b/52
   ptf_extra_mgmt_ip: ["172.16.188.59/17"]
   server: server_bjw_12
   vm_base: VM72030
   dut:
-    - bjw-can-720dt-4
+  - bjw-can-720dt-4
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1662,11 +1662,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-1
   ptf_ip: 10.64.247.42/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f72a/64
   server: server_63
   vm_base: VM63000
   dut:
-    - str3-7060-acs-1
+  - str3-7060-acs-1
   inv_name: str3
   auto_recover: 'True'
   comment: zhaohuisun
@@ -1677,11 +1677,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-2
   ptf_ip: 10.64.247.43/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f72b/64
   server: server_63
   vm_base: VM63004
   dut:
-    - str3-7060-acs-2
+  - str3-7060-acs-2
   inv_name: str3
   auto_recover: 'True'
   comment: zhaohuisun
@@ -1692,11 +1692,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-3
   ptf_ip: 10.64.247.44/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f72c/64
   server: server_63
   vm_base: VM63008
   dut:
-    - str3-7060-acs-3
+  - str3-7060-acs-3
   inv_name: str3
   auto_recover: 'True'
   comment: lipingxu
@@ -1707,11 +1707,11 @@
   ptf_image_name: docker-ptf
   ptf: vms63-4
   ptf_ip: 10.64.247.48/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f730/64
   server: server_63
   vm_base: VM63032
   dut:
-    - str3-msn4600c-acs-05
+  - str3-msn4600c-acs-05
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
@@ -1722,12 +1722,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-7
   ptf_ip: 10.150.23.67/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1743/52
   ptf_extra_mgmt_ip: ["172.16.188.67/17"]
   server: server_bjw_7
   vm_base: VM57042
   dut:
-    - bjw-can-3800-1
+  - bjw-can-3800-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1738,12 +1738,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-8
   ptf_ip: 10.150.23.68/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1744/52
   ptf_extra_mgmt_ip: ["172.16.188.68/17"]
   server: server_bjw_7
   vm_base: VM57074
   dut:
-    - bjw-can-4600c-1
+  - bjw-can-4600c-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1754,12 +1754,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw7-9
   ptf_ip: 10.150.23.69/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1745/52
   ptf_extra_mgmt_ip: ["172.16.188.69/17"]
   server: server_bjw_7
   vm_base: VM57098
   dut:
-    - bjw-can-2700-3
+  - bjw-can-2700-3
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1770,11 +1770,11 @@
   ptf_image_name: docker-ptf
   ptf: vms66-2
   ptf_ip: 10.64.247.69/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f745/64
   server: server_66
   vm_base: VM66049
   dut:
-    - str3-a7060dx5-acs-1
+  - str3-a7060dx5-acs-1
   inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
@@ -1785,13 +1785,13 @@
   ptf_image_name: docker-ptf
   ptf: vms64-2
   ptf_ip: 10.64.246.101/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f665/64
   netns_mgmt_ip: 10.64.246.102/23
   server: server_64
   vm_base: VM64156
   dut:
-    - str3-7260cx3-acs-1
-    - str3-7260cx3-acs-2
+  - str3-7260cx3-acs-1
+  - str3-7260cx3-acs-2
   inv_name: str3
   auto_recover: 'True'
   comment: shiyanwang
@@ -1802,11 +1802,11 @@
   ptf_image_name: docker-ptf
   ptf: vms64-3
   ptf_ip: 10.64.246.11/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f60b/64
   server: server_64
   vm_base: VM64164
   dut:
-    - str3-s6100-acs-6
+  - str3-s6100-acs-6
   inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
@@ -1817,11 +1817,11 @@
   ptf_image_name: docker-ptf
   ptf: vms64-4
   ptf_ip: 10.64.246.84/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f654/64
   server: server_64
   vm_base: VM64168
   dut:
-    - str3-s6100-acs-7
+  - str3-s6100-acs-7
   inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
@@ -1832,11 +1832,11 @@
   ptf_image_name: docker-ptf
   ptf: vms68-3
   ptf_ip: 10.64.247.78/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f74e/64
   server: server_68
   vm_base: VM68097
   dut:
-    - str3-s6100-acs-8
+  - str3-s6100-acs-8
   inv_name: str3
   auto_recover: 'True'
   comment: zitingguo
@@ -1847,11 +1847,11 @@
   ptf_image_name: docker-ptf
   ptf: vms64-5
   ptf_ip: 10.64.247.68/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f744/64
   server: server_64
   vm_base: VM64192
   dut:
-    - str3-7260cx3-acs-14
+  - str3-7260cx3-acs-14
   inv_name: str3
   auto_recover: 'True'
   comment: v-saidia
@@ -1862,14 +1862,14 @@
   ptf_image_name: docker-ptf
   ptf: bjw14-1
   ptf_ip: 10.150.23.70/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1746/52
   ptf_extra_mgmt_ip: ["172.16.188.70/17"]
   server: server_bjw_14
   vm_base: VM71000
   dut:
-    - bjw-can-7250-lc1-1
-    - bjw-can-7250-lc2-1
-    - bjw-can-7250-sup-1
+  - bjw-can-7250-lc1-1
+  - bjw-can-7250-lc2-1
+  - bjw-can-7250-sup-1
 
   inv_name: bjw
   auto_recover: 'False'
@@ -1881,12 +1881,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw13-3
   ptf_ip: 10.150.23.71/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1747/52
   ptf_extra_mgmt_ip: ["172.16.188.71/17"]
   server: server_bjw_13
   vm_base: VM74004
   dut:
-    - bjw-can-a7280cr3-1
+  - bjw-can-a7280cr3-1
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1897,12 +1897,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw13-2
   ptf_ip: 10.150.23.53/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1735/52
   ptf_extra_mgmt_ip: ["172.16.188.53/17"]
   server: server_bjw_13
   vm_base: VM74008
   dut:
-    - bjw-can-2700-4
+  - bjw-can-2700-4
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1913,12 +1913,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw13-4
   ptf_ip: 10.150.23.72/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1748/52
   ptf_extra_mgmt_ip: ["172.16.188.72/17"]
   server: server_bjw_13
   vm_base: VM74032
   dut:
-    - bjw-can-7260-8
+  - bjw-can-7260-8
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
@@ -1929,11 +1929,11 @@
   ptf_image_name: docker-ptf
   ptf: vms1-2
   ptf_ip: 10.64.246.57/23
-  ptf_ipv6: 2a01:111:e210:b000::8/64
+  ptf_ipv6: 2a01:111:e210:b000::a40:f639/64
   server: server_1
   vm_base: VM01024
   dut:
-    - str-msn2700-02
+  - str-msn2700-02
   inv_name: str
   auto_recover: 'True'
   comment: Jenkins
@@ -1944,11 +1944,11 @@
   ptf_image_name: docker-ptf
   ptf: vms1-3
   ptf_ip: 10.64.246.69/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f645/64
   server: server_1
   vm_base: VM01048
   dut:
-    - str-msn2700-01
+  - str-msn2700-01
   inv_name: str
   auto_recover: 'True'
   comment: dev
@@ -1959,11 +1959,11 @@
   ptf_image_name: docker-ptf
   ptf: vms66-3
   ptf_ip: 10.64.247.76/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f74c/64
   server: server_66
   vm_base: VM66073
   dut:
-    - str3-msn4700-02
+  - str3-msn4700-02
   inv_name: str3
   auto_recover: 'True'
   comment: bingwang
@@ -1974,11 +1974,11 @@
   ptf_image_name: docker-ptf
   ptf: vms66-4
   ptf_ip: 10.64.247.81/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f751/64
   server: server_66
   vm_base: VM66090
   dut:
-    - str3-msn4700-04
+  - str3-msn4700-04
   inv_name: str3
   auto_recover: 'True'
   comment: paravind
@@ -1989,11 +1989,11 @@
   ptf_image_name: docker-ptf
   ptf: vms66-5
   ptf_ip: 10.64.247.82/23
-  ptf_ipv6:
+  ptf_ipv6: 2a01:111:e210:b000::a40:f752/64
   server: server_66
   vm_base: VM66114
   dut:
-    - str3-msn4700-03
+  - str3-msn4700-03
   inv_name: str3
   auto_recover: 'True'
   comment: yanmo
@@ -2008,7 +2008,7 @@
   server: server_tk5_3
   vm_base:
   dut:
-    - strtk5-s6000-09
+  - strtk5-s6000-09
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-9
@@ -2023,7 +2023,7 @@
   server: server_tk5_3
   vm_base: VM53096
   dut:
-    - strtk5-8101-01
+  - strtk5-8101-01
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-8101-1
@@ -2038,7 +2038,7 @@
   server: server_tk5_3
   vm_base: VM53004
   dut:
-    - strtk5-msn2700-03
+  - strtk5-msn2700-03
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-2700-3
@@ -2053,7 +2053,7 @@
   server: server_tk5_3
   vm_base: VM53008
   dut:
-    - strtk5-s6000-06
+  - strtk5-s6000-06
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-6
@@ -2068,7 +2068,7 @@
   server: server_tk5_3
   vm_base: VM53120
   dut:
-    - strtk5-e1031-acs-3
+  - strtk5-e1031-acs-3
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-e1031-3
@@ -2083,7 +2083,7 @@
   server: server_tk5_3
   vm_base: VM53016
   dut:
-    - strtk5-a7170-acs-1
+  - strtk5-a7170-acs-1
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-a7170-1
@@ -2098,7 +2098,7 @@
   server: server_tk5_3
   vm_base: VM53020
   dut:
-    - strtk5-s6100-acs-4
+  - strtk5-s6100-acs-4
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6100-4
@@ -2113,7 +2113,7 @@
   server: server_tk5_3
   vm_base: VM53024
   dut:
-    - strtk5-7260-7
+  - strtk5-7260-7
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-7260-7
@@ -2128,7 +2128,7 @@
   server: server_tk5_3
   vm_base: VM53048
   dut:
-    - strtk5-n3164-acs-2
+  - strtk5-n3164-acs-2
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-n3164-2
@@ -2143,7 +2143,7 @@
   server: server_tk5_3
   vm_base: VM53072
   dut:
-    - strtk5-s6100-acs-5
+  - strtk5-s6100-acs-5
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6100-5
@@ -2158,7 +2158,7 @@
   server: server_tk5_4
   vm_base: VM54084
   dut:
-    - strtk5-7260-01
+  - strtk5-7260-01
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-7260-01
@@ -2173,7 +2173,7 @@
   server: server_tk5_4
   vm_base: VM54004
   dut:
-    - strtk5-n3132-acs-1
+  - strtk5-n3132-acs-1
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-n3132-1
@@ -2188,7 +2188,7 @@
   server: server_tk5_4
   vm_base: VM54008
   dut:
-    - strtk5-n3132-acs-3
+  - strtk5-n3132-acs-3
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-n3132-3
@@ -2203,7 +2203,7 @@
   server: server_tk5_4
   vm_base: VM54012
   dut:
-    - strtk5-s6000-07
+  - strtk5-s6000-07
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-7
@@ -2218,7 +2218,7 @@
   server: server_tk5_4
   vm_base: VM54016
   dut:
-    - strtk5-s6000-14
+  - strtk5-s6000-14
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-14
@@ -2233,7 +2233,7 @@
   server: server_tk5_4
   vm_base: VM54084
   dut:
-    - strtk5-dx010-acs-5
+  - strtk5-dx010-acs-5
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-dx010-5
@@ -2248,7 +2248,7 @@
   server: server_tk5_4
   vm_base: VM54024
   dut:
-    - strtk5-msn4600c-acs-02
+  - strtk5-msn4600c-acs-02
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-4600c-2
@@ -2263,7 +2263,7 @@
   server: server_tk5_4
   vm_base: VM54028
   dut:
-    - strtk5-msn2700-04
+  - strtk5-msn2700-04
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-2700-4
@@ -2278,7 +2278,7 @@
   server: server_tk5_4
   vm_base: VM54036
   dut:
-    - strtk5-msn2700-02
+  - strtk5-msn2700-02
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-2700-2
@@ -2293,7 +2293,7 @@
   server: server_tk5_4
   vm_base: VM54060
   dut:
-    - strtk5-n3132-acs-2
+  - strtk5-n3132-acs-2
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-n3132-2
@@ -2308,7 +2308,7 @@
   server: server_tk5_5
   vm_base: VM55000
   dut:
-    - strtk5-dx010-acs-4
+  - strtk5-dx010-acs-4
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-dx010-4
@@ -2323,7 +2323,7 @@
   server: server_tk5_5
   vm_base: VM55004
   dut:
-    - strtk5-msn2700-01
+  - strtk5-msn2700-01
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-2700-1
@@ -2338,7 +2338,7 @@
   server: server_tk5_5
   vm_base: VM55008
   dut:
-    - strtk5-s6000-12
+  - strtk5-s6000-12
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-12
@@ -2353,7 +2353,7 @@
   server: server_tk5_5
   vm_base: VM55012
   dut:
-    - strtk5-a7050-acs-1
+  - strtk5-a7050-acs-1
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-a7050-1
@@ -2368,7 +2368,7 @@
   server: server_tk5_5
   vm_base: VM55016
   dut:
-    - strtk5-s6100-acs-2
+  - strtk5-s6100-acs-2
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6100-2
@@ -2383,7 +2383,7 @@
   server: server_tk5_5
   vm_base: VM55020
   dut:
-    - strtk5-sn3800-01
+  - strtk5-sn3800-01
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-3800-1
@@ -2398,7 +2398,7 @@
   server: server_tk5_5
   vm_base: VM55024
   dut:
-    - strtk5-msn2700-06
+  - strtk5-msn2700-06
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-2700-6
@@ -2413,7 +2413,7 @@
   server: server_tk5_5
   vm_base: VM55048
   dut:
-    - strtk5-s6000-02
+  - strtk5-s6000-02
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-2
@@ -2428,7 +2428,7 @@
   server: server_tk5_5
   vm_base: VM55072
   dut:
-    - strtk5-s6000-08
+  - strtk5-s6000-08
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-s6000-8
@@ -2439,12 +2439,12 @@
   ptf_image_name: docker-ptf
   ptf: bjw13-5
   ptf_ip: 10.150.23.73/23
-  ptf_ipv6:
+  ptf_ipv6: 2404:f801:10:2200::a96:1749/52
   ptf_extra_mgmt_ip: ["172.16.188.73/17"]
   server: server_bjw_13
   vm_base: VM74056
   dut:
-    - bjw-can-7260-11
+  - bjw-can-7260-11
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
