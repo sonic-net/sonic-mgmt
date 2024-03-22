@@ -47,25 +47,29 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope='module')
-def snappi_api(snappi_api_serv_ip,
+def snappi_api(duthosts,
+               rand_one_dut_hostname,  
+               snappi_api_serv_ip,
                snappi_api_serv_port):
     """
     Fixture for session handle,
     for creating snappi objects and making API calls.
     Args:
+        duthost (pytest fixture): The duthost fixture.
         snappi_api_serv_ip (pytest fixture): snappi_api_serv_ip fixture
         snappi_api_serv_port (pytest fixture): snappi_api_serv_port fixture.
     """
+    duthost = duthosts[rand_one_dut_hostname]
     location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
     # TODO: Currently extension is defaulted to ixnetwork.
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-
+    api._username = duthost.host.options['variable_manager'].\
+                  _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['user']
+    api._password = duthost.host.options['variable_manager'].\
+                  _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['password']
     yield api
-
-    if getattr(api, 'assistant', None) is not None:
-        api.assistant.Session.remove()
 
 
 def __gen_mac(id):
