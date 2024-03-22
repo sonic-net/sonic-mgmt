@@ -51,10 +51,18 @@ def loganalyzer(duthosts, request):
         logging.info("Log analyzer is disabled")
         mark_file = "/etc/sonic/disable_loganalyzer_mark"
         for duthost in duthosts:
-            duthost.shell("touch %s" % mark_file, module_ignore_errors=True)
+            try:
+                duthost.shell("touch %s" % mark_file, module_ignore_errors=True)
+            except RunAnsibleModuleFail:
+                # Ignore possible ansible error
+                pass
         yield
         for duthost in duthosts:
-            duthost.shell("rm -f %s" % mark_file, module_ignore_errors=True)
+            try:
+                duthost.shell("rm -f %s" % mark_file, module_ignore_errors=True)
+            except RunAnsibleModuleFail:
+                # Ignore possible ansible error
+                pass
         return
 
     # Analyze all the duts
