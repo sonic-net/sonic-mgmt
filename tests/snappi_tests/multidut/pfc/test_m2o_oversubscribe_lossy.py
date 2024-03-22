@@ -27,7 +27,7 @@ def test_m2o_oversubscribe_lossy(snappi_api,                                  # 
                                  linecard_configuration_set,
                                  get_multidut_snappi_ports,):                 # noqa: F811o
     """
-    Run PFC watchdog test under many to one traffic pattern
+    Run PFC oversubscription lossy test under many to one traffic pattern
     Args:
         snappi_api (pytest fixture): SNAPPI session
         snappi_testbed_config (pytest fixture): testbed configuration information
