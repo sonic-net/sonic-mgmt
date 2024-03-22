@@ -509,8 +509,11 @@ class SendVerifyTraffic():
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
         if is_dualtor:
+            # For dualtor, the vlan mac shouldn't be present in the DUT.
+            # So we select a random MAC.
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
+            # For non-dualtor, the vlan mac should match the DUT receiving port.
             self.vlan_mac = self.tx_mac
         # Verify traffic before pfc storm
         self.verify_rx_ingress("forward")
