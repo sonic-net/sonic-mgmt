@@ -1,5 +1,6 @@
 import pytest
 import random
+import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts                                                                          # noqa: F401
@@ -9,9 +10,10 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list                                                                          # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
+from tests.common.config_reload import config_reload
 from tests.snappi_tests.multidut.pfc.files.m2o_oversubscribe_lossy_helper import run_pfc_m2o_oversubscribe_lossy_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-
+logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 
@@ -83,4 +85,7 @@ def test_m2o_oversubscribe_lossy(snappi_api,                                  # 
                                          prio_dscp_map=prio_dscp_map,
                                          snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    config_reload(sonic_host=duthost1, config_source='config_db', safe_reload=True)
+    config_reload(sonic_host=duthost2, config_source='config_db', safe_reload=True)
