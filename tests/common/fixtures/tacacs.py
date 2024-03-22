@@ -24,7 +24,7 @@ def tacacs_creds(creds_all_duts):
 
 
 def collect_artifact(duthost, module_name):
-    logger,Warning("collect_artifact for failed model: {}".format(module_name))
+    logger.Warning("collect_artifact for failed model: {}".format(module_name))
     files = ["/etc/passwd", "/var/log/auth.log", "/var/log/syslog"]
     dst_patch = "logs/tacacs/{}".format(module_name)
     for file in files:
@@ -59,7 +59,7 @@ def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_cred
         tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     logger.warning("Setup TACACS server: use_lab_tacacs_server:{}, tacacs_server_ip:{}, tacacs_server_passkey:{}"
-                 .format(use_lab_tacacs_server, tacacs_server_ip, tacacs_server_passkey))
+                    .format(use_lab_tacacs_server, tacacs_server_ip, tacacs_server_passkey))
 
     # setup per-command authorization with 'tacacs+ local', when command blocked by TACACS server, UT still can pass.
     setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, "\"tacacs+ local\"")
