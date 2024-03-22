@@ -48,7 +48,7 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
 
 @pytest.fixture(scope='module')
 def snappi_api(duthosts,
-               rand_one_dut_hostname,  
+               rand_one_dut_hostname,
                snappi_api_serv_ip,
                snappi_api_serv_port):
     """
@@ -66,9 +66,9 @@ def snappi_api(duthosts,
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
     api._username = duthost.host.options['variable_manager'].\
-                  _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['user']
+        _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['user']
     api._password = duthost.host.options['variable_manager'].\
-                  _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['password']
+        _hostvars[duthost.hostname]['secret_group_vars']['snappi_api_server']['password']
     yield api
 
 
