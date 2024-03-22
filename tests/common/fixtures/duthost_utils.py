@@ -38,13 +38,13 @@ def _backup_and_restore_config_db(duts, scope='function'):
 
     for duthost in duthosts:
         logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
-        duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
+        duthost.fetch(src=CONFIG_DB, dest="/tmp/{}{}".format(duthost.hostname, CONFIG_DB_BAK), flat=True)
 
     yield
 
     for duthost in duthosts:
         logger.info("Restore {} with {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
-        duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
+        duthost.copy(src="/tmp/{}{}".format(duthost.hostname, CONFIG_DB_BAK), dest=CONFIG_DB)
 
 
 @pytest.fixture(scope="module")
