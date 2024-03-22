@@ -30,7 +30,6 @@ def extract_tar_gz_file(tar_file_path, extract_path):
                 tar.extract(member, path=extract_path)
             except Exception as e:
                 logger.info("Error extracting {}: {}".format(member.name, e))
-    os.remove(tar_file_path)
 
 
 def extract_gz_file(gz_file_path):
@@ -45,7 +44,9 @@ def extract_gz_file(gz_file_path):
 def extract_dump_and_syslog(tar_file_path, dump_path, dir_name):
     logger.info("Extracting tar.gz dump file {}".format(tar_file_path))
     extract_tar_gz_file(tar_file_path, dump_path)
-    os.rename(tar_file_path.split('.')[0], os.path.join(dump_path, dir_name))
+    dump_with_dir_path = os.path.join(dump_path, dir_name)
+    os.rename(tar_file_path.split('.')[0], dump_with_dir_path)
+    os.rename(tar_file_path, dump_with_dir_path + '.tar.gz')
 
     syslog_path = dump_path + dir_name + '/log/'
     syslog_gz_files = glob.glob(os.path.join(syslog_path, 'syslog*.gz'))
