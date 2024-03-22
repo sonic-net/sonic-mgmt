@@ -267,8 +267,21 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
     logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
     networking_uptime = duthost.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-    pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-        "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
+    # Change the reboot cause to soft-reboot for 6100 T1
+    if upgrade_type == 'cold' and "6100" in duthost.facts["hwsku"] and 't1' in tbinfo['topo']['name']:
+        original_upgrade_type = upgrade_type
+        upgrade_type = 'soft'
+        if wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type):
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
+        else:
+            # if the reboot cause is not soft-reboot, then it should be cold-reboot
+            upgrade_type = original_upgrade_type
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
+    else:
+        pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+            "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
 
 
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
