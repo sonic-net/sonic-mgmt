@@ -1,7 +1,6 @@
 [
     {
         "op": "remove",
-        "path": "/ACL_TABLE_TYPE",
-        "value": { }
+        "path": "/ACL_TABLE_TYPE"
     }
 ]

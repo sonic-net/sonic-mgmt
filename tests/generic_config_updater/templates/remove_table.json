@@ -1,7 +1,6 @@
 [
     {
         "op": "remove",
-        "path": "/ACL_TABLE/DYNAMIC_ACL_TABLE",
-        "value": { }
+        "path": "/ACL_TABLE/DYNAMIC_ACL_TABLE"
     }
 ]

@@ -380,12 +380,12 @@ def format_and_apply_template(duthost, template_name, extra_vars):
     duthost.file(path=dest_path, state='absent')
     duthost.template(src=os.path.join(TEMPLATES_DIR, template_name), dest=dest_path)
 
-    # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
-    duthost.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
-
-    output = duthost.shell("config apply-patch {}".format(dest_path))
-
-    duthost.file(path=dest_path, state='absent')
+    try:
+        # duthost.template uses single quotes, which breaks apply-patch. this replaces them with double quotes
+        duthost.shell("sed -i \"s/'/\\\"/g\" " + dest_path)
+        output = duthost.shell("config apply-patch {}".format(dest_path))
+    finally:
+        duthost.file(path=dest_path, state='absent')
 
     return output
 
