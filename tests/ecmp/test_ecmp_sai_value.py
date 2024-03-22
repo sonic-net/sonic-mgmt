@@ -211,11 +211,13 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
         check_hash_seed_value(duthost, asic_name, topo_type)
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
-        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None)
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
+               reboot_kwargs=None, safe_reboot=True)
         check_hash_seed_value(duthost, asic_name, topo_type)
     elif parameter == "warm-reboot" and topo_type == "t0":
         logging.info("Run warm reboot on DUT")
-        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None, reboot_kwargs=None)
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None,
+               reboot_kwargs=None, safe_reboot=True)
         check_hash_seed_value(duthost, asic_name, topo_type)
 
 
@@ -257,9 +259,11 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
         check_hash_seed_value(duthost, asic_name, topo_type)
     elif parameter == "reboot":
         logging.info("Run cold reboot on DUT")
-        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None, reboot_kwargs=None)
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
+               reboot_kwargs=None, safe_reboot=True)
         check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
     elif parameter == "warm-reboot" and topo_type == "t0":
         logging.info("Run warm reboot on DUT")
-        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None, reboot_kwargs=None)
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_WARM, reboot_helper=None,
+               reboot_kwargs=None, safe_reboot=True)
         check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku)
