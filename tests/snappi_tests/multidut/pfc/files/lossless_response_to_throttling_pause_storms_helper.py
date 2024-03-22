@@ -46,7 +46,7 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
                                                           prio_dscp_map,
                                                           snappi_extra_params=None):
     """
-    Run PFC watchdog test in a multi-node (>=3) topoology
+    Run PFC lossless response to throttling pause storms
 
     Args:
         api (obj): SNAPPI session
