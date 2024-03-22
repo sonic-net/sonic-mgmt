@@ -58,4 +58,3 @@ def validate_transceiver_lpmode(output):
             print(f"Invalid low-power mode '{lpmode}' for port '{port}'")
             return False
     return True
-
