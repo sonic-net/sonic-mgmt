@@ -86,7 +86,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
-    parser.addoption("--log_dir_with_testbed_idx", action="store", default=None, help="testbed name index")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
 
     # test_vrf options
@@ -183,6 +182,8 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
+    parser.addoption("--log_dir", action="store", default=None,
+                     help="Log dir name, can be used to put specific logs in a separate directory")
 
     ############################
     #   macsec options         #

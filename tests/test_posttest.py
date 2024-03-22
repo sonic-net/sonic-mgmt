@@ -42,12 +42,12 @@ def extract_gz_file(gz_file_path):
     os.remove(gz_file_path)
 
 
-def extract_dump_and_syslog(tar_file_path, dump_path, testbed_idx):
+def extract_dump_and_syslog(tar_file_path, dump_path, dir_name):
     logger.info("Extracting tar.gz dump file {}".format(tar_file_path))
     extract_tar_gz_file(tar_file_path, dump_path)
-    os.rename(tar_file_path.split('.')[0], os.path.join(dump_path, testbed_idx))
+    os.rename(tar_file_path.split('.')[0], os.path.join(dump_path, dir_name))
 
-    syslog_path = dump_path + testbed_idx + '/log/'
+    syslog_path = dump_path + dir_name + '/log/'
     syslog_gz_files = glob.glob(os.path.join(syslog_path, 'syslog*.gz'))
     logger.info("Extracting syslog gz files: {}".format(syslog_gz_files))
     if len(syslog_gz_files) > 0:
@@ -59,7 +59,7 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     since = request.config.getoption("--posttest_show_tech_since")
     if since == '':
         since = 'yesterday'
-    testbed_idx = request.config.getoption("--log_dir_with_testbed_idx")
+    log_dir = request.config.getoption("--log_dir")
     duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
@@ -78,11 +78,11 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
         dump_path = LOG_SAVE_PATH + 'dump/'
         duthost.fetch(src=tar_file, dest=dump_path, flat=True)
 
-        if not testbed_idx:
-            testbed_idx = tar_file_name
+        if not log_dir:
+            log_dir = tar_file_name
         tar_file_path = os.path.join(dump_path, tar_file_name)
         logger.info("tar_file_path: {}, dump_path: {}".format(tar_file_path, dump_path))
-        extract_dump_and_syslog(tar_file_path, dump_path, testbed_idx)
+        extract_dump_and_syslog(tar_file_path, dump_path, log_dir)
 
     assert True
 
