@@ -41,7 +41,7 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                                                   prio_dscp_map,
                                                   snappi_extra_params=None):
     """
-    Run PFC watchdog test in a multi-node (>=3) topoology
+    Run PFC Oversubscribe Lossless Lossy for many to one traffic pattern
 
     Args:
         api (obj): SNAPPI session
