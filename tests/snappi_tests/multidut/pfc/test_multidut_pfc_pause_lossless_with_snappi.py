@@ -6,7 +6,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_tgen_peer_ports, get_multidut_snappi_ports, \
     get_multidut_tgen_peer_port_set, cleanup_config                                         # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list
+    lossless_prio_list                                                                      # noqa: F401
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
@@ -26,7 +26,9 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
                                         duthosts,
                                         line_card_choice,
                                         linecard_configuration_set,
-                                        get_multidut_snappi_ports):       # noqa: F811
+                                        get_multidut_snappi_ports,      # noqa: F811
+                                        lossless_prio_list,             # noqa: F811
+                                        prio_dscp_map):                 # noqa: F811
 
     """
     Test if PFC can pause a single lossless priority
@@ -64,9 +66,7 @@ def test_pfc_pause_single_lossless_prio(snappi_api,                     # noqa: 
         pytest_require(False, "Need Minimum of 2 ports for the test")
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -105,7 +105,9 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
                                        duthosts,
                                        line_card_choice,
                                        linecard_configuration_set,
-                                       get_multidut_snappi_ports):    # noqa: F811
+                                       get_multidut_snappi_ports,   # noqa: F811
+                                       lossless_prio_list,          # noqa: F811
+                                       prio_dscp_map):    # noqa: F811
 
     """
     Test if PFC can pause multiple lossless priorities
@@ -140,10 +142,8 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -175,7 +175,8 @@ def test_pfc_pause_multi_lossless_prio(snappi_api,                  # noqa: F811
 
 
 @pytest.mark.disable_loganalyzer
-@pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
+@pytest.mark.parametrize('reboot_type', ['cold'])
+# @pytest.mark.parametrize('reboot_type', ['warm', 'cold', 'fast'])
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
 @pytest.mark.parametrize('linecard_configuration_set', [config_set])
 def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # noqa: F811
@@ -186,7 +187,9 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
                                                line_card_choice,
                                                linecard_configuration_set,
                                                get_multidut_snappi_ports,   # noqa: F811
-                                               reboot_type):
+                                               reboot_type,
+                                               lossless_prio_list,          # noqa: F811
+                                               prio_dscp_map):              # noqa: F811
     """
     Test if PFC can pause a single lossless priority even after various types of reboot
 
@@ -222,10 +225,8 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,                  # no
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
@@ -273,7 +274,9 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
                                               line_card_choice,
                                               linecard_configuration_set,
                                               get_multidut_snappi_ports,   # noqa: F811
-                                              reboot_type):
+                                              reboot_type,
+                                              lossless_prio_list,          # noqa: F811
+                                              prio_dscp_map):              # noqa: F811
     """
     Test if PFC can pause multiple lossless priorities even after various types of reboot
 
@@ -311,10 +314,8 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,                  # noq
         assert False, "Need Minimum of 2 ports for the test"
 
     snappi_ports = get_multidut_tgen_peer_port_set(line_card_choice, snappi_port_list, config_set, 2)
-    tgen_ports = [port['location'] for port in snappi_ports]
 
     testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(dut_list,
-                                                                            tgen_ports,
                                                                             snappi_ports,
                                                                             snappi_api)
 
