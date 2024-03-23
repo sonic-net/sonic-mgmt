@@ -146,7 +146,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
-    def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,                        # noqa F811
+    def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo,
                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
                                        setup_active_active_ports):
@@ -247,7 +247,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
             setup_info[dest_port_type]["remote_namespace"]))
 
-    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,                       # noqa F811
+    def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
                                           dest_port_type, ptfadapter, tbinfo,
                                           toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                           setup_active_active_ports):
@@ -317,7 +317,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,                         # noqa F811
+    def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
                                                   dest_port_type, ptfadapter, tbinfo,
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                                   setup_active_active_ports):
@@ -409,7 +409,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             dest_port_type
         )
 
-    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                        # noqa F811
+    def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
                                                 dest_port_type, ptfadapter, tbinfo,
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
                                                 setup_active_active_ports):
@@ -517,7 +517,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_dscp_with_policer(
             self,
-            setup_info,                                                    # noqa F811
+            setup_info,                                         # noqa F811
             policer_mirror_session,
             dest_port_type,
             partial_ptf_runner,
