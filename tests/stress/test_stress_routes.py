@@ -38,7 +38,8 @@ def announce_withdraw_routes(duthost, localhost, ptf_ip, topo_name):
 
 
 def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conpleteness_level,
-                                 withdraw_and_announce_existing_routes, loganalyzer):
+                                 withdraw_and_announce_existing_routes, loganalyzer,
+                                 enum_rand_one_per_hwsku_frontend_hostname):
     ptf_ip = tbinfo["ptf_ip"]
     topo_name = tbinfo["topo"]["name"]
     if loganalyzer:
@@ -54,8 +55,12 @@ def test_announce_withdraw_route(duthost, localhost, tbinfo, get_function_conple
             ignoreRegex.append(".*ERR memory_threshold_check:.*")
             ignoreRegex.append(".*ERR monit.*memory_check.*")
             ignoreRegex.append(".*ERR monit.*mem usage of.*matches resource limit.*")
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
+        # Ignore errors in ignoreRegex for *all* DUTs
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     normalized_level = get_function_conpleteness_level
     if normalized_level is None:
         normalized_level = "basic"
