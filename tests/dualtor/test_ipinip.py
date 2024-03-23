@@ -20,9 +20,6 @@ from tests.common.dualtor.dual_tor_mock import *        # noqa F403
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
 from tests.common.dualtor.dual_tor_utils import get_ptf_server_intf_index
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_selected_tor                    # noqa F401
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
 from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401

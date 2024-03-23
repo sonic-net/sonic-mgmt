@@ -29,9 +29,6 @@ from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # no
 from tests.common.utilities import is_ipv4_address
 from tests.common import constants
 from tests.common import config_reload
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor                  # noqa F401
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 pytestmark = [
     pytest.mark.topology('any')
 ]

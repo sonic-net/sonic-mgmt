@@ -17,8 +17,6 @@ from tests.common import port_toggle
 from tests.common import constants
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled, dualtor_ports # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                                       # noqa F401
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally# noqa F401
 
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'

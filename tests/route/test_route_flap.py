@@ -13,9 +13,6 @@ from tests.common.dualtor.mux_simulator_control import \
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor      # noqa F401
-from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby     # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup            # noqa F401
 
 pytestmark = [
     pytest.mark.topology("any"),

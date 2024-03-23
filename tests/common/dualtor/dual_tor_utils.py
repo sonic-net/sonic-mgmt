@@ -43,7 +43,14 @@ from tests.ptf_runner import ptf_runner
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs',
-           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
+           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor',
+           'config_active_active_dualtor_active_standby', 'validate_active_active_dualtor_setup',
+           'setup_standby_ports_on_rand_selected_tor',
+           'setup_standby_ports_on_rand_unselected_tor',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
+           'setup_standby_ports_on_rand_unselected_tor_unconditionally',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
+           ]
 
 logger = logging.getLogger(__name__)
 
