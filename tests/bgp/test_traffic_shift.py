@@ -116,7 +116,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
         for a_route in routes_json:
             # empty community string
             routes[a_route] = ""
-        all_routes[hostname] = routes
+        results[hostname] = routes
 
     all_routes = parallel_run(parse_routes_process_vsonic, (), {}, list(neigh_hosts.values()),
                               timeout=120, concurrent_tasks=8)
