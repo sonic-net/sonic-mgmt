@@ -13,7 +13,6 @@ from tests.common.dualtor import dual_tor_utils
 from tests.common.utilities import dump_scapy_packet_show_output
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import is_tunnel_qos_remap_enabled
-from tests.common.dualtor.dual_tor_common import active_active_ports
 
 
 def dut_dscp_tc_queue_maps(duthost):
@@ -246,11 +245,8 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
                     return " ,".join(check_res)
             exp_queue = derive_queue_id_from_dscp(self.standby_tor, inner_dscp, True)
             logging.info("Expect queue: %s", exp_queue)
-            # In case of active-active ports (dualtor-aa/dualtor-mixed) there will always be
-            # gRPC traffic flowing through UC1
-            if exp_queue != 1 or not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
-                if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue, self.packet_count):
-                    check_res.append("no expect counter in the expected queue %s" % exp_queue)
+            if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue, self.packet_count):
+                check_res.append("no expect counter in the expected queue %s" % exp_queue)
             return " ,".join(check_res)
 
         def __init__(self, standby_tor, active_tor=None, existing=True, inner_packet=None,
