@@ -23,14 +23,19 @@ def get_first_interface(duthost):
     status_data = output["stdout_lines"]
     if 'Admin' not in status_data[0]:
         return None
+    if 'Lanes' not in status_data[0]:
+        return None
     admin_index = status_data[0].split().index('Admin')
+    lanes_index = status_data[0].split().index('Lanes')
     for line in status_data:
-        if "routed" not in line:
-            interface_status = line.strip()
-            assert len(interface_status) > 0, "Failed to read interface properties"
-            sl = interface_status.split()
-            if sl[admin_index] == 'up':
-                return sl[0]
+        interface_status = line.strip()
+        assert len(interface_status) > 0, "Failed to read interface properties"
+        sl = interface_status.split()
+        # Skip portchannel
+        if sl[lanes_index] == 'N/A':
+            continue
+        if sl[admin_index] == 'up':
+            return sl[0]
     return None
 
 
