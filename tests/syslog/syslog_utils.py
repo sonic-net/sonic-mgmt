@@ -2,6 +2,8 @@
     Helpful utilities for writing tests for the syslog feature.
 """
 import logging
+import random
+import string
 import time
 import os
 
@@ -110,7 +112,7 @@ def replace_ip_neigh(dut, neighbour, neigh_mac_addr, dev):
         dev=dev))
 
 
-def capture_syslog_packets(dut, tcpdump_cmd):
+def capture_syslog_packets(dut, tcpdump_cmd, logger_flags='', logger_msg=''):
     """
     Capture syslog packets
 
@@ -130,8 +132,10 @@ def capture_syslog_packets(dut, tcpdump_cmd):
     logging.debug("Generating log message from DUT")
     # Generate syslog msgs from the DUT
     logger_info_msg_count = 20
+    default_priority = '--priority INFO'
+    random_msg = ''.join(random.choice(string.ascii_letters) for _ in range(logger_info_msg_count))
     for i in range(logger_info_msg_count):
-        dut.shell("logger --priority INFO ....{}".format("i"))
+        dut.shell("logger {flags} ....{msg}".format(flags=default_priority+''+logger_flags, msg=random_msg+logger_msg))
         time.sleep(0.2)
 
     # wait for stoping tcpdump
