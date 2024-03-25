@@ -99,12 +99,12 @@ class QosParamCisco(object):
         found = False
         exp = 1
         mantissa = 0
-        reduced_thr = thr >> 4
-        further_reduced_thr = thr >> 5
+        reduced_thr = int(thr) >> 4
+        further_reduced_thr = int(thr) >> 5
         for i in range(32):
             ith_bit = 1 << i
             if further_reduced_thr < ith_bit <= reduced_thr:
-                mantissa = thr // ith_bit
+                mantissa = int(thr) // ith_bit
                 exp = i
                 found = True
                 break
