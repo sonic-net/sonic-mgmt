@@ -206,16 +206,9 @@ def setup_acl_tables(duthost):
     duthost.shell('redis-cli -n 4 HMSET "ACL_TABLE|IPV6_SNMP_ACL" policy_desc "IPV6_SNMP_ACL" services@ "SNMP" stage "ingress" type "CTRLPLANE"')
 
     yield
-    duthost.shell("/usr/local/bin/acl-loader delete IPV6_SNMP_ACL")
-    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL_IPV6")
-    duthost.shell("/usr/local/bin/acl-loader delete IPV6_SSH_ONLY")
-    duthost.shell("/usr/local/bin/acl-loader delete SNMP_ACL")
-    duthost.shell("/usr/local/bin/acl-loader delete SSH_ONLY")
-    # Wait for the ACL rules to be removed in caclmgrd, otherwise deleting ACL_TABLE will probably cause KeyError
-    time.sleep(30)
-    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|SNMP_ACL_IPV6"')
-    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|IPV6_SSH_ONLY"')
-    duthost.shell('redis-cli -n 4 DEL "ACL_TABLE|IPV6_SNMP_ACL"')
+
+    logger.info("Reload config to recover configuration.")
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 def is_acl_rule_empty(duthost):
     """
