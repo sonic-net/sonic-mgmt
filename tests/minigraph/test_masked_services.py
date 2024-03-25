@@ -2,7 +2,7 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common import config_reload
+from tests.common import config_reload, config_reload_with_minigraph_override
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -77,7 +77,8 @@ def test_masked_services(duthosts, rand_one_dut_hostname):
 
     logging.info("Starting load_minigraph")
     try:
-        config_reload(duthost, config_source='minigraph')
+        # config_reload(duthost, config_source='minigraph')
+        config_reload_with_minigraph_override(duthost)
     except Exception as e:
         pytest.fail("Test failed as load_minigraph was not successful and got exception {}".format(e))
     finally:
