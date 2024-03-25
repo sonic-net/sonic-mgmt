@@ -1,4 +1,27 @@
 #!/usr/bin/env python
+'''
+    Script to drive a continuous background traffic for pfcwd scripts.
+
+    It takes the following arguments:
+    dest_mac : The DUT Src port's mac address.
+    dst_ip_addr : The packet destination IP address.
+    ptf_src_port: The src port index in the ptf.
+    ptf_dst_port: The dst port index in the ptf.
+    pfc_queue_idx: The DSCP queue vaue to be used for packets.
+
+    The script tries out 100 UDP packets, each with different src IP address
+    and finds out one packet that goes through the given dest port. Once
+    that packet is calculated, it keeps sending that packet until it is
+    stopped by the supervisor.
+
+    CMD:
+    /root/env-python3/bin/python3 /root/env-python3/bin/ptf --test-dir \
+        /root/ptftests/py3 pfcwd_background_traffic.BG_pkt_sender \
+        --platform-dir /root/ptftests/ -t \
+        'dest_mac=u"80:27:6c:47:8c:cc";dst_ip_addr="10.0.0.5";\
+        ptf_src_port=5;ptf_dst_port=4;pfc_queue_idx=4' \
+        --relax --platform remote
+'''
 
 from ptf.testutils import test_params_get, verify_packet, simple_udp_packet
 from ptf.base_tests import BaseTest
