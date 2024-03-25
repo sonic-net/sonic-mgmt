@@ -1,7 +1,6 @@
 import logging
 import pytest
 
-from pytest_ansible.errors import AnsibleConnectionFailure
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -50,18 +49,7 @@ def analyze_logs(analyzers, markers, node=None, results=None, fail_test=True, st
 def loganalyzer(duthosts, request):
     if request.config.getoption("--disable_loganalyzer") or "disable_loganalyzer" in request.keywords:
         logging.info("Log analyzer is disabled")
-        mark_file = "/etc/sonic/disable_loganalyzer_mark"
-        for duthost in duthosts:
-            try:
-                duthost.shell("touch %s" % mark_file, module_ignore_errors=True)
-            except AnsibleConnectionFailure as e:
-                logging.warning("command failed: {}".format(repr(e)))
         yield
-        for duthost in duthosts:
-            try:
-                duthost.shell("rm -f %s" % mark_file, module_ignore_errors=True)
-            except AnsibleConnectionFailure as e:
-                logging.warning("command failed: {}".format(repr(e)))
         return
 
     # Analyze all the duts

@@ -60,6 +60,7 @@ from tests.platform_tests.args.cont_warm_reboot_args import add_cont_warm_reboot
 from tests.platform_tests.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+from pytest_ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -2272,6 +2273,20 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    for duthost in duthosts:
+        try:
+            duthost.shell("touch %s" % mark_file, module_ignore_errors=True)
+        except AnsibleConnectionFailure as e:
+            logging.info("Failed to create mark: {}".format(repr(e)))
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
