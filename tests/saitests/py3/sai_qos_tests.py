@@ -2611,10 +2611,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 if platform_asic != "broadcom-dnx":
                     time.sleep(8)  # wait pfc counter refresh and show the counters
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                                           'To fill service pool, send {} pkt with DSCP {}'
-                                           ' PG {} from src_port{} to dst_port'.format(pkt_cnt,
-                                           sidx_dscp_pg_tuples[i][1], sidx_dscp_pg_tuples[i][2],
-                                           sidx_dscp_pg_tuples[i][0]))
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             if platform_asic and platform_asic == "broadcom-dnx":
                 time.sleep(8)  # wait pfc counter refresh and show the counters
@@ -2626,9 +2625,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
 
                     pkt_cnt = pkts_num_trig_pfc // self.pkt_size_factor
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
-                                           'To fill service pool, send {} pkt with DSCP {} PG {} from'
-                                           ' src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
-                                           sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
+                                           'To fill service pool, send {} pkt with DSCP {} PG {} from src_port{}'
+                                           ' to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
+                                                                 sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
