@@ -11,6 +11,9 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 
+TIMEOUT_LIMIT = 120
+
+
 # per-command authorization feature not available in following versions
 per_command_authorization_skip_versions = ["201811", "201911", "202012", "202106"]
 
@@ -274,6 +277,14 @@ def remove_all_tacacs_server(duthost):
             duthost.shell("sudo config tacacs delete %s" % tacacs_server)
 
 
+def count_authorization_request(ptfhost):
+    hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa W605 E501
+    res = ptfhost.shell(sed_command)["stdout"]
+    logger.warning("TACACS authorization request hex: {}".format(res))
+    return res.count(hex_string)
+
+
 def check_server_received(ptfhost, data, timeout=30):
     """
         Check if tacacs server received the data.
@@ -338,3 +349,20 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
+
+
+def ssh_run_command(ssh_client, command):
+    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
+    exit_code = stdout.channel.recv_exit_status()
+    return exit_code, stdout, stderr
+
+
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    ptfhost.command('touch /var/log/tac_plus.acct')
+    ptfhost.command(r'truncate -s 0  /var/log/tac_plus.log')
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
