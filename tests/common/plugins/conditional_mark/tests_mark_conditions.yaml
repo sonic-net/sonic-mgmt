@@ -214,12 +214,22 @@ copp/test_copp.py::TestCOPP::test_add_new_trap:
     reason: "Copp test_add_new_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Can't unisntall trap on broadcom platform successfully"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_remove_trap:
   skip:
     reason: "Copp test_remove_trap is not yet supported on multi-asic platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Can't unisntall trap on broadcom platform successfully"
+    conditions:
+      - "asic_type in ['broadcom']"
+      - "release in ['202305']"
 
 copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot:
   skip:
@@ -301,6 +311,20 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
+  skip:
+    reason: "Test is not supported in dualtor-aa"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12045
+      - "'dualtor-aa' in topo_name"
+
+dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
+  skip:
+    reason: "Test is not supported in dualtor-aa"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12045
+      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -616,9 +640,11 @@ generic_config_updater:
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
-    reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
+    reason: "Need to skip for platform x86_64-8111_32eh_o-r0 or backend topology"
+    conditions_logical_operator: "OR"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+      - "'backend' in topo_name"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
@@ -756,6 +782,12 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
     reason: "Mellanox and Broadcom DNX Asic will drop IP packets with 0xffff checksum"
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
+
+ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+  skip:
+    reason: "Skipping mgmt ipv6 test for mgmt topo"
+    conditions:
+      - "topo_type in ['m0', 'mx']"
 
 #######################################
 #####            ipfwd            #####
@@ -1102,7 +1134,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['mellanox']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']"
       - "asic_type in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
@@ -1397,6 +1429,12 @@ telemetry/test_telemetry.py:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+telemetry/test_telemetry.py::test_osbuild_version:
+  skip:
+    reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/12021"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12021
 
 #######################################
 #####         pktgen              #####

@@ -97,10 +97,7 @@ def check_default_route(rand_selected_dut):
     yield ret
 
 
-@pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
-                         [("7.0.80.166", None), ("fd82:b34f:cc99::100", None), ("7.0.80.165", "7.0.80.166"),
-                          ("fd82:b34f:cc99::100", "7.0.80.166"), ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route):
+def run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route):
     duthost = rand_selected_dut
     logger.info("Starting syslog tests")
     test_message = "Basic Test Message"
@@ -188,3 +185,13 @@ def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server
         logger.debug("DUT's syslog server IPs:\n%s" % syslog_config)
 
         pytest.fail("Dummy syslog server IP not seen in the pcap file")
+
+
+@pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
+                         [("7.0.80.166", None),
+                          ("fd82:b34f:cc99::100", None),
+                          ("7.0.80.165", "7.0.80.166"),
+                          ("fd82:b34f:cc99::100", "7.0.80.166"),
+                          ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
+def test_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route):
+    run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
