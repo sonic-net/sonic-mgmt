@@ -69,7 +69,6 @@ def reset_and_restore_test_environment(duthosts, rand_one_dut_hostname):
     if output['rc'] or "Patch applied successfully" not in output['stdout']:
         logger.info("Running config failed SONiC Yang validation. Reload minigraph. config: {}"
                     .format(output['stdout']))
-        # config_reload(duthost, config_source="minigraph", safe_reload=True)
         config_reload_with_minigraph_override(duthost, safe_reload=True)
 
     yield

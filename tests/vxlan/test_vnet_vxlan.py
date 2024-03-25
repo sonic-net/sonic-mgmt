@@ -38,8 +38,7 @@ def load_minigraph_after_test(rand_selected_dut):
     config_db.json
     """
     yield
-    # config_reload(rand_selected_dut, config_source='minigraph')
-    config_reload_with_minigraph_override(duthost)
+    config_reload_with_minigraph_override(rand_selected_dut)
 
 
 def prepare_ptf(ptfhost, mg_facts, dut_facts, vnet_config):

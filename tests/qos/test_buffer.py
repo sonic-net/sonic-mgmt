@@ -2671,7 +2671,6 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):  
     duthost = duthosts[rand_one_dut_hostname]
     try:
         logging.info('[Config load_minigraph]')
-        # config_reload(duthost, config_source='minigraph')
         config_reload_with_minigraph_override(duthost)
         buffer_model = duthost.shell(
             'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']

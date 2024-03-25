@@ -581,8 +581,6 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
-        # config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
-        #               traffic_shift_away=True)
         config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True,
                       traffic_shift_away=True)
 

@@ -415,7 +415,6 @@ def teardown(duthost):
         # reload DUT to recover it
         logger.info("{}'s lag_facts is changed, comparison failed with exception: {}"
                     .format(duthost.hostname, repr(e)))
-        # config_reload(duthost, config_source="minigraph")
         config_reload_with_minigraph_override(duthost)
     return
 
