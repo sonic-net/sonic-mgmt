@@ -582,7 +582,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
         config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True,
-                      traffic_shift_away=True)
+                                              traffic_shift_away=True)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
