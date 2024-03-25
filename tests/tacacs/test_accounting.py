@@ -95,7 +95,8 @@ def check_local_log_exist(duthost, tacacs_creds, command):
             Print matched logs with /P command.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/ansible.legacy.command Invoked/D;/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
                   .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
     pytest_assert(len(logs) > 0)
@@ -124,7 +125,9 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/ansible.legacy.command Invoked/D;/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus: Accounting: user: {0},/D;\
+                  /INFO audisp-tacplus: Accounting: user:/P" \
                   .format(username)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
