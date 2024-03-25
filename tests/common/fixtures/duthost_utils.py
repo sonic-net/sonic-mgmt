@@ -29,7 +29,7 @@ def _backup_and_restore_config_db(duts, scope='function'):
     the test starts and then restore it after the test ends.
     """
     CONFIG_DB = "/etc/sonic/config_db.json"
-    CONFIG_DB_BAK = "/etc/sonic/config_db.json.before_test_{}".format(scope)
+    CONFIG_DB_BAK = "/host/config_db.json.before_test_{}".format(scope)
 
     if type(duts) is not list:
         duthosts = [duts]
@@ -38,13 +38,13 @@ def _backup_and_restore_config_db(duts, scope='function'):
 
     for duthost in duthosts:
         logger.info("Backup {} to {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
-        duthost.fetch(src=CONFIG_DB, dest="/tmp/{}{}".format(duthost.hostname, CONFIG_DB_BAK), flat=True)
+        duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
 
     yield
 
     for duthost in duthosts:
         logger.info("Restore {} with {} on {}".format(CONFIG_DB, CONFIG_DB_BAK, duthost.hostname))
-        duthost.copy(src="/tmp/{}{}".format(duthost.hostname, CONFIG_DB_BAK), dest=CONFIG_DB)
+        duthost.shell("mv {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
 
 
 @pytest.fixture(scope="module")
