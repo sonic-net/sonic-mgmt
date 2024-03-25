@@ -505,3 +505,10 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 #### Macsec enabled on all interfaces and the DUT is rebooted
 
 - Check the macsec docker comes up and macsec sessions are established.
+
+#### Individual Neighbor Reboot
+
+Have a single neighbor reboot and verify MACsec link re-establishes with DUT.
+1: Configure Macsec between neighbor and DUT
+2: Save config on neighbor and reboot
+3: Verify macsec connection is re-established after reboot
