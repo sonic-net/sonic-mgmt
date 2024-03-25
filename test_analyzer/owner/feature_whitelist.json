@@ -16,5 +16,11 @@
         "hwsku": "7260/8102",
         "topo": "*",
         "owner": "feature owner"
+    },
+    {
+        "feature": "cacl",
+        "hwsku": "*",
+        "topo": "*",
+        "owner": "feature owner"
     }
 ]
