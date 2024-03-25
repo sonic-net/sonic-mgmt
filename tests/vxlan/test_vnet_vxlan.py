@@ -19,7 +19,7 @@ from tests.flow_counter.flow_counter_utils import RouteFlowCounterTestContext,\
     is_route_flow_counter_supported     # noqa F401
 import tests.arp.test_wr_arp as test_wr_arp
 
-from tests.common.config_reload import config_reload, config_reload_with_minigraph_override
+from tests.common.config_reload import config_reload_with_minigraph_override
 
 logger = logging.getLogger(__name__)
 
