@@ -13,7 +13,6 @@ from .utils import stop_tacacs_server, start_tacacs_server, \
         change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
         cleanup_tacacs_log, ssh_run_command, \
         ensure_tacacs_server_running_after_ut  # noqa: F401
-from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 

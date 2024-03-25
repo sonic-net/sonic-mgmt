@@ -62,12 +62,6 @@ def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password)
     pytest_assert(login_failed)
 
 
-def ssh_run_command(ssh_client, command):
-    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
-    exit_code = stdout.channel.recv_exit_status()
-    return exit_code, stdout, stderr
-
-
 def check_ssh_output_any_of(res_stream, exp_vals, timeout=10):
     while timeout > 0:
         res_lines = res_stream.readlines()
@@ -751,5 +745,5 @@ def test_tacacs_authorization_commands_during_login(
     
             res = duthost.shell("sed -nE '{0}' /var/log/syslog".format(log_pattern))["stdout"]
             logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
-            pytest_assert(False, "Device execute {} commands during login, please check and remove unecessary login commands: {}".format(count, res))
-        
+            pytest_assert(False, "Device execute {} commands during login,\
+                           please check and remove unecessary login commands: {}".format(count, res))
