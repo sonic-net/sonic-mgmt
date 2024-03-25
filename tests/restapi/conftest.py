@@ -3,7 +3,7 @@ import pytest
 import urllib3
 from six.moves.urllib.parse import urlunparse
 
-from tests.common import config_reload_with_minigraph_override
+from tests.common.config_reload import config_reload_with_minigraph_override
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 
