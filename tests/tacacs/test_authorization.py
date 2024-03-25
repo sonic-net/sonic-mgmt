@@ -742,7 +742,7 @@ def test_tacacs_authorization_commands_during_login(
                             /exit=.*/D;\
                             /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*,/P" \
                         .format(test_user)
-    
+
             res = duthost.shell("sed -nE '{0}' /var/log/syslog".format(log_pattern))["stdout"]
             logger.warning("Found {} commands during login, local accounting log: {}".format(count, res))
             pytest_assert(False, "Device execute {} commands during login,\
