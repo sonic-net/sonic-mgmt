@@ -16,7 +16,7 @@ BLOCK_SIZE = 500000000
 @pytest.fixture
 def setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    
+
     # Copies script to DUT
     duthost.copy(src="scp/perform_scp.py", dest="/home/{}/perform_scp.py".format(creds['sonicadmin_user']))
 
@@ -56,6 +56,7 @@ def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_tea
         "python3 -c 'import pexpect'", module_ignore_errors=True)["rc"]
     if p3_pexp_exists != 0:
         python_version = "python"
+
     duthost.command("{} perform_scp.py in {} /root/{} /home/{} {} {}"
                     .format(python_version, ptf_ip, TEST_FILE_NAME,
                             creds['sonicadmin_user'], creds["ptf_host_user"], creds["ptf_host_pass"]))
