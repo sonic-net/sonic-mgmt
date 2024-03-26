@@ -71,7 +71,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller', 'tortuga-controller-2x2', 'tortuga-controller-2x3'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-carib-1x3'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
