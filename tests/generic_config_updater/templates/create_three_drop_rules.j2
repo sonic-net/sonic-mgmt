@@ -1,0 +1,23 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|RULE_3": {
+                "PRIORITY": "9997",
+                "PACKET_ACTION": "DROP",
+                "IN_PORTS": "{{ blocked_port_1 }}"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_4": {
+                "PRIORITY": "9996",
+                "PACKET_ACTION": "DROP",
+                "IN_PORTS": "{{ blocked_port_2 }}"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_5": {
+                "PRIORITY": "9995",
+                "PACKET_ACTION": "DROP",
+                "IN_PORTS": "{{ blocked_port_3 }}"
+            }
+        }
+    }
+]
