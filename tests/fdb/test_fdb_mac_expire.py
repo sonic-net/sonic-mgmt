@@ -228,6 +228,8 @@ class TestFdbMacExpire:
 
         logger.info("wait for FDB aging time of '{0}' secs".format(fdbAgingTime))
         time.sleep(fdbAgingTime)
+        #increasing the polling interval for cisco devices
+        time.sleep(20)
 
         count = 0
         dummyMacCount = self.__getFdbTableCount(rand_selected_dut, self.DUMMY_MAC_PREFIX)
