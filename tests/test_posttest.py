@@ -44,9 +44,10 @@ def extract_gz_file(gz_file_path):
 def extract_dump_and_syslog(tar_file_path, dump_path, dir_name):
     logger.info("Extracting tar.gz dump file {}".format(tar_file_path))
     extract_tar_gz_file(tar_file_path, dump_path)
-    dump_with_dir_path = os.path.join(dump_path, dir_name)
-    os.rename(tar_file_path.split('.')[0], dump_with_dir_path)
-    os.rename(tar_file_path, dump_with_dir_path + '.tar.gz')
+    # rename dump folder
+    os.rename(tar_file_path.split('.tar.gz')[0], os.path.join(dump_path, dir_name))
+    # renmae .tar.gz dump file
+    os.rename(tar_file_path, os.path.join(dump_path, dir_name + '.tar.gz'))
 
     syslog_path = dump_path + dir_name + '/log/'
     syslog_gz_files = glob.glob(os.path.join(syslog_path, 'syslog*.gz'))
@@ -80,7 +81,7 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
         duthost.fetch(src=tar_file, dest=dump_path, flat=True)
 
         if not log_dir:
-            log_dir = tar_file_name
+            log_dir = tar_file.split('/')[-1].split('.tar.gz')[0]
         tar_file_path = os.path.join(dump_path, tar_file_name)
         logger.info("tar_file_path: {}, dump_path: {}".format(tar_file_path, dump_path))
         extract_dump_and_syslog(tar_file_path, dump_path, log_dir)
