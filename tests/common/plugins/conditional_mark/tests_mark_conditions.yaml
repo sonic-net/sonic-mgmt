@@ -783,7 +783,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
-ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+ip/test_mgmt_ipv6_only.py:
   skip:
     reason: "Skipping mgmt ipv6 test for mgmt topo"
     conditions:
