@@ -228,7 +228,7 @@ class TestFdbMacExpire:
 
         logger.info("wait for FDB aging time of '{0}' secs".format(fdbAgingTime))
         time.sleep(fdbAgingTime)
-        #increasing the polling interval for cisco devices
+        # increasing the polling interval for cisco devices
         time.sleep(20)
 
         count = 0
