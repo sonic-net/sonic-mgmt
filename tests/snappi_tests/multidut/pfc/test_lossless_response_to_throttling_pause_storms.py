@@ -44,6 +44,19 @@ def test_lossless_response_to_throttling_pause_storms(snappi_api,               
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
 
+    Brief Description:
+        This test uses the lossless_response_to_throttling_pause_storms_helper.py file and generates
+        2 Background traffic and 2 Test flow traffic and 1 PFC pause storm. The background traffic will
+        include two lossy traffic streams, each with randomly chosen priorities (0..2, 5..7), and each
+        having a 25% bandwidth. The test data traffic will consist of two lossless traffic streams, with
+        the SONiC default lossless priorities of 3 and 4, and each having a 25% bandwidth.
+        PFC pause throttling stream: Persistent PFC pause frames from the IXIA Rx port with enough repetition
+        and quanta chosen so as to reduce one or all lossless streams down to 90% of their configured bandwidth
+        The __gen_traffic() generates the flows. run_traffic() starts the flows and returns the flows stats.
+        The verify_m2o_oversubscribtion_results() takes in the flows stats and verifies the loss criteria
+        mentioned in the flag. Ex: 'loss': '16' means the flows to have 16% loss, 'loss': '0' means
+        there shouldn't be any loss
+
     Returns:
         N/A
     """
