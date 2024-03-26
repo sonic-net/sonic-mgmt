@@ -170,8 +170,8 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
 def validate_dut_routes_exist(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data):
     """Fixture to valid a route to each DHCP server exist
     """
-    pytest_assert(check_routes_to_dhcp_server(duthosts[rand_one_dut_hostname], dut_dhcp_relay_data),
-                  "Failed to find route for DHCP server")
+    pytest_assert(wait_until(120, 5, 0, check_routes_to_dhcp_server, duthosts[rand_one_dut_hostname],
+                             dut_dhcp_relay_data), "Failed to find route for DHCP server")
 
 
 def restart_dhcp_service(duthost):
