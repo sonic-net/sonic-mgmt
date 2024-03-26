@@ -558,7 +558,7 @@ sonic_cisco_8101_O8C48:
         "0xFE": "0xA61D2C29"
       plt_reboot_dict:
         cold:
-          timeout: 300
+          timeout: 600
           wait: 360
         watchdog:
           timeout: 300
@@ -590,7 +590,7 @@ sonic_cisco_8101_O8C48:
         "0xFE": "0xBB3F881E"
       plt_reboot_dict:
         cold:
-          timeout: 300
+          timeout: 600
           wait: 360
         watchdog:
           timeout: 300
