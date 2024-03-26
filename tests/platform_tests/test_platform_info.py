@@ -206,6 +206,7 @@ def turn_all_outlets_on(pdu_ctrl):
         if not outlet["outlet_on"]:
             pdu_ctrl.turn_on_outlet(outlet)
             time.sleep(5)
+    time.sleep(5)
 
 
 def check_all_psu_on(dut, psu_test_results):
@@ -288,7 +289,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
@@ -302,7 +303,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
