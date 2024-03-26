@@ -7,7 +7,7 @@
     dst_ip_addr : The packet destination IP address.
     ptf_src_port: The src port index in the ptf.
     ptf_dst_port: The dst port index in the ptf.
-    pfc_queue_idx: The DSCP queue vaue to be used for packets.
+    pfc_queue_idx: The DSCP queue value to be used for packets.
 
     The script tries out 100 UDP packets, each with different src IP address
     and finds out one packet that goes through the given dest port. Once

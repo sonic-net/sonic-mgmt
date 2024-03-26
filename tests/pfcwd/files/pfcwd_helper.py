@@ -381,7 +381,7 @@ def start_background_traffic(
         tbinfo
         ):
     """
-       This fixutre is to start a background traffic during
+       This fixutre starts a background traffic during
        the test. This will start a continuous traffic flow from PTF
        exiting the test port.
 
@@ -413,14 +413,14 @@ def start_background_traffic(
             required_intf = intf
             break
     # At this point, required_intf is either a portchannel or Ethernet port.
-    # It should have a neibhor address or it is an error.
+    # It should have a neighbor address or it is an error.
     dst_ip_addr = None
     for intf_obj in all_ip_intfs:
         if intf_obj['attachto'] == required_intf:
             dst_ip_addr = intf_obj['peer_addr']
             break
     if dst_ip_addr is None:
-        raise RuntimeError("Couldnot find the neighbor address for intf:{}".format(required_intf))
+        raise RuntimeError("Could not find the neighbor address for intf:{}".format(required_intf))
     ptf_src_port = mg_facts['minigraph_ptf_indices'][src_dut_intf]
     ptf_dst_port = mg_facts['minigraph_ptf_indices'][dst_dut_intf]
     extra_vars = {
