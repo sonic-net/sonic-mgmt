@@ -359,9 +359,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
-    elif 'dualtor' in topo:
-        # set TTL = 1 for dualtor-T0, don't shutdown bgp, or else the mux status on selected DUT becomes standby
-        duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp shutdown all")
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
@@ -375,8 +372,6 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         for dut_host in duthosts.frontend_nodes:
             dut_host.command("sudo config bgp startup all")
             dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
-    elif 'dualtor' in topo:
-        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
     else:
         duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
