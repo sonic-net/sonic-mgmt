@@ -1,7 +1,33 @@
 
 name: SyncConnGraph_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 
-trigger: none
+trigger:
+  batch: true
+  branches:
+    include:
+    - internal
+  paths:
+    include:
+    - '../../ansible/group_vars/*'
+    - '../../ansible/vars/topo_*'
+    - '../../ansible/files/*'
+    - '../../ansible/str'
+    - '../../ansible/str2'
+    - '../../ansible/str3'
+    - '../../ansible/strsvc'
+    - '../../ansible/strsvc2'
+    - '../../ansible/bjw'
+    - '../../ansible/ixia'
+    - '../../ansible/strtk5'
+    - '../../ansible/testbed.yaml'
+    - '../../ansible/veos'
+    - '../../ansible/wan_sonic_tb'
+    - '../../ansible/wan_vtestbed.yaml'
+    exclude:
+    - '../../ansible/files/port_config/*'
+    - '../../ansible/files/juniper_config.j2'
+    - '../../ansible/files/check_testbed_and_inventory_file.py'
+
 pr: none
 
 stages:
