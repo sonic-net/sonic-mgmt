@@ -17,8 +17,10 @@ import time
 import traceback
 import copy
 import tempfile
+import uuid
 from io import StringIO
 from ast import literal_eval
+from scapy.all import sniff as scapy_sniff
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -975,3 +977,135 @@ def recover_acl_rule(duthost, data_acl):
 
     logger.info("Applying {}".format(dut_conf_file_path))
     duthost.command("acl-loader update full {}".format(dut_conf_file_path))
+
+
+def get_ipv4_loopback_ip(duthost):
+    """
+    Get ipv4 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv4_address(ip):
+                    loopback_ip = ip
+                    break
+
+    return loopback_ip
+
+
+def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
+    """
+    Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
+    corresponding queue value.
+
+    Args:
+        dscp_value (int): DSCP value
+        dscp_to_tc_map (str dict): DSCP to TC map
+        tc_to_queue_map (str dict): TC to queue map
+    Returns:
+        int: queue value
+    """
+    if str(dscp_value) not in dscp_to_tc_map:
+        return None
+
+    tc_value = dscp_to_tc_map[str(dscp_value)]
+    if tc_value not in tc_to_queue_map:
+        return None
+
+    return int(tc_to_queue_map[tc_value])
+
+
+def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
+    """
+    Given the number of packets egressing out of each queue and an expected number of packets to
+    egress out of ONE of the queues, this function returns which queue it is. If no such queue exists, it returns -1.
+
+    Args:
+        all_queue_pkts ([int]): egress queue counts for all queues where packets are expected to egress from
+                                in array form ex. [0, 0, 100, 0, 0, 0, 0]
+        exp_queue_pkts (int): expected number of packets to egress from port
+        tolerance (float): packet tolerance to expected queue packets - only followed if atleast 100 packets are
+                           expected this accounts for background traffic
+    Returns:
+        queue_val (int): egress queue if found, else -1
+    """
+    pytest_assert(exp_queue_pkts >= 1, "At least one packet is expected to egress from the queue")
+    for queue_pkt_index in range(len(all_queue_pkts)):
+        if all_queue_pkts[queue_pkt_index] == 0:
+            continue
+        elif all_queue_pkts[queue_pkt_index] == exp_queue_pkts and exp_queue_pkts < 100:
+            return queue_pkt_index
+        elif (abs(all_queue_pkts[queue_pkt_index] - exp_queue_pkts)/exp_queue_pkts < tolerance) and \
+             (exp_queue_pkts >= 100):
+            # tolerance only followed if atleast 100 packets are expected
+            return queue_pkt_index
+
+    return -1
+
+
+def get_egress_queue_pkt_count_all_prio(duthost, port):
+    """
+    Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): port name
+    Returns:
+        array [int]: total count of packets in the queue for all priorities
+    """
+    raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
+    raw_json = json.loads(raw_out)
+    intf_queue_stats = raw_json.get(port)
+    queue_stats = []
+
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
+@contextlib.contextmanager
+def capture_and_check_packet_on_dut(
+    duthost,
+    interface='any',
+    pkts_filter='',
+    pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
+    wait_time=1
+):
+    """
+    Capture packets on DUT and check if the packet is expected
+    Parameters:
+        duthost: the DUT to perform the packet capture
+        interface: the interface to capture packets on, default is 'any'
+        pkts_filter: the PCAP-FILTER to apply to the captured packets, default is '' means no filter
+        pkts_validator: the function to validate the captured packets, default is to check if any packet is captured
+    """
+    pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
+    cmd_capture_pkts = "sudo nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
+        % (interface, pcap_save_path, pkts_filter)
+    tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
+    cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
+    pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
+                  "Failed to start tcpdump on DUT")
+    logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
+                 % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    try:
+        yield
+        time.sleep(wait_time)
+        duthost.shell("kill -s 2 %s" % tcpdump_pid)
+        with tempfile.NamedTemporaryFile() as temp_pcap:
+            duthost.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
+            pkts_validator(scapy_sniff(offline=temp_pcap.name))
+    finally:
+        duthost.file(path=pcap_save_path, state="absent")
