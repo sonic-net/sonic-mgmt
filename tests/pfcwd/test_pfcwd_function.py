@@ -785,6 +785,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
         else:
             loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
+
+        # Watchdog was not triggered until this point.
+        # Finally send traffic and trigger watchdog. Until this point,
+        # there was no data traffic. Only pfc storm was being sent.
         self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
