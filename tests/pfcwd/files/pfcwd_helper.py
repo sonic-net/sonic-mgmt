@@ -1,4 +1,3 @@
-import datetime
 import ipaddress
 import sys
 
@@ -7,6 +6,15 @@ from tests.common import constants
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
     unicode = str
+
+EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
+VENDOR_SPEC_ADDITIONAL_INFO_RE = {
+    "mellanox":
+        r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
+        r"timestamp_last:[0-9]+\.[0-9]+\|real_poll_time:[0-9]+"
+    }
+EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
 
 
 class TrafficPorts(object):
@@ -309,19 +317,22 @@ def select_test_ports(test_ports):
     """
     selected_ports = dict()
     rx_ports = set()
-    seed = int(datetime.datetime.today().day)
-    for port, port_info in list(test_ports.items()):
-        rx_port = port_info["rx_port"]
-        if isinstance(rx_port, (list, tuple)):
-            rx_ports.update(rx_port)
-        else:
-            rx_ports.add(rx_port)
-        if (int(port_info['test_port_id']) % 15) == (seed % 15):
-            selected_ports[port] = port_info
-
-    # filter out selected ports that also act as rx ports
-    selected_ports = {p: pi for p, pi in list(selected_ports.items())
-                      if p not in rx_port}
+    if len(test_ports) > 2:
+        modulo = int(len(test_ports)/3)
+        seed = int(len(test_ports)/2)
+        for port, port_info in test_ports.items():
+            rx_port = port_info["rx_port"]
+            if isinstance(rx_port, (list, tuple)):
+                rx_ports.update(rx_port)
+            else:
+                rx_ports.add(rx_port)
+            if (int(port_info['test_port_id']) % modulo) == (seed % modulo):
+                selected_ports[port] = port_info
+        # filter out selected ports that also act as rx ports
+        selected_ports = {p: pi for p, pi in list(selected_ports.items())
+                          if p not in rx_port}
+    elif len(test_ports) == 2:
+        selected_ports = test_ports
 
     if not selected_ports:
         random_port = list(test_ports.keys())[0]
@@ -342,3 +353,16 @@ def start_wd_on_ports(duthost, port, restore_time, detect_time, action="drop"):
     """
     duthost.command("pfcwd start --action {} --restoration-time {} {} {}"
                     .format(action, restore_time, port, detect_time))
+
+
+def fetch_vendor_specific_diagnosis_re(duthost):
+    """
+    Fetch regular expression of vendor specific diagnosis information
+    Args:
+        duthost: The duthost object
+    """
+    unsupported_branches = ['202012', '202205', '202211']
+    if duthost.os_version in unsupported_branches or duthost.sonic_release in unsupported_branches:
+        return ""
+
+    return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")

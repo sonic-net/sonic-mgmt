@@ -1,6 +1,7 @@
 import json
 import logging
 import socket
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
@@ -153,6 +154,19 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def show_ipv6_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ipv6_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show ipv6 interface status command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
+
     def run_sonic_db_cli_cmd(self, sonic_db_cmd):
         cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
@@ -280,17 +294,23 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self, tbinfo, intf_num="all"):
+    def get_active_ip_interfaces(self, tbinfo, intf_num="all", include_ipv6=False):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
+        If include_ipv6 is true, also returns IPv6 and its peer IPv6 addresses.
+
         Returns:
-            Dict of Interfaces and their IPv4 address
+            Dict of Interfaces and their IPv4 address (with IPv6 if include_ipv6 option is true)
         """
+        ipv6_ifs = None
         ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        if include_ipv6:
+            ipv6_ifs = self.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
+
         return self.sonichost.active_ip_interfaces(
-            ip_ifs, tbinfo, self.namespace, intf_num=intf_num
+            ip_ifs, tbinfo, self.namespace, intf_num=intf_num, ipv6_ifs=ipv6_ifs
         )
 
     def bgp_drop_rule(self, ip_version, state="present"):
@@ -341,7 +361,8 @@ class SonicAsic(object):
 
         try:
             pid_list = self.sonichost.shell(
-                r'pgrep -f "ssh -o StrictHostKeyChecking=no -fN -L \*:{}"'.format(self.get_rpc_port_ssh_tunnel())
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN -L \*:{}"'.format(
+                    self.get_rpc_port_ssh_tunnel())
             )["stdout_lines"]
         except RunAnsibleModuleFail:
             return
@@ -374,7 +395,7 @@ class SonicAsic(object):
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
         self.sonichost.shell(
-            ("ssh -o StrictHostKeyChecking=no -fN"
+            ("ssh -o StrictHostKeyChecking=no -fN -o ServerAliveInterval=60"
              " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
                                                 self._RPC_PORT_FOR_SSH_TUNNEL))
 
@@ -548,7 +569,12 @@ class SonicAsic(object):
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
         ports = self.shell(cmd)["stdout_lines"][0]
-        if ports is not None and portname in ports:
+        # The variable 'ports' is a string in format below
+        # u"dict_keys(['Ethernet144', 'Ethernet152', 'Ethernet160', 'Ethernet280'])"
+        # doing a regex match for '<interface_name>'' to get the **exact** port.
+        # Without which a check like --> ('Ethernet16' in ports) returns true, because
+        # Ethernet16 matches as a substring to Ethernet160 which is present in 'ports'
+        if ports is not None and re.search(r"'{}'".format(portname), ports):
             return True
         return False
 
@@ -558,7 +584,16 @@ class SonicAsic(object):
         # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
         # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
         # By split() function we are converting 'pcs' to list, and can do one by one comparison
-        pcs = self.shell(cmd)["stdout_lines"][0]
+        # sonic-cfggen returns "'PORTCHANNEL' is undefined" error if no portchannels are defined in config
+        # Wrapping shell cmd in try block to account for that case
+        pcs = None
+        try:
+            pcs = self.shell(cmd)["stdout_lines"][0]
+        except RunAnsibleModuleFail as e:
+            if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
+                return False
+            else:
+                raise
         if pcs is not None:
             pcs_list = pcs.split("'")
             for pc in pcs_list:

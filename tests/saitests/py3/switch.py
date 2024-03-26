@@ -64,10 +64,11 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_SCHEDULER_ATTR_SCHEDULING_TYPE, SAI_STP_ATTR_VLAN_LIST, SAI_SWITCH_ATTR_PORT_LIST,\
     SAI_SWITCH_ATTR_PORT_NUMBER, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V4_STATE, SAI_VIRTUAL_ROUTER_ATTR_ADMIN_V6_STATE,\
     SAI_VLAN_MEMBER_ATTR_VLAN_ID, SAI_PORT_STAT_IF_IN_UCAST_PKTS,\
-    SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN
+    SAI_PORT_STAT_IF_IN_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_NON_UCAST_PKTS, SAI_PORT_STAT_IF_OUT_QLEN, \
+    SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
 
 
-from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS
+from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -821,6 +822,33 @@ def sai_thrift_read_port_counters(client, asic_type, port):
     return (counters_results, queue_counters_results)
 
 
+def sai_thrift_get_voq_port_id(client, system_port_id):
+    object_id = client.sai_thrift_get_sys_port_obj_id_by_port_id(system_port_id)
+    voq_list = []
+    port_attr_list = client.sai_thrift_get_system_port_attribute(object_id)
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST:
+            for voq_id in attribute.value.objlist.object_id_list:
+                voq_list.append(voq_id)
+    return (voq_list)
+
+
+def sai_thrift_read_port_voq_counters(client, voq_list):
+    cnt_ids = []
+    thrift_results = []
+    voq_counters_results = []
+    cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
+    counter = 0
+    for voq in voq_list:
+        if counter <= 7:
+            thrift_results = client.sai_thrift_get_queue_stats(
+                voq, cnt_ids, len(cnt_ids))
+            voq_counters_results.append(thrift_results[0])
+            counter += 1
+    return (voq_counters_results)
+
+
 def sai_thrift_read_port_watermarks(client, port):
     q_wm_ids = []
     q_wm_ids.append(SAI_QUEUE_STAT_SHARED_WATERMARK_BYTES)
@@ -864,6 +892,30 @@ def sai_thrift_read_port_watermarks(client, port):
 def sai_thrift_read_pg_counters(client, port_id):
     pg_cntr_ids = [
         SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS
+    ]
+
+    # fetch pg ids under port id
+    pg_ids = []
+    port_attrs = client.sai_thrift_get_port_attribute(port_id)
+    attrs = port_attrs.attr_list
+    for attr in attrs:
+        if attr.id == SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST:
+            for pg_id in attr.value.objlist.object_id_list:
+                pg_ids.append(pg_id)
+
+    # get counter values of counter ids of interest under each pg
+    pg_cntrs = []
+    for pg_id in pg_ids:
+        cntr_vals = client.sai_thrift_get_pg_stats(
+            pg_id, pg_cntr_ids, len(pg_cntr_ids))
+        pg_cntrs.append(cntr_vals[0])
+
+    return pg_cntrs
+
+
+def sai_thrift_read_pg_occupancy(client, port_id):
+    pg_cntr_ids = [
+        SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
     ]
 
     # fetch pg ids under port id

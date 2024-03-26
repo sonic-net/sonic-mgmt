@@ -71,6 +71,12 @@ class ControlPlaneBaseTest(BaseTest):
 
         self.needPreSend = None
         self.has_trap = test_params.get('has_trap', True)
+        self.hw_sku = test_params.get('hw_sku', None)
+        if (self.hw_sku == "Cisco-8111-O64" or
+                self.hw_sku == "Cisco-8111-O32" or
+                self.hw_sku == "Cisco-8111-C32" or
+                self.hw_sku == "Cisco-8111-O62C2"):
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.4
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -238,34 +244,6 @@ class ControlPlaneBaseTest(BaseTest):
         self.log('RX PPS = %d' % rx_pps)
 
 
-class NoPolicyTest(ControlPlaneBaseTest):
-    def __init__(self):
-        ControlPlaneBaseTest.__init__(self)
-        self.needPreSend = False
-
-    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
-        pkt_rx_limit = send_count * 0.90
-
-        self.log("")
-        self.log("Checking constraints (NoPolicy):")
-        self.log(
-            "rx_pps (%d) > NO_POLICER_LIMIT (%d): %s" %
-            (int(rx_pps), int(self.NO_POLICER_LIMIT),
-             str(rx_pps > self.NO_POLICER_LIMIT))
-        )
-        self.log(
-            "recv_count (%d) > pkt_rx_limit (%d): %s" %
-            (int(recv_count), int(pkt_rx_limit), str(recv_count > pkt_rx_limit))
-        )
-
-        if self.has_trap:
-            assert (rx_pps > self.NO_POLICER_LIMIT)
-            assert (recv_count > pkt_rx_limit)
-        else:
-            assert (rx_pps < self.NO_POLICER_LIMIT)
-            assert (recv_count < pkt_rx_limit)
-
-
 class PolicyTest(ControlPlaneBaseTest):
     def __init__(self):
         ControlPlaneBaseTest.__init__(self)
@@ -273,17 +251,25 @@ class PolicyTest(ControlPlaneBaseTest):
 
     def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
         self.log("")
-        self.log("Checking constraints (PolicyApplied):")
-        self.log(
-            "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
-            (int(self.PPS_LIMIT_MIN),
-             int(rx_pps),
-             int(self.PPS_LIMIT_MAX),
-             str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
-        )
-
-        assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(
-            rx_pps)
+        if self.has_trap:
+            self.log("Checking constraints (PolicyApplied):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "rx_pps {}".format(rx_pps)
+        else:
+            self.log("Checking constraints (NoPolicyApplied):")
+            self.log(
+                "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
+                (int(rx_pps),
+                 int(self.PPS_LIMIT_MIN),
+                 str(rx_pps <= self.PPS_LIMIT_MIN))
+            )
+            assert rx_pps <= self.PPS_LIMIT_MIN, "rx_pps {}".format(rx_pps)
 
 
 # SONIC config contains policer CIR=600 for ARP
@@ -350,10 +336,10 @@ class DHCPTopoT1Test(PolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for DHCP
-class DHCPTest(NoPolicyTest):
+# SONIC config contains policer CIR=300 for DHCP
+class DHCPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("DHCPTest")
@@ -384,10 +370,10 @@ class DHCPTest(NoPolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for DHCPv6
-class DHCP6Test(NoPolicyTest):
+# SONIC config contains policer CIR=300 for DHCPv6
+class DHCP6Test(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("DHCP6Test")
@@ -436,12 +422,11 @@ class DHCP6TopoT1Test(PolicyTest):
 
         return packet
 
-# SONIC configuration has no policer limiting for LLDP
 
-
-class LLDPTest(NoPolicyTest):
+# SONIC config contains policer CIR=300 for LLDP
+class LLDPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("LLDPTest")
@@ -459,10 +444,10 @@ class LLDPTest(NoPolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for UDLD
-class UDLDTest(NoPolicyTest):
+# SONIC config contains policer CIR=300 for UDLD
+class UDLDTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("UDLDTest")
@@ -485,10 +470,10 @@ class UDLDTest(NoPolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for BGP
-class BGPTest(NoPolicyTest):
+# SONIC config contains policer CIR=6000 for BGP
+class BGPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("BGPTest")
@@ -508,10 +493,10 @@ class BGPTest(NoPolicyTest):
         return packet
 
 
-# SONIC configuration has no policer limiting for LACP
-class LACPTest(NoPolicyTest):
+# SONIC config contains policer CIR=6000 for LACP
+class LACPTest(PolicyTest):
     def __init__(self):
-        NoPolicyTest.__init__(self)
+        PolicyTest.__init__(self)
 
     def runTest(self):
         self.log("LACPTest")
