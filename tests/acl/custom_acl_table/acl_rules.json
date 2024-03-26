@@ -32,6 +32,21 @@
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9992"
         },
+        "CUSTOM_TABLE|RULE_PINHOLE_1": {
+            "DST_IP": "10.1.0.36/32",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "5"
+        },
+        "CUSTOM_TABLE|RULE_PINHOLE_2": {
+            "DST_IP": "10.1.0.38/32",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "4"
+        },
+        "CUSTOM_TABLE|RULE_PINHOLE_3": {
+            "DST_IP": "10.1.0.39/32",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "3"
+        },
         "CUSTOM_TABLE|DEFAULT_DROP_RULE_V4": {
             "ETHER_TYPE": "2048",
             "PACKET_ACTION": "DROP",

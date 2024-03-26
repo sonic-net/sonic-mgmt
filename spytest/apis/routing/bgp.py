@@ -888,7 +888,7 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
             'update_src': ['LocalAddress', kwargs.get('update_src', None)],
             'update_src_intf': ['LocalAddress', kwargs.get('update_src_intf', None)],
             'enforce_first_as': ['EnforceFirstAs', True if 'enforce_first_as' in kwargs else None],
-            'local_as': ['LocalAs', kwargs.get('local_as', None)],
+            # 'local_as': ['LocalAs', kwargs.get('local_as', None)],
             'local_as_no_prepend': ['LocalAsNoPrepend', True if 'local_as_no_prepend' in kwargs else None],
             'local_as_replace_as': ['LocalAsReplaceAs', True if 'local_as_replace_as' in kwargs else None],
             'bfd': ['EnableBfdEnabled', True if 'bfd' in kwargs else None],
@@ -946,7 +946,7 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
             'filter_list': ['FilterListImportPolicy' if filter_list_dir == 'in' else 'FilterListExportPolicy', kwargs.get('filter_list', None)],
             'prefix_list': ['PrefixListImportPolicy' if prefix_list_dir == 'in' else 'PrefixListExportPolicy', kwargs.get('prefix_list', None)],
             'default_originate': ['Ipv4UnicastSendDefaultRoute' if family == 'ipv4' else 'Ipv6UnicastSendDefaultRoute', True if 'default_originate' in kwargs else None],
-            'tx_add_paths': ['TxAddPaths', kwargs.get('tx_add_paths')],
+            'TxAddPaths': ['TxAddPaths', kwargs.get('TxAddPaths')],
             'remove_private_as': ['RemovePrivateAsEnabled', True if 'remove_private_as' in kwargs else None],
         }
 
@@ -993,7 +993,8 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
 
                 if 'nh_self' in kwargs:
                     if kwargs.get('force', None):
-                        afi_safi_attr_list['force'] = ['Force', True]
+                        if kwargs['force'] != 'no':
+                            afi_safi_attr_list['force'] = ['Force', True]
 
                 if 'route_map' in kwargs:
                     # default-import-policy is not getting set in REST/GNMI as of now.
@@ -4466,7 +4467,8 @@ def config_bgp(dut, **kwargs):
     config_cmd = "" if config.lower() == 'yes' else "no"
     if 'import-check' in config_type_list:
         cli_type = "klish"
-
+    if conf_identf != '' or conf_peers != '':
+        cli_type = "klish"
     if cli_type in get_supported_ui_type_list():
 
         family = kwargs.get('addr_family', 'ipv4')
@@ -6672,6 +6674,7 @@ def config_bgp_ext_community_list(dut, *argv, **kwargs):
     To configure extended community list
 
     Author: Karuppiah Dharmaraj (karuppiah.dharmaraj@dell.com)
+    Modified: Naveen Nagaraju (naveen.nagaraju@broadcom.com)
     :param dut:
     :param : attribute : rt|soo
     :param : cli_type : click|klish
@@ -6687,6 +6690,10 @@ def config_bgp_ext_community_list(dut, *argv, **kwargs):
     Eg : bgp.config_bgp_ext_community_list(dut1, 'rt', community_type='standard', community_name='comm_test2', action='permit', ext_community_num='101:100')
          bgp.config_bgp_ext_community_list(dut1, 'soo', community_type='standard', community_name='comm_test3', action='deny', ext_community_num='64512:10', command_type='all', config='no')
          bgp.config_bgp_ext_community_list(dut1, community_type='expanded', community_name='comm_test1', action='permit', expr='^65100')
+
+         If we need to remove the global ext community list, we needn't pass the action param and config = 'no'
+         bgp.config_bgp_ext_community_list(dut1, community_type='standard', community_name='comm_test2',config='no')
+
     '''
 
     cli_type = override_supported_ui("rest-put", "rest-patch", "click",
@@ -6695,21 +6702,31 @@ def config_bgp_ext_community_list(dut, *argv, **kwargs):
     community_type = kwargs.get('community_type', False)
     community_name = kwargs.get('community_name', False)
     action = kwargs.get('action', False)
+    config = kwargs.get('config', 'yes')
 
-    if not (community_type and community_name and action):
-        st.log("provide the mandatory params")
-        return False
+    config_cmd = " " if config == 'yes' else 'no '
+    if config == 'yes':
+        if not (community_type and community_name and action):
+            st.log("provide the mandatory params")
+            return False
+    else:
+        if not (community_type and community_name):
+            st.log("provide the mandatory params for unconfig")
+            return False
 
-    config_cmd = " " if kwargs.get('config', 'yes') == 'yes' else 'no '
-    cmd = "{}bgp extcommunity-list {} {} {}".format(config_cmd, community_type, community_name, action)
-    if kwargs.get('expr'):
-        cmd += " {}".format(kwargs['expr'])
-    if 'rt' in argv:
-        cmd += " rt {}".format(kwargs['ext_community_num'])
-    if 'soo' in argv:
-        cmd += " soo {}".format(kwargs['ext_community_num'])
-    if kwargs.get('command_type'):
-        cmd += " {}".format(kwargs['command_type'])
+    if action:
+        cmd = "{}bgp extcommunity-list {} {} {}".format(config_cmd, community_type, community_name, action)
+        if kwargs.get('expr'):
+            cmd += " {}".format(kwargs['expr'])
+        if 'rt' in argv:
+            cmd += " rt {}".format(kwargs['ext_community_num'])
+        if 'soo' in argv:
+            cmd += " soo {}".format(kwargs['ext_community_num'])
+        if kwargs.get('command_type'):
+            cmd += " {}".format(kwargs['command_type'])
+    else:
+        cmd = "{}bgp extcommunity-list {} {}".format(config_cmd, community_type, community_name)
+
     st.config(dut, cmd, type=cli_type)
     return True
 
@@ -7186,7 +7203,7 @@ def verify_bgp_neigh_umf(dut, vrf, family, **kwargs):
             'update_src': ['LocalAddress', kwargs['update_src'][nbr_index] if 'update_src' in kwargs else None],
             'update_src_intf': ['LocalAddress', kwargs['update_src_intf'][nbr_index] if 'update_src_intf' in kwargs else None],
             'enforce_first_as': ['EnforceFirstAs', True if 'enforce_first_as' in kwargs else None],
-            'local_as': ['LocalAs', kwargs['local_as'][nbr_index] if 'local_as' in kwargs else None],
+            # 'local_as': ['LocalAs', kwargs['local_as'][nbr_index] if 'local_as' in kwargs else None],
             'local_as_no_prepend': ['LocalAsNoPrepend', True if 'local_as_no_prepend' in kwargs else None],
             'local_as_replace_as': ['LocalAsReplaceAs', True if 'local_as_replace_as' in kwargs else None],
             'bfd': ['EnableBfdEnabled', True if 'bfd' in kwargs else None],

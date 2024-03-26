@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import random
 import logging
 import time
@@ -404,6 +405,11 @@ class MockerHelper:
         else:
             return True
 
+    def has_thermal_updater(self):
+        cmd = 'python3 -c "from sonic_platform import thermal_updater"'
+        out = self.dut.shell(cmd, module_ignore_errors=True)
+        return not out['failed']
+
 
 class FanDrawerData:
     """
@@ -807,6 +813,8 @@ class CheckMockerResultMixin(object):
         """
         expected = {}
         for name, fields in list(self.expected_data.items()):
+            if self.excluded_entry_pattern and re.search(self.excluded_entry_pattern, name):
+                continue
             data = {}
             for idx, header in enumerate(self.expected_data_headers):
                 data[header] = fields[idx]
@@ -819,6 +827,8 @@ class CheckMockerResultMixin(object):
         mismatch_in_actual_data = []
         for actual_data_item in actual_data:
             primary = actual_data_item[self.primary_field]
+            if self.excluded_entry_pattern and re.search(self.excluded_entry_pattern, primary):
+                continue
             if primary not in expected:
                 extra_in_actual_data.append(actual_data_item)
             else:
@@ -869,6 +879,7 @@ class RandomFanStatusMocker(CheckMockerResultMixin, FanStatusMocker):
             'drawer', 'led', 'fan', 'speed', 'direction', 'presence', 'status']
         self.primary_field = 'fan'
         self.excluded_fields = ['timestamp', ]
+        self.excluded_entry_pattern = None
 
     def deinit(self):
         """
@@ -1023,6 +1034,13 @@ class RandomThermalStatusMocker(CheckMockerResultMixin, ThermalStatusMocker):
                                       'warning']
         self.primary_field = 'sensor'
         self.excluded_fields = ['timestamp', ]
+        if self.mock_helper.has_thermal_updater():
+            # if thermal updater is there, ASIC and module temperature are read from SDK sysfs.
+            # There is no way to mock SDK sysfs because it is created by kernel (user space has
+            # no permission to change it). So, we just ignore it for checking.
+            self.excluded_entry_pattern = re.compile(r"ASIC|(xSFP module \d+ Temp)")
+        else:
+            self.excluded_entry_pattern = None
 
     def deinit(self):
         """

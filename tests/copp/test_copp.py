@@ -110,6 +110,10 @@ class TestCOPP(object):
 
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
+        # remove ip2me because bgp traffic can fall back to ip2me trap then interfere following traffic tests
+        if self.trap_id == "bgp":
+            logger.info("Uninstall trap ip2me")
+            copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
 
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         _copp_runner(duthost,
@@ -141,6 +145,10 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if self.trap_id == "bgp":
+            logger.info("Uninstall trap ip2me")
+            copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
 
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)

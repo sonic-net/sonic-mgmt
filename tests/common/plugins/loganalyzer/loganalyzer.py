@@ -164,7 +164,7 @@ class LogAnalyzer:
             tmp_folder = "/tmp/loganalyzer/{}".format(self.ansible_host.hostname)
             os.makedirs(tmp_folder, exist_ok=True)
             cur_time = time.strftime("%d_%m_%Y_%H_%M_%S", time.gmtime())
-            file_path = os.path.join(tmp_folder, f"log_error_{self.marker_prefix}_{cur_time}.json")
+            file_path = os.path.join(tmp_folder, "log_error_{}_{}.json".format(self.marker_prefix, cur_time))
             logging.info("Log errors will be saved in file: {}".format(file_path))
             data = {'log_errors': log_errors}
             with open(file_path, "w+") as file:

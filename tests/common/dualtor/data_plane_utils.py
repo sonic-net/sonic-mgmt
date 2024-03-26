@@ -257,7 +257,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo, cable_t
     arp_setup(ptfhost)
 
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
-                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
+                             delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
                              stop_after=None, allow_disruption_before_traffic=False):
         """
         Helper method for `send_t1_to_server_with_action`.
