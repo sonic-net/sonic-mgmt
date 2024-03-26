@@ -40,6 +40,18 @@ def test_m2o_oversubscribe_lossy(snappi_api,                                  # 
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
+
+    Brief Description:
+        This test uses the m2o_oversubscribe_lossy_helper.py file and generates 2 Background traffic and
+        2 Test flow traffic. The background traffic will include two lossless traffic streams, with the SONiC default
+        lossless priorities of 3 and 4, and each having a 25% bandwidth. The test data traffic will
+        consist of two lossy traffic streams, each with randomly chosen priorities (0..2, 5..7), and
+        randomized so that either both streams are at 30% bandwidth each, or for one stream to be at
+        25% while the other is at 30% bandwidth. The __gen_traffic() generates the flows. run_traffic()
+        starts the flows and returns the flows stats. The verify_m2o_oversubscribtion_results() takes in the
+        flows stats and verifies the loss criteria mentioned in the flag. Ex: 'loss': '16' means the flows to
+        have 16% loss, 'loss': '0' means there shouldn't be any loss
+
     Returns:
         N/A
     """
