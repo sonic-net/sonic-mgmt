@@ -38,7 +38,6 @@ vms12-t0-2,v12-21,t0,docker-ptf,v12-21,10.64.246.26/23,,server_12,VM12028,str-ms
 vms12-3-t0-e1031,vms11-7,t0-52,docker-ptf,vms11-7,10.64.246.42/23,,server_11,VM12064,str-e1031-acs-1,str,True,gulv
 vms12-t0-s6000-1,v12-6,t0,docker-ptf,v12-6,10.64.246.55/23,,server_12,VM12080,str-s6000-acs-14,str,True,taahme
 vms12-t0-3800,vms12-5,t0-64,docker-ptf,vms12-5,10.64.246.90/23,,server_12,VM12072,str-sn3800-01,str,True,stumkurv
-vms12-t0-s5232-1,vms12-8,t0,docker-ptf,vms12-8,10.64.246.112/23,,server_12,VM12084,str-s5232f-on-1,str,True,lawlee
 vms12-9-t0-e1031,vms12-9,mgmttor,docker-ptf,vms12-9,10.64.246.153/23,,server_12,VM12088,str-e1031-acs-3,str,True,v-saidia
 vms13-t0-a7170,vms13-4,t0-64,docker-ptf,vms13-4,10.64.246.75/23,,server_13,VM13004,str-a7170-acs-1,str,True,prsunny
 vms13-t1-n3164-2,vms13-5,t1-64-lag,docker-ptf,vms13-5,10.64.246.54/23,,server_13,VM13008,str-n3164-acs-2,str,True,Arvind
