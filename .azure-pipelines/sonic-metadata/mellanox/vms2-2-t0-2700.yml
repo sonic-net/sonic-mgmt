@@ -68,7 +68,7 @@ parameters:
 
 - name: TO_IMAGE_LIST
   type: string
-  default: latest
+  default: 22
   displayName: "All target image numbers (space separated)"
 
 - name: TO_IMAGE_URL
