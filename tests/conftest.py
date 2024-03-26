@@ -80,7 +80,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.decap',
                   'tests.platform_tests.api',
                   'tests.common.plugins.allure_server',
-                  'tests.common.plugins.conditional_mark')
+                  'tests.common.plugins.conditional_mark',
+                  'tests.common.plugins.random_seed')
 
 
 def pytest_addoption(parser):
@@ -2271,6 +2272,16 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):

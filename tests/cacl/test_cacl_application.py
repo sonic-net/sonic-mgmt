@@ -28,7 +28,9 @@ def duthost_dualtor(request, upper_tor_host, lower_tor_host):       # noqa F811
     else:
         logger.info("Select upper tor...")
         dut = upper_tor_host
-    return dut
+    dut.shell("sudo config mux mode manual all")
+    yield dut
+    dut.shell("sudo config mux mode auto all")
 
 
 @pytest.fixture
