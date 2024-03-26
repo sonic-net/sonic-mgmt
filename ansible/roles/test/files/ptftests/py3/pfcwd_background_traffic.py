@@ -55,7 +55,7 @@ class BG_pkt_sender(BaseTest):
                 'pktlen': 1024}
 
             pkt = simple_udp_packet(**pkt_args)
-            exp_pkt = Mask(simple_udp_packet(**pkt_args))
+            exp_pkt = Mask(pkt.copy())
             exp_pkt.exp_pkt[scapy.Ether].dst = pkt[scapy.Ether].src
             exp_pkt.exp_pkt[scapy.Ether].src = self.test_params['dest_mac']
             exp_pkt.exp_pkt[scapy.IP].ttl = pkt[scapy.IP].ttl - 1
