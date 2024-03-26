@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import ipaddress
+import traceback
 from common import do_power_cycle, check_sonic_installer, posix_shell_aboot, posix_shell_onie
 from constants import RC_SSH_FAILED
 
@@ -44,17 +45,18 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
             posix_shell_aboot(dut_console, mgmt_ip, image_url)
         elif device_type in ["nexus"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nexus=True)
-        elif device_type in ["mellanox", "cisco", "acs", "celestica"]:
-            posix_shell_onie(dut_console, mgmt_ip, image_url)
+        elif device_type in ["mellanox", "cisco", "acs", "celestica", "force10"]:
+            is_celestica = device_type in ["celestica"]
+            posix_shell_onie(dut_console, mgmt_ip, image_url, is_celestica=is_celestica)
         elif device_type in ["nokia"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nokia=True)
         else:
-            return
+            raise Exception("We don't support this type of testbed.")
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
-        logger.info(e)
-        return
+        traceback.print_exc()
+        raise Exception(e)
 
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
@@ -69,15 +71,29 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
             if type(dut_ssh) == tuple:
                 logger.info("SSH success.")
 
+                # May recover from boot loader, need to delete image file
+                sonichost.shell("sudo rm -f /host/{}".format(image_url.split("/")[-1]),
+                                module_ignore_errors=True)
+
                 # Add ip info into /etc/network/interface
                 extra_vars = {
                     'addr': mgmt_ip.split('/')[0],
                     'mask': ipaddress.ip_interface(mgmt_ip).with_netmask.split('/')[1],
-                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
+                    'gwaddr': list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0],
+                    'mgmt_ip': mgmt_ip,
+                    'brd_ip': ipaddress.ip_interface(mgmt_ip).network.broadcast_address,
+                    'network': str(ipaddress.ip_interface(mgmt_ip).network).split('/')[0]
                 }
                 sonichost.vm.extra_vars.update(extra_vars)
                 sonichost.template(src="../.azure-pipelines/recover_testbed/interfaces.j2",
-                                   dest="/etc/network/interface")
+                                   dest="/etc/network/interfaces")
+
+                # Add management ip info into config_db.json
+                sonichost.template(src="../.azure-pipelines/recover_testbed/mgmt_ip.j2",
+                                   dest="/etc/sonic/mgmt_ip.json")
+                sonichost.shell("configlet -u -j {}".format("/etc/sonic/mgmt_ip.json"))
+
+                sonichost.shell("sudo config save -y")
 
                 sonic_username = dut_ssh[0]
                 sonic_password = dut_ssh[1]
@@ -94,8 +110,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 # Do power cycle
                 need_to_recover = True
             else:
-                logger.info("Authentication failed. Passwords are incorrect.")
-                return
+                raise Exception("Authentication failed. Passwords are incorrect.")
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)
@@ -180,14 +195,6 @@ if __name__ == "__main__":
         choices=["debug", "info", "warning", "error", "critical"],
         default="debug",
         help="Loglevel"
-    )
-
-    parser.add_argument(
-        "-o", "--output",
-        type=str,
-        dest="output",
-        required=False,
-        help="Output duts version to the specified file."
     )
 
     parser.add_argument(
