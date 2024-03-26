@@ -14,12 +14,15 @@
   when: restart_pmon is not defined and restart_pmon|bool == true
 
 - name: Get host server address
-  vmhost_server_info: vmhost_server_name={{ testbed_facts['server'] }} vm_file={{ vm_file }}
+  script: scripts/vmhost_server_address.py --inv-file {{ vm_file }} --server-name {{ testbed_facts['server'] }}
+  args:
+    executable: python
   delegate_to: localhost
+  register: vmhost_server_address
 
 - name: Set y cable simulator server address
   set_fact:
-    mux_simulator_server: "{{ vmhost_server_address }}"
+    mux_simulator_server: "{{ vmhost_server_address.stdout }}"
 
 - name: Set default y cable simulator server port
   set_fact:
