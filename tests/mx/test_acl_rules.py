@@ -17,12 +17,13 @@ import jinja2
 from ptf import testutils
 from ptf.mask import Mask
 import ptf.packet as scapy
+from scapy.layers.dhcp6 import DHCP6_Solicit
 
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success, generate_tmpfile, delete_tmpfile
-from mx_utils import create_vlan, get_vlan_config, remove_all_vlans, capture_and_check_packet_on_dut, get_vlan_brief
+from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
 from config.generate_acl_rules import (
     acl_entry,
     ACL_ACTION_ACCEPT,
@@ -68,6 +69,18 @@ SAMPLE_UPSTREAM_IPV6_PREFIX = 128
 
 ICMPV6_TYPE_ECHO_REQUEST = 128
 ICMPV6_TYPE_ECHO_REPLY = 129
+
+DHCP_MAC_BROADCAST = "ff:ff:ff:ff:ff:ff"
+DHCP_IP_DEFAULT_ROUTE = "0.0.0.0"
+DHCP_IP_BROADCAST = "255.255.255.255"
+DHCP_UDP_CLIENT_PORT = 68
+DHCP_UDP_SERVER_PORT = 67
+
+DHCPV6_MAC_MULTICAST = "33:33:00:01:00:02"
+DHCPV6_IP_MULTICAST = "ff02::1:2"
+DHCPV6_IP_LINK_LOCAL_PREFIX = "fe80::/10"
+DHCPV6_UDP_CLIENT_PORT = 546
+DHCPV6_UDP_SERVER_PORT = 547
 
 
 def add_acl_table(duthost, table_name, table_type, ports, stage):
@@ -766,7 +779,7 @@ class BmcOtwAclRulesBase:
         TEST 2: Verify BMC can send ICMP packet to Mx
         """
         _, _, bmc_hosts, _ = setup_teardown
-        for vlan_name, vlan_info in get_vlan_brief(duthost).items():
+        for vlan_name, vlan_info in duthost.get_vlan_brief().items():
             vlan_members = vlan_info["members"]
             rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
             if rand_bmc is None:
@@ -778,8 +791,8 @@ class BmcOtwAclRulesBase:
             test_ipv4_tos = 134
             with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp[icmptype] == icmp-echo"', pkts_validator=func):
                 router_mac = duthost.facts['router_mac']
-                vlans = vlan_info["interface_ipv4"]
-                vlan_ip = vlans[0]
+                vlan_prefix = vlan_info["interface_ipv4"][0]
+                vlan_ip = vlan_prefix.split("/")[0]
                 logging.info("Send icmp packet from ptf ip:%s to DUT vlan ip:%s" % (rand_bmc.ipv4_addr, vlan_ip))
                 req_pkt = testutils.simple_icmp_packet(eth_dst=router_mac, ip_src=rand_bmc.ipv4_addr, ip_dst=vlan_ip, ip_tos=test_ipv4_tos)
                 ptfadapter.dataplane.flush()
@@ -791,7 +804,7 @@ class BmcOtwAclRulesBase:
         TEST 2: Verify BMC can send ICMPv6 packet to Mx
         """
         _, _, bmc_hosts, _ = setup_teardown
-        for vlan_name, vlan_info in get_vlan_brief(duthost).items():
+        for vlan_name, vlan_info in duthost.get_vlan_brief().items():
             vlan_members = vlan_info["members"]
             rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
             if rand_bmc is None:
@@ -803,8 +816,8 @@ class BmcOtwAclRulesBase:
             test_ipv6_tc = 136
             with capture_and_check_packet_on_dut(duthost=duthost, pkts_filter='"icmp6[icmp6type]==icmp6-echo"', pkts_validator=func):
                 router_mac = duthost.facts['router_mac']
-                vlans = vlan_info["interface_ipv6"]
-                vlan_ip = vlans[0]
+                vlan_prefix = vlan_info["interface_ipv6"][0]
+                vlan_ip = vlan_prefix.split("/")[0]
                 logging.info("Send icmp packet from ptf ipv6:%s to DUT vlan ipv6:%s" % (rand_bmc.ipv6_addr, vlan_ip))
                 req_pkt = testutils.simple_icmpv6_packet(eth_dst=router_mac, ipv6_src=rand_bmc.ipv6_addr, ipv6_dst=vlan_ip, ipv6_tc=test_ipv6_tc, icmp_type=128)
                 ptfadapter.dataplane.flush()
@@ -887,6 +900,109 @@ class BmcOtwAclRulesBase:
         bgp_neigh = duthost.bgp_facts()['ansible_facts']['bgp_neighbors']
         for neigh_ip, neigh_fact in bgp_neigh.items():
             pytest_assert(neigh_fact['state'].lower() == 'established', "BGPv6 session with {} is not established".format(neigh_ip))
+
+    def test_bmc_otw_allow_dhcp_v4_broadcast_bmc2mx(self, duthost, ptfadapter, setup_teardown):
+        """
+        Potential Request 2: DHCPv4 and DHCPv6 traffic between BMC and Mx should be allowed by static ACL rules
+        Send DHCPv4 broadcast packet from BMCs. Verify DHCPv4 packet can be received by Mx.
+        """
+        _, _, bmc_hosts, _ = setup_teardown
+        for vlan_name, vlan_info in duthost.get_vlan_brief().items():
+            vlan_members = vlan_info["members"]
+            rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
+            if rand_bmc is None:
+                logging.info("No BMC found in %s, skip this vlan" % vlan_name)
+                continue
+
+            def func(pkts):
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0, "Didn't get packet with expected BOOTP xid")
+            bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
+
+            test_xid = 123
+            with capture_and_check_packet_on_dut(
+                duthost=duthost,
+                interface=rand_bmc.port_name,
+                pkts_filter="ether src %s and udp dst port %s" % (bmc_mac, DHCP_UDP_SERVER_PORT),
+                pkts_validator=func
+            ):
+                req_pkt = scapy.Ether(dst=DHCP_MAC_BROADCAST, src=bmc_mac) \
+                    / scapy.IP(src=DHCP_IP_DEFAULT_ROUTE, dst=DHCP_IP_BROADCAST) \
+                    / scapy.UDP(sport=DHCP_UDP_CLIENT_PORT, dport=DHCP_UDP_SERVER_PORT) \
+                    / scapy.BOOTP(chaddr=bmc_mac, xid=test_xid) \
+                    / scapy.DHCP(options=[("message-type", "discover"), "end"])
+                ptfadapter.dataplane.flush()
+                testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
+
+    def test_bmc_otw_allow_dhcp_v4_unicast_bmc2mx(self, duthost, ptfadapter, setup_teardown):
+        """
+        Potential Request 2: DHCPv4 and DHCPv6 traffic between BMC and Mx should be allowed by static ACL rules
+        Send DHCPv4 unicast packet from BMCs. Verify DHCPv4 packet can be received by Mx.
+        """
+        _, _, bmc_hosts, _ = setup_teardown
+        for vlan_name, vlan_info in duthost.get_vlan_brief().items():
+            vlan_members = vlan_info["members"]
+            rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
+            if rand_bmc is None:
+                logging.info("No BMC found in %s, skip this vlan" % vlan_name)
+                continue
+
+            def func(pkts):
+                pytest_assert(len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == test_xid]) > 0, "Didn't get packet with expected BOOTP xid")
+            bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
+
+            vlan_prefix = vlan_info["interface_ipv4"][0]
+            vlan_ip = vlan_prefix.split("/")[0]
+            test_xid = 124
+            with capture_and_check_packet_on_dut(
+                duthost=duthost,
+                interface=rand_bmc.port_name,
+                pkts_filter="ether src %s and udp dst port %s" % (bmc_mac, DHCP_UDP_SERVER_PORT),
+                pkts_validator=func
+            ):
+                req_pkt = scapy.Ether(dst=duthost.facts['router_mac'], src=bmc_mac) \
+                    / scapy.IP(src=rand_bmc.ipv4_addr, dst=vlan_ip) \
+                    / scapy.UDP(sport=DHCP_UDP_CLIENT_PORT, dport=DHCP_UDP_SERVER_PORT) \
+                    / scapy.BOOTP(chaddr=bmc_mac, xid=test_xid) \
+                    / scapy.DHCP(options=[("message-type", "renew"), "end"])
+                ptfadapter.dataplane.flush()
+                testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
+
+    def test_bmc_otw_allow_dhcp_v6_multicast_bmc2mx(self, duthost, ptfadapter, setup_teardown):
+        """
+        Potential Request 2: DHCPv4 and DHCPv6 traffic should be allowed by static ACL rules
+        Send DHCPv6 multicast packet from BMCs. Verify DHCPv6 packet can be received by Mx.
+        """
+        _, _, bmc_hosts, _ = setup_teardown
+        for vlan_name, vlan_info in duthost.get_vlan_brief().items():
+            vlan_members = vlan_info["members"]
+            rand_bmc = self.rand_bmc_from_vlan_members(bmc_hosts, vlan_members)
+            if rand_bmc is None:
+                logging.info("No BMC found in %s, skip this vlan" % vlan_name)
+                continue
+
+            def func(pkts):
+                pytest_assert(len([pkt for pkt in pkts if pkt[DHCP6_Solicit].trid == test_trid]) > 0, "Didn't get packet with expected transaction id")
+            bmc_mac = ptfadapter.dataplane.get_mac(0, rand_bmc.ptf_port_id).decode('utf-8')
+
+            test_trid = 119
+            with capture_and_check_packet_on_dut(
+                duthost=duthost,
+                interface=rand_bmc.port_name,
+                pkts_filter="ether src %s and udp dst port %s" % (bmc_mac, DHCPV6_UDP_SERVER_PORT),
+                pkts_validator=func
+            ):
+                cmd_get_link_local_ipv6_addr = "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1" % rand_bmc.port_name
+                link_local_ipv6_addr = duthost.shell(cmd_get_link_local_ipv6_addr)["stdout"]
+                pytest_assert(
+                    link_local_ipv6_addr is not None and ipaddress.IPv6Address(link_local_ipv6_addr) in ipaddress.IPv6Network(DHCPV6_IP_LINK_LOCAL_PREFIX),
+                    "Didn't get packet with expected transaction id"
+                )
+                req_pkt = scapy.Ether(dst=DHCPV6_MAC_MULTICAST, src=bmc_mac) \
+                    / scapy.IPv6(src=link_local_ipv6_addr, dst=DHCPV6_IP_MULTICAST) \
+                    / scapy.UDP(sport=DHCPV6_UDP_CLIENT_PORT, dport=DHCPV6_UDP_SERVER_PORT) \
+                    / DHCP6_Solicit(trid=test_trid)
+                ptfadapter.dataplane.flush()
+                testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
 
 class TestBmcOtwStaticAclRules(BmcOtwAclRulesBase):
