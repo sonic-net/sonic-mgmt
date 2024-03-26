@@ -1,0 +1,22 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|DHCP_RULE": {
+                "IP_PROTOCOL": "17",
+                "L4_DST_PORT": "67",
+                "ETHER_TYPE": "0x0800",
+                "PRIORITY": "9999",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|DHCPV6_RULE": {
+                "IP_PROTOCOL": "17",
+                "L4_DST_PORT_RANGE": "547-548",
+                "ETHER_TYPE": "0x86DD",
+                "PRIORITY": "9998",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]
