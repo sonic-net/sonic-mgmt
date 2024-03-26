@@ -498,6 +498,10 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         logging.info("route add cmd: {}".format(route_add))
         duthost.command(route_add)
 
+    if is_cisco_device(duthost):
+        # Sleep more time after route add
+        time.sleep(10)
+
     check_available_counters = True
     if duthost.facts['asic_type'] == 'broadcom':
         check_available_counters = False
@@ -523,7 +527,9 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_used\" counter was not incremented".format(ip_ver))
     # Verify "crm_stats_ipv[4/6]_route_available" counter was decremented
-    if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available >= 1):
+    # For Cisco-8000 devices, hardware counters are statistical-based with +/- 1 entry tolerance.
+    # Hence, the available counter may not increase as per initial value.
+    if check_available_counters and not (crm_stats_route_available - new_crm_stats_route_available > 1):
         for i in range(total_routes):
             RESTORE_CMDS["test_crm_route"].append(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
         pytest.fail("\"crm_stats_ipv{}_route_available\" counter was not decremented".format(ip_ver))
