@@ -42,6 +42,17 @@ def test_m2o_oversubscribe_lossless_lossy(snappi_api,                   # noqa: 
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
 
+    Brief Description:
+        This test uses the m2o_oversubscribe_lossless_lossy_helper.py file and generates 2 Background traffic and
+        2 Test flow traffic and 1 PFC pause storm. The test data traffic will include two lossless traffic streams,
+        with the SONiC default lossless priorities of 3 and 4, and first stream having a 40% bandwidth from port 1
+        and second stream having 20% of bandwidth from port 2. The background traffic will consist of two lossy
+        traffic streams, each with randomly chosen priorities (0..2, 5..7), and one stream to be at 20% from port 1
+        while the other is at 40% bandwidth from port 2. The __gen_traffic() generates the flows. run_traffic()
+        starts the flows and returns the flows stats. The verify_m2o_oversubscribtion_results() takes in the
+        flows stats and verifies the loss criteria mentioned in the flag. Ex: 'loss': 'continuing' means the flows to
+        have a continuous loss it the traffic is running continuous, 'loss': '0' means there shouldn't be any loss
+
     Returns:
         N/A
     """
