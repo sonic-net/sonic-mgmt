@@ -43,6 +43,18 @@ def test_m2o_fluctuating_lossless(snappi_api,                  # noqa: F811
         line_card_choice: Line card choice to be mentioned in the variable.py file
         linecard_configuration_set : Line card classification, (min 1 or max 2  hostnames and asics to be given)
 
+    Brief Description:
+        This test uses the m2o_fluctuating_lossless_helper.py file and generates 4 Background traffic and
+        2 Test flow traffic. The background traffic will include four lossy traffic streams, with any priorities
+        0..2 and 5..6, each having 20% bandwidth for a total of 80% of the port line rate. The test data traffic
+        will include two lossless traffic flows, with the SONiC default lossless priorities of 3 and 4. Each of
+        lossless traffic flows will be shaped to have line rate of 20% and 10%, so that there are periods where
+        both lossless flows contribute a bandwidth of 30% (which should cause over-subscription on the egress port).
+        The __gen_traffic() generates the flows. run_traffic() starts the flows and returns the flows stats.
+        The verify_m2o_oversubscribtion_results() takes in the flows stats and verifies the loss criteria
+        mentioned in the flag. Ex: 'loss': '10' means the flows tohave 10% loss, 'loss': '0' means there shouldn't
+        be any loss
+
     Returns:
         N/A
     """
