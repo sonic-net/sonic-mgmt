@@ -67,13 +67,14 @@ def config_reload_with_minigraph_override(sonic_host, wait=120, start_bgp=True,
                                           wait_before_force_reload=0, wait_for_bgp=False,
                                           check_intf_up_ports=False, traffic_shift_away=False,
                                           golden_config_path='/etc/sonic/golden_config_db.json',
-                                          is_dut=True):
+                                          is_dut=True, remote_src=False):
     """This function is align with the purpose of minigraph deprecation. We cannot deprecate minigraph
     used in sonic-mgmt directly. It provides a way to load extra config to DUT instead of modify the
     attribute in minigraph.xml. It carries all param used in config_reload except below:
 
     :param config_source: Pass 'minigrpah' as the override only imapct load_minigraph
     :param override_config: Always True becuase of override
+    :param remote_src: Whether `src` is on the remote host or on the calling device.
     """
     BASE_DIR = os.path.dirname(os.path.realpath(__file__))
     TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -87,7 +88,8 @@ def config_reload_with_minigraph_override(sonic_host, wait=120, start_bgp=True,
         confvar = '{{"additional_var" : "{}"}}'.format("additional_value")
         add_var = "-a '{}' ".format(confvar)
 
-    sonic_host.copy(src=os.path.join(TEMPLATE_DIR, GOLDEN_CONFIG_TEMPLATE), dest=dst_golden_config_template)
+    sonic_host.copy(src=os.path.join(TEMPLATE_DIR, GOLDEN_CONFIG_TEMPLATE),
+                    dest=dst_golden_config_template, remote_src=remote_src)
     sonic_host.shell("sonic-cfggen {} -d -t {} > {}".format(add_var, dst_golden_config_template, GOLDEN_CONFIG_PATH))
 
     config_reload(sonic_host, 'minigraph', wait, start_bgp, start_dynamic_buffer, safe_reload,
