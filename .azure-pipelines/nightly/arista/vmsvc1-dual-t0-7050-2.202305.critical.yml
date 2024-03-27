@@ -1,0 +1,69 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "00 1 * * 0,1,2,3"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+      - internal-202305
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vmsvc1-dual-t0-7050-2
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202305)
+    displayName: "Image URL"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202305)
+    displayName: "py_saithrift URL"
+
+  # skip warmboot specific cases on 202305 dualtor
+  # this should be removed once dualtor warmboot is ready on 202305
+  - name: SKIP_SCRIPTS
+    type: string
+    default: "arp/test_wr_arp.py \
+              platform_tests/test_cont_warm_reboot.py"
+    displayName: "Skip Scripts"
+
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "pfcwd dhcp_relay lldp drop_packets ip qos ecmp dualtor_io generic_config_updater"'
+    displayName: Testbed specific
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-svc
+    displayName: "Agent pool"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
+      NIGHTLY_TEST_TIMEOUT: 1440  # 24 hours
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
