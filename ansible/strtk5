@@ -16,94 +16,94 @@ all:
       hosts:
         ptf3-0:
           ansible_host: 10.212.65.50
-          ansible_hostv6: 2603:10e2:140:3000::190
+          ansible_hostv6: 2603:10e2:140:3000::121
         ptf3-1:
           ansible_host: 10.212.65.51
-          ansible_hostv6: 2603:10e2:140:3000::191
+          ansible_hostv6: 2603:10e2:140:3000::122
         ptf3-2:
           ansible_host: 10.212.65.52
-          ansible_hostv6: 2603:10e2:140:3000::192
+          ansible_hostv6: 2603:10e2:140:3000::123
         ptf3-3:
           ansible_host: 10.212.65.53
-          ansible_hostv6: 2603:10e2:140:3000::193
+          ansible_hostv6: 2603:10e2:140:3000::124
         ptf3-4:
           ansible_host: 10.212.65.54
-          ansible_hostv6: 2603:10e2:140:3000::194
+          ansible_hostv6: 2603:10e2:140:3000::125
         ptf3-5:
           ansible_host: 10.212.65.55
-          ansible_hostv6: 2603:10e2:140:3000::195
+          ansible_hostv6: 2603:10e2:140:3000::126
         ptf3-6:
           ansible_host: 10.212.65.56
-          ansible_hostv6: 2603:10e2:140:3000::196
+          ansible_hostv6: 2603:10e2:140:3000::127
         ptf3-7:
           ansible_host: 10.212.65.57
-          ansible_hostv6: 2603:10e2:140:3000::197
+          ansible_hostv6: 2603:10e2:140:3000::128
         ptf3-8:
           ansible_host: 10.212.65.58
-          ansible_hostv6: 2603:10e2:140:3000::198
+          ansible_hostv6: 2603:10e2:140:3000::129
         ptf3-9:
           ansible_host: 10.212.65.59
-          ansible_hostv6: 2603:10e2:140:3000::199
+          ansible_hostv6: 2603:10e2:140:3000::12a
         ptf4-0:
           ansible_host: 10.212.65.60
-          ansible_hostv6: 2603:10e2:140:3000::200
+          ansible_hostv6: 2603:10e2:140:3000::12b
         ptf4-1:
           ansible_host: 10.212.65.61
-          ansible_hostv6: 2603:10e2:140:3000::201
+          ansible_hostv6: 2603:10e2:140:3000::12c
         ptf4-2:
           ansible_host: 10.212.65.62
-          ansible_hostv6: 2603:10e2:140:3000::202
+          ansible_hostv6: 2603:10e2:140:3000::12d
         ptf4-3:
           ansible_host: 10.212.65.63
-          ansible_hostv6: 2603:10e2:140:3000::203
+          ansible_hostv6: 2603:10e2:140:3000::12e
         ptf4-4:
           ansible_host: 10.212.65.64
-          ansible_hostv6: 2603:10e2:140:3000::204
+          ansible_hostv6: 2603:10e2:140:3000::12f
         ptf4-5:
           ansible_host: 10.212.65.65
-          ansible_hostv6: 2603:10e2:140:3000::205
+          ansible_hostv6: 2603:10e2:140:3000::130
         ptf4-6:
           ansible_host: 10.212.65.66
-          ansible_hostv6: 2603:10e2:140:3000::206
+          ansible_hostv6: 2603:10e2:140:3000::131
         ptf4-7:
           ansible_host: 10.212.65.67
-          ansible_hostv6: 2603:10e2:140:3000::207
+          ansible_hostv6: 2603:10e2:140:3000::132
         ptf4-8:
           ansible_host: 10.212.65.68
-          ansible_hostv6: 2603:10e2:140:3000::208
+          ansible_hostv6: 2603:10e2:140:3000::133
         ptf4-9:
           ansible_host: 10.212.65.69
-          ansible_hostv6: 2603:10e2:140:3000::209
+          ansible_hostv6: 2603:10e2:140:3000::134
         ptf5-0:
           ansible_host: 10.212.65.70
-          ansible_hostv6: 2603:10e2:140:3000::210
+          ansible_hostv6: 2603:10e2:140:3000::135
         ptf5-1:
           ansible_host: 10.212.65.71
-          ansible_hostv6: 2603:10e2:140:3000::211
+          ansible_hostv6: 2603:10e2:140:3000::136
         ptf5-2:
           ansible_host: 10.212.65.72
-          ansible_hostv6: 2603:10e2:140:3000::212
+          ansible_hostv6: 2603:10e2:140:3000::137
         ptf5-3:
           ansible_host: 10.212.65.73
-          ansible_hostv6: 2603:10e2:140:3000::213
+          ansible_hostv6: 2603:10e2:140:3000::138
         ptf5-4:
           ansible_host: 10.212.65.74
-          ansible_hostv6: 2603:10e2:140:3000::214
+          ansible_hostv6: 2603:10e2:140:3000::139
         ptf5-5:
           ansible_host: 10.212.65.75
-          ansible_hostv6: 2603:10e2:140:3000::215
+          ansible_hostv6: 2603:10e2:140:3000::13a
         ptf5-6:
           ansible_host: 10.212.65.76
-          ansible_hostv6: 2603:10e2:140:3000::216
+          ansible_hostv6: 2603:10e2:140:3000::13b
         ptf5-7:
           ansible_host: 10.212.65.77
-          ansible_hostv6: 2603:10e2:140:3000::217
+          ansible_hostv6: 2603:10e2:140:3000::13c
         ptf5-8:
           ansible_host: 10.212.65.78
-          ansible_hostv6: 2603:10e2:140:3000::218
+          ansible_hostv6: 2603:10e2:140:3000::13d
         ptf5-9:
           ansible_host: 10.212.65.79
-          ansible_hostv6: 2603:10e2:140:3000::219
+          ansible_hostv6: 2603:10e2:140:3000::13e
 
     pdu:
       hosts:

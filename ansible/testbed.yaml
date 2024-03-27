@@ -2004,7 +2004,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-0
   ptf_ip: 10.212.65.50/24
-  ptf_ipv6: 2603:10e2:140:3000::190/122
+  ptf_ipv6: 2603:10e2:140:3000::121/122
   server: server_tk5_3
   vm_base:
   dut:
@@ -2019,7 +2019,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-1
   ptf_ip: 10.212.65.51/24
-  ptf_ipv6: 2603:10e2:140:3000::191/122
+  ptf_ipv6: 2603:10e2:140:3000::122/122
   server: server_tk5_3
   vm_base: VM53096
   dut:
@@ -2034,7 +2034,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-2
   ptf_ip: 10.212.65.52/24
-  ptf_ipv6: 2603:10e2:140:3000::192/122
+  ptf_ipv6: 2603:10e2:140:3000::123/122
   server: server_tk5_3
   vm_base: VM53004
   dut:
@@ -2049,7 +2049,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-3
   ptf_ip: 10.212.65.53/24
-  ptf_ipv6: 2603:10e2:140:3000::193/122
+  ptf_ipv6: 2603:10e2:140:3000::124/122
   server: server_tk5_3
   vm_base: VM53008
   dut:
@@ -2064,7 +2064,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-4
   ptf_ip: 10.212.65.54/24
-  ptf_ipv6: 2603:10e2:140:3000::194/122
+  ptf_ipv6: 2603:10e2:140:3000::125/122
   server: server_tk5_3
   vm_base: VM53120
   dut:
@@ -2079,7 +2079,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-5
   ptf_ip: 10.212.65.55/24
-  ptf_ipv6: 2603:10e2:140:3000::195/122
+  ptf_ipv6: 2603:10e2:140:3000::126/122
   server: server_tk5_3
   vm_base: VM53016
   dut:
@@ -2094,7 +2094,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-6
   ptf_ip: 10.212.65.56/24
-  ptf_ipv6: 2603:10e2:140:3000::196/122
+  ptf_ipv6: 2603:10e2:140:3000::127/122
   server: server_tk5_3
   vm_base: VM53020
   dut:
@@ -2109,7 +2109,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-7
   ptf_ip: 10.212.65.57/24
-  ptf_ipv6: 2603:10e2:140:3000::197/122
+  ptf_ipv6: 2603:10e2:140:3000::128/122
   server: server_tk5_3
   vm_base: VM53024
   dut:
@@ -2124,7 +2124,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-8
   ptf_ip: 10.212.65.58/24
-  ptf_ipv6: 2603:10e2:140:3000::198/122
+  ptf_ipv6: 2603:10e2:140:3000::129/122
   server: server_tk5_3
   vm_base: VM53048
   dut:
@@ -2139,7 +2139,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf3-9
   ptf_ip: 10.212.65.59/24
-  ptf_ipv6: 2603:10e2:140:3000::199/122
+  ptf_ipv6: 2603:10e2:140:3000::12a/122
   server: server_tk5_3
   vm_base: VM53072
   dut:
@@ -2154,7 +2154,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-0
   ptf_ip: 10.212.65.60/24
-  ptf_ipv6: 2603:10e2:140:3000::200/122
+  ptf_ipv6: 2603:10e2:140:3000::12b/122
   server: server_tk5_4
   vm_base: VM54084
   dut:
@@ -2169,7 +2169,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-1
   ptf_ip: 10.212.65.61/24
-  ptf_ipv6: 2603:10e2:140:3000::201/122
+  ptf_ipv6: 2603:10e2:140:3000::12c/122
   server: server_tk5_4
   vm_base: VM54004
   dut:
@@ -2184,7 +2184,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-2
   ptf_ip: 10.212.65.62/24
-  ptf_ipv6: 2603:10e2:140:3000::202/122
+  ptf_ipv6: 2603:10e2:140:3000::12d/122
   server: server_tk5_4
   vm_base: VM54008
   dut:
@@ -2199,7 +2199,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-3
   ptf_ip: 10.212.65.63/24
-  ptf_ipv6: 2603:10e2:140:3000::203/122
+  ptf_ipv6: 2603:10e2:140:3000::12e/122
   server: server_tk5_4
   vm_base: VM54012
   dut:
@@ -2214,7 +2214,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-4
   ptf_ip: 10.212.65.64/24
-  ptf_ipv6: 2603:10e2:140:3000::204/122
+  ptf_ipv6: 2603:10e2:140:3000::12f/122
   server: server_tk5_4
   vm_base: VM54016
   dut:
@@ -2229,7 +2229,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-5
   ptf_ip: 10.212.65.65/24
-  ptf_ipv6: 2603:10e2:140:3000::205/122
+  ptf_ipv6: 2603:10e2:140:3000::130/122
   server: server_tk5_4
   vm_base: VM54084
   dut:
@@ -2244,7 +2244,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-6
   ptf_ip: 10.212.65.66/24
-  ptf_ipv6: 2603:10e2:140:3000::206/122
+  ptf_ipv6: 2603:10e2:140:3000::131/122
   server: server_tk5_4
   vm_base: VM54024
   dut:
@@ -2259,7 +2259,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-7
   ptf_ip: 10.212.65.67/24
-  ptf_ipv6: 2603:10e2:140:3000::207/122
+  ptf_ipv6: 2603:10e2:140:3000::132/122
   server: server_tk5_4
   vm_base: VM54028
   dut:
@@ -2274,7 +2274,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-8
   ptf_ip: 10.212.65.68/24
-  ptf_ipv6: 2603:10e2:140:3000::208/122
+  ptf_ipv6: 2603:10e2:140:3000::133/122
   server: server_tk5_4
   vm_base: VM54036
   dut:
@@ -2289,7 +2289,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf4-9
   ptf_ip: 10.212.65.69/24
-  ptf_ipv6: 2603:10e2:140:3000::209/122
+  ptf_ipv6: 2603:10e2:140:3000::134/122
   server: server_tk5_4
   vm_base: VM54060
   dut:
@@ -2304,7 +2304,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-0
   ptf_ip: 10.212.65.70/24
-  ptf_ipv6: 2603:10e2:140:3000::210/122
+  ptf_ipv6: 2603:10e2:140:3000::135/122
   server: server_tk5_5
   vm_base: VM55000
   dut:
@@ -2319,7 +2319,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-1
   ptf_ip: 10.212.65.71/24
-  ptf_ipv6: 2603:10e2:140:3000::211/122
+  ptf_ipv6: 2603:10e2:140:3000::136/122
   server: server_tk5_5
   vm_base: VM55004
   dut:
@@ -2334,7 +2334,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-2
   ptf_ip: 10.212.65.72/24
-  ptf_ipv6: 2603:10e2:140:3000::212/122
+  ptf_ipv6: 2603:10e2:140:3000::137/122
   server: server_tk5_5
   vm_base: VM55008
   dut:
@@ -2349,7 +2349,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-3
   ptf_ip: 10.212.65.73/24
-  ptf_ipv6: 2603:10e2:140:3000::213/122
+  ptf_ipv6: 2603:10e2:140:3000::138/122
   server: server_tk5_5
   vm_base: VM55012
   dut:
@@ -2364,7 +2364,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-4
   ptf_ip: 10.212.65.74/24
-  ptf_ipv6: 2603:10e2:140:3000::214/122
+  ptf_ipv6: 2603:10e2:140:3000::139/122
   server: server_tk5_5
   vm_base: VM55016
   dut:
@@ -2379,7 +2379,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-5
   ptf_ip: 10.212.65.75/24
-  ptf_ipv6: 2603:10e2:140:3000::215/122
+  ptf_ipv6: 2603:10e2:140:3000::13a/122
   server: server_tk5_5
   vm_base: VM55020
   dut:
@@ -2394,7 +2394,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-6
   ptf_ip: 10.212.65.76/24
-  ptf_ipv6: 2603:10e2:140:3000::216/122
+  ptf_ipv6: 2603:10e2:140:3000::13b/122
   server: server_tk5_5
   vm_base: VM55024
   dut:
@@ -2409,7 +2409,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-7
   ptf_ip: 10.212.65.77/24
-  ptf_ipv6: 2603:10e2:140:3000::217/122
+  ptf_ipv6: 2603:10e2:140:3000::13c/122
   server: server_tk5_5
   vm_base: VM55048
   dut:
@@ -2424,7 +2424,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf5-8
   ptf_ip: 10.212.65.78/24
-  ptf_ipv6: 2603:10e2:140:3000::218/122
+  ptf_ipv6: 2603:10e2:140:3000::13d/122
   server: server_tk5_5
   vm_base: VM55072
   dut:
