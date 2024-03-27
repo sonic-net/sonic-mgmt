@@ -1130,6 +1130,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDwrrWeightChange:
     conditions:
       - "asic_type in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiFullMeshTrafficSanity:
+  skip:
+    reason: "Unsupported testbed type."
+    conditions:
+      - "topo_name not in ['ptf64'] and asic_type in ['cisco-8000']"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:
     reason: "Headroom pool size not supported."
