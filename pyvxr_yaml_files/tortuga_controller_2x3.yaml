@@ -81,9 +81,10 @@ devices:
       - 23
     console_ports: [60010]
     cli_commands: |
-      sudo config hostname kindly-2x3-leaf0
+      sudo config hostname tortuga-2x3-leaf0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -122,9 +123,10 @@ devices:
       - 23
     console_ports: [60011]
     cli_commands: |
-      sudo config hostname kindly-2x3-leaf1
+      sudo config hostname tortuga-2x3-leaf1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -163,9 +165,10 @@ devices:
       - 23
     console_ports: [60012]
     cli_commands: |
-      sudo config hostname kindly-2x3-leaf1
+      sudo config hostname tortuga-2x3-leaf2
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -204,9 +207,10 @@ devices:
       - 23
     console_ports: [60020]
     cli_commands: |
-      sudo config hostname kindly-2x3-spine0
+      sudo config hostname tortuga-2x3-spine0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -245,9 +249,10 @@ devices:
       - 23
     console_ports: [60021]
     cli_commands: |
-      sudo config hostname kindly-2x3-spine1
+      sudo config hostname tortuga-2x3-spine1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml

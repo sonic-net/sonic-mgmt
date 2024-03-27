@@ -413,7 +413,7 @@ def print_env_info(data, device_type):
         print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
         print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
         print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
-        for i in range(1,4):
+        for i in range(1,5):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports
@@ -425,7 +425,7 @@ def print_env_info(data, device_type):
         print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
         print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
         print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
-        for i in range(1,3):
+        for i in range(1,4):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports

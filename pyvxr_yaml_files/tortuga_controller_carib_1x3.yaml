@@ -168,6 +168,7 @@ devices:
       sudo config hostname chaos-1x3-leaf0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -209,6 +210,7 @@ devices:
       sudo config hostname chaos-1x3-leaf1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -250,6 +252,7 @@ devices:
       sudo config hostname chaos-1x3-leaf2
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -291,6 +294,7 @@ devices:
       sudo config hostname chaos-1x3-spine0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sleep 30
       cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
