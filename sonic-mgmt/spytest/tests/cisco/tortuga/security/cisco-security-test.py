@@ -12,6 +12,16 @@ from spytest.infra import get_config
 from spytest.framework import get_work_area
 
 from apis.system.connection import connect_to_device
+import apis.system.basic as basic_obj
+
+md5sum_rootca = "489062c647ad2ffee08970beb71edccb"
+root_cert="CISCO-8000-SUDI-ROOT-CA.pem"
+subca_cert="CISCO-8000-SUDI-SUB-CA.pem"
+sudi_cert="CISCO-8000-SUDI.pem"
+l_rootca_cert = "/data/tests/{}".format(root_cert)
+l_subca_cert = "/data/tests/{}".format(subca_cert)
+l_sudi_cert = "/data/tests/{}".format(sudi_cert)
+l_sudi_pub_key = "/data/tests/sudi_pub.key"
 
 md5sum_rootca = "489062c647ad2ffee08970beb71edccb"
 root_cert="CISCO-8000-SUDI-ROOT-CA.pem"
@@ -102,6 +112,40 @@ def get_sudi_cert_chain_verify(dut):
     st.log("Verify SUDI - Successful", dut)
     return True
 
+
+def sudi_platform_identity_verify(dut):
+    idprom_data = basic_obj.get_platform_idprom(dut)
+    st.log(idprom_data)
+    sn = idprom_data['pcb_serial']
+    pid = idprom_data['product_id']
+    output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
+    if "platform authentication successful" in output:
+        return True
+    else:
+        return False
+
+def sudi_platform_identity_verify_wrong_pid(dut):
+    idprom_data = basic_obj.get_platform_idprom(dut)
+    st.log(idprom_data)
+    sn = idprom_data['pcb_serial']
+    pid = "8101-32FH-O-O" 
+    output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
+    if "TAM_ERROR_DEVICE_UDI_AUTHENTICATION_FAILURE" in output:
+        return True
+    else:
+        return False    
+
+def sudi_platform_identity_verify_wrong_sn(dut):
+    idprom_data = basic_obj.get_platform_idprom(dut)
+    st.log(idprom_data)
+    sn = idprom_data['chassis_serial']
+    pid = idprom_data['product_id']
+    output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
+    if "TAM_ERROR_DEVICE_UDI_AUTHENTICATION_FAILURE" in output:
+        return True
+    else:
+        return False
+
 def sudi_sign_signature_quote_verify(dut, quote, hash_type):
     """
     1. Send Quote for signing
@@ -159,7 +203,6 @@ def sudi_sign_signature_digest_verify(dut, digest, hash_type):
         os.remove(l_digest_file)
     if os.path.exists(l_digest_file_signed):
         os.remove(l_digest_file_signed)
-
     st.log("Sign digest - start", dut)
     r_digest_file = "/tmp/sudi-digest"
     r_digest_file_signed = "/tmp/sudi-digest.sig"
@@ -274,3 +317,25 @@ def test_sudi_sign_verify_digest_sha512():
         st.report_pass("test_case_passed", dut1)
     else:
         st.report_fail("test_case_failed", dut1)
+
+def test_udi_authentication():
+    dut1 = st.get_dut_names()[0]
+    if sudi_platform_identity_verify(dut1):
+        st.report_pass("test_case_passed", dut1)
+    else:
+        st.report_fail("test_case_failed", dut1)
+
+def test_udi_authentication_wrong_pid():
+    dut1 = st.get_dut_names()[0]
+    if sudi_platform_identity_verify_wrong_pid(dut1):
+        st.report_pass("test_case_passed", dut1)
+    else:
+        st.report_fail("test_case_failed", dut1)
+
+def test_udi_authentication_wrong_sn():
+    dut1 = st.get_dut_names()[0]
+    if sudi_platform_identity_verify_wrong_sn(dut1):
+        st.report_pass("test_case_passed", dut1)
+    else:
+        st.report_fail("test_case_failed", dut1)
+
