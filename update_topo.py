@@ -62,7 +62,7 @@ with open(topology_file, "r") as fd:
             topo["devices"][device]["vxr_sim_config" ] = {}
         topo["devices"][device]["vxr_sim_config"]["shelf"] = {
             "ConfigS1NpsuiteVer": sim_cfg["npsuite"],
-            "ConfigS1NplPath": npl_path
+            "ConfigS1NplPath": sim_cfg["npl_path"].replace("mb", "vxr")
             }
         topo["devices"][device]["linux_username"] = args.dut_username
         topo["devices"][device]["linux_password"] = args.dut_password
