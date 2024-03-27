@@ -963,7 +963,7 @@ class BmcOtwAclRulesBase:
                     / scapy.IP(src=rand_bmc.ipv4_addr, dst=vlan_ip) \
                     / scapy.UDP(sport=DHCP_UDP_CLIENT_PORT, dport=DHCP_UDP_SERVER_PORT) \
                     / scapy.BOOTP(chaddr=bmc_mac, xid=test_xid) \
-                    / scapy.DHCP(options=[("message-type", "renew"), "end"])
+                    / scapy.DHCP(options=[("message-type", "force_renew"), "end"])
                 ptfadapter.dataplane.flush()
                 testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
