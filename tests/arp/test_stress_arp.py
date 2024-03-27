@@ -131,6 +131,7 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
 
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
+    logger.info("Sending {} ipv6 neighbor entries".format(nd_avaliable))
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -147,7 +148,11 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
         get_crm_resources(duthost, "ipv6_neighbor", "used")
-    nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
+        get_crm_resources(duthost, "fdb_entry", "used")
+    pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+
+    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
 
     while loop_times > 0:
         loop_times -= 1
