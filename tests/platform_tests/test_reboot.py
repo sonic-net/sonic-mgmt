@@ -282,8 +282,7 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                            localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
     """
-    @summary: This test case is checking syslog to verify fsck script has run for checking and 
-        repairing the file system when boot in initramfs stage.
+    @summary: This test case is checking syslog to verify fsck script has run for checking and repairing the file system when boot in initramfs stage.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -295,3 +294,4 @@ def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
     cmd = "sudo find /var/log/syslog* -type f -mmin -5 -exec zgrep 'fsck' {} +"
     result = duthost.shell(cmd, module_ignore_errors=True, verbose=True)['stdout']
     pytest_assert("fsck" in result, "The file system should be repaired by fsck script.")
+    
