@@ -18,7 +18,7 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 from devutil.devices.factory import init_localhost, init_testbed_sonichosts  # noqa E402
-from dut_connection import duthost_ssh, duthost_console, get_ssh_info # noqa E402
+from dut_connection import duthost_ssh, duthost_console # noqa E402
 from testbed_status import dut_lose_management_ip  # noqa F401
 
 logger = logging.getLogger(__name__)

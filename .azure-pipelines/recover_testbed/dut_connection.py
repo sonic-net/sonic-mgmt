@@ -73,6 +73,10 @@ def creds_on_dut(sonichost):
     else:
         console_login_creds = hostvars["console_login"]
 
+    creds["ansible_altpasswords"] = []
+    if "secret_group_vars" in list(hostvars.keys()):
+        creds["ansible_altpasswords"] = hostvars["secret_group_vars"].get("str").get("altpasswords")
+
     creds["console_user"] = {}
     creds["console_password"] = {}
     for k, v in list(console_login_creds.items()):
@@ -95,9 +99,15 @@ def get_ssh_info(sonichost):
     sonic_username = creds['sonicadmin_user']
     sonicadmin_alt_password = sonichost.vm.get_vars(
         host=sonichost.im.get_hosts(pattern='sonic')[0]).get("ansible_altpassword")
-    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password]
+    sonicadmin_alt_passwords = creds["ansible_altpasswords"]
+    sonic_password = [creds['sonicadmin_password'], sonicadmin_alt_password] + sonicadmin_alt_passwords
     sonic_ip = sonichost.im.get_host(sonichost.hostname).vars['ansible_host']
     return sonic_username, sonic_password, sonic_ip
+
+
+def get_alt_passwords(sonichost):
+    creds = creds_on_dut(sonichost)
+    return creds["ansible_altpasswords"]
 
 
 def duthost_console(sonichost, conn_graph_facts, localhost):
@@ -110,6 +120,9 @@ def duthost_console(sonichost, conn_graph_facts, localhost):
     sonicadmin_alt_password = sonichost.vm.get_vars(
         host=sonichost.im.get_hosts(pattern='sonic')[0]).get("ansible_altpassword")
     creds = creds_on_dut(sonichost)
+
+    sonicadmin_alt_passwords = creds["ansible_altpasswords"]
+    sonicadmin_alt_password = sonicadmin_alt_password.extend(sonicadmin_alt_passwords)
 
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,

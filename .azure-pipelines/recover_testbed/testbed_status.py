@@ -1,36 +1,38 @@
 import logging
 import ipaddress
-from dut_connection import duthost_ssh, duthost_console # noqa E402
+from dut_connection import duthost_ssh, duthost_console, get_alt_passwords, get_console_info # noqa E402
 
 logger = logging.getLogger(__name__)
-
 
 def dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip):
     # Recover DUTs
     logger.info("=====Recover start=====")
+
+    # Set the minimum log level due to the security
+    netmiko_logger = logging.getLogger("netmiko")
+    default_netmiko_logger_level = netmiko_logger.getEffectiveLevel()
+    netmiko_logger.setLevel(logging.INFO)
+
     dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
     gw_ip = list(ipaddress.ip_interface(mgmt_ip).network.hosts())[0]
     brd_ip = ipaddress.ip_interface(mgmt_ip).network.broadcast_address
     try:
+        _, _, _, console_username = get_console_info(sonichost, conn_graph_facts)
+        sonicadmin_alt_passwords = get_alt_passwords(sonichost)
+        dut_console.send_command("echo '{}:{}' | sudo chpasswd".format(console_username, sonicadmin_alt_passwords[0]))
+        netmiko_logger.setLevel(default_netmiko_logger_level)
+
         dut_console.send_command("sudo mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
         dut_console.send_command("sudo ip addr add {} brd {} dev eth0".format(mgmt_ip, brd_ip))
         dut_console.send_command("sudo ip route add default via {}".format(gw_ip))
 
-        # # Refer to https://github.com/sonic-net/SONiC/blob/master/doc/SONiC-User-Manual.md
-        # ret = dut_console.send_command(
-        #     "sudo redis-cli -n 4 hset 'MGMT_INTERFACE|eth0|{}' 'gwaddr' '{}'".format(mgmt_ip, gw_ip))
-        # logger.info(ret)
-        #
-        # ret = dut_console.send_command(
-        #     "sudo redis-cli -n 4 hset 'MGMT_PORT|eth0' 'alias' 'eth0' 'admin_status' 'up'")
-        # logger.info(ret)
-
         dut_console.send_command("sudo config save -y")
 
     except Exception as e:
-        logging.info(e)
+        logger.info(e)
     finally:
         logger.info("=====Recover finish=====")
+        netmiko_logger.setLevel(default_netmiko_logger_level)
         localhost.pause(seconds=120, prompt="Wait for SONiC initialization")
         dut_console.disconnect()
