@@ -182,6 +182,8 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
+    parser.addoption("--log_dir", action="store", default=None,
+                     help="Log dir name, can be used to put specific logs in a separate directory")
 
     ############################
     #   macsec options         #
