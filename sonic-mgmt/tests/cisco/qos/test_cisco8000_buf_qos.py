@@ -34,18 +34,22 @@ def get_pid_sku(pid_sku):
                 for asic in t2_asics:
                     path = "{}/{}/{}".format(pid, t2_sku, str(asic))
                     logging.info("path {} sku {} asic {}".format(path, t2_sku, str(asic)))
-                    yield path, t2_sku
+                    yield path, pid, t2_sku
             else:
                 path = "{}/{}".format(pid, sku)
                 logging.info("path {} sku {}".format(path, sku))
-                yield path, sku
+                yield path, pid, sku
 
 
 def run_mmu_config(duthost, raw_pid_sku, mmucommand):
     prefix = '/usr/share/sonic/device'
     output_file = '/tmp/_cfggen_'
-    for pidpath, sku in get_pid_sku(raw_pid_sku):
-        cfggen = 'sonic-cfggen -t {}/{}/{} -k {} > {}'.format(prefix, pidpath, mmucommand, sku if sku else '""', output_file)
+    for pidpath, pid, sku in get_pid_sku(raw_pid_sku):
+        if pid == "x86_64-8111_32eh_o-r0":
+            additional_data = '{"DEVICE_METADATA": {"localhost": {"platform": "%s", "type": "BackEndLeafRouter", "resource_type": "ComputeAI"}}}' % pid
+        else:
+            additional_data = '{"DEVICE_METADATA": {"localhost": {"platform": "%s"}}}' % pid
+        cfggen = 'sonic-cfggen -t {}/{}/{} -k {} -a \'{}\' > {}'.format(prefix, pidpath, mmucommand, sku if sku else '""', additional_data, output_file)
         logging.info("executing {} for pid/sku {}".format(cfggen, pidpath))
         try:
             rc = duthost.shell(cfggen)
@@ -69,63 +73,3 @@ def test_mmu_config(duthosts, raw_pid_sku, mmucommand, enum_rand_one_per_hwsku_h
         if duthost.facts["asic_type"] != "cisco-8000":
             pytest.skip("Test is only supported for cisco-8000")
         run_mmu_config(duthost, raw_pid_sku, mmucommand)
-
-
-# apply special config for certain platform(s) and retest the configuration
-aiml_pid_sku = [
-           {"x86_64-8111_32eh_o-r0": ["Cisco-8111-O32", "Cisco-8111-O64"]},
-           {"x86_64-8111_32eh_o-r0": ["Cisco-8111-O62C2"]}
-           ]
-aiml_special_cfg = {'DEVICE_METADATA|localhost': 
-          {"resource_type": "ComputeAI", "type" : "BackEndLeafRouter"} }
-
-class AIML_Config:
-  def __init__(self, duthost, aiml_special_cfg, mmucommand):
-      for t in aiml_special_cfg:
-          valdict = aiml_special_cfg[t]
-          for k in valdict:
-              getcmd = "redis-cli -n 4 HGET '{}' {}".format(t, k)
-              logging.info("executing {} ".format(getcmd))
-              try:
-                  rc = duthost.shell(getcmd)
-                  print_rc(getcmd, rc)
-              except:
-                  pytest.fail("{} failed ".format(getcmd))
-              v_orig = rc['stdout']
-              setattr(self, k, v_orig)
-              logging.info("for key '{}' saving value '{}'".format(k, v_orig))
-              new_val = valdict[k]
-              setcmd = "redis-cli -n 4 HSET '{}' {} '{}'".format(t, k, new_val)
-              duthost.shell(setcmd) # first set return an error
-              logging.info("executing {} ".format(setcmd))
-              try:
-                  rc = duthost.shell(setcmd)
-                  print_rc(setcmd, rc)
-              except:
-                  pytest.fail("{} failed error: {}".format(setcmd, rc['stdout']))
-
-
-  def reset_config(self, duthost, aiml_special_cfg):
-      # reset the original config
-      for t in aiml_special_cfg:
-          for k in aiml_special_cfg[t]:
-              val = getattr(self, k)
-              logging.info("for key '{}' setting retrieved value '{}'".format(k, val))
-              setcmd = "redis-cli -n 4 HSET '{}' {} '{}'".format(t, k, val)
-              logging.info("executing {} ".format(setcmd))
-              try:
-                  rc = duthost.shell(setcmd)
-                  print_rc(setcmd, rc)
-              except:
-                  pytest.fail("{} failed to set original value, error: {}".format(setcmd, rc['stdout']))
-
-
-@pytest.mark.parametrize("aiml_pid_sku", aiml_pid_sku)
-@pytest.mark.parametrize("mmucommand", ["qos.json.j2"])
-def test_aiml_qos_config(duthosts, aiml_pid_sku, mmucommand, enum_rand_one_per_hwsku_hostname, skip_if_not_sim):
-    for duthost in duthosts:
-        if duthost.facts["asic_type"] != "cisco-8000":
-            pytest.skip("Test is only supported for cisco-8000")
-        obj = AIML_Config(duthost, aiml_special_cfg, mmucommand)
-        run_mmu_config(duthost, aiml_pid_sku, mmucommand)
-        obj.reset_config(duthost, aiml_special_cfg)
