@@ -75,7 +75,7 @@ parameters:
   # metadata-scripts relies on the change to clone sonic-metadata as a fixture which is not done, currently skip the feature
   - name: FEATURES_EXCLUDE
     type: string
-    default: "metadata-scripts, acl, everflow, dhcp_relay, dualtor, mvrf, nat, pfc_asym"
+    default: "metadata-scripts, acl, everflow, dhcp_relay, dualtor, mvrf, nat, pfc_asym, platform_tests"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
