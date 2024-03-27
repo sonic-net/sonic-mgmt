@@ -878,7 +878,6 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         """
         API that returns instances of AdvancedReboot class
         """
-        assert len(instances) == 0, "Only one instance of reboot data is allowed"
         advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
