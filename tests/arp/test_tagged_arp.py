@@ -12,9 +12,10 @@ from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add       
 from tests.common.helpers.backend_acl import apply_acl_rules, bind_acl_table        # noqa F401
 from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_acl_table  # noqa F401
-from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup # noqa F401
+from tests.common.helpers.portchannel_to_vlan import acl_rule_cleanup  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import vlan_intfs_dict  # noqa F401
 from tests.common.helpers.portchannel_to_vlan import setup_po2vlan    # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses   # noqa F401
 from tests.common.helpers.portchannel_to_vlan import running_vlan_ports_list
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def arp_cleanup(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_arp(duthosts, rand_one_dut_hostname, ptfhost, rand_selected_dut, ptfadapter,
-                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, setup_po2vlan, cfg_facts): # noqa F811
+                ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, setup_po2vlan, cfg_facts):  # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
     # --------------------- Setup -----------------------
     try:
@@ -90,7 +91,7 @@ def build_arp_packet(vlan_id, neighbor_mac, dst_mac, neighbor_ip):
 @pytest.mark.bsl
 @pytest.mark.po2vlan
 def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
-                        rand_selected_dut, tbinfo, ports_list): # noqa F811
+                        rand_selected_dut, tbinfo, ports_list):  # noqa F811
     """
     Send tagged GARP packets from each port.
     Verify packets egress without tag from ports whose PVID same with ingress port.
@@ -105,9 +106,9 @@ def test_tagged_arp_pkt(ptfadapter, duthosts, rand_one_dut_hostname,
         # Send GARP packets to switch to populate the arp table with dummy MACs for each port
         # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
         # ARP table will be cleaned up before each iteration, so there won't be any conflict MAC and IP
-        dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index & 0xFF, i+1)
+        dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index & 0xFF, i + 1)
                       for i in range(DUMMY_ARP_COUNT)]
-        dummy_ips = ['{}.{:d}.{:d}'.format(DUMMY_IP_PREFIX, port_index & 0xFF, i+1)
+        dummy_ips = ['{}.{:d}.{:d}'.format(DUMMY_IP_PREFIX, port_index & 0xFF, i + 1)
                      for i in range(DUMMY_ARP_COUNT)]
         for permit_vlanid in map(int, vlan_port["permit_vlanid"]):
             logger.info('Test ARP: interface %s, VLAN %u' % (vlan_port["dev"], permit_vlanid))
