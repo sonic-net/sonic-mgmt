@@ -6,6 +6,7 @@ simulation:
   slurm_flags:
     pending_timeout: 60
     hours: 30
+    partition: regression
 devices:
   trex1:
     data_ports:
