@@ -75,7 +75,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
             pytest.fail("cpu diff large than 5%%, %d, %d" % (
                 int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']), int(output['stdout'])))
 
-        duthost.shell("killall yes")
     except Exception:
-        duthost.shell("killall yes")
         raise
+    finally:
+        duthost.shell("killall yes")
