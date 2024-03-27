@@ -14,7 +14,6 @@ from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa F401
 
-
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
@@ -240,6 +239,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
 
 
 def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp_relay_data,
+                              setup_standby_ports_on_rand_unselected_tor,          # noqa F811
                               toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
@@ -306,6 +306,7 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,          # noqa F811
                             toggle_all_simulator_ports_to_rand_selected_tor_m):  # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
