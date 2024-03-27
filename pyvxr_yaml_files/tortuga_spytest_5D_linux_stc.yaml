@@ -4,7 +4,6 @@ simulation:
     pending_timeout: 60
     hours: 30
     partition: regression
-    cluster: rch-slurm-m1
 
 devices:
   SD1: &sonic_router
