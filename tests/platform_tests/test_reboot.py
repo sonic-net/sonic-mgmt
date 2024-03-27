@@ -280,10 +280,10 @@ def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
+                           localhost, conn_graph_facts, xcvr_skip_list):
     """
-    @summary: This test case is to perform check fsck will be repairing
-      the file system if it was in corruption state.
+    @summary: This test case is checking syslog to verify fsck script has run for checking and 
+        repairing the file system when boot in initramfs stage.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
