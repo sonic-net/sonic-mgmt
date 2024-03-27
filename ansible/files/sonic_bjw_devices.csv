@@ -88,3 +88,5 @@ bjw-can-4kts-1,10.150.22.12/23,Cisco-4300,ConsoleServer,ssh,
 bjw-can-e1031-2,10.150.22.13/23,Celestica-E1031-T48S4,ConsoleServer,ssh,sonic
 bjw-96cbe-1a,10.150.22.66/23,MX960,Server,,
 bjw-96cbe-1a-lc,10.150.22.67/23,MX960,Server,,
+bjw-can-rome128q-1-a,10.150.22.220/23,ROME128Q,Server,,
+bjw-can-rome128q-1-b,10.150.22.221/23,ROME128Q,Server,,
