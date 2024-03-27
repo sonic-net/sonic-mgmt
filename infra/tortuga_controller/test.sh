@@ -118,6 +118,23 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "sag" ]]; then
     --tags "${TEST_TAGS},add-sag"
 fi
 
+# Tests IPv6 VTEP.
+if [[ "${TEST_NAME}" == "vtep" ]]; then
+  cleanup "ipv6-vtep"
+
+  "${CONFIG_GEN}" \
+    --lldp \
+    --auto \
+    --prefix \
+    --cloud "${CLOUD_URL}" \
+    --fabric "${FABRIC_NAME}" \
+    --pyvxr "${PYVXR_HOST}" \
+    --hosts "${HOST_PORTS}" \
+    --spines "${SPINE_COUNT}" \
+    --leaves "${LEAF_PORTS}" \
+    --tags "${TEST_TAGS},vtep-drake"
+fi
+
 end=$(date +%s)
 stm=$((end-START_TIME))
 echo
