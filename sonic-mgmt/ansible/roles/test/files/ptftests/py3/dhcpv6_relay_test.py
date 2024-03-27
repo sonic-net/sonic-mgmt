@@ -298,8 +298,9 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_relay_relay_reply_packet(self):
         relay_relay_reply_packet = packet.Ether(dst=self.uplink_mac)
+        dst_ip = self.loopback_ipv6 if self.is_dualtor else self.relay_iface_ip
         relay_relay_reply_packet /= IPv6(src=self.server_ip,
-                                         dst=self.relay_iface_ip)
+                                         dst=dst_ip)
         relay_relay_reply_packet /= packet.UDP(
             sport=self.DHCP_SERVER_PORT, dport=self.DHCP_SERVER_PORT)
         relay_relay_reply_packet /= DHCP6_RelayReply(msgtype=13, hopcount=1, linkaddr=self.vlan_ip,

@@ -51,13 +51,12 @@ def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_u
         elif device_type in ["nokia"]:
             posix_shell_onie(dut_console, mgmt_ip, image_url, is_nokia=True)
         else:
-            return
+            raise Exception("We don't support this type of testbed.")
 
         dut_lose_management_ip(sonichost, conn_graph_facts, localhost, mgmt_ip)
     except Exception as e:
-        logger.info(e)
         traceback.print_exc()
-        return
+        raise Exception(e)
 
 
 def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
@@ -111,8 +110,7 @@ def recover_testbed(sonichosts, conn_graph_facts, localhost, image_url, hwsku):
                 # Do power cycle
                 need_to_recover = True
             else:
-                logger.info("Authentication failed. Passwords are incorrect.")
-                return
+                raise Exception("Authentication failed. Passwords are incorrect.")
 
             if need_to_recover:
                 recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku)

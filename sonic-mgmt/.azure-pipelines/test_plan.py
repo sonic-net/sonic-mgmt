@@ -23,6 +23,7 @@ PR_TEST_SCRIPTS_FILE = "pr_test_scripts.yaml"
 SPECIFIC_PARAM_KEYWORD = "specific_param"
 TOLERATE_HTTP_EXCEPTION_TIMES = 20
 TOKEN_EXPIRE_HOURS = 6
+MAX_GET_TOKEN_RETRY_TIMES = 3
 
 
 class TestPlanStatus(Enum):
@@ -188,13 +189,18 @@ class TestPlanManager(object):
             "client_secret": self.client_secret,
             "scope": get_scope(self.url)
         }
-        try:
-            resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
-            self._token = resp["access_token"]
-            self._token_generate_time = datetime.utcnow()
-            return self._token
-        except Exception as exception:
-            raise Exception("Get token failed with exception: {}".format(repr(exception)))
+        attempt = 0
+        while(attempt < MAX_GET_TOKEN_RETRY_TIMES):
+            try:
+                resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
+                self._token = resp["access_token"]
+                self._token_generate_time = datetime.utcnow()
+                return self._token
+            except Exception as exception:
+                attempt += 1
+                print("Get token failed with exception: {}. Retry {} times to get token."
+                      .format(repr(exception), MAX_GET_TOKEN_RETRY_TIMES - attempt))
+        raise Exception("Failed to get token after {} attempts".format(MAX_GET_TOKEN_RETRY_TIMES))
 
     def create(self, topology, test_plan_name="my_test_plan", deploy_mg_extra_params="", kvm_build_id="",
                min_worker=None, max_worker=None, pr_id="unknown", output=None,

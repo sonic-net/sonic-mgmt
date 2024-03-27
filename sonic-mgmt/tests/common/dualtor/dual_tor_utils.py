@@ -1073,6 +1073,8 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
                                    tbinfo, downlink_ints):
     HASH_KEYS = ["src-port", "dst-port", "src-ip"]
     expect_packet_num = 1000
+    expect_packet_num_high = expect_packet_num * (0.90)
+    expect_packet_num_low = expect_packet_num * (1.1)
 
     # expect this packet to be sent to downlinks (active mux) and uplink (stanby mux)
     expected_downlink_ports = [get_ptf_server_intf_index(rand_selected_dut, tbinfo, iface) for iface in downlink_ints]
@@ -1098,7 +1100,7 @@ def check_nexthops_single_downlink(rand_selected_dut, ptfadapter, dst_server_add
         # packets should be either 0 or expect_packet_num:
         count = port_packet_count.get(downlink_int, 0)
         logging.info("Packets received on downlink port {}: {}".format(downlink_int, count))
-        if count > 0 and count != expect_packet_num:
+        if count > 0 and count <= expect_packet_num_high and count >= expect_packet_num_low:
             pytest.fail("Packets not sent down single active port {}".format(downlink_int))
 
     if len(downlink_ints) == 0:

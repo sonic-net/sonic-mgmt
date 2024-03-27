@@ -28,7 +28,7 @@ VNI_BASE = 336
 COUNT = 1
 
 
-def prepare_ptf(ptfhost, mg_facts, duthost):
+def prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts=None):
     """Prepare arp responder configuration and store temporary vxlan decap related information to PTF docker
 
     Args:
@@ -55,6 +55,7 @@ def prepare_ptf(ptfhost, mg_facts, duthost):
 
     vxlan_decap = {
         "minigraph_port_indices": mg_facts["minigraph_ptf_indices"],
+        "mg_unslctd_port_idx": [] if unslctd_mg_facts is None else unslctd_mg_facts["mg_ptf_idx"],
         "minigraph_portchannel_interfaces": mg_facts["minigraph_portchannel_interfaces"],
         "minigraph_portchannels": mg_facts["minigraph_portchannels"],
         "minigraph_lo_interfaces": mg_facts["minigraph_lo_interfaces"],
@@ -112,6 +113,19 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     logger.info("Gather some facts")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        idx = duthosts.index(duthost)
+        unselected_duthost = duthosts[1 - idx]
+        unslctd_mg_facts = unselected_duthost.minigraph_facts(host=unselected_duthost.hostname)['ansible_facts']
+        unslctd_mg_facts['mg_ptf_idx'] = unslctd_mg_facts['minigraph_port_indices'].copy()
+        try:
+            map = tbinfo['topo']['ptf_map'][str(1 - idx)]
+            if map:
+                for port, index in list(unslctd_mg_facts['minigraph_port_indices'].items()):
+                    if str(index) in map:
+                        unslctd_mg_facts['mg_ptf_idx'][port] = map[str(index)]
+        except (ValueError, KeyError):
+            pass
 
     logger.info("Copying vxlan_switch.json")
     render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
@@ -121,7 +135,10 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
     sleep(3)
 
     logger.info("Prepare PTF")
-    prepare_ptf(ptfhost, mg_facts, duthost)
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts)
+    else:
+        prepare_ptf(ptfhost, mg_facts, duthost)
 
     logger.info("Generate VxLAN config files")
     generate_vxlan_config_files(duthost, mg_facts)
@@ -166,7 +183,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
         return False, request.param
 
 
-def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname,
+def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname, tbinfo,
                      ptfhost, creds, toggle_all_simulator_ports_to_rand_selected_tor_m):    # noqa F811
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -174,6 +191,9 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname,
         'variable_manager']._hostvars[duthost.hostname].get("ansible_altpassword")
 
     vxlan_enabled, scenario = vxlan_status
+    is_active_active_dualtor = False
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
+        is_active_active_dualtor = True
     logger.info("vxlan_enabled=%s, scenario=%s" % (vxlan_enabled, scenario))
     log_file = "/tmp/vxlan-decap.Vxlan.{}.{}.log".format(
         scenario, datetime.now().strftime('%Y-%m-%d-%H:%M:%S'))
@@ -187,6 +207,7 @@ def test_vxlan_decap(setup, vxlan_status, duthosts, rand_one_dut_hostname,
                        "sonic_admin_user": creds.get('sonicadmin_user'),
                        "sonic_admin_password": creds.get('sonicadmin_password'),
                        "sonic_admin_alt_password": sonic_admin_alt_password,
+                       "is_active_active_dualtor": is_active_active_dualtor,
                        "dut_hostname": duthost.host.options[
                            'inventory_manager'].get_host(duthost.hostname).vars['ansible_host']},
                qlen=10000,
