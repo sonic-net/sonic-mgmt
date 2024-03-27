@@ -3,6 +3,8 @@ simulation:
   slurm_flags:
     hours: 48
     pending_timeout: 60
+    partition: regression
+    cluster: rch-slurm-m1
   pyvxr_flags:
     sonic_lc_bringup: True
 
