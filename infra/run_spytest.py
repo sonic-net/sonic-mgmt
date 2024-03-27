@@ -237,6 +237,8 @@ def run_sanity(script_file):
     chan.send(f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
     wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
 
+    time.sleep(120)
+
     return 0, ""
 
 def extract_test_start_time(spytest_results_files):
