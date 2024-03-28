@@ -264,6 +264,7 @@ def test_v6_vtep_port_flap():
     st.report_pass("test_case_passed", nodes['leaf1'])
 
 
+#@pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
 def test_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
@@ -315,6 +316,20 @@ def test_v6_vtep_multiple_vni():
             report_fail(nodes['leaf1'], msg='Vlan not found')
         if path['vni_type'] != 'L2':
             report_fail(nodes['leaf1'], msg='Vlan Type is not L2')
+
+    '''
+    b. remove vlan to vni map
+    '''
+    for _,value in l2vni.items():
+        vu.config_vxlan_map(nodes['leaf0'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
+        vu.config_vxlan_map(nodes['leaf1'], 'Vtep', value['vni'], vlan=value['vlan'], add=False)
+
+    '''
+    a. remove vlan
+    '''
+    for _,value in l2vni.items():
+        vu.config_vlan(nodes['leaf0'], value['vlan'],  value['members'], add=False)
+        vu.config_vlan(nodes['leaf1'], value['vlan'],  value['members'], add=False)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])

@@ -81,7 +81,6 @@ leaf0:
         sudo config interface ipv6 disable use-link-local-only Ethernet36
         sudo config interface startup Ethernet32
         sudo config interface startup Ethernet36
-        sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 10.200.200.200/32
         sudo config vlan add 4
         sudo config vlan member add -u 4 Ethernet32
@@ -188,7 +187,6 @@ leaf1:
         sudo config interface ipv6 disable use-link-local-only Ethernet32
         sudo config interface ipv6 disable use-link-local-only Ethernet36
         sudo config interface startup Ethernet32
-        sudo config loopback add Loopback27
         sudo config interface ip add Loopback27 10.200.200.201/32
         sudo config vlan add 4
         sudo config vlan member add -u 4 Ethernet32
