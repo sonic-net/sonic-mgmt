@@ -94,8 +94,8 @@ def test_syslog_ipv6_only(rand_selected_dut, dummy_syslog_server_ip_a, dummy_sys
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
 
 
-def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6,
-                           convert_and_restore_config_db_to_ipv6_only): # noqa F811
+def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
@@ -104,8 +104,8 @@ def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     check_output(res, 'test', 'remote_user')
 
 
-def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs_v6,
-                           convert_and_restore_config_db_to_ipv6_only): # noqa F811
+def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
+                           tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
