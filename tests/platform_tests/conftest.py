@@ -19,7 +19,7 @@ from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
-FMT = "%b %d %H:%M:%S.%f"
+FMT = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 LOGS_ON_TMPFS_PLATFORMS = [
