@@ -239,8 +239,8 @@ def run_pfc_test(api,
 
     # Verify PFC pause frames
     if valid_pfc_frame_test:
-        is_valid_pfc_frame = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
-        pytest_assert(is_valid_pfc_frame, "PFC frames invalid")
+        is_valid_pfc_frame, error_msg = validate_pfc_frame(snappi_extra_params.packet_capture_file + ".pcapng")
+        pytest_assert(is_valid_pfc_frame, error_msg)
         return
 
     # Verify pause flows
