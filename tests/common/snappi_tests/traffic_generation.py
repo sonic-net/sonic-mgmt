@@ -389,7 +389,6 @@ def run_traffic(duthost,
 
     # Dump per-flow statistics
     logger.info("Dumping per-flow statistics")
-    # import pdb; pdb.set_trace()
     flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
     logger.info("Stopping transmit on all remaining flows")
     ts = api.transmit_state()
