@@ -6,6 +6,7 @@ from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
 from tests.tacacs.test_ro_user import ssh_remote_run
 from tests.common.helpers.assertions import pytest_require
+from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 
@@ -98,9 +99,6 @@ def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
 
-    if not dutipv6:
-        pytest.skip("Skip IPv6 only test, DUT has no mgmt IPv6.")
-
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_ro_user'],
                          tacacs_creds['tacacs_ro_user_passwd'], 'cat /etc/passwd')
     check_output(res, 'test', 'remote_user')
@@ -110,9 +108,6 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
                            convert_and_restore_config_db_to_ipv6_only): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutipv6 = get_mgmt_ipv6(duthost)
-
-    if not dutipv6:
-        pytest.skip("Skip IPv6 only test, DUT has no mgmt IPv6.")
 
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
