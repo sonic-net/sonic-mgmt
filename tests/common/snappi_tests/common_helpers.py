@@ -894,8 +894,14 @@ def get_egress_queue_count(duthost, port, priority):
     raw_out = duthost.shell(
         "show queue counters -n {} {} | sed -n '/UC{}/p'".format(
             asic.namespace, port, priority))['stdout']
-    total_pkts = "0" if raw_out.split()[2] == "N/A" else raw_out.split()[2]
-    total_bytes = "0" if raw_out.split()[3] == "N/A" else raw_out.split()[3]
+    total_pkts = raw_out.split()[2] if 2 < len(raw_out.split()) else "0"
+    if total_pkts == "N/A":
+        total_pkts = "0"
+
+    total_bytes = raw_out.split()[3] if 3 < len(raw_out.split()) else "0"
+    if total_bytes == "N/A":
+        total_bytes = "0"
+
     return int(total_pkts.replace(',', '')), int(total_bytes.replace(',', ''))
 
 

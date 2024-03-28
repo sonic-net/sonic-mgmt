@@ -609,11 +609,15 @@ def check_bgp_router_id(duthost, mgFacts):
 
 @pytest.fixture(scope="module")
 def convert_and_restore_config_db_to_ipv6_only(duthosts):
-    """Back up the existing config_db.json file and restore it once the test ends.
+    """Convert the DUT's mgmt-ip to IPv6 only
 
-    Some cases will update the running config during the test and save the config
-    to be recovered after reboot. In such a case we need to backup config_db.json before
-    the test starts and then restore it after the test ends.
+    Convert the DUT's mgmt-ip to IPv6 only by removing the IPv4 mgmt-ip,
+    will revert the change after finished.
+
+    Since the change commands is distributed by IPv4 mgmt-ip,
+    the fixture will detect the IPv6 availability first,
+    only remove the IPv4 mgmt-ip when the IPv6 mgmt-ip is available,
+    and will re-establish the connection to the DUTs with IPv6 mgmt-ip.
     """
     config_db_file = "/etc/sonic/config_db.json"
     config_db_bak_file = "/etc/sonic/config_db.json.before_ipv6_only"
@@ -665,8 +669,9 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     except AuthenticationException:
                         logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is available")
                         has_available_ipv6_addr = has_available_ipv6_addr or True
-                    except BaseException:
-                        pass
+                    except BaseException as e:
+                        logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr_without_mask}] mgmt-ip is unavailable, "
+                                    f"exception[{type(e)}], msg[{str(e)}]")
                     finally:
                         ssh_client.close()
 
