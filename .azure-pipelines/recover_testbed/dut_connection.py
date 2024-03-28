@@ -122,13 +122,12 @@ def duthost_console(sonichost, conn_graph_facts, localhost):
     creds = creds_on_dut(sonichost)
 
     sonicadmin_alt_passwords = creds["ansible_altpasswords"]
-    sonicadmin_alt_password = sonicadmin_alt_password.extend(sonicadmin_alt_passwords)
 
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,
                        console_port=console_port,
                        sonic_username=creds['sonicadmin_user'],
-                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password],
+                       sonic_password=[creds['sonicadmin_password'], sonicadmin_alt_password] + sonicadmin_alt_passwords,
                        console_username=console_username,
                        console_password=creds['console_password'][console_type])
 
