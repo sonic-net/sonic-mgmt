@@ -59,7 +59,7 @@ def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
         logger.info("PFC utilization is too low. Please check the capture file.")
         return False, "PFC utilization is too low"
 
-    return True
+    return True, None
 
 
 def get_ip_pkts(pcap_file_name):
