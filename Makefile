@@ -80,7 +80,7 @@ run_tortuga_controller_sanity:
 		python3.8 ./create_tortuga_topo.py \
 		--topo_type ${TOPOLOGY} \
 		--device_type ${PLATFORM} \
-		-c --fabric_name sonic-test-${PIPELINE_TYPE}-${BUILD_ID}-1x3 \
+		-c --fabric_name sonic-test-${PIPELINE_TYPE}-${BUILD_ID} \
 		--cicd \
 	"
 

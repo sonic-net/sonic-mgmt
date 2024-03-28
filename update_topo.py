@@ -3,7 +3,6 @@ import yaml
 import argparse
 import json
 import sys
-import os
 
 SIM_CFG_FILE = "../sim-cfg.yml"
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
@@ -52,17 +51,12 @@ with open(topology_file, "r") as fd:
         if "onie-install" not in topo["devices"][device]:
             continue
 
-        if os.getenv("SANITY_TYPE") == 'sonic-mgmt':
-            npl_path = sim_cfg["npl_path"].replace("mb", "vxr")
-        else: 
-            npl_path = sim_cfg["npl_path"]
-
         topo["devices"][device]["onie-install"] = "../../sonic-cisco-8000.bin"
         if "vxr_sim_config" not in topo["devices"][device]:
             topo["devices"][device]["vxr_sim_config" ] = {}
         topo["devices"][device]["vxr_sim_config"]["shelf"] = {
             "ConfigS1NpsuiteVer": sim_cfg["npsuite"],
-            "ConfigS1NplPath": npl_path
+            "ConfigS1NplPath": sim_cfg["npl_path"]
             }
         topo["devices"][device]["linux_username"] = args.dut_username
         topo["devices"][device]["linux_password"] = args.dut_password
