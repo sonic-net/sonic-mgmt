@@ -956,7 +956,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         raise Exception("Unsupported capture format")
 
 
-def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):
+def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=5):
     """
     Calculate the pfc pause flow rate to block the flow of traffic through the port using a blocking
     factor.
