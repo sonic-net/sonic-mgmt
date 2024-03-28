@@ -556,6 +556,11 @@
             async: 60
             poll: 10
 
+          - name: Set the RTC from the system time
+            become: true
+            command: hwclock --systohc
+            ignore_errors: true
+
           - name: Start ntp.service on DUT
             become: true
             service: name=ntp state=restarted enabled=true
