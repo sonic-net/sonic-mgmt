@@ -8,6 +8,7 @@ from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.upgrade_path.upgrade_helpers import check_services, install_sonic, check_sonic_version,\
     get_reboot_command, check_copp_config
 from tests.upgrade_path.upgrade_helpers import restore_image            # noqa F401
+from tests.upgrade_path.upgrade_helpers import setup_ferret
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa F401
 from tests.platform_tests.verify_dut_health import verify_dut_health    # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db    # noqa F401
@@ -60,6 +61,14 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
     for from_image in from_list:
         for to_image in to_list:
             logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+
+            reboot_type = get_reboot_command(duthost, upgrade_type)
+            if "warm-reboot" in reboot_type:
+                # always do warm-reboot with CPA enabled
+                setup_ferret(duthost, ptfhost, tbinfo)
+                ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+                reboot_type = reboot_type + " -c {}".format(ptf_ip)
+
             # Install base image
             logger.info("Installing {}".format(from_image))
             try:
@@ -84,6 +93,8 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
             reboot(duthost, localhost)
             check_sonic_version(duthost, target_version)
 
+            # setup_ferret(duthost, ptfhost, tbinfo)
+
             # Install target image
             logger.info("Upgrading to {}".format(to_image))
             install_sonic(duthost, to_image, tbinfo)
@@ -95,11 +106,17 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
                                                      advanceboot_loganalyzer=advanceboot_loganalyzer)
                 advancedReboot.runRebootTestcase()
             reboot_cause = get_reboot_cause(duthost)
+
+            if "warm-reboot" in reboot_type:
+                ptfhost.shell('supervisorctl stop ferret')
+
             logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
             pytest_assert(reboot_cause == upgrade_type,
                           "Reboot cause {} did not match the trigger - {}".format(reboot_cause, upgrade_type))
             check_services(duthost)
             check_copp_config(duthost)
+
+
 
 
 @pytest.mark.device_type('vs')
