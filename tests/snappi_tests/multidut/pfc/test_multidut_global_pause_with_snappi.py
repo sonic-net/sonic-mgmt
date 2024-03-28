@@ -11,6 +11,7 @@ from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -87,4 +88,7 @@ def test_global_pause(snappi_api,                                   # noqa: F811
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    for duthost in dut_list:
+        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

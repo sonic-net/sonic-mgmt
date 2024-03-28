@@ -10,6 +10,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 from tests.snappi_tests.variables import config_set, line_card_choice
 from tests.snappi_tests.multidut.pfc.files.multidut_helper import run_pfc_test
 from tests.common.reboot import reboot
+from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
 import logging
 import random
@@ -102,7 +103,10 @@ def test_pfc_pause_single_lossy_prio(snappi_api,                # noqa: F811
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    for duthost in dut_list:
+        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.parametrize('line_card_choice', [line_card_choice])
@@ -181,7 +185,10 @@ def test_pfc_pause_multi_lossy_prio(snappi_api,             # noqa: F811
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    for duthost in dut_list:
+        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -256,6 +263,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
     bg_prio_list.remove(lossy_prio)
 
     for duthost in dut_list:
+        duthost.shell("sudo config save -y")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")
@@ -279,7 +287,10 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    for duthost in dut_list:
+        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -350,6 +361,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
     bg_prio_list = lossless_prio_list
 
     for duthost in dut_list:
+        duthost.shell("sudo config save -y")
         logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
         reboot(duthost, localhost, reboot_type=reboot_type)
         logger.info("Wait until the system is stable")
@@ -373,4 +385,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                  test_traffic_pause=False,
                  snappi_extra_params=snappi_extra_params)
 
-    cleanup_config(dut_list, snappi_ports)
+    # Teardown config through a reload
+    logger.info("Reloading config to teardown")
+    for duthost in dut_list:
+        config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
