@@ -81,24 +81,6 @@
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
-{% if num_asics == 1 and (voq_inband_ip is defined or voq_inband_ipv6 is defined) %}
-      <VoqInbandInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if voq_inband_ip is defined %}
-        <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf[0] }}</Name>
-          <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ip[0] }}</a:PrefixStr>
-        </a:VoqInbandInterface>
-{% endif %}
-{% if voq_inband_ipv6 is defined %}
-        <a:VoqInbandInterface>
-          <Name>{{ voq_inband_intf[0] }}</Name>
-          <Type>{{ voq_inband_type }}</Type>
-          <a:PrefixStr>{{ voq_inband_ipv6[0] }}</a:PrefixStr>
-        </a:VoqInbandInterface>
-{% endif %}
-      </VoqInbandInterfaces>
-{% endif %}
       <MplsInterfaces/>
       <MplsTeInterfaces/>
       <RsvpInterfaces/>
@@ -248,6 +230,22 @@
 {% endif %}
 {% endif %}
 {% endfor %}
+{% endif %}
+{% if num_asics == 1 and (voq_inband_ip is defined or voq_inband_ipv6 is defined) %}
+{% if voq_inband_ip is defined %}
+        <IPInterface>
+          <Name>VoqInband</Name>
+          <AttachTo>{{ voq_inband_intf[0] }}</AttachTo>
+          <PrefixStr>{{ voq_inband_ip[0] }}</PrefixStr>
+        </IPInterface>
+{% endif %}
+{% if voq_inband_ipv6 is defined %}
+        <IPInterface>
+          <Name>v6VoqInband</Name>
+          <AttachTo>{{ voq_inband_intf[0] }}</AttachTo>
+          <PrefixStr>{{ voq_inband_ipv6[0] }}</PrefixStr>
+        </IPInterface>
+{% endif %}
 {% endif %}
       </IPInterfaces>
       <DataAcls/>
