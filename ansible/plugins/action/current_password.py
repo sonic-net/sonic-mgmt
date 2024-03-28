@@ -9,6 +9,7 @@ import sys
 if sys.version_info[0] >= 3:
     unicode = str
 
+
 class ActionModule(ActionBase):
 
     def run(self, tmp=None, task_vars=None):
