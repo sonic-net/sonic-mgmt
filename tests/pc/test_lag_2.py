@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_ports import decode_dut_port_name
 from tests.common.helpers.dut_ports import get_duthost_with_name
-from tests.common.config_reload import config_reload
+from tests.common.config_reload import config_reload, config_reload_with_minigraph_override
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.helpers.parallel import parallel_run_threaded
 
@@ -415,7 +415,7 @@ def teardown(duthost):
         # reload DUT to recover it
         logger.info("{}'s lag_facts is changed, comparison failed with exception: {}"
                     .format(duthost.hostname, repr(e)))
-        config_reload(duthost, config_source="minigraph")
+        config_reload_with_minigraph_override(duthost)
     return
 
 

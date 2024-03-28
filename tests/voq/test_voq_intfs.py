@@ -3,7 +3,7 @@ import pytest
 import logging
 import ipaddress
 
-from tests.common import config_reload
+from tests.common import config_reload, config_reload_with_minigraph_override
 
 from .test_voq_init import check_voq_interfaces
 
@@ -113,7 +113,7 @@ def test_cycle_voq_intf(duthosts, all_cfg_facts, nbrhosts, nbr_macs):
     finally:
         # restore interface from minigraph
         logger.info("Restore config from minigraph.")
-        config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True)
+        config_reload_with_minigraph_override(duthost, safe_reload=True, check_intf_up_ports=True)
         pytest_assert(wait_until(300, 10, 0, check_bgp_neighbors, duthosts),
                       "All BGP's are not established after config reload from original minigraph")
         duthost.shell_cmds(cmds=["config save -y"])

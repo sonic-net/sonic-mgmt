@@ -5,7 +5,7 @@ from tests.common.utilities import wait_until
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
-from tests.common import config_reload
+from tests.common import config_reload_with_minigraph_override
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def cleanup_read_mac(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localh
     if backup_minigraph_exist:
         logger.info("Apply minigraph from backup")
         duthost.shell("mv /etc/sonic/minigraph.xml.backup /etc/sonic/minigraph.xml")
-        config_reload(duthost, config_source='minigraph')
+        config_reload_with_minigraph_override(duthost)
 
 
 class ReadMACMetadata():
@@ -97,7 +97,7 @@ class ReadMACMetadata():
 
             if current_minigraph:
                 logger.info("Execute cli 'config load_minigraph -y' to apply new minigraph")
-                config_reload(duthost, config_source='minigraph')
+                config_reload_with_minigraph_override(duthost)
 
             logger.info("Remove old (not current) sonic image")
             duthost.reduce_and_add_sonic_images(disk_used_pcent=1)

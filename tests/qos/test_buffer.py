@@ -7,7 +7,7 @@ from natsort import natsorted
 
 import pytest
 
-from tests.common import config_reload
+from tests.common import config_reload, config_reload_with_minigraph_override
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa F401
@@ -2671,7 +2671,7 @@ def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):  
     duthost = duthosts[rand_one_dut_hostname]
     try:
         logging.info('[Config load_minigraph]')
-        config_reload(duthost, config_source='minigraph')
+        config_reload_with_minigraph_override(duthost)
         buffer_model = duthost.shell(
             'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
         pytest_assert(buffer_model == 'traditional',

@@ -15,7 +15,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # no
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common import reboot
-from tests.common import config_reload
+from tests.common import config_reload, config_reload_with_minigraph_override
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -76,7 +76,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
     # -------- Testing ----------
     yield
     # -------- Teardown ----------
-    config_reload(duthost, config_source='minigraph', wait=120)
+    config_reload_with_minigraph_override(duthost, wait=120)
 
 # ----------------------------------------------------------------------------------
 
