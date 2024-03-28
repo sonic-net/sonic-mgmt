@@ -721,6 +721,19 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18917935"
         "0x2F": "JPW20281061"
+      plt_reboot_dict:
+        cold:
+          timeout: 400
+          wait: 600
+        watchdog:
+          timeout: 300
+          wait: 600
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     str2-7050cx3-acs-07:
       ansible_host: 10.3.146.22
       mgmt_subnet_mask_length: 24
@@ -741,6 +754,19 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18917935"
         "0x2F": "JPW20281078"
+      plt_reboot_dict:
+        cold:
+          timeout: 400
+          wait: 600
+        watchdog:
+          timeout: 300
+          wait: 600
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
     str2-7050cx3-acs-08:
       ansible_host: 10.3.146.20
       mgmt_subnet_mask_length: 24
