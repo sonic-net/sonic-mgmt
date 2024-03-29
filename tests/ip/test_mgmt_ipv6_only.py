@@ -83,7 +83,7 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
         duthost.hostname).vars['ansible_hostv6']
 
     sysDescr_oid = ".1.3.6.1.2.1.1.1.0"
-    snmpget = "snmpget -v2c -c {} {} {}".format(
+    snmpget = "snmpget -v2c -c {} udp6:[{}] {}".format(
         creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostipv6, sysDescr_oid)
     result = localhost.shell(snmpget)['stdout_lines']
 
