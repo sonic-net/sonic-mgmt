@@ -231,7 +231,8 @@ class snmpPduController(PduControllerBase):
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
             if port_oid == port_id:
-                status['output_watts'] = current_val
+                if current_val != "":
+                    status['output_watts'] = current_val
                 return
 
     def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
