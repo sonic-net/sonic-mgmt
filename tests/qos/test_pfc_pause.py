@@ -15,6 +15,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0')
@@ -290,26 +291,31 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthost, ptfhost,
     pytest_assert(len(test_errors) == 0, test_errors)
 
 
-def test_no_pfc(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,        # noqa F811
-                fanout_graph_facts, lossless_prio_dscp_map, enum_dut_lossless_prio):    # noqa F811
+def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_graph_facts,        # noqa F811
+                fanout_graph_facts, lossless_prio_dscp_map, enum_dut_lossless_prio, # noqa F811
+                toggle_all_simulator_ports_to_rand_selected_tor): # noqa F811
     """
     Test if lossless and lossy priorities can forward packets in the absence of PFC pause frames
 
     Args:
         pfc_test_setup(fixture) : setup fixture
         fanouthosts(AnsibleHost) : fanout instance
-        duthost(AnsibleHost) : dut instance
+        rand_selected_dut(AnsibleHost) : dut instance
         ptfhost(AnsibleHost) : ptf instance
         conn_graph_facts(fixture) : Testbed topology
         fanout_graph_facts(fixture) : fanout graph info
         lossless_prio_dscp_map(dict) : lossless priorities and their DSCP values
         enum_dut_lossless_prio (str): name of lossless priority to test
     """
-
+    duthost = rand_selected_dut
     test_errors = ""
     errors = []
     setup = pfc_test_setup
     prio = int(enum_dut_lossless_prio.split('|')[-1])
+    # Skip the extra lossless priority test if 4 lossless prio is not enabled on testing port
+    if prio not in lossless_prio_dscp_map:
+        pytest.skip("lossless prio {} not enabled on testing port".format(prio))
+
     dscp = lossless_prio_dscp_map[prio]
     other_lossless_prio = 4 if prio == 3 else 3
 
