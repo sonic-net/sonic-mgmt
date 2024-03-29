@@ -349,9 +349,9 @@ def run_traffic(duthost,
                 logger.info("In-flight RX frames: {}".format(rx_frames))
         logger.info("DUT polling complete")
     else:
-        time.sleep(exp_dur_sec*(2/5))  # no polling required
+        time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
         logger.info("Polling TGEN for in-flight traffic statistics...")
-        in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics
+        in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
         time.sleep(exp_dur_sec*(3/5))
 
     attempts = 0
