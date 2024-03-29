@@ -74,3 +74,19 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
 def test_syslog_ipv6_only(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
                           check_default_route, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     run_syslog(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b, check_default_route)
+
+
+def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
+                        convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hostipv6 = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_hostv6']
+
+    sysDescr_oid = ".1.3.6.1.2.1.1.1.0"
+    snmpget = "snmpget -v2c -c {} {} {}".format(
+        creds_all_duts[duthost.hostname]['snmp_rocommunity'], hostipv6, sysDescr_oid)
+    result = localhost.shell(snmpget)['stdout_lines']
+
+    assert result is not None, "Failed to get snmp result from localhost"
+    assert result[0] is not None, "Failed to get snmp result from DUT IPv6 {}".format(hostipv6)
+    assert "SONiC Software Version" in result[0], "Sysdescr not found in SNMP result from DUT IPv6 {}".format(hostipv6)
