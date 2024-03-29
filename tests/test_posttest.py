@@ -1,7 +1,6 @@
 import pytest
 import logging
 import time
-import os
 from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
@@ -14,14 +13,11 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-LOG_SAVE_PATH = 'logs/'
-
 
 def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     since = request.config.getoption("--posttest_show_tech_since")
     if since == '':
         since = 'yesterday'
-    log_dir = request.config.getoption("--log_dir")
     duthost = duthosts[enum_dut_hostname]
     """
     A util for collecting techsupport after tests.
@@ -33,17 +29,11 @@ def test_collect_techsupport(request, duthosts, enum_dut_hostname):
     # Because Jenkins is configured to save artifacts from tests/logs,
     # and this util is mainly designed for running on Jenkins,
     # save path is fixed to logs for now.
+    TECHSUPPORT_SAVE_PATH = 'logs/'
     out = duthost.command("show techsupport --since {}".format(since), module_ignore_errors=True)
     if out['rc'] == 0:
         tar_file = out['stdout_lines'][-1]
-        tar_file_name = tar_file.split('/')[-1]
-        dump_path = LOG_SAVE_PATH + 'dump/'
-        duthost.fetch(src=tar_file, dest=dump_path, flat=True)
-
-        if not log_dir:
-            log_dir = tar_file.split('/')[-1].split('.tar.gz')[0]
-        tar_file_path = os.path.join(dump_path, tar_file_name)
-        os.rename(tar_file_path, os.path.join(dump_path, log_dir + '.tar.gz'))
+        duthost.fetch(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
 
     assert True
 
