@@ -211,11 +211,14 @@ def compare_and_create_pull_request(repo, repo_path, url_with_token, source_bran
     if target_branch not in CREATE_GRAPH_BRANCHES:
         files_to_compare.append(os.path.join(LAB_GRAPHFILE_PATH, LAB_GRAPH_GROUPS_FILE))
 
-    # Create a new branch from the target branch
-    current_timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    new_branch = NEW_BRANCH_HEADER + '/' + target_branch + '/' + current_timestamp
+    if pull_request_info:
+        branch_suffix = str(pull_request_info['pullRequestId'])
+    else:
+        branch_suffix = datetime.now().strftime('%Y%m%d%H%M%S')
+    new_branch = NEW_BRANCH_HEADER + '/' + target_branch + '/' + branch_suffix
     repo.create_head(new_branch, f'origin/{target_branch}')
     repo.heads[new_branch].checkout()
+    logger.info(f"Checking out to new branch {new_branch}...")
 
     # Compare the specified files
     for file_name in files_to_compare:
@@ -263,13 +266,15 @@ def compare_and_create_pull_request(repo, repo_path, url_with_token, source_bran
 def create_pull_request(source_branch, target_branch, pull_request_info):
     reviewers = []
     reviewer = {}
+    additional_title = ""
     additional_description = ""
     if pull_request_info:
         reviewer['id'] = pull_request_info['createdBy']['id']
         reviewers.append(reviewer)
+        additional_title = f" by PR {pull_request_info['pullRequestId']}"
         additional_description = f"This pull request is created from {REPO_URL}/pullrequest/{pull_request_info['pullRequestId']}"
     repository_url = f'{PULL_REQUEST_URL_PREFIX}?api-version=7.1-preview.1'
-    title = f"[Auto Created] Sync connection graph facts from internal to {target_branch}"
+    title = f"[Auto Created{additional_title}] Sync connection graph facts from internal to {target_branch}"
     description = "Across different branches, the connection graph facts should remain consistent. " \
                   "However, as the code undergoes continuous updates, the disparities between " \
                   "connection graph facts files among different branches are becoming more " \
