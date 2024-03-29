@@ -377,7 +377,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(duthosts, localhost, enum_rand
 
 @pytest.mark.disable_loganalyzer
 def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_supervisor_dut_hostname, ptfhost,
-                                              nbrhosts, traffic_shift_community, tbinfo):
+                                                     nbrhosts, traffic_shift_community, tbinfo):
     """
     Test startup TSA_TSB service after supervisor cold reboot
     Verify startup_tsa_tsb.service started automatically on all linecards when they comes up
@@ -495,7 +495,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
 
 @pytest.mark.disable_loganalyzer
 def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, enum_supervisor_dut_hostname, ptfhost,
-                                                  nbrhosts, traffic_shift_community, tbinfo):
+                                                         nbrhosts, traffic_shift_community, tbinfo):
     """
     Test startup TSA_TSB service after supervisor abnormal reboot
     Verify startup_tsa_tsb.service started automatically on all linecards when they come up
