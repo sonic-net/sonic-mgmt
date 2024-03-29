@@ -171,12 +171,6 @@ def pytest_addoption(parser):
     parser.addoption("--loop_times", metavar="LOOP_TIMES", action="store", default=1, type=int,
                      help="Define the loop times of the test")
 
-    ############################
-    #   collect logs option    #
-    ############################
-    parser.addoption("--log_dir", action="store", default=None,
-                     help="Log dir name, can be used to put specific logs in a separate directory")
-
 
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request):
