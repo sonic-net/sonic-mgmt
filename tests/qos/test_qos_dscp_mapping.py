@@ -314,10 +314,10 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
             # Reset packet egress status
             packet_egressed_success = False
-        dscp_header = "Outer Pkt DSCP Value" if decap_mode == "uniform" else "Inner Pkt DSCP Value"
+
         logger.info("DSCP to queue mapping test results:\n{}"
                     .format(tabulate(output_table,
-                                     headers=[dscp_header, "Expected Egress Queue",
+                                     headers=["Inner Packet DSCP Value", "Expected Egress Queue",
                                               "Egress Queue Count", "Result", "Actual Egress Queue"])))
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
