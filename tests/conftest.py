@@ -182,6 +182,8 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
+    parser.addoption("--log_dir", action="store", default=None,
+                     help="Log dir name, can be used to put specific logs in a separate directory")
 
     ###############################
     # SONiC Metadata upgrade test #
@@ -2302,6 +2304,16 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
