@@ -2344,3 +2344,13 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_longlink(self, dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        match = re.search("_([0-9]*)m", portSpeedCableLength)
+        if match and int(match.group(1)) > 2000:
+            pytest.skip(
+                "This test is skipped for longlink.")
+        yield
+        return
