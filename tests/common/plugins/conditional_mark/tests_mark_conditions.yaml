@@ -878,6 +878,16 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
     reason: "Known NTP bug"
 
 #######################################
+#####      passw_hardening        #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  xfail:
+    reason: "Test fails due to Issue #13582 on multi-asic platforms"
+    conditions:
+      - "is_multi_asic==True"
+      - https://github.com/sonic-net/sonic-buildimage/issues/13582
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
