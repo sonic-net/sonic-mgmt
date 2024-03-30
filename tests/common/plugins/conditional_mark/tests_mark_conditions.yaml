@@ -881,8 +881,8 @@ ntp/test_ntp.py::test_ntp_long_jump_disabled:
 #####      passw_hardening        #####
 #######################################
 passw_hardening/test_passw_hardening.py:
-  xfail:
-    reason: "Test fails due to Issue #13582 on multi-asic platforms"
+  skip:
+    reason: "Skip the script due to Issue #13582. Command currently not supported multi-asic platforms"
     conditions:
       - "is_multi_asic==True"
       - https://github.com/sonic-net/sonic-buildimage/issues/13582
