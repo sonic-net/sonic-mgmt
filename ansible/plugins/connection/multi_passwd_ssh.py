@@ -65,7 +65,7 @@ def _password_retry(func):
             self._play_context.password = conn_password
             try:
                 results = func(self, *args, **kwargs)
-                if not self.has_option("current_password_hash"):
+                if "current_password_hash" not in self._options:
                     digest = hashlib.sha256(conn_password.encode()).hexdigest()
                     self.set_option("current_password_hash", digest)
                 return results
