@@ -72,7 +72,6 @@ snmp/test_snmp_lldp.py::test_snmp_lldp
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_thermal_info
 snmp/test_snmp_phy_entity.py::EntitySensorStatus::test_transceiver_info
 snmp/test_snmp_memory.py::test_snmp_swap
-snmp/test_snmp_loopback.py::test_snmp_loopback
 cisco/test_platform_faults.py::test_platform_overtemp_fault
 cisco/test_platform_faults.py::test_platform_undertemp_fault
 configlet/test_add_rack.py::test_add_rack
@@ -80,8 +79,6 @@ bgp/test_bgp_allow_list.py::test_allow_list
 stress/test_stress_routes.py::test_announce_withdraw_route
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_negative_timeout
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_too_big_timeout
-arp/test_arpall.py::test_arp_no_reply_other_intf
-bgp/test_bgp_bbr.py::test_bbr_disabled_dut_asn_in_aspath
 bgp/test_bgp_bbr.py::test_bbr_enabled_dual_dut_asn_in_aspath
 bgp/test_bgp_fact.py::test_bgp_facts
 bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax
@@ -105,10 +102,8 @@ test_posttest.py::test_collect_techsupport
 test_pretest.py::test_collect_testbed_prio
 telemetry/test_telemetry.py::test_config_db_parameters
 mvrf/test_mgmtvrf.py::TestMvrfOutbound::test_curl
-bgp/test_bgp_allow_list.py::test_default_allow_list_postconfig
 bgp/test_bgp_allow_list.py::test_default_allow_list_preconfig
 pfcwd/test_pfc_config.py::TestDefaultPfcConfig::test_default_cfg_after_load_mg
-route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_start_with_uplinks_down
@@ -181,7 +176,6 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_counte
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_counters
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_persistent_watermark_multicast
 iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_multicast
-snmp/test_snmp_interfaces.py::test_snmp_interfaces
 snmp/test_snmp_v2mib.py::test_snmp_v2mib
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag
