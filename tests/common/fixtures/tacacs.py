@@ -2,7 +2,7 @@ import logging
 import pytest
 from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.tacacs.utils import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds,\
-                    cleanup_tacacs, restore_tacacs_servers, print_tacacs_creds
+                    cleanup_tacacs, restore_tacacs_servers
 
 logger = logging.getLogger(__name__)
 TACACS_CREDS_FILE = 'tacacs_creds.yaml'
@@ -33,8 +33,6 @@ def collect_artifact(duthost, module_name):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_creds, creds, request):
-    print_tacacs_creds(tacacs_creds)
-
     # setup_tacacs only support test case using duthost
     if not selected_dut and not selected_rand_dut:
         logger.debug("Ignore setup_tacacs because can't find duthost for test.")
