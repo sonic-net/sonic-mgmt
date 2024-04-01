@@ -31,7 +31,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
-    _, _, _, restore_to_image = upgrade_path_lists
+    _, _, _, restore_to_image, _ = upgrade_path_lists
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if restore_to_image:
