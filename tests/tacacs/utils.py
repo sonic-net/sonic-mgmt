@@ -110,13 +110,6 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
     return default_tacacs_servers
 
 
-def convert_db_config_to_cli_parameter(cfg):
-    if cfg == "tacacs+,local":
-        return "\"tacacs+ local\""
-
-    return cfg
-
-
 def restore_tacacs_servers(duthost):
     # Restore the TACACS plus server in config_db.json
     config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")["ansible_facts"]
@@ -127,9 +120,8 @@ def restore_tacacs_servers(duthost):
     aaa_config = config_facts.get("AAA", {})
     if aaa_config:
         cfg = aaa_config.get("authentication", {}).get("login", "")
-        cfg = convert_db_config_to_cli_parameter(cfg)
         if cfg:
-            cmds.append("config aaa authentication login %s" % cfg)
+            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|authentication' login %s" % cfg)
 
         cfg = aaa_config.get("authentication", {}).get("failthrough", "")
         if cfg.lower() == "true":
@@ -138,14 +130,12 @@ def restore_tacacs_servers(duthost):
             cmds.append("config aaa authentication failthrough disable")
 
         cfg = aaa_config.get("authorization", {}).get("login", "")
-        cfg = convert_db_config_to_cli_parameter(cfg)
         if cfg:
-            cmds.append("config aaa authorization %s" % cfg)
+            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|authorization' login %s" % cfg)
 
         cfg = aaa_config.get("accounting", {}).get("login", "")
-        cfg = convert_db_config_to_cli_parameter(cfg)
         if cfg:
-            cmds.append("config aaa accounting %s" % cfg)
+            cmds.append("sonic-db-cli CONFIG_DB hset 'AAA|accounting' login %s" % cfg)
 
     tacplus_config = config_facts.get("TACPLUS", {})
     if tacplus_config:
@@ -376,17 +366,6 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
-
-
-def print_tacacs_creds(tacacs_creds):
-    print_tacacs_creds = copy.deepcopy(tacacs_creds)
-    if isinstance(print_tacacs_creds, dict):
-        for tacacs_creds_msg in print_tacacs_creds.values():
-            if isinstance(tacacs_creds_msg, dict):
-                if tacacs_creds_msg.get("docker_registry_password"):
-                    tacacs_creds_msg["docker_registry_password"] = "******"
-
-    logger.info('tacacs_creds: {}'.format(str(print_tacacs_creds)))
 
 
 def load_tacacs_creds():
