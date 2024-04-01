@@ -442,60 +442,6 @@ sonic_mlnx_40:
         "0x2A": "128"
         "0x2B": "Mellanox"
         "0xFE": "0xA51F40F2"
-    str-msn2700-03:
-      ansible_host: 10.3.147.46
-      ansible_hostv6: 2a01:111:e210:3000::a03:932e
-      model: MSN2700-CS2FO
-      serial: MT2020T04286
-      base_mac: 1C:34:DA:A1:8D:80
-      syseeprom_info:
-        "0x21": "MSN2700"
-        "0x22": "MSN2700-CS2FO"
-        "0x23": "MT2020T04286"
-        "0x24": "1C:34:DA:A1:8D:80"
-        "0x25": "05/16/2020 22:53:29"
-        "0x26": "17"
-        "0x28": "x86_64-mlnx_msn2700-r0"
-        "0x29": "2019.08-5.2.0016-9600"
-        "0x2A": "128"
-        "0x2B": "Mellanox"
-        "0xFE": "0xC3A11ADD"
-    str-msn2700-04:
-      ansible_host: 10.3.147.47
-      ansible_hostv6: 2a01:111:e210:3000::a03:932f
-      model: MSN2700-CS2FO
-      serial: MT2028X35367
-      base_mac: 1c:34:da:eb:c0:00
-      syseeprom_info:
-        "0x21": "MSN2700"
-        "0x22": "MSN2700-CS2FO"
-        "0x23": "MT2028X35367"
-        "0x24": "1C:34:DA:EB:C0:00"
-        "0x25": "07/21/2020 08:25:45"
-        "0x26": "17"
-        "0x28": "x86_64-mlnx_msn2700-r0"
-        "0x29": "2019.08-5.2.0016-9600"
-        "0x2A": "128"
-        "0x2B": "Mellanox"
-        "0xFE": "0x3556371B"
-    str-msn2700-06:
-      ansible_host: 10.3.147.49
-      ansible_hostv6: 2a01:111:e210:3000::a03:9331
-      model: MSN2700-CS2FO
-      serial: MT2028X35371
-      base_mac: 1c:34:da:eb:c2:00
-      syseeprom_info:
-        "0x21": "MSN2700"
-        "0x22": "MSN2700-CS2FO"
-        "0x23": "MT2028X35371"
-        "0x24": "1C:34:DA:EB:C2:00"
-        "0x25": "07/21/2020 08:24:53"
-        "0x26": "17"
-        "0x28": "x86_64-mlnx_msn2700-r0"
-        "0x29": "2019.08-5.2.0016-9600"
-        "0x2A": "128"
-        "0x2B": "Mellanox"
-        "0xFE": "0xDD17BF2E"
   vars:
     hwsku: Mellanox-SN2700
     iface_speed: 40000

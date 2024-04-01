@@ -5,9 +5,6 @@ str-s6100-acs-1,10.3.146.16/24,Force10-S6100,DevSonic,,sonic
 str-a7050-acs-2,10.3.146.216/24,Arista-7050-QX32,DevSonic,,sonic
 str-msn2700-01,10.3.146.215/24,Mellanox-SN2700,DevSonic,,sonic
 str-msn2700-02,10.3.146.163/24,Mellanox-SN2700,DevSonic,,sonic
-str-msn2700-03,10.3.147.46/23,Mellanox-SN2700,DevSonic,,sonic
-str-msn2700-04,10.3.147.47/23,Mellanox-SN2700,DevSonic,,sonic
-str-msn2700-06,10.3.147.49/23,Mellanox-SN2700,DevSonic,,sonic
 str-a7060cx-acs-10,10.64.247.240/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 str-a7060cx-acs-1,10.64.247.14/23,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str-7260cx3-acs-1,10.64.247.224/23,Arista-7260CX3-D108C8,DevSonic,,sonic
@@ -26,8 +23,6 @@ str-7260-05,10.3.146.105/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-06,10.3.146.106/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-08,10.3.146.91/24,Arista-7260CX3,FanoutLeaf,,
 str-7260cx3-11,10.3.146.223/24,Arista-7260CX3-64,FanoutRoot,,
-str-7260-14,10.3.147.198/23,Arista-7260QX-64,FanoutLeaf,,
-str-7260-15,10.3.147.236/23,Arista-7260QX-64,FanoutLeaf,,
 str-7260-16,10.3.146.231/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-17,10.3.146.250/24,Arista-7260QX-64,FanoutLeaf,,
 str-7260-18,10.3.146.251/24,Arista-7260QX-64,FanoutLeaf,,

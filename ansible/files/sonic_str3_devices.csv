@@ -51,7 +51,7 @@ str3-8111-02,10.3.146.238/24,Cisco-8111-O64,DevSonic,,sonic
 str3-8111-04,10.64.247.55/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8111-05,10.64.247.57/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8800-sup-1,10.3.146.97/24,Cisco-8800-RP,DevSonic,,sonic
-str3-8800-sup-2,10.3.147.95/23,Cisco-8800-RP,DevSonic,,sonic
+str3-8800-sup-2,10.3.146.169/24,Cisco-8800-RP,DevSonic,,sonic
 str3-8800-lc1-1,10.3.146.27/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
 str3-8800-lc2-1,10.3.146.109/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
 str3-8800-lc3-1,10.3.146.105/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
