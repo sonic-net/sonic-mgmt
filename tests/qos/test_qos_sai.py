@@ -790,7 +790,8 @@ class TestQosSai(QosSaiBase):
         if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
             pytest.skip("No enough test ports on this DUT")
 
-        if not dutConfig['dualTor']:
+        # run 4 pgs and 4 dscps test for dualtor and T1 dualtor scenario
+        if not dutConfig['dualTor'] and not dutConfig['dualTorScenario']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
