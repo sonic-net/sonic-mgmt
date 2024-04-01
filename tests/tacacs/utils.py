@@ -213,7 +213,7 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
                   'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership']}
 
     dut_options = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars
-    logger.warning("setup_tacacs_server: dut_options:{}".format(dut_options))
+    logger.debug("setup_tacacs_server: dut_options:{}".format(dut_options))
     if 'ansible_user' in dut_options and 'ansible_password' in dut_options:
         duthost_admin_user = dut_options['ansible_user']
         duthost_admin_passwd = dut_options['ansible_password']
@@ -221,9 +221,7 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
         extra_vars['duthost_admin_user'] = duthost_admin_user
         extra_vars['duthost_admin_passwd'] = crypt.crypt(duthost_admin_passwd, 'abc')
     else:
-        logger.warning("setup_tacacs_server: duthost options does not contains config for duthost_admin_user.")
-        # extra_vars['duthost_admin_user'] = 'admin'
-        # extra_vars['duthost_admin_passwd'] = crypt.crypt('YourPaSsWoRd', 'abc')
+        logger.debug("setup_tacacs_server: duthost options does not contains config for duthost_admin_user.")
         extra_vars['duthost_admin_user'] = tacacs_creds[duthost.hostname]['sonic_login']
         extra_vars['duthost_admin_passwd'] = crypt.crypt(tacacs_creds[duthost.hostname]['sonic_password'], 'abc')
 
@@ -234,7 +232,7 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
         extra_vars['duthost_ssh_user'] = duthost_ssh_user
         extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
     else:
-        logger.warning("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
+        logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 
     ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
     ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
