@@ -51,6 +51,18 @@ def two_queues(request):
 
 
 @pytest.fixture(scope="module")
+def global_fake_storm_status():
+    """
+    Manually Enable/Disable fake storm for all tests.
+    Set to True by default.
+
+    Returns:
+        fake_storm: False/True
+    """
+    return True
+
+
+@pytest.fixture(scope="module")
 def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Enable/disable fake storm based on platform and input parameters
