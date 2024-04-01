@@ -292,6 +292,6 @@ def test_fsck_after_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
 
     # Check fsck ran by syslog entry.
-    cmd = "sudo find /var/log/syslog* -type f -mmin -5 -exec zgrep 'fsck' {} +"
+    cmd = "sudo journalctl --since '5 minutes ago' | grep 'fsck'"
     result = duthost.shell(cmd, module_ignore_errors=True, verbose=True)['stdout']
     pytest_assert("fsck" in result, "The file system should be repaired by fsck script.")
