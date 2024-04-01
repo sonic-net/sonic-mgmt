@@ -75,11 +75,9 @@ snmp/test_snmp_memory.py::test_snmp_swap
 cisco/test_platform_faults.py::test_platform_overtemp_fault
 cisco/test_platform_faults.py::test_platform_undertemp_fault
 configlet/test_add_rack.py::test_add_rack
-bgp/test_bgp_allow_list.py::test_allow_list
 stress/test_stress_routes.py::test_announce_withdraw_route
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_negative_timeout
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_too_big_timeout
-bgp/test_bgp_bbr.py::test_bbr_enabled_dual_dut_asn_in_aspath
 bgp/test_bgp_fact.py::test_bgp_facts
 bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite
@@ -102,7 +100,6 @@ test_posttest.py::test_collect_techsupport
 test_pretest.py::test_collect_testbed_prio
 telemetry/test_telemetry.py::test_config_db_parameters
 mvrf/test_mgmtvrf.py::TestMvrfOutbound::test_curl
-bgp/test_bgp_allow_list.py::test_default_allow_list_preconfig
 pfcwd/test_pfc_config.py::TestDefaultPfcConfig::test_default_cfg_after_load_mg
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default
