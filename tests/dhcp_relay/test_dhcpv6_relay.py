@@ -457,3 +457,4 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
                            "loopback_ipv6": str(dhcp_relay['loopback_ipv6']),
                            "is_dualtor": str(dhcp_relay['is_dualtor'])},
                    log_file="/tmp/dhcpv6_relay_test.DHCPTest.log", is_python3=True)
+
