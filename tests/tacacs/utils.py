@@ -1,5 +1,4 @@
 import binascii
-import copy
 import crypt
 import logging
 import os
