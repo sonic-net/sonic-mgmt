@@ -763,6 +763,9 @@ def creds_on_dut(duthost):
         console_login_creds = {}
     else:
         console_login_creds = hostvars["console_login"]
+
+    creds["ansible_altpasswords"] = []
+
     creds["console_user"] = {}
     creds["console_password"] = {}
 
