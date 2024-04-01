@@ -337,9 +337,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
         # ongoing storm. no need to start a new one
         if not first_detect_after_wb:
-            logger.info("Starting DEBUG PFC storm on port {} queue {}".format(port, queue))
-            PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
-            time.sleep(5)
+            if not self.pfc_wd['fake_storm']:
+                self.storm_handle[port][queue].start_storm()
+                time.sleep(15 * len(self.pfc_wd['queue_indices']))
+            else:
+                PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
+                time.sleep(5)
         else:
             # for the first iteration after wb, check the log for detect msgs for the ongoing storms
             self.loganalyzer.expected_matches_target = len(self.ports) * len(self.pfc_wd['queue_indices'])
@@ -367,9 +370,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
         self.loganalyzer.match_regex = []
         self.loganalyzer.expected_matches_target = 0
 
-        logger.info("Disabling DEBUG PFC Storm on port {} queue {}".format(port, queue))
-        PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
-        time.sleep(5)
+        if not self.pfc_wd['fake_storm']:
+            self.storm_handle[port][queue].stop_storm()
+            time.sleep(15)
+        else:
+            PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
+            time.sleep(5)
 
         # storm restore check
         logger.info("Verify if PFC storm is restored on port {}".format(port))
@@ -378,11 +384,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
     def defer_fake_storm(self, port, queue, start_defer, stop_defer):
         time.sleep(start_defer)
         DUT_ACTIVE.wait()
-        logger.info("Starting DEBUG PFC storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
         time.sleep(stop_defer)
         DUT_ACTIVE.wait()
-        logger.info("Disabling DEBUG PFC Storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def run_test(self, port, queue, detect=True, storm_start=True, first_detect_after_wb=False,
@@ -401,13 +405,17 @@ class TestPfcwdWb(SetupPfcwdFunc):
         """
         # for deferred storm, return to main loop for next action which is warm boot
         if storm_defer:
-            thread = InterruptableThread(
-                target=self.defer_fake_storm,
-                args=(port, queue, self.pfc_wd['storm_start_defer'],
-                      self.pfc_wd['storm_stop_defer']))
-            thread.daemon = True
-            thread.start()
-            self.storm_threads.append(thread)
+            if not self.pfc_wd['fake_storm']:
+                self.storm_handle[port][queue].start_storm()
+                self.storm_handle[port][queue].stop_storm()
+            else:
+                thread = InterruptableThread(
+                    target=self.defer_fake_storm,
+                    args=(port, queue, self.pfc_wd['storm_start_defer'],
+                          self.pfc_wd['storm_stop_defer']))
+                thread.daemon = True
+                thread.start()
+                self.storm_threads.append(thread)
             return
 
         if detect:
@@ -450,8 +458,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             logger.info("--- Stopping storm on all ports ---")
             for port in self.storm_handle:
                 for queue in self.storm_handle[port]:
-                    logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
-                    PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
+                    if self.storm_handle[port][queue]:
+                        logger.info("--- Stop pfc storm on port {} queue {}".format(port, queue))
+                        self.storm_handle[port][queue].stop_storm()
+                    else:
+                        logger.info("--- Disabling fake storm on port {} queue {}".format(port, queue))
+                        PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts,    # noqa F811
                         ptfhost, duthost, localhost, fanouthosts, two_queues):
@@ -517,6 +529,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
             for p_idx, port in enumerate(self.ports):
                 logger.info("")
                 logger.info("--- Testing on {} ---".format(port))
+                send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port) \
+                    if self.fanout[self.ports[port]['peer_device']].os == 'onyx' else 0
                 self.setup_test_params(port, setup_info['vlan'], p_idx)
                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
                     if not t_idx or storm_deferred:
@@ -528,7 +542,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         if (bitmask & 4):
                             self.storm_defer_setup()
 
-                        self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
+                        if not self.pfc_wd['fake_storm']:
+                            self.storm_setup(port, queue,
+                                             send_pfc_frame_interval=send_pfc_frame_interval,
+                                             storm_defer=(bitmask & 4))
+                        else:
+                            self.oid_map[(port, queue)] = PfcCmd.get_queue_oid(self.dut, port, queue)
 
                     self.traffic_inst = SendVerifyTraffic(self.ptf, dut_facts['router_mac'], self.pfc_wd, queue)
                     self.run_test(port, queue, detect=(bitmask & 1),
