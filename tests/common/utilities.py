@@ -1123,7 +1123,7 @@ def duthost_ssh(duthost, sonic_username, sonic_passwords, sonic_ip):
         except paramiko.AuthenticationException:
             continue
         except Exception as e:
-            logger.info("Cannot access DUT {} via ssh, error: {}".format(duthost.hostname, e))
+            logging.info("Cannot access DUT {} via ssh, error: {}".format(duthost.hostname, e))
             raise e
-    logger.info("Cannot access DUT {} via ssh, error: Password incorrect".format(duthost.hostname))
+    logging.info("Cannot access DUT {} via ssh, error: Password incorrect".format(duthost.hostname))
     raise paramiko.AuthenticationException
