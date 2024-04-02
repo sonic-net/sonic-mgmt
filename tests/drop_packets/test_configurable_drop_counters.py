@@ -73,7 +73,9 @@ def ignore_expected_loganalyzer_exception(duthosts, rand_one_dut_hostname, logan
             "exiting orchagent, SAI API: SAI_API_FDB, status: SAI_STATUS_INVALID_PARAMETER.*",
             ".*ERR syncd[0-9]*#syncd.*SAI_API_DEBUG_COUNTER:_brcm_sai_debug_counter_value_get."
             "*No debug_counter at index.*found.*",
-            ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*"
+            ".*ERR syncd[0-9]*#syncd.*collectPortDebugCounters: Failed to get stats of port.*",
+            ".* ERR syncd#syncd: :- collectData: Failed to get stats of Port Debug Counter.*"
+
         ]
         duthost = duthosts[rand_one_dut_hostname]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
