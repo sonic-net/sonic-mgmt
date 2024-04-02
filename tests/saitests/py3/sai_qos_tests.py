@@ -515,43 +515,83 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_vlan_3 = self.test_params['dst_port_3_vlan']
         self.test_port_ids = self.test_params.get("testPortIds", None)
         self.test_port_ips = self.test_params.get("testPortIps", None)
+        self.src_dut_index = self.test_params['src_dut_index']
+        self.src_asic_index = self.test_params.get('src_asic_index', None)
+        self.dst_dut_index = self.test_params['dst_dut_index']
+        self.dst_asic_index = self.test_params.get('dst_asic_index', None)
+        self.testbed_type = self.test_params['testbed_type']
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
 
     def runTest(self):
-         # ARP Populate
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
-                                       1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
+        # ARP Populate
+        # Ping only  required for testports
+        if 't2' in self.testbed_type:
+            src_is_multi_asic = self.test_params['src_is_multi_asic']
+            dst_is_multi_asic = self.test_params['dst_is_multi_asic']
+            dst_port_ips = [self.dst_port_ip, self.dst_port_2_ip, self.dst_port_3_ip]
+            for ip in dst_port_ips:
+                if dst_is_multi_asic:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                        self.dst_asic_index, ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                        ip, self.dst_asic_index, self.dst_server_ip)
+                else:
+                    stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip,
+                                                                    self.test_params['dut_username'],
+                                                                    self.test_params['dut_password'],
+                                                                    'ping -q -c 3 {}'.format(ip))
+                    assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                        ip, self.dst_server_ip)
+            if src_is_multi_asic:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'sudo ip netns exec asic{} ping -q -c 3 {}'.format(
+                                                                    self.src_asic_index, self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on asic '{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_asic_index, self.src_server_ip)
+            else:
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.src_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'ping -q -c 3 {}'.format(self.src_port_ip))
+                assert ' 0% packet loss' in stdOut[3], "Ping failed for IP:'{}' on Dut '{}'".format(
+                    self.src_port_ip, self.src_server_ip)
+        else:
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.src_port_mac,
+                                           1, self.src_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.src_vlan)
 
-        send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
-                                       1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
-        send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
-                                       self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
-        send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
-                                       self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
-        send_packet(self, self.dst_port_3_id, arpreq_pkt)
+            send_packet(self, self.src_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_mac,
+                                           1, self.dst_port_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan)
+            send_packet(self, self.dst_port_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_2_mac, 1,
+                                           self.dst_port_2_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_2)
+            send_packet(self, self.dst_port_2_id, arpreq_pkt)
+            arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', self.dst_port_3_mac, 1,
+                                           self.dst_port_3_ip, '192.168.0.1', '00:00:00:00:00:00', self.dst_vlan_3)
+            send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
-        for dut_i in self.test_port_ids:
-            for asic_i in self.test_port_ids[dut_i]:
-                for dst_port_id in self.test_port_ids[dut_i][asic_i]:
-                    dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
-                    dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
-                    arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
-                                                   1, dst_port_ip['peer_addr'], '192.168.0.1',
-                                                   '00:00:00:00:00:00', None)
-                    send_packet(self, dst_port_id, arpreq_pkt)
+            for dut_i in self.test_port_ids:
+                for asic_i in self.test_port_ids[dut_i]:
+                    for dst_port_id in self.test_port_ids[dut_i][asic_i]:
+                        dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
+                        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+                        arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
+                                                       1, dst_port_ip['peer_addr'], '192.168.0.1',
+                                                       '00:00:00:00:00:00', None)
+                        send_packet(self, dst_port_id, arpreq_pkt)
 
-        # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-        if self.test_port_ips:
-            ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
-            if ips:
-                cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
-                self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
-                                     self.test_params['dut_password'], cmd)
+            # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
+            if self.test_port_ips:
+                ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
+                if ips:
+                    cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
+                    self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
+                                         self.test_params['dut_password'], cmd)
 
         time.sleep(8)
 
@@ -1298,6 +1338,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_trig_pfc = int(self.test_params['pkts_num_trig_pfc'])
+        self.hwsku = self.test_params['hwsku']
         pkts_num_trig_ingr_drp = int(
             self.test_params['pkts_num_trig_ingr_drp'])
         hwsku = self.test_params['hwsku']
@@ -1413,9 +1454,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of triggering PFC'
-            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
-                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
-                test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
+                                 test_stage, recv_counters, recv_counters_base,
+                                 xmit_counters, xmit_counters_base))
+
             # recv port no pfc
             assert(recv_counters[pg] == recv_counters_base[pg]), \
                 'unexpectedly PFC counter increase, {}'.format(test_stage)
@@ -1480,9 +1523,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send packets short of ingress drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
-                                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
+                                 test_stage, recv_counters,
+                                 recv_counters_base, xmit_counters,
+                                 xmit_counters_base))
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
@@ -1514,20 +1559,22 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             test_stage = 'after send a few packets to trigger drop'
-            sys.stderr.write('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t' + \
-                             'xmit_counters {}\n\txmit_counters_base {}\n'.format(
-                                 test_stage, recv_counters, recv_counters_base, xmit_counters, xmit_counters_base))
+            sys.stderr.write(('{}:\n\trecv_counters {}\n\trecv_counters_base {}\n\t'
+                             'xmit_counters {}\n\txmit_counters_base {}\n').format(
+                                 test_stage, recv_counters, recv_counters_base,
+                                 xmit_counters, xmit_counters_base))
             # recv port pfc
             assert(recv_counters[pg] > recv_counters_base[pg]), \
                 'unexpectedly PFC counter not increase, {}'.format(test_stage)
             # recv port ingress drop
-            for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
-                    if cntr == 1:
-                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter ' \
-                                                                                'not increase, {}'.format(test_stage)
-                else:
-                    assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
+            if self.hwsku not in ['Cisco-8800-LC-48H-C48']:
+                for cntr in ingress_counters:
+                    if platform_asic and platform_asic == "broadcom-dnx":
+                        if cntr == 1:
+                            assert(recv_counters[cntr] > recv_counters_base[cntr]), \
+                                'unexpectedly RX drop counter not increase, {}'.format(test_stage)
+                    else:
+                        assert(recv_counters[cntr] > recv_counters_base[cntr]), 'unexpectedly RX drop counter' \
                                                                             ' not increase, {}'.format(test_stage)
             # xmit port no egress drop
             for cntr in egress_counters:
@@ -1993,7 +2040,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             pkt_dst_mac2 = def_vlan_mac
             pkt_dst_mac3 = def_vlan_mac
 
-        pkt_s = get_multiple_flows(
+        if platform_asic == "cisco-8000":
+            pkt_s = get_multiple_flows(
                 self,
                 pkt_dst_mac,
                 dst_port_id,
@@ -2005,11 +2053,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt = pkt_s[0]
-        dst_port_id = pkt_s[2]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
 
-        # create packet
-        pkt2_s = get_multiple_flows(
+            # create packet
+            pkt2_s = get_multiple_flows(
                 self,
                 pkt_dst_mac2,
                 dst_port_2_id,
@@ -2021,11 +2069,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt2 = pkt2_s[0]
-        dst_port_2_id = pkt2_s[2]
+            pkt2 = pkt2_s[0]
+            dst_port_2_id = pkt2_s[2]
 
-        # create packet
-        pkt3_s = get_multiple_flows(
+            # create packet
+            pkt3_s = get_multiple_flows(
                 self,
                 pkt_dst_mac3,
                 dst_port_3_id,
@@ -2038,8 +2086,46 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
 
-        pkt3 = pkt3_s[0]
-        dst_port_3_id = pkt3_s[2]
+            pkt3 = pkt3_s[0]
+            dst_port_3_id = pkt3_s[2]
+        else:
+            src_port_mac = self.dataplane.get_mac(0, src_port_id)
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
+            dst_port_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, dst_port_id, src_port_vlan
+            )
+            pkt2 = construct_ip_pkt(packet_length,
+                                    pkt_dst_mac,
+                                    src_port_mac,
+                                    src_port_ip,
+                                    dst_port_2_ip,
+                                    dscp,
+                                    src_port_vlan,
+                                    ecn=ecn,
+                                    ttl=ttl)
+            dst_port_2_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
+            )
+            pkt3 = construct_ip_pkt(packet_length,
+                                    pkt_dst_mac3,
+                                    src_port_mac,
+                                    src_port_ip,
+                                    dst_port_3_ip,
+                                    dscp,
+                                    src_port_vlan,
+                                    ecn=ecn,
+                                    ttl=ttl)
+            dst_port_3_id = self.get_rx_port(
+                src_port_id, pkt_dst_mac, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+            )
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
         pkts_num_egr_mem = self.test_params.get('pkts_num_egr_mem', None)
@@ -3049,6 +3135,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         qos_remap_enable = bool(self.test_params.get('qos_remap_enable', False))
+        dry_run = bool(self.test_params.get('dry_run', False))
         print("dst_port_id: %d, src_port_id: %d qos_remap_enable: %d" %
               (dst_port_id, src_port_id, qos_remap_enable))
         print("dst_port_mac: %s, src_port_mac: %s, src_port_ip: %s, dst_port_ip: %s" % (
@@ -3206,9 +3293,9 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         print(diff_list, file=sys.stderr)
 
         for dscp, diff in diff_list:
-           if platform_asic and platform_asic == "broadcom-dnx":
+            if platform_asic and platform_asic == "broadcom-dnx":
                 logging.info("On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
-           else:
+            elif not dry_run:
                 assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (dscp, diff, limit)
 
         # Read counters
@@ -4551,7 +4638,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         cell_occupancy=(packet_length + cell_size - 1) // cell_size
 
-        pkt_s = get_multiple_flows(
+        if 'cisco-8000' in asic_type:
+            pkt_s = get_multiple_flows(
                 self,
                 router_mac if router_mac != '' else dst_port_mac,
                 dst_port_id,
@@ -4563,8 +4651,17 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 packet_length,
                 [(src_port_id, src_port_ip)],
                 packets_per_port=1)[src_port_id][0]
-        pkt = pkt_s[0]
-        dst_port_id = pkt_s[2]
+            pkt = pkt_s[0]
+            dst_port_id = pkt_s[2]
+        else:
+            src_port_mac = self.dataplane.get_mac(0, src_port_id)
+            pkt = simple_tcp_packet(pktlen=packet_length,
+                                    eth_dst=router_mac if router_mac != '' else dst_port_mac,
+                                    eth_src=src_port_mac,
+                                    ip_src=src_port_ip,
+                                    ip_dst=dst_port_ip,
+                                    ip_tos=tos,
+                                    ip_ttl=ttl)
 
         # Add slight tolerance in threshold characterization to consider
         # the case that cpu puts packets in the egress queue after we pause the egress

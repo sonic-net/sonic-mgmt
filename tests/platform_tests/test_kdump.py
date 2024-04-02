@@ -4,31 +4,35 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
-from tests.common.reboot import SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup
+from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
+    REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC
+from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
 
-SSH_SHUTDOWN_TIMEOUT = 480
-SSH_STARTUP_TIMEOUT = 600
+SSH_SHUTDOWN_TIMEOUT = 360
+SSH_STARTUP_TIMEOUT = 420
 
 SSH_STATE_ABSENT = "absent"
 SSH_STATE_STARTED = "started"
 
 
-class TestMemoryExhaustion:
+class TestKernelPanic:
     """
-    This test case is used to verify that DUT will reboot when it runs out of memory.
+    This test case is used to verify that DUT will load kdump crashkernel on kernel panic.
     """
-    def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost):
+    def wait_lc_healthy_if_sup(self, duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list):
         # For sup, we also need to ensure linecards are back and healthy for following tests
         is_sup = duthost.get_facts().get("modular_chassis") and duthost.is_supervisor_node()
         if is_sup:
             for lc in duthosts.frontend_nodes:
                 wait_for_startup(lc, localhost, delay=10, timeout=300)
                 wait_critical_processes(lc)
+                check_interfaces_and_services(lc, conn_graph_facts["device_conn"][lc.hostname],
+                                              xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD)
 
     @pytest.fixture(autouse=True)
     def tearDown(self, duthosts, enum_rand_one_per_hwsku_hostname,
@@ -51,42 +55,22 @@ class TestMemoryExhaustion:
             wait_critical_processes(duthost)
             self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
 
-    def test_memory_exhaustion(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost):
+    def test_kernel_panic(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                          conn_graph_facts, xcvr_skip_list):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        dut_ip = duthost.mgmt_ip
         hostname = duthost.hostname
-        dut_datetime = duthost.get_now_time()
 
-        # Our shell command is designed as 'nohup bash -c "sleep 5 && tail /dev/zero" &' because of:
-        #  * `tail /dev/zero` is used to run out of memory completely.
-        #  * Since `tail /dev/zero` will cause the DUT reboot, we need to run it in the background
-        #    (using &) to avoid pytest getting stuck. `nohup` is also necessary to protect the
-        #    background process.
-        #  * Some DUTs with few free memory may reboot before ansible receive the result of shell
-        #    command, so we add `sleep 5` to ensure ansible receive the result first.
-        # Swapping is turned off so the OOM is triggered in a shorter time.
+        out = duthost.command('show kdump config')
+        if "Enabled" not in out["stdout"]:
+            pytest.skip('DUT {}: Skip test since kdump is not enabled'.format(hostname))
 
-        res = duthost.command("sudo swapoff -a")
-        if res['rc']:
-            logging.error("Swapoff command failed: {}".format(res))
+        reboot(duthost, localhost, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
 
-        cmd = 'nohup bash -c "sleep 5 && tail /dev/zero" &'
-        res = duthost.shell(cmd)
-        if not res.is_successful:
-            pytest.fail('DUT {} run command {} failed'.format(hostname, cmd))
-
-        # Waiting for SSH connection shutdown
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_ABSENT, SSH_SHUTDOWN_TIMEOUT),
-                      'DUT {} did not shutdown'.format(hostname))
-        # Waiting for SSH connection startup
-        pytest_assert(self.check_ssh_state(localhost, dut_ip, SSH_STATE_STARTED, SSH_STARTUP_TIMEOUT),
-                      'DUT {} did not startup'.format(hostname))
         # Wait until all critical processes are healthy.
         wait_critical_processes(duthost)
-        self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
-        # Verify DUT uptime is later than the time when the test case started running.
-        dut_uptime = duthost.get_up_time()
-        pytest_assert(dut_uptime > dut_datetime, "Device {} did not reboot".format(hostname))
+        check_interfaces_and_services(duthost, conn_graph_facts["device_conn"][hostname],
+                                      xcvr_skip_list, reboot_type=REBOOT_TYPE_KERNEL_PANIC)
+        self.wait_lc_healthy_if_sup(duthost, duthosts, localhost, conn_graph_facts, xcvr_skip_list)
 
     def check_ssh_state(self, localhost, dut_ip, expected_state, timeout=60):
         """

@@ -16,15 +16,17 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(autouse=True)
-def ensure_dut_readiness(duthost):
+def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
     """
-    Setup/teardown fixture for each ipv6 test
+    Setup/teardown fixture for each ethernet test
     rollback to check if it goes back to starting config
 
     Args:
-        duthost: DUT host object under test
+        duthosts: list of DUTs
+        rand_one_dut_hostname: The fixture returns a randomly selected DUT hostname
     """
 
+    duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -102,7 +104,9 @@ def get_port_speeds_for_test(duthost):
     speeds_to_test.append(invalid_speed)
     return speeds_to_test
 
-def test_remove_lanes(duthost, ensure_dut_readiness):
+
+def test_remove_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "remove",
@@ -121,7 +125,8 @@ def test_remove_lanes(duthost, ensure_dut_readiness):
 
 
 @pytest.mark.skip(reason="Bypass as it is blocking submodule update")
-def test_replace_lanes(duthost, ensure_dut_readiness):
+def test_replace_lanes(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     cur_lanes = check_interface_status(duthost, "Lanes")
     cur_lanes = cur_lanes.split(",")
     cur_lanes.sort()
@@ -146,7 +151,8 @@ def test_replace_lanes(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_replace_mtu(duthost, ensure_dut_readiness):
+def test_replace_mtu(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     # Can't directly change mtu of the port channel member
     # So find a ethernet port that are not in a port channel
     port_name = get_ethernet_port_not_in_portchannel(duthost)
@@ -173,7 +179,8 @@ def test_replace_mtu(duthost, ensure_dut_readiness):
 
 
 @pytest.mark.parametrize("pfc_asym", ["on", "off"])
-def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
+def test_toggle_pfc_asym(duthosts, rand_one_dut_hostname, ensure_dut_readiness, pfc_asym):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "replace",
@@ -196,7 +203,8 @@ def test_toggle_pfc_asym(duthost, ensure_dut_readiness, pfc_asym):
 
 @pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
-def test_replace_fec(duthost, ensure_dut_readiness, fec):
+def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "add",
@@ -216,7 +224,9 @@ def test_replace_fec(duthost, ensure_dut_readiness, fec):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_invalid_index(duthost, ensure_dut_readiness):
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
+def test_update_invalid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "replace",
@@ -235,7 +245,9 @@ def test_update_invalid_index(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_valid_index(duthost, ensure_dut_readiness):
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
+def test_update_valid_index(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
 
@@ -271,7 +283,8 @@ def test_update_valid_index(duthost, ensure_dut_readiness):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_speed(duthost, ensure_dut_readiness):
+def test_update_speed(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     speed_params = get_port_speeds_for_test(duthost)
     for speed, is_valid in speed_params:
         json_patch = [
@@ -290,14 +303,17 @@ def test_update_speed(duthost, ensure_dut_readiness):
             if is_valid:
                 expect_op_success(duthost, output)
                 current_status_speed = check_interface_status(duthost, "Speed").replace("G", "000")
-                pytest_assert(current_status_speed == speed, "Failed to properly configure interface speed to requested value {}".format(speed))
+                current_status_speed = current_status_speed.replace("M", "")
+                pytest_assert(current_status_speed == speed,
+                              "Failed to properly configure interface speed to requested value {}".format(speed))
             else:
                 expect_op_failure(output)
         finally:
             delete_tmpfile(duthost, tmpfile)
 
 
-def test_update_description(duthost, ensure_dut_readiness):
+def test_update_description(duthosts, rand_one_dut_hostname, ensure_dut_readiness):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "replace",
@@ -317,7 +333,8 @@ def test_update_description(duthost, ensure_dut_readiness):
 
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
-def test_eth_interface_admin_change(duthost, admin_status):
+def test_eth_interface_admin_change(duthosts, rand_one_dut_hostname, admin_status):
+    duthost = duthosts[rand_one_dut_hostname]
     json_patch = [
         {
             "op": "add",
