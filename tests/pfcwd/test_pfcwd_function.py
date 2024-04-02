@@ -4,6 +4,7 @@ import os
 import pytest
 import time
 import re
+import six
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
 from tests.common.helpers.assertions import pytest_assert, pytest_require
