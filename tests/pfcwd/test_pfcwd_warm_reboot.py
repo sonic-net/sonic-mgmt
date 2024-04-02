@@ -85,7 +85,6 @@ class PfcCmd(object):
             queue_oid(string) : queue oid for which the storm status needs to be set
             storm_status(string) : debug storm status (enabled/disabled)
         """
-        logger.info("Set DEBUG storm status {} on queue oid {}".format(storm_status, queue_oid))
         cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
         dut.command(cmd.format(queue_oid, storm_status))
 
@@ -108,20 +107,19 @@ class PfcCmd(object):
 
 class SetupPfcwdFunc(object):
     """ Test setup per port """
-    def setup_test_params(self, port, vlan, idx, global_fake_storm_status):
+    def setup_test_params(self, port, vlan, idx):
         """
         Sets up test parameters associated with a DUT port
 
         Args:
             port(string) : DUT port
             vlan(dict) : DUT vlan info
-            fake_storm_status(bool pytest fixture) : if fake storm is enabled or disabled
         """
         logger.info("--- Setting up test params for port {} ---".format(port))
-        self.setup_port_params(port, idx, global_fake_storm_status)
+        self.setup_port_params(port, idx)
         self.resolve_arp(vlan)
 
-    def setup_port_params(self, port, idx, global_fake_storm_status):
+    def setup_port_params(self, port, idx):
         """
         Gather all the parameters needed for storm generation and ptf test based off the DUT port
 
@@ -148,10 +146,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = [self.pfc_wd['test_port_id']]
-        if global_fake_storm_status:
-            self.pfc_wd['fake_storm'] = True
-        else:
-            self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
+        self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
 
     def resolve_arp(self, vlan):
         """
@@ -346,7 +341,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
                 self.storm_handle[port][queue].start_storm()
                 time.sleep(15 * len(self.pfc_wd['queue_indices']))
             else:
-                logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
                 PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
                 time.sleep(5)
         else:
@@ -390,11 +384,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
     def defer_fake_storm(self, port, queue, start_defer, stop_defer):
         time.sleep(start_defer)
         DUT_ACTIVE.wait()
-        logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
         time.sleep(stop_defer)
         DUT_ACTIVE.wait()
-        logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def run_test(self, port, queue, detect=True, storm_start=True, first_detect_after_wb=False,
@@ -432,7 +424,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
                 self.storm_detect_path(port, queue, first_detect_after_wb=first_detect_after_wb)
         else:
             logger.info("--- Storm restoration path for port {} queue {} ---".format(port, queue))
-            logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
             self.storm_restore_path(port, queue)
         # test pfcwd functionality on a storm/restore
         self.traffic_inst.verify_wd_func(self.dut, detect=detect)
@@ -475,7 +466,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def pfcwd_wb_helper(self, fake_storm, testcase_actions, setup_pfc_test, enum_fanout_graph_facts,    # noqa F811
-                        ptfhost, duthost, localhost, fanouthosts, two_queues, global_fake_storm_status):
+                        ptfhost, duthost, localhost, fanouthosts, two_queues):
         """
         Helper method that initializes the vars and starts the test execution
 
@@ -488,7 +479,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
             duthost(AnsibleHost): DUT instance
             localhost(AnsibleHost): local instance
             fanouthosts(AnsibleHost): fanout instance
-            global_fake_storm_status (boolean fixture): global fake storm status enabled/disabled
         """
         setup_info = setup_pfc_test
         self.fanout_info = enum_fanout_graph_facts
@@ -541,7 +531,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                 logger.info("--- Testing on {} ---".format(port))
                 send_pfc_frame_interval = calculate_send_pfc_frame_interval(duthost, port) \
                     if self.fanout[self.ports[port]['peer_device']].os == 'onyx' else 0
-                self.setup_test_params(port, setup_info['vlan'], p_idx, global_fake_storm_status)
+                self.setup_test_params(port, setup_info['vlan'], p_idx)
                 for q_idx, queue in enumerate(self.pfc_wd['queue_indices']):
                     if not t_idx or storm_deferred:
                         if not q_idx:
@@ -580,7 +570,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
     def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      localhost, fanouthosts, two_queues, global_fake_storm_status):
+                      localhost, fanouthosts, two_queues):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -603,13 +593,11 @@ class TestPfcwdWb(SetupPfcwdFunc):
             duthost(AnsibleHost) : DUT instance
             localhost(AnsibleHost) : localhost instance
             fanouthosts(AnsibleHost): fanout instance
-            global_fake_storm_status (boolean fixture): global fake storm status enabled/disabled
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
-                             enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues,
-                             global_fake_storm_status)
+                             enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
 
 
 def calculate_send_pfc_frame_interval(duthost, port):
