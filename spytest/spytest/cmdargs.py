@@ -303,13 +303,13 @@ class HelpFormatter(argparse.HelpFormatter):
     def _format_action(self, action):
         if type(action).__name__ in ["ArgValidateEnv", "ArgValidateMaxTime"]:
             action.nargs = 1
-        if type(action) == argparse._SubParsersAction:
+        if isinstance(action, argparse._SubParsersAction):
             # inject new class variable for sub command formatting
             subactions = action._get_subactions()
             invocations = [self._format_action_invocation(a) for a in subactions]
             self._subcommand_max_length = max(len(i) for i in invocations)
 
-        if type(action) == argparse._SubParsersAction._ChoicesPseudoAction:
+        if isinstance(action, argparse._SubParsersAction._ChoicesPseudoAction):
             # format sub command help line
             subcommand = self._format_action_invocation(action)  # type: str
             width = self._subcommand_max_length
@@ -318,7 +318,7 @@ class HelpFormatter(argparse.HelpFormatter):
                 help_text = self._expand_help(action)
             return "  {:{width}} -  {}\n".format(subcommand, help_text, width=width)
 
-        elif type(action) == argparse._SubParsersAction:
+        elif isinstance(action, argparse._SubParsersAction):
             # process sub command help section
             msg = '\n'
             for subaction in action._get_subactions():

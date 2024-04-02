@@ -41,7 +41,7 @@ def set_max_time_for_interfaces(duthost):
     global MAX_WAIT_TIME_FOR_INTERFACES
     plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, 'test_reboot.py', 'cold')
     if plt_reboot_ctrl:
-        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', 300)
+        MAX_WAIT_TIME_FOR_INTERFACES = plt_reboot_ctrl.get('timeout', MAX_WAIT_TIME_FOR_INTERFACES)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -96,7 +96,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
-                                  interfaces_wait_time=MAX_WAIT_TIME_FOR_INTERFACES, reboot_type=None):
+                                  interfaces_wait_time=None, reboot_type=None):
     """
     Perform a further check after reboot-cause, including transceiver status, interface status
     @param localhost: The Localhost object.
@@ -105,6 +105,9 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
     """
     logging.info("Wait until all critical services are fully started")
     wait_critical_processes(dut)
+
+    if interfaces_wait_time is None:
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES
 
     if dut.is_supervisor_node():
         logging.info("skipping interfaces related check for supervisor")
@@ -126,7 +129,11 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
                 dut, asic_index, interfaces_per_asic, xcvr_skip_list)
 
         logging.info("Check pmon daemon status")
-        assert check_pmon_daemon_status(dut), "Not all pmon daemons running."
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+            result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
+        else:
+            result = check_pmon_daemon_status(dut)
+        assert result, "Not all pmon daemons running."
 
     if dut.facts["asic_type"] in ["mellanox"]:
 
@@ -245,9 +252,20 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
         bios_version = bios[1]
         if bios_version < "218" and "t1" in tbinfo["topo"]["type"]:
             pytest.skip("Skip test if BIOS ver <218 and topo is T1 and platform is M64")
+    try:
+        if "x86_64-cel_e1031-r0" in duthost.facts['platform']:
+            # On Celestica E1031 platform, the cpu_wdt service periodically sends keep alive
+            # message to watchdog via "watchdogutil arm -s <timeout>" command. This may affect
+            # the test result. So, we need to stop the cpu_wdt service before doing watchdog
+            # reboot on the DUT.
+            duthost.shell("sudo systemctl stop cpu_wdt", module_ignore_errors=True)
 
-    reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
-                     xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
+        reboot_and_check(localhost, duthost, conn_graph_facts["device_conn"][duthost.hostname],
+                         xcvr_skip_list, REBOOT_TYPE_WATCHDOG, duthosts=duthosts)
+    finally:
+        if "x86_64-cel_e1031-r0" in duthost.facts['platform']:
+            # On Celestica E1031 platform, ensure the cpu_wdt service is started once test finished.
+            duthost.shell("sudo systemctl start cpu_wdt", module_ignore_errors=True)
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,

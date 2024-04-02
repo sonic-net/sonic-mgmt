@@ -74,7 +74,13 @@ class TestCOPP(object):
     @pytest.mark.parametrize("protocol", ["ARP",
                                           "IP2ME",
                                           "SNMP",
-                                          "SSH"])
+                                          "SSH",
+                                          "DHCP",
+                                          "DHCP6",
+                                          "BGP",
+                                          "LACP",
+                                          "LLDP",
+                                          "UDLD"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                      ptfhost, copp_testbed, dut_type):
         """
@@ -82,27 +88,6 @@ class TestCOPP(object):
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
-        """
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        _copp_runner(duthost,
-                     ptfhost,
-                     protocol,
-                     copp_testbed,
-                     dut_type)
-
-    @pytest.mark.parametrize("protocol", ["BGP",
-                                          "DHCP",
-                                          "DHCP6",
-                                          "LACP",
-                                          "LLDP",
-                                          "UDLD"])
-    def test_no_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                        ptfhost, copp_testbed, dut_type):
-        """
-            Validates that non-rate-limited COPP groups work as expected.
-
-            Checks that the policer does not enforce a rate limit for protocols
-            that do not have any set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
@@ -125,6 +110,10 @@ class TestCOPP(object):
 
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
+        # remove ip2me because bgp traffic can fall back to ip2me trap then interfere following traffic tests
+        if self.trap_id == "bgp":
+            logger.info("Uninstall trap ip2me")
+            copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
 
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         _copp_runner(duthost,
@@ -156,6 +145,10 @@ class TestCOPP(object):
         4. Verify the trap status is uninstalled by sending traffic
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        if self.trap_id == "bgp":
+            logger.info("Uninstall trap ip2me")
+            copp_utils.uninstall_trap(duthost, "ip2me", "ip2me")
 
         logger.info("Pre condition: make trap {} is installed".format(self.feature_name))
         pre_condition_install_trap(ptfhost, duthost, copp_testbed, self.trap_id, self.feature_name)
@@ -200,11 +193,12 @@ class TestCOPP(object):
         logger.info("Do {}".format(reboot_type))
         reboot(duthost, localhost, reboot_type=reboot_type, reboot_helper=None, reboot_kwargs=None)
 
+        time.sleep(180)
         logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
+            wait_until(200, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
 
 
@@ -280,7 +274,8 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True):
               "myip": test_params.myip,
               "peerip": test_params.peerip,
               "send_rate_limit": test_params.send_rate_limit,
-              "has_trap": has_trap}
+              "has_trap": has_trap,
+              "hw_sku": dut.facts["hwsku"]}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),

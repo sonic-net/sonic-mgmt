@@ -7,6 +7,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, 
                                                 shutdown_fanout_lower_tor_intfs, upper_tor_fanouthosts, \
                                                 lower_tor_fanouthosts, shutdown_upper_tor_downlink_intfs, \
                                                 shutdown_lower_tor_downlink_intfs                   # noqa F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 copy_ptftests_directory, change_mac_addresses       # noqa F401

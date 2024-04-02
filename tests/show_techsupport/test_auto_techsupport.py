@@ -11,6 +11,7 @@ from tests.common.config_reload import config_reload
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until
 from tests.common.multibranch.cli import SonicCli
+from dateutil.parser import ParserError
 
 try:
     import allure
@@ -355,7 +356,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
@@ -379,7 +380,7 @@ class TestAutoTechSupport:
         with allure.step('Create .core files in all available dockers'):
             for docker in self.dockers_list:
                 trigger_auto_techsupport(self.duthost, docker)
-
+        time.sleep(5)
         with allure.step('Checking that only 1 techsupport process running'):
             validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
                                             available_tech_support_files=available_tech_support_files)
@@ -606,7 +607,8 @@ def add_delete_auto_techsupport_feature(duthost, feature, action=None, state=DEF
 
     command = base_cmd
     if action == 'add':
-        command = '{}--state {} --rate-limit-interval {}'.format(base_cmd, state, rate_limit)
+        command = '{}--state {} --rate-limit-interval {} ' \
+                  '--available-mem-threshold {}'.format(base_cmd, state, rate_limit, DEFAULT_AVAILABLE_MEM_THRESHOLD)
 
     with allure.step('Doing {} feature {} config: {}'.format(action, feature, command)):
         duthost.shell(command)
@@ -719,6 +721,16 @@ def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_
             'Number of syslog files in techsupport bigger than expected'
 
 
+def get_timestamp_from_log_line(syslog_line):
+    try:
+        timestamp_str = ' '.join(syslog_line.split()[:3])
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    except ParserError:
+        timestamp_str = syslog_line.split()[0]
+        timestamp_datetime = dateutil.parser.parse(timestamp_str)
+    return timestamp_datetime
+
+
 def get_oldest_syslog_timestamp(duthost, techsupport_folder):
     """
     Get oldest syslog timestamp
@@ -732,8 +744,7 @@ def get_oldest_syslog_timestamp(duthost, techsupport_folder):
         oldest_syslog_file = get_oldest_syslog_file_name(syslog_files)
         oldest_syslog_line = \
             duthost.shell('zcat {}/log/{} | head -1'.format(techsupport_folder, oldest_syslog_file))['stdout_lines'][0]
-        oldest_timestamp_str = ' '.join(oldest_syslog_line.split()[:3])
-        oldest_timestamp_datetime = dateutil.parser.parse(oldest_timestamp_str)
+        oldest_timestamp_datetime = get_timestamp_from_log_line(oldest_syslog_line)
 
     return oldest_timestamp_datetime
 
@@ -897,7 +908,8 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
         expected_techsupport_files = False
 
     if expected_techsupport_files:
-        # techsupport file creation may took some time after generate dump process already finished
+        # ensure that creation of tar.gz file is complete by checking if the intermediate tar
+        # file generated is removed
         assert wait_until(600, 10, 0, is_new_techsupport_file_generated, duthost, available_tech_support_files), \
             'New expected techsupport file was not generated'
 
@@ -941,19 +953,36 @@ def validate_techsupport_generation(duthost, dut_cli, is_techsupport_expected, e
 
 def is_new_techsupport_file_generated(duthost, available_tech_support_files):
     """
-    Check if new techsupport dump created
+    Check if new techsupport dump is generated and complete by verifying intermediate tar file is removed
     :param duthost: duthost object
     :param available_tech_support_files: list of already available techsupport files
-    :return: True in case when new techsupport file created
+    :return: True in case when new techsupport tar.gz file created and intermediate tar file removed from /var/dump
     """
-    logger.info('Checking that new techsupport file created')
+    logger.info('Checking that new techsupport "*.tar.gz" file created and intermediate "*.tar" file is removed')
     new_techsupport_files_list = get_new_techsupport_files_list(duthost, available_tech_support_files)
+    new_techsupport_tar_files_list = get_new_techsupport_tar_files(duthost)
     new_techsupport_files_num = len(new_techsupport_files_list)
+    new_techsupport_tar_files_num = len(new_techsupport_tar_files_list)
 
-    if new_techsupport_files_num == 1:
+    if new_techsupport_files_num == 1 and new_techsupport_tar_files_num == 0:
         return True
 
     return False
+
+
+def get_new_techsupport_tar_files(duthost):
+    """
+    Get list of tar files generated during techsupport collection
+    :param duthost: duthost object
+    :return: list of new tar files generated by the techsupport
+    """
+    try:
+        duthost.shell('ls -lh /var/dump/')  # print into logs full folder content(for debug purpose)
+        new_available_tech_support_tar_files = duthost.shell('ls /var/dump/*.tar')['stdout_lines']
+    except RunAnsibleModuleFail:
+        new_available_tech_support_tar_files = []
+
+    return new_available_tech_support_tar_files
 
 
 def get_new_techsupport_files_list(duthost, available_tech_support_files):
@@ -1033,9 +1062,7 @@ def get_first_line_timestamp(duthost, syslog_file_name):
         first_log_string = duthost.shell('sudo zcat {} | head -n 1'.format(syslog_file_name))['stdout']
     else:
         first_log_string = duthost.shell('sudo head -n 1 {}'.format(syslog_file_name))['stdout']
-    expected_oldest_timestamp_str = ' '.join(first_log_string.split()[:3])
-    expected_oldest_log_line_timestamp = dateutil.parser.parse(expected_oldest_timestamp_str)
-
+    expected_oldest_log_line_timestamp = get_timestamp_from_log_line(first_log_string)
     return expected_oldest_log_line_timestamp
 
 

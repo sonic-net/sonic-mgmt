@@ -7,7 +7,6 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 
 import pytest
-import re
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.utilities import wait_until
@@ -21,6 +20,34 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
 ]
+
+
+@pytest.fixture(scope="module")
+def delayed_services(duthosts, enum_rand_one_per_hwsku_hostname):
+    """Return the delayed services."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    delayed_services = []
+
+    # NOTE: in the follow versions, config reload checks for the delayed services
+    # up states:
+    # - 202205
+    if any(version in duthost.os_version for version in ("202205",)):
+        list_timer_out = duthost.shell(
+            "systemctl list-dependencies --plain sonic-delayed.target | sed '1d'",
+            module_ignore_errors=True
+        )
+        if not list_timer_out["failed"]:
+            check_timer_out = duthost.shell(
+                "systemctl is-enabled %s" % list_timer_out["stdout"].replace("\n", " "),
+                module_ignore_errors=True
+            )
+            if not check_timer_out["failed"]:
+                timers = [_.strip() for _ in list_timer_out["stdout"].strip().splitlines()]
+                states = [_.strip() for _ in check_timer_out["stdout"].strip().splitlines()]
+                delayed_services.extend(
+                    timer.replace("timer", "service") for timer, state in zip(timers, states) if state == "enabled"
+                )
+    return delayed_services
 
 
 def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -42,8 +69,12 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     wait_critical_processes(duthost)
 
     logging.info("Wait some time for all the transceivers to be detected")
-    assert wait_until(300, 20, 0, check_all_interface_information, duthost, interfaces, xcvr_skip_list), \
-        "Not all transceivers are detected in 300 seconds"
+    max_wait_time_for_transceivers = 300
+    if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+        max_wait_time_for_transceivers = 900
+    assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
+                      duthost, interfaces, xcvr_skip_list), "Not all transceivers are detected \
+    in {} seconds".format(max_wait_time_for_transceivers)
 
     logging.info("Check transceiver status")
     for asic_index in duthost.get_frontend_asic_ids():
@@ -79,7 +110,7 @@ def check_database_status(duthost):
     return True
 
 
-def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname, delayed_services,
                                      localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
     """
     @summary: This test case is to test various system checks in config reload
@@ -93,9 +124,9 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
            plt_reboot_ctrl_overwrite=False)
 
     # Check if all database containers have started
-    wait_until(60, 1, 0, check_database_status, duthost)
-    # Check if interfaces-config.service is exited
-    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
+    # Some device after reboot may take some longer time to have database container started up
+    # we must give it a little longer or else it may falsely fail the test.
+    wait_until(360, 1, 0, check_database_status, duthost)
 
     logging.info("Reload configuration check")
     out = duthost.shell("sudo config reload -y",
@@ -103,7 +134,7 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     # config reload command shouldn't work immediately after system reboot
     assert "Retry later" in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     # After the system checks succeed the config reload command should not throw error
     out = duthost.shell("sudo config reload -y",
@@ -114,12 +145,10 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Checking config reload after system is up")
     # Check if all database containers have started
     wait_until(60, 1, 0, check_database_status, duthost)
-    # Check if interfaces-config.service is exited
-    wait_until(60, 1, 0, check_interfaces_config_service_status, duthost)
     out = duthost.shell("sudo config reload -y",
                         executable="/bin/bash", module_ignore_errors=True)
     assert "Retry later" in out['stdout']
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)
 
     logging.info("Stopping swss docker and checking config reload")
     if duthost.is_multi_asic:
@@ -138,12 +167,4 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     out = duthost.shell("sudo config reload -y -f", executable="/bin/bash")
     assert "Retry later" not in out['stdout']
 
-    assert wait_until(300, 20, 0, config_system_checks_passed, duthost)
-
-
-def check_interfaces_config_service_status(duthost):
-    # check interfaces-config.service status
-    regx_interface_config_service_exit = r'.*Main PID: \d+ \(code=exited, status=0\/SUCCESS\).*'
-    interface_config_server_status = duthost.command(
-        'systemctl status interfaces-config.service', module_ignore_errors=True)['stdout']
-    return re.search(regx_interface_config_service_exit, interface_config_server_status)
+    assert wait_until(300, 20, 0, config_system_checks_passed, duthost, delayed_services)

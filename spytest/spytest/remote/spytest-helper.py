@@ -435,9 +435,9 @@ def apply_file(filepath, method):
 
 def parse_and_apply_files(names, method):
     ensure_mac_address(config_file)
-    if type(names) is str:
+    if isinstance(names, str):
         apply_file(names, method)
-    elif type(names) is list:
+    elif isinstance(names, list):
         for filename in names:
             parse_and_apply_files(filename, method)
 

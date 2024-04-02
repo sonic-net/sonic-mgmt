@@ -165,7 +165,7 @@ def test_pfcwd_basic_single_lossless_prio_reboot(snappi_api,                # no
     lossless_prio = int(lossless_prio)
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
@@ -227,7 +227,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
     testbed_config, port_config_list = snappi_testbed_config
 
     logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, duthost.hostname))
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     logger.info("Wait until the system is stable")
     pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
@@ -305,7 +305,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
 
-    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
+    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)
 
 
 @pytest.mark.disable_loganalyzer
@@ -367,4 +367,4 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd)
 
-    config_reload(duthost=duthost, config_source='minigraph', safe_reload=True)
+    config_reload(sonic_host=duthost, config_source='config_db', safe_reload=True)

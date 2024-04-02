@@ -84,18 +84,10 @@ class SerialSession(object):
 
 
 def session(new_params):
-    if new_params['disable_updategraph']:
-        seq = [
-            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
-             'echo $(systemctl is-active swss); '
-             'sed -i -e "s/enabled=true/enabled=false/" /etc/sonic/updategraph.conf; '
-             'systemctl restart updategraph; sleep 1; done', [r'#'], 180),
-        ]
-    else:
-        seq = [
-            ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
-             'echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
-        ]
+    seq = [
+        ('while true; do if [ $(systemctl is-active swss) == "active" ]; then break; fi; '
+         'echo $(systemctl is-active swss); sleep 1; done', [r'#'], 180),
+    ]
 
     seq.extend([
         ('pkill dhclient', [r'#']),
@@ -107,6 +99,7 @@ def session(new_params):
         ('ip route add 0.0.0.0/0 via %s table default' %
          str(new_params['mgmt_gw']), [r'#']),
         ('ip route', [r'#']),
+        ('arping -c 2 -U -P -I eth0 %s' % str(new_params['mgmt_ip']).split("/")[0], [r'#']),
         ('echo %s:%s | chpasswd' %
          (str(new_params['login']), str(new_params['new_password'])), [r'#']),
     ])
@@ -144,7 +137,6 @@ def main():
         mgmt_gw=dict(required=True),
         new_password=dict(required=True),
         num_asic=dict(required=True),
-        disable_updategraph=dict(required=True, type='bool'),
     ))
 
     try:
