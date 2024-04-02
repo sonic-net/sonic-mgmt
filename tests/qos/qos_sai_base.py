@@ -9,7 +9,6 @@ import os
 import sys
 import six
 import copy
-import time
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -1464,6 +1463,7 @@ class QosSaiBase(QosBase):
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
             import qos_param_generator
+            dutTopo = "topo-any"
             if (get_src_dst_asic_and_duts['src_dut_index'] ==
                     get_src_dst_asic_and_duts['dst_dut_index'] and
                 get_src_dst_asic_and_duts['src_asic_index'] ==
@@ -1954,9 +1954,7 @@ class QosSaiBase(QosBase):
         for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark enable")
             dut_asic.command("counterpoll queue enable")
-
-        time.sleep(70)
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+            dut_asic.command("sleep 70")
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
 
