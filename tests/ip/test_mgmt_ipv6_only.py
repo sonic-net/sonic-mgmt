@@ -48,24 +48,6 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
             loganalyzer[hostname].ignore_regex.extend(ignore_regex)
 
 
-def test_telemetry_output_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    localhost, setup_streaming_telemetry_ipv6,
-                                    convert_and_restore_config_db_to_ipv6_only):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
-    if duthost.is_supervisor_node():
-        pytest.skip(
-            "Skipping test as no Ethernet0 frontpanel port on supervisor")
-    dut_ip = get_mgmt_ipv6(duthost)
-    cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
-          [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
-    show_gnmi_out = duthost.shell(cmd)['stdout']
-    result = str(show_gnmi_out)
-    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
-    pytest_assert(inerrors_match is not None,
-                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
-
-
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
                              convert_and_restore_config_db_to_ipv6_only): # noqa F811
     run_bgp_facts(duthosts, enum_frontend_dut_hostname, enum_asic_index)
@@ -121,3 +103,21 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
+
+
+def test_telemetry_output_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname,
+                                    localhost, setup_streaming_telemetry_ipv6,
+                                    convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
+    dut_ip = get_mgmt_ipv6(duthost)
+    cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
+          [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
+    show_gnmi_out = duthost.shell(cmd)['stdout']
+    result = str(show_gnmi_out)
+    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+    pytest_assert(inerrors_match is not None,
+                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
