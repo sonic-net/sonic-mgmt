@@ -1127,3 +1127,16 @@ def duthost_ssh(duthost, sonic_username, sonic_passwords, sonic_ip):
             raise e
     logging.info("Cannot access DUT {} via ssh, error: Password incorrect".format(duthost.hostname))
     raise paramiko.AuthenticationException
+
+
+def get_default_dut_username_and_passwords(duthost, creds):
+    sonic_username = creds['sonicadmin_user']
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    sonic_admin_alt_passwords = creds["ansible_altpasswords"]
+
+    return {
+        "username": sonic_username,
+        "passwords": [creds['sonicadmin_password'], sonic_admin_alt_password] + sonic_admin_alt_passwords
+    }
