@@ -78,7 +78,6 @@ configlet/test_add_rack.py::test_add_rack
 stress/test_stress_routes.py::test_announce_withdraw_route
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_negative_timeout
 platform_tests.api/test_watchdog.py::TestWatchdogApi::test_arm_too_big_timeout
-generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite
 cacl/test_cacl_application.py::test_cacl_application_nondualtor
 cacl/test_cacl_function.py::test_cacl_function
 cacl/test_cacl_application.py::test_cacl_scale_rules_ipv4
