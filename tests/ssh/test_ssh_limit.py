@@ -1,6 +1,5 @@
 import json
 import logging
-import paramiko
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -63,16 +62,12 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     type = get_device_type(duthost)
     user = tacacs_creds['local_user']
 
-    try:
-        # Duthost shell not support run command with J2 template in command text.
-        admin_session = ssh_connect_remote(
-            duthost, dut_ip, creds['sonicadmin_user'], [creds['sonicadmin_password']])
-    except paramiko.AuthenticationException:
-        # try ssh with ansible_altpassword again
-        sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
-            "ansible_altpassword")
-        admin_session = ssh_connect_remote(
-            duthost, dut_ip, creds['sonicadmin_user'], [sonic_admin_alt_password] + creds["ansible_altpasswords"])
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    # Duthost shell not support run command with J2 template in command text.
+    admin_session = ssh_connect_remote(
+        duthost, dut_ip, creds['sonicadmin_user'],
+        [creds['sonicadmin_password'], sonic_admin_alt_password] + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
