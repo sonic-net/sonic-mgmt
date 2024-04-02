@@ -10,6 +10,7 @@ import sys
 import six
 import copy
 import time
+import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -40,6 +41,8 @@ class QosBase:
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
+
+    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -794,6 +797,12 @@ class QosSaiBase(QosBase):
             "dst_sys_ports": dst_all_sys_port
         }
 
+    def __buildPortSpeeds(self, config_facts):
+        port_speeds = collections.defaultdict(list)
+        for etp, attr in config_facts['PORT'].items():
+            port_speeds[attr['speed']].append(etp)
+        return port_speeds
+
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, get_src_dst_asic_and_duts,
@@ -847,9 +856,19 @@ class QosSaiBase(QosBase):
                 for intf in lag["members"]:
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
+            config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
+            port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
+            low_speed_portIds = []
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+                for speed, portlist in port_speeds.items():
+                    if int(speed) < 40000:
+                        for portname in portlist:
+                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
+            testPortIds[src_dut_index][src_asic_index] -= set(low_speed_portIds)
             if isMellanoxDevice(src_dut):
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
