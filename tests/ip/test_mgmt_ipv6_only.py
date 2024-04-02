@@ -110,6 +110,7 @@ def test_snmp_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname, localhost, c
     assert result[0] is not None, "Failed to get snmp result from DUT IPv6 {}".format(hostipv6)
     assert "SONiC Software Version" in result[0], "Sysdescr not found in SNMP result from DUT IPv6 {}".format(hostipv6)
 
+
 def test_ro_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
                            tacacs_creds, check_tacacs_v6, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -128,4 +129,3 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
-
