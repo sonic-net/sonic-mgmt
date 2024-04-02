@@ -9,7 +9,7 @@ from tests.tacacs.utils import per_command_authorization_skip_versions, \
         remove_all_tacacs_server, get_ld_path, change_and_wait_aaa_config_update, \
         ensure_tacacs_server_running_after_ut                             # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import skip_release, wait_until, duthost_ssh
+from tests.common.utilities import skip_release, wait_until, paramiko_ssh
 from .utils import check_server_received
 from tests.override_config_table.utilities import backup_config, restore_config, \
         reload_minigraph_with_golden_config
@@ -26,16 +26,11 @@ logger = logging.getLogger(__name__)
 TIMEOUT_LIMIT = 120
 
 
-def ssh_connect_remote(duthost, remote_ip, remote_username, remote_passwords):
-    return duthost_ssh(duthost=duthost, sonic_username=remote_username,
-                       sonic_passwords=remote_passwords, sonic_ip=remote_ip)
-
-
 def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
     retry_count = 3
     while retry_count > 0:
         try:
-            return ssh_connect_remote(duthost, remote_ip, remote_username, remote_password)
+            return paramiko_ssh(username=remote_username, passwords=remote_password, ipaddr=remote_ip)
         except paramiko.ssh_exception.AuthenticationException as e:
             logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
 
@@ -47,10 +42,10 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
         retry_count -= 1
 
 
-def check_ssh_connect_remote_failed(duthost, remote_ip, remote_username, remote_password):
+def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
     try:
-        ssh_connect_remote(duthost, remote_ip, remote_username, remote_password)
+        paramiko_ssh(username=remote_username, passwords=remote_password, ipaddr=remote_ip)
     except paramiko.ssh_exception.AuthenticationException as e:
         login_failed = True
         logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
@@ -84,7 +79,7 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds)
     with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_authorization_user'],
-        [tacacs_creds['tacacs_authorization_user_passwd']],
+        tacacs_creds['tacacs_authorization_user_passwd'],
         duthost
     ) as ssh_client:
         yield ssh_client
@@ -97,7 +92,7 @@ def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
     with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_rw_user'],
-        [tacacs_creds['tacacs_rw_user_passwd']],
+        tacacs_creds['tacacs_rw_user_passwd'],
         duthost
     ) as ssh_client:
         yield ssh_client
@@ -177,8 +172,8 @@ def check_authorization_tacacs_only(
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
-        duthost, dutip, tacacs_creds['local_user'],
-        [tacacs_creds['local_user_passwd']]
+        dutip, tacacs_creds['local_user'],
+        tacacs_creds['local_user_passwd']
     )
 
 
@@ -338,8 +333,8 @@ def test_authorization_tacacs_and_local(
     # Verify Local user can't login.
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
-        duthost, dutip, tacacs_creds['local_user'],
-        [tacacs_creds['local_user_passwd']]
+        dutip, tacacs_creds['local_user'],
+        tacacs_creds['local_user_passwd']
     )
 
 
@@ -503,8 +498,8 @@ def test_backward_compatibility_disable_authorization(
     # Verify domain account can't login to device successfully.
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
-        duthost, dutip, tacacs_creds['tacacs_authorization_user'],
-        [tacacs_creds['tacacs_authorization_user_passwd']]
+        dutip, tacacs_creds['tacacs_authorization_user'],
+        tacacs_creds['tacacs_authorization_user_passwd']
     )
 
     # Verify local admin account can run command if have permission in local.
@@ -616,9 +611,9 @@ def test_stop_request_next_server_after_reject(
     # Login with invalied user, the first tacacs server will reject user login
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
-        duthost, dutip,
+        dutip,
         "invalid_user",
-        ["invalid_password"]
+        "invalid_password"
     )
 
     # Server side should only have 1 login request log:

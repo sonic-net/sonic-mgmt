@@ -1112,18 +1112,31 @@ def capture_and_check_packet_on_dut(
         duthost.file(path=pcap_save_path, state="absent")
 
 
-def duthost_ssh(duthost, sonic_username, sonic_passwords, sonic_ip):
-    for password in sonic_passwords:
+def paramiko_ssh(username, passwords, ipaddr):
+    if type(passwords) == str:
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(sonic_ip, username=sonic_username, password=password,
+            ssh.connect(ipaddr, username=username, password=passwords,
                         allow_agent=False, look_for_keys=False, timeout=10)
             return ssh
-        except paramiko.AuthenticationException:
-            continue
         except Exception as e:
-            logging.info("Cannot access DUT {} via ssh, error: {}".format(duthost.hostname, e))
             raise e
-    logging.info("Cannot access DUT {} via ssh, error: Password incorrect".format(duthost.hostname))
-    raise paramiko.AuthenticationException
+
+    elif type(passwords) == list:
+        for password in passwords:
+            try:
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(ipaddr, username=username, password=password,
+                            allow_agent=False, look_for_keys=False, timeout=10)
+                return ssh
+            except paramiko.AuthenticationException:
+                continue
+            except Exception as e:
+                logging.info("Cannot access device {} via ssh, error: {}".format(ipaddr, e))
+                raise e
+        logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ipaddr))
+        raise paramiko.AuthenticationException
+    else:
+        logging.error("Unsupport passwords type")

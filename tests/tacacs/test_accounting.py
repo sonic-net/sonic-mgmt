@@ -132,7 +132,7 @@ def rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):
     ssh_client = ssh_connect_remote_retry(
                     dutip,
                     tacacs_creds['tacacs_rw_user'],
-                    [tacacs_creds['tacacs_rw_user_passwd']],
+                    tacacs_creds['tacacs_rw_user_passwd'],
                     duthost)
     yield ssh_client
     ssh_client.close()
