@@ -153,7 +153,7 @@ def setup_streaming_telemetry_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, l
         # Wait until telemetry was restarted
         py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, env.gnmi_container),
                   "%s not started." % (env.gnmi_container))
-        logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
+        logger.info("telemetry process started")
 
         # Wait until the TCP port was opened
         dut_ip = get_mgmt_ipv6(duthost)
