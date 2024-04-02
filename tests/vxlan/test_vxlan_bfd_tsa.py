@@ -433,7 +433,7 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test1b", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
 
@@ -460,7 +460,7 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test2", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
 
@@ -487,7 +487,7 @@ class Test_VxLAN_BFD_TSA():
 
         dest, ep_list = self.create_vnet_route(encap_type)
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test3", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
 
@@ -510,7 +510,7 @@ class Test_VxLAN_BFD_TSA():
         duthost.shell("sudo config save -y",
                       executable="/bin/bash", module_ignore_errors=True)
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test4", encap_type, True, [])
 
         duthost.shell("sudo config reload -y",
                       executable="/bin/bash", module_ignore_errors=True)
@@ -520,7 +520,7 @@ class Test_VxLAN_BFD_TSA():
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
 
@@ -548,7 +548,7 @@ class Test_VxLAN_BFD_TSA():
         duthost.shell("sudo config save -y",
                       executable="/bin/bash", module_ignore_errors=True)
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test5", encap_type, True, [])
 
         self.apply_tsa()
         pytest_assert(self.in_maintainence())
@@ -565,7 +565,7 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test5b", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
 
@@ -611,6 +611,6 @@ class Test_VxLAN_BFD_TSA():
         self.apply_tsb()
         pytest_assert(not self.in_maintainence())
 
-        self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
+        self.dump_self_info_and_run_ptf("test6", encap_type, True, [])
 
         self.delete_vnet_route(encap_type, dest)
