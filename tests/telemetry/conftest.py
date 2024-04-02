@@ -112,7 +112,7 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
         logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
-        dut_ip = get_mgmt_ipv6(duthost)
+        dut_ip = duthost.mgmt_ip
         wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
@@ -156,7 +156,7 @@ def setup_streaming_telemetry_ipv6(duthosts, enum_rand_one_per_hwsku_hostname, l
         logger.info("telemetry process restarted. Now run pyclient on ptfdocker")
 
         # Wait until the TCP port was opened
-        dut_ip = duthost.mgmt_ip
+        dut_ip = get_mgmt_ipv6(duthost)
         wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # Copy gnmi_get from container to host
