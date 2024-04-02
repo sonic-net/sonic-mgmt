@@ -473,7 +473,7 @@ def is_ipv4_address(ip_address):
         return False
 
 
-def compare_crm_facts(duthost, left, right):
+def compare_crm_facts(left, right, duthost=None):
     """Compare CRM facts
 
     Args:
@@ -494,9 +494,8 @@ def compare_crm_facts(duthost, left, right):
             # Hence, the available counter may not increase as per initial value.
             if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
                 unmatched.append({'left': {k: lv}, 'right': {k: rv}})
-        else:
-            if lv['available'] != rv['available'] or lv['used'] != rv['used']:
-                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+        elif lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
 
     left_acl_group = {}
     for ag in left['acl_group']:
@@ -523,9 +522,9 @@ def compare_crm_facts(duthost, left, right):
             # Hence, the available counter may not increase as per initial value.
             if abs(int(lv['available']) - int(rv['available'])) > 1 or abs(int(lv['used']) - int(rv['used'])) > 1:
                 unmatched.append({'left': {k: lv}, 'right': {k: rv}})
-        else:
-            if lv['available'] != rv['available'] or lv['used'] != rv['used']:
-                unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+        elif lv['available'] != rv['available'] or lv['used'] != rv['used']:
+            unmatched.append({'left': {k: lv}, 'right': {k: rv}})
+
     return unmatched
 
 
