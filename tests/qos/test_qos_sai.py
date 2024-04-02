@@ -138,8 +138,6 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-D48C8'
     ]
 
-    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
-
     @pytest.fixture(scope='function')
     def change_port_speed(
             self, request, ptfhost, duthosts, dutTestParams, fanouthosts, dutConfig, tbinfo,
