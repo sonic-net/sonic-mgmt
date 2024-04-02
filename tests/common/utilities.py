@@ -18,6 +18,7 @@ import traceback
 import copy
 import tempfile
 import uuid
+import paramiko
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
@@ -1109,3 +1110,20 @@ def capture_and_check_packet_on_dut(
             pkts_validator(scapy_sniff(offline=temp_pcap.name))
     finally:
         duthost.file(path=pcap_save_path, state="absent")
+
+
+def duthost_ssh(duthost, sonic_username, sonic_passwords, sonic_ip):
+    for password in sonic_passwords:
+        try:
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(sonic_ip, username=sonic_username, password=password,
+                        allow_agent=False, look_for_keys=False, timeout=10)
+            return ssh
+        except paramiko.AuthenticationException:
+            continue
+        except Exception as e:
+            logging.info("Cannot access DUT {} via ssh, error: {}".format(duthost.hostname, e))
+            raise e
+    logging.info("Cannot access DUT {} via ssh, error: Password incorrect".format(duthost.hostname))
+    raise paramiko.AuthenticationException
