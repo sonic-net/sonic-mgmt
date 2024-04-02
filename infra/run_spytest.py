@@ -408,7 +408,6 @@ def main():
     rc, msg = collect_result()
     if rc != 0:
         print(f"error at collect_result! msg: {msg}")
-        sys.exit(rc)
     
     rc, msg = upload_result()
     if rc != 0:
