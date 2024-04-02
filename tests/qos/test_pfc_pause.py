@@ -313,7 +313,7 @@ def test_no_pfc(pfc_test_setup, fanouthosts, rand_selected_dut, ptfhost, conn_gr
     setup = pfc_test_setup
     prio = int(enum_dut_lossless_prio.split('|')[-1])
     # Skip the extra lossless priority test if 4 lossless prio is not enabled on testing port
-    if prio not in lossless_prio_dscp_map:
+    if prio not in lossless_prio_dscp_map or len(lossless_prio_dscp_map[prio]) == 0:
         pytest.skip("lossless prio {} not enabled on testing port".format(prio))
 
     dscp = lossless_prio_dscp_map[prio]
