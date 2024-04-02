@@ -4,7 +4,7 @@
   gather_facts: no
   tasks:
     - name: prepare fanout switch admin login info
-      set_fact: ansible_ssh_user={{ ansible_user }} ansible_ssh_pass={{ ansible_password }} }}
+      set_fact: ansible_ssh_user={{ ansible_ssh_user }} ansible_ssh_pass={{ ansible_ssh_pass }} }}
       tags: always
 
     - name: Execute template
