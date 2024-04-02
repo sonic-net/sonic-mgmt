@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import time
+import six
 import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts
