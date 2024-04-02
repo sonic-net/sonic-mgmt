@@ -84,7 +84,7 @@ def remote_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds)
     with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_authorization_user'],
-        tacacs_creds['tacacs_authorization_user_passwd'],
+        [tacacs_creds['tacacs_authorization_user_passwd']],
         duthost
     ) as ssh_client:
         yield ssh_client
@@ -97,7 +97,7 @@ def remote_rw_user_client(duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
     with ssh_connect_remote_retry(
         dutip,
         tacacs_creds['tacacs_rw_user'],
-        tacacs_creds['tacacs_rw_user_passwd'],
+        [tacacs_creds['tacacs_rw_user_passwd']],
         duthost
     ) as ssh_client:
         yield ssh_client
@@ -178,7 +178,7 @@ def check_authorization_tacacs_only(
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
         duthost, dutip, tacacs_creds['local_user'],
-        tacacs_creds['local_user_passwd']
+        [tacacs_creds['local_user_passwd']]
     )
 
 
@@ -339,7 +339,7 @@ def test_authorization_tacacs_and_local(
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
         duthost, dutip, tacacs_creds['local_user'],
-        tacacs_creds['local_user_passwd']
+        [tacacs_creds['local_user_passwd']]
     )
 
 
@@ -504,7 +504,7 @@ def test_backward_compatibility_disable_authorization(
     dutip = duthost.mgmt_ip
     check_ssh_connect_remote_failed(
         duthost, dutip, tacacs_creds['tacacs_authorization_user'],
-        tacacs_creds['tacacs_authorization_user_passwd']
+        [tacacs_creds['tacacs_authorization_user_passwd']]
     )
 
     # Verify local admin account can run command if have permission in local.
@@ -618,7 +618,7 @@ def test_stop_request_next_server_after_reject(
     check_ssh_connect_remote_failed(
         duthost, dutip,
         "invalid_user",
-        "invalid_password"
+        ["invalid_password"]
     )
 
     # Server side should only have 1 login request log:
