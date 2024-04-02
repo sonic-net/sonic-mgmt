@@ -1397,6 +1397,7 @@ sonic_mlnx_4700:
         "0x2B": "Mellanox"
     str3-msn4700-03:
       ansible_host: 10.3.146.11
+      ansible_hostv6: 2a01:111:e210:3000::a03:920b
       hwsku: Mellanox-SN4700-O8V48
       model: MSN4700-WS2ROS
       serial: MT2340XZ127B
