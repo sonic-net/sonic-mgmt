@@ -100,9 +100,9 @@ def test_standby_tor_upstream_mux_toggle(
                 "unmatched_crm_facts: %s len: %s" % (unmatched_crm_facts, len(unmatched_crm_facts)))
         # Verify packets are not go up
         pt_assert(len(unmatched_crm_facts) <= 5, 'Unmatched CRM facts: {}'
-                .format(json.dumps(unmatched_crm_facts, indent=4)))
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
     else:
         crm_facts1 = rand_selected_dut.get_crm_facts()
         unmatched_crm_facts = compare_crm_facts(crm_facts0, crm_facts1)
         pt_assert(len(unmatched_crm_facts) == 0, 'Unmatched CRM facts: {}'
-                .format(json.dumps(unmatched_crm_facts, indent=4)))
+                  .format(json.dumps(unmatched_crm_facts, indent=4)))
