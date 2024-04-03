@@ -1147,8 +1147,5 @@ def _paramiko_ssh(ip_address, username, passwords):
 
 
 def paramiko_ssh(ip_address, username, passwords):
-    try:
-        ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
-        return ssh
-    except Exception as e:
-        raise e
+    ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+    return ssh
