@@ -1155,3 +1155,8 @@ def _paramiko_ssh(ip_address, username, passwords):
 def paramiko_ssh(ip_address, username, passwords):
     ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
     return ssh
+
+
+def get_dut_current_passwd(ip_address, username, passwords):
+    _, pwd = _paramiko_ssh(ip_address, username, passwords)
+    return pwd
