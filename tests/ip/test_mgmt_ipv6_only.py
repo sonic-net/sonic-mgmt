@@ -150,4 +150,3 @@ def test_telemetry_output_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname,
 def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
                                   convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
     run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
-
