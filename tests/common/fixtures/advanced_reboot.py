@@ -134,7 +134,7 @@ class AdvancedReboot:
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
             if self.kvmTest:
-                self.rebootLimit = 200  # Default reboot limit for kvm
+                self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
             else:
@@ -585,7 +585,7 @@ class AdvancedReboot:
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 self.print_test_logs_summary(log_dir)
-                if self.advanceboot_loganalyzer:
+                if self.advanceboot_loganalyzer and post_reboot_analysis:
                     verification_errors = post_reboot_analysis(marker, event_counters=event_counters,
                                                                reboot_oper=rebootOper, log_dir=log_dir)
                     if verification_errors:

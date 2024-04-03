@@ -14,6 +14,8 @@ import utilities.common as cutils
 from utilities.parallel import ExecAllFunc, exec_all, exec_foreach
 from utilities.utils import segregate_intf_list_type, is_a_single_intf
 from utilities.utils import get_interface_number_from_name, get_supported_ui_type_list
+from utilities.utils import get_random_space_string
+from utilities.utils import add_zero_or_more_spaces_to_intf
 
 try:
     import apis.yang.codegen.messages.spanning_tree.SpanningTree as umf_stp
@@ -27,8 +29,8 @@ def force_cli_type_to_klish(cli_type):
 
 
 debug_log_path = r"/var/log/stplog"
-SHOW_STP_VLAN = "show spanning_tree vlan {}"
-SHOW_STP_VLAN_KLISH = "show spanning-tree vlan {}"
+SHOW_STP_VLAN = "show spanning_tree Vlan {}"
+SHOW_STP_VLAN_KLISH = "show spanning-tree Vlan {}"
 BLOCKING_STATE = "BLOCKING"
 CONFIGURED_STP_PROTOCOL = dict()
 
@@ -58,7 +60,7 @@ def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type
             if mode == 'disable':
                 result = stp_gbl_obj.configure(dut, cli_type=cli_type)
             else:
-                command = "spanning-tree vlan {}".format(vlan)
+                command = "spanning-tree Vlan {}".format(vlan)
                 st.config(dut, command, type='klish')
                 result_val = False
         else:
@@ -87,7 +89,8 @@ def config_spanning_tree(dut, feature="pvst", mode="enable", vlan=None, cli_type
         if mode == 'disable':
             featureMap[feature] = ''
         if vlan:
-            command = "{} spanning-tree vlan {}".format(no_form, vlan)
+            zero_or_more_space = get_random_space_string()
+            command = "{} spanning-tree Vlan{}{}".format(no_form, zero_or_more_space, vlan)
         else:
             command = "{} spanning-tree mode {}".format(no_form, featureMap[feature])
         st.config(dut, command, type=cli_type)
@@ -280,7 +283,7 @@ def config_stp_vlan_parameters(dut, vlan, **kwargs):
                 else:
                     command = ["{} spanning-tree mst {} {}".format(no_form, each_key1, value)]
             else:
-                command = "{} spanning-tree vlan {} {} {}".format(no_form, vlan, each_key1, value)
+                command = "{} spanning-tree Vlan {} {} {}".format(no_form, vlan, each_key1, value)
             st.config(dut, command, type=cli_type)
     elif cli_type in ["rest-put", "rest-patch"]:
         for each_key, value in kwargs.items():
@@ -421,7 +424,7 @@ def config_stp_vlan_interface(dut, vlan, iface, value, mode='cost', **kwargs):
                 if st_mode == "mstp":
                     command.append('{} spanning-tree mst {} {} {}'.format(no_form, st_inst, mode, value))
                 else:
-                    command.append('{} spanning-tree vlan {} {} {}'.format(no_form, vlan, mode, value))
+                    command.append('{} spanning-tree Vlan {} {} {}'.format(no_form, vlan, mode, value))
                 command.append("exit")
             st.config(dut, command, type=cli_type)
         elif cli_type in ["rest-put", "rest-patch"]:
@@ -885,7 +888,7 @@ def show_stp_vlan_iface(dut, vlan, iface, cli_type=""):
     if cli_type == "click":
         command = "show spanning_tree vlan interface {} {}".format(vlan, iface)
     elif cli_type == "klish":
-        command = "show spanning-tree vlan {} interface {}".format(vlan, iface)
+        command = "show spanning-tree Vlan {} interface {}".format(vlan, iface)
     else:
         st.log("Unsupported CLI type {}".format(cli_type))
         return list()
@@ -1453,10 +1456,12 @@ def stp_clear_stats(dut, **kwargs):
     elif cli_type == "klish":
         cmd = "clear spanning-tree counters"
     if 'vlan' in kwargs and 'interface' not in kwargs:
-        cmd += ' vlan {}'.format(kwargs['vlan'])
+        zero_or_more_space = get_random_space_string()
+        cmd += ' Vlan{}{}'.format(zero_or_more_space, kwargs['vlan'])
     if 'vlan' in kwargs and 'interface' in kwargs:
         cmd += ' vlan-interface {} {}'.format(kwargs['vlan'], kwargs['interface'])
     if 'vlan' not in kwargs and 'interface' in kwargs:
+        kwargs['interface'] = add_zero_or_more_spaces_to_intf(kwargs['interface'])
         cmd += ' interface {}'.format(kwargs['interface'])
     st.config(dut, cmd, type=cli_type)
 
@@ -2272,7 +2277,7 @@ def show_stp_config_using_klish(dut, type="", vlan="", intf="", cli_type=""):
     elif type == 'bpdu_guard':
         command = "show spanning-tree bpdu-guard"
     elif type == "vlan_intf":
-        command = "show spanning-tree vlan {} interface {}".format(vlan, intf)
+        command = "show spanning-tree Vlan {} interface {}".format(vlan, intf)
     # elif type == "vlan":
         # command = "show spanning-tree vlan {}".format(vlan)
     st.show(dut, command, type=cli_type, skip_tmpl=True)
@@ -2385,6 +2390,108 @@ def config_loopguard_global(dut, mode=None, cli_type=""):
         return False
 
 
+def config_mstp(dut, **kwargs):
+    """This api is used for the mstp config parameters in mst config mode
+       region name,revision number,instance to vlan mapping,activate and abort
+       author : anil.kumar@broadcom.com
+    """
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = 'klish' if cli_type == 'click' else cli_type
+    config = kwargs.get('config', 'yes')
+    mstp_cleanup = kwargs.get('mstp_cleanup', False)
+    if cli_type in get_supported_ui_type_list():
+        stp_glb_obj = umf_stp.Stp()
+        if not mstp_cleanup:
+            if 'region' in kwargs:
+                if config == 'yes':
+                    kwargs['region'] = '' if kwargs['region'] == "\"\"" else kwargs['region']
+                    setattr(stp_glb_obj, 'Name', kwargs['region'])
+                else:
+                    result = stp_glb_obj.unConfigure(dut, target_attr=stp_glb_obj.Name, cli_type=cli_type)
+            if 'revision' in kwargs:
+                if config == 'yes':
+                    setattr(stp_glb_obj, 'Revision', kwargs['revision'])
+                else:
+                    result = stp_glb_obj.unConfigure(dut, target_attr=stp_glb_obj.Revision, cli_type=cli_type)
+            if 'instance' in kwargs:
+                if config == 'yes':
+                    if 'vlan' in kwargs:
+                        stp_mst_inst_obj = umf_stp.MstInstance(MstId=kwargs['instance'], Vlan=[kwargs['vlan']])
+                        stp_glb_obj.add_MstInstance(stp_mst_inst_obj)
+                else:
+                    if 'vlan' in kwargs:
+                        stp_mst_inst_obj = umf_stp.MstInstance(MstId=kwargs['instance'], Vlan=[kwargs['vlan']], Stp=stp_glb_obj)
+                        result = stp_mst_inst_obj.unConfigure(dut, target_attr=stp_mst_inst_obj.Vlan, cli_type=cli_type)
+                    else:
+                        stp_mst_inst_obj = umf_stp.MstInstance(MstId=kwargs['instance'], Stp=stp_glb_obj)
+                        result = stp_mst_inst_obj.unConfigure(dut, cli_type=cli_type)
+            result = stp_glb_obj.configure(dut, cli_type=cli_type)
+        else:
+            result = stp_glb_obj.unConfigure(dut, cli_type=cli_type)
+        if not result.ok():
+            st.log('test_step_failed: MSTP configuration {}'.format(result.data))
+            return False
+        return True
+    elif cli_type == 'klish':
+        cmd_list = list()
+        if not mstp_cleanup:
+            cmd_list.append('spanning-tree mst configuration')
+            if 'region' in kwargs:
+                if config == 'yes':
+                    cmd_list.append('name {}'.format(kwargs['region']))
+                else:
+                    cmd_list.append('no name')
+            if 'revision' in kwargs:
+                if config == 'yes':
+                    cmd_list.append('revision {}'.format(kwargs['revision']))
+                else:
+                    cmd_list.append('no revision')
+            if 'instance' in kwargs:
+                if config == 'yes':
+                    if 'vlan' in kwargs:
+                        zero_or_more_space = get_random_space_string()
+                        cmd_list.append('instance {} Vlan{}{}'.format(kwargs['instance'], zero_or_more_space, kwargs['vlan']))
+                else:
+                    if 'vlan' in kwargs:
+                        zero_or_more_space = get_random_space_string()
+                        cmd_list.append('no instance {} Vlan{}{}'.format(kwargs['instance'], zero_or_more_space, kwargs['vlan']))
+                    else:
+                        cmd_list.append('no instance {}'.format(kwargs['instance']))
+            if 'mode' in kwargs:  # mode values are activate or abort
+                cmd_list.append(kwargs['mode'])
+        else:
+            cmd_list = 'no spanning-tree mst configuration'
+        st.config(dut, cmd_list, type=cli_type)
+    elif cli_type in ['rest-patch', 'rest-put']:
+        # Code will be added later
+        pass
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
+    return True
+
+
+def show_mstp_config(dut, **kwargs):
+    '''
+
+    :param dut:
+    :return:
+    author: anil.kumar@broadcom.com
+    '''
+    cli_type = st.get_ui_type(dut, **kwargs)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    cli_type = 'klish' if cli_type == 'click' else cli_type
+    if cli_type == 'klish':
+        cmd = 'show spanning-tree mst configuration'
+        return st.show(dut, cmd, type=cli_type)
+    elif cli_type in ["rest-put", "rest-patch"]:
+        # code will be added later
+        pass
+    else:
+        st.error("Unsupported CLI_TYPE: {}".format(cli_type))
+        return False
+
+
 def show_mstp(dut, **kwargs):
     '''
 
@@ -2422,3 +2529,199 @@ def show_mstp(dut, **kwargs):
     else:
         st.error("Unsupported CLI_TYPE: {}".format(cli_type))
         return False
+
+
+def check_for_single_root_bridge_per_mstp_instance(dut_list, mstp_inst_list, dut_inst_data, cli_type=""):
+    cli_type = st.get_ui_type(dut_list, cli_type=cli_type)
+    """
+    API to check for single root bridge per MSTP instance
+    check_for_single_root_bridge_per_vlan(get_dut_list(vars), [1,2,3], {1:1,2:2})
+    :dut_list = no of duts list
+    :mstp_instance_list = no of mstp intances
+    :dut_inst_data = dut to mstp mapping dict
+    :param dut:
+    :param mstp instance list:
+    :param cli_type:
+    :return:
+    """
+    st.log("Verifying the single root bridge per vlan ...")
+    dut_li = cutils.make_list(dut_list)
+    mstp_inst_li = cutils.make_list(mstp_inst_list)
+    st.log("DUT LIST : {}, VLAN LIST :{}".format(dut_list, mstp_inst_list))
+    if len(mstp_inst_list) != len(dut_list):
+        st.log("Invalid data provided to check the root bridge per instance...")
+        return False
+    for inst in mstp_inst_li:
+        root_count = 0
+        params = list()
+        for dut in dut_li:
+            params.append(ExecAllFunc(show_mstp, dut, mstp_instance=inst, cli_type=cli_type))
+        stp_output, exceptions = exec_all(True, params)
+        for value in exceptions:
+            if value is not None:
+                st.log("Exception occured {}".format(value))
+                return False
+        if not stp_output:
+            st.log("STP output not found on {} for {} instance".format(dut_li, inst))
+            return False
+        for index, stp_out in enumerate(stp_output):
+            if len(stp_out) <= 0:
+                st.log("STP OUTPUT IS NOT OBSERVED --- {}".format(stp_out))
+                return False
+            root_bridge = stp_out[0]["root_address"]
+            dut_bridge_id = stp_out[0]["bridge_address"]
+            if root_bridge == dut_bridge_id and stp_out[0]["role"] == "Root":
+                st.log("Expected DUT to instance root: {}".format(dut_inst_data))
+                if dut_inst_data[dut_li[index]] != int(inst.strip()):
+                    st.error("Observed DUT to MSTP instance root: {} - {}".format(dut_li[index], inst))
+                    return False
+                else:
+                    st.log("Observed DUT to MSTP instance root: {} - {}".format(dut_li[index], inst))
+                root_count += 1
+            if root_count > 1:
+                st.log("Observed more than 1 root bridge per {} instance".format(inst))
+                return False
+    return True
+
+
+def check_dut_is_root_bridge_for_mstp_inst(dut, mstp_inst, cli_type=""):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    cli_type = force_cli_type_to_klish(cli_type=cli_type)
+    """
+
+        :param dut:
+        :param mstp_inst:
+        :return:
+    """
+    cli_type = "klish" if cli_type == "click" else cli_type
+    if cli_type == "klish":
+        cmd = "show spanning-tree mst {}".format(mstp_inst)
+        stp_output = st.show(dut, cmd, type=cli_type)
+    elif cli_type in ["rest-put", "rest-patch"]:
+        # code will be added later
+        pass
+    else:
+        st.log("Invalid cli_type provided: {}".format(cli_type))
+        return False
+
+    if len(stp_output) > 0:
+        root_bridge = stp_output[0]["root_address"]
+        dut_bridge_id = stp_output[0]["bridge_address"]
+        return (root_bridge == dut_bridge_id)
+    else:
+        return False
+
+
+def config_mstp_root_bridge_by_mstp_inst_vlan(mstp_data, cli_type=""):
+    """
+    :param mstp_data: {dut1: {"vlan":1,"instance":10, "priority": "0","mode":"mstp"}, dut2: {"vlan":2,"instance":20, "priority": "0","mode":"mstp"}, dut3: {"vlan":3,"instance":30, "priority": "0","mode":"mstp"}}
+    """
+    cli_type = "klish" if cli_type == "click" else cli_type
+    dut_li = []
+    data_li = []
+    for dut, data in mstp_data.items():
+        dut_li.append(dut)
+        data_li.append({'vlan': data["vlan"], 'instance': data["instance"], 'priority': data["priority"], 'mode': data["mode"], 'cli_type': cli_type})
+    st.exec_each2(dut_li, config_stp_vlan_parameters, data_li)
+    return True
+
+
+def verify_mstp_ports_by_state(dut, mstp_inst, port_state, port_list, cli_type="", **kwargs):
+    cli_type = st.get_ui_type(dut, cli_type=cli_type)
+    """
+    API Will check the port state in the mstp instance.
+
+    :param dut:
+    :param mstp_inst:
+    :param state:
+    :param port_list:
+    :param cli_type:
+    :return:
+    """
+    depth = kwargs.get("depth", 3)
+    filter_type = kwargs.get("filter_type", "NON_CONFIG")
+    port_li = cutils.make_list(port_list)
+    result = True
+    if cli_type in get_supported_ui_type_list():
+        stp_gbl_obj = umf_stp.Stp()
+        stp_mst_inst_obj = umf_stp.MstInstance(MstId=int(mstp_inst), Stp=stp_gbl_obj)
+        for each_port in port_li:
+            stp_mst_intf_obj = umf_stp.MstInstanceInterface(Name=each_port, PortState=port_state, MstInstance=stp_mst_inst_obj)
+            query_params_obj = cutils.get_query_params(yang_data_type=filter_type, depth=depth, cli_type=cli_type)
+            rv = stp_mst_intf_obj.verify(dut, query_param=query_params_obj, match_subset=True)
+            if not rv.ok():
+                st.log("test_step_failed: {} is not {} state ".format(each_port, port_state))
+                result = False
+            else:
+                st.log("{} is {} state ".format(each_port, port_state))
+    else:
+        stp_output = show_mstp(dut, mstp_instance=mstp_inst, cli_type=cli_type)
+        ports_list = [row["interface"] for row in stp_output if row["state"] == port_state and int(row["mst_instance"]) == int(mstp_inst)]
+        for each_port in port_li:
+            if each_port not in ports_list:
+                st.log("{} is not {} state ".format(each_port, port_state))
+                result = False
+            else:
+                st.log("{} is {} state ".format(each_port, port_state))
+    return result
+
+
+def get_mstp_param(dut, params, **kwargs):
+    '''
+     get_mstp_param(vars.D1, ['bpdu_sent', 'bpdu_rcvd'], mstp_instance=10, mstp_detail=True)
+    :param dut:
+    :param params:
+    :param kwargs:
+    :return:
+    '''
+    output = show_mstp(dut, **kwargs)
+    params = cutils.make_list(params)
+    retval = cutils.filter_and_select(output, params)
+    return retval[0] if isinstance(retval, list) and retval else ""
+
+
+def verify_mstp_config(dut, verify_list, **kwargs):
+    '''
+    verify_mstp_config(vars.D1, {'bpdu_sent': '13', 'bpdu_rcvd': '252'}, mstp_instance=10, mstp_detail=True)
+    :param dut:
+    :param verify_list:
+    :param kwargs:
+    :return:
+    '''
+    output = show_mstp(dut, **kwargs)
+    verify_entries = cutils.make_list(verify_list)
+    for verify_entry in verify_entries:
+        if not cutils.filter_and_select(output, None, verify_entry):
+            st.error("Entry: {} is not found in the output: {}".format(verify_entry, output))
+            return False
+    return True
+
+
+def verify_mstp_config_param(dut, verify_list, **kwargs):
+    '''
+    verify_mstp_config_param(vars.D1,{'name':'test'})
+    :param dut:
+    :param verify_list:
+    :param kwargs:
+    :return:
+    '''
+    output = show_mstp_config(dut, **kwargs)
+    verify_entries = cutils.make_list(verify_list)
+    for verify_entry in verify_entries:
+        if not cutils.filter_and_select(output, None, verify_entry):
+            st.error("Entry: {} is not found in the output: {}".format(verify_entry, output))
+            return False
+    return True
+
+
+def verify_stp_scale(dut):
+    """
+    This api will verify stp convergence of all ports in 5k vlan ports
+    :param dut:
+    :return:
+    """
+    output = show_stp(dut)
+    for i in output:
+        if i['port_state'] not in ["LEARNING", "LISTENING", "DISABLED"]:
+            return True
+    return False
