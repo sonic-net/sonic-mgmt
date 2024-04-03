@@ -722,6 +722,25 @@
         ]
     },
     {
+        "feature": "macsec",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "macsec.test_controlplane",
+                    "macsec.test_dataplane",
+                    "macsec.test_deployment",
+                    "macsec.test_fault_handling",
+                    "macsec.test_interop_protocol",
+                    "macsec.test_interop_wan_isis"
+                ],
+                "owner": "Ze Gan",
+                "email": "zegan@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "memory_checker",
         "owner": "Qi Luo",
         "email": "qiluo@microsoft.com",
