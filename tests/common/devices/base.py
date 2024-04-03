@@ -44,6 +44,10 @@ class AnsibleHostBase(object):
         else:
             self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
             self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
+            if "ansible_hostv6" in self.host.options["inventory_manager"].get_host(hostname).vars:
+                self.mgmt_ipv6 = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_hostv6"]
+            else:
+                self.mgmt_ipv6 = None
         self.hostname = hostname
 
     def __getattr__(self, module_name):
