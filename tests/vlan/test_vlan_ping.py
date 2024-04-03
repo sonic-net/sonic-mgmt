@@ -246,7 +246,7 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname,
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
                                ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
         else:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],vmhost_info, ptfadapter, tbinfo)
+            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
             verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
 
     # flushing and re-adding ipv6 static arp entry
