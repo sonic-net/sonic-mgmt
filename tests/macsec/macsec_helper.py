@@ -1,7 +1,7 @@
 import ast
 import binascii
+import json
 import logging
-import re
 import struct
 import time
 from collections import defaultdict, deque
@@ -15,7 +15,6 @@ import ptf.testutils as testutils
 import scapy.all as scapy
 import scapy.contrib.macsec as scapy_macsec
 
-from .macsec_common_helper import convert_on_off_to_boolean
 from .macsec_platform_helper import sonic_db_cli
 from tests.common.devices.eos import EosHost
 
@@ -189,7 +188,7 @@ def check_appl_db(duthost, ctrl_links, policy, cipher_suite, send_sci):
 
 
 def get_mka_session(host):
-    cmd = "docker exec syncd ip macsec show"
+    cmd = "docker exec syncd ip -j macsec show"
     '''
     Here is an output example of `ip macsec show`
     admin@vlab-01:~$ ip macsec show
@@ -207,56 +206,97 @@ def get_mka_session(host):
             0: PN 1041, state on, key daa8169cde2fe1e238aaa83672e40279
         RXSC: 525400fb9b220001, state on
             0: PN 1041, state on, key daa8169cde2fe1e238aaa83672e40279
+
+    Here is an output example of `ip -j macsec show` (JSON format), not related to above output:
+    admin@vlab-02:~$ ip -j macsec show | jq
+    [
+      {
+        "ifindex": 219,
+        "ifname": "macsec_eth1",
+        "protect": true,
+        "validate": "strict",
+        "sc": false,
+        "sa": false,
+        "encrypt": true,
+        "send_sci": true,
+        "end_station": false,
+        "scb": false,
+        "replay": false,
+        "cipher_suite": "GCM-AES-128",
+        "icv_length": 16,
+        "sci": "0x525400953a020001",
+        "encoding_sa": 0,
+        "sa_list": [
+          {
+            "an": 0,
+            "pn": 153,
+            "active": true,
+            "key": "18f16ec57c97dcdd5d011d8161de34b5"
+          }
+        ],
+        "rx_sc": [
+          {
+            "sci": "0x525400a00dc70001",
+            "active": true,
+            "sa_list": [
+              {
+                "an": 0,
+                "pn": 127,
+                "active": true,
+                "key": "18f16ec57c97dcdd5d011d8161de34b5"
+              }
+            ]
+          }
+        ],
+        "offload": "off"
+      }
+    [
     '''
-    output = host.command(cmd)["stdout_lines"]
-    output = "\n".join(output)
+    output = host.command(cmd)["stdout"]
+    ports = json.loads(output)
     mka_session = {}
 
-    port_pattern = r"(\d+): (\w+): protect (on|off) validate (disabled|checked|strict) sc (on|off) sa (on|off) encrypt (on|off) send_sci (on|off) end_station (on|off) scb (on|off) replay (on|off)\s*\n +cipher suite: ([\w-]+), using ICV length (\d+)\n?((?: +[\w:, ]+\n?)*)"
-    ports = re.finditer(port_pattern, output)
     for port in ports:
         port_obj = {
-            "protect": port.group(3),
+            "protect": port["protect"],
             "validate": {
-                "mode": port.group(4),
-                "sc": port.group(5),
-                "sa": port.group(6),
+                "mode": port["validate"],
+                "sc": port["sc"],
+                "sa": port["sa"],
             },
-            "encrypt": port.group(7),
-            "send_sci": port.group(8),
-            "end_station": port.group(9),
-            "scb": port.group(10),
-            "replay": port.group(11),
-            "cipher_suite": port.group(12),
-            "ICV_length": int(port.group(13)),
-            "egress_scs": {},
+            "encrypt": port["encrypt"],
+            "send_sci": port["send_sci"],
+            "end_station": port["end_station"],
+            "scb": port["scb"],
+            "replay": port["replay"],
+            "cipher_suite": port["cipher_suite"],
+            "ICV_length": port["icv_length"],
+            "egress_scs": {
+                port["sci"].replace("0x", ""): {
+                    "sas": {},
+                    "enabled": True,
+                    "active_an": port["encoding_sa"]
+                }
+            },
             "ingress_scs": {},
         }
-        sc_pattern = r" +(TXSC|RXSC): ([\da-fA-F]+),? (?:(on|off) SA ([0-3])|state (on|off))\n?((?: {8}[\w:, ]+\n?)*)"
-        scs = re.finditer(sc_pattern, port.group(14))
-        for sc in scs:
-            sc_obj = {
-                "sas": {}
-            }
-            sa_pattern = r" +([0-3]): PN (\d+), state (on|off),.* key ([\da-fA-F]+)"
-            sas = re.finditer(sa_pattern, sc.group(6))
-            for sa in sas:
-                sa_obj = {
-                    "pn": int(sa.group(2)),
-                    "enabled": sa.group(3),
-                    "key": sa.group(4)
-                }
-                sc_obj["sas"][int(sa.group(1))] = sa_obj
-            if sc.group(1) == "TXSC":
-                sc_obj["enabled"] = sc.group(3)
-                sc_obj["active_an"] = int(sc.group(4))
-                port_obj["egress_scs"][sc.group(2)] = sc_obj
-            elif sc.group(1) == "RXSC":
-                sc_obj["enabled"] = sc.group(5)
-                port_obj["ingress_scs"][sc.group(2)] = sc_obj
-        # Convert on|off to boolean
-        port_obj = convert_on_off_to_boolean(port_obj)
-        mka_session[port.group(2)] = port_obj
+        for sa in port["sa_list"]:
+            sci = port["sci"].replace("0x", "")
+            port_obj["egress_scs"][sci]["sas"][sa["an"]] = {}
+            port_obj["egress_scs"][sci]["sas"][sa["an"]]["pn"] = sa["pn"]
+            port_obj["egress_scs"][sci]["sas"][sa["an"]]["enabled"] = sa["active"]
+            port_obj["egress_scs"][sci]["sas"][sa["an"]]["key"] = sa["key"]
+        for rx_sc in port["rx_sc"]:
+            sci = rx_sc["sci"].replace("0x", "")
+            port_obj["ingress_scs"][sci] = {}
+            port_obj["ingress_scs"][sci]["enabled"] = rx_sc["active"]
+            port_obj["ingress_scs"][sci]["sas"] = {}
+            for sa in rx_sc["sa_list"]:
+                port_obj["ingress_scs"][sci]["sas"][sa["an"]] = {}
+                port_obj["ingress_scs"][sci]["sas"][sa["an"]]["pn"] = sa["pn"]
+                port_obj["ingress_scs"][sci]["sas"][sa["an"]]["enabled"] = sa["active"]
+                port_obj["ingress_scs"][sci]["sas"][sa["an"]]["key"] = sa["key"]
+        mka_session[port["ifname"]] = port_obj
     return mka_session
 
 
