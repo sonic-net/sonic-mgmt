@@ -5,9 +5,9 @@ import sys
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, wait_tcp_connection
+from tests.common.utilities import wait_until, wait_tcp_connection, get_mgmt_ipv6
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
+from tests.telemetry.telemetry_utils import get_list_stdout, setup_telemetry_forpyclient, restore_telemetry_forpyclient
 
 EVENTS_TESTS_PATH = "./telemetry/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -86,10 +86,11 @@ def delete_gnmi_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localhost,  ptfhost, gnxi_path):
+def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost, gnxi_path):
     """
     @summary: Post setting up the streaming telemetry before running the test.
     """
+    is_ipv6 = request.param
     try:
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         has_gnmi_config = check_gnmi_config(duthost)
@@ -113,11 +114,18 @@ def setup_streaming_telemetry(duthosts, enum_rand_one_per_hwsku_hostname, localh
 
         # Wait until the TCP port was opened
         dut_ip = duthost.mgmt_ip
+        if is_ipv6:
+            dut_ip = get_mgmt_ipv6(duthost)
         wait_tcp_connection(localhost, dut_ip, env.gnmi_port, timeout_s=60)
 
         # pyclient should be available on ptfhost. If it was not available, then fail pytest.
-        file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
-        py_assert(file_exists["stat"]["exists"] is True)
+        if is_ipv6:
+            cmd = "docker cp %s:/usr/sbin/gnmi_get ~/" % (env.gnmi_container)
+            ret = duthost.shell(cmd)['rc']
+            py_assert(ret == 0)
+        else:
+            file_exists = ptfhost.stat(path=gnxi_path + "gnmi_cli_py/py_gnmicli.py")
+            py_assert(file_exists["stat"]["exists"] is True)
     except RunAnsibleModuleFail as e:
         logger.info("Error happens in the setup period of setup_streaming_telemetry, recover the telemetry.")
         restore_telemetry_forpyclient(duthost, default_client_auth)

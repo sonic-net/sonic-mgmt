@@ -33,6 +33,7 @@ from tests.common.cache import cached
 from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -474,6 +475,19 @@ def is_ipv4_address(ip_address):
         return True
     except ipaddress.AddressValueError:
         return False
+
+
+def get_mgmt_ipv6(duthost):
+    config_facts = duthost.get_running_config_facts()
+    mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
+    mgmt_ipv6 = None
+
+    for mgmt_interface, ip_configs in mgmt_interfaces.items():
+        for ip_addr_with_prefix in ip_configs.keys():
+            ip_addr = ip_addr_with_prefix.split("/")[0]
+            if valid_ipv6(ip_addr):
+                mgmt_ipv6 = ip_addr
+    return mgmt_ipv6
 
 
 def compare_crm_facts(left, right):
