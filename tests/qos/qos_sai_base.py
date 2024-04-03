@@ -10,12 +10,13 @@ import sys
 import six
 import copy
 import time
+import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result  # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa F401
@@ -40,6 +41,8 @@ class QosBase:
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
+
+    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -794,6 +797,12 @@ class QosSaiBase(QosBase):
             "dst_sys_ports": dst_all_sys_port
         }
 
+    def __buildPortSpeeds(self, config_facts):
+        port_speeds = collections.defaultdict(list)
+        for etp, attr in config_facts['PORT'].items():
+            port_speeds[attr['speed']].append(etp)
+        return port_speeds
+
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
         self, request, duthosts, get_src_dst_asic_and_duts,
@@ -847,9 +856,19 @@ class QosSaiBase(QosBase):
                 for intf in lag["members"]:
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
+            config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
+            port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
+            low_speed_portIds = []
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+                for speed, portlist in port_speeds.items():
+                    if int(speed) < 40000:
+                        for portname in portlist:
+                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
+            testPortIds[src_dut_index][src_asic_index] -= set(low_speed_portIds)
             if isMellanoxDevice(src_dut):
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
@@ -954,8 +973,10 @@ class QosSaiBase(QosBase):
                     dutPortIps[src_dut_index][dut_asic.asic_index].keys())
 
                 if isMellanoxDevice(src_dut):
+                    # For T1 in dualtor scenario, we always select the dualtor ports as source ports
+                    dualtor_dut_ports = dualtor_ports_for_duts if 't1' in tbinfo['topo']['type'] else None
                     testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
-                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index])
+                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index], dualtor_dut_ports)
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -1496,6 +1517,12 @@ class QosSaiBase(QosBase):
             sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
+            # For Mellanox T1, if tunnel qos remap is enabled, we need to enable dualTor flag to cover
+            # T1 in dualTor scenario
+            if is_tunnel_qos_remap_enabled(duthost) and 't1' in tbinfo["topo"]["name"]:
+                dualTor = True
+            else:
+                dualTor = dutConfig["dualTor"]
             import qos_param_generator
             dut_top = dutTopo if dutTopo in qosConfigs['qos_params']['mellanox'] else "topo-any"
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dut_top], dutAsic,
@@ -1506,7 +1533,7 @@ class QosSaiBase(QosBase):
                                                        egressLosslessProfile,
                                                        egressLossyProfile,
                                                        sharedHeadroomPoolSize,
-                                                       dutConfig["dualTor"],
+                                                       dualTor,
                                                        get_src_dst_asic_and_duts['src_dut_index'],
                                                        get_src_dst_asic_and_duts['src_asic_index'],
                                                        get_src_dst_asic_and_duts['dst_dut_index'],
@@ -2244,7 +2271,7 @@ class QosSaiBase(QosBase):
         if speed >= 400000:
             pytest.skip("PGDrop test is not supported for 400G port speed.")
 
-    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
+    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
         Firstly, categorize the ports by the same cable length and speed.
@@ -2259,6 +2286,9 @@ class QosSaiBase(QosBase):
         cable_length_speed_interface_dict = {}
         for ptf_port in testPortIds:
             dut_port = ptf_port_dut_port_dict[ptf_port]
+            # Always select dualtor ports if not None
+            if dualtor_dut_ports and dut_port not in dualtor_dut_ports:
+                continue
             if dut_port in interface_cable_length_list:
                 cable_length = interface_cable_length_list[interface_cable_length_list.index(dut_port) + 1]
                 speed = interface_status[dut_port]['speed']
@@ -2344,3 +2374,13 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_longlink(self, dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        match = re.search("_([0-9]*)m", portSpeedCableLength)
+        if match and int(match.group(1)) > 2000:
+            pytest.skip(
+                "This test is skipped for longlink.")
+        yield
+        return
