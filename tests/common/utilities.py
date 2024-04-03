@@ -1136,7 +1136,7 @@ def _paramiko_ssh(ip_address, username, passwords):
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(ip_address, username=username, password=password,
                         allow_agent=False, look_for_keys=False, timeout=10)
-            return ssh
+            return ssh, password
         except paramiko.AuthenticationException:
             continue
         except Exception as e:
