@@ -115,9 +115,11 @@ scan_dbs = {
                 "VLAN_MEMBER_TABLE",
                 "VLAN_TABLE"
             },
-            "keys_to_skip_comp": set(),
-            "keys_skip_val_comp": {
+            "keys_to_skip_comp": {
                 "PORT_TABLE"
+            },
+            "keys_skip_val_comp": {
+                "last_up_time"
             }
         }
     }
@@ -235,8 +237,13 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
     db_write = {}
     for k in db_read:
         # Transient keys start with "_"; Hence skipped
-        if ((not k.startswith("_")) and (not match_key(k, keys_skip_cmp))):
-            db_write[k] = {} if match_key(k, keys_skip_val) else db_read[k]
+        if (not k.startswith("_")) and (not match_key(k, keys_skip_cmp)):
+            value = db_read[k].get("value", {})  # Get the value or empty dictionary if
+
+            for skip_val in keys_skip_val:
+                if match_key(skip_val, value):
+                    value.pop(skip_val)
+            db_write[k] = db_read[k]
 
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
     with open(dst_file, "w") as s:
