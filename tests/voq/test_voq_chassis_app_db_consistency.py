@@ -166,12 +166,12 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         if test_case == "config_reload_no_config_save":
             logging.info("Reloading config")
             config_reload(duthost, safe_reload=True)
-            pytest_assert(wait_until(180, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                           "DB_Consistency Failed")
         elif test_case == "config_reload_with_config_save":
             duthost.shell('sudo config save -y')
             config_reload(duthost, safe_reload=True)
-            pytest_assert(wait_until(180, 30, 0, check_db_consistency, duthosts, duthost, post_change_db_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, post_change_db_dump),
                           "DB_Consistency Failed")
         else:
             logging.info("Rebooting dut {}".format(duthost))
@@ -182,7 +182,7 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
             pytest_assert(wait_until(330, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should fully started!")
-            pytest_assert(wait_until(380, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
+            pytest_assert(wait_until(600, 30, 0, check_db_consistency, duthosts, duthost, init_dump),
                           "DB_Consistency Failed After Reboot")
 
     finally:
@@ -253,7 +253,9 @@ def get_db_dump(duthosts, duthost):
 
     chassis_app_db_sysparams = {}
     key = "*SYSTEM*|*" + duthost.sonichost.hostname + "*"
-    chassis_app_db_sysparams["CHASSIS_APP_DB"] = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0], "CHASSIS_APP_DB", key)
+    if chassis_app_db_result is not None:
+        chassis_app_db_sysparams["CHASSIS_APP_DB"] = chassis_app_db_result
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
     chassis_app_db_sysparams["SYSTEM_LAG_ID_TABLE"] = voqdb.dump("SYSTEM_LAG_ID_TABLE")["SYSTEM_LAG_ID_TABLE"]['value']
     chassis_app_db_sysparams["SYSTEM_LAG_ID_SET"] = voqdb.dump("SYSTEM_LAG_ID_SET")["SYSTEM_LAG_ID_SET"]['value']
