@@ -182,8 +182,6 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
-    parser.addoption("--log_dir", action="store", default=None,
-                     help="Log dir name, can be used to put specific logs in a separate directory")
 
     ############################
     #   macsec options         #
@@ -767,6 +765,8 @@ def creds_on_dut(duthost):
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
+
+    creds["ansible_altpasswords"] = []
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
