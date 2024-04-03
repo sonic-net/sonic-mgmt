@@ -119,7 +119,8 @@ scan_dbs = {
                 "PORT_TABLE"
             },
             "keys_skip_val_comp": {
-                "last_up_time"
+                "last_up_time",
+                "flap_count"
             }
         }
     }
