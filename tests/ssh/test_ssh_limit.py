@@ -152,14 +152,14 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     local_user_password = tacacs_creds['local_user_passwd']
 
     # Create multiple login session to test maxlogins limit, first session will success
-    ssh_session_1 = paramiko_ssh(ip_address=dut_ip, username=local_user, passwords=local_user_password)
+    ssh_session_1 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_1 = get_login_result(ssh_session_1)
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1)
 
     # The second session will be disconnect by device
-    ssh_session_2 = paramiko_ssh(ip_address=dut_ip, username=local_user, passwords=local_user_password)
+    ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
     logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))

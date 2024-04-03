@@ -1112,7 +1112,7 @@ def capture_and_check_packet_on_dut(
         duthost.file(path=pcap_save_path, state="absent")
 
 
-def paramiko_ssh(ip_address, username, passwords):
+def _paramiko_ssh(ip_address, username, passwords):
     """
     Connect to the device via ssh using paramiko
     Args:
@@ -1144,3 +1144,11 @@ def paramiko_ssh(ip_address, username, passwords):
             raise e
     logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ip_address))
     raise paramiko.AuthenticationException
+
+
+def paramiko_ssh(ip_address, username, passwords):
+    try:
+        ssh, pwd = _paramiko_ssh(ip_address, username, passwords)
+        return ssh
+    except Exception as e:
+        raise e
