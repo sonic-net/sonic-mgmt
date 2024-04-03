@@ -5,6 +5,7 @@ from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
 from tests.tacacs.test_ro_user import ssh_remote_run
+from tests.ntp.test_ntp import run_ntp
 from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
@@ -15,6 +16,11 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs')
 ]
+
+
+def pytest_generate_tests(metafunc):
+    if "ptf_use_ipv6" in metafunc.fixturenames:
+        metafunc.parametrize("ptf_use_ipv6", [True], scope="module")
 
 
 @pytest.fixture(autouse=True)
@@ -129,3 +135,8 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
+
+
+def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
+                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
+    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
