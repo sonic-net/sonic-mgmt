@@ -30,7 +30,7 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
     retry_count = 3
     while retry_count > 0:
         try:
-            return paramiko_ssh(username=remote_username, passwords=remote_password, ipaddr=remote_ip)
+            return paramiko_ssh(ip_address=remote_ip, username=remote_username, passwords=remote_password)
         except paramiko.ssh_exception.AuthenticationException as e:
             logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
 
@@ -45,7 +45,7 @@ def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthos
 def check_ssh_connect_remote_failed(remote_ip, remote_username, remote_password):
     login_failed = False
     try:
-        paramiko_ssh(username=remote_username, passwords=remote_password, ipaddr=remote_ip)
+        paramiko_ssh(ip_address=remote_ip, username=remote_username, passwords=remote_password)
     except paramiko.ssh_exception.AuthenticationException as e:
         login_failed = True
         logger.info("Paramiko SSH connect failed with authentication: " + repr(e))

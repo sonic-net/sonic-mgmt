@@ -65,9 +65,9 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
     sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
         "ansible_altpassword")
     # Duthost shell not support run command with J2 template in command text.
-    admin_session = paramiko_ssh(username=creds['sonicadmin_user'],
+    admin_session = paramiko_ssh(ip_address=dut_ip, username=creds['sonicadmin_user'],
                                  passwords=[creds['sonicadmin_password'], sonic_admin_alt_password]
-                                 + creds["ansible_altpasswords"], ipaddr=dut_ip)
+                                 + creds["ansible_altpasswords"])
 
     # Backup and change /usr/share/sonic/templates/pam_limits.j2
     additional_content = "session  required  pam_limits.so"
@@ -152,14 +152,14 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
     local_user_password = tacacs_creds['local_user_passwd']
 
     # Create multiple login session to test maxlogins limit, first session will success
-    ssh_session_1 = paramiko_ssh(username=local_user, passwords=local_user_password, ipaddr=dut_ip)
+    ssh_session_1 = paramiko_ssh(ip_address=dut_ip, username=local_user, passwords=local_user_password)
     login_message_1 = get_login_result(ssh_session_1)
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1)
 
     # The second session will be disconnect by device
-    ssh_session_2 = paramiko_ssh(username=local_user, passwords=local_user_password, ipaddr=dut_ip)
+    ssh_session_2 = paramiko_ssh(ip_address=dut_ip, username=local_user, passwords=local_user_password)
     login_message_2 = get_login_result(ssh_session_2)
 
     logging.debug("Login session 2 result:\n{0}\n".format(login_message_2))
