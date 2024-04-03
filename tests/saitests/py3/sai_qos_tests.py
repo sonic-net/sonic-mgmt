@@ -3746,8 +3746,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
-                    hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 pkts_num_leak_out = 0
 
             if asic_type == 'cisco-8000':
@@ -3780,8 +3779,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                                    port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                    xmit_counters_base, self, src_port_id, pkt, 10)
 
-            if hwsku == 'Arista-7050CX3-32S-D48C8' or hwsku == 'Arista-7050CX3-32S-C32' or \
-                    hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
                 xmit_counters, queue_counters = sai_thrift_read_port_counters(
                     self.dst_client, asic_type, port_list['dst'][dst_port_id])
                 actual_pkts_num_leak_out = xmit_counters[TRANSMITTED_PKTS] - xmit_counters_base[TRANSMITTED_PKTS]
