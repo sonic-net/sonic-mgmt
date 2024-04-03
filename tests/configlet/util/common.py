@@ -104,7 +104,10 @@ scan_dbs = {
                 # BUFFER_PG.*3-4 is an auto created entry by buffermgr
                 # configlet skips it. So skip verification too.
                 "BUFFER_PG_TABLE:Ethernet[0-9][0-9]*:3-4"},
-            "keys_skip_val_comp": set()
+            "keys_skip_val_comp": {
+                "last_up_time",
+                "flap_count"
+            }
         },
         "state-db": {
             "db_no": 6,
@@ -118,10 +121,7 @@ scan_dbs = {
             "keys_to_skip_comp": {
                 "PORT_TABLE"
             },
-            "keys_skip_val_comp": {
-                "last_up_time",
-                "flap_count"
-            }
+            "keys_skip_val_comp": set()
         }
     }
 
