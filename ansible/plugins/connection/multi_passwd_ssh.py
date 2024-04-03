@@ -1,3 +1,4 @@
+import hashlib
 import imp
 import logging
 import os
@@ -63,7 +64,11 @@ def _password_retry(func):
             self.set_option("password", conn_password)
             self._play_context.password = conn_password
             try:
-                return func(self, *args, **kwargs)
+                results = func(self, *args, **kwargs)
+                if "current_password_hash" not in self._options:
+                    digest = hashlib.sha256(conn_password.encode()).hexdigest()
+                    self.set_option("current_password_hash", digest)
+                return results
             except AnsibleAuthenticationFailure:
                 # if there is no more altpassword to try, raise
                 if not conn_passwords:
