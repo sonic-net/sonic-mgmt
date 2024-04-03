@@ -39,6 +39,22 @@ def dump_gnmi_log(duthost):
     logger.info("GNMI log: " + res['stdout'])
 
 
+def dump_system_status(duthost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
+    res = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI process: " + res['stdout'])
+    dut_command = "docker exec %s date" % (env.gnmi_container)
+    res = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("System time: " + res['stdout'] + res['stderr'])
+
+
+def verify_tcp_port(localhost, ip, port):
+    command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
+    res = localhost.shell(command, module_ignore_errors=True)
+    logger.info("TCP: " + res['stdout'] + res['stderr'])
+
+
 def apply_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Stop all running program
@@ -67,6 +83,7 @@ def apply_cert_config(duthost):
         # Dump tcp port status and gnmi log
         logger.info("TCP port status: " + output['stdout'])
         dump_gnmi_log(duthost)
+        dump_system_status(duthost)
         pytest.fail("Failed to start gnmi server")
 
 
@@ -96,6 +113,8 @@ def gnmi_capabilities(duthost, localhost):
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        verify_tcp_port(localhost, ip, port)
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -116,6 +135,8 @@ def gnmi_set(duthost, localhost, delete_list, update_list, replace_list):
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        verify_tcp_port(localhost, ip, port)
         return -1, output['stderr']
     else:
         return 0, output['stdout']
@@ -132,6 +153,8 @@ def gnmi_get(duthost, localhost, path_list):
     output = localhost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         dump_gnmi_log(duthost)
+        dump_system_status(duthost)
+        verify_tcp_port(localhost, ip, port)
         return -1, [output['stderr']]
     else:
         msg = output['stdout'].replace('\\', '')

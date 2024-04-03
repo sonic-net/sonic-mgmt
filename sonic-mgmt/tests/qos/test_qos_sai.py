@@ -138,8 +138,6 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-D48C8'
     ]
 
-    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
-
     @pytest.fixture(scope='function')
     def change_port_speed(
             self, request, ptfhost, duthosts, dutTestParams, fanouthosts, dutConfig, tbinfo,
@@ -790,7 +788,8 @@ class TestQosSai(QosSaiBase):
         if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
             pytest.skip("No enough test ports on this DUT")
 
-        if not dutConfig['dualTor']:
+        # run 4 pgs and 4 dscps test for dualtor and T1 dualtor scenario
+        if not dutConfig['dualTor'] and not dutConfig['dualTorScenario']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 

@@ -287,7 +287,10 @@ def run_traffic(duthost,
         exp_dur_sec (int): experiment duration in second
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
-        per-flow statistics (list)
+        flow_metrics (snappi metrics object): per-flow statistics from TGEN (right after flows end)
+        switch_device_results (dict): statistics from DUT on both TX and RX and per priority
+        in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
+                                                        (right before flows end)
     """
 
     api.set_config(config)
@@ -301,6 +304,7 @@ def run_traffic(duthost,
     switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
     switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
+    in_flight_flow_metrics = None
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Starting packet capture ...")
@@ -326,7 +330,7 @@ def run_traffic(duthost,
         exp_dur_sec = exp_dur_sec + ANSIBLE_POLL_DELAY_SEC  # extra time to allow for device polling
         poll_freq_sec = int(exp_dur_sec / 10)
 
-        for _ in range(10):
+        for poll_iter in range(10):
             for lossless_prio in switch_tx_lossless_prios:
                 switch_device_results["tx_frames"][lossless_prio].append(get_egress_queue_count(duthost, switch_tx_port,
                                                                                                 lossless_prio)[0])
@@ -334,9 +338,21 @@ def run_traffic(duthost,
                                                                                                 lossless_prio)[0])
             time.sleep(poll_freq_sec)
 
+            if poll_iter == 5:
+                logger.info("Polling TGEN for in-flight traffic statistics...")
+                in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+                flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
+                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
+                logger.info("In-flight TX frames: {}".format(tx_frames))
+                logger.info("In-flight RX frames: {}".format(rx_frames))
         logger.info("DUT polling complete")
     else:
-        time.sleep(exp_dur_sec)  # no polling required
+        time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
+        logger.info("Polling TGEN for in-flight traffic statistics...")
+        in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
+        time.sleep(exp_dur_sec*(3/5))
 
     attempts = 0
     max_attempts = 20
@@ -379,7 +395,7 @@ def run_traffic(duthost,
     ts.state = ts.STOP
     api.set_transmit_state(ts)
 
-    return flow_metrics, switch_device_results
+    return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
 def verify_pause_flow(flow_metrics,

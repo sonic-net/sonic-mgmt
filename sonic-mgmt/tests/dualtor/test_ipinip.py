@@ -29,7 +29,8 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder          # no
 from tests.common.fixtures.ptfhost_utils import run_garp_service            # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
 from tests.common.utilities import dump_scapy_packet_show_output
-
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -259,10 +260,25 @@ def setup_mirror_session(rand_selected_dut, setup_uplink):
     rand_selected_dut.shell(cmd=cmd)
 
 
+@pytest.fixture
+def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unselected_dut,
+                            config_active_active_dualtor_active_standby, tbinfo,              # noqa F811
+                            validate_active_active_dualtor_setup):                         # noqa F811
+    # As the test case test_encap_with_mirror_session is to verify the bounced back traffic, we need
+    # to make dualtor active-active work in active-standby mode.
+    if active_active_ports:
+        logger.info("Configuring {} as active".format(rand_unselected_dut.hostname))
+        logger.info("Configuring {} as standby".format(rand_selected_dut.hostname))
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+
+    return
+
+
 @pytest.mark.disable_loganalyzer
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
+                                   setup_active_active_ports,                               # noqa F811
                                    tunnel_traffic_monitor):                                 # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
