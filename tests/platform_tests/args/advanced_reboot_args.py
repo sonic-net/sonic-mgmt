@@ -149,3 +149,8 @@ def add_advanced_reboot_args(parser):
         "sad(3h45m), multi_sad(5h), sad_bgp(1h5m), sad_lag_member(1h15m), sad_lag(1h15m), " +
         "sad_vlan_port(1h10m), sad_inboot(1h20m)",
         )
+
+    parser.addoption(
+        "--enable_cpa",
+        action="store_true",
+        help="Enable control-plane assistant (only applicable for warm upgrade)")
