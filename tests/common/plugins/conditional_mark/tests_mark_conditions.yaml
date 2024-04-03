@@ -1331,6 +1331,10 @@ span/test_port_mirroring.py:
 #######################################
 #####             ssh             #####
 #######################################
+ssh/test_ssh_default_password:
+  skip:
+    reason: "Skip because the default password test is no longer appropriate after password rotation."
+
 ssh/test_ssh_stress.py::test_ssh_stress:
   # This test is not stable, skip it for now.
   # known issue: https://github.com/paramiko/paramiko/issues/1508
