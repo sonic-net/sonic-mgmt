@@ -27,8 +27,7 @@ spine0:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY
@@ -81,8 +80,7 @@ spine1:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
@@ -147,8 +145,7 @@ leaf0:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY
@@ -212,8 +209,7 @@ leaf1:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY

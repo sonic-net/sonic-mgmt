@@ -29,8 +29,7 @@ spine0:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor 10.200.200.200 peer-group OVERLAY
         neighbor 10.200.200.201 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
@@ -84,8 +83,7 @@ leaf0:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor 10.200.200.201 peer-group OVERLAY
         neighbor 10.200.200.210 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
@@ -195,8 +193,7 @@ leaf1:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT bfd
-        neighbor TRANSIT ebgp-multihop 255
+        neighbor TRANSIT ebgp-multihop 1
         neighbor 10.200.200.200 peer-group OVERLAY
         neighbor 10.200.200.210 peer-group OVERLAY
         neighbor Ethernet12 interface peer-group TRANSIT
