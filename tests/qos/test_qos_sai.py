@@ -809,11 +809,11 @@ class TestQosSai(QosSaiBase):
             src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
             if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
                 # Src and dst are the same asics, leave one for dst port and the rest for src ports
-                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[:-1]
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[0:9]
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
                 qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
             else:
-                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports
+                qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[0:9]
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]
                 qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
 
@@ -837,7 +837,10 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": qosConfig["pkts_num_leak_out"],
             "pkts_num_hdrm_full": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_full"],
             "pkts_num_hdrm_partial": qosConfig["hdrm_pool_size"]["pkts_num_hdrm_partial"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku":dutTestParams['hwsku'],
+            "src_port_vlan": [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
+                              if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port] else None
+                              for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
