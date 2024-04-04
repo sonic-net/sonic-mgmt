@@ -1,5 +1,17 @@
 # System Banner Messages Test Plan
 
+
+- [Overview](#overview)
+    - [Scope](#scope)
+    - [Scale/Performance](#scale--performance)
+    - [Related DUT CLI commands](#related-dut-cli-commands)
+    - [Supported Topology](#supported-topology)
+- [Test cases](#test-cases)
+    - [Test case \#1](#test-case-1----configure-login-banner-messageset)
+    - [Test case \#2](#test-case-2----configure-motd-banner-messageset)
+    - [Test case \#3](#test-case-3----configure-logout-banner-messageset)
+- [Open Questions](#open-questions)
+
 ## Related documents
 
 | **Document Name** | **Link** |
@@ -27,7 +39,7 @@ The test is to verify the System Banner Messages functionality
 
 No scale/performance test involved in this test plan
 
-### Related **DUT** CLI commands
+### Related DUT CLI commands
 ```
 User interface:
 
@@ -47,9 +59,9 @@ The tests will be supported on any topology.
 
 ## Test Cases
 
-### Test cases \#1 -  Configure login banner message:set
+### Test case \#1 -  Configure login banner message:set
 
-### Test Objective
+#### Test Objective
 
 Verify the set command for system login banner message which comes with the login prompt
 
@@ -75,9 +87,9 @@ Welcome to Sonic CLI
 admin@10.7.144.30's password:
 ```
 
-### Test cases \#2 -  Configure motd banner message:set
+### Test case \#2 -  Configure motd banner message:set
 
-### Test Objective
+#### Test Objective
 
 Verify the set command for system 'message of the day banner' message which comes after
 the login prompt
@@ -105,9 +117,9 @@ admin@10.7.144.30's password:
 You are on SONIC
 ```
 
-### Test cases \#3 -  Configure logout banner message:set
+### Test case \#3 -  Configure logout banner message:set
 
-### Test Objective
+#### Test Objective
 
 Verify the command for set of system logout banner message which comes after logout
 
@@ -133,5 +145,5 @@ Good Bye
 Connection to 10.7.144.28 closed.
 ```
 
-### Open Questions
+## Open Questions
 
