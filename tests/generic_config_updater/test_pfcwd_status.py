@@ -124,14 +124,24 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     """
     output = duthost.command('show pfcwd config')
     pytest_assert('Ethernet' in output['stdout'], 'No ports found in the pfcwd config')
+    # Get lossless priorities from config facts
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    port_qos_map = config_facts.get("PORT_QOS_MAP", {})
+
+    if len(list(port_qos_map.keys())) == 0:
+        return []
 
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
         if line.strip().startswith('Ethernet'):
             port, action, detect, restore = line.split()
+            lossless_priorities = []
+            if port in port_qos_map:
+                lossless_priorities = [int(x) for x in port_qos_map[port].get('pfc_enable', '').split(',')]
             pfcwd_config.update({port: {'action': action,
                                         'detect_time': detect,
-                                        'restore_time': restore}})
+                                        'restore_time': restore,
+                                        'lossless_priorities': lossless_priorities}})
 
     yield pfcwd_config
 
@@ -225,10 +235,7 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
     """
     pfcwd_config = extract_pfcwd_config
 
-    if port == 'single':
-        expected_count = 3
-    else:
-        expected_count = len(pfcwd_config) * 3
+    expected_count = 0
     json_patch = list()
     exp_str = 'Ethernet'
     op = 'add'
@@ -242,7 +249,10 @@ def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_p
                                         'restoration_time': value['restore_time']}}])
         if port == 'single':
             exp_str = interface
+            expected_count = len(value['lossless_priorities']) + 1  # 1 for the port and 1 for each lossless priority
             break
+        else:
+            expected_count += len(value['lossless_priorities']) + 1  # 1 for the port and 1 for each lossless priority
 
     try:
         tmpfile = generate_tmpfile(duthost)
