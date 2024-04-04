@@ -325,6 +325,7 @@ def setup_active_active_as_active_standby(
 
     return
 
+
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             active_active_ports,                                                         # noqa F811
                             rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m,
