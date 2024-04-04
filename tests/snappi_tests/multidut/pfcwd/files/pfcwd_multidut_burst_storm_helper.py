@@ -1,7 +1,6 @@
 import time
 from math import ceil
 import logging
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
@@ -108,7 +107,8 @@ def run_pfcwd_burst_storm_test(api,
 
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
-                     pause_flow_prefix=PAUSE_FLOW_PREFIX)
+                     pause_flow_prefix=PAUSE_FLOW_PREFIX,
+                     duthosts=[duthost1, duthost2])
 
 
 def __gen_traffic(testbed_config,
@@ -302,7 +302,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     return rows
 
 
-def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
+def __verify_results(rows, data_flow_prefix, pause_flow_prefix, duthosts):
     """
     Verify if we get expected experiment results
 
@@ -310,10 +310,12 @@ def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
         rows (list): per-flow statistics
         data_flow_prefix (str): prefix of names of data flows
         pause_flow_prefix (str): prefix of names of PFC pause storms
+        duthosts (list): list of duthost instances
 
     Returns:
         N/A
     """
+    logger.info([duthost.command('show pfcwd stats')['stdout_lines'] for duthost in duthosts])
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
