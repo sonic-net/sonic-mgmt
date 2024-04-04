@@ -128,9 +128,6 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     port_qos_map = config_facts.get("PORT_QOS_MAP", {})
 
-    if len(list(port_qos_map.keys())) == 0:
-        return []
-
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
         if line.strip().startswith('Ethernet'):
