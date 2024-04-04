@@ -231,6 +231,11 @@ r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
 r, ".*ERR kernel: \[.*\] firmware_class: See https:\/\/wiki.debian.org\/Firmware for information about missing firmware.*"
 r, ".*ERR kernel: \[.*\] snd_hda_intel.*no codecs found!.*"
 
+# https://msazure.visualstudio.com/One/_workitems/edit/26734952
+# https://msazure.visualstudio.com/One/_workitems/edit/27214953
+r, ".* ERR syncd#syncd.* SAI_API_QUEUE:_brcm_sai_cosq_stat_get.* Bulk read not supported.*"
+r, ".* ERR syncd#syncd.* SAI_API_SWITCH:sai_bulk_object_get_stats.* get bulk queue stats failed.*"
+
 #Cisco platform ignore messages
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_0 is not ready.*"
 r, ".* ERR .*-E-PVT-0- get_temperature: sensor=GIBRALTAR_HBM_SENSOR_1 is not ready.*"
