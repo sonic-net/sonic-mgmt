@@ -111,4 +111,3 @@ def check_fabric_link_status(host, asicName, port, state):
         return True
     else:
         return False
-
