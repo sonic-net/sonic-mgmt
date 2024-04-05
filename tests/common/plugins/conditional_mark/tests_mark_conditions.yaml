@@ -1465,7 +1465,7 @@ voq/test_voq_fabric_isolation.py:
   skip:
     reason: "Skip test_voq_fabric_isolation on unsupported testbed."
     conditions:
-      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx'])"
 
 voq/test_voq_fabric_status_all.py:
   skip:
