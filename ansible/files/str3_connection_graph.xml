@@ -4007,6 +4007,20 @@
       <PowerControlLinkInfo EndDevice="str3-s6100-acs-6" EndPort="PSU2" StartDevice="pdu-97" StartPort="31"/>
       <PowerControlLinkInfo EndDevice="str3-s6100-acs-7" EndPort="PSU1" StartDevice="pdu-96" StartPort="35"/>
       <PowerControlLinkInfo EndDevice="str3-s6100-acs-7" EndPort="PSU2" StartDevice="pdu-97" StartPort="35"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-02" EndPort="PSU1" StartDevice="pdu-115" StartPort="26"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-02" EndPort="PSU2" StartDevice="pdu-116" StartPort="26"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-02" EndPort="PSU1" StartDevice="pdu-115" StartPort="25"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-02" EndPort="PSU2" StartDevice="pdu-116" StartPort="25"/>
+      <PowerControlLinkInfo EndDevice="str3-s6100-acs-8" EndPort="PSU1" StartDevice="pdu-115" StartPort="27"/>
+      <PowerControlLinkInfo EndDevice="str3-s6100-acs-8" EndPort="PSU2" StartDevice="pdu-115" StartPort="28"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-03" EndPort="PSU1" StartDevice="pdu-103" StartPort="34"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-03" EndPort="PSU2" StartDevice="pdu-102" StartPort="34"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-03" EndPort="PSU1" StartDevice="pdu-103" StartPort="33"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-03" EndPort="PSU2" StartDevice="pdu-102" StartPort="33"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-04" EndPort="PSU1" StartDevice="pdu-93" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-04" EndPort="PSU2" StartDevice="pdu-94" StartPort="22"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-04" EndPort="PSU1" StartDevice="pdu-92" StartPort="10"/>
+      <PowerControlLinkInfo EndDevice="str3-msn4700-fanout-04" EndPort="PSU2" StartDevice="pdu-94" StartPort="27"/>
     </PowerControlLinksInfo>
   </PowerControlGraphDeclaration>
 </LabConnectionGraph>
