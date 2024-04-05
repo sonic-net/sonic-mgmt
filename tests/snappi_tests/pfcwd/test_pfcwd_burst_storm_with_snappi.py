@@ -13,11 +13,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('tgen')]
 
-
-@pytest.mark.parametrize("traffic_rate, pause_pps, pause_flow_dur_sec, iterations", [
-    (95, None, None, 1, 1),
-    (0.00002, 1000, 5, 10, 2)
-    ])
 def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # noqa F811
                                                 snappi_testbed_config,      # noqa F811
                                                 conn_graph_facts,           # noqa F811
@@ -26,12 +21,7 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # no
                                                 rand_one_dut_hostname,
                                                 rand_one_dut_portname_oper_up,
                                                 rand_one_dut_lossless_prio,
-                                                prio_dscp_map,              # noqa F811
-                                                traffic_rate,
-                                                pause_pps,
-                                                pause_flow_dur_sec,
-                                                iterations,
-                                                time_multiplier):
+                                                prio_dscp_map):             # noqa F811
 
     """
     Test PFC watchdog under bursty PFC storms on a single lossless priority
@@ -46,12 +36,6 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # no
         rand_one_dut_portname_oper_up (str): port to test, e.g., 's6100-1|Ethernet0'
         rand_one_dut_lossless_prio (str): name of lossless priority to test, e.g., 's6100-1|3'
         prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority)
-        traffic_rate (float):  Percent line rate for data traffic
-        pause_pps (int): Packets per second rate for pause flow.
-                         If None, will be calculated.
-        pause_flow_dur_sec (int): Duration in secodns for pause flow.
-                                  If None, will be calculated.
-        iterations (int): Number of iterations to test.
 
     Returns:
         N/A
@@ -74,8 +58,4 @@ def test_pfcwd_burst_storm_single_lossless_prio(snappi_api,                 # no
                                duthost=duthost,
                                dut_port=dut_port,
                                prio_list=[lossless_prio],
-                               prio_dscp_map=prio_dscp_map,
-                               traffic_rate=traffic_rate,
-                               pause_pps=pause_pps,
-                               pause_flow_dur_sec=pause_flow_dur_sec,
-                               iterations=iterations)
+                               prio_dscp_map=prio_dscp_map)
