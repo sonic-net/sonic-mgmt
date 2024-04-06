@@ -3,6 +3,10 @@ import time
 import yaml
 import pytest
 from spytest import st
+from spytest import st, SpyTestDict
+
+data = SpyTestDict()
+data.config_vrfs = []
 
 pytest.fixture(scope='module', autouse=True)
 def box_service_module_hooks(request):
@@ -68,7 +72,7 @@ def config_static(node, config_domain, add=True):
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture()
 def setup_teardown_l3vni():
     vars = st.get_testbed_vars()
 
@@ -102,6 +106,11 @@ def setup_teardown_l3vni():
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
             config_static(node, 'sonic', add=False)
+
+    for vrf in data.config_vrfs:
+        config_vrf(nodes['leaf0'], vrf, add=False)
+        config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs.clear()
 
     '''
     vars = st.get_testbed_vars()
@@ -144,7 +153,6 @@ def config_vrf(node, vrf, add=True):
 
     st.config(node, config, skip_error_check=False, conf=True)
 
-
 def config_vxlan_map(node, vxlan, vni, vrf=None, vlan=None, add=True):
     config = ''
     if add:
@@ -163,7 +171,7 @@ def config_vxlan_map(node, vxlan, vni, vrf=None, vlan=None, add=True):
 @pytest.mark.system_box
 @pytest.mark.community
 @pytest.mark.community_pass
-def test_l3vni_basic_config():
+def test_l3vni_basic_config(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -284,15 +292,14 @@ def test_l3vni_basic_config():
     '''
     a. delete vrf
     '''
-    config_vrf(nodes['leaf0'], vrf, add=False)
-    config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs.append(vrf)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])
     st.report_pass('test_case_passed', nodes['spine0'])
     st.report_pass('test_case_passed', nodes['spine1'])
 
-def test_l3vni_multiple_vni():
+def test_l3vni_multiple_vni(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -425,8 +432,7 @@ def test_l3vni_multiple_vni():
     a. del vrf
     '''
     for vrf, value in vrfs.items():
-        config_vrf(nodes['leaf0'], vrf, add=False)
-        config_vrf(nodes['leaf1'], vrf, add=False)
+        data.config_vrfs.append(vrf)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])
@@ -434,7 +440,7 @@ def test_l3vni_multiple_vni():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_remove_add_bgp():
+def test_l3vni_remove_add_bgp(setup_teardown_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -656,8 +662,7 @@ def test_l3vni_remove_add_bgp():
     '''
     a. delete vrf
     '''
-    config_vrf(nodes['leaf0'], vrf, add=False)
-    config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs.append(vrf)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])

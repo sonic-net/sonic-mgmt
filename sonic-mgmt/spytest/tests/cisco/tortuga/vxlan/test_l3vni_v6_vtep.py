@@ -2,8 +2,11 @@ import os
 import time
 import yaml
 import pytest
-from spytest import st
+from spytest import st, SpyTestDict
 import vxlan_utils as vu
+
+data = SpyTestDict()
+data.config_vrfs = []
 
 pytest.fixture(scope='module', autouse=True)
 def box_service_module_hooks(request):
@@ -69,7 +72,7 @@ def config_static(node, config_domain, add=True):
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture()
 def setup_teardown_v6_l3vni():
     vars = st.get_testbed_vars()
 
@@ -104,6 +107,10 @@ def setup_teardown_v6_l3vni():
             config_static(node, 'bgp', add=False)
             config_static(node, 'sonic', add=False)
 
+    for vrf in data.config_vrfs:
+        vu.config_vrf(nodes['leaf0'], vrf, add=False)
+        vu.config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs.clear()
 
 def configure_and_validate_basic_l3vni(overlay_afamily):
     vars = st.get_testbed_vars()
@@ -258,12 +265,11 @@ def deconfigure_basic_l3vni(overlay_afamily):
     '''
     a. delete vrf
     '''
-    vu.config_vrf(nodes['leaf0'], vrf, add=False)
-    vu.config_vrf(nodes['leaf1'], vrf, add=False)
+    data.config_vrfs.append(vrf)
 
 
 # v6 over v6 tests
-def test_l3vni_v6_v6_vtep_basic_config():
+def test_l3vni_v6_v6_vtep_basic_config(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -284,7 +290,7 @@ def test_l3vni_v6_v6_vtep_basic_config():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_multiple_vni():
+def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -417,8 +423,7 @@ def test_l3vni_v6_v6_vtep_multiple_vni():
     a. del vrf
     '''
     for vrf, value in vrfs.items():
-        vu.config_vrf(nodes['leaf0'], vrf, add=False)
-        vu.config_vrf(nodes['leaf1'], vrf, add=False)
+        data.config_vrfs.append(vrf)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])
@@ -426,7 +431,7 @@ def test_l3vni_v6_v6_vtep_multiple_vni():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_remove_add_bgp():
+def test_l3vni_v6_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -558,7 +563,7 @@ def test_l3vni_v6_v6_vtep_remove_add_bgp():
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_port_flap():
+def test_l3vni_v6_v6_vtep_port_flap(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -659,7 +664,7 @@ def test_l3vni_v6_v6_vtep_port_flap():
 # a temporary work around till the time parameterization is actually made to work.
 # TODO: As noted in skip reason, test cases fail due to a zebra crash, we need to get a handle on that.
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_basic_config():
+def test_l3vni_v4_v6_vtep_basic_config(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -681,7 +686,7 @@ def test_l3vni_v4_v6_vtep_basic_config():
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_multiple_vni():
+def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -814,8 +819,7 @@ def test_l3vni_v4_v6_vtep_multiple_vni():
     a. del vrf
     '''
     for vrf, value in vrfs.items():
-        vu.config_vrf(nodes['leaf0'], vrf, add=False)
-        vu.config_vrf(nodes['leaf1'], vrf, add=False)
+        data.config_vrfs.append(vrf)
 
     st.report_pass('test_case_passed', nodes['leaf0'])
     st.report_pass('test_case_passed', nodes['leaf1'])
@@ -824,7 +828,7 @@ def test_l3vni_v4_v6_vtep_multiple_vni():
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_remove_add_bgp():
+def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -957,7 +961,7 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp():
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_port_flap():
+def test_l3vni_v4_v6_vtep_port_flap(setup_teardown_v6_l3vni):
     vars = st.get_testbed_vars()
 
     nodes = {}
