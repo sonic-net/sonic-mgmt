@@ -2982,6 +2982,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         sys.stderr.write('{}\n{}\n'.format(banner, port_cnt_tbl))
 
     def runTest(self):
+        asic_type = self.test_params['sonic_asic_type']
+        hwsku = self.test_params['hwsku']
         margin = self.test_params.get('margin')
         if not margin:
             margin = 0
@@ -3066,8 +3068,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 if check_leackout_compensation_support(asic_type, hwsku):
                     dynamically_compensate_leakout(self.dst_client, asic_type,
                                                    sai_thrift_read_port_counters,
-                                                   port_list['dst'][self.src_dst[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]]],
-                                                   TRANSMITTED_PKTS,
+                                                   port_list['dst'][self.src_dst[
+                                                       self.src_port_ids[sidx_dscp_pg_tuples[i][0]]]], TRANSMITTED_PKTS,
                                                    xmit_counters_bases[self.uniq_dst_ports.index(
                                                        self.src_dst[self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])],
                                                    self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
