@@ -48,6 +48,9 @@ class TestFaultHandling():
                 except AssertionError as e:
                     if retry == 0:
                         raise e
+                    # This test may fail due to the lag of DUT exceeding MKA_TIMEOUT that triggers a rekey.
+                    # To mitigate this, retry the test after a while with a few seconds of idle time.
+                    sleep(30)
                 dut_egress_sa_table_orig, dut_ingress_sa_table_orig = dut_egress_sa_table_new, dut_ingress_sa_table_new
 
         # Flap > 6 seconds but < 90 seconds
