@@ -53,6 +53,7 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
                 ".*'vnetRouteCheck' status failed.*",
                 ".*Vnet Route Mismatch reported.*",
                 ".*_M_construct null not valid.*",
+                ".*basic_string: construction from null is not valid.*"
             ])
     return
 
