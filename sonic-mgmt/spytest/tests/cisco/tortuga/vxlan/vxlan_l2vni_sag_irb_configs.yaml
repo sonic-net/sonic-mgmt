@@ -18,7 +18,8 @@ spine0:
         bgp bestpath as-path multipath-relax
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
@@ -53,7 +54,8 @@ spine1:
         bgp bestpath as-path multipath-relax
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
         address-family ipv4 unicast
@@ -143,7 +145,8 @@ leaf0:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
         neighbor 10.200.200.201 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
@@ -248,7 +251,8 @@ leaf1:
         neighbor OVERLAY update-source Loopback27
         neighbor TRANSIT peer-group
         neighbor TRANSIT remote-as external
-        neighbor TRANSIT ebgp-multihop 1
+        neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 255
         neighbor 10.200.200.200 peer-group OVERLAY
         neighbor Ethernet0 interface peer-group TRANSIT
         neighbor Ethernet16 interface peer-group TRANSIT
