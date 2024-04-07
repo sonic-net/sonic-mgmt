@@ -139,7 +139,7 @@ devices:
       - churchill
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.10/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.16/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
@@ -181,7 +181,7 @@ devices:
       - churchill
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.10/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.16/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
@@ -223,7 +223,7 @@ devices:
       - churchill
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.10/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.16/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco
@@ -265,7 +265,7 @@ devices:
       - churchill
     vxr_sim_config:
       shelf:
-        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.10/npl
+        ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.85.16/npl
         ConfigS1NpsuiteVer: 1.137.1
     linux_password: cisco123
     linux_username: cisco

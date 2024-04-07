@@ -40,11 +40,34 @@ function cleanup() {
   echo
 }
 
-# Test multi-VNI with single vlan in each VNI.
-# E.g. VNI 5100 - Vlan 10 - one port per leaf + VRF.
-#      VNI 5200 - Vlan 20 - one port per leaf + VRF
+# Tests static anycast gateway.
+# L2VNI 5100 + Vlan10 - one port per leaf; IP = 41.216.0.1/24
+# L2VNI 5200 + Vlan20 - one port per leaf; IP = 41.216.1.1/24
+# L2VNI 5300 + Vlan30 - one port per leaf; IP = 41.216.2.1/24
+# L3VNI 12000000 + VRF-default + [Vlan10, Vlan20, Vlan30, Vlan3600]
+# All hosts should be able to ping each other.
 if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
-  cleanup "multi-vni"
+  cleanup "static-anycast-gateway"
+
+  "${CONFIG_GEN}" \
+    --lldp \
+    --auto \
+    --prefix \
+    --cloud "${CLOUD_URL}" \
+    --fabric "${FABRIC_NAME}" \
+    --pyvxr "${PYVXR_HOST}" \
+    --hosts "${HOST_PORTS}" \
+    --spines "${SPINE_COUNT}" \
+    --leaves "${LEAF_PORTS}" \
+    --tags "${TEST_TAGS},add-sag"
+fi
+
+# Test multi-VNI with single vlan in each VNI.
+# L3VNI 5100 + VRF + Vlan10, Vlan3600 - one port per leaf; IP = 41.216.0.1/24
+# L3VNI 5200 + VRF + Vlan20, Vlan3601 - one port per leaf; IP = 41.216.10.1/24
+# L3VNI 5300 + VRF + Vlan30, Vlan3602 - one port per leaf; IP = 41.216.20.1/24
+if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "l3vni" ]]; then
+  cleanup "multiple-l3vni"
 
   "${CONFIG_GEN}" \
     --lldp \
@@ -57,6 +80,29 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
     --tags "${TEST_TAGS}"
+fi
+
+# Tests static anycast gateway.
+# L2VNI 5100 + Vlan10 - one port per leaf; IP = 41.216.0.1/24
+# L2VNI 5200 + Vlan20 - one port per leaf; IP = 41.216.1.1/24
+# L2VNI 5300 + Vlan30 - one port per leaf; IP = 41.216.2.1/24
+# L3VNI 40000 + VRF + [Vlan10, Vlan20, Vlan30, Vlan3600]
+# All hosts should be able to ping each other.
+if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "sag" ]]; then
+  cleanup "sag-l3vni"
+
+  "${CONFIG_GEN}" \
+    --lldp \
+    --auto \
+    --prefix \
+    --cloud "${CLOUD_URL}" \
+    --fabric "${FABRIC_NAME}" \
+    --pyvxr "${PYVXR_HOST}" \
+    --hosts "${HOST_PORTS}" \
+    --spines "${SPINE_COUNT}" \
+    --leaves "${LEAF_PORTS}" \
+    --sagMac "00:11:22:33:44:55" \
+    --tags "${TEST_TAGS},add-sag,ipv6-l3vni"
 fi
 
 # Test one Vni and multiple Vlans.
@@ -98,41 +144,6 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "one-vlan" ]]; then
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
     --tags "${TEST_TAGS}"
-fi
-
-# Tests static anycast gateway.
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "sag" ]]; then
-  cleanup "anycast-gateway"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --sagMac "00:11:22:33:44:55" \
-    --tags "${TEST_TAGS},add-sag"
-fi
-
-# Tests IPv6 VTEP.
-if [[ "${TEST_NAME}" == "vtep" ]]; then
-  cleanup "ipv6-vtep"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --tags "${TEST_TAGS},vtep-drake"
 fi
 
 end=$(date +%s)
