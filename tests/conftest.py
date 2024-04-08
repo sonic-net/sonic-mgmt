@@ -183,8 +183,6 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
-    parser.addoption("--log_dir", action="store", default=None,
-                     help="Log dir name, can be used to put specific logs in a separate directory")
 
     ###############################
     # SONiC Metadata upgrade test #
@@ -782,6 +780,8 @@ def creds_on_dut(duthost):
         console_login_creds = {}
     else:
         console_login_creds = hostvars["console_login"]
+    creds["console_user"] = {}
+    creds["console_password"] = {}
 
     creds["ansible_altpasswords"] = []
     if "secret_group_vars" in list(hostvars.keys()):
@@ -789,9 +789,6 @@ def creds_on_dut(duthost):
 
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
     creds['sonicadmin_password'] = get_dut_current_passwd(duthost.mgmt_ip, creds['sonicadmin_user'], passwords)
-
-    creds["console_user"] = {}
-    creds["console_password"] = {}
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
