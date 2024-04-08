@@ -94,7 +94,7 @@ class Connection(ConnectionBase):
                 else:
                     raise AnsibleError(
                         "Establish connection to server failed after tried %d times." % max_retries)
-            
+
             # if "'>', '#'" means Passwordless login, no need to send password
             if i in [1, 2]:
                 break
