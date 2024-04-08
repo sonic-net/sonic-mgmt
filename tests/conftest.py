@@ -16,6 +16,7 @@ from ipaddress import ip_interface, IPv4Interface
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
+from tests.common.devices.trex import TRexHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.fanout import FanoutHost
@@ -41,6 +42,7 @@ from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
+from tests.common.utilities import get_group_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
@@ -495,6 +497,18 @@ def ptfhost(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         return PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo, macsec_enabled=request.config.option.enable_macsec)
+
+
+@pytest.fixture(scope="session")
+def trexhost(ansible_adhoc, duthost, get_trex_host):
+    '''
+    Return a TRex connection method.
+    '''
+    if "inventory_hostname_short" in get_trex_host:
+        return TRexHost(ansible_adhoc, duthost, get_trex_host["inventory_hostname_short"],
+                        get_trex_host["ansible_host"])
+    else:
+        return None
 
 
 @pytest.fixture(scope="module")
@@ -1023,6 +1037,15 @@ def get_host_data(request, dut):
     '''
     inv_files = get_inventory_files(request)
     return get_host_vars(inv_files, dut)
+
+
+@pytest.fixture(scope='session')
+def get_trex_host(request):
+    '''
+    This function eturns the TRex connection information present in the inventory
+    '''
+    inv_files = get_inventory_files(request)
+    return get_group_visible_vars(inv_files, "trex")
 
 
 def generate_params_frontend_hostname(request):
