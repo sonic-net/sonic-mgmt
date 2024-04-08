@@ -1,6 +1,8 @@
 import pytest
+import re
 
-from netaddr import valid_ipv6
+from tests.common.utilities import get_mgmt_ipv6
+from tests.common.helpers.assertions import pytest_assert
 from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
@@ -10,6 +12,8 @@ from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.telemetry.conftest import setup_streaming_telemetry # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -48,19 +52,6 @@ def ignore_expected_loganalyzer_exception(loganalyzer):
     if loganalyzer:
         for hostname in loganalyzer.keys():
             loganalyzer[hostname].ignore_regex.extend(ignore_regex)
-
-
-def get_mgmt_ipv6(duthost):
-    config_facts = duthost.get_running_config_facts()
-    mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
-    mgmt_ipv6 = None
-
-    for mgmt_interface, ip_configs in mgmt_interfaces.items():
-        for ip_addr_with_prefix in ip_configs.keys():
-            ip_addr = ip_addr_with_prefix.split("/")[0]
-            if valid_ipv6(ip_addr):
-                mgmt_ipv6 = ip_addr
-    return mgmt_ipv6
 
 
 def test_bgp_facts_ipv6_only(duthosts, enum_frontend_dut_hostname, enum_asic_index,
@@ -135,6 +126,25 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
     res = ssh_remote_run(localhost, dutipv6, tacacs_creds['tacacs_rw_user'],
                          tacacs_creds['tacacs_rw_user_passwd'], "cat /etc/passwd")
     check_output(res, 'testadmin', 'remote_user_su')
+
+
+@pytest.mark.parametrize('setup_streaming_telemetry', [True], indirect=True)
+def test_telemetry_output_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname,
+                                    setup_streaming_telemetry, # noqa F811
+                                    convert_and_restore_config_db_to_ipv6_only): # noqa F811
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    if duthost.is_supervisor_node():
+        pytest.skip(
+            "Skipping test as no Ethernet0 frontpanel port on supervisor")
+    dut_ip = get_mgmt_ipv6(duthost)
+    cmd = "~/gnmi_get -xpath_target COUNTERS_DB -xpath COUNTERS/Ethernet0 -target_addr \
+          [%s]:%s -logtostderr -insecure" % (dut_ip, env.gnmi_port)
+    show_gnmi_out = duthost.shell(cmd)['stdout']
+    result = str(show_gnmi_out)
+    inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+    pytest_assert(inerrors_match is not None,
+                  "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
 
 
 def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,

@@ -8,8 +8,11 @@ from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
-from tests.common.reboot import REBOOT_TYPE_WARM
+from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.utilities import wait_until, setup_ferret
+from tests.platform_tests.verify_dut_health import check_neighbors
 
+SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
@@ -28,7 +31,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture(scope="module")
 def restore_image(localhost, duthosts, rand_one_dut_hostname, upgrade_path_lists, tbinfo):
-    _, _, _, restore_to_image = upgrade_path_lists
+    _, _, _, restore_to_image, _ = upgrade_path_lists
     yield
     duthost = duthosts[rand_one_dut_hostname]
     if restore_to_image:
@@ -167,3 +170,52 @@ def get_copp_cfg_formatted_dict(copp_cfg, feature_status):
     formatted_dict.update({"default": copp_cfg["COPP_GROUP"]["default"]})
     logging.debug("Formatted copp_cfg.json dictionary: {}".format(formatted_dict))
     return formatted_dict
+
+
+def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
+                        tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
+                        sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+
+    reboot_type = get_reboot_command(duthost, upgrade_type)
+    if enable_cpa and "warm-reboot" in reboot_type:
+        # always do warm-reboot with CPA enabled
+        setup_ferret(duthost, ptfhost, tbinfo)
+        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
+        reboot_type = reboot_type + " -c {}".format(ptf_ip)
+
+    advancedReboot = None
+
+    if upgrade_type == REBOOT_TYPE_COLD:
+        # advance-reboot test (on ptf) does not support cold reboot yet
+        if preboot_setup:
+            preboot_setup()
+    else:
+        advancedReboot = get_advanced_reboot(rebootType=reboot_type,
+                                             advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             allow_fail=allow_fail)
+
+    for i in range(reboot_count):
+        if upgrade_type == REBOOT_TYPE_COLD:
+            reboot(duthost, localhost)
+            if postboot_setup:
+                postboot_setup()
+        else:
+            advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list,
+                                             preboot_setup=preboot_setup if i == 0 else None,
+                                             postboot_setup=postboot_setup)
+
+        if not allow_fail:
+            logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
+            networking_uptime = duthost.get_networking_uptime().seconds
+            timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
+            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
+                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                  upgrade_type))
+            check_services(duthost)
+            check_neighbors(duthost, tbinfo)
+            check_copp_config(duthost)
+
+    if enable_cpa and "warm-reboot" in reboot_type:
+        ptfhost.shell('supervisorctl stop ferret')

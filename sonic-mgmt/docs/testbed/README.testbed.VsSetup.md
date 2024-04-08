@@ -125,8 +125,8 @@ In order to configure the testbed on your host automatically, Ansible needs to b
 ```
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
-       ansible_user: use_own_value
-       vm_host_user: foo
+       ansible_user: foo
+       vm_host_user: use_own_value
 ```
 
 2. Modify `/data/sonic-mgmt/ansible/ansible.cfg` to uncomment the two lines:
@@ -175,18 +175,18 @@ index 029ab9a6..e00d3852 100644
 +vm_host_become_password: foo123
 
 diff --git a/ansible/veos_vtb b/ansible/veos_vtb
-index 3e7b3c4e..edabfc40 100644
+index 99727bcf3..2a9c36006 100644
 --- a/ansible/veos_vtb
 +++ b/ansible/veos_vtb
-@@ -258,7 +258,7 @@ vm_host_1:
+@@ -274,7 +274,7 @@ vm_host_1:
+   hosts:
      STR-ACS-VSERV-01:
        ansible_host: 172.17.0.1
-       ansible_user: use_own_value
--      vm_host_user: use_own_value
-+      vm_host_user: foo
+-      ansible_user: use_own_value
++      ansible_user: foo
+       vm_host_user: use_own_value
 
  vms_1:
-   hosts:
 ```
 
 2.  Create a dummy `password.txt` file under `/data/sonic-mgmt/ansible`
@@ -211,7 +211,7 @@ Now we need to spin up some VMs on the host to act as neighboring devices to our
 
 1. Start the VMs:
 ```
-./testbed-cli.sh -m veos_vtb -n 4 start-vms server_1 password.txt
+./testbed-cli.sh -m veos_vtb -n 4 -k veos start-vms server_1 password.txt
 ```
 If you use SONiC image as the neighbor devices (***Not DUT***), you need to add extra parameters `-k vsonic` so that this command is `./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt`. Of course, if you want to stop VMs, you also need to append these parameters after original command.
 
