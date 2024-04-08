@@ -207,7 +207,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo_type)"
 
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
@@ -783,7 +783,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
-ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+ip/test_mgmt_ipv6_only.py:
   skip:
     reason: "Skipping mgmt ipv6 test for mgmt topo"
     conditions:
@@ -1331,6 +1331,10 @@ span/test_port_mirroring.py:
 #######################################
 #####             ssh             #####
 #######################################
+ssh/test_ssh_default_password:
+  skip:
+    reason: "Skip because the default password test is no longer appropriate after password rotation."
+
 ssh/test_ssh_stress.py::test_ssh_stress:
   # This test is not stable, skip it for now.
   # known issue: https://github.com/paramiko/paramiko/issues/1508
@@ -1454,11 +1458,11 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
+    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox and Cisco-8000 setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####             voq             #####
