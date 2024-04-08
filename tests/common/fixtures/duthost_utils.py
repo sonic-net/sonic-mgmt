@@ -719,7 +719,7 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                                                 module_ignore_errors=True)["stdout"])
         # In case device doesn't have SNMP_AGENT_CONFIG: this could happen if
         # DUT is running old image.
-        if snmp_address is None:
+        if not snmp_address:
             logger.info(f"No SNMP_AGENT_ADDRESS_CONFIG found in host[{duthost.hostname}] {config_db_file}, continue.")
             continue
         for key in list(snmp_address):
