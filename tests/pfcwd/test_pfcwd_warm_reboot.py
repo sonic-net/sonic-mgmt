@@ -43,6 +43,7 @@ module_path = 'tests.metadata-scripts.test_metadata_upgrade_path'
 upgrade_test_module = importlib.import_module(module_path)
 setup_upgrade_test = getattr(upgrade_test_module, 'setup_upgrade_test')
 
+
 @pytest.fixture(scope="module", autouse=True)
 def skip_pfcwd_wb_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
@@ -579,7 +580,6 @@ class TestPfcwdWb(SetupPfcwdFunc):
         action = request.config.getoption("--testcase-action", default=None)
         if action:
             actions = [action]
-            upgrade_pfc_warm_reboot = True
         else:
             actions = ['no_storm', 'storm', 'async_storm']
 
@@ -597,7 +597,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
         action = request.config.getoption("--testcase-action", default=None)
         return action is not None
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, is_upgrade_pfc_warm_reboot, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+    def test_pfcwd_wb(self, fake_storm, testcase_action, is_upgrade_pfc_warm_reboot, request, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
                       ptfhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
                       localhost, fanouthosts, two_queues, upgrade_path_lists):
         """
@@ -624,12 +624,9 @@ class TestPfcwdWb(SetupPfcwdFunc):
             fanouthosts(AnsibleHost): fanout instance
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        upgrade_pfc_warm_reboot = is_upgrade_pfc_warm_reboot
-        if upgrade_pfc_warm_reboot:
+        if is_upgrade_pfc_warm_reboot(request):
             upgrade_type, from_image, to_image, _ = upgrade_path_lists
-            preboot_setup = lambda: setup_upgrade_test(duthost, localhost,
-                from_image, to_image, tbinfo, True, upgrade_type)
-            preboot_setup()
+            setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo, True, upgrade_type)
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
