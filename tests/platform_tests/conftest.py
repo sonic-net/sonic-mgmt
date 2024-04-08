@@ -22,6 +22,7 @@ TEMPLATES_DIR = os.path.join(os.path.dirname(
 FMT = "%b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
+
 LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7050_qx32",
     "x86_64-arista_7050_qx32s",
@@ -29,8 +30,8 @@ LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7260cx3_64",
     "x86_64-arista_7050cx3_32s",
     "x86_64-mlnx_msn2700-r0",
+    "x86_64-mlnx_msn2700a1-r0",
     "x86_64-dell_s6100_c2538-r0",
-    "armhf-nokia_ixs7215_52x-r0"
 ]
 
 
@@ -44,6 +45,12 @@ def _parse_timestamp(timestamp):
             time = datetime.strptime(timestamp, FMT_ALT)
     return time
 
+@pytest.fixture(autouse=True, scope="module")
+def is_logs_tmpfs_platform(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    platform = duthost.facts["platform"]
+    if platform not in LOGS_ON_TMPFS_PLATFORMS:
+        pytest.skip('skipped on this platform: {} - logs are not intended to be on tmpfs.'.format(platform))
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
