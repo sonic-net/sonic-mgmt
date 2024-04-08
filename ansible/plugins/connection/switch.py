@@ -97,6 +97,8 @@ class Connection(ConnectionBase):
 
             # if "'>', '#'" means Passwordless login, no need to send password
             if i in [1, 2]:
+                self._display.vvv(
+                    "Establish connection to server successful without requiring a password.", host=self.host)
                 break
 
             self._display.vvv("Try password %s..." %
@@ -104,6 +106,8 @@ class Connection(ConnectionBase):
             client.sendline(login_passwd)
             i = client.expect(['>', '#', '[Pp]assword:', pexpect.EOF])
             if i < 2:
+                self._display.vvv(
+                    "Establish connection to server successful with password.", host=self.host)
                 break
             elif i == 3:
                 last_user = None
