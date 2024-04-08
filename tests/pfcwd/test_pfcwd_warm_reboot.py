@@ -5,6 +5,7 @@ import pytest
 import random
 import time
 import traceback
+import importlib
 
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
@@ -16,6 +17,7 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
+from tests.pfcwd.conftest import upgrade_path_lists
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -37,6 +39,9 @@ pytestmark = [pytest.mark.disable_loganalyzer,
 
 logger = logging.getLogger(__name__)
 
+module_path = 'tests.metadata-scripts.test_metadata_upgrade_path'
+upgrade_test_module = importlib.import_module(module_path)
+setup_upgrade_test = getattr(upgrade_test_module, 'setup_upgrade_test')
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_pfcwd_wb_tests(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -560,22 +565,41 @@ class TestPfcwdWb(SetupPfcwdFunc):
                                   first_detect_after_wb=(t_idx == 2 and not p_idx and not q_idx and not storm_deferred),
                                   storm_defer=(bitmask & 4))
 
-    @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
+    @pytest.fixture
     def testcase_action(self, request):
         """
-        Parameters to invoke the pfcwd warm boot test
+        Determines if the --testcase-action command-line option was provided.
 
         Args:
-            request(pytest) : pytest request object
+            request (pytest.FixtureRequest): The pytest request object
 
-        Yields:
-            testcase_action(string) : testcase to execute
+        Returns:
+            bool: True if --testcase-action was provided, False otherwise
         """
-        yield request.param
+        action = request.config.getoption("--testcase-action", default=None)
+        if action:
+            actions = [action]
+            upgrade_pfc_warm_reboot = True
+        else:
+            actions = ['no_storm', 'storm', 'async_storm']
 
-    def test_pfcwd_wb(self, fake_storm, testcase_action, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
-                      ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      localhost, fanouthosts, two_queues):
+    @pytest.fixture
+    def is_upgrade_pfc_warm_reboot(self, request):
+        """
+        Checks if the --testcase-action command-line option was provided.
+
+        Args:
+            request (pytest.FixtureRequest): The pytest request object
+
+        Returns:
+            bool: True if --testcase-action was provided, False otherwise
+        """
+        action = request.config.getoption("--testcase-action", default=None)
+        return action is not None
+
+    def test_pfcwd_wb(self, fake_storm, testcase_action, is_upgrade_pfc_warm_reboot, setup_pfc_test, enum_fanout_graph_facts,   # noqa F811
+                      ptfhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
+                      localhost, fanouthosts, two_queues, upgrade_path_lists):
         """
         Tests PFCwd warm reboot with various testcase actions
 
@@ -600,6 +624,12 @@ class TestPfcwdWb(SetupPfcwdFunc):
             fanouthosts(AnsibleHost): fanout instance
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        upgrade_pfc_warm_reboot = is_upgrade_pfc_warm_reboot
+        if upgrade_pfc_warm_reboot:
+            upgrade_type, from_image, to_image, _ = upgrade_path_lists
+            preboot_setup = lambda: setup_upgrade_test(duthost, localhost,
+                from_image, to_image, tbinfo, True, upgrade_type)
+            preboot_setup()
         logger.info("--- {} ---".format(TESTCASE_INFO[testcase_action]['desc']))
         self.pfcwd_wb_helper(fake_storm, TESTCASE_INFO[testcase_action]['test_sequence'], setup_pfc_test,
                              enum_fanout_graph_facts, ptfhost, duthost, localhost, fanouthosts, two_queues)
