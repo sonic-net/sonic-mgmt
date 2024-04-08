@@ -711,9 +711,9 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
 
     # Save both IPv4 and IPv6 SNMP address for verification purpose.
     snmp_ipv4_address: Dict[str, List] = {duthost.hostname: []
-                                     for duthost in duthosts.nodes}
+                                          for duthost in duthosts.nodes}
     snmp_ipv6_address: Dict[str, List] = {duthost.hostname: []
-                                     for duthost in duthosts.nodes}
+                                          for duthost in duthosts.nodes}
     for duthost in duthosts.nodes:
         snmp_address = json.loads(duthost.shell(f"jq '.SNMP_AGENT_ADDRESS_CONFIG' {config_db_file}",
                                                 module_ignore_errors=True)["stdout"])
@@ -756,14 +756,14 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
     # Verify SNMP address status
     for duthost in duthosts.nodes:
         logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
-        snmp_netstat_output = duthost.shell(f"sudo netstat -tulnpW | grep snmpd",
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
                                             module_ignore_errors=True)["stdout"]
         assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
-                                    expect_exists=False, cmd_output=snmp_netstat_output,
-                                    cmd_desc="netstat")
+                              expect_exists=False, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
         assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
-                                    expect_exists=True, cmd_output=snmp_netstat_output,
-                                    cmd_desc="netstat")
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
 
     yield
 
@@ -783,22 +783,24 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                               expect_exists=True, cmd_output=mgmt_intf_ifconfig,
                               cmd_desc="ifconfig")
         assert_addr_in_output(addr_set=ipv6_address, hostname=duthost.hostname,
-                                expect_exists=True, cmd_output=mgmt_intf_ifconfig,
-                                cmd_desc="ifconfig")
+                              expect_exists=True, cmd_output=mgmt_intf_ifconfig,
+                              cmd_desc="ifconfig")
 
     # Verify SNMP address status
     for duthost in duthosts.nodes:
         logger.info(f"Checking host[{duthost.hostname}] SNMP status in netstat output")
-        snmp_netstat_output = duthost.shell(f"sudo netstat -tulnpW | grep snmpd",
+        snmp_netstat_output = duthost.shell("sudo netstat -tulnpW | grep snmpd",
                                             module_ignore_errors=True)["stdout"]
         assert_addr_in_output(addr_set=snmp_ipv4_address, hostname=duthost.hostname,
-                                    expect_exists=True, cmd_output=snmp_netstat_output,
-                                    cmd_desc="netstat")
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
         assert_addr_in_output(addr_set=snmp_ipv6_address, hostname=duthost.hostname,
-                                    expect_exists=True, cmd_output=snmp_netstat_output,
-                                    cmd_desc="netstat")
+                              expect_exists=True, cmd_output=snmp_netstat_output,
+                              cmd_desc="netstat")
 
-def assert_addr_in_output(addr_set: Dict[str, List], hostname: str, expect_exists: bool, cmd_output: str, cmd_desc: str):
+
+def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
+                          expect_exists: bool, cmd_output: str, cmd_desc: str):
     """
     Assert the address status in the command output,
     if status not as expected, assert as failure
@@ -820,4 +822,3 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str, expect_exist
             pytest_assert(addr not in cmd_output,
                           f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
-
