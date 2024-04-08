@@ -8,7 +8,7 @@ import pytest
 from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import get_default_dut_username_and_passwords, duthost_ssh
+from tests.common.utilities import paramiko_ssh
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +140,13 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     ptfadapter.dataplane.flush()
 
     # Get default username and passwords for the duthost
-    default_username_and_passwords = get_default_dut_username_and_passwords(duthost, creds)
+    sonic_username = creds['sonicadmin_user']
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    sonic_admin_alt_passwords = creds["ansible_altpasswords"]
+
+    passwords = [creds['sonicadmin_password'], sonic_admin_alt_password] + sonic_admin_alt_passwords
 
     # Simulate disk exhaustion and release space after 60 seconds
     # Use command 'fallocate' to create large file, it's efficient.
@@ -165,8 +171,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
 
     try:
         # Test ssh connection
-        duthost_ssh(duthost=duthost, sonic_username=default_username_and_passwords["username"],
-                    sonic_passwords=default_username_and_passwords["passwords"], sonic_ip=duthost.mgmt_ip)
+        paramiko_ssh(ip_address=duthost.mgmt_ip, username=sonic_username, passwords=passwords)
 
         # Test IP packet forward
         testutils.send(ptfadapter, ptf_port_idx, pkt, PKT_NUM)
