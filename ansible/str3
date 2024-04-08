@@ -200,34 +200,34 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:9275
     str3-7260cx3-acs-fan-09:
       ansible_host: 10.3.146.196
-      ansible_hostv6: 2a01:111:e210:3000::a03:939e
+      ansible_hostv6: 2a01:111:e210:3000::a03:92c4
     str3-7260cx3-acs-fan-10:
       ansible_host: 10.3.146.197
-      ansible_hostv6: 2a01:111:e210:3000::a03:939f
+      ansible_hostv6: 2a01:111:e210:3000::a03:92c5
     str3-7260cx3-acs-fan-11:
       ansible_host: 10.3.146.203
       ansible_hostv6: 2a01:111:e210:3000::a03:92cb
     str3-7260qx-acs-fan-01:
       ansible_host: 10.3.146.24
-      ansible_hostv6: 2a01:111:e210:3000::a03:934c
+      ansible_hostv6: 2a01:111:e210:3000::a03:9218
     str3-7260qx-acs-fan-02:
       ansible_host: 10.3.146.49
-      ansible_hostv6: 2a01:111:e210:3000::a03:930c
+      ansible_hostv6: 2a01:111:e210:3000::a03:9231
     str3-7260cx3-acs-fan-23:
       ansible_host: 10.3.146.114
       ansible_hostv6: 2a01:111:e210:3000::a03:9272
     str3-7260cx3-acs-fan-35:
       ansible_host: 10.3.146.100
-      ansible_hostv6: 2a01:111:e210:3000::a03:934f
+      ansible_hostv6: 2a01:111:e210:3000::a03:9264
     str3-7260cx3-acs-fan-37:
       ansible_host: 10.3.146.103
-      ansible_hostv6: 2a01:111:e210:3000::a03:9378
+      ansible_hostv6: 2a01:111:e210:3000::a03:9267
     str3-7260cx3-acs-fan-38:
       ansible_host: 10.3.146.130
-      ansible_hostv6: 2a01:111:e210:3000::a03:9379
+      ansible_hostv6: 2a01:111:e210:3000::a03:9282
     str3-7260cx3-acs-fan-39:
       ansible_host: 10.3.146.55
-      ansible_hostv6: 2a01:111:e210:3000::a03:932b
+      ansible_hostv6: 2a01:111:e210:3000::a03:9237
     str3-z9332f-01:
       ansible_host: 10.3.146.248
       ansible_hostv6: 2a01:111:e210:3000::a03:92f8
@@ -293,18 +293,19 @@ fanout:
       os: sonic
     str3-msn4700-fanout-01:
       ansible_host: 10.3.146.218
-      ansible_hostv6: 2a01:111:e210:3000::a03:93d0
+      ansible_hostv6: 2a01:111:e210:3000::a03:92da
       os: sonic
     str3-msn4700-fanout-02:
       ansible_host: 10.3.146.153
-      ansible_hostv6: 2a01:111:e210:3000::a03:938a
+      ansible_hostv6: 2a01:111:e210:3000::a03:9299
       os: sonic
     str3-msn4700-fanout-03:
       ansible_host: 10.3.146.12
+      ansible_hostv6: 2a01:111:e210:3000::a03:920c
       os: sonic
     str3-msn4700-fanout-04:
       ansible_host: 10.3.146.131
-      ansible_hostv6: 2a01:111:e210:3000::a03:93a1
+      ansible_hostv6: 2a01:111:e210:3000::a03:9283
       os: sonic
 
 sonic:
@@ -337,8 +338,8 @@ sonic_mlnx_4600C:
   hosts:
     str3-msn4600c-acs-05:
       ansible_host: 10.3.146.222
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92de
+      mgmt_subnet_mask_length: 24
       model: MSN4600-CS2FO
       serial: MT2021X01037
       base_mac: 1C:34:DA:1D:13:00
@@ -356,8 +357,8 @@ sonic_mlnx_4600C:
         "0xFE": "0x41E7E224"
     str3-msn4600c-acs-07:
       ansible_host: 10.3.146.107
+      ansible_hostv6: 2a01:111:e210:3000::a03:926b
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:9372
       model: MSN4600-CS2ROS
       serial: MT2207X25064
       base_mac: 90:0A:84:11:96:00
@@ -375,8 +376,8 @@ sonic_mlnx_4600C:
         "0xFE": "0xC03AD379"
     str3-msn4600c-acs-08:
       ansible_host: 10.3.146.106
+      ansible_hostv6: 2a01:111:e210:3000::a03:926a
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:936f
       model: MSN4600-CS2ROS
       serial: MT2115X26255
       base_mac: 1C:34:DA:BB:8C:00
@@ -399,8 +400,8 @@ sonic_cisco_8102:
   hosts:
     str3-8102-01:
       ansible_host: 10.3.146.120
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9278
+      mgmt_subnet_mask_length: 24
       model: 8102-64H-O
       serial: FLM25040614
       base_mac: E8:EB:34:B7:57:A8
@@ -431,8 +432,8 @@ sonic_cisco_8102:
           wait: 600
     str3-8102-05:
       ansible_host: 10.3.146.121
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9279
+      mgmt_subnet_mask_length: 24
       model: 8102-64H-O
       serial: FLM250702NN
       base_mac: F8:7A:41:A7:2C:F8
@@ -463,8 +464,8 @@ sonic_cisco_8102:
           wait: 600
     str3-8102-06:
       ansible_host: 10.3.146.78
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:924e
+      mgmt_subnet_mask_length: 24
       model: 8102-64H-O
       serial: FLM25060BE9
       base_mac: E8:EB:34:B7:63:C0
@@ -501,8 +502,8 @@ sonic_cisco_8101:
   hosts:
     str3-8101-32fh-01:
       ansible_host: 10.3.146.189
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92bd
+      mgmt_subnet_mask_length: 24
       model: 8101-32FH-O
       serial: FLM2634071J
       base_mac: 04:A7:41:54:F2:00
@@ -539,8 +540,8 @@ sonic_cisco_8101_O8C48:
   hosts:
     str3-8101-01:
       ansible_host: 10.3.146.194
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92c2
+      mgmt_subnet_mask_length: 24
       model: 8101-32FH-O
       serial: FLM263405R6
       base_mac: DC:05:39:C2:94:00
@@ -571,8 +572,8 @@ sonic_cisco_8101_O8C48:
           wait: 600
     str3-8101-02:
       ansible_host: 10.3.146.191
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92bf
+      mgmt_subnet_mask_length: 24
       model: 8101-32FH-O
       serial: FLM26400HE3
       base_mac: 98:A2:C0:26:EA:00
@@ -608,8 +609,8 @@ sonic_cisco_8111:
   hosts:
     str3-8111-01:
       ansible_host: 10.3.146.237
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92ed
+      mgmt_subnet_mask_length: 24
       hwsku: Cisco-8111-O64
       model: 8111-32EH-O
       serial: FLM27030BXM
@@ -641,8 +642,8 @@ sonic_cisco_8111:
           wait: 60
     str3-8111-02:
       ansible_host: 10.3.146.238
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92ee
+      mgmt_subnet_mask_length: 24
       hwsku: Cisco-8111-O64
       model: 8111-32EH-O
       serial: FLM270208XX
@@ -741,18 +742,18 @@ sonic_cisco_lc_100G:
   vars:
     switch_type: chassis-packet
     num_asics: 2
-    frontend_asics: [0,1]
+    frontend_asics: [0, 1]
   hosts:
     str3-8800-lc1-1:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
-      sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
+      sonic_hw_platform: x86_64-8800_lc_48h_o-r0
       slot_num: slot1
-      loopback4096_ip: [3.3.3.3/32,3.3.3.4/32]
-      loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+      loopback4096_ip: [3.3.3.3/32, 3.3.3.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
       ansible_host: 10.3.146.27
+      ansible_hostv6: 2a01:111:e210:3000::a03:921b
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:934e
       serial: FOC2525NB83
       base_mac: 34:73:2D:29:B8:D0
       model: '8800-LC-48H-O'
@@ -784,13 +785,13 @@ sonic_cisco_lc_100G:
     str3-8800-lc2-1:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
-      sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
+      sonic_hw_platform: x86_64-8800_lc_48h_o-r0
       slot_num: slot2
-      loopback4096_ip: [3.3.3.5/32,3.3.3.6/32]
-      loopback4096_ipv6: [2603:10e2:400::5/128,2603:10e2:400::6/128]
+      loopback4096_ip: [3.3.3.5/32, 3.3.3.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
       ansible_host: 10.3.146.109
+      ansible_hostv6: 2a01:111:e210:3000::a03:926d
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:9361
       serial: FOC2420NC30
       base_mac: AC:7A:56:71:EB:70
       model: '8800-LC-48H-O'
@@ -822,13 +823,13 @@ sonic_cisco_lc_100G:
     str3-8800-lc3-1:
       hwsku: Cisco-8800-LC-48H-C48
       sonic_hwsku: Cisco-8800-LC-48H-C48
-      sonic_hw_platform:  x86_64-8800_lc_48h_o-r0
+      sonic_hw_platform: x86_64-8800_lc_48h_o-r0
       slot_num: slot3
-      loopback4096_ip: [3.3.3.7/32,3.3.3.8/32]
-      loopback4096_ipv6: [2603:10e2:400::7/128,2603:10e2:400::8/128]
+      loopback4096_ip: [3.3.3.7/32, 3.3.3.8/32]
+      loopback4096_ipv6: [2603:10e2:400::7/128, 2603:10e2:400::8/128]
       ansible_host: 10.3.146.105
+      ansible_hostv6: 2a01:111:e210:3000::a03:9269
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:9362
       serial: FOC2425NC97
       base_mac: 3C:13:CC:83:34:E0
       model: '8800-LC-48H-O'
@@ -861,18 +862,18 @@ sonic_cisco_lc_400G:
   vars:
     switch_type: chassis-packet
     num_asics: 3
-    frontend_asics: [0,1,2]
+    frontend_asics: [0, 1, 2]
   hosts:
     str3-8800-lc4-1:
       hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hwsku: Cisco-88-LC0-36FH-M-O36
       sonic_hw_platform: x86_64-88_lc0_36fh_mo-r0
       slot_num: slot4
-      loopback4096_ip: [3.3.3.9/32,3.3.3.10/32,3.3.3.11/32]
-      loopback4096_ipv6: [2603:10e2:400::9/128,2603:10e2:400::a/128,2603:10e2:400::b/128]
+      loopback4096_ip: [3.3.3.9/32, 3.3.3.10/32, 3.3.3.11/32]
+      loopback4096_ipv6: [2603:10e2:400::9/128, 2603:10e2:400::a/128, 2603:10e2:400::b/128]
       ansible_host: 10.3.146.98
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9262
+      mgmt_subnet_mask_length: 24
       serial: FOC2533NMVZ
       base_mac: 20:CF:AE:B2:BF:50
       model: '88-LC0-36FH-MO'
@@ -903,17 +904,17 @@ sonic_cisco_lc_400G:
           wait: 60
 sonic_cisco_sup:
   vars:
-    HwSku:  Cisco-8800-RP
-    sonic_hwsku:  Cisco-8800-RP
-    sonic_hw_platform:  x86_64-8800_rp_o-r0
+    HwSku: Cisco-8800-RP
+    sonic_hwsku: Cisco-8800-RP
+    sonic_hw_platform: x86_64-8800_rp_o-r0
     slot_num: slot0
     card_type: supervisor
     switch_type: chassis-packet
   hosts:
     str3-8800-sup-1:
       ansible_host: 10.3.146.97
+      ansible_hostv6: 2a01:111:e210:3000::a03:9261
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:935f
       hwsku: Cisco-8800-RP
       model: '8800-RP-O'
       num_asics: 16
@@ -963,7 +964,7 @@ sonic_cisco_sup:
         - psu5.2
         'thermals':
         - TEMPERATURE_INFO_8
-      asics_present: [0,1,4,5,8,9,10,12,13]
+      asics_present: [0, 1, 4, 5, 8, 9, 10, 12, 13]
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -979,7 +980,7 @@ sonic_cisco_sup:
           wait: 900
     str3-8800-sup-2:
       ansible_host: 10.3.146.169
-      ansible_hostv6: 2a01:111:e210:3000::a03:935f
+      ansible_hostv6: 2a01:111:e210:3000::a03:92a9
       hwsku: Cisco-8800-RP
       model: '8800-RP-O'
       num_asics: 16
@@ -1029,7 +1030,7 @@ sonic_cisco_sup:
         - psu5.2
         'thermals':
         - TEMPERATURE_INFO_2
-      asics_present: [0,1,4,5,8,9,10,12,13]
+      asics_present: [0, 1, 4, 5, 8, 9, 10, 12, 13]
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -1045,13 +1046,13 @@ sonic_cisco_sup:
           wait: 900
 sonic_arista_7800_sup:
   vars:
-    HwSku:  Arista-7808R3A-FM
-    sonic_hwsku:  Arista-7808R3A-FM
-    sonic_hw_platform:  x86_64-arista_7800_sup
+    HwSku: Arista-7808R3A-FM
+    sonic_hwsku: Arista-7808R3A-FM
+    sonic_hw_platform: x86_64-arista_7800_sup
     slot_num: slot1
     num_asics: 12
     num_fabric_asics: 12
-    switchids: [300,301,302,303,304,305,306,307,308,309,310,311]
+    switchids: [300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311]
     asics_host_ip: '20.0.0.1/32'
     asics_host_ipv6: 'FC00:20::1/128'
     switch_type: fabric
@@ -1059,8 +1060,8 @@ sonic_arista_7800_sup:
   hosts:
     str3-7808-sup-1:
       ansible_host: 10.3.146.111
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:926f
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
       serial: SGD22140009
@@ -1085,10 +1086,10 @@ sonic_arista_7800_lc_400G:
   vars:
     max_cores: 64
     switch_type: voq
-    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_intf: [Ethernet-IB0, Ethernet-IB1]
     voq_inband_type: port
     num_asics: 2
-    frontend_asics: [0,1]
+    frontend_asics: [0, 1]
   hosts:
     str3-7800-lc3-1:
       hwsku: Arista-7800R3A-36DM2-D36
@@ -1096,17 +1097,17 @@ sonic_arista_7800_lc_400G:
       sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
       model: 7800R3A-36DM2-LC
       slot_num: slot3
-      switchids: [0,2]
-      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
-      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      switchids: [0, 2]
+      voq_inband_ip: [3.3.3.1/32, 3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128, 3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32, 192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
       serial: SGD21190878
       base_mac: 2c:dd:e9:6c:cb:5c
       ansible_host: 10.3.146.83
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9253
 
+      mgmt_subnet_mask_length: 24
 sonic_arista_7800_lc_100G:
   vars:
     max_cores: 64
@@ -1119,7 +1120,7 @@ sonic_arista_7800_lc_100G:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot4
       switchids: [4]
       voq_inband_ip: [3.3.3.3/32]
@@ -1129,13 +1130,13 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.71
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9247
+      mgmt_subnet_mask_length: 24
     str3-7800-lc5-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot5
       switchids: [6]
       voq_inband_ip: [3.3.3.4/32]
@@ -1145,13 +1146,13 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.72
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9248
+      mgmt_subnet_mask_length: 24
     str3-7800-lc6-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot6
       switchids: [8]
       voq_inband_ip: [3.3.3.5/32]
@@ -1161,13 +1162,13 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.74
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:924a
+      mgmt_subnet_mask_length: 24
     str3-7800-lc7-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot7
       switchids: [10]
       voq_inband_ip: [3.3.3.6/32]
@@ -1177,13 +1178,13 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.75
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:924b
+      mgmt_subnet_mask_length: 24
     str3-7800-lc8-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot8
       switchids: [12]
       voq_inband_ip: [3.3.3.7/32]
@@ -1193,12 +1194,12 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.80
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9250
+      mgmt_subnet_mask_length: 24
     str3-7800-lc9-1:
       hwsku: Arista-7800R3-48CQM2-C48
       sonic_hwsku: Arista-7800R3-48CQM2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cqm2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cqm2_lc
       model: 7800R3-48CQM2-LC
       slot_num: slot9
       switchids: [14]
@@ -1209,13 +1210,13 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.81
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9251
+      mgmt_subnet_mask_length: 24
     str3-7800-lc10-1:
       hwsku: Arista-7800R3-48CQ2-C48
       model: 7800R3-48CQ2-LC
       sonic_hwsku: Arista-7800R3-48CQ2-C48
-      sonic_hw_platform:  x86_64-arista_7800r3_48cq2_lc
+      sonic_hw_platform: x86_64-arista_7800r3_48cq2_lc
       slot_num: slot10
       switchids: [16]
       voq_inband_ip: [3.3.3.9/32]
@@ -1225,16 +1226,16 @@ sonic_arista_7800_lc_100G:
       serial: SSN20220006
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.3.146.58
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:923a
 
 
+      mgmt_subnet_mask_length: 24
 sonic_arista32_100:
   hosts:
     str3-7060-acs-1:
       ansible_host: 10.3.146.240
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92f0
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7060CX-32S-D48C8
       model: DCS-7060CX-32S
       serial: SSJ17111898
@@ -1253,8 +1254,8 @@ sonic_arista32_100:
         "0x2F": "SSJ17111898"
     str3-7060-acs-2:
       ansible_host: 10.3.146.242
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92f2
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7060CX-32S-D48C8
       model: DCS-7060CX-32S
       serial: SGD20445310
@@ -1273,8 +1274,8 @@ sonic_arista32_100:
         "0x2F": "SGD20445310"
     str3-7060-acs-3:
       ansible_host: 10.3.146.243
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92f3
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7060CX-32S-C32
       model: DCS-7060CX-32S
       serial: SGD20436388
@@ -1298,8 +1299,8 @@ sonic_arista64_100:
   hosts:
     str3-7260cx3-acs-1:
       ansible_host: 10.3.146.180
+      ansible_hostv6: 2a01:111:e210:3000::a03:92b4
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:939c
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
       serial: JPA2312P0EZ
@@ -1318,8 +1319,8 @@ sonic_arista64_100:
         "0x2F": "JPA2312P0EZ"
     str3-7260cx3-acs-2:
       ansible_host: 10.3.146.181
+      ansible_hostv6: 2a01:111:e210:3000::a03:92b5
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:939d
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
       serial: FGN224303HG
@@ -1338,8 +1339,8 @@ sonic_arista64_100:
         "0x2F": "FGN224303HG"
     str3-7260cx3-acs-14:
       ansible_host: 10.3.146.94
+      ansible_hostv6: 2a01:111:e210:3000::a03:925e
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:933c
       hwsku: Arista-7260CX3-C64
       model: DCS-7260CX3-64
       serial: FGN224303NB
@@ -1361,8 +1362,8 @@ sonic_mlnx_4700:
   hosts:
     str3-msn4700-01:
       ansible_host: 10.3.146.207
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92cf
+      mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN4700-O8C48
       model: MSN4700-WS2FO
       serial: MT2102X08020
@@ -1379,8 +1380,8 @@ sonic_mlnx_4700:
         "0x2B": "Mellanox"
     str3-msn4700-02:
       ansible_host: 10.3.146.149
+      ansible_hostv6: 2a01:111:e210:3000::a03:9295
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:9389
       hwsku: Mellanox-SN4700-O8V48
       model: MSN4700-WS2FO
       serial: MT2326XZ04NU
@@ -1414,8 +1415,8 @@ sonic_mlnx_4700:
         "0x2B": "Mellanox"
     str3-msn4700-04:
       ansible_host: 10.3.146.175
+      ansible_hostv6: 2a01:111:e210:3000::a03:92af
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:939b
       hwsku: Mellanox-SN4700-O28
       model: MSN4700-WS2RO
       serial: MT2308XZ0APE
@@ -1435,8 +1436,8 @@ sonic_arista_400:
   hosts:
     str3-a7060dx5-acs-1:
       ansible_host: 10.3.146.162
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92a2
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7060DX5-32
       model: DCS-7050-DX4-32
       serial: JAS22510008
@@ -1448,8 +1449,8 @@ sonic_dell64_40:
   hosts:
     str3-s6100-acs-6:
       ansible_host: 10.3.146.155
+      ansible_hostv6: 2a01:111:e210:3000::a03:929b
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:938d
       model: 06N1J1
       serial: D14RG02
       base_mac: d8:9e:f3:bb:c0:20
@@ -1472,8 +1473,8 @@ sonic_dell64_40:
         "0xFE": "0xD3ED328F"
     str3-s6100-acs-7:
       ansible_host: 10.3.146.52
+      ansible_hostv6: 2a01:111:e210:3000::a03:9234
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ab
       model: 06N1J1
       serial: DVWQG02
       base_mac: d8:9e:f3:d8:50:60

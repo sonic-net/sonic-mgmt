@@ -307,12 +307,12 @@ sonic_dell32_40:
   hosts:
     str-s6000-acs-10:
       ansible_host: 10.3.146.226
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e2
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ed
     str-s6000-acs-11:
       ansible_host: 10.3.146.234
+      ansible_hostv6: 2a01:111:e210:3000::a03:92ea
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ef
       model: 00NX1V
       serial: BQBRX42
       base_mac: EC:F4:BB:FE:80:9F
@@ -324,8 +324,8 @@ sonic_dell64_40:
   hosts:
     str-s6100-acs-1:
       ansible_host: 10.3.146.16
+      ansible_hostv6: 2a01:111:e210:3000::a03:9210
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93f3
       model: 06N1J1
       serial: BXG6SR3
       base_mac: D8:9E:F3:D1:CB:E0
@@ -361,8 +361,8 @@ sonic_arista_40:
       base_mac: 28:99:3a:20:8e:48
     str-a7050-acs-2:
       ansible_host: 10.3.146.216
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d8
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93c7
       hwsku: Arista-7050-QX32
       model: DCS-7050QX-32
       serial: JPE13292373
@@ -376,8 +376,8 @@ sonic_arista_40:
       base_mac: 28:99:3a:b6:f5:7c
     str-7050qx-32s-acs-04:
       ansible_host: 10.3.146.113
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:9271
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7050QX32S-Q32
       model: DCS-7050QX-32S
       serial: JPE20255843
@@ -406,8 +406,8 @@ sonic_mlnx_40:
     str-msn2700-01:
       hwsku: Mellanox-SN2700-A1
       ansible_host: 10.3.146.215
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d7
       mgmt_subnet_mask_length: 24
-      ansible_hostv6: 2a01:111:e210:3000::a03:93bc
       model: MSN2700-CS2R2OS
       serial: MT2338XZ03WL
       base_mac: FC:6A:1C:49:4F:00
@@ -426,7 +426,7 @@ sonic_mlnx_40:
     str-msn2700-02:
       hwsku: Mellanox-SN2700-A1
       ansible_host: 10.3.146.163
-      ansible_hostv6: 2a01:111:e210:3000::a03:932d
+      ansible_hostv6: 2a01:111:e210:3000::a03:92a3
       model: MSN2700-CS2R2OS
       serial: MT2338XZ03WQ
       base_mac: FC:6A:1C:49:51:00
@@ -574,8 +574,8 @@ sonic_arista32_100:
         "0x2F": "JPE17051884"
     str-a7280cr3-2:
       ansible_host: 10.3.146.28
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:921c
+      mgmt_subnet_mask_length: 24
       hwsku: Arista-7280CR3-C40
       model: DCS-7280CR3K-32P4
       serial: JPE19362918
@@ -599,8 +599,8 @@ sonic_dell32_100:
   hosts:
     str-z9100-acs-1:
       ansible_host: 10.3.146.191
-      mgmt_subnet_mask_length: 24
       ansible_hostv6: 2a01:111:e210:3000::a03:92bf
+      mgmt_subnet_mask_length: 24
       hwsku: Force10-Z9100-C32
     str-z9100-acs-2:
       ansible_host: 10.64.247.237
@@ -689,13 +689,13 @@ fanout:
       ansible_hostv6: 2a01:111:e210:3000::a03:925b
     str-7260-16:
       ansible_host: 10.3.146.231
-      ansible_hostv6: 2a01:111:e210:3000::a03:93ee
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e7
     str-7260-17:
       ansible_host: 10.3.146.250
-      ansible_hostv6: 2a01:111:e210:3000::a03:93f0
+      ansible_hostv6: 2a01:111:e210:3000::a03:92fa
     str-7260-18:
       ansible_host: 10.3.146.251
-      ansible_hostv6: 2a01:111:e210:3000::a03:93f2
+      ansible_hostv6: 2a01:111:e210:3000::a03:92fb
     str-7260-23:
       ansible_host: 10.64.247.253
       ansible_hostv6: 2a01:111:e210:b000::a40:f7fd
@@ -704,7 +704,7 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f7fe
     str-7260-02:
       ansible_host: 10.3.146.168
-      ansible_hostv6: 2a01:111:e210:3000::a03:939a
+      ansible_hostv6: 2a01:111:e210:3000::a03:92a8
     str-7260-20:
       ansible_host: 10.64.247.249
       ansible_hostv6: 2a01:111:e210:b000::a40:f7f9
@@ -803,10 +803,10 @@ server:
   hosts:
     str-acs-serv-01:
       ansible_host: 10.3.146.67
-      ansible_hostv6: 2a01:111:e210:3000::a03:93f5
+      ansible_hostv6: 2a01:111:e210:3000::a03:9243
     str-acs-serv-02:
       ansible_host: 10.3.146.73
-      ansible_hostv6: 2a01:111:e210:3000::a03:93c0
+      ansible_hostv6: 2a01:111:e210:3000::a03:9249
     str-acs-serv-03:
       ansible_host: 10.64.247.45
       ansible_hostv6: 2a01:111:e210:b000::a40:f72d
