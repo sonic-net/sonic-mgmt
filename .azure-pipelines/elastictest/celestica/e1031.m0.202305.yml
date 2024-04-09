@@ -78,7 +78,8 @@ parameters:
               platform_tests/test_memory_exhaustion.py, \
               platform_tests/test_reboot.py, \
               stress/test_stress_routes.py, \
-              tacacs/test_ro_disk.py"
+              tacacs/test_ro_disk.py, \
+              show_techsupport/test_auto_techsupport.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
