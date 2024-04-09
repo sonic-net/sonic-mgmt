@@ -1,6 +1,5 @@
 import json
 import logging
-import paramiko
 import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert, pytest_require
