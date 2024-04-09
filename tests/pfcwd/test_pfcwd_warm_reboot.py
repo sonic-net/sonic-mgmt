@@ -17,7 +17,6 @@ from tests.common.reboot import DUT_ACTIVE
 from tests.common.utilities import InterruptableThread
 from tests.common.utilities import join_all
 from tests.ptf_runner import ptf_runner
-from tests.pfcwd.conftest import upgrade_path_lists
 from .files.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
@@ -567,21 +566,11 @@ class TestPfcwdWb(SetupPfcwdFunc):
                                   storm_defer=(bitmask & 4))
 
     @pytest.fixture
-    def testcase_action(self, request):
-        """
-        Determines if the --testcase-action command-line option was provided.
-
-        Args:
-            request (pytest.FixtureRequest): The pytest request object
-
-        Returns:
-            bool: True if --testcase-action was provided, False otherwise
-        """
-        action = request.config.getoption("--testcase-action", default=None)
-        if action:
-            actions = [action]
+    def testcase_action(request, testcase_action):
+        if isinstance(testcase_action, list):
+            yield from testcase_action
         else:
-            actions = ['no_storm', 'storm', 'async_storm']
+            yield testcase_action
 
     @pytest.fixture
     def is_upgrade_pfc_warm_reboot(self, request):

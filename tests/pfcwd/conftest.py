@@ -35,6 +35,14 @@ def pytest_addoption(parser):
                      help='Specify which testcase action to run: no_storm, storm, or async_storm')
 
 
+@pytest.fixture
+def testcase_action(request):
+    testcase = request.config.getoption("--testcase-action")
+    if testcase not in ['no_storm', 'storm', 'async_storm', 'all']:
+        raise ValueError("Invalid testcase option: {}. Use one of: 'no_storm', 'storm', 'async_storm', 'all'".format(testcase))
+    return testcase if testcase != 'all' else ['no_storm', 'storm', 'async_storm']
+
+
 @pytest.fixture(scope="module")
 def upgrade_path_lists(request):
     upgrade_type = request.config.getoption('upgrade_type')
@@ -42,17 +50,6 @@ def upgrade_path_lists(request):
     to_list = request.config.getoption('target_image_list')
     restore_to_image = request.config.getoption('restore_to_image')
     return upgrade_type, from_list, to_list, restore_to_image
-
-
-def pytest_generate_tests(metafunc):
-    if "testcase_action" in metafunc.fixturenames:
-        action = metafunc.config.getoption("--testcase-action")
-        if action:
-            # If a specific action is specified, only parametrize with that action
-            metafunc.parametrize("testcase_action", [action])
-        else:
-            # Otherwise, parametrize with all actions
-            metafunc.parametrize("testcase_action", ['no_storm', 'storm', 'async_storm'])
 
 
 @pytest.fixture(scope="module")
