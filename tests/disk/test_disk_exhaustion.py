@@ -1,6 +1,5 @@
 import ipaddress
 
-import paramiko
 import ptf.testutils as testutils
 import re
 import logging
@@ -9,8 +8,7 @@ import pytest
 from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.constants import DEFAULT_SSH_CONNECT_PARAMS
-from tests.common.utilities import get_image_type
+from tests.common.utilities import paramiko_ssh
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +116,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     return pkt, ptf_port_idx, exp_pkt, out_ptf_indices, rif_support
 
 
-def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
+def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     """Test SONiC basic performance(like ssh-connect, packet forward...) when disk is exhausted
     Args:
         duthost: DUT host object
@@ -141,8 +139,14 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
         duthost.command("sonic-clear rifcounters")
     ptfadapter.dataplane.flush()
 
-    # Check SONiC image type and get default username and password to SSH connect
-    default_username_password = DEFAULT_SSH_CONNECT_PARAMS[get_image_type(duthost=duthost)]
+    # Get default username and passwords for the duthost
+    sonic_username = creds['sonicadmin_user']
+
+    sonic_admin_alt_password = duthost.host.options['variable_manager']._hostvars[duthost.hostname].get(
+        "ansible_altpassword")
+    sonic_admin_alt_passwords = creds["ansible_altpasswords"]
+
+    passwords = [creds['sonicadmin_password'], sonic_admin_alt_password] + sonic_admin_alt_passwords
 
     # Simulate disk exhaustion and release space after 60 seconds
     # Use command 'fallocate' to create large file, it's efficient.
@@ -166,12 +170,9 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
     ], continue_on_fail=False, module_ignore_errors=True)
 
     try:
-        # Test ssh connect manually
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(duthost.mgmt_ip, username=default_username_password["username"],
-                    password=default_username_password["password"], allow_agent=False,
-                    look_for_keys=False)
+        # Test ssh connection
+        paramiko_ssh(ip_address=duthost.mgmt_ip, username=sonic_username, passwords=passwords)
+
         # Test IP packet forward
         testutils.send(ptfadapter, ptf_port_idx, pkt, PKT_NUM)
         time.sleep(5)
@@ -180,8 +181,7 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo):
         pytest_assert(match_cnt >= PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
         logger.info("DUT Forwarded {} packets, in expected range".format(match_cnt))
     except AuthenticationException:
-        logger.info("Current login params:\tusername={}, password={}".format(default_username_password["username"],
-                                                                             default_username_password["password"]))
+        logger.info("Cannot access DUT {} via ssh, error: Password incorrect.")
         raise
     except Exception:
         raise
