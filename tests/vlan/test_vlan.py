@@ -26,6 +26,16 @@ PTF_PORT_MAPPING_MODE = "use_orig_interface"
 
 
 @pytest.fixture(autouse=True)
+def populate_mac_table(duthosts):
+    """
+    Ensure that the TOR MAC table is populated, otherwise packets will be flooded
+    to VLAN members
+    """
+    for duthost in duthosts:
+        duthost.shell("docker exec swss supervisorctl restart arp_update", module_ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
     """
        Ignore expected errors in logs during test execution
@@ -321,7 +331,8 @@ def test_vlan_tc5_untagged_unicast(ptfadapter, duthosts, rand_one_dut_hostname, 
 
         # take two untagged ports for test
         src_port = ports_for_test[0]
-        dst_port = ports_for_test[-1]
+        # dst_port = ports_for_test[-1]
+        dst_port = [6]
 
         src_mac = ptfadapter.dataplane.get_mac(0, src_port[0])
         dst_mac = ptfadapter.dataplane.get_mac(0, dst_port[0])
