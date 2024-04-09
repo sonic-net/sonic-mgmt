@@ -76,7 +76,7 @@ def get_uplink_route_mac(duthosts, port):
             # if this duthost has peer of type RH/AZNG, then it is uplink LC
             # return the router mac for that duthost/asic
             if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
-                #Get the router_mac based on which asic the port belongs to in this dut
+                # Get the router_mac based on which asic the port belongs to in this dut
                 return duthost.get_port_asic_instance(port).get_router_mac()
 
 
@@ -190,7 +190,6 @@ def test_bgpmon_v6(duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostnam
     # Verify syn packet on ptf
     (rcvd_port_index, rcvd_pkt) = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_packet,
                                                                    ports=peer_ports, timeout=BGP_CONNECT_TIMEOUT)
-
 
     # Find the local dut port that is mapped to this received ptf interface, get the router_mac for that asic
     # For packet chassis router mac is different across asics
