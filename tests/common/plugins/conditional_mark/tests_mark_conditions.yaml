@@ -207,7 +207,7 @@ copp/test_copp.py:
   skip:
     reason: "Topology not supported by COPP tests"
     conditions:
-      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo)"
+      - "(topo_name not in ['ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't1', 't1-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'mx'] and 't2' not in topo_type)"
 
 copp/test_copp.py::TestCOPP::test_add_new_trap:
   skip:
@@ -311,6 +311,20 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
+
+dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
+  skip:
+    reason: "Test is not supported in dualtor-aa"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12045
+      - "'dualtor-aa' in topo_name"
+
+dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
+  skip:
+    reason: "Test is not supported in dualtor-aa"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/12045
+      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -769,7 +783,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
 
-ip/test_mgmt_ipv6_only.py::test_image_download_ipv6_only:
+ip/test_mgmt_ipv6_only.py:
   skip:
     reason: "Skipping mgmt ipv6 test for mgmt topo"
     conditions:
@@ -1048,7 +1062,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
   xfail:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
 
 qos/test_qos_masic.py:
   skip:
@@ -1120,7 +1134,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
   skip:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['mellanox']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']"
       - "asic_type in ['cisco-8000']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
@@ -1216,9 +1230,9 @@ restapi/test_restapi.py:
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
-    reason: "Only supported on cisco 8102"
+    reason: "Only supported on cisco 8102 T1"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "not (asic_type in ['cisco-8000'] and 't1' in topo_type)"
 
 #######################################
 #####           route             #####
@@ -1287,6 +1301,12 @@ snmp/test_snmp_link_local.py:
       - "is_multi_asic==False"
       - "release in ['202205', '202211', '202305']"
 
+snmp/test_snmp_loopback.py::test_snmp_loopback:
+  skip:
+    reason: "Not supported topology backend."
+    conditions:
+      - "'backend' in topo_name"
+
 snmp/test_snmp_pfc_counters.py:
   skip:
     reason: "M0/MX topo does not support test_snmp_pfc_counters"
@@ -1317,6 +1337,10 @@ span/test_port_mirroring.py:
 #######################################
 #####             ssh             #####
 #######################################
+ssh/test_ssh_default_password:
+  skip:
+    reason: "Skip because the default password test is no longer appropriate after password rotation."
+
 ssh/test_ssh_stress.py::test_ssh_stress:
   # This test is not stable, skip it for now.
   # known issue: https://github.com/paramiko/paramiko/issues/1508
@@ -1440,11 +1464,11 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
+    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox and Cisco-8000 setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
     conditions_logical_operator: OR
     conditions:
       - "asic_type in ['broadcom']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/9642 and 'dualtor' in topo_name and asic_type in ['mellanox', 'cisco-8000']"
 
 #######################################
 #####             voq             #####
@@ -1502,6 +1526,12 @@ vxlan/test_vnet_vxlan.py:
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
+vxlan/test_vxlan_bfd_tsa.py:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 vxlan/test_vxlan_crm.py:
   skip:

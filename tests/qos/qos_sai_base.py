@@ -10,12 +10,13 @@ import sys
 import six
 import copy
 import time
+import collections
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports  # noqa F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
     import toggle_all_simulator_ports, get_mux_status, check_mux_status, validate_check_result  # noqa F401
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa F401
@@ -40,6 +41,8 @@ class QosBase:
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "td3", "th3",
                            "j2c+", "jr2"]
+
+    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -676,8 +679,8 @@ class QosSaiBase(QosBase):
         rtn_dict.update(select_src_dst_dut_and_asic)
         yield rtn_dict
 
-    def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids,
-                         dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds):
+    def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids, dst_port_ids,
+                         get_src_dst_asic_and_duts, uplinkPortIds, sysPortMap=None):
         """
             Build map of test ports index and IPs
 
@@ -688,6 +691,7 @@ class QosSaiBase(QosBase):
 
             Returns:
                 testPorts (dict): Map of test ports index and IPs
+                sysPortMap (dict): Map of system port IDs and Qos SAI test port IDs
         """
         dstPorts = request.config.getoption("--qos_dst_ports")
         srcPorts = request.config.getoption("--qos_src_ports")
@@ -757,24 +761,47 @@ class QosSaiBase(QosBase):
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
 
         src_port_ip = src_test_port_ips[srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]]
+        # collecting the system ports associated with dst ports
+        # In case of PortChannel as dst port, all lag ports will be added to the list
+        # ex. {dstPort: system_port, dstPort1:system_port1 ...}
+        dst_all_sys_port = {}
+        if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+            sysPorts = sysPortMap[get_src_dst_asic_and_duts['dst_dut_index']][
+                get_src_dst_asic_and_duts['dst_asic_index']]
+            for port_id in [dstPort, dstPort2, dstPort3]:
+                if port_id in sysPorts and port_id not in dst_all_sys_port:
+                    dst_all_sys_port.update({port_id: sysPorts[port_id]['system_port']})
+                    if 'PortChannel' in sysPorts[port_id]['port_type']:
+                        for sport, sysMap in sysPorts.items():
+                            if sysMap['port_type'] == sysPorts[port_id]['port_type'] and sport != port_id:
+                                dst_all_sys_port.update({sport: sysMap['system_port']})
+
         return {
-         "dst_port_id": dstPort,
-         "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
-         "dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6'],
-         "dst_port_vlan": dstVlan,
-         "dst_port_2_id": dstPort2,
-         "dst_port_2_ip": dst_test_port_ips[dstPort2]['peer_addr'],
-         "dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6'],
-         "dst_port_2_vlan": dstVlan2,
-         'dst_port_3_id': dstPort3,
-         "dst_port_3_ip": dst_test_port_ips[dstPort3]['peer_addr'],
-         "dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6'],
-         "dst_port_3_vlan": dstVlan3,
-         "src_port_id": srcPort,
-         "src_port_ip": src_port_ip["peer_addr"],
-         "src_port_ipv6": src_port_ip["peer_addr_ipv6"],
-         "src_port_vlan": srcVlan
+            "dst_port_id": dstPort,
+            "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
+            "dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6'],
+            "dst_port_vlan": dstVlan,
+            "dst_port_2_id": dstPort2,
+            "dst_port_2_ip": dst_test_port_ips[dstPort2]['peer_addr'],
+            "dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6'],
+            "dst_port_2_vlan": dstVlan2,
+            'dst_port_3_id': dstPort3,
+            "dst_port_3_ip": dst_test_port_ips[dstPort3]['peer_addr'],
+            "dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6'],
+            "dst_port_3_vlan": dstVlan3,
+            "src_port_id": srcPort,
+            "src_port_ip": src_port_ip["peer_addr"],
+            "src_port_ipv6": src_port_ip["peer_addr_ipv6"],
+            "src_port_vlan": srcVlan,
+            "dst_sys_ports": dst_all_sys_port
         }
+
+    def __buildPortSpeeds(self, config_facts):
+        port_speeds = collections.defaultdict(list)
+        for etp, attr in config_facts['PORT'].items():
+            port_speeds[attr['speed']].append(etp)
+        return port_speeds
 
     @pytest.fixture(scope='class', autouse=True)
     def dutConfig(
@@ -807,6 +834,7 @@ class QosSaiBase(QosBase):
         downlinkPortIds = []
         downlinkPortIps = []
         downlinkPortNames = []
+        sysPortMap = {}
 
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
@@ -828,9 +856,19 @@ class QosSaiBase(QosBase):
                 for intf in lag["members"]:
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
+            config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
+            port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
+            low_speed_portIds = []
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+                for speed, portlist in port_speeds.items():
+                    if int(speed) < 40000:
+                        for portname in portlist:
+                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
+            testPortIds[src_dut_index][src_asic_index] -= set(low_speed_portIds)
             if isMellanoxDevice(src_dut):
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
@@ -935,8 +973,10 @@ class QosSaiBase(QosBase):
                     dutPortIps[src_dut_index][dut_asic.asic_index].keys())
 
                 if isMellanoxDevice(src_dut):
+                    # For T1 in dualtor scenario, we always select the dualtor ports as source ports
+                    dualtor_dut_ports = dualtor_ports_for_duts if 't1' in tbinfo['topo']['type'] else None
                     testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
-                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index])
+                        src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index], dualtor_dut_ports)
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -950,11 +990,18 @@ class QosSaiBase(QosBase):
             src_asic = get_src_dst_asic_and_duts['src_asic']
             dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
             dst_asic = get_src_dst_asic_and_duts['dst_asic']
+            src_system_port = {}
+            if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                    get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                src_system_port = src_dut.config_facts(host=src_dut.hostname, source='running')['ansible_facts'][
+                    'SYSTEM_PORT'][src_dut.hostname]
 
             # Lets get data for the src dut and src asic
             dutPortIps[src_dut_index] = {}
+            sysPortMap[src_dut_index] = {}
             testPortIds[src_dut_index] = {}
             dutPortIps[src_dut_index][src_asic_index] = {}
+            sysPortMap[src_dut_index][src_asic_index] = {}
             active_ips = src_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
             for iface, addr in active_ips.items():
                 if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
@@ -962,6 +1009,15 @@ class QosSaiBase(QosBase):
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                  'port': iface}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
+                    # Map port IDs to system port for dnx chassis
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        sys_key = src_asic.namespace + '|' + iface
+                        if sys_key in src_system_port:
+                            system_port = src_system_port[sys_key]['system_port_id']
+                            sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
+                            sysPortMap[src_dut_index][src_asic_index].update({portIndex: sysPort})
+
                 elif iface.startswith("PortChannel"):
                     portName = next(
                         iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
@@ -970,6 +1026,16 @@ class QosSaiBase(QosBase):
                     portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                  'port': portName}
                     dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
+                    # Map lag port IDs to system port IDs for dnx chassis
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        for portName in src_mgFacts["minigraph_portchannels"][iface]["members"]:
+                            sys_key = src_asic.namespace + '|' + portName
+                            port_Index = src_mgFacts["minigraph_ptf_indices"][portName]
+                            if sys_key in src_system_port:
+                                system_port = src_system_port[sys_key]['system_port_id']
+                                sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
+                                sysPortMap[src_dut_index][src_asic_index].update({port_Index: sysPort})
 
             testPortIds[src_dut_index][src_asic_index] = sorted(dutPortIps[src_dut_index][src_asic_index].keys())
 
@@ -981,9 +1047,16 @@ class QosSaiBase(QosBase):
                     dst_mgFacts = dst_dut.get_extended_minigraph_facts(tbinfo)
                     dutPortIps[dst_dut_index] = {}
                     testPortIds[dst_dut_index] = {}
+                    sysPortMap[dst_dut_index] = {}
+                    if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                            get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                        dst_system_port = dst_dut.config_facts(host=dst_dut.hostname, source='running')[
+                            'ansible_facts']['SYSTEM_PORT'][dst_dut.hostname]
                 else:
                     dst_mgFacts = src_mgFacts
+                    dst_system_port = src_system_port
                 dutPortIps[dst_dut_index][dst_asic_index] = {}
+                sysPortMap[dst_dut_index][dst_asic_index] = {}
                 active_ips = dst_asic.get_active_ip_interfaces(tbinfo, include_ipv6=True)
                 for iface, addr in active_ips.items():
                     if iface.startswith("Ethernet") and ("Ethernet-Rec" not in iface):
@@ -991,6 +1064,15 @@ class QosSaiBase(QosBase):
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                      'port': iface}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
+                        # Map port IDs to system port IDs
+                        if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                                get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                            sys_key = dst_asic.namespace + '|' + iface
+                            if sys_key in dst_system_port:
+                                system_port = dst_system_port[sys_key]['system_port_id']
+                                sysPort = {'port': iface, 'system_port': system_port, 'port_type': iface}
+                                sysPortMap[dst_dut_index][dst_asic_index].update({portIndex: sysPort})
+
                     elif iface.startswith("PortChannel"):
                         portName = next(
                             iter(dst_mgFacts["minigraph_portchannels"][iface]["members"])
@@ -999,6 +1081,16 @@ class QosSaiBase(QosBase):
                         portIpMap = {'peer_addr': addr["peer_ipv4"], 'peer_addr_ipv6': addr['peer_ipv6'],
                                      'port': portName}
                         dutPortIps[dst_dut_index][dst_asic_index].update({portIndex: portIpMap})
+                        # Map lag port IDs to system port IDs
+                        if 'platform_asic' in get_src_dst_asic_and_duts["src_dut"].facts and \
+                                get_src_dst_asic_and_duts["src_dut"].facts['platform_asic'] == 'broadcom-dnx':
+                            for portName in dst_mgFacts["minigraph_portchannels"][iface]["members"]:
+                                sys_key = dst_asic.namespace + '|' + portName
+                                port_Index = dst_mgFacts["minigraph_ptf_indices"][portName]
+                                if sys_key in dst_system_port:
+                                    system_port = dst_system_port[sys_key]['system_port_id']
+                                    sysPort = {'port': portName, 'system_port': system_port, 'port_type': iface}
+                                    sysPortMap[dst_dut_index][dst_asic_index].update({port_Index: sysPort})
 
                 testPortIds[dst_dut_index][dst_asic_index] = sorted(dutPortIps[dst_dut_index][dst_asic_index].keys())
 
@@ -1067,8 +1159,8 @@ class QosSaiBase(QosBase):
         if dualTor:
             testPortIds = dualTorPortIndexes
 
-        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps,
-                                          src_port_ids, dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds)
+        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids,
+                                          get_src_dst_asic_and_duts, uplinkPortIds, sysPortMap)
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -1153,7 +1245,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class')
     def stopServices(
-        self, duthosts, get_src_dst_asic_and_duts, dut_disable_ipv6,
+        self, duthosts, get_src_dst_asic_and_duts,
         swapSyncd_on_selected_duts, enable_container_autorestart, disable_container_autorestart, get_mux_status, # noqa F811
         tbinfo, upper_tor_host, lower_tor_host, toggle_all_simulator_ports):  # noqa F811
         """
@@ -1425,6 +1517,12 @@ class QosSaiBase(QosBase):
             sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
+            # For Mellanox T1, if tunnel qos remap is enabled, we need to enable dualTor flag to cover
+            # T1 in dualTor scenario
+            if is_tunnel_qos_remap_enabled(duthost) and 't1' in tbinfo["topo"]["name"]:
+                dualTor = True
+            else:
+                dualTor = dutConfig["dualTor"]
             import qos_param_generator
             dut_top = dutTopo if dutTopo in qosConfigs['qos_params']['mellanox'] else "topo-any"
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dut_top], dutAsic,
@@ -1435,7 +1533,7 @@ class QosSaiBase(QosBase):
                                                        egressLosslessProfile,
                                                        egressLossyProfile,
                                                        sharedHeadroomPoolSize,
-                                                       dutConfig["dualTor"],
+                                                       dualTor,
                                                        get_src_dst_asic_and_duts['src_dut_index'],
                                                        get_src_dst_asic_and_duts['src_asic_index'],
                                                        get_src_dst_asic_and_duts['dst_dut_index'],
@@ -2173,7 +2271,7 @@ class QosSaiBase(QosBase):
         if speed >= 400000:
             pytest.skip("PGDrop test is not supported for 400G port speed.")
 
-    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds):
+    def select_port_ids_for_mellnaox_device(self, duthost, mgFacts, testPortIds, dualtor_dut_ports=None):
         """
         For Nvidia devices, the tested ports must have the same cable length and speed.
         Firstly, categorize the ports by the same cable length and speed.
@@ -2188,6 +2286,9 @@ class QosSaiBase(QosBase):
         cable_length_speed_interface_dict = {}
         for ptf_port in testPortIds:
             dut_port = ptf_port_dut_port_dict[ptf_port]
+            # Always select dualtor ports if not None
+            if dualtor_dut_ports and dut_port not in dualtor_dut_ports:
+                continue
             if dut_port in interface_cable_length_list:
                 cable_length = interface_cable_length_list[interface_cable_length_list.index(dut_port) + 1]
                 speed = interface_status[dut_port]['speed']
@@ -2273,3 +2374,13 @@ class QosSaiBase(QosBase):
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
             )
+
+    @pytest.fixture(scope="function", autouse=False)
+    def skip_longlink(self, dutQosConfig):
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        match = re.search("_([0-9]*)m", portSpeedCableLength)
+        if match and int(match.group(1)) > 2000:
+            pytest.skip(
+                "This test is skipped for longlink.")
+        yield
+        return

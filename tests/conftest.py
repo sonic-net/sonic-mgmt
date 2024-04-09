@@ -44,6 +44,7 @@ from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
+from tests.common.utilities import get_dut_current_passwd
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
@@ -765,6 +766,11 @@ def creds_on_dut(duthost):
         console_login_creds = hostvars["console_login"]
     creds["console_user"] = {}
     creds["console_password"] = {}
+
+    creds["ansible_altpasswords"] = []
+
+    passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
+    creds['sonicadmin_password'] = get_dut_current_passwd(duthost.mgmt_ip, creds['sonicadmin_user'], passwords)
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
@@ -2272,6 +2278,16 @@ def on_exit():
     on_exit = OnExit()
     yield on_exit
     on_exit.cleanup()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def add_mgmt_test_mark(duthosts):
+    '''
+    @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
+    @param duthosts: fixture to get DUT hosts
+    '''
+    mark_file = "/etc/sonic/mgmt_test_mark"
+    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
