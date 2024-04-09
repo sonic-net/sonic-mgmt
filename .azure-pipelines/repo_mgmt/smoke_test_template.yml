@@ -13,6 +13,15 @@ parameters:
     type: number
     default: 1800    # minutes, totally 24 hours
 
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    values:
+      - nightly
+      - nightly-svc
+      - nightly-bjw
+      - nightly-tk5
+
   # ============ Upgrade parameters ============
   - name: IMAGE_URL
     type: string
@@ -143,7 +152,7 @@ stages:
     jobs:
 
       - job: SmokeTest
-        pool: nightly
+        pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: ${{ parameters.SMOKE_TEST_TIMEOUT }}
         workspace:
           clean: all
