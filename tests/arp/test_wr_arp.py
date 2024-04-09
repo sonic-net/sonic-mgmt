@@ -256,7 +256,7 @@ class TestWrArp:
 
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
-            _hostvars[duthost.hostname].get("ansible_altpassword")
+            _hostvars[duthost.hostname]['sonic_default_passwords']
         ptf_runner(
             ptfhost,
             'ptftests',
@@ -285,7 +285,7 @@ class TestWrArp:
 
         logger.info('Warm-Reboot Control-Plane assist feature')
         sonicadmin_alt_password = duthost.host.options['variable_manager'].\
-            _hostvars[duthost.hostname].get("ansible_altpassword")
+            _hostvars[duthost.hostname]['sonic_default_passwords']
         ptf_runner(
             ptfhost,
             'ptftests',
