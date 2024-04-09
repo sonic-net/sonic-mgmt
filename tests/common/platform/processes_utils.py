@@ -9,6 +9,8 @@ import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
+logger = logging.getLogger(__name__)
+
 
 def reset_timeout(duthost):
     """
@@ -28,8 +30,12 @@ def reset_timeout(duthost):
 
 def get_critical_processes_status(dut):
     processes_status = dut.all_critical_process_status()
-    for k, v in list(processes_status.items()):
-        if v['status'] is False or len(v['exited_critical_process']) > 0:
+    for container_name, processes in list(processes_status.items()):
+        if processes['status'] is False or len(processes['exited_critical_process']) > 0:
+            logger.info("The status of checking process in container '{}' is: {}"
+                        .format(container_name, processes["status"]))
+            logger.info("The processes not running in container '{}' are: '{}'"
+                        .format(container_name, processes["exited_critical_process"]))
             return False, processes_status
 
     return True, processes_status
