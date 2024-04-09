@@ -16,6 +16,10 @@ devices:
         ssh server netconf vrf default
         netconf-yang agent ssh
     xr_port_redir: [22, 161, 830]
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
     onie-install: /nobackup/athingal/image/sonic-buildimage-cisco.202305.1.tortuga-p2/sonic-cisco-8000.bin
     linecard_types: [matilda32]
     vxr_sim_config:

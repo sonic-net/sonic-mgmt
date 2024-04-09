@@ -87,10 +87,6 @@ def setup_teardown_v6_l3vni():
     with open(dir_path + '/' + CONFIGS_FILE) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            # Disabling drake so that there are no automatic underlay configs
-            st.config(nodes[node], "systemctl stop drake", skip_error_check=False, conf=True)
-            st.config(nodes[node], "no router bgp", type='vtysh', skip_error_check=False, conf=True)
-
             config_static(node, 'sonic')
             config_static(node, 'bgp')
 

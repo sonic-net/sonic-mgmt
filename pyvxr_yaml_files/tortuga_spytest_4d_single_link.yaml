@@ -29,6 +29,10 @@ devices:
     - Ethernet16
     xr_port_redir:
     - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
     console_ports: [62101]
   leaf1:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -52,6 +56,10 @@ devices:
     - Ethernet16
     xr_port_redir:
     - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
     console_ports: [62102]
   spine0:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -75,6 +83,10 @@ devices:
     - Ethernet16
     xr_port_redir:
     - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
     console_ports: [62103]
   spine1:
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -98,6 +110,10 @@ devices:
     - Ethernet16
     xr_port_redir:
     - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
     console_ports: [62104]
 
   sonic_mgmt :
