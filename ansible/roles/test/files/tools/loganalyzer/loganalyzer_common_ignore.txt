@@ -49,6 +49,7 @@ r, ".* ERR syncd\d*#syncd.*translateVidToRid: unable to get RID for VID.*"
 r, ".* ERR dhcp_relay.*setsockopt.*No such device.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get attr of SAI_OBJECT_TYPE_ACL_COUNTER.*"
 r, ".* ERR syncd\d*#syncd.*Failed to get (stats|attr) of .*(MACSEC|MACsec).*"
+r, ".* Metadata file \/etc\/sonic\/vs_chassis_metadata.json not found.*"
 
 ##### White list below messages found on physical devices for now. Need to address them later.
 
