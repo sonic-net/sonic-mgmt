@@ -928,6 +928,12 @@ class QosSaiBase(QosBase):
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
 
+            if 'backend' in topo:
+                # since backend T0 utilize dot1q encap pkts, testPortIds need to be repopulated with the
+                # associated sub-interfaces stored in testPortIps
+                testPortIds[src_dut_index][src_asic_index] = sorted(
+                    list(testPortIps[src_dut_index][src_asic_index].keys()))
+
         elif topo in self.SUPPORTED_T1_TOPOS:
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
             # So use src_dut as the dut
