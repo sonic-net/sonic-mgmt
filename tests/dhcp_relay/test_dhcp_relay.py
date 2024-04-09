@@ -16,7 +16,6 @@ from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.dualtor.dual_tor_common import active_active_ports   # noqa F401
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -307,7 +306,6 @@ def start_dhcp_monitor_debug_counter(duthost):
 
 
 def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                            active_active_ports,                                                         # noqa F811
                             rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_m):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
@@ -327,17 +325,11 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
                     start_dhcp_monitor_debug_counter(standby_duthost)
-                    client_iface = str(dhcp_relay['client_iface']['name'])
-                    # In case of active-standby ports northbound  trafic is duplicated
-                    # to both ToRs by the y-cable whereas is case of active-active
-                    # ports the traffic is ECMPd, therefore only one ToR receives
-                    # northbound packets
-                    discReqCount = 0 if client_iface in active_active_ports else 1
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                        r"Discover: +%d/ +0, Offer: +0/ +0, Request: +%d/ +0, ACK: +0/ +0+"
-                    ) % (dhcp_relay['downlink_vlan_iface']['name'], discReqCount, discReqCount)
+                        r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
+                    ) % (dhcp_relay['downlink_vlan_iface']['name'])
                     loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
