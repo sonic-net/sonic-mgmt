@@ -39,7 +39,10 @@ def pytest_addoption(parser):
 def testcase_action(request):
     testcase = request.config.getoption("--testcase-action")
     if testcase not in ['no_storm', 'storm', 'async_storm', 'all']:
-        raise ValueError("Invalid testcase option: {}. Use one of: 'no_storm', 'storm', 'async_storm', 'all'".format(testcase))
+        raise ValueError(
+            "Invalid testcase option: {}. Use one of: 'no_storm', 'storm', "
+            "'async_storm', 'all'".format(testcase)
+        )
     return testcase if testcase != 'all' else ['no_storm', 'storm', 'async_storm']
 
 
