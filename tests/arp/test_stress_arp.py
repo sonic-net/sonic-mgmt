@@ -83,15 +83,16 @@ def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
 
     while loop_times > 0:
         loop_times -= 1
-        add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
+        try:
+            add_arp(ptf_intf_ipv4_hosts, intf1_index, ptfadapter)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
-                      "ARP Table Add failed")
+            pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= arp_avaliable),
+                          "ARP Table Add failed")
+        finally:
+            clear_dut_arp_cache(duthost)
+            fdb_cleanup(duthost)
 
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
-
-        time.sleep(5)
+            time.sleep(5)
 
 
 def generate_global_addr(mac):
@@ -131,6 +132,7 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable):
         ns_pkt = ipv6_packets_for_test(ip_and_intf_info, nd_entry_mac, fake_src_addr)
 
         testutils.send_packet(ptfadapter, ptf_intf_index, ns_pkt)
+    logger.info("Sending {} ipv6 neighbor entries".format(nd_avaliable))
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
@@ -147,16 +149,21 @@ def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
     loop_times = LOOP_TIMES_LEVEL_MAP[normalized_level]
     ipv6_avaliable = get_crm_resources(duthost, "ipv6_neighbor", "available") - \
         get_crm_resources(duthost, "ipv6_neighbor", "used")
-    nd_avaliable = min(ipv6_avaliable, ENTRIES_NUMBERS)
+    fdb_avaliable = get_crm_resources(duthost, "fdb_entry", "available") - \
+        get_crm_resources(duthost, "fdb_entry", "used")
+    pytest_assert(ipv6_avaliable > 0 and fdb_avaliable > 0, "Entries have been filled")
+
+    nd_avaliable = min(min(ipv6_avaliable, fdb_avaliable), ENTRIES_NUMBERS)
 
     while loop_times > 0:
         loop_times -= 1
-        add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
+        try:
+            add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_avaliable)
 
-        pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
-                      "Neighbor Table Add failed")
-
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
-        # Wait for 10 seconds before starting next loop
-        time.sleep(10)
+            pytest_assert(wait_until(20, 1, 0, lambda: get_fdb_dynamic_mac_count(duthost) >= nd_avaliable),
+                          "Neighbor Table Add failed")
+        finally:
+            clear_dut_arp_cache(duthost)
+            fdb_cleanup(duthost)
+            # Wait for 10 seconds before starting next loop
+            time.sleep(10)
