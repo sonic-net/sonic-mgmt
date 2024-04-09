@@ -38,6 +38,7 @@
         - [Test case # 2.10: Measure the convergence time during ungraceful restart of uplink linecard](#test-case--210)
         - [Test case # 2.11: Measure the convergence time during ungraceful restart of supervisor on T2 chassis](#test-case--211)
       - [Inbound Traffic Topology](#inbound-traffic-topology)
+      - [Hardware](#hardware)
 
 ## Objective
 In a data center environment using SONiC (Software for Open Networking in the Cloud), convergence refers to the process by which the network adapts to changes in topology, link states, trigger events or routing information. Achieving fast convergence is critical to ensure that the network can quickly recover from failures or topology changes without impacting services.
@@ -109,7 +110,8 @@ Convergence time should be measured from the instance routes are advertised and 
 Similarly, withdraw the routes and measure the time it takes to delete the routes from DUT asics. <br/> 
 In order to measure the time it takes to delete the routes from asics after routes withdraw, we have to consider the time when it starts withdrawing the routes and when the traffic receiving rate goes to 0%.<br/> 
 Differnet v4 and v6 prefix combinations will be tried for Route advertise/withdraw convergence numbers. (Ports can be connected to single asic same LC, different asic same LC, different asic different LCs.)<br/> 
-Same test can be expanded to multiple sessions on single port or if multiple tgen ports are available, we can have single session on each tgen port.
+Same test can be expanded to multiple sessions on single port or if multiple tgen ports are available, we can have single session on each tgen port.<br/>
+For Keysight automated cases, we will be using readily available CP/DP convergence time stat to measure Convergence.
 
 ### Test Setup
   - T2 chassis with 2 LCs(Linecards). Each LC is having 2 asics.                            
@@ -175,7 +177,8 @@ Effectively, on T1 routes are learned from 2 peers and forms ECMP.
 
 Fixed duration server traffic is generated for a bunch of destination prefixes, which will load balance by T1 towards its peers.<br/>
 During normal conditions, all the traffic should be received by tgen ports without experiencing any loss.<br/>
-Different triggers(planned/unplanned) mentioned above are performed at different layers (T1/T2/T3) and total packets lost are measured. 
+Different triggers(planned/unplanned) mentioned above are performed at different layers (T1/T2/T3) and total packets lost are measured.<br/> 
+For Keysight automated cases, we will be measuring convergence using "Packet Loss Duration (PLD)" stat, which will be default convergence measurement. To measure the flow which is having high convergence value, flow tracking will be used. Note, this will be limited by the tracking limit depending on hardware which is being used.
 
 ### Test Setup
 1. T2 chassis with 2 LCs(Linecards). Each LC is having 2 asics.                            
@@ -327,5 +330,7 @@ Different triggers(planned/unplanned) mentioned above are performed at different
 
 Tests from 2.1 - 2.11 can be repeated for Inbound traffic as well. 
 
+### Hardware
 
+All the above tests can be run on any Keysight hardware which supports CP/DP (Control plane/Data plane) convergence measurement.
 
