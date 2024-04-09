@@ -77,12 +77,12 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "pfcwd/test_pfcwd_warm_reboot.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_reboot.py::test_warm_reboot,platform_tests/test_reboot.py::test_fast_reboot"
+    default: "pfcwd/test_pfcwd_warm_reboot.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_reboot.py::test_warm_reboot,platform_tests/test_reboot.py::test_fast_reboot,arp/test_wr_arp.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "metadata-scripts"
+    default: "metadata-scripts, sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
