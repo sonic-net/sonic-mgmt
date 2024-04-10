@@ -58,7 +58,10 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
 
     asichost = dut.asic_instance(enum_frontend_asic_index)
     service_name = asichost.get_service_name(service)
-    dut.command("sudo systemctl restart {}".format(service_name))
+    if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+        dut.shell("sudo systemctl stop {} && sleep 30 && sudo systemctl start {}".format(service_name, service_name))
+    else:
+        dut.command("sudo systemctl restart {}".format(service_name))
 
     for container in dut.get_default_critical_services_list():
         if is_service_hiting_start_limit(dut, container) is True:
