@@ -77,7 +77,8 @@ def get_uplink_route_mac(duthosts, port):
             # return the router mac for that duthost/asic
             if v['type'] == "RegionalHub" or v['type'] == "AZNGHub":
                 # Get the router_mac based on which asic the port belongs to in this dut
-                return duthost.get_port_asic_instance(port).get_router_mac()
+                return duthost.get_port_asic_instance(port).get_router_mac() \
+                                    if duthost.is_multi_asic else duthost.facts["router_mac"]
 
 
 @pytest.fixture
