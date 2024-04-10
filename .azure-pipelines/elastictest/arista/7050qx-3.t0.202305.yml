@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 0,2,4"
+  - cron: "0 4 * * 0-5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -28,7 +28,7 @@ variables:
 parameters:
   - name: AGENT_POOL
     type: string
-    default: nightly-bjw
+    default: nightly
     values:
       - nightly
       - nightly2
@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "testbed-bjw-can-7050qx-3"
+    default: "vms11-t0-7050qx-acs-4, testbed-bjw-can-7050qx-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -51,7 +51,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_BRCM_ABOOT_202305_SLIM)
+    default: $(IMAGE_BRCM_ABOOT_202305_SLIM)
     displayName: "Image URL"
 
   - name: UPGRADE_IMAGE_PARAM
@@ -77,17 +77,17 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "pfcwd/test_pfcwd_warm_reboot.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_reboot.py::test_warm_reboot,platform_tests/test_reboot.py::test_fast_reboot,arp/test_wr_arp.py"
+    default: "pfcwd/test_pfcwd_warm_reboot.py,platform_tests/test_advanced_reboot.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_reboot.py::test_warm_reboot,platform_tests/test_reboot.py::test_fast_reboot,arp/test_wr_arp.py,bgp/test_bgp_slb.py"
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "metadata-scripts, sub_port_interfaces"
+    default: "metadata-scripts, sub_port_interfaces, dualtor"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t0,any --py_saithrift_url=$(BJW_SAITHRIFT_BRCM_202305)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_BRCM_202305)"
     displayName: "Common test parameters"
 
   - name: SPECIFIC_PARAM
