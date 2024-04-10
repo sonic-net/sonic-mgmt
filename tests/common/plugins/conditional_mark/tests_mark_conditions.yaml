@@ -1062,7 +1062,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
   xfail:
     reason: "Pipe decap mode not supported due to either SAI or platform limitation"
     conditions:
-      - "asic_type in ['mellanox', 'cisco-8000']"
+      - "asic_type in ['mellanox', 'broadcom', 'cisco-8000']"
 
 qos/test_qos_masic.py:
   skip:
@@ -1230,9 +1230,9 @@ restapi/test_restapi.py:
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:
-    reason: "Only supported on cisco 8102"
+    reason: "Only supported on cisco 8102 T1"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "not (asic_type in ['cisco-8000'] and 't1' in topo_type)"
 
 #######################################
 #####           route             #####
@@ -1300,6 +1300,12 @@ snmp/test_snmp_link_local.py:
       - https://github.com/sonic-net/sonic-buildimage/issues/6108
       - "is_multi_asic==False"
       - "release in ['202205', '202211', '202305']"
+
+snmp/test_snmp_loopback.py::test_snmp_loopback:
+  skip:
+    reason: "Not supported topology backend."
+    conditions:
+      - "'backend' in topo_name"
 
 snmp/test_snmp_pfc_counters.py:
   skip:
@@ -1520,6 +1526,12 @@ vxlan/test_vnet_vxlan.py:
     conditions:
       - "asic_type not in ['mellanox', 'barefoot']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8374
+
+vxlan/test_vxlan_bfd_tsa.py:
+  skip:
+    reason: "VxLAN ECMP BFD TSA test is not yet supported on multi-ASIC platform. Also this test can only run on 4600c, 2700 and 8102."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0'])"
 
 vxlan/test_vxlan_crm.py:
   skip:
