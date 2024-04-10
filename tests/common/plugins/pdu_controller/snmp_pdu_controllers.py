@@ -146,7 +146,7 @@ class snmpPduController(PduControllerBase):
         PduControllerBase.__init__(self)
         self.controller = controller
         self.snmp_rocommunity = pdu['snmp_rocommunity']
-        self.snmp_rwcommunity = pdu['snmp_rwcommunity']
+        self.snmp_rwcommunity = pdu.get('creds', {}).get('snmp_rwcommunity', pdu.get('snmp_rwcommunity'))
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
