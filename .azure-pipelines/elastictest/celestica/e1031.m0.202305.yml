@@ -106,6 +106,15 @@ parameters:
     default: "--topology m0,any --no_dscp_uniform --py_saithrift_url=$(SAITHRIFT_BRCM_202012)"
     displayName: "Common test parameters"
 
+  - name: AFFINITY
+    type: string
+    # For the 2 dut_console test modules, they cannot pass on testbed-str-e1031-acs-1 due to console server issue.
+    default: '[
+      {"name": "dut_console/test_escape_character.py", "op": "NOT_ON", "value": ["testbed-str-e1031-acs-1"]},
+      {"name": "dut_console/test_idle_timeout.py", "op": "NOT_ON", "value": ["testbed-str-e1031-acs-1"]}
+    ]'
+    displayName: "Test affinity, only support test module(e.g. 'bgp/test_bgp_fact.py')"
+
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
@@ -133,6 +142,7 @@ stages:
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        AFFINITY: ${{ parameters.AFFINITY }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
