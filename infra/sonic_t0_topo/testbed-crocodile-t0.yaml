@@ -56,7 +56,7 @@ devices:
       ansible_ssh_user: vxr
       sonicadmin_initial_password: cisco123
       sonicadmin_password: cisco123
-      sonicadmin_user: admin
+      sonicadmin_user: cisco
     credentials:
       password: cisco123
       username: vxr
