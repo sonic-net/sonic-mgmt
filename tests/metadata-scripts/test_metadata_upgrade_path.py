@@ -1,27 +1,21 @@
 import pytest
 import os
 import logging
-from datetime import datetime
-from tests.ptf_runner import ptf_runner
+import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import patch_rsyslog
-from tests.common.platform.ssh_utils import prepare_testbed_ssh_keys
 from tests.common import reboot
-from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
-from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version, get_reboot_command, check_reboot_cause, check_services
-from tests.upgrade_path.upgrade_helpers import setup_ferret  # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses      # lgtm[py/unused-import]
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py     # lgtm[py/unused-import]
+from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version,\
+    upgrade_test_helper
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
-from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore  # lgtm[py/unused-import]
+from tests.platform_tests.conftest import advanceboot_loganalyzer, advanceboot_neighbor_restore
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.platform_tests.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from tests.platform_tests.verify_dut_health import verify_dut_health, check_neighbors      # lgtm[py/unused-import]
-from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot # lgtm[py/unused-import]
-from tests.common.utilities import wait_until
+from tests.platform_tests.verify_dut_health import verify_dut_health        # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot  # lgtm[py/unused-import]
+from tests.common.errors import RunAnsibleModuleFail
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -29,7 +23,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
-SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
 
 
@@ -104,10 +97,9 @@ def cleanup_prev_images(duthost):
 def sonic_update_firmware(duthost, image_url, upgrade_type):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
-    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"\
+    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
             .format(metadata_scripts_path))
 
-    current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
     cleanup_prev_images(duthost)
     logger.info("Step 1 Copy the scripts to the DUT")
     duthost.command("mkdir /tmp/anpscripts")
@@ -149,9 +141,9 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process):
     base_path = os.path.dirname(__file__)
     postupgrade_actions_data_dir_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions_data")
     postupgrade_actions_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions")
-    pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC Metadata postupgrade_action script not found in {}"\
+    pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC Metadata postupgrade_action script not found in {}"
             .format(postupgrade_actions_path))
-    pytest_assert(os.path.exists(postupgrade_actions_data_dir_path), "SONiC Metadata postupgrade_action data directory not found in {}"\
+    pytest_assert(os.path.exists(postupgrade_actions_data_dir_path), "SONiC Metadata postupgrade_action data directory not found in {}"
             .format(postupgrade_actions_data_dir_path))
 
     logger.info("Step 1 Copy the scripts and data directory to the DUT")
@@ -172,22 +164,35 @@ def run_postupgrade_actions(duthost, tbinfo, metadata_process):
             pytest_assert(not errors, "Failed executing postupgrade_actions. Errors: {}".format(errors))
     duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)
 
-    check_services(duthost)
-    check_neighbors(duthost, tbinfo)
-
 
 def setup_upgrade_test(duthost, localhost, from_image, to_image,
-        tbinfo, metadata_process, upgrade_type,
-        modify_reboot_script=None, allow_fail=False):
+                       tbinfo, metadata_process, upgrade_type,
+                       modify_reboot_script=None, allow_fail=False):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
     cleanup_prev_images(duthost)
     # Install base image
     logger.info("Installing {}".format(from_image))
-    target_version = install_sonic(duthost, from_image, tbinfo)
+    try:
+        target_version = install_sonic(duthost, from_image, tbinfo)
+    except RunAnsibleModuleFail as err:
+        migration_err_regexp = r"Traceback.*migrate_sonic_packages.*SonicRuntimeException"
+        msg = err.results['msg'].replace('\n', '')
+        if re.search(migration_err_regexp, msg):
+            logger.info(
+                "Ignore the package migration error when downgrading to from_image")
+            target_version = duthost.shell(
+                "cat /tmp/downloaded-sonic-image-version")['stdout']
+        else:
+            raise err
+    # Remove old config_db before rebooting the DUT in case it is not successfully
+    # removed in install_sonic due to migration error
+    logger.info("Remove old config_db file if exists, to load minigraph from scratch")
+    if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
+        duthost.shell("rm -f /host/old_config/config_db.json")
     # Perform a cold reboot
     logger.info("Cold reboot the DUT to make the base image as current")
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
-    reboot_type = 'soft' if "6100" in duthost.facts["hwsku"] else 'cold'
+    reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
     reboot(duthost, localhost, reboot_type=reboot_type)
     check_sonic_version(duthost, target_version)
 
@@ -202,124 +207,99 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
         # add fail step to reboot script
         modify_reboot_script(upgrade_type)
 
-def run_upgrade_test(duthost, localhost, ptfhost, from_image, to_image,
-        tbinfo, metadata_process, upgrade_type, get_advanced_reboot, advanceboot_loganalyzer,
-        modify_reboot_script=None, allow_fail=False,
-        sad_preboot_list=None, sad_inboot_list=None, first_upgrade=True):
-
-    reboot_type = get_reboot_command(duthost, upgrade_type)
-    if "warm-reboot" in reboot_type:
-        # always do warm-reboot with CPA enabled
-        setup_ferret(duthost, ptfhost, tbinfo)
-        ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
-        reboot_type = reboot_type + " -c {}".format(ptf_ip)
-
-    if first_upgrade:
-        preboot_setup = lambda: setup_upgrade_test(duthost, localhost,
-                from_image, to_image, tbinfo, metadata_process, upgrade_type)
-    else:
-        preboot_setup = None
-
-    if upgrade_type == REBOOT_TYPE_COLD:
-        # advance-reboot test (on ptf) does not support cold reboot yet
-        setup_upgrade_test(duthost, localhost,
-            from_image, to_image, tbinfo, metadata_process, upgrade_type)
-        reboot(duthost, localhost)
-        run_postupgrade_actions(duthost, tbinfo, metadata_process)
-    else:
-        advancedReboot = get_advanced_reboot(rebootType=reboot_type,\
-            advanceboot_loganalyzer=advanceboot_loganalyzer, allow_fail=allow_fail)
-        advancedReboot.runRebootTestcase(prebootList=sad_preboot_list, inbootList=sad_inboot_list,
-        preboot_setup=preboot_setup,
-        postboot_setup=lambda: run_postupgrade_actions(duthost, tbinfo, metadata_process))
-
-    patch_rsyslog(duthost)
-
-    if "warm-reboot" in reboot_type:
-        ptfhost.shell('supervisorctl stop ferret')
-
 
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, skip_cancelled_case, tbinfo, request,
-        get_advanced_reboot, advanceboot_loganalyzer,
-        add_fail_step_to_reboot, verify_dut_health):
+                                upgrade_path_lists, skip_cancelled_case, tbinfo, request,
+                                get_advanced_reboot, advanceboot_loganalyzer,
+                                add_fail_step_to_reboot, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
     metadata_process = request.config.getoption('metadata_process')
 
-    run_upgrade_test(duthost, localhost, ptfhost,
-        from_image, to_image, tbinfo, metadata_process, upgrade_type,
-        get_advanced_reboot, advanceboot_loganalyzer,
-        modify_reboot_script=modify_reboot_script, allow_fail=True)
+    def upgrade_path_preboot_setup():
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type, modify_reboot_script=modify_reboot_script, allow_fail=True)
+
+    def upgrade_path_postboot_setup():
+        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        patch_rsyslog(duthost)
+
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
+                        allow_fail=True)
 
 
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
-        verify_dut_health):
+                      upgrade_path_lists, tbinfo, request, get_advanced_reboot,
+                      advanceboot_loganalyzer, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
 
-    run_upgrade_test(duthost, localhost, ptfhost,
-        from_image, to_image, tbinfo, metadata_process, upgrade_type,
-        get_advanced_reboot, advanceboot_loganalyzer)
-    logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
-    networking_uptime = duthost.get_networking_uptime().seconds
-    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-    # Change the reboot cause to soft-reboot for 6100 T1
-    if upgrade_type == 'cold' and "6100" in duthost.facts["hwsku"] and 't1' in tbinfo['topo']['name']:
-        original_upgrade_type = upgrade_type
-        upgrade_type = 'soft'
-        if wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type):
-            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-        else:
-            # if the reboot cause is not soft-reboot, then it should be cold-reboot
-            upgrade_type = original_upgrade_type
-            pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
-    else:
-        pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-            "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
+    def upgrade_path_preboot_setup():
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type)
+
+    def upgrade_path_postboot_setup():
+        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        patch_rsyslog(duthost)
+
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup, enable_cpa=True)
 
 
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
-        verify_dut_health):
+                            upgrade_path_lists, tbinfo, request, get_advanced_reboot,
+                            advanceboot_loganalyzer, verify_dut_health):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
 
-    for first_upgrade in [True, False]:
-        run_upgrade_test(duthost, localhost, ptfhost,
-            from_image, to_image, tbinfo, metadata_process, upgrade_type,
-            get_advanced_reboot, advanceboot_loganalyzer,
-            first_upgrade=first_upgrade)
-        logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
-        networking_uptime = duthost.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-        pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-            "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type))
+    def upgrade_path_preboot_setup():
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type)
+
+    def upgrade_path_postboot_setup():
+        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        patch_rsyslog(duthost)
+
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
+                        reboot_count=2, enable_cpa=True)
 
 
 def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-        upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
-        verify_dut_health, nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
-        advanceboot_neighbor_restore, sad_case_type):
+                               upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
+                               verify_dut_health, nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
+                               advanceboot_neighbor_restore, sad_case_type):
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _ = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
     sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
         fanouthosts, vmhost, tbinfo, sad_case_type)
 
-    run_upgrade_test(duthost, localhost, ptfhost,
-        from_image, to_image, tbinfo, metadata_process, upgrade_type,
-        get_advanced_reboot, advanceboot_loganalyzer,
-        sad_preboot_list=sad_preboot_list, sad_inboot_list=sad_inboot_list)
-    logger.info("Check reboot cause. Expected cause {}".format(upgrade_type))
-    networking_uptime = duthost.get_networking_uptime().seconds
-    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-    pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-        "Reboot cause {} did not match the trigger - {}".format(
-            get_reboot_cause(duthost), upgrade_type))
+    def upgrade_path_preboot_setup():
+        setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
+                           metadata_process, upgrade_type)
+
+    def upgrade_path_postboot_setup():
+        run_postupgrade_actions(duthost, tbinfo, metadata_process)
+        patch_rsyslog(duthost)
+
+    upgrade_test_helper(duthost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type, get_advanced_reboot,
+                        advanceboot_loganalyzer=advanceboot_loganalyzer,
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
+                        sad_preboot_list=sad_preboot_list,
+                        sad_inboot_list=sad_inboot_list, enable_cpa=True)

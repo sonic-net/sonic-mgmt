@@ -5,6 +5,7 @@ import json
 import random
 import logging
 import re
+from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common import reboot
 from tests.upgrade_path.upgrade_helpers import install_sonic, check_sonic_version,\
     upgrade_test_helper
@@ -86,6 +87,7 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
     reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
     reboot(duthost, localhost, reboot_type=reboot_type)
+    patch_rsyslog(duthost)
     check_sonic_version(duthost, target_version)
 
     # Install target image
@@ -129,10 +131,15 @@ def test_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
+    def upgrade_path_postboot_setup():
+        patch_rsyslog(duthost)
+
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
-                        preboot_setup=upgrade_path_preboot_setup, enable_cpa=enable_cpa)
+                        preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
+                        enable_cpa=enable_cpa)
 
 
 @pytest.mark.device_type('vs')
@@ -149,11 +156,15 @@ def test_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostna
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                            upgrade_type)
 
+    def upgrade_path_postboot_setup():
+        patch_rsyslog(duthost)
+
     sad_preboot_list, sad_inboot_list = get_sad_case_list(
         duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
                         to_image, tbinfo, "warm", get_advanced_reboot,
                         advanceboot_loganalyzer=advanceboot_loganalyzer,
                         preboot_setup=upgrade_path_preboot_setup,
+                        postboot_setup=upgrade_path_postboot_setup,
                         sad_preboot_list=sad_preboot_list,
                         sad_inboot_list=sad_inboot_list, enable_cpa=enable_cpa)
