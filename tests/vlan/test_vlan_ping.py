@@ -166,7 +166,7 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter):
             break
         except Exception as e:
             if i >= 4:
-                raise e # If it fails on the last attempt, raise the exception
+                raise e  # If it fails on the last attempt, raise the exception
 
 
 def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter):
