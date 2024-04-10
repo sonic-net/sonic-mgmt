@@ -18,13 +18,13 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms21-t0-dx010-7
+    default: tbtk5-t0-2700-3
     displayName: "Testbed Name"
 
   # Upgrade parameters
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_BRCM_INTERNAL)
+    default: $(IMAGE_MLNX_INTERNAL)
     displayName: "Image URL"
 
   - name: ALWAYS_POWER_CYCLE_DUTS
@@ -40,7 +40,7 @@ parameters:
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
-    default: $(SAITHRIFT_BRCM_INTERNAL)
+    default: $(SAITHRIFT_MLNX_INTERNAL)
     displayName: "py_saithrift URL"
 
   # Custom skip scripts
@@ -48,6 +48,16 @@ parameters:
     type: string
     default: "pfc_wd/test_pfcwd_warm_reboot.py pfcwd/test_pfcwd_timer_accuracy.py"
     displayName: "Skip Scripts"
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly-tk5
+    displayName: "Agent pool name"
+    values:
+      - nightly
+      - nightly-svc
+      - nightly-bjw
+      - nightly-tk5
 
   # ==============================================================
   - name: SKIP_RUNNING_TEST
@@ -105,3 +115,4 @@ stages:
       FORCE_PUSH: ${{ parameters.FORCE_PUSH }}
       MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
       TOLERANCE: ${{ parameters.TOLERANCE }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}

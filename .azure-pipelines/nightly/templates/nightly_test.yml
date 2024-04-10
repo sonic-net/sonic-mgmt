@@ -33,6 +33,7 @@ parameters:
       - nightly2
       - nightly-svc
       - nightly-bjw
+      - nightly-tk5
 
   # ============ Upgrade parameters ============
   - name: IMAGE_URL

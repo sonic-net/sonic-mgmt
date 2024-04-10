@@ -2448,3 +2448,20 @@
   inv_name: bjw
   auto_recover: 'True'
   comment: Beijing Lab
+
+- conf-name: testbed-bjw-can-t1-7260-12
+  group-name: bjw13-6
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: bjw13-6
+  ptf_ip: 10.150.23.74/23
+  ptf_ipv6: 2404:f801:10:2200::a96:174a/52
+  ptf_extra_mgmt_ip: ["172.16.188.74/17"]
+  server: server_bjw_13
+  vm_base: VM74060
+  dut:
+    - bjw-can-7260-12
+  inv_name: bjw
+  auto_recover: 'True'
+  comment: Beijing Lab
+
