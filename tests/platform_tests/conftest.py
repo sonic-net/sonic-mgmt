@@ -45,7 +45,7 @@ def _parse_timestamp(timestamp):
             time = datetime.strptime(timestamp, FMT_ALT)
     return time
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture()
 def is_logs_tmpfs_platform(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
