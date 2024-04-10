@@ -58,6 +58,22 @@ devices:
     credentials:
         password: root
         username: root
+  str-acs-serv-01:
+    alias: null
+    ansible:
+      ansible_become_pass: cisco123
+      ansible_host: 172.17.0.1/23
+      ansible_ssh_pass: cisco123
+      ansible_ssh_user: vxr
+      sonicadmin_initial_password: cisco123
+      sonicadmin_password: cisco123
+      sonicadmin_user: cisco
+    credentials:
+      password: cisco123
+      username: vxr
+    device_type: server
+    hwsku: TestServ
+    mgmt_subnet_mask_length: '24'
 
 
 docker_registry:
