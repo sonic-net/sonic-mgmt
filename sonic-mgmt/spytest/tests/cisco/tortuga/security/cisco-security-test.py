@@ -3,6 +3,9 @@ import os
 import time
 import json
 import subprocess
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from datetime import datetime
 
 import pytest
 from spytest import st, tgapi, SpyTestDict
@@ -128,12 +131,12 @@ def sudi_platform_identity_verify_wrong_pid(dut):
     idprom_data = basic_obj.get_platform_idprom(dut)
     st.log(idprom_data)
     sn = idprom_data['pcb_serial']
-    pid = "8101-32FH-O-O" 
-    output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(pid, sn))
+    wrongpid = "8101-32FH-O-O"
+    output = st.config(dut, "/opt/cisco/crypto/bin/tamcli -a authenticate-udi -p {} -n {}".format(wrongpid, sn))
     if "TAM_ERROR_DEVICE_UDI_AUTHENTICATION_FAILURE" in output:
         return True
     else:
-        return False    
+        return False
 
 def sudi_platform_identity_verify_wrong_sn(dut):
     idprom_data = basic_obj.get_platform_idprom(dut)
@@ -339,3 +342,54 @@ def test_udi_authentication_wrong_sn():
     else:
         st.report_fail("test_case_failed", dut1)
 
+def test_sudi_cert_validity():
+    dut1 = st.get_dut_names()[0]
+    with open(l_sudi_cert, 'rb') as f:
+        cert_data = f.read()
+        cert = x509.load_pem_x509_certificate(cert_data, default_backend())
+
+    # Check if the certificate has expired
+    current_time = datetime.utcnow()
+    if cert.not_valid_before <= current_time <= cert.not_valid_after:
+        st.log("The certificate is currently valid.")
+        st.report_pass("test_case_passed", dut1)
+    else:
+        st.log("The certificate is expired or not yet valid.")
+        st.report_fail("test_case_failed", dut1)
+
+def test_show_sudi_command():
+    dut1 = st.get_dut_names()[0]
+    idprom_data = basic_obj.get_platform_idprom(dut1)
+    st.log(idprom_data)
+    sn = idprom_data['pcb_serial']
+    pid = idprom_data['product_id']
+
+    output = st.config(dut1, "/opt/cisco/crypto/bin/tamcli -a get-sudi-cert --show")
+    if not sn in output:
+        st.log("The certificate does not have serial number {}".format(sn))
+        st.report_fail("test_case_failed", dut1)
+
+    if not pid in output:
+        st.log("The certificate does not have pid".format(pid))
+        st.report_fail("test_case_failed", dut1)
+
+    st.report_pass("test_case_passed", dut1)
+
+def test_tam_service_restart():
+    dut1 = st.get_dut_names()[0]
+    try:
+        basic_obj.service_operations(dut1, "platform-tam-server", action="restart")
+        basic_obj.service_operations(dut1, "platform-tam-mgmt", action="restart")
+        st.wait(30)
+        if not get_service_status(dut1, "tams_proc"):
+            st.log("Failed to start tam server")
+            raise Exception("Failed to start tam server")
+        if not sudi_sign_signature_digest_verify(dut1, "Hello Test", "sha512"):
+            st.log("Failed to sudi sign verification")
+            raise Exception("Failed to sudi sign verification")
+        st.report_pass("test_case_passed", dut1)
+    except Exception as err:
+        st.log("Exception occured")
+        st.log(err)
+        print("Type of error occured:", sys.exc_info()[0])
+        st.report_fail("test_case_failed", dut1)
