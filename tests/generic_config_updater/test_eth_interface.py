@@ -260,7 +260,7 @@ def test_replace_fec(duthosts, rand_one_dut_hostname, ensure_dut_readiness, fec)
 
             # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
             if duthost.facts['platform'] in ['x86_64-arista_7050_qx32s']:
-                config_reload(duthost)
+                config_reload(duthost, safe_reload=True)
         else:
             expect_op_failure(output)
     finally:
