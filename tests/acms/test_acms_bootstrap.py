@@ -50,10 +50,10 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     cloudtype = test_data["cloudtype"]
     region_list = test_data["region_list"]
     for region in region_list:
-        dut_command = "sudo rm /var/opt/msft/client/*"
+        dut_command = "rm /var/opt/msft/client/*"
         duthost.shell(dut_command, module_ignore_errors=True)
         create_acms_conf(region, cloudtype, duthost, "/var/opt/msft/client/acms_secrets.ini")
-        dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
+        dut_command = "rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
         duthost.shell(dut_command, module_ignore_errors=True)
         duthost.copy(src='acms/clientCert.pfx', dest='/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx'%region)
         dut_command = 'docker exec -e http_proxy="%s" -e https_proxy="%s" %s \

@@ -19,9 +19,9 @@ def setup_acms(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     yield
 
-    dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
+    dut_command = "rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /var/opt/msft/client/*"
+    dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "systemctl reset-failed %s; systemctl restart %s" % (container_name, container_name)
     duthost.shell(dut_command)

@@ -41,16 +41,16 @@ def setup_certs(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl stop CA_cert_downloader" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /var/opt/msft/client/*"
+    dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /etc/sonic/credentials/*"
+    dut_command = "rm /etc/sonic/credentials/*"
     duthost.shell(dut_command, module_ignore_errors=True)
 
     yield
 
-    dut_command = "sudo rm /var/opt/msft/client/*"
+    dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /etc/sonic/credentials/*"
+    dut_command = "rm /etc/sonic/credentials/*"
     duthost.shell(dut_command, module_ignore_errors=True)
 
 
@@ -77,9 +77,9 @@ def test_acms_cert_downloader(duthosts, rand_one_dut_hostname, creds, test_data)
     region_list = test_data["region_list"]
     for region in region_list:
         logger.info("Testing region %s in cloud %s" % (region, cloudtype))
-        dut_command = "sudo rm /var/opt/msft/client/*"
+        dut_command = "rm /var/opt/msft/client/*"
         duthost.shell(dut_command, module_ignore_errors=True)
-        dut_command = "sudo rm /etc/sonic/credentials/*"
+        dut_command = "rm /etc/sonic/credentials/*"
         duthost.shell(dut_command, module_ignore_errors=True)
         create_acms_conf(region, cloudtype, duthost, "/var/opt/msft/client/acms_secrets.ini")
         dut_command = 'timeout %ds docker exec -e http_proxy="%s" -e https_proxy="%s" %s CA_cert_downloader.py' \

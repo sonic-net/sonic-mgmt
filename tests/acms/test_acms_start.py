@@ -39,16 +39,16 @@ def setup_certs(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl stop acms" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /var/opt/msft/client/*"
+    dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
+    dut_command = "rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
     duthost.shell(dut_command, module_ignore_errors=True)
 
     yield
 
-    dut_command = "sudo rm /var/opt/msft/client/*"
+    dut_command = "rm /var/opt/msft/client/*"
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "sudo rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
+    dut_command = "rm /etc/sonic/credentials/sonic_acms_bootstrap-*"
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "sonic-db-cli CONFIG_DB hset 'DEVICE_METADATA|localhost' 'cloudtype' 'Public'"
     duthost.shell(dut_command, module_ignore_errors=True)
