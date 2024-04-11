@@ -21,6 +21,21 @@ user = {{ tacacs_rw_user }} {
     member = netadmin
 }
 
+{% if duthost_admin_user is defined %}
+user = {{ duthost_admin_user }} {
+    login = des {{ duthost_admin_passwd }}
+    member = netadmin
+}
+{% endif %}
+
+
+{% if duthost_ssh_user is defined %}
+user = {{ duthost_ssh_user }} {
+    login = des {{ duthost_ssh_passwd }}
+    member = netadmin
+}
+{% endif %}
+
 group = netuser {
     default service = permit
     service = exec {
