@@ -535,13 +535,15 @@ def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     # Give the dut some time for the ACL to be applied and LOG message generated
     time.sleep(30)
 
-def check_create_msg_in_syslog(duthost,timestamp):
-    cmd = "sudo awk -v timestamp=f'{timestamp}' '$1\" \"$2 >= timestamp' /var/log/syslog /var/log/syslog.1 | grep '.*Created ACL table.*'"
-    output = duthost.shell("sudo awk -v timestamp='{}' '$1\" \"$2 >= timestamp' /var/log/syslog | grep '.*Created ACL table.*'".format(timestamp))
+
+def check_create_msg_in_syslog(duthost, timestamp):
+    output = duthost.shell("sudo awk -v timestamp='{}' '$1\" \"$2 >= timestamp' /var/log/syslog \
+                           | grep '.*Created ACL table.*'".format(timestamp))
     if output:
         return True
     else:
         return False
+
 
 @pytest.fixture(scope="module")
 def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo):
@@ -585,7 +587,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
             with loganalyzer:
                 start_time = time.strftime("%b %e %H:%M:%S", time.gmtime())
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
-                result = wait_until(300, 20, 0, check_create_msg_in_syslog, duthost, start_time)
+                wait_until(300, 20, 0, check_create_msg_in_syslog, duthost, start_time)
         except LogAnalyzerError as err:
             # Cleanup Config DB if table creation failed
             logger.error("ACL table creation failed, attempting to clean-up...")
