@@ -102,12 +102,13 @@ def do_reboot(duthost, localhost, duthosts):
 def do_setup_tacacs(ptfhost, duthost, tacacs_creds):
     logger.info('Upon reboot: setup tacacs_creds')
     tacacs_server_ip = ptfhost.mgmt_ip
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+    tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey)
 
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
     if 'ansible_hostv6' in ptfhost_vars:
         tacacs_server_ip = ptfhost_vars['ansible_hostv6']
-        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip)
+        setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey)
     logger.info('Upon reboot: complete: setup tacacs_creds')
 
 
