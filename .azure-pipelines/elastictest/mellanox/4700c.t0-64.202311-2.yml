@@ -5,7 +5,7 @@ pr: none
 
 
 schedules:
-  - cron: "0 4 * * 1,3"
+  - cron: "0 4 * * 0,2,4,5,6"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -37,7 +37,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms64-t1-4700-1"
+    default: "vms66-t0-4700-5"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -50,12 +50,12 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202305)
+    default: $(IMAGE_MLNX_202311)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202311
 
   # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -71,24 +71,23 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "platform_tests/test_auto_negotiation.py"
+    default: " "
     displayName: "Scripts to be excluded"
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: " "
+    default: "sub_port_interfaces"
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202305)"
+    default: "--topology t0,any --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 2880
-
+    default: 3600
 
 stages:
 - stage: Test
@@ -98,7 +97,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 4700c.t1-lag.202305.NightlyTest_by_Elastictest
+    displayName: 4700c.t0-64.202311-2.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
