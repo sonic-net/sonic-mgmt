@@ -36,7 +36,6 @@ def test_verify_wred_drop_config(duthosts, rand_one_dut_hostname, request):
     if not is_cisco_device(duthost):
         pytest.skip("Skipping as not a Cisco device")
 
-    enable_serviceability_cli(duthost)
     show_command = "sudo show platform npu voq cgm_profile -i {} -t {} -d"
     port = "Ethernet0"
     tc = 0

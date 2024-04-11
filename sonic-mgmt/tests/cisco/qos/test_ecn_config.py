@@ -7,6 +7,7 @@ import logging
 import pytest
 from tests.common.cisco_data import is_cisco_device
 import json
+from tests.cisco.common.utils import enable_serviceability_cli
 
 
 pytestmark = [

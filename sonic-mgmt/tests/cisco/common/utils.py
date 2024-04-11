@@ -1,4 +1,5 @@
 import pytest
+import time
 import ipaddr
 import logging
 import os
@@ -94,22 +95,38 @@ def verify_command_result(result, cmd):
     assert not traceback_found, "Traceback found in {}".format(cmd)
 
 
-def enable_serviceability_cli(duthost):
-    show_command = "sudo show platform npu global -n asic0"
+@pytest.fixture(scope="module", autouse=True)
+def enable_serviceability_cli(duthosts):
+    show_command = "sudo show platform npu rx cgm_global"
     err_msg = "debug shell server for asic 0 is not running"
-    output = duthost.command(show_command)['stdout']
-    if err_msg not in output:
+    enabled = True
+    for duthost in duthosts:
+        output = duthost.command(show_command)['stdout']
+        if err_msg in output:
+            enabled = False
+            break
+    if enabled:
         return
-    duthost.command("config platform cisco sdk-debug enable")
+    try:
+        for duthost in duthosts:
+            duthost.command("sudo config platform cisco sdk-debug enable")
+    except:
+        pass
     time.sleep(20)
-    output = duthost.command(show_command)['stdout']
-    if err_msg not in output:
+    enabled = True
+    for duthost in duthosts:
+        output = duthost.command(show_command)['stdout']
+        if err_msg in output:
+            enabled = False
+            break
+    if enabled:
         return
     time.sleep(300)
-    output = duthost.command(show_command)['stdout']
-    if err_msg in output:
-        pytest.fail(
-            "This test failed since serviceability CLI is not available")
+    for duthost in duthosts:
+        output = duthost.command(show_command)['stdout']
+        if err_msg in output:
+            pytest.fail(
+                "This test failed since serviceability CLIs are not available")
 
 
 class IPRoutes:
