@@ -193,6 +193,14 @@
     },
     {
         "hwsku": "Cisco-8111-O32",
+        "topo": "t0",
+        "owner": "Dev Ojha",
+        "email": "devojha@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Cisco-8111-O32",
         "topo": "t1",
         "owner": "Xu Chen",
         "email": "xuchen3@microsoft.com",
