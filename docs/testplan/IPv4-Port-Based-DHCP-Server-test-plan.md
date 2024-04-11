@@ -102,7 +102,7 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
   * DUT Ethernet3 - PTF eth3
   * DUT EThernet4 - PTF eth4 (Not configured interface)
 
-  3 tested scenarios:
+  4 tested scenarios:
 
   1. Verify configured interface with client mac not in FDB table can successfully get IP.
   2. Verify configured interface with client mac in FDB table can successfully get IP.
