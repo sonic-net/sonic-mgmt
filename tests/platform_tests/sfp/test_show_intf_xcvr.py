@@ -11,6 +11,7 @@ import pytest
 from .util import parse_eeprom
 from .util import parse_output
 from .util import get_dev_conn
+from .util import validate_transceiver_lpmode
 
 cmd_sfp_presence = "show interface transceiver presence"
 cmd_sfp_eeprom = "show interface transceiver eeprom"
@@ -60,16 +61,14 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
 
 def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           enum_frontend_asic_index, conn_graph_facts):
+                           enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
     Verify port mode in 'show interface transceiver lpmode'
-
     Args:
     - duthosts: dictionary containing DUT hosts
     - enum_rand_one_per_hwsku_frontend_hostname: enumeration to select one DUT per hardware SKU
     - enum_frontend_asic_index: enumeration for frontend ASIC index
     - conn_graph_facts: facts about connectivity graph
-
     Returns:
     - None
     """
@@ -77,8 +76,9 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     portmap, dev_conn = get_dev_conn(
         duthost, conn_graph_facts, enum_frontend_asic_index)
     sfp_lpmode = duthost.command(cmd_sfp_lpmode)
-    if intf not in xcvr_skip_list[duthost.hostname]:
-        assert validate_transceiver_lpmode(
+    for intf in dev_conn:
+        if intf not in xcvr_skip_list[duthost.hostname]:
+            assert validate_transceiver_lpmode(
             sfp_lpmode), "Interface mode incorrect in output of 'show interface transceiver lpmode'"
 
 
