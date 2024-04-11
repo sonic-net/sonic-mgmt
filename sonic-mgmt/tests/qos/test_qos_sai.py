@@ -309,6 +309,7 @@ class TestQosSai(QosSaiBase):
                 else:   # not list, just one port
                     qosParams[idName] = portIds[startPos]
                     startPos += 1
+        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
@@ -1245,16 +1246,25 @@ class TestQosSai(QosSaiBase):
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
+        src_port_id = dutConfig["testPorts"]["src_port_id"]
+        src_port_ip = dutConfig["testPorts"]["src_port_ip"]
+
         if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
-            for index in range(len(dutConfig['testPorts']['downlink_port_ids'])):
-                if dutConfig["testPorts"]["src_port_id"] != \
-                        dutConfig['testPorts']['downlink_port_ids'][index]:
-                    dst_port_id = index
-                    dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][index]
-                    break
+            if src_port_id not in dutConfig["testPorts"]["downlink_port_ids"]:
+                for port_index, port_id in enumerate(dutConfig["testPorts"]["downlink_port_ids"]):
+                    if port_id != dst_port_id:
+                        src_port_id = port_id
+                        src_port_ip = dutConfig["testPorts"]["downlink_port_ips"][port_index]
+                        break
+            if dst_port_id not in dutConfig["testPorts"]["downlink_port_ids"]:
+                for port_index, port_id in enumerate(dutConfig["testPorts"]["downlink_port_ids"]):
+                    if port_id != src_port_id:
+                        dst_port_id = port_id
+                        dst_port_ip = dutConfig["testPorts"]["downlink_port_ips"][port_index]
+                        break
 
         try:
             testParams = dict()
@@ -1263,8 +1273,8 @@ class TestQosSai(QosSaiBase):
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
                 "pg": qosConfig[LossyVoq]["pg"],
-                "src_port_id": dutConfig["testPorts"]["src_port_id"],
-                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "src_port_id": src_port_id,
+                "src_port_ip": src_port_ip,
                 "dst_port_id": dst_port_id,
                 "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],

@@ -537,13 +537,11 @@ def test_tacacs_authorization_wildcard(
                                     ptfhost,
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
+                                    setup_authorization_tacacs,
                                     tacacs_creds,
                                     check_tacacs,
                                     remote_user_client,
                                     remote_rw_user_client):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    change_and_wait_aaa_config_update(duthost, "sudo config aaa authorization tacacs+")
-
     # Create files for command with wildcards
     create_test_files(remote_user_client)
 
@@ -587,8 +585,12 @@ def test_tacacs_authorization_wildcard(
 
 
 def test_stop_request_next_server_after_reject(
-        duthosts, enum_rand_one_per_hwsku_hostname,
-        tacacs_creds, ptfhost, check_tacacs, remote_user_client, local_user_client):
+                                            duthosts,
+                                            enum_rand_one_per_hwsku_hostname,
+                                            setup_authorization_tacacs,
+                                            tacacs_creds,
+                                            ptfhost,
+                                            check_tacacs):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # not ignore on version >= 202305
@@ -631,6 +633,7 @@ def test_fallback_to_local_authorization_with_config_reload(
                                     ptfhost,
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
+                                    setup_authorization_tacacs,
                                     tacacs_creds,
                                     check_tacacs,
                                     remote_user_client,

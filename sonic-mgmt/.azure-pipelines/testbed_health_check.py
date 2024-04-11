@@ -15,6 +15,7 @@ import os
 import sys
 import json
 from datetime import datetime
+from netaddr import valid_ipv4
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, ".."))
@@ -123,9 +124,37 @@ class TestbedHealthChecker:
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
                                                            filepath=os.path.join(ansible_path, "files"))
 
-        hosts_reachable = True
+        # Verify mgmt-ipv4 address exists
+        config_db_file = "/etc/sonic/config_db.json"
+        ipv4_not_exists_hosts = []
+
+        for sonichost in self.sonichosts:
+            mgmt_interface = json.loads(sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
+                                                        module_ignore_errors=True)["stdout"])
+
+            ipv4_exists = False
+
+            # Use list() to make a copy of mgmt_interface.keys() to avoid
+            for key in list(mgmt_interface):
+                ip_addr = key.split("|")[1]
+                ip_addr_without_mask = ip_addr.split('/')[0]
+                if ip_addr:
+                    is_ipv4 = valid_ipv4(ip_addr_without_mask)
+                    if is_ipv4:
+                        ipv4_exists = True
+                        break
+
+            if not ipv4_exists:
+                ipv4_not_exists_hosts.append(sonichost.hostname)
+                logger.info("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
+                self.check_result.errmsg.append("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
+
+        if len(ipv4_not_exists_hosts) > 0:
+            raise HostsUnreachable(self.check_result.errmsg)
 
         # Check hosts reachability
+        hosts_reachable = True
+
         for sonichost in self.sonichosts:
 
             # Check sonichost reachability
