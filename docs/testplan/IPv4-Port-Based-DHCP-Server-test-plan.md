@@ -118,7 +118,7 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
   * Add a fixture to verify above scenarios:
     * mac_not_in_fdb: Use `send_and_verify` to send and verify from eth0 with mac address of eth0, success to get IP.
-    * mac_in_fdb:Use `send_and_verify` to send and verify from eth0 with mac address of eth1, success to get IP.
+    * mac_in_fdb:Use `send_and_verify` to send and verify from eth1 with mac address of eth1, success to get IP.
     * mac_learnt_from_other_interface: Use `send_and_verify` to send and verify from eth2 with mac address of eth3, success to get IP.
     * no_configured_interface: Use `send_and_verify` to send and verify from eth4 with mac address of eth4, expected result: fail to get IP.
 
