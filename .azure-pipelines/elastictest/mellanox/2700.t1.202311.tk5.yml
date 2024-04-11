@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * 0,2,4,6"
+  - cron: "0 4 * * *"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -36,7 +36,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms1-t1-2700"
+    default: "tbtk5-t1-2700-2,tbtk5-t1-2700-6"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -45,16 +45,16 @@ parameters:
 
   - name: MAX_WORKER
     type: string
-    default: "3"
+    default: "2"
 
   - name: IMAGE_URL
     type: string
-    default: $(IMAGE_MLNX_202305)
+    default: $(IMAGE_MLNX_202311)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
     type: string
-    default: internal-202305
+    default: internal-202311
 
   # Custom run scripts, if both SCIPTS and FEATURES are empty, all the test will be executed
   - name: SCRIPTS
@@ -80,7 +80,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202305)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202311)"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -96,7 +96,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 2700A1.t1.202305.NightlyTest_by_Elastictest
+    displayName: 2700.t1.tk5.202311.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
