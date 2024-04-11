@@ -106,7 +106,7 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
   1. Verify configured interface with client mac not in FDB table can successfully get IP.
   2. Verify configured interface with client mac in FDB table can successfully get IP.
-  3. Verify configured interface with client mac in FDB table but mac it's learnt from another interface can successfully get IP.
+  3. Verify configured interface withclient mac not visible on the interface can successfully get IP.
   4. Verify no-configured interface cannot get IP.
 
 * **Setup**
