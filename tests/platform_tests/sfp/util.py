@@ -46,6 +46,7 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
 
     return portmap, dev_conn
     
+
 def validate_transceiver_lpmode(output):
     lines = output.strip().split('\n')
     # Check if the header is present
