@@ -13,7 +13,7 @@ from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
 from tests.common.fixtures.duthost_utils import convert_and_restore_config_db_to_ipv6_only  # noqa F401
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from tests.telemetry.conftest import setup_streaming_telemetry # noqa F401
+from tests.telemetry.conftest import gnxi_path, setup_streaming_telemetry # noqa F401
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -129,9 +129,9 @@ def test_rw_user_ipv6_only(localhost, duthosts, enum_rand_one_per_hwsku_hostname
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [True], indirect=True)
-def test_telemetry_output_ipv6_only(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    setup_streaming_telemetry, # noqa F811
-                                    convert_and_restore_config_db_to_ipv6_only): # noqa F811
+def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, # noqa F811
+                                    duthosts, enum_rand_one_per_hwsku_hostname,
+                                    setup_streaming_telemetry): # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
