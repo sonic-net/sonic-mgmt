@@ -45,7 +45,7 @@ def get_dev_conn(duthost, conn_graph_facts, asic_index):
         logging.info("ASIC {} interface_list {}".format(asic_index, dev_conn))
 
     return portmap, dev_conn
-    
+
 
 def validate_transceiver_lpmode(output):
     lines = output.strip().split('\n')
