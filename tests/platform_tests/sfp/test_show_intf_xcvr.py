@@ -59,7 +59,7 @@ def test_check_sfpshow_eeprom(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
         if intf not in xcvr_skip_list[duthost.hostname]:
             assert intf in parsed_eeprom, "Interface is not in output of 'sfputil show eeprom'"
             assert parsed_eeprom[intf] == "SFP EEPROM detected"
-            
+
 
 def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                            enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
@@ -79,6 +79,5 @@ def test_check_show_lpmode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     sfp_lpmode = duthost.command(cmd_sfp_lpmode)
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
-            assert validate_transceiver_lpmode(sfp_lpmode), "Interface mode incorrect in 'show interface transceiver lpmode'"
-
-
+            assert validate_transceiver_lpmode(
+                sfp_lpmode), "Interface mode incorrect in 'show interface transceiver lpmode'"
