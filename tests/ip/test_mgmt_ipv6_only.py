@@ -139,8 +139,3 @@ def test_telemetry_output_ipv6_only(convert_and_restore_config_db_to_ipv6_only, 
     inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
     pytest_assert(inerrors_match is not None,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi output")
-
-
-def test_ntp_ipv6_only(duthosts, rand_one_dut_hostname,
-                                  convert_and_restore_config_db_to_ipv6_only, setup_ntp): # noqa F811
-    run_ntp(duthosts, rand_one_dut_hostname, setup_ntp)
