@@ -1,4 +1,5 @@
 """Check how fast FRR or QUAGGA will send updates to neighbors."""
+
 import contextlib
 import ipaddress
 import logging
@@ -14,12 +15,11 @@ from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.dualtor.dual_tor_common import active_active_ports                    # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports                   # noqa F401
-from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup    # noqa F401
-from tests.common.dualtor.mux_simulator_control import mux_server_url                   # noqa F401
-from tests.common.dualtor.mux_simulator_control import \
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m               # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
+from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 
 
@@ -48,7 +48,7 @@ TCPDUMP_WAIT_TIMEOUT = 20
 
 def is_tcpdump_running(duthost, cmd):
     check_cmd = "ps u -C tcpdump | grep '%s'" % cmd
-    if cmd in duthost.shell(check_cmd)['stdout']:
+    if cmd in duthost.shell(check_cmd)["stdout"]:
         return True
     return False
 
@@ -71,9 +71,17 @@ def log_bgp_updates(duthost, iface, save_path, ns):
     start_pcap_cmd = "nohup {}{} &".format(
         duthost.asic_instance_from_namespace(ns).ns_arg, start_pcap
     )
+
+    duthost.file(path=save_path, state="absent")
+
     duthost.shell(start_pcap_cmd)
     # wait until tcpdump process created
-    if not wait_until(WAIT_TIMEOUT, 5, 1, lambda: is_tcpdump_running(duthost, start_pcap),):
+    if not wait_until(
+        WAIT_TIMEOUT,
+        5,
+        1,
+        lambda: is_tcpdump_running(duthost, start_pcap),
+    ):
         pytest.fail("Could not start tcpdump")
     # sleep and wait for tcpdump ready to sniff packets
     time.sleep(TCPDUMP_WAIT_TIMEOUT)
@@ -96,7 +104,10 @@ def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 def has_suppress_feature(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current SONiC version runs with suppress enabled in FRR."""
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    suppress_enabled = ('bgp suppress-fib-pending' in duthost.shell('show runningconfiguration bgp')['stdout'])
+    suppress_enabled = (
+        "bgp suppress-fib-pending"
+        in duthost.shell("show runningconfiguration bgp")["stdout"]
+    )
     return suppress_enabled
 
 
@@ -143,7 +154,7 @@ def common_setup_teardown(
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
         neigh_type = "LeafRouter"
     else:
         neigh_type = "ToRRouter"
@@ -200,13 +211,9 @@ def common_setup_teardown(
     yield bgp_neighbors
 
     # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [{
-        "DEVICE_METADATA": {
-            "localhost": {
-                "suppress-fib-pending": "disabled"
-            }
-        }
-    }]
+    delete_tacacs_json = [
+        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
+    ]
     delete_running_config(delete_tacacs_json, duthost)
 
 
@@ -319,8 +326,8 @@ def test_bgp_update_timer_single_route(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
-    validate_active_active_dualtor_setup                                        # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa F811
+    validate_active_active_dualtor_setup,  # noqa F811
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -345,12 +352,37 @@ def test_bgp_update_timer_single_route(
             with log_bgp_updates(duthost, "any", bgp_pcap, n0.namespace):
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
+                duthost.shell(
+                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
+                        n0.ip, route["prefix"]
+                    ),
+                    module_ignore_errors=True,
+                )
+                duthost.shell(
+                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
+                        n1.ip, route["prefix"]
+                    ),
+                    module_ignore_errors=True,
+                )
                 n0.withdraw_route(route)
+                duthost.shell(
+                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
+                        n0.ip, route["prefix"]
+                    ),
+                    module_ignore_errors=True,
+                )
+                duthost.shell(
+                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
+                        n1.ip, route["prefix"]
+                    ),
+                    module_ignore_errors=True,
+                )
                 time.sleep(constants.sleep_interval)
 
             if constants.log_dir:
-                local_pcap_filename = os.path.join(constants.log_dir,
-                                                   local_pcap_file_template % request.node.name)
+                local_pcap_filename = os.path.join(
+                    constants.log_dir, local_pcap_file_template % request.node.name
+                )
             else:
                 local_pcap_file = tempfile.NamedTemporaryFile()
                 local_pcap_filename = local_pcap_file.name
@@ -424,8 +456,8 @@ def test_bgp_update_timer_session_down(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     request,
-    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,      # noqa F811
-    validate_active_active_dualtor_setup                                        # noqa F811
+    toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa F811
+    validate_active_active_dualtor_setup,  # noqa F811
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -459,8 +491,9 @@ def test_bgp_update_timer_session_down(
             time.sleep(constants.sleep_interval)
 
         if constants.log_dir:
-            local_pcap_filename = os.path.join(constants.log_dir,
-                                               local_pcap_file_template % request.node.name)
+            local_pcap_filename = os.path.join(
+                constants.log_dir, local_pcap_file_template % request.node.name
+            )
         else:
             local_pcap_file = tempfile.NamedTemporaryFile()
             local_pcap_filename = local_pcap_file.name
@@ -469,8 +502,11 @@ def test_bgp_update_timer_session_down(
         bgp_updates = bgp_update_packets(local_pcap_filename)
 
         for bgp_update in bgp_updates:
-            logging.debug("bgp update packet, capture time %s, packet details:\n%s",
-                          bgp_update.time, bgp_update.show(dump=True))
+            logging.debug(
+                "bgp update packet, capture time %s, packet details:\n%s",
+                bgp_update.time,
+                bgp_update.show(dump=True),
+            )
             for i, route in enumerate(constants.routes):
                 if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
                     withdraw_intervals[i] = bgp_update.time - current_time
@@ -478,7 +514,11 @@ def test_bgp_update_timer_session_down(
         for i, route in enumerate(constants.routes):
             if withdraw_intervals[i] >= constants.update_interval_threshold:
                 cmd_dut_time = duthost.shell("date +%s.%6N", module_ignore_errors=True)
-                logging.debug("timer: DUT {} local {}".format(cmd_dut_time.get('stdout', None), time.time()))
+                logging.debug(
+                    "timer: DUT {} local {}".format(
+                        cmd_dut_time.get("stdout", None), time.time()
+                    )
+                )
 
                 pytest.fail(
                     "withdraw route %s updates interval %d exceeds threshold %d"

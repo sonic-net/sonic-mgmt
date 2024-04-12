@@ -696,6 +696,10 @@ class QosSaiBase(QosBase):
         dstPorts = request.config.getoption("--qos_dst_ports")
         srcPorts = request.config.getoption("--qos_src_ports")
 
+        logging.debug("__buildTestPorts testPortIds: {}, testPortIps: {}, src_port_ids: {}, \
+                      dst_port_ids: {}, get_src_dst_asic_and_duts: {}, uplinkPortIds: {}".format(
+                      testPortIds, testPortIps, src_port_ids, dst_port_ids, get_src_dst_asic_and_duts, uplinkPortIds))
+
         src_dut_port_ids = testPortIds[get_src_dst_asic_and_duts['src_dut_index']]
         src_test_port_ids = src_dut_port_ids[get_src_dst_asic_and_duts['src_asic_index']]
         dst_dut_port_ids = testPortIds[get_src_dst_asic_and_duts['dst_dut_index']]
@@ -777,25 +781,31 @@ class QosSaiBase(QosBase):
                             if sysMap['port_type'] == sysPorts[port_id]['port_type'] and sport != port_id:
                                 dst_all_sys_port.update({sport: sysMap['system_port']})
 
-        return {
+        testPorts = {
             "dst_port_id": dstPort,
             "dst_port_ip": dst_test_port_ips[dstPort]['peer_addr'],
-            "dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6'],
             "dst_port_vlan": dstVlan,
             "dst_port_2_id": dstPort2,
             "dst_port_2_ip": dst_test_port_ips[dstPort2]['peer_addr'],
-            "dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6'],
             "dst_port_2_vlan": dstVlan2,
             'dst_port_3_id': dstPort3,
             "dst_port_3_ip": dst_test_port_ips[dstPort3]['peer_addr'],
-            "dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6'],
             "dst_port_3_vlan": dstVlan3,
             "src_port_id": srcPort,
             "src_port_ip": src_port_ip["peer_addr"],
-            "src_port_ipv6": src_port_ip["peer_addr_ipv6"],
             "src_port_vlan": srcVlan,
             "dst_sys_ports": dst_all_sys_port
         }
+
+        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort]:
+            testPorts.update({"dst_port_ipv6": dst_test_port_ips[dstPort]['peer_addr_ipv6']})
+        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort2]:
+            testPorts.update({"dst_port_2_ipv6": dst_test_port_ips[dstPort2]['peer_addr_ipv6']})
+        if 'peer_addr_ipv6' in dst_test_port_ips[dstPort3]:
+            testPorts.update({"dst_port_3_ipv6": dst_test_port_ips[dstPort3]['peer_addr_ipv6']})
+        if 'peer_addr_ipv6' in src_port_ip:
+            testPorts.update({"src_port_ipv6": src_port_ip["peer_addr_ipv6"]})
+        return testPorts
 
     def __buildPortSpeeds(self, config_facts):
         port_speeds = collections.defaultdict(list)
@@ -927,6 +937,12 @@ class QosSaiBase(QosBase):
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
                 testPortIps.update(dutPortIps)
+
+            if 'backend' in topo:
+                # since backend T0 utilize dot1q encap pkts, testPortIds need to be repopulated with the
+                # associated sub-interfaces stored in testPortIps
+                testPortIds[src_dut_index][src_asic_index] = sorted(
+                    list(testPortIps[src_dut_index][src_asic_index].keys()))
 
         elif topo in self.SUPPORTED_T1_TOPOS:
             # T1 is supported only for 'single_asic' or 'single_dut_multi_asic'.
@@ -1170,6 +1186,8 @@ class QosSaiBase(QosBase):
             "downlink_port_ips": downlinkPortIps,
             "downlink_port_names": downlinkPortNames
         })
+        logging.debug("testPorts: {}".format(testPorts))
+
         dutinterfaces = {}
         uplinkPortIds = testPorts.get('uplink_port_ids', [])
 
