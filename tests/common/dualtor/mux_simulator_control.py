@@ -559,12 +559,10 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
             probe_ports = set(inactive_ports.keys()) | set(not_standby_ports.keys())
             _probe_mux_ports(duthosts, probe_ports)
 
-        logger.info(
-            'Found muxcables not active on {}: {}'.format(active_duthost.hostname, json.dumps(list(inactive_ports.keys())))
-        )
-        logger.info(
-            'Found muxcables not standby on {}: {}'.format(standby_duthost.hostname, json.dumps(list(not_standby_ports.keys())))
-        )
+        logger.info('Found muxcables not active on {}: {}'.format(
+            active_duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        logger.info('Found muxcables not standby on {}: {}'.format(
+            standby_duthost.hostname, json.dumps(list(not_standby_ports.keys()))))
         return False
 
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))
