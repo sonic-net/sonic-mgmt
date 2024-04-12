@@ -405,7 +405,7 @@ def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fix
           speed == new_speed,
           'expect fanout speed: {}, but got {}'.format(speed, new_speed))
     else:
-        logger.info("##### This Testcase valid only platform: x86_64-8101_32fh_o-r0 ######")
+        pytest.skip(f'This test is not supported on {duthost.facts["platform"]} platform')
 
 
 @pytest.fixture(scope='module', autouse=True)
