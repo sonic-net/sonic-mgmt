@@ -89,7 +89,7 @@ class KustoChecker(object):
         BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
         Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
-            let IncludeBranchList = dynamic(['20230531', '20231105', '20231131']);
+            let IncludeBranchList = dynamic(['20230531', '20231105', '20231110', '20231131']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
             let CiscoList = dynamic(["8102","8101","8111"]);
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
