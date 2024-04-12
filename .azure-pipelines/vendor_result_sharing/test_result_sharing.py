@@ -89,13 +89,13 @@ class KustoChecker(object):
         BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
         Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
         query_str = '''
-            let IncludeBranchList = dynamic(['20230531', '20231105']);
+            let IncludeBranchList = dynamic(['20230531', '20231105', '20231131']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
             let CiscoList = dynamic(["8102","8101","8111"]);
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
             let AristaList = dynamic([]);
             let MarvellList = dynamic(["7215"]);
-            let TopologyList = dynamic(['t0', 't1', 'm0', 'mx']);
+            let TopologyList = dynamic(['t0', 't1', 'm0', 'mx', 'dualtor']);
             let VendorList = dynamic(['arista', 'brcm', 'cisco', 'mellanox']);
             TestReportUnionData
             | where UploadTimestamp > ago(7d)
@@ -344,6 +344,12 @@ def main(args):
 
         temp_json.update({'buildid': buildid, 'hardwaresku': hardwaresku, 'topology': topology, 'branch': branch, 'vendor': vendor, 'run_date': str(run_date), 'os_version': os_version, 'cases_run': cases_run, 'success_rate': success_rate})
         logger.info("current temp_json: {}".format(temp_json))
+
+        if vendor != "cisco" and topology == "dualtor":
+            # Dualtor test result should from azure pipeline besides cisco
+            logger.info('Topology {} is not supported for vendor {}, ignore'.format(topology, vendor))
+            report_json.append(temp_json)
+            continue
 
         if vendor not in VENDOR_CONTAINER:
             logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
