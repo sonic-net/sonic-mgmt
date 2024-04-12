@@ -15,6 +15,9 @@ pr:
      exclude:
        - .github
        - docs
+       - LICENSE
+       - README.md
+       - SECURITY.md
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
