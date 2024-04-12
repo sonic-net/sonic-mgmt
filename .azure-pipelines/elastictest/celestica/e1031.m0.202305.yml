@@ -93,11 +93,7 @@ parameters:
     default: '[
       {"name": "copp/test_copp.py", "param": "--deselect=copp/test_copp.py::TestCOPP::test_add_new_trap --deselect=copp/test_copp.py::TestCOPP::test_remove_trap --deselect=copp/test_copp.py::TestCOPP::test_trap_config_save_after_reboot"},
       {"name": "platform_tests/sfp/test_sfputil.py", "param": "--deselect=platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status"},
-      {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_watchdog_reboot"},
-      {"name": "show_techsupport/test_auto_techsupport.py", "param": "--deselect=show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_max_limit"},
-      {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
-      {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"},
-      {"name": "telemetry/test_events.py", "param": "--deselect=telemetry/test_events.py::test_events"}
+      {"name": "platform_tests/test_reboot.py", "param": "--deselect=platform_tests/test_reboot.py::test_watchdog_reboot"}
     ]'
     displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
