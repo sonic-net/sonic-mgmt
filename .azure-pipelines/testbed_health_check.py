@@ -124,34 +124,6 @@ class TestbedHealthChecker:
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
                                                            filepath=os.path.join(ansible_path, "files"))
 
-        # Verify mgmt-ipv4 address exists
-        config_db_file = "/etc/sonic/config_db.json"
-        ipv4_not_exists_hosts = []
-
-        for sonichost in self.sonichosts:
-            mgmt_interface = json.loads(sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}",
-                                                        module_ignore_errors=True)["stdout"])
-
-            ipv4_exists = False
-
-            # Use list() to make a copy of mgmt_interface.keys() to avoid
-            for key in list(mgmt_interface):
-                ip_addr = key.split("|")[1]
-                ip_addr_without_mask = ip_addr.split('/')[0]
-                if ip_addr:
-                    is_ipv4 = valid_ipv4(ip_addr_without_mask)
-                    if is_ipv4:
-                        ipv4_exists = True
-                        break
-
-            if not ipv4_exists:
-                ipv4_not_exists_hosts.append(sonichost.hostname)
-                logger.info("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
-                self.check_result.errmsg.append("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
-
-        if len(ipv4_not_exists_hosts) > 0:
-            raise HostsUnreachable(self.check_result.errmsg)
-
         # Check hosts reachability
         hosts_reachable = True
 
@@ -200,6 +172,39 @@ class TestbedHealthChecker:
                     self.check_result.data[fanout_hostname] = result
 
         if not hosts_reachable:
+            raise HostsUnreachable(self.check_result.errmsg)
+
+        # Verify mgmt-ipv4 address exists
+        config_db_file = "/etc/sonic/config_db.json"
+        ipv4_not_exists_hosts = []
+
+        for sonichost in self.sonichosts:
+
+            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True)["stdout"]
+
+            # If valid stdout
+            if rst is not None and rst.strip() != "":
+
+                mgmt_interface = json.loads(rst)
+
+                ipv4_exists = False
+
+                # Use list() to make a copy of mgmt_interface.keys() to avoid
+                for key in list(mgmt_interface):
+                    ip_addr = key.split("|")[1]
+                    ip_addr_without_mask = ip_addr.split('/')[0]
+                    if ip_addr:
+                        is_ipv4 = valid_ipv4(ip_addr_without_mask)
+                        if is_ipv4:
+                            ipv4_exists = True
+                            break
+
+                if not ipv4_exists:
+                    ipv4_not_exists_hosts.append(sonichost.hostname)
+                    logger.info("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
+                    self.check_result.errmsg.append("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
+
+        if len(ipv4_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
 
         # Retrieve the basic facts of the DUTs
