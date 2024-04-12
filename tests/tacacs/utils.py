@@ -83,7 +83,7 @@ def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
         duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
         ptfhost_interface = ptfhost.shell("ifconfig mgmt")['stdout']
         logger.debug("PTF IPV6 address not reachable, dut interfaces: {}, ptfhost interfaces:{}"
-                        .format(ping_result, duthost_interface, ptfhost_interface))
+                        .format(duthost_interface, ptfhost_interface))
         pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
 
     # configure tacacs client
