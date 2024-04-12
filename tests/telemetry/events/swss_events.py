@@ -7,6 +7,7 @@ import time
 
 from run_events_test import run_test
 
+random.seed(10)
 logger = logging.getLogger(__name__)
 tag = "sonic-events-swss"
 
