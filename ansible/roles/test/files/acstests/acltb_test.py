@@ -29,6 +29,7 @@ from ptf.testutils import dp_poll
 from ptf.testutils import send_packet
 from ptf.mask import Mask
 from ptf.base_tests import BaseTest
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 class AclTest(BaseTest):

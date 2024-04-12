@@ -9,6 +9,7 @@ from ptf.testutils import simple_arp_packet
 from ptf.testutils import simple_tcp_packet
 from ptf.testutils import send_packet
 from ptf.testutils import verify_packets
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 class ArpPopulate(acs_base_test.ACSDataplaneTest):

@@ -5,6 +5,7 @@ from ptf.base_tests import BaseTest
 import scapy.all as scapy2
 from time import sleep
 from threading import Thread
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 class FailingTest(BaseTest):

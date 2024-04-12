@@ -15,6 +15,7 @@ from ptf.testutils import simple_eth_packet
 from ptf.testutils import send
 from ptf.testutils import verify_packet_any_port
 from ptf.mask import Mask
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from router_utils import RouterUtility
 

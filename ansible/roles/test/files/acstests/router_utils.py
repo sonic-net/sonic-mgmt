@@ -6,6 +6,7 @@ from ptf.testutils import simple_tcpv6_packet
 from ptf.testutils import send_packet
 from ptf.testutils import dp_poll
 from ptf.mask import Mask
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 import pprint
 import ipaddress

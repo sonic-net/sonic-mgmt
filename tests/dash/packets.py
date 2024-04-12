@@ -5,6 +5,7 @@ from ptf.mask import Mask
 import ptf.testutils as testutils
 
 from constants import *  # noqa: F403
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 def generate_inner_packet(packet_type):

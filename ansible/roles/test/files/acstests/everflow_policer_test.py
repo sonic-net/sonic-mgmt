@@ -18,6 +18,7 @@ import ptf.dataplane as dataplane
 import ptf.testutils as testutils
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
+from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 logger = logging.getLogger('EverflowPolicerTest')
 
