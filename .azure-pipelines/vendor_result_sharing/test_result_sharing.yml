@@ -49,7 +49,7 @@ stages:
       - ${{ each vendor in parameters.VENDOR }}:
         - job: ${{ vendor }}_TestResultSharingWithVendor
           pool: nightly
-          timeoutInMinutes: 480
+          timeoutInMinutes: 960
           variables:
             - group: KUSTO_SECRETS
             - group: GIT_SECRETS
