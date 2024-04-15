@@ -50,3 +50,6 @@ mux_simulator_http_port:
 
     # On server64
     vms64-dual-t0-7260-1: 8080
+
+    # On bjw server 13
+    testbed-bjw-can-dual-t0-7260-1: 8080
