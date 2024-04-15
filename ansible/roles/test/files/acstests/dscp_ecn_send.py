@@ -6,7 +6,6 @@ import ptf.dataplane as dataplane   # noqa F401
 import acs_base_test
 from ptf.testutils import simple_tcp_packet
 from ptf.testutils import send_packet
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 class DscpEcnSend(acs_base_test.ACSDataplaneTest):

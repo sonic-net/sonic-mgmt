@@ -10,7 +10,6 @@ import ptf
 from ptf.base_tests import BaseTest
 from ptf import config
 import ptf.testutils as testutils
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 ################################################################
 #

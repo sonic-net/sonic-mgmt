@@ -4,7 +4,6 @@ import acs_base_test
 import ptf.testutils as testutils
 from ptf.testutils import send
 import scapy.all as scapy2
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 
 class SendTCP(acs_base_test.ACSDataplaneTest):

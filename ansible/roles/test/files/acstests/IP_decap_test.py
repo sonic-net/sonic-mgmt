@@ -37,7 +37,6 @@ from ptf.testutils import simple_tcp_packet
 from ptf.testutils import simple_ipv4ip_packet
 from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
-from tests.common.fixtures.tacacs import tacacs_creds, setup_tacacs    # noqa F401
 
 from router_utils import RouterUtility
 
