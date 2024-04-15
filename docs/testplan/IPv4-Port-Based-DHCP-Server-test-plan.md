@@ -71,16 +71,16 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 ### Common Function
 
 #### send_and_verify
- * Send DHCP discover packets from PTF, check whether configured port receive DHCP offer packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr.
- * Send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
- * For renew scenario, send DHCP request packets from PTF, check whether configured port receive DHCP ack packet and no-configured ports don't receive. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
+ * Send DHCP discover packets from PTF, check whether configured port receive DHCP offer packet. Need to check netmask / gateway / lease_time / yiaddr.
+ * Send DHCP request packets from PTF, check whether configured port receive DHCP ack packet. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
+ * For renew scenario, send DHCP request packets from PTF, check whether configured port receive DHCP ack packet. Need to check netmask / gateway / lease_time / yiaddr. Besides, check lease via show CLI to make sure lease is correct.
  * Send DHCP release packets from PTF, check whether lease release via lease file inside dhcp_server container.
 
 ### Test Module #1 test_dhcp_server.py
 
 #### Port Based Common setup
 
-* Check whether dhcrelay process running as expected (Original dhcp_relay functionality).
+* Check whether dhcp_relay process running as expected (Original dhcp_relay functionality).
 * Enable dhcp_server feature, and then use CLI to add DHCP Server configuration.
 
 #### Port Based Common teardown
