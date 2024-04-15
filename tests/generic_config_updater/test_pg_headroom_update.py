@@ -20,6 +20,14 @@ READ_ASICDB_TIMEOUT = 20
 READ_ASICDB_INTERVAL = 5
 
 
+@pytest.fixture(scope='module', autouse=True)
+def skip_when_buffer_is_dynamic_model(duthost):
+    buffer_model = duthost.shell(
+        'redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model')['stdout']
+    if buffer_model == 'dynamic':
+        pytest.skip("Skip the test, because dynamic buffer config cannot be updated")
+
+
 @pytest.fixture(scope="function")
 def ensure_dut_readiness(duthost):
     """
