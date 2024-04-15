@@ -72,13 +72,18 @@ def setup_local_user(duthost, tacacs_creds):
 
 
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip,
-                        tacacs_server_passkey, authorization="local"):
+                        tacacs_server_passkey, ptfhost, authorization="local"):
     """setup tacacs client"""
 
     # UT should failed when set reachable TACACS server with this setup_tacacs_client
     ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip))['stdout']
     logger.info("TACACS server ping result: {}".format(ping_result))
     if "100% packet loss" in ping_result:
+        # collect more information for debug testbed network issue
+        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+        ptfhost_interface = ptfhost.shell("ifconfig mgmt")['stdout']
+        logger.debug("PTF IPV6 address not reachable, dut interfaces: {}, ptfhost interfaces:{}"
+                     .format(duthost_interface, ptfhost_interface))
         pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
 
     # configure tacacs client
