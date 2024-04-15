@@ -138,10 +138,10 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * `send_and_verify` with mac A in interface A, expected result: IP assign successfully.
-  * `send_and_verify` with mac A in interface B, expected result: IP assign successfully.
+  * `send_and_verify` with mac A in interface A, expected result: Get IP binding to interface A successfully.
+  * `send_and_verify` with mac A in interface B, expected result: Get IP binding to interface B successfully.
 
-#### test_dhcp_server_port_based_assigenment_single_ip_mac_swap
+#### test_dhcp_server_port_based_assigenment_single_ip_mac_swap (ETA TBD)
 
 * **Test objective**
 
