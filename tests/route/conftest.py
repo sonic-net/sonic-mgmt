@@ -20,7 +20,7 @@ def get_function_conpleteness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module")
 def is_backend_topology(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     """
         Check if the current test is running on the backend topology.
