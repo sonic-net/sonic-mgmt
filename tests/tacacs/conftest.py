@@ -12,7 +12,7 @@ def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_cre
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey)
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
     setup_tacacs_server(ptfhost, tacacs_creds, duthost)
 
     yield
@@ -29,7 +29,7 @@ def check_tacacs_v6(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_
         pytest.skip("Skip IPv6 test. ptf ansible_hostv6 not configured.")
     tacacs_server_ip = ptfhost_vars['ansible_hostv6']
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
-    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey)
+    setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip, tacacs_server_passkey, ptfhost)
     setup_tacacs_server(ptfhost, tacacs_creds, duthost)
 
     yield
