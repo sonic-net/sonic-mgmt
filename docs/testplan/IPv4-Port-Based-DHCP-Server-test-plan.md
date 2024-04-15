@@ -158,9 +158,9 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 * **Test detail**
 
   * `send_and_verify` with mac A in interface A, expected result: client A can get correct IP.
-  * `send_and_verify` with mac B in interface B, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface B, expected result: client B can get correct IP.
   * `send_and_verify` with mac A in interface B, expected result: client A can get correct IP.
-  * `send_and_verify` with mac B in interface A, expected result: client A can get correct IP.
+  * `send_and_verify` with mac B in interface A, expected result: client B can get correct IP.
 
 #### test_dhcp_server_port_based_assignment_range
 
@@ -229,7 +229,8 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * Send discover / requset packets from PTF, expect not receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` doesn't match vlan ip.
+  * Send discover / requset packets with previous vlan subnet ip from PTF, expect not receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` doesn't match vlan ip.
+  * Send discover / requset packets with new vlan subnet ip from PTF, expect receive offer / ack packets because ip address configure in `DHCP_SERVER_IPV4_PORT` match vlan ip.
 
 #### test_dhcp_server_config_vlan_member_change
 
@@ -247,7 +248,8 @@ Base dhcp_server functionality tests (test module [#1](#test-module-1-test_dhcp_
 
 * **Test detail**
 
-  * Send discover / requset packets from PTF, expect not receive offer / ack packets because member not in vlan.
+  * Send discover / requset packets from PTF, expect not receive offer / ack packets because member was deleted from vlan.
+  * Send discover / requset packets from PTF, expect receive offer / ack packets because member was restored to vlan.
 
 #### test_dhcp_server_critical_process
 
