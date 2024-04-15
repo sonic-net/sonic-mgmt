@@ -1059,6 +1059,12 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "platform in ['x86_64-mlnx_msn3800-r0'] or 'dualtor' in topo_name"
 
+platform_tests/test_reboot.py::test_watchdog_reboot:
+  xfail:
+    reason: "Known testbed hardware issue"
+    conditions:
+      - "hwsku in ['Cisco-8101-O8C48']"
+
 platform_tests/test_service_warm_restart.py:
   skip:
     reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"

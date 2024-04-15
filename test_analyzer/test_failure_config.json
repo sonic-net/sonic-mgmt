@@ -10,8 +10,8 @@
     "branch": {
         "excluded_branch": ["internal-202106", "C"],
         "excluded_branch_setup_error": ["internal-202106", "C"],
-        "included_branch": ["20201231", "master", "internal", "20220531", "20230531", "20231105"],
-        "released_branch": ["20201231", "20220531", "20230531", "20231105"]
+        "included_branch": ["20201231", "master", "internal", "20220531", "20230531", "20231110"],
+        "released_branch": ["20201231", "20220531", "20230531", "20231110"]
     },
     "topo": {
         "excluded_topo": ["t2"]
@@ -36,8 +36,8 @@
         "platform_limit": 10,
         "icm_20201231_limit": 5,
         "icm_20220531_limit": 5,
-        "icm_20230531_limit": 30,
-        "icm_202311_limit": 5,
+        "icm_20230531_limit": 10,
+        "icm_202311_limit": 30,
         "icm_master_limit": 3,
         "icm_internal_limit": 3,
         "new_icm_number_limit": 30,
