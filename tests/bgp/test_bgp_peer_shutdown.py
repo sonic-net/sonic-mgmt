@@ -1,0 +1,191 @@
+"""Check if BGP session is shutdown correctly."""
+
+import logging
+import os
+import time
+
+import pytest
+from scapy.all import sniff, IP
+from scapy.contrib import bgp
+
+from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
+from tests.bgp.test_bgp_update_timer import NEIGHBOR_ASN0, NEIGHBOR_PORT0
+from tests.common.helpers.bgp import BGPNeighbor
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import wait_until, delete_running_config
+
+BGP_DOWN_LOG_TMPL = "/tmp/bgp_down.pcap"
+WAIT_TIMEOUT = 120
+
+
+@pytest.fixture
+def common_setup_teardown(
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    is_dualtor,
+    is_quagga,
+    ptfhost,
+    setup_interfaces,
+    tbinfo,
+):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    conn0 = setup_interfaces[0]
+    conn0_ns = (
+        DEFAULT_NAMESPACE
+        if "namespace" not in list(conn0.keys())
+        else conn0["namespace"]
+    )
+
+    dut_asn = mg_facts["minigraph_bgp_asn"]
+
+    dut_type = ""
+    for k, v in list(mg_facts["minigraph_devices"].items()):
+        if k == duthost.hostname:
+            dut_type = v["type"]
+
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+        neigh_type = "LeafRouter"
+    else:
+        neigh_type = "ToRRouter"
+
+    logging.info(
+        "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
+            conn0["neighbor_addr"].split("/")[0],
+            conn0_ns,
+            dut_asn,
+            conn0["local_addr"].split("/")[0],
+            neigh_type,
+        )
+    )
+
+    bgp_neighbor = (
+        BGPNeighbor(
+            duthost,
+            ptfhost,
+            "pseudoswitch0",
+            conn0["neighbor_addr"].split("/")[0],
+            NEIGHBOR_ASN0,
+            conn0["local_addr"].split("/")[0],
+            dut_asn,
+            NEIGHBOR_PORT0,
+            neigh_type,
+            conn0_ns,
+            is_multihop=is_quagga or is_dualtor,
+            is_passive=False,
+        )
+    )
+
+    yield bgp_neighbor
+
+    # Cleanup suppress-fib-pending config
+    delete_tacacs_json = [
+        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
+    ]
+    delete_running_config(delete_tacacs_json, duthost)
+
+
+@pytest.fixture
+def constants(is_quagga, setup_interfaces, pytestconfig):
+    class _C(object):
+        """Dummy class to save test constants."""
+        def __init__(self):
+            self.sleep_interval = None
+            self.log_dir = None
+
+        pass
+
+    _constants = _C()
+    if is_quagga:
+        _constants.sleep_interval = 40
+    else:
+        _constants.sleep_interval = 5
+
+    log_file = pytestconfig.getoption("log_file", None)
+    if log_file:
+        _constants.log_dir = os.path.dirname(os.path.abspath(log_file))
+    else:
+        _constants.log_dir = None
+
+    return _constants
+
+
+def is_neighbor_session_established(duthost, neighbor):
+    # handle both multi-sic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]
+    return (neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established")
+
+
+def bgp_notification_packets(pcap_file):
+    """Get bgp notification packets from pcap file."""
+    packets = sniff(
+        offline=pcap_file,
+        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+    )
+    return packets
+
+
+def match_bgp_notification(packet, src_ip, dst_ip, action):
+    """Check if the bgp notification packet matches."""
+    if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
+        return False
+
+    bgp_fields = packet[bgp.BGPNotification].fields
+    if action == "cease":
+        # error_code 6: Cease, error_subcode 2: Administrative Shutdown. References: RFC 4271
+        return bgp_fields["error_code"] == 6 and bgp_fields["error_subcode"] == 2
+    else:
+        return False
+
+
+def is_neighbor_session_down(duthost, neighbor_ip):
+    # handle both multi-sic and single-asic
+    bgp_neighbors = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]["bgp_neighbors"]
+    return (neighbor_ip in bgp_neighbors and
+            bgp_neighbors[neighbor_ip]["admin"] == "down" and
+            bgp_neighbors[neighbor_ip]["state"] == "idle")
+
+
+def test_bgp_peer_shutdown(
+    common_setup_teardown,
+    constants,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    request,
+):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    n0 = common_setup_teardown
+    try:
+        n0.start_session()
+
+        # ensure new sessions are ready
+        if not wait_until(
+            WAIT_TIMEOUT,
+            5,
+            20,
+            lambda: is_neighbor_session_established(duthost, n0),
+        ):
+            pytest.fail("Could not establish bgp sessions")
+
+        # Send BGP shutdown from DUT to n0
+        bgp_pcap = BGP_DOWN_LOG_TMPL
+        with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+            duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
+            time.sleep(constants.sleep_interval)
+
+        local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
+        bpg_notifications = bgp_notification_packets(local_pcap_filename)
+        for bgp_packet in bpg_notifications:
+            logging.debug(
+                "bgp notification packet, capture time %s, packet details:\n%s",
+                bgp_packet.time,
+                bgp_packet.show(dump=True),
+            )
+
+            match_bgp_notification(bgp_packet, n0.peer_ip, n0.ip, "cease")
+
+        is_neighbor_session_down(duthost, n0.ip)
+    finally:
+        n0.stop_session()
