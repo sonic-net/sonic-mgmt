@@ -2,6 +2,8 @@ import crypt
 import logging
 import re
 import binascii
+import time
+import pytest
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
@@ -48,6 +50,16 @@ def stop_tacacs_server(ptfhost):
     return wait_until(5, 1, 0, tacacs_not_running, ptfhost)
 
 
+@pytest.fixture
+def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
+    """make sure tacacs server running after UT finish"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    yield
+
+    start_tacacs_server(duthost)
+
+
 def setup_local_user(duthost, tacacs_creds):
     try:
         duthost.shell("sudo deluser {}".format(tacacs_creds['local_user']))
@@ -60,6 +72,12 @@ def setup_local_user(duthost, tacacs_creds):
 
 def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
     """setup tacacs client"""
+
+    # UT should failed when set reachable TACACS server with this setup_tacacs_client
+    ping_result = duthost.shell("ping {} -c 1 -W 3".format(tacacs_server_ip))['stdout']
+    logger.info("TACACS server ping result: {}".format(ping_result))
+    if "100% packet loss" in ping_result:
+        pytest_assert(False, "TACACS server not reachable: {}".format(ping_result))
 
     # configure tacacs client
     default_tacacs_servers = []
@@ -289,3 +307,33 @@ def check_server_received(ptfhost, data):
     logger.info(sed_command)
     logger.info(res["stdout_lines"])
     pytest_assert(len(res["stdout_lines"]) > 0)
+
+
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.command("sudo service auditd status | grep 'audisp-tacplus re-initializing configuration'")
+    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    wait_time = 0
+    while wait_time <= timeout:
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        if latest_timestamp != last_timestamp:
+            return
+
+        time.sleep(1)
+        wait_time += 1
+
+    pytest_assert(False, "Not found aaa config update log: {}".format(command))

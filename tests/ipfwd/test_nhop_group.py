@@ -11,11 +11,10 @@ from collections import defaultdict
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.innovium_data import is_innovium_device
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
 from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -27,6 +26,18 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope='module', autouse=True)
+def check_running_condition(tbinfo, duthost):
+    asic = duthost.asic_instance()
+    get_group_stats = ("{} COUNTERS_DB HMGET CRM:STATS"
+                       " crm_stats_nexthop_group_used"
+                       " crm_stats_nexthop_group_available"
+                       " crm_stats_nexthop_group_member_used"
+                       " crm_stats_nexthop_group_member_available").format(asic.sonic_db_cli)
+    pytest_require(wait_until(360, 5, 0, lambda: (len(duthost.command(get_group_stats)["stdout_lines"]) > 0)),
+                   "After DUT reload in previous case, wait up to 6 min for CRM stats to init", True)
 
 
 class IPRoutes:
@@ -314,7 +325,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
     return pkt, exp_packet
 
 
-def test_nhop_group_member_count(duthost, tbinfo):
+def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
     """
     Test next hop group resource count. Steps:
     - Add test IP address to an active IP interface
@@ -325,6 +336,9 @@ def test_nhop_group_member_count(duthost, tbinfo):
     - clean up
     - Verify no errors and crash
     """
+    if loganalyzer:
+        for analyzer in list(loganalyzer.values()):
+            analyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
     # Set of parameters for Cisco-8000 devices
     if is_cisco_device(duthost):
         default_max_nhop_paths = 2
@@ -394,13 +408,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
         nhop_group_count = crm_stat["available_nhop_grp"]
     else:
         nhop_group_count = min(max_nhop, nhop_group_limit) + extra_nhops
-    # initialize log analyzer
-    marker = "NHOP TEST PATH COUNT {} {}".format(nhop_group_count, eth_if)
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker)
-    marker = loganalyzer.init()
-    loganalyzer.load_common_config()
-    loganalyzer.expect_regex = []
-    loganalyzer.ignore_regex.extend(loganalyzer_ignore_regex_list())
 
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
     # create nexthop group
@@ -426,9 +433,6 @@ def test_nhop_group_member_count(duthost, tbinfo):
         asic.command(
             "crm config polling interval {}".format(crm_before["polling"])
         )
-
-    # check for any errors or crash
-    loganalyzer.analyze(marker)
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
@@ -458,9 +462,6 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     Test SONiC and SAI Vendor capability are same for ordered ecmp feature
     and SAI vendor is honoring the Ordered nature of nexthop group member
     """
-    if is_mellanox_device(duthost):
-        # Note: Need remove this check once Mellanox committed Ordered ECMP
-        pytest.skip("Ordered ECMP currently not supported on Mellanox DUT")
 
     asic = duthost.asic_instance(enum_rand_one_frontend_asic_index)
 
@@ -517,9 +518,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                           "Routed Packet Destination Mac not valid neighbor entry")
 
             recvd_pkt_result[flow_count].add(scapy.Ether(recv_pkt).dst)
+            logger.info("for flow_count {} Received Packet on {}".format(flow_count, scapy.Ether(recv_pkt).dst))
 
     # Test/Iteration Scenario 1: Verify After ecmp member remove/add flow order remains same.
-    # Test/Iteration Scenario 2: Veirfy Neighbor created in different order but flow order remains same.
+    # Test/Iteration Scenario 2: Verify Neighbor created in different order but flow order remains same.
     for iter_count in range(2):
         try:
             # create neighbor entry in different order list
@@ -534,23 +536,25 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
             nhop.program_routes()
             # wait for routes to be synced and programmed
-            time.sleep(5)
+            time.sleep(15)
 
             ptfadapter.dataplane.flush()
 
             built_and_send_tcp_ip_packet()
 
             if iter_count == 0:
+                logger.info("Simulate ECMP Acceleration with link flap where ECMP member are removed")
                 fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname,
                                                                 gather_facts['src_port'][0])
-                # Simulate ECMP Acceleration with link flap where ECMP memeber are removed
+                # Simulate ECMP Acceleration with link flap where ECMP member are removed
                 # and added back to the group
-                # BGP service is stoped so we don't get Route Removal message
+                # BGP service is stopped so we don't get Route Removal message
                 # from FRR and it is just member add/remove trigger
                 asic.stop_service("bgp")
                 time.sleep(15)
+                logger.info("Toggle link {} on {}".format(fanout_port, fanout))
                 toggle_one_link(duthost, gather_facts['src_port'][0], fanout, fanout_port)
-                time.sleep(5)
+                time.sleep(15)
 
                 built_and_send_tcp_ip_packet()
 
@@ -564,32 +568,32 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             nhop.delete_routes()
             arplist.clean_up()
 
-    th_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                        2: 'c0:ff:ee:00:00:12',
-                        3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                        5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
+    th_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                        2: 'c0:ff:ee:00:00:11',
+                        3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
+                        5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
+                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0f',
                         9: 'c0:ff:ee:00:00:11',
-                        10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                        12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                        14: 'c0:ff:ee:00:00:10',
-                        15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                        17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                        19: 'c0:ff:ee:00:00:0c',
-                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                        22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:12',
+                        12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:12',
+                        14: 'c0:ff:ee:00:00:0f',
+                        15: 'c0:ff:ee:00:00:11', 16: 'c0:ff:ee:00:00:0b',
+                        17: 'c0:ff:ee:00:00:0d', 18: 'c0:ff:ee:00:00:0c',
+                        19: 'c0:ff:ee:00:00:0e',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                        22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:11',
                         24: 'c0:ff:ee:00:00:11',
-                        25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                        30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                        32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                        34: 'c0:ff:ee:00:00:0e',
-                        35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                        37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                        40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                        42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                        47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+                        25: 'c0:ff:ee:00:00:0f', 26: 'c0:ff:ee:00:00:12',
+                        27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0f', 29: 'c0:ff:ee:00:00:11',
+                        30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                        32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0e',
+                        34: 'c0:ff:ee:00:00:0b',
+                        35: 'c0:ff:ee:00:00:0d', 36: 'c0:ff:ee:00:00:0f',
+                        37: 'c0:ff:ee:00:00:11', 38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:12',
+                        40: 'c0:ff:ee:00:00:0d', 41: 'c0:ff:ee:00:00:0b',
+                        42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
+                        45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
+                        47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
     gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:10',
                         2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:11',
@@ -613,59 +617,32 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f',
                         47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
 
-    td2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12',
-                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
+    td2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                         2: 'c0:ff:ee:00:00:11',
+                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
+                         5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
+                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0f',
                          9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10',
-                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                         19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
+                         10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:12',
+                         12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:12',
+                         14: 'c0:ff:ee:00:00:0f',
+                         15: 'c0:ff:ee:00:00:11', 16: 'c0:ff:ee:00:00:0b',
+                         17: 'c0:ff:ee:00:00:0d', 18: 'c0:ff:ee:00:00:0c',
+                         19: 'c0:ff:ee:00:00:0e',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:11',
                          24: 'c0:ff:ee:00:00:11',
-                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e',
-                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    th2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12',
-                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
-                         9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10',
-                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                         19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11',
-                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e',
-                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+                         25: 'c0:ff:ee:00:00:0f', 26: 'c0:ff:ee:00:00:12',
+                         27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0f', 29: 'c0:ff:ee:00:00:11',
+                         30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0e',
+                         34: 'c0:ff:ee:00:00:0b',
+                         35: 'c0:ff:ee:00:00:0d', 36: 'c0:ff:ee:00:00:0f',
+                         37: 'c0:ff:ee:00:00:11', 38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:12',
+                         40: 'c0:ff:ee:00:00:0d', 41: 'c0:ff:ee:00:00:0b',
+                         42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
+                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
+                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
     td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
                          2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
@@ -692,6 +669,33 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
                          46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
                          48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
+
+    th2_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                         2: 'c0:ff:ee:00:00:11',
+                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:0d',
+                         5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:0e',
+                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0f',
+                         9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:12',
+                         12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:12',
+                         14: 'c0:ff:ee:00:00:0f',
+                         15: 'c0:ff:ee:00:00:11', 16: 'c0:ff:ee:00:00:0b',
+                         17: 'c0:ff:ee:00:00:0d', 18: 'c0:ff:ee:00:00:0c',
+                         19: 'c0:ff:ee:00:00:0e',
+                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:11',
+                         24: 'c0:ff:ee:00:00:11',
+                         25: 'c0:ff:ee:00:00:0f', 26: 'c0:ff:ee:00:00:12',
+                         27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0f', 29: 'c0:ff:ee:00:00:11',
+                         30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0e',
+                         34: 'c0:ff:ee:00:00:0b',
+                         35: 'c0:ff:ee:00:00:0d', 36: 'c0:ff:ee:00:00:0f',
+                         37: 'c0:ff:ee:00:00:11', 38: 'c0:ff:ee:00:00:10', 39: 'c0:ff:ee:00:00:12',
+                         40: 'c0:ff:ee:00:00:0d', 41: 'c0:ff:ee:00:00:0b',
+                         42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
+                         45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
+                         47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
     gr_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
                         2: 'c0:ff:ee:00:00:0c',
@@ -723,14 +727,34 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                         47: 'c0:ff:ee:00:00:11', 48: 'c0:ff:ee:00:00:11',
                         49: 'c0:ff:ee:00:00:11'}
 
-    # Make sure a givenflow always hash to same nexthop/neighbor. This is done to try to find issue
+    spc_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:12', 2: 'c0:ff:ee:00:00:0e',
+                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:0d',
+                         6: 'c0:ff:ee:00:00:11', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0b',
+                         9: 'c0:ff:ee:00:00:12', 10: 'c0:ff:ee:00:00:0e', 11: 'c0:ff:ee:00:00:0f',
+                         12: 'c0:ff:ee:00:00:0e', 13: 'c0:ff:ee:00:00:0f', 14: 'c0:ff:ee:00:00:0b',
+                         15: 'c0:ff:ee:00:00:12', 16: 'c0:ff:ee:00:00:0e', 17: 'c0:ff:ee:00:00:0f',
+                         18: 'c0:ff:ee:00:00:0b', 19: 'c0:ff:ee:00:00:12', 20: 'c0:ff:ee:00:00:11',
+                         21: 'c0:ff:ee:00:00:0c', 22: 'c0:ff:ee:00:00:10', 23: 'c0:ff:ee:00:00:0d',
+                         24: 'c0:ff:ee:00:00:0c', 25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:0d',
+                         27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0e', 29: 'c0:ff:ee:00:00:0f',
+                         30: 'c0:ff:ee:00:00:0b', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0e',
+                         33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:12',
+                         36: 'c0:ff:ee:00:00:11', 37: 'c0:ff:ee:00:00:0c', 38: 'c0:ff:ee:00:00:10',
+                         39: 'c0:ff:ee:00:00:0d', 40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:0f',
+                         42: 'c0:ff:ee:00:00:0b', 43: 'c0:ff:ee:00:00:12', 44: 'c0:ff:ee:00:00:0b',
+                         45: 'c0:ff:ee:00:00:12', 46: 'c0:ff:ee:00:00:0e', 47: 'c0:ff:ee:00:00:0f',
+                         48: 'c0:ff:ee:00:00:0b', 49: 'c0:ff:ee:00:00:12'}
+
+    # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map}
+                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map,
+                                              "spc1": spc_asic_flow_map, "spc2": spc_asic_flow_map,
+                                              "spc3": spc_asic_flow_map, "spc4": spc_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]

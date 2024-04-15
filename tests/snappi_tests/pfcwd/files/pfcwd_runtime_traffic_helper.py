@@ -90,7 +90,9 @@ def run_pfcwd_runtime_traffic_test(api,
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
 
-    __verify_results(rows=flow_stats,
+    data_flows = [flow_stat for flow_stat in flow_stats if DATA_FLOW_NAME in flow_stat.name]
+
+    __verify_results(rows=data_flows,
                      speed_gbps=speed_gbps,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      data_pkt_size=DATA_PKT_SIZE,

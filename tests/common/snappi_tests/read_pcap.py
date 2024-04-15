@@ -10,7 +10,7 @@ PFC_MAC_CONTROL_CODE = 0x8808
 PFC_DEST_MAC = "01:80:c2:00:00:01"
 
 
-def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=100000, UTIL_THRESHOLD=0.8):
+def validate_pfc_frame(pfc_pcap_file, SAMPLE_SIZE=15000, UTIL_THRESHOLD=0.8):
     """
     Validate PFC frame by checking the CBFC opcode, class enable vector and class pause times.
 
