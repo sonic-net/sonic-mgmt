@@ -45,20 +45,19 @@ seed_cmd_td3 = [
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
 
 
-@pytest.fixture(autouse=True, scope='module')
-def enable_container_autorestart(duthosts, selected_rand_one_per_hwsku_hostname):
-    # Enable autorestart for all features before the test begins
-    for hostname in selected_rand_one_per_hwsku_hostname:
-        duthost = duthosts[hostname]
-        feature_list, _ = duthost.get_feature_status()
-        for feature, status in list(feature_list.items()):
-            if status == 'enabled':
-                duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+@pytest.fixture(scope='module')
+def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    # Enable autorestart for all features
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    feature_list, _ = duthost.get_feature_status()
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} enabled".format(feature))
+
     yield
-    # Config reload should set the auto restart back to state before test started
-    for hostname in selected_rand_one_per_hwsku_hostname:
-        duthost = duthosts[hostname]
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+    for feature, status in list(feature_list.items()):
+        if status == 'enabled':
+            duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
 def parse_hash_seed(output, asic_name):
