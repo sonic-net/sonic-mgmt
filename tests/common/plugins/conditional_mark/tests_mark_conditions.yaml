@@ -1027,6 +1027,11 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
 
 #######################################
 #####           qos               #####
