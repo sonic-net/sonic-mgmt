@@ -206,6 +206,7 @@ def turn_all_outlets_on(pdu_ctrl):
         if not outlet["outlet_on"]:
             pdu_ctrl.turn_on_outlet(outlet)
             time.sleep(5)
+    time.sleep(5)
 
 
 def check_all_psu_on(dut, psu_test_results):
@@ -243,7 +244,7 @@ def check_all_psu_on(dut, psu_test_results):
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_particular_error_log', [SKIP_ERROR_LOG_PSU_ABSENCE], indirect=True)
 def test_turn_on_off_psu_and_check_psustatus(duthosts,
-                                             pdu_controller, ignore_particular_error_log, tbinfo):
+                                             get_pdu_controller, ignore_particular_error_log, tbinfo):
     """
     @summary: Turn off/on PSU and check PSU status using 'show platform psustatus'
     """
@@ -256,7 +257,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
         psu_num >= 2, "At least 2 PSUs required for rest of the testing in this case")
 
     logging.info("Create PSU controller for testing")
-    pdu_ctrl = pdu_controller
+    pdu_ctrl = get_pdu_controller(duthost)
     pytest_require(
         pdu_ctrl, "No PSU controller for %s, skip rest of the testing in this case" % duthost.hostname)
 
@@ -288,7 +289,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn off outlet {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:
@@ -302,7 +303,7 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts,
 
         logging.info("Turn on outlet {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
-        time.sleep(5)
+        time.sleep(10)
 
         cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
         for line in cli_psu_status["stdout_lines"][2:]:

@@ -16,7 +16,7 @@ from ansible.plugins.loader import connection_loader
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
-from tests.common.helpers.dut_utils import is_supervisor_node
+from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
@@ -26,6 +26,11 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
+
+PROCESS_TO_CONTAINER_MAP = {
+    "orchagent": "swss",
+    "syncd": "syncd"
+}
 
 
 class SonicHost(AnsibleHostBase):
@@ -410,6 +415,11 @@ class SonicHost(AnsibleHostBase):
         """
         return not self.is_supervisor_node()
 
+    def is_macsec_capable_node(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        return is_macsec_capable_node(inv_files, self.hostname)
+
     def is_service_fully_started(self, service):
         """
         @summary: Check whether a SONiC specific service is fully started.
@@ -428,6 +438,14 @@ class SonicHost(AnsibleHostBase):
                 return False
         except Exception:
             return False
+
+    def get_running_containers(self):
+        """
+        Get the running containers names
+        :param duthost:  DUT host object
+        :return: Running container name list
+        """
+        return self.shell(r'docker ps --format \{\{.Names\}\}')['stdout_lines']
 
     def is_container_running(self, service):
         """
@@ -612,6 +630,14 @@ class SonicHost(AnsibleHostBase):
 
         return group_process_results
 
+    def critical_processes_running(self, service):
+        """
+        @summary: Check whether critical processes are running for a service
+
+        @param service: Name of the SONiC service
+        """
+        return self.critical_process_status(service)['status']
+
     def critical_process_status(self, service):
         """
         @summary: Check whether critical process status of a service.
@@ -722,6 +748,28 @@ class SonicHost(AnsibleHostBase):
                     service_critical_process['running_critical_process'].append(pname)
 
         return service_critical_process
+
+    def control_process(self, process, pause=True, namespace='', signal=''):
+        """
+        Send a signal to a process on the DUT
+        """
+        process_control_cmd = "docker exec -i {}{} bash -c 'kill -s {} `pgrep {}`'"
+        if signal:
+            proc_signal = signal
+        elif pause:
+            proc_signal = "SIGSTOP"
+        elif not pause:
+            proc_signal = "SIGCONT"
+        else:
+            logger.error("Must specify either `pause` or a specific signal")
+            return
+
+        container = PROCESS_TO_CONTAINER_MAP.get(process, None)
+        if not container:
+            logger.error("Unknown process {}".format(process))
+            return
+        cmd = process_control_cmd.format(container, namespace, proc_signal, process)
+        self.shell(cmd)
 
     def get_crm_resources_for_masic(self, namespace=DEFAULT_NAMESPACE):
         """
@@ -1285,6 +1333,23 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
         return intf_status[interface_name]['oper_state'] == 'up'
 
+    def get_intf_link_local_ipv6_addr(self, intf):
+        """
+        Get the link local ipv6 address of the interface
+
+        Args:
+            intf: The SONiC interface name
+
+        Returns:
+            The link local ipv6 address of the interface or empty string if not found
+
+        Sample output:
+            fe80::2edd:e9ff:fefc:dd58
+        """
+        cmd = "ip addr show %s | grep inet6 | grep 'scope link' | awk '{print $2}' | cut -d '/' -f1" % intf
+        addr = self.shell(cmd)["stdout"]
+        return addr
+
     def get_bgp_neighbor_info(self, neighbor_ip):
         """
         @summary: return bgp neighbor info
@@ -1666,7 +1731,8 @@ Totals               6450                 6449
         elif "Device b971" in output:
             asic = "th2"
         elif ("Broadcom Limited Device b850" in output or
-                "Broadcom Limited Broadcom BCM56850" in output):
+                "Broadcom Limited Broadcom BCM56850" in output or
+                "Broadcom Inc. and subsidiaries Broadcom BCM56850" in output):
             asic = "td2"
         elif ("Broadcom Limited Device b870" in output or
                 "Broadcom Inc. and subsidiaries Device b870" in output):
@@ -1679,6 +1745,9 @@ Totals               6450                 6449
             asic = "spc"
 
         return asic
+
+    def is_nvidia_platform(self):
+        return 'mellanox' == self.facts['asic_type']
 
     def _get_platform_asic(self, platform):
         platform_asic = os.path.join(
@@ -1709,6 +1778,41 @@ Totals               6450                 6449
                 vlan_intfs.append(intf)
 
         return vlan_intfs
+
+    def get_vlan_brief(self):
+        """
+        Get vlan brief
+        Sample output:
+            {
+                "Vlan1000": {
+                    "interface_ipv4": [ "192.168.0.1/24" ],
+                    "interface_ipv6": [ "fc02:1000::1/64" ],
+                    "members": ["Ethernet0", "Ethernet1"]
+                },
+                "Vlan2000": {
+                    "interface_ipv4": [ "192.168.1.1/24" ],
+                    "interface_ipv6": [ "fc02:1001::1/64" ],
+                    "members": ["Ethernet3", "Ethernet4"]
+                }
+            }
+        """
+        config = self.get_running_config_facts()
+        vlan_brief = {}
+        for vlan_name, members in config["VLAN_MEMBER"].items():
+            vlan_brief[vlan_name] = {
+                "interface_ipv4": [],
+                "interface_ipv6": [],
+                "members": list(members.keys())
+            }
+        for vlan_name, vlan_info in config["VLAN_INTERFACE"].items():
+            if vlan_name not in vlan_brief:
+                continue
+            for prefix in vlan_info.keys():
+                if '.' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv4"].append(prefix)
+                elif ':' in prefix:
+                    vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
+        return vlan_brief
 
     def get_interfaces_status(self):
         '''
@@ -2094,6 +2198,32 @@ Totals               6450                 6449
             return False
         return True
 
+    def ping_v6(self, ipv6, count=1, ns_arg=""):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        netns_arg = ""
+        if ns_arg is not DEFAULT_NAMESPACE:
+            netns_arg = "sudo ip netns exec {} ".format(ns_arg)
+
+        try:
+            self.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                netns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return True
+
     def is_backend_portchannel(self, port_channel, mg_facts):
         ports = mg_facts["minigraph_portchannels"].get(port_channel)
         # minigraph facts does not have backend portchannel IFs
@@ -2104,17 +2234,21 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ipv6_ifs=None):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
 
+        If ipv6_ifs exists, also returns the interfaces' IPv6 address and its peer
+        IPv6 addresses if found for each interface.
+
         Returns:
-            Dict of Interfaces and their IPv4 address
+            Dict of Interfaces and their IPv4 address (with IPv6 if ipv6_ifs exists)
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
         ip_ifaces = {}
+
         for k, v in list(ip_ifs.items()):
             if ((k.startswith("Ethernet") and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not
@@ -2129,6 +2263,15 @@ Totals               6450                 6449
                         "bgp_neighbor": v["bgp_neighbor"]
                     }
                     active_ip_intf_cnt += 1
+
+                    if ipv6_ifs:
+                        ipv6_intf = ipv6_ifs[k]
+                        if (ipv6_intf["peer_ipv6"] != "N/A" and self.ping_v6(ipv6_intf["peer_ipv6"],
+                                                                             count=3, ns_arg=ns_arg)):
+                            ip_ifaces[k].update({
+                                "ipv6": ipv6_intf["ipv6"],
+                                "peer_ipv6": ipv6_intf["peer_ipv6"]
+                            })
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2206,6 +2349,34 @@ Totals               6450                 6449
         res = self.shell(cli)['stdout']
         return re.sub(r"Last cached time was.*\d+\n", "", res)
 
+    def add_acl_table(self, table_name, table_type, acl_stage=None, bind_ports=None, description=None):
+        """
+        Add ACL table via 'config acl add table' command.
+        Command sample:
+            config acl add table TEST_TABLE L3 -s ingress -p Ethernet0,Ethernet4 -d "Test ACL table"
+
+        Args:
+            table_name: name of new acl table
+            table_type: type of the acl table
+            acl_stage: acl stage, ingress or egress
+            bind_ports: ports bind to the acl table
+            description: description of the acl table
+        """
+        cmd = "config acl add table {} {}".format(table_name, table_type)
+
+        if acl_stage:
+            cmd += " -s {}".format(acl_stage)
+
+        if bind_ports:
+            if isinstance(bind_ports, list):
+                bind_ports = ",".join(bind_ports)
+            cmd += " -p {}".format(bind_ports)
+
+        if description:
+            cmd += " -d {}".format(description)
+
+        self.command(cmd)
+
     def remove_acl_table(self, acl_table):
         """
         Remove acl table
@@ -2251,6 +2422,22 @@ Totals               6450                 6449
                 self.command("config interface ip remove {} {}".format(port, ip))
         elif ip:
             self.command("config interface ip remove {} {}".format(port, ip))
+
+    def remove_ip_addr_from_port(self, port, ip):
+        """
+        Remove ip addr from the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip remove {} {}".format(port, ip))
+
+    def add_ip_addr_to_port(self, port, ip, gwaddr):
+        """
+        Add ip addr on the port.
+        :param port: port name
+        :param ip: IP address
+        """
+        self.command("config interface ip add {} {} {}".format(port, ip, gwaddr))
 
     def remove_vlan(self, vlan_id):
         """
@@ -2341,6 +2528,17 @@ Totals               6450                 6449
         assert_exit_non_zero(out)
         sfp_type = re.search(r'[QO]?SFP-?[\d\w]{0,3}', out["stdout_lines"][0]).group()
         return sfp_type
+
+    def get_counter_poll_status(self):
+        result_dict = {}
+        output = self.shell("counterpoll show")["stdout_lines"][2::]
+        for line in output:
+            counter_type, interval, status = re.split(r'\s\s+', line)
+            interval = int(re.search(r'\d+', interval).group(0))
+            result_dict[counter_type] = {}
+            result_dict[counter_type]['interval'] = interval
+            result_dict[counter_type]['status'] = status
+        return result_dict
 
 
 def assert_exit_non_zero(shell_output):

@@ -335,7 +335,6 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
     sub_ports = define_sub_ports_configuration['sub_ports']
     dut_ports = define_sub_ports_configuration['dut_ports']
     port_type = define_sub_ports_configuration['port_type']
-    subnet = define_sub_ports_configuration['subnet']
     namespaces = {}
 
     # Get additional port for configuration of SVI port or L3 RIF
@@ -347,7 +346,8 @@ def apply_route_config_for_port(request, tbinfo, duthost, ptfhost, port_type, de
                                     exclude_sub_interface_ports=True)
 
     # Get additional IP addresses for configuration of RIF on the DUT and PTF
-    subnet = ipaddress.ip_network(str(subnet.broadcast_address + 1) + '/24')
+    ip_subnet = unicode('172.19.0.0/16')
+    subnet = ipaddress.ip_network(ip_subnet)
     subnets = [i for i, _ in zip(subnet.subnets(new_prefix=30), dut_ports)]
 
     sub_ports_keys = sub_ports.copy()
