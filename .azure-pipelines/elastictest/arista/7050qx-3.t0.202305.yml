@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms11-t0-7050qx-acs-4, testbed-bjw-can-7050qx-3"
+    default: "vms11-t0-7050qx-acs-4"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
@@ -100,7 +100,7 @@ parameters:
   # Test timeout
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 3600
+    default: 7200
 
 stages:
 - stage: Test
