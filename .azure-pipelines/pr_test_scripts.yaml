@@ -1,51 +1,125 @@
 t0:
+  - autorestart/test_container_autorestart.py
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
-  - bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved
+  - bgp/test_bgp_gr_helper.py
+  - bgp/test_bgp_queue.py
+  - bgp/test_bgp_slb.py
   - bgp/test_bgp_speaker.py
   - bgp/test_bgpmon.py
   - bgp/test_bgp_update_timer.py
   - container_checker/test_container_checker.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
+  - console/test_console_availability.py
+  - console/test_console_driver.py
+  - console/test_console_loopback.py
+  - console/test_console_reversessh.py
+  - console/test_console_udevrule.py
+  - container_checker/test_container_checker.py
+  - container_hardening/test_container_hardening.py
+  - database/test_db_scripts.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - dns/static_dns/test_static_dns.py
   - dns/test_dns_resolv_conf.py
+  - dualtor/test_orch_stress.py
+  - dualtor_mgmt/test_server_failure.py
+  - dualtor_mgmt/test_toggle_mux.py
+  - dut_console/test_console_baud_rate.py
+  - dut_console/test_escape_character.py
+  - dut_console/test_idle_timeout.py
   - generic_config_updater/test_aaa.py
   - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
+  - generic_config_updater/test_ecn_config_update.py
   - generic_config_updater/test_eth_interface.py
+  - generic_config_updater/test_incremental_qos.py
   - generic_config_updater/test_ipv6.py
+  - generic_config_updater/test_kubernetes_config.py
   - generic_config_updater/test_lo_interface.py
+  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
+  - generic_config_updater/test_pfcwd_interval.py
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
-  - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
-  - generic_config_updater/test_ecn_config_update.py
+  - gnmi/test_gnmi.py
+  - gnmi/test_gnmi_appldb.py
+  - gnmi/test_gnmi_configdb.py
+  - http/test_http_copy.py
+  - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
   - lldp/test_lldp.py
+  - log_fidelity/test_bgp_shutdown.py
+  - macsec/test_controlplane.py
   - memory_checker/test_memory_checker.py
   - minigraph/test_masked_services.py
   - monit/test_monit_status.py
   - ntp/test_ntp.py
   - override_config_table/test_override_config_table.py
+  - passw_hardening/test_passw_hardening.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - platform_tests/api/test_module.py
+  - platform_tests/broadcom/test_ser.py
+  - platform_tests/counterpoll/test_counterpoll_watermark.py
+  - platform_tests/daemon/test_fancontrol.py
+  - platform_tests/daemon/test_ledd.py
+  - platform_tests/daemon/test_psud.py
+  - platform_tests/daemon/test_syseepromd.py
+  - platform_tests/fwutil/test_fwutil.py
+  - platform_tests/link_flap/test_cont_link_flap.py
+  - platform_tests/mellanox/test_check_sfp_eeprom.py
+  - platform_tests/mellanox/test_check_sfp_presence.py
+  - platform_tests/mellanox/test_check_sfp_using_ethtool.py
+  - platform_tests/mellanox/test_check_sysfs.py
+  - platform_tests/mellanox/test_hw_management_service.py
+  - platform_tests/mellanox/test_psu_power_threshold.py
+  - platform_tests/mellanox/test_reboot_cause.py
+  - platform_tests/test_auto_negotiation.py
+  - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
+  - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
+  - platform_tests/test_port_toggle.py
+  - platform_tests/test_secure_upgrade.py
+  - platform_tests/test_sensors.py
+  - platform_tests/test_service_warm_restart.py
+  - portstat/test_portstat.py
   - process_monitoring/test_critical_process_monitoring.py
   - radv/test_radv_ipv6_ra.py
+  - radv/test_radv_restart.py
+  - radv/test_radv_run.py
+  - reset_factory/test_reset_factory.py
+  - restapi/test_restapi.py
+  - restapi/test_restapi_vxlan_ecmp.py
   - route/test_default_route.py
+  - route/test_duplicate_route.py
+  - route/test_forced_mgmt_route.py
+  - route/test_route_consistency.py
+  - route/test_route_flap.py
+  - route/test_route_flow_counter.py
   - route/test_static_route.py
+  - scp/test_scp_copy.py
+  - show_techsupport/test_auto_techsupport.py
+  - show_techsupport/test_techsupport.py
   - show_techsupport/test_techsupport_no_secret.py
+  - ssh/test_ssh_ciphers.py
+  - ssh/test_ssh_default_password.py
+  - ssh/test_ssh_limit.py
+  - ssh/test_ssh_stress.py
+  - stress/test_stress_routes.py
+  - syslog/test_logrotate.py
+  - syslog/test_syslog.py
+  - syslog/test_syslog_rate_limit.py
+  - syslog/test_syslog_source_ip.py
   - snmp/test_snmp_cpu.py
   - snmp/test_snmp_default_route.py
   - snmp/test_snmp_interfaces.py
@@ -54,10 +128,8 @@ t0:
   - snmp/test_snmp_loopback.py
   - snmp/test_snmp_pfc_counters.py
   - snmp/test_snmp_queue.py
-  - ssh/test_ssh_ciphers.py
-  - ssh/test_ssh_limit.py
-  - syslog/test_syslog.py
   - system_health/test_system_status.py
+  - system_health/test_watchdog.py
   - tacacs/test_accounting.py
   - tacacs/test_authorization.py
   - tacacs/test_jit_user.py
@@ -69,8 +141,10 @@ t0:
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
-  - database/test_db_scripts.py
-  - system_health/test_watchdog.py
+  - testbed_setup/test_populate_fdb.py
+  - upgrade_path/test_upgrade_path.py
+  - vlan/test_autostate_disabled.py
+  - vxlan/test_vnet_route_leak.py
 
 t0-2vlans:
   - dhcp_relay/test_dhcp_relay.py
