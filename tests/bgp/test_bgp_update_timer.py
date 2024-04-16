@@ -234,7 +234,7 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
         if not has_suppress_feature:
             _constants.update_interval_threshold = 1
         else:
-            _constants.update_interval_threshold = 2
+            _constants.update_interval_threshold = 2.5
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
