@@ -35,7 +35,7 @@ If console fails, do power cycle
 
 def recover_via_console(sonichost, conn_graph_facts, localhost, mgmt_ip, image_url, hwsku):
     try:
-        dut_console = duthost_console(sonichost, conn_graph_facts, localhost)
+        dut_console = duthost_console(sonichost, conn_graph_facts)
 
         do_power_cycle(sonichost, conn_graph_facts, localhost)
 
