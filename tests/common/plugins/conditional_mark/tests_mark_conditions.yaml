@@ -1472,6 +1472,15 @@ telemetry/test_telemetry.py::test_osbuild_version:
       - https://github.com/sonic-net/sonic-mgmt/issues/12021
 
 #######################################
+#####        neighbor health      #####
+#######################################
+test_nbr_health.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/7883"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/7883"
+
+#######################################
 #####         pktgen              #####
 #######################################
 test_pktgen.py:
