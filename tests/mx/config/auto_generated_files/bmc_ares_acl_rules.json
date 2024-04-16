@@ -53,7 +53,7 @@
                                 },
                                 "transport": {
                                     "config": {
-                                        "destination-port": 67
+                                        "destination-port": "67"
                                     }
                                 }
                             },
@@ -154,6 +154,13 @@
                                 "config": {
                                     "sequence-id": 1101
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.16/28",
@@ -169,6 +176,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1106
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -186,6 +200,13 @@
                                 "config": {
                                     "sequence-id": 1111
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.32/28",
@@ -201,6 +222,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1116
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -218,6 +246,13 @@
                                 "config": {
                                     "sequence-id": 1121
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.48/29",
@@ -233,6 +268,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1126
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -250,6 +292,13 @@
                                 "config": {
                                     "sequence-id": 1131
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet0"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.56/30",
@@ -265,6 +314,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1136
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet4,Ethernet5,Ethernet6,Ethernet7,Ethernet8,Ethernet9,Ethernet10,Ethernet11,Ethernet12,Ethernet13,Ethernet14"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -282,6 +338,13 @@
                                 "config": {
                                     "sequence-id": 1141
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet1"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.64/27",
@@ -297,6 +360,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1146
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -314,6 +384,13 @@
                                 "config": {
                                     "sequence-id": 1151
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet1"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.96/29",
@@ -329,6 +406,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1156
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -346,6 +430,13 @@
                                 "config": {
                                     "sequence-id": 1161
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet1"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.60/30",
@@ -361,6 +452,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1166
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet15,Ethernet16,Ethernet17,Ethernet18,Ethernet19,Ethernet20,Ethernet21,Ethernet22,Ethernet23,Ethernet24,Ethernet25"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -378,6 +476,13 @@
                                 "config": {
                                     "sequence-id": 1171
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet2"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.192/26",
@@ -393,6 +498,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1176
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -410,6 +522,13 @@
                                 "config": {
                                     "sequence-id": 1181
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet2"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.112/28",
@@ -425,6 +544,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1186
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -442,6 +568,13 @@
                                 "config": {
                                     "sequence-id": 1191
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet2"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.128/28",
@@ -457,6 +590,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1196
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -474,6 +614,13 @@
                                 "config": {
                                     "sequence-id": 1201
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet2"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.104/29",
@@ -489,6 +636,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1206
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet26,Ethernet27,Ethernet28,Ethernet29,Ethernet30,Ethernet31,Ethernet32,Ethernet33,Ethernet34,Ethernet35"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -506,6 +660,13 @@
                                 "config": {
                                     "sequence-id": 1211
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet3"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.160/27",
@@ -521,6 +682,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1216
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -538,6 +706,13 @@
                                 "config": {
                                     "sequence-id": 1221
                                 },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet3"
+                                        }
+                                    }
+                                },
                                 "ip": {
                                     "config": {
                                         "destination-ip-address": "172.17.0.144/28",
@@ -553,6 +728,13 @@
                                 },
                                 "config": {
                                     "sequence-id": 1226
+                                },
+                                "input_interface": {
+                                    "interface_ref": {
+                                        "config": {
+                                            "interface": "Ethernet36,Ethernet37,Ethernet38,Ethernet39,Ethernet40,Ethernet41,Ethernet42,Ethernet43,Ethernet44,Ethernet45"
+                                        }
+                                    }
                                 },
                                 "ip": {
                                     "config": {
@@ -573,6 +755,259 @@
                                 "l2": {
                                     "config": {
                                         "ethertype": 2048
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "BMC_ARES_ACL_NORTHBOUND_V6": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "0101_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00:1::32/128"
+                                    }
+                                }
+                            },
+                            "0106_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::abcd/128"
+                                    }
+                                }
+                            },
+                            "9001_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9001
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 133
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9002_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9002
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 135
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9003_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9003
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 136
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9011_ALLOW_DHCPv6": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9011
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "ff02::1:2/128",
+                                        "protocol": "17"
+                                    }
+                                }
+                            },
+                            "9990_DROP_ALL": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9990
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "BMC_ARES_ACL_SOUTHBOUND_V6": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "0101_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 101
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00:1::32/128"
+                                    }
+                                }
+                            },
+                            "0106_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 106
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc02::abcd/128"
+                                    }
+                                }
+                            },
+                            "0111_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 111
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00::81/128"
+                                    }
+                                }
+                            },
+                            "0116_IP2ME": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 116
+                                },
+                                "ip": {
+                                    "config": {
+                                        "destination-ip-address": "fc00::85/128"
+                                    }
+                                }
+                            },
+                            "9001_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9001
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 135
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9002_ALLOW_NDP": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9002
+                                },
+                                "icmp": {
+                                    "config": {
+                                        "code": 0,
+                                        "type": 136
+                                    }
+                                },
+                                "ip": {
+                                    "config": {
+                                        "protocol": "58"
+                                    }
+                                }
+                            },
+                            "9990_DROP_ALL": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 9990
+                                },
+                                "l2": {
+                                    "config": {
+                                        "ethertype": 34525
                                     }
                                 }
                             }

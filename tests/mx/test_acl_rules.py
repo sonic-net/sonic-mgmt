@@ -368,6 +368,13 @@ class BmcOtwAclRulesBase:
     def filter_shelf_with_rm_ipv6(self, shelfs):
         return [shelf for shelf in shelfs if shelf.rm.ipv6_addr is not None]
 
+    def get_shelf_by_bmc(self, shelfs, target_bmc):
+        for shelf in shelfs:
+            for bmc in shelf.bmc_hosts:
+                if bmc.port_name == target_bmc.port_name:
+                    return shelf
+        return None
+
     @pytest.fixture(scope="class")
     def setup_teardown(self, duthost, ptfhost, rack_topo_file, mx_common_setup_teardown, port_alias_to_name, port_alias_to_ptf_index):
         # load rack topo
@@ -513,71 +520,53 @@ class BmcOtwAclRulesBase:
             l4_src_port=upstream_l4_ports, l4_dst_port=bmc_l4_ports)
         return bmc_northbound_v6_dynamic_rules, bmc_southbound_v6_dynamic_rules
 
-    def test_bmc_otw_req_1_v4_src_ip_bmc(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_rm", "upstream"])
+    def test_bmc_otw_req_1_v4(self, duthost, ptfadapter, setup_teardown, disguise):
         """
         Request 1: BMCs are not allowed to communicate with each other
-        Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
+        Test:
+          1. [No disguise] BMC cannot use it's own IP as SRC_IP to send packet to other BMC
+          2. [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's
+             IP as SRC_IP to send packet to other BMC
+          3. [BMC disguise itself as upstream service] BMC cannot use upstream service's IP
+             as SRC_IP to send packet to other BMC
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
+            if disguise == "dst_shelf_rm":
+                dst_shelf = self.get_shelf_by_bmc(shelfs, dst_bmc)
+                src_bmc.ipv4_addr = dst_shelf.rm.ipv4_addr
+                src_bmc.ipv4_prefix = dst_shelf.rm.ipv4_prefix
+            elif disguise == "upstream":
+                src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
+                src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
             send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
-    def test_bmc_otw_req_1_v4_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_rm", "upstream"])
+    def test_bmc_otw_req_1_v6(self, duthost, ptfadapter, setup_teardown, disguise):
         """
         Request 1: BMCs are not allowed to communicate with each other
-        TEST 2: BMCs cannot use RM IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for shelf in shelfs:
-            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
-                src_bmc.ipv4_addr = shelf.rm.ipv4_addr
-                src_bmc.ipv4_prefix = shelf.rm.ipv4_prefix
-                send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v4_src_ip_upstream(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
-            src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
-            send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_bmc(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 2: BMCs cannot use RM IP as SRC_IP to send packet to other BMC
+        Test:
+          1. [No disguise] BMC cannot use it's own IP as SRC_IP to send packet to other BMC
+          2. [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's
+             IP as SRC_IP to send packet to other BMC
+          3. [BMC disguise itself as upstream service] BMC cannot use upstream service's IP
+             as SRC_IP to send packet to other BMC
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
-        if len(shelfs_v6) == 0:
+        if disguise == "dst_shelf_rm" and len(shelfs_v6) == 0:
             pytest.skip("No shelf has IPv6 address configured on RM")
-        for shelf in shelfs_v6:
-            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
-                src_bmc.ipv6_addr = shelf.rm.ipv6_addr
-                src_bmc.ipv6_prefix = shelf.rm.ipv6_prefix
-                send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_upstream(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
-            src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
+            if disguise == "dst_shelf_rm":
+                dst_shelf = self.get_shelf_by_bmc(shelfs, dst_bmc)
+                if dst_shelf.rm.ipv6_addr is None:
+                    continue
+                src_bmc.ipv6_addr = dst_shelf.rm.ipv6_addr
+                src_bmc.ipv6_prefix = dst_shelf.rm.ipv6_prefix
+            elif disguise == "upstream":
+                src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
+                src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
             send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_2_v6(self, duthost, ptfadapter, setup_teardown):
@@ -834,10 +823,18 @@ class BmcOtwAclRulesBase:
                 send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v4(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
-    def test_bmc_otw_req_6_v4_diff_shelf(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_bmc", "dst_rm", "upstream"])
+    def test_bmc_otw_req_6_v4_diff_shelf(self, duthost, ptfadapter, setup_teardown, disguise):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
-        TEST 2: BMC cannot communicate with RM in the different shelf
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
+        TEST 2: BMC cannot send packet to RM in different power-shelf
+          2.1 [No disguise] BMC cannot use it's own IP as SRC_IP to send packet
+          2.2 [BMC disguise itself as BMC of target power-shelf] BMC cannot use dest shelf BMCs' IP
+              as SRC_IP to send packet
+          2.3 [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's IP
+              as SRC_IP to send packet
+          2.4 [BMC disguise itself as upstream service] BMC cannot use upstream service's IP as
+              SRC_IP to send packet
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         if len(shelfs) <= 1:
@@ -845,13 +842,22 @@ class BmcOtwAclRulesBase:
         for bmc_shelf in shelfs:
             for rm_shelf in shelfs:
                 if bmc_shelf.id != rm_shelf.id:
-                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-                    send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-                    send_and_verify_traffic_v4(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+                    src_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    if disguise == "dst_shelf_bmc":
+                        dst_shelf_bmc = self.rand_one(rm_shelf.bmc_hosts)
+                        src_bmc.ipv4_addr = dst_shelf_bmc.ipv4_addr
+                        src_bmc.ipv4_prefix = dst_shelf_bmc.ipv4_prefix
+                    elif disguise == "dst_rm":
+                        src_bmc.ipv4_addr = rm_shelf.rm.ipv4_addr
+                        src_bmc.ipv4_prefix = rm_shelf.rm.ipv4_prefix
+                    elif disguise == "upstream":
+                        src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
+                        src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
+                    send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [rm_shelf.rm], expect_behavior="drop")
 
     def test_bmc_otw_req_6_v6_same_shelf(self, duthost, ptfadapter, setup_teardown):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
         TEST 1: BMC can communicate with RM in the same shelf
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
@@ -863,21 +869,40 @@ class BmcOtwAclRulesBase:
                 send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v6(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
-    def test_bmc_otw_req_6_v6_diff_shelf(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_bmc", "dst_rm", "upstream"])
+    def test_bmc_otw_req_6_v6_diff_shelf(self, duthost, ptfadapter, setup_teardown, disguise):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
-        TEST 2: BMC cannot communicate with RM in the different shelf
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
+        TEST 2: BMC cannot send packet to RM in different power-shelf
+          2.1 [No disguise] BMC cannot use it's own IP as SRC_IP to send packet
+          2.2 [BMC disguise itself as BMC of target power-shelf] BMC cannot use dest shelf BMCs' IP
+              as SRC_IP to send packet
+          2.3 [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's IP
+              as SRC_IP to send packet
+          2.4 [BMC disguise itself as upstream service] BMC cannot use upstream service's IP as
+              SRC_IP to send packet
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
-        if len(shelfs_v6) < 2:
-            pytest.skip("Less than 2 shelf has IPv6 address configured on RM")
-        for bmc_shelf in shelfs_v6:
+        if len(shelfs) <= 1:
+            pytest.skip("Only one power-shelf on the rack")
+        if len(shelfs_v6) == 0:
+            pytest.skip("No power-shelf has IPv6 address configured on RM")
+        for bmc_shelf in shelfs:
             for rm_shelf in shelfs_v6:
                 if bmc_shelf.id != rm_shelf.id:
-                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+                    src_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    if disguise == "dst_shelf_bmc":
+                        dst_shelf_bmc = self.rand_one(rm_shelf.bmc_hosts)
+                        src_bmc.ipv6_addr = dst_shelf_bmc.ipv6_addr
+                        src_bmc.ipv6_prefix = dst_shelf_bmc.ipv6_prefix
+                    elif disguise == "dst_rm":
+                        src_bmc.ipv6_addr = rm_shelf.rm.ipv6_addr
+                        src_bmc.ipv6_prefix = rm_shelf.rm.ipv6_prefix
+                    elif disguise == "upstream":
+                        src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
+                        src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
+                    send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [rm_shelf.rm], expect_behavior="drop")
 
     def test_bmc_otw_ip2me_bgpv6(self, duthost, setup_teardown):
         """
@@ -1019,6 +1044,6 @@ class TestBmcAresAclRules(BmcOtwAclRulesBase):
         return RACK_TOPO_FILE_BMC_ARES
 
     @pytest.fixture(scope="function", autouse=True)
-    def skip_ipv6_tests(self, request):
-        if 'v6' in request.node.name:
-            pytest.skip("No IPv6 ACL rules configured on Ares Mx")
+    def skip_req_4_tests(self, request):
+        if 'req_4' in request.node.name:
+            pytest.skip("Ares Mx doesn't support Req 4 (dynamic ACL)")

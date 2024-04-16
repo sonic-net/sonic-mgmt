@@ -98,7 +98,7 @@
                                 },
                                 "transport": {
                                     "config": {
-                                        "destination-port": 67
+                                        "destination-port": "67"
                                     }
                                 }
                             },
