@@ -476,6 +476,7 @@ def is_ipv4_address(ip_address):
     except ipaddress.AddressValueError:
         return False
 
+
 def get_mgmt_ipv6(duthost):
     config_facts = duthost.get_running_config_facts()
     mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
@@ -487,6 +488,7 @@ def get_mgmt_ipv6(duthost):
             if valid_ipv6(ip_addr):
                 mgmt_ipv6 = ip_addr
     return mgmt_ipv6
+
 
 def compare_crm_facts(left, right, duthost=None):
     """Compare CRM facts
