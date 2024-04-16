@@ -59,7 +59,7 @@ def fixture_rsyslog_conf_setup_teardown(duthosts, rand_one_dut_hostname):
             available_size = int(line.split()[3])
             break
 
-    if available_size < 4096:
+    if available_size < 400:
         modify_rsyslog_severity_level(duthost)
         rsyslog_severity_level_modified = True
     else:
