@@ -380,14 +380,14 @@ sonic_arista_40:
       mgmt_subnet_mask_length: 24
       hwsku: Arista-7050QX32S-Q32
       model: DCS-7050QX-32S
-      serial: JPE20255843
-      base_mac: d4:af:f7:0f:95:0c
+      serial: JPE19292298
+      base_mac: fc:bd:67:68:e9:66
       syseeprom_info:
         "0x21": "DCS-7050QX-32S"
         "0x22": "ASY0105910E0"
-        "0x23": "JPE20255843"
-        "0x24": "d4:af:f7:0f:95:0c"
-        "0x25": "2020/07/06 00:04:49"
+        "0x23": "JPE19292298"
+        "0x24": "fc:bd:67:68:e9:66"
+        "0x25": "2019/07/26 06:06:37"
         "0x26": "01"
         "0x27": "02.00"
         "0x28": "x86_64-arista_7050_qx32s"
@@ -395,8 +395,8 @@ sonic_arista_40:
         "0x2B": "Arista Networks"
         "0x2C": "US"
         "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal4-4.1.1-13522936"
-        "0x2F": "JPE20255843"
+        "0x2E": "Aboot-norcal4-4.1.0-3037060"
+        "0x2F": "JPE19292298"
         "0xFE": 3735928559
   vars:
     iface_speed: 40000

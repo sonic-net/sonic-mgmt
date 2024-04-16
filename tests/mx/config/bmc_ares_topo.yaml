@@ -7,14 +7,14 @@ config:
   static_acl_rule_file: bmc_ares_acl_rules.json
   acl_tables:
     bmc_acl_northbound: BMC_ARES_ACL_NORTHBOUND
+    bmc_acl_northbound_v6: BMC_ARES_ACL_NORTHBOUND_V6
+    bmc_acl_southbound_v6: BMC_ARES_ACL_SOUTHBOUND_V6
 shelfs:
   - id: 1
     rm:
       port_alias: etp1
       ipv4_addr: 172.17.0.1
       ipv4_prefix: 24
-      ipv6_addr: fc02::1
-      ipv6_prefix: 64
     bmc:
       - config:
           ipv4_subnet:
@@ -80,8 +80,6 @@ shelfs:
       port_alias: etp2
       ipv4_addr: 172.17.0.5
       ipv4_prefix: 24
-      ipv6_addr: fc02::5
-      ipv6_prefix: 64
     bmc:
       - config:
           ipv4_subnet:
@@ -147,8 +145,6 @@ shelfs:
       port_alias: etp3
       ipv4_addr: 172.17.0.9
       ipv4_prefix: 24
-      ipv6_addr: fc02::9
-      ipv6_prefix: 64
     bmc:
       - config:
           ipv4_subnet:
@@ -209,8 +205,6 @@ shelfs:
       port_alias: etp4
       ipv4_addr: 172.17.0.13
       ipv4_prefix: 24
-      ipv6_addr: fc02::13
-      ipv6_prefix: 64
     bmc:
       - config:
           ipv4_subnet:

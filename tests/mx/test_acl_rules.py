@@ -27,6 +27,7 @@ from mx_utils import create_vlan, get_vlan_config, remove_all_vlans
 from config.generate_acl_rules import (
     acl_entry,
     ACL_ACTION_ACCEPT,
+    ACL_ACTION_DROP,
     ETHERTYPE_IPV6,
     IP_PROTOCOL_TCP,
     IP_PROTOCOL_UDP,
@@ -69,6 +70,8 @@ SAMPLE_UPSTREAM_IPV6_PREFIX = 128
 
 ICMPV6_TYPE_ECHO_REQUEST = 128
 ICMPV6_TYPE_ECHO_REPLY = 129
+ICMPV6_CODE_ECHO_REQUEST = 0
+ICMPV6_CODE_ECHO_REPLY = 0
 
 DHCP_MAC_BROADCAST = "ff:ff:ff:ff:ff:ff"
 DHCP_IP_DEFAULT_ROUTE = "0.0.0.0"
@@ -331,6 +334,90 @@ def setup_python_library_on_dut(duthost, creds):
     duthost.shell(cmd, module_ignore_errors=True)
 
 
+def prod_bmc_isolation_northbound(seq_id: int, bmc: PortInfo):
+    """
+    Construct production dynamic ACL rule for BMC isolation on northbound direction
+    """
+    return {
+        '{}_AD_HOC_BMC_ISOLATION'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=ETHERTYPE_IPV6, interfaces=[bmc.port_name])
+        )
+    }
+
+
+def prod_bmc_isolation_southbound(seq_id: int, bmc: PortInfo):
+    """
+    Construct production dynamic ACL rule for BMC isolation on southbound direction
+    """
+    return {
+        '{}_AD_HOC_BMC_ISOLATION'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=ETHERTYPE_IPV6, dst_ip=bmc.ipv6_addr + "/128")
+        )
+    }
+
+
+def prod_allow_tcpv6_northbound(seq_id: int, upstream: PortInfo,
+                                l4_src_port: L4Ports = None, l4_dst_port: L4Ports = None):
+    """
+    Construct production dynamic ACL rule for allowing TCPv6 traffic on northbound direction
+    """
+    if l4_src_port:
+        l4_src_port = l4_src_port.format_acl_loader()
+    if l4_dst_port:
+        l4_dst_port = l4_dst_port.format_acl_loader()
+    return {
+        '{}_AD_HOC_ALLOW_TCPV6'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                      ip_protocol=IP_PROTOCOL_TCP, dst_ip=upstream.ipv6_addr + "/128",
+                      l4_src_port=l4_src_port, l4_dst_port=l4_dst_port)
+        )
+    }
+
+
+def prod_allow_tcpv6_southbound(seq_id: int, upstream: PortInfo,
+                                l4_src_port: L4Ports = None, l4_dst_port: L4Ports = None):
+    """
+    Construct production dynamic ACL rule for allowing TCPv6 traffic on southbound direction
+    """
+    if l4_src_port:
+        l4_src_port = l4_src_port.format_acl_loader()
+    if l4_dst_port:
+        l4_dst_port = l4_dst_port.format_acl_loader()
+    return {
+        '{}_AD_HOC_ALLOW_TCPV6'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                      ip_protocol=IP_PROTOCOL_TCP, src_ip=upstream.ipv6_addr + "/128",
+                      l4_src_port=l4_src_port, l4_dst_port=l4_dst_port)
+        )
+    }
+
+
+def prod_allow_icmpv6_echo_northbounnd(seq_id: int, upstream: PortInfo):
+    """
+    Construct production dynamic ACL rule for allowing ICMPv6 echo (reply) on northbound direction
+    """
+    return {
+        '{}_AD_HOC_ALLOW_ICMPV6_ECHO'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                      ip_protocol=IP_PROTOCOL_ICMPV6, dst_ip=upstream.ipv6_addr + "/128",
+                      icmp_type=ICMPV6_TYPE_ECHO_REPLY, icmp_code=ICMPV6_CODE_ECHO_REPLY)
+        )
+    }
+
+
+def prod_allow_icmpv6_echo_southbounnd(seq_id: int, upstream: PortInfo):
+    """
+    Construct production dynamic ACL rule for allowing ICMPv6 echo (request) on southbound direction
+    """
+    return {
+        '{}_AD_HOC_ALLOW_ICMPV6_ECHO'.format(seq_id): json.dumps(
+            acl_entry(seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
+                      ip_protocol=IP_PROTOCOL_ICMPV6, src_ip=upstream.ipv6_addr + "/128",
+                      icmp_type=ICMPV6_TYPE_ECHO_REQUEST, icmp_code=ICMPV6_CODE_ECHO_REQUEST)
+        )
+    }
+
+
 class BmcOtwAclRulesBase:
 
     def rand_bmc_from_vlan_members(self, bmc_hosts, vlan_members):
@@ -367,6 +454,13 @@ class BmcOtwAclRulesBase:
 
     def filter_shelf_with_rm_ipv6(self, shelfs):
         return [shelf for shelf in shelfs if shelf.rm.ipv6_addr is not None]
+
+    def get_shelf_by_bmc(self, shelfs, target_bmc):
+        for shelf in shelfs:
+            for bmc in shelf.bmc_hosts:
+                if bmc.port_name == target_bmc.port_name:
+                    return shelf
+        return None
 
     @pytest.fixture(scope="class")
     def setup_teardown(self, duthost, ptfhost, rack_topo_file, mx_common_setup_teardown, port_alias_to_name, port_alias_to_ptf_index):
@@ -513,71 +607,53 @@ class BmcOtwAclRulesBase:
             l4_src_port=upstream_l4_ports, l4_dst_port=bmc_l4_ports)
         return bmc_northbound_v6_dynamic_rules, bmc_southbound_v6_dynamic_rules
 
-    def test_bmc_otw_req_1_v4_src_ip_bmc(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_rm", "upstream"])
+    def test_bmc_otw_req_1_v4(self, duthost, ptfadapter, setup_teardown, disguise):
         """
         Request 1: BMCs are not allowed to communicate with each other
-        Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
+        Test:
+          1. [No disguise] BMC cannot use it's own IP as SRC_IP to send packet to other BMC
+          2. [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's
+             IP as SRC_IP to send packet to other BMC
+          3. [BMC disguise itself as upstream service] BMC cannot use upstream service's IP
+             as SRC_IP to send packet to other BMC
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
+            if disguise == "dst_shelf_rm":
+                dst_shelf = self.get_shelf_by_bmc(shelfs, dst_bmc)
+                src_bmc.ipv4_addr = dst_shelf.rm.ipv4_addr
+                src_bmc.ipv4_prefix = dst_shelf.rm.ipv4_prefix
+            elif disguise == "upstream":
+                src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
+                src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
             send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
-    def test_bmc_otw_req_1_v4_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_rm", "upstream"])
+    def test_bmc_otw_req_1_v6(self, duthost, ptfadapter, setup_teardown, disguise):
         """
         Request 1: BMCs are not allowed to communicate with each other
-        TEST 2: BMCs cannot use RM IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for shelf in shelfs:
-            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
-                src_bmc.ipv4_addr = shelf.rm.ipv4_addr
-                src_bmc.ipv4_prefix = shelf.rm.ipv4_prefix
-                send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v4_src_ip_upstream(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
-            src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
-            send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_bmc(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        Test 1: BMCs cannot use it's own IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
-        for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_rm(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 2: BMCs cannot use RM IP as SRC_IP to send packet to other BMC
+        Test:
+          1. [No disguise] BMC cannot use it's own IP as SRC_IP to send packet to other BMC
+          2. [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's
+             IP as SRC_IP to send packet to other BMC
+          3. [BMC disguise itself as upstream service] BMC cannot use upstream service's IP
+             as SRC_IP to send packet to other BMC
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
-        if len(shelfs_v6) == 0:
+        if disguise == "dst_shelf_rm" and len(shelfs_v6) == 0:
             pytest.skip("No shelf has IPv6 address configured on RM")
-        for shelf in shelfs_v6:
-            for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(shelf.bmc_hosts, max_len=5):
-                src_bmc.ipv6_addr = shelf.rm.ipv6_addr
-                src_bmc.ipv6_prefix = shelf.rm.ipv6_prefix
-                send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
-
-    def test_bmc_otw_req_1_v6_src_ip_upstream(self, duthost, ptfadapter, setup_teardown):
-        """
-        Request 1: BMCs are not allowed to communicate with each other
-        TEST 3: BMCs cannot use upstream IP as SRC_IP to send packet to other BMC
-        """
-        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         for src_bmc, dst_bmc in self.shuffle_src_dst_pairs(bmc_hosts, max_len=10):
-            src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
-            src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
+            if disguise == "dst_shelf_rm":
+                dst_shelf = self.get_shelf_by_bmc(shelfs, dst_bmc)
+                if dst_shelf.rm.ipv6_addr is None:
+                    continue
+                src_bmc.ipv6_addr = dst_shelf.rm.ipv6_addr
+                src_bmc.ipv6_prefix = dst_shelf.rm.ipv6_prefix
+            elif disguise == "upstream":
+                src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
+                src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
             send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [dst_bmc], expect_behavior="drop")
 
     def test_bmc_otw_req_2_v6(self, duthost, ptfadapter, setup_teardown):
@@ -617,27 +693,8 @@ class BmcOtwAclRulesBase:
             rand_upstream = self.rand_one(upstream_ports)
             bmc_l4_ports = L4Ports.rand(l4_port_mode)
             upstream_l4_ports = L4Ports.rand(l4_port_mode)
-            dynamic_northbound_v6_seq_id = 3000
-            dynamic_northbound_v6 = {
-                '{}_AD_HOC'.format(dynamic_northbound_v6_seq_id): json.dumps(
-                    acl_entry(
-                        dynamic_northbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                        ip_protocol=IP_PROTOCOL_TCP,
-                        dst_ip=rand_upstream.ipv6_addr + "/128",
-                        l4_src_port=bmc_l4_ports.format_acl_loader()
-                    )
-                )
-            }
-            dynamic_southbound_v6_seq_id = 3000
-            dynamic_southbound_v6 = {
-                '{}_AD_HOC'.format(dynamic_southbound_v6_seq_id): json.dumps(
-                    acl_entry(
-                        dynamic_southbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6, ip_protocol=IP_PROTOCOL_TCP,
-                        src_ip=rand_upstream.ipv6_addr + "/128",
-                        l4_dst_port=bmc_l4_ports.format_acl_loader()
-                    )
-                )
-            }
+            dynamic_northbound_v6 = {**prod_allow_tcpv6_northbound(3001, rand_upstream, l4_src_port=bmc_l4_ports)}
+            dynamic_southbound_v6 = {**prod_allow_tcpv6_southbound(3001, rand_upstream, l4_dst_port=bmc_l4_ports)}
             self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
             northbound_pkt = testutils.simple_tcpv6_packet(
                 eth_dst=duthost.facts['router_mac'],
@@ -665,29 +722,8 @@ class BmcOtwAclRulesBase:
         rack_topo, _, bmc_hosts, upstream_ports = setup_teardown
         for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=5):
             rand_upstream = self.rand_one(upstream_ports)
-            dynamic_northbound_v6_seq_id = 3000
-            dynamic_northbound_v6 = {
-                '{}_AD_HOC'.format(dynamic_northbound_v6_seq_id): json.dumps(
-                    acl_entry(
-                        dynamic_northbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6,
-                        interfaces=[rand_bmc.port_name], ip_protocol=IP_PROTOCOL_ICMPV6,
-                        dst_ip=rand_upstream.ipv6_addr + "/128",
-                        icmp_type=ICMPV6_TYPE_ECHO_REPLY,
-                        icmp_code=0
-                    )
-                )
-            }
-            dynamic_southbound_v6_seq_id = 3000
-            dynamic_southbound_v6 = {
-                '{}_AD_HOC'.format(dynamic_southbound_v6_seq_id): json.dumps(
-                    acl_entry(
-                        dynamic_southbound_v6_seq_id, action=ACL_ACTION_ACCEPT, ethertype=ETHERTYPE_IPV6, ip_protocol=IP_PROTOCOL_ICMPV6,
-                        src_ip=rand_upstream.ipv6_addr + "/128",
-                        icmp_type=ICMPV6_TYPE_ECHO_REQUEST,
-                        icmp_code=0
-                    )
-                )
-            }
+            dynamic_northbound_v6 = {**prod_allow_icmpv6_echo_northbounnd(3001, rand_upstream)}
+            dynamic_southbound_v6 = {**prod_allow_icmpv6_echo_southbounnd(3001, rand_upstream)}
             self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
             northbound_pkt = testutils.simple_icmpv6_packet(
                 eth_dst=duthost.facts['router_mac'],
@@ -834,10 +870,18 @@ class BmcOtwAclRulesBase:
                 send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v4(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
-    def test_bmc_otw_req_6_v4_diff_shelf(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_bmc", "dst_rm", "upstream"])
+    def test_bmc_otw_req_6_v4_diff_shelf(self, duthost, ptfadapter, setup_teardown, disguise):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
-        TEST 2: BMC cannot communicate with RM in the different shelf
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
+        TEST 2: BMC cannot send packet to RM in different power-shelf
+          2.1 [No disguise] BMC cannot use it's own IP as SRC_IP to send packet
+          2.2 [BMC disguise itself as BMC of target power-shelf] BMC cannot use dest shelf BMCs' IP
+              as SRC_IP to send packet
+          2.3 [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's IP
+              as SRC_IP to send packet
+          2.4 [BMC disguise itself as upstream service] BMC cannot use upstream service's IP as
+              SRC_IP to send packet
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         if len(shelfs) <= 1:
@@ -845,13 +889,22 @@ class BmcOtwAclRulesBase:
         for bmc_shelf in shelfs:
             for rm_shelf in shelfs:
                 if bmc_shelf.id != rm_shelf.id:
-                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-                    send_and_verify_traffic_v4(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-                    send_and_verify_traffic_v4(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+                    src_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    if disguise == "dst_shelf_bmc":
+                        dst_shelf_bmc = self.rand_one(rm_shelf.bmc_hosts)
+                        src_bmc.ipv4_addr = dst_shelf_bmc.ipv4_addr
+                        src_bmc.ipv4_prefix = dst_shelf_bmc.ipv4_prefix
+                    elif disguise == "dst_rm":
+                        src_bmc.ipv4_addr = rm_shelf.rm.ipv4_addr
+                        src_bmc.ipv4_prefix = rm_shelf.rm.ipv4_prefix
+                    elif disguise == "upstream":
+                        src_bmc.ipv4_addr = SAMPLE_UPSTREAM_IPV4_ADDR
+                        src_bmc.ipv4_prefix = SAMPLE_UPSTREAM_IPV4_PREFIX
+                    send_and_verify_traffic_v4(duthost, ptfadapter, src_bmc, [rm_shelf.rm], expect_behavior="drop")
 
     def test_bmc_otw_req_6_v6_same_shelf(self, duthost, ptfadapter, setup_teardown):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
         TEST 1: BMC can communicate with RM in the same shelf
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
@@ -863,21 +916,40 @@ class BmcOtwAclRulesBase:
                 send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [shelf.rm], expect_behavior="accept")
                 send_and_verify_traffic_v6(duthost, ptfadapter, shelf.rm, [rand_bmc], expect_behavior="accept")
 
-    def test_bmc_otw_req_6_v6_diff_shelf(self, duthost, ptfadapter, setup_teardown):
+    @pytest.mark.parametrize("disguise", ["none", "dst_shelf_bmc", "dst_rm", "upstream"])
+    def test_bmc_otw_req_6_v6_diff_shelf(self, duthost, ptfadapter, setup_teardown, disguise):
         """
-        Request 5: Mx allows directly connected RM and directly connected BMCs to access each other
-        TEST 2: BMC cannot communicate with RM in the different shelf
+        Request 6: Mx allows directly connected RM and directly connected BMCs to access each other
+        TEST 2: BMC cannot send packet to RM in different power-shelf
+          2.1 [No disguise] BMC cannot use it's own IP as SRC_IP to send packet
+          2.2 [BMC disguise itself as BMC of target power-shelf] BMC cannot use dest shelf BMCs' IP
+              as SRC_IP to send packet
+          2.3 [BMC disguise itself as RM of target power-shelf] BMC cannot use dest shelf RM's IP
+              as SRC_IP to send packet
+          2.4 [BMC disguise itself as upstream service] BMC cannot use upstream service's IP as
+              SRC_IP to send packet
         """
         rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
         shelfs_v6 = self.filter_shelf_with_rm_ipv6(shelfs)
-        if len(shelfs_v6) < 2:
-            pytest.skip("Less than 2 shelf has IPv6 address configured on RM")
-        for bmc_shelf in shelfs_v6:
+        if len(shelfs) <= 1:
+            pytest.skip("Only one power-shelf on the rack")
+        if len(shelfs_v6) == 0:
+            pytest.skip("No power-shelf has IPv6 address configured on RM")
+        for bmc_shelf in shelfs:
             for rm_shelf in shelfs_v6:
                 if bmc_shelf.id != rm_shelf.id:
-                    rand_bmc = self.rand_one(bmc_shelf.bmc_hosts)
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, [rm_shelf.rm], expect_behavior="drop")
-                    send_and_verify_traffic_v6(duthost, ptfadapter, rm_shelf.rm, [rand_bmc], expect_behavior="drop")
+                    src_bmc = self.rand_one(bmc_shelf.bmc_hosts)
+                    if disguise == "dst_shelf_bmc":
+                        dst_shelf_bmc = self.rand_one(rm_shelf.bmc_hosts)
+                        src_bmc.ipv6_addr = dst_shelf_bmc.ipv6_addr
+                        src_bmc.ipv6_prefix = dst_shelf_bmc.ipv6_prefix
+                    elif disguise == "dst_rm":
+                        src_bmc.ipv6_addr = rm_shelf.rm.ipv6_addr
+                        src_bmc.ipv6_prefix = rm_shelf.rm.ipv6_prefix
+                    elif disguise == "upstream":
+                        src_bmc.ipv6_addr = SAMPLE_UPSTREAM_IPV6_ADDR
+                        src_bmc.ipv6_prefix = SAMPLE_UPSTREAM_IPV6_PREFIX
+                    send_and_verify_traffic_v6(duthost, ptfadapter, src_bmc, [rm_shelf.rm], expect_behavior="drop")
 
     def test_bmc_otw_ip2me_bgpv6(self, duthost, setup_teardown):
         """
@@ -1004,8 +1076,32 @@ class BmcOtwAclRulesBase:
                 ptfadapter.dataplane.flush()
                 testutils.send_packet(ptfadapter, pkt=req_pkt, port_id=rand_bmc.ptf_port_id)
 
+    def test_bmc_otw_bmc_isolation_v6(self, duthost, ptfadapter, setup_teardown):
+        """
+        BMC-Isolation [PoC]: Verify IPv6 ACL rules for BMC-level isolation
+        """
+        rack_topo, shelfs, bmc_hosts, upstream_ports = setup_teardown
+        for rand_bmc in self.shuffle_ports(bmc_hosts, max_len=5):
+            rand_upstream = self.rand_one(upstream_ports)
+            dynamic_northbound_v6 = {
+                **prod_bmc_isolation_northbound(2001, rand_bmc),
+                **prod_allow_icmpv6_echo_northbounnd(3001, rand_upstream),
+            }
+            dynamic_southbound_v6 = {
+                **prod_bmc_isolation_southbound(2001, rand_bmc),
+                **prod_allow_icmpv6_echo_southbounnd(3001, rand_upstream),
+            }
+            self.setup_dynamic_v6_acl_rules_by_acl_loader(duthost, rack_topo, dynamic_northbound_v6, dynamic_southbound_v6)
+            northbound_pkt = testutils.simple_icmpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_bmc.ipv6_addr,
+                                                            ipv6_dst=rand_upstream.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REPLY)
+            southbound_pkt = testutils.simple_icmpv6_packet(eth_dst=duthost.facts['router_mac'], ipv6_src=rand_upstream.ipv6_addr,
+                                                            ipv6_dst=rand_bmc.ipv6_addr, icmp_type=ICMPV6_TYPE_ECHO_REQUEST)
+            # Since we have isolation rule for BMC, the ICMPv6 ECHO packets should be dropped
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_bmc, upstream_ports, expect_behavior="drop", pkt=northbound_pkt)
+            send_and_verify_traffic_v6(duthost, ptfadapter, rand_upstream, [rand_bmc], expect_behavior="drop", pkt=southbound_pkt)
 
-class TestBmcOtwStaticAclRules(BmcOtwAclRulesBase):
+
+class TestBmcOtwAclRules(BmcOtwAclRulesBase):
 
     @pytest.fixture(scope="class", autouse=True)
     def rack_topo_file(self):
@@ -1019,6 +1115,11 @@ class TestBmcAresAclRules(BmcOtwAclRulesBase):
         return RACK_TOPO_FILE_BMC_ARES
 
     @pytest.fixture(scope="function", autouse=True)
-    def skip_ipv6_tests(self, request):
-        if 'v6' in request.node.name:
-            pytest.skip("No IPv6 ACL rules configured on Ares Mx")
+    def skip_req_4_tests(self, request):
+        if 'req_4' in request.node.name:
+            pytest.skip("Ares Mx doesn't support Req 4 (dynamic ACL)")
+
+    @pytest.fixture(scope="function", autouse=True)
+    def skip_bmc_isolation(self, request):
+        if 'bmc_isolation' in request.node.name:
+            pytest.skip("Ares Mx doesn't support BMC-Isolation")

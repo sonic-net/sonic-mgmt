@@ -107,9 +107,9 @@ def acl_entry(seq_id, action=ACL_ACTION_DROP, ethertype=None, interfaces=None,
         if tcp_flags:
             transport_cfg["tcp-flags"] = tcp_flags
         if l4_src_port:
-            transport_cfg["source-port"] = l4_src_port
+            transport_cfg["source-port"] = str(l4_src_port)
         if l4_dst_port:
-            transport_cfg["destination-port"] = l4_dst_port
+            transport_cfg["destination-port"] = str(l4_dst_port)
         rule["transport"] = {"config": transport_cfg}
     return rule
 
@@ -192,24 +192,26 @@ def gen_northbound_acl_entries_v4(rack_topo, hwsku):
         for shelf in shelfs:
             rm = shelf['rm']
             rm_ip = ipaddress.ip_network(rm.get('ipv4_subnet', None) or rm['ipv4_addr'])
+            rm_ports = [port_alias_to_name[rm['port_alias']]]
             for bmc_gp in shelf['bmc']:
+                bmc_ports = [port_alias_to_name[host['port_alias']] for host in bmc_gp['hosts']]
                 if bmc_gp.get('config', {}).get('ipv4_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv4_subnet'])
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
                     sequence_id += 5
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
                     sequence_id += 5
                 else:
                     gp_bmc_ips = [bh['ipv4_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
                         sequence_id += 5
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
                         sequence_id += 5
 
     # All other ipv4 packages => DROP
@@ -230,8 +232,6 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
     bmc_hosts = reduce(lambda x, y: x + y, [bmc_gp['hosts'] for bmc_gp in bmc_groups])
     bmc_intfs = [port_alias_to_name[host['port_alias']] for host in bmc_hosts]
     rm_ips = [rm.get('ipv6_subnet', None) or rm['ipv6_addr'] for rm in rms if rm.get('ipv6_subnet', None) or rm.get('ipv6_addr', None) is not None]
-    rm_ips = [rm['ipv6_subnet'] for rm in rms if rm.get('ipv6_subnet', None) is not None] + \
-             [rm['ipv6_addr'] for rm in rms if rm.get('ipv6_addr', None) is not None]
     bmc_ips = [bg['config']['ipv6_subnet'] for bg in bmc_groups if bg['config'].get('ipv6_subnet', None) is not None] + \
               [bh['ipv6_addr'] for bh in bmc_hosts if bh.get('ipv6_addr', None) is not None]
 
@@ -272,24 +272,26 @@ def gen_northbound_acl_entries_v6(rack_topo, hwsku):
         for shelf in shelfs:
             rm = shelf['rm']
             rm_ip = ipaddress.ip_network(rm.get('ipv6_subnet', None) or rm['ipv6_addr'])
+            rm_ports = [port_alias_to_name[rm['port_alias']]]
             for bmc_gp in shelf['bmc']:
+                bmc_ports = [port_alias_to_name[host['port_alias']] for host in bmc_gp['hosts']]
                 if bmc_gp.get('config', {}).get('ipv6_subnet', None):
                     bmc_ip = ipaddress.ip_network(bmc_gp['config']['ipv6_subnet'])
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(bmc_ip))
                     sequence_id += 5
                     acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
+                        acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(bmc_ip), dst_ip=format(rm_ip))
                     sequence_id += 5
                 else:
                     gp_bmc_ips = [bh['ipv6_addr'] for bh in bmc_gp['hosts']]
                     gp_bmc_nets = ip_merge(gp_bmc_ips, list(set(bmc_ips) - set(gp_bmc_ips)) + rm_ips)
                     for gp_bmc_net in gp_bmc_nets:
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_RM_DST_IP_BMC".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=rm_ports, src_ip=format(rm_ip), dst_ip=format(gp_bmc_net))
                         sequence_id += 5
                         acl_entries["{:04d}_SHELF_{}_SRC_IP_BMC_DST_IP_RM".format(sequence_id, shelf['id'])] = \
-                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
+                            acl_entry(sequence_id, ACL_ACTION_ACCEPT, interfaces=bmc_ports, src_ip=format(gp_bmc_net), dst_ip=format(rm_ip))
                         sequence_id += 5
 
     # Allow NDP between Mx and BMC

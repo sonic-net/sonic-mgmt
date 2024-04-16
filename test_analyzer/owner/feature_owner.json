@@ -577,6 +577,20 @@
                 ],
                 "owner": "Bing Wang",
                 "email": "bingwang@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_dynamic_acl"
+                ],
+                "owner": "Jonathan Gorel",
+                "email": "jgorel@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "generic_config_updater.test_kubernetes_config"
+                ],
+                "owner": "Yun Li",
+                "email": "yunli1@microsoft.com"
             }
         ]
     },
