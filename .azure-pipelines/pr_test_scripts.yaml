@@ -94,6 +94,7 @@ t0:
   - platform_tests/test_service_warm_restart.py
   - portstat/test_portstat.py
   - process_monitoring/test_critical_process_monitoring.py
+  - qos/test_qos_sai.py::TestQosSai::testParameter
   - radv/test_radv_ipv6_ra.py
   - radv/test_radv_restart.py
   - radv/test_radv_run.py
