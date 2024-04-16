@@ -2167,6 +2167,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         # TODO: pass in dst_port_id and _ip as a list
         dst_port_2_id = int(self.test_params['dst_port_2_id'])
         dst_port_2_ip = self.test_params['dst_port_2_ip']
+        dst_port_2_mac = self.dataplane.get_mac(0, dst_port_2_id)
         dst_port_3_id = int(self.test_params['dst_port_3_id'])
         dst_port_3_ip = self.test_params['dst_port_3_ip']
         dst_port_3_mac = self.dataplane.get_mac(0, dst_port_3_id)
@@ -2216,6 +2217,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             cell_occupancy = 1
 
+        pkt_dst_mac2 = router_mac if router_mac != '' else dst_port_2_mac
         pkt_dst_mac3 = router_mac if router_mac != '' else dst_port_3_mac
 
         is_dualtor = self.test_params.get('is_dualtor', False)
@@ -2298,7 +2300,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ecn=ecn,
                                     ttl=ttl)
             dst_port_2_id = self.get_rx_port(
-                src_port_id, pkt_dst_mac, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
+                src_port_id, pkt_dst_mac2, dst_port_2_ip, src_port_ip, dst_port_2_id, src_port_vlan
             )
             pkt3 = construct_ip_pkt(packet_length,
                                     pkt_dst_mac3,
@@ -2310,7 +2312,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ecn=ecn,
                                     ttl=ttl)
             dst_port_3_id = self.get_rx_port(
-                src_port_id, pkt_dst_mac, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
+                src_port_id, pkt_dst_mac3, dst_port_3_ip, src_port_ip, dst_port_3_id, src_port_vlan
             )
 
         # For TH3/Cisco-8000, some packets stay in egress memory and doesn't show up in shared buffer or leakout
