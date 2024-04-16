@@ -45,12 +45,13 @@ seed_cmd_td3 = [
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture
 def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     # Enable autorestart for all features
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     feature_list, _ = duthost.get_feature_status()
     for feature, status in list(feature_list.items()):
+        # Enable container autorestart only if the feature is enabled.
         if status == 'enabled':
             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
