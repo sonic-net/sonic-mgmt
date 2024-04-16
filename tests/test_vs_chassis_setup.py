@@ -10,6 +10,7 @@ from tests.common.utilities import check_qos_db_fv_reference_with_table
 logger = logging.getLogger(__name__)
 
 pytestmark = [
+    pytest.mark.topology("t2"),
     pytest.mark.disable_loganalyzer
 ]
 
