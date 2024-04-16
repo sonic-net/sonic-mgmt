@@ -1213,6 +1213,21 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
 #######################################
+#####           radv             #####
+#######################################
+radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
+  skip:
+    reason: "Test case has issue on the dualtor-64 topo."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
+
+radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
+  skip:
+    reason: "Test case has issue on the dualtor-64 topo."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
+
+#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory/test_reset_factory.py:
@@ -1239,6 +1254,14 @@ restapi/test_restapi_vxlan_ecmp.py:
 #######################################
 #####           route             #####
 #######################################
+route/test_route_flap.py:
+  skip:
+    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo."
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11323 and 't0-56-po2vlan' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
+
 route/test_static_route.py:
   skip:
     reason: "Test not supported for 201911 images or older."
