@@ -249,18 +249,7 @@ def verify_discover_and_request_then_release(
             xid=test_xid,
             ciaddr=expected_assigned_ip
         )
-        pkts_validator_args = [test_xid, expected_assigned_ip, DHCP_MESSAGE_TYPE_ACK_NUM, net_mask, exp_server_ip]
-        send_and_verify(
-            duthost=duthost,
-            ptfhost=ptfhost,
-            ptfadapter=ptfadapter,
-            dut_port_to_capture_pkt=dut_port_to_capture_pkt,
-            ptf_port_index=ptf_port_index,
-            test_pkt=release_pkt,
-            pkts_validator=pkts_validator,
-            pkts_validator_args=pkts_validator_args,
-            refresh_fdb_ptf_port=refresh_fdb_ptf_port
-        )
+        testutils.send_packet(ptfadapter, ptf_port_index, release_pkt)
 
 
 def test_dhcp_server_port_based_assignment_single_ip_s1(
@@ -450,13 +439,16 @@ def test_dhcp_server_port_based_customize_options(duthost, ptfhost, ptfadapter, 
         Test dhcp server packets if carry the customized options as expected
     """
     test_xid = 6
-    vlan_name, gate_way, net_mask, _, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    vlan_name, gate_way, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
+    expected_assigned_ip = random.choice(vlan_hosts)
     dut_port, ptf_port_index = random.choice(vlan_members_with_ptf_idx)
     client_mac = ptfadapter.dataplane.get_mac(0, ptf_port_index).decode('utf-8')
     config_commands = [
         'config dhcp_server ipv4 add --mode PORT --lease_time %s ' % DHCP_DEFAULT_LEASE_TIME +
         '--gateway %s --netmask %s %s' % (gate_way, net_mask, vlan_name),
         'config dhcp_server ipv4 enable %s' % vlan_name,
+        'config dhcp_server ipv4 range add test_option_0_ip %s' % expected_assigned_ip,
+        'config dhcp_server ipv4 bind %s %s --range test_option_0_ip' % (vlan_name, dut_port),
         'config dhcp_server ipv4 option add ' +
         'sonic_test_option 147 string %s' % DHCP_DEFAULT_CUSTOM_OPTION_VALUE,
         'config dhcp_server ipv4 option bind %s sonic_test_option' % vlan_name
@@ -483,19 +475,19 @@ def test_dhcp_server_port_based_customize_options(duthost, ptfhost, ptfadapter, 
             pkts_validator_kwargs=pkts_validator_kwargs,
             refresh_fdb_ptf_port='eth'+str(ptf_port_index)
         )
-        discover_pkt = create_dhcp_client_packet(
+        request_pkt = create_dhcp_client_packet(
             src_mac=client_mac,
-            message_type=DHCP_MESSAGE_TYPE_DISCOVER_NUM,
-            client_options=[],
+            message_type=DHCP_MESSAGE_TYPE_REQUEST_NUM,
+            client_options=[("requested_addr", expected_assigned_ip), ("server_id", gate_way)],
             xid=test_xid
         )
         send_and_verify(
             duthost=duthost,
             ptfhost=ptfhost,
             ptfadapter=ptfadapter,
-            test_pkt=discover_pkt,
             dut_port_to_capture_pkt=dut_port,
             ptf_port_index=ptf_port_index,
+            test_pkt=request_pkt,
             pkts_validator=pkts_validator,
             pkts_validator_args=pkts_validator_args,
             pkts_validator_kwargs=pkts_validator_kwargs,
