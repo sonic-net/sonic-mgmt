@@ -544,20 +544,25 @@ def _toggle_all_simulator_ports_to_target_dut(target_dut_hostname, duthosts, mux
     """Helper function to toggle all ports to active on the target DUT."""
 
     def _check_toggle_done(duthosts, target_dut_hostname, probe=False):
-        duthost = duthosts[target_dut_hostname]
-        inactive_ports = _get_mux_ports(duthost, exclude_status="active")
-        if not inactive_ports:
+        active_duthost = duthosts[target_dut_hostname]
+        standby_duthost = [_ for _ in duthosts if _.hostname != target_dut_hostname][0]
+        inactive_ports = _get_mux_ports(active_duthost, exclude_status="active")
+        not_standby_ports = _get_mux_ports(standby_duthost, exclude_status="standby")
+
+        if not inactive_ports and not not_standby_ports:
             return True
 
         # NOTE: if ICMP responder is not running, linkmgrd is stuck in waiting for heartbeats and
         # the mux probe interval is backed off. Adding a probe here to notify linkmgrd to shorten
         # the wait for linkmgrd's sync with the mux.
         if probe:
-            _probe_mux_ports(duthosts, list(inactive_ports.keys()))
+            probe_ports = set(inactive_ports.keys()) | set(not_standby_ports.keys())
+            _probe_mux_ports(duthosts, probe_ports)
 
-        logger.info(
-            'Found muxcables not active on {}: {}'.format(duthost.hostname, json.dumps(list(inactive_ports.keys())))
-        )
+        logger.info('Found muxcables not active on {}: {}'.format(
+            active_duthost.hostname, json.dumps(list(inactive_ports.keys()))))
+        logger.info('Found muxcables not standby on {}: {}'.format(
+            standby_duthost.hostname, json.dumps(list(not_standby_ports.keys()))))
         return False
 
     logging.info("Toggling mux cable to {}".format(target_dut_hostname))

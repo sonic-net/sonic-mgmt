@@ -417,6 +417,10 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_set_fans_speed:
 #####        api/test_sfp.py      #####
 #######################################
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['nvidia-bluefield']"
   xfail:
     reason: "Platform API 'get_error_description' not implemented"
     conditions:
@@ -433,7 +437,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_name:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_position_in_parent:
   skip:
@@ -445,7 +449,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
   skip:
@@ -507,17 +511,23 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
     conditions:
       - "asic_type in ['mellanox']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  skip:
+    reason: "Unsupported platform API"
+    conditions:
+      - "asic_type in ['nvidia-bluefield']"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "asic_type in ['mellanox'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['mellanox', 'nvidia-bluefield'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "Unsupported platform API"
     conditions:
-      - "'sw_to3200k' in hwsku"
+      - "'sw_to3200k' in hwsku or asic_type in ['nvidia-bluefield']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -737,7 +747,7 @@ platform_tests/mellanox:
   skip:
     reason: "Mellanox platform tests only supported on Mellanox devices"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
 
 platform_tests/mellanox/test_reboot_cause.py:
   skip:
