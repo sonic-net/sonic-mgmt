@@ -1,4 +1,4 @@
-# ** gNMI GET and SET Operations Test Plan**
+# **gNMI GET and SET Operations Test Plan**
 
 # **Overview**
 
