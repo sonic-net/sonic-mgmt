@@ -145,6 +145,7 @@ BYTES_COUNT = "bytes_count"
 DUT_USER = "admin"
 DUT_PASSWD = "YourPaSsWoRd"
 
+
 @pytest.fixture(scope="module", autouse=True)
 def remove_dataacl_table(duthosts):
     """
@@ -254,7 +255,8 @@ def get_t2_info(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter, topo_scenario, vlan_name, creds):
+def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo,
+          ptfadapter, topo_scenario, vlan_name, creds):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
@@ -605,7 +607,7 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
         ssh_hdl = paramiko.SSHClient()
         ssh_hdl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh_hdl.connect(duthost.mgmt_ip, username=DUT_USER, password=DUT_PASSWD,
-                    allow_agent=False, look_for_keys=False)
+                        allow_agent=False, look_for_keys=False)
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl")
         loganalyzer.load_common_config()
         dut_to_analyzer_map[duthost] = loganalyzer
@@ -615,9 +617,8 @@ def acl_table(duthosts, rand_one_dut_hostname, setup, stage, ip_version, tbinfo)
             # Ignore any other errors to reduce noise
             loganalyzer.ignore_regex = [r".*"]
             with loganalyzer:
-                start_time = time.strftime("%b %e %H:%M:%S", time.gmtime())
                 create_or_remove_acl_table(duthost, acl_table_config, setup, "add", topo)
-                wait_until(300, 20, 0, check_create_msg_in_syslog, \
+                wait_until(300, 20, 0, check_create_msg_in_syslog,
                            duthost, ssh_hdl, LOG_EXPECT_ACL_TABLE_CREATE_RE)
                 ssh_hdl.close()
         except LogAnalyzerError as err:
@@ -706,7 +707,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             ssh_hdl = paramiko.SSHClient()
             ssh_hdl.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh_hdl.connect(duthost.mgmt_ip, username=DUT_USER, password=DUT_PASSWD,
-                    allow_agent=False, look_for_keys=False)
+                            allow_agent=False, look_for_keys=False)
             loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="acl_rules")
             loganalyzer.load_common_config()
             dut_to_analyzer_map[duthost] = loganalyzer
@@ -719,7 +720,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     self.setup_rules(duthost, acl_table, ip_version)
                     # Give the dut some time for the ACL rules to be applied and LOG message generated
                     time.sleep(30)
-                    wait_until(300, 20, 0, check_create_msg_in_syslog, \
+                    wait_until(300, 20, 0, check_create_msg_in_syslog,
                                duthost, ssh_hdl, LOG_EXPECT_ACL_RULE_CREATE_RE)
                     ssh_hdl.close()
 
