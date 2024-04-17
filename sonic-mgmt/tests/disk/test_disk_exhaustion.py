@@ -58,6 +58,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     Construct data packet and get related params
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    is_backend_topo = 'backend' in tbinfo['topo']['name']
 
     # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["peer_addr"], pc["attachto"]) for pc in mg_facts["minigraph_portchannel_interfaces"]
@@ -67,7 +68,13 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     pc_ports_map = {pair[1]: mg_facts["minigraph_portchannels"][pair[1]]["members"] for pair in
                     peer_ip_pc_pair}
 
-    if len(mg_facts["minigraph_interfaces"]) >= 2:
+    if is_backend_topo:
+        # generate peer_ip and subinterfaces pair ex. [("10.0.0.57", ["Ethernet48.10"])]
+        peer_ip_ifaces_pair = [(subintf_info["peer_addr"], [subintf_info["attachto"]]) for subintf_info in
+                               mg_facts["minigraph_vlan_sub_interfaces"]
+                               if ipaddress.ip_address(subintf_info['peer_addr']).version == 4]
+
+    elif len(mg_facts["minigraph_interfaces"]) >= 2:
         # generate peer_ip and interfaces pair,
         # be like:[("10.0.0.57", ["Ethernet48"])]
         peer_ip_ifaces_pair = [(intf["peer_addr"], [intf["attachto"]]) for intf in mg_facts["minigraph_interfaces"]
@@ -82,7 +89,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
 
     # use first port of first peer_ip_ifaces pair as input port
     # all ports in second peer_ip_ifaces pair will be output/forward port
-    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0]]
+    ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0].split(".")[0]]
     # Some platforms do not support rif counter
     try:
         rif_counter_out = parse_rif_counters(duthost.show_and_parse("show interfaces counters rif"))

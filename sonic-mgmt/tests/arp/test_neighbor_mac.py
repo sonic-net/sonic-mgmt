@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('ptf')
+    pytest.mark.topology('t0', 'ptf')
 ]
 
 

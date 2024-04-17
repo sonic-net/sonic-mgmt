@@ -201,8 +201,8 @@ class TestbedHealthChecker:
 
                 if not ipv4_exists:
                     ipv4_not_exists_hosts.append(sonichost.hostname)
-                    logger.info("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
-                    self.check_result.errmsg.append("{} deos not have mgmt-ipv4 address.".format(sonichost.hostname))
+                    logger.info("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
+                    self.check_result.errmsg.append("{} does not have mgmt-ipv4 address.".format(sonichost.hostname))
 
         if len(ipv4_not_exists_hosts) > 0:
             raise HostsUnreachable(self.check_result.errmsg)
