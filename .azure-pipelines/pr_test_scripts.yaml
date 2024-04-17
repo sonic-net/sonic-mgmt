@@ -1,17 +1,17 @@
 t0:
-  - autorestart/test_container_autorestart.py
   - arp/test_arp_extended.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
+  - arp/test_tagged_arp.py
+  - autorestart/test_container_autorestart.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
   - bgp/test_bgp_gr_helper.py
   - bgp/test_bgp_queue.py
   - bgp/test_bgp_slb.py
   - bgp/test_bgp_speaker.py
-  - bgp/test_bgpmon.py
   - bgp/test_bgp_update_timer.py
-  - container_checker/test_container_checker.py
+  - bgp/test_bgpmon.py
   - cacl/test_cacl_application.py
   - cacl/test_cacl_function.py
   - console/test_console_availability.py
@@ -22,6 +22,7 @@ t0:
   - container_checker/test_container_checker.py
   - container_hardening/test_container_hardening.py
   - database/test_db_scripts.py
+  - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - dns/static_dns/test_static_dns.py
@@ -32,10 +33,14 @@ t0:
   - dut_console/test_console_baud_rate.py
   - dut_console/test_escape_character.py
   - dut_console/test_idle_timeout.py
+  - fdb/test_fdb.py
+  - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_expire.py
+  - fdb/test_fdb_mac_move.py
   - generic_config_updater/test_aaa.py
-  - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_bgp_prefix.py
   - generic_config_updater/test_bgp_speaker.py
+  - generic_config_updater/test_bgpl.py
   - generic_config_updater/test_cacl.py
   - generic_config_updater/test_dhcp_relay.py
   - generic_config_updater/test_ecn_config_update.py
@@ -57,6 +62,7 @@ t0:
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
+  - ipfwd/test_dip_sip.py
   - lldp/test_lldp.py
   - log_fidelity/test_bgp_shutdown.py
   - macsec/test_controlplane.py
@@ -66,6 +72,7 @@ t0:
   - ntp/test_ntp.py
   - override_config_table/test_override_config_table.py
   - passw_hardening/test_passw_hardening.py
+  - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
   - platform_tests/api/test_module.py
@@ -94,6 +101,7 @@ t0:
   - platform_tests/test_service_warm_restart.py
   - portstat/test_portstat.py
   - process_monitoring/test_critical_process_monitoring.py
+  - qos/test_buffer.py
   - radv/test_radv_ipv6_ra.py
   - radv/test_radv_restart.py
   - radv/test_radv_run.py
@@ -106,11 +114,23 @@ t0:
   - route/test_route_consistency.py
   - route/test_route_flap.py
   - route/test_route_flow_counter.py
+  - route/test_route_perf.py
   - route/test_static_route.py
   - scp/test_scp_copy.py
   - show_techsupport/test_auto_techsupport.py
   - show_techsupport/test_techsupport.py
   - show_techsupport/test_techsupport_no_secret.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_fdb.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_link_local_ip.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_loopback.py
+  - snmp/test_snmp_memory.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
   - ssh/test_ssh_ciphers.py
   - ssh/test_ssh_default_password.py
   - ssh/test_ssh_limit.py
@@ -120,14 +140,6 @@ t0:
   - syslog/test_syslog.py
   - syslog/test_syslog_rate_limit.py
   - syslog/test_syslog_source_ip.py
-  - snmp/test_snmp_cpu.py
-  - snmp/test_snmp_default_route.py
-  - snmp/test_snmp_interfaces.py
-  - snmp/test_snmp_link_local_ip.py
-  - snmp/test_snmp_lldp.py
-  - snmp/test_snmp_loopback.py
-  - snmp/test_snmp_pfc_counters.py
-  - snmp/test_snmp_queue.py
   - system_health/test_system_status.py
   - system_health/test_watchdog.py
   - tacacs/test_accounting.py
@@ -136,14 +148,17 @@ t0:
   - tacacs/test_ro_disk.py
   - tacacs/test_ro_user.py
   - tacacs/test_rw_user.py
-  - telemetry/test_telemetry.py
   - telemetry/test_events.py
+  - telemetry/test_telemetry.py
   - test_features.py
   - test_interfaces.py
   - test_procdockerstatsd.py
   - testbed_setup/test_populate_fdb.py
   - upgrade_path/test_upgrade_path.py
   - vlan/test_autostate_disabled.py
+  - vlan/test_host_vlan.py
+  - vlan/test_vlan.py
+  - vlan/test_vlan_ping.py
   - vxlan/test_vnet_route_leak.py
 
 t0-2vlans:
