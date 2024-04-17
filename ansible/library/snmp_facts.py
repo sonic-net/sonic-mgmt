@@ -495,6 +495,9 @@ def main():
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
+            if 'No more variables left in this MIB View' in current_val:
+                continue
+
             if v.ifIndex in current_oid:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
                 results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
