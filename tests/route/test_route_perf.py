@@ -221,11 +221,9 @@ def test_perf_add_remove_routes(
     check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
-    is_backend_topology
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
@@ -237,7 +235,7 @@ def test_perf_add_remove_routes(
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
-        asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
+        asichost, NUM_NEIGHS, ip_versions
     )
 
     route_tag = "ipv{}_route".format(ip_versions)
@@ -311,9 +309,9 @@ def test_perf_add_remove_routes(
         )
 
         # Traffic verification with 10 random routes
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts["minigraph_ptf_indices"]
-        # split off the vlan id from the interface name separated by the . delimiter
-        nexthop_intf = [nh_intf.split(".")[0] for nh_intf in str_intf_nexthop["ifname"].split(",")]
+        nexthop_intf = str_intf_nexthop["ifname"].split(",")
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
             port_indices[mg_facts["minigraph_portchannels"][src_port]["members"][0]]
@@ -368,7 +366,7 @@ def send_and_verify_traffic(
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
+            eth_src=ptfadapter.dataplane.get_mac(0, 0),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -378,7 +376,7 @@ def send_and_verify_traffic(
     else:
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
+            eth_src=ptfadapter.dataplane.get_mac(0, 0),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,
             ip_ttl=64,
