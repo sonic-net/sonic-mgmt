@@ -278,8 +278,8 @@ def setup_active_active_ports(active_active_ports, rand_selected_dut, rand_unsel
 def test_encap_with_mirror_session(rand_selected_dut, rand_selected_interface,              # noqa F811
                                    ptfadapter, tbinfo, setup_mirror_session,
                                    toggle_all_simulator_ports_to_rand_unselected_tor,       # noqa F811
-                                   setup_active_active_ports,                               # noqa F811
-                                   tunnel_traffic_monitor):                                 # noqa F811
+                                   tunnel_traffic_monitor,                                  # noqa F811
+                                   setup_standby_ports_on_rand_selected_tor):               # noqa F811
     """
     A test case to verify the bounced back packet from Standby ToR to T1 doesn't have an unexpected vlan id (4095)
     The issue can happen if the bounced back packets egressed from the monitor port of mirror session
