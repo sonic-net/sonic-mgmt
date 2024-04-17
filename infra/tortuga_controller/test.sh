@@ -18,11 +18,16 @@ LEAF_PORTS=40361,41899,40815
 SPINE_COUNT=1
 TEST_NAME="${1}"
 
+# Routes are for BGP verification purposes only. IP address 5.1.1.1 is not a
+# real IP. Vrf40000 is automatically created by Tortuga when a L2VNI + SAG
+# is added to the fabric.
+ROUTES1x3="Vrf40000|leaf1|Ethernet1_32|5.1.1.0/24|41.220.10.1"
+PORTS1x3="leaf1|2x30|Ethernet1_32#41.220.10.2/24#Vrf40000"
+
 CONFIG_GEN=./config-gen
 os=$(uname)
-if [[ "${os}" != "Linux" ]]; then
-  echo 'Must run from a Linux machine'
-  exit 1
+if [[ "${os}" == "Darwin" ]]; then
+  CONFIG_GEN=./sandbox/gobin/config-gen
 fi
 
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:32398
@@ -44,7 +49,9 @@ function cleanup() {
 # L2VNI 5100 + Vlan10 - one port per leaf; IP = 41.216.0.1/24
 # L2VNI 5200 + Vlan20 - one port per leaf; IP = 41.216.1.1/24
 # L2VNI 5300 + Vlan30 - one port per leaf; IP = 41.216.2.1/24
-# L3VNI 12000000 + VRF-default + [Vlan10, Vlan20, Vlan30, Vlan3600]
+# All Vlans are added to Vrf12000000 initially. Test then moves them to
+# a new Vrf40000.
+# L3VNI 40000 + VRF + [Vlan10, Vlan20, Vlan30, Vlan3600]
 # All hosts should be able to ping each other.
 if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
   cleanup "static-anycast-gateway"
@@ -53,13 +60,16 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ -z "${TEST_NAME}" ]]; then
     --lldp \
     --auto \
     --prefix \
+    --verify \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
     --pyvxr "${PYVXR_HOST}" \
     --hosts "${HOST_PORTS}" \
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
-    --tags "${TEST_TAGS},add-sag"
+    --ports "${PORTS1x3}" \
+    --routes "${ROUTES1x3}" \
+    --tags "${TEST_TAGS},add-sag,ipv6-l3vni"
 fi
 
 # Test multi-VNI with single vlan in each VNI.
@@ -80,29 +90,6 @@ if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "l3vni" ]]; then
     --spines "${SPINE_COUNT}" \
     --leaves "${LEAF_PORTS}" \
     --tags "${TEST_TAGS}"
-fi
-
-# Tests static anycast gateway.
-# L2VNI 5100 + Vlan10 - one port per leaf; IP = 41.216.0.1/24
-# L2VNI 5200 + Vlan20 - one port per leaf; IP = 41.216.1.1/24
-# L2VNI 5300 + Vlan30 - one port per leaf; IP = 41.216.2.1/24
-# L3VNI 40000 + VRF + [Vlan10, Vlan20, Vlan30, Vlan3600]
-# All hosts should be able to ping each other.
-if [[ "${TEST_NAME}" == "all" ]] || [[ "${TEST_NAME}" == "sag" ]]; then
-  cleanup "sag-l3vni"
-
-  "${CONFIG_GEN}" \
-    --lldp \
-    --auto \
-    --prefix \
-    --cloud "${CLOUD_URL}" \
-    --fabric "${FABRIC_NAME}" \
-    --pyvxr "${PYVXR_HOST}" \
-    --hosts "${HOST_PORTS}" \
-    --spines "${SPINE_COUNT}" \
-    --leaves "${LEAF_PORTS}" \
-    --sagMac "00:11:22:33:44:55" \
-    --tags "${TEST_TAGS},add-sag,ipv6-l3vni"
 fi
 
 # Test one Vni and multiple Vlans.
