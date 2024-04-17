@@ -1011,12 +1011,6 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
       - "platform in ['x86_64-cel_e1031-r0']"
       - "asic_type in ['nvidia-bluefield']"
 
-platform_tests/test_secure_upgrade.py:
-  skip:
-    reason: "platform does not support secure upgrade"
-    conditions:
-      - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
-
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
     reason: "platform does not support sfp reset"
@@ -1047,6 +1041,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "Warm reboot is broken on dualtor topology. Skipping for now."
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+
+platform_tests/test_secure_upgrade.py:
+  skip:
+    reason: "platform does not support secure upgrade"
+    conditions:
+      - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
 
 #######################################
 #####           qos               #####
