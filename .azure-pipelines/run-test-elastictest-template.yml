@@ -163,12 +163,14 @@ steps:
           fi
         displayName: "Download pr script"
   - ${{ else }}:
+      - script: echo "The value of MGMT_BRANCH is ${{ parameters.MGMT_BRANCH }}"
+        displayName: "Display MGMT_BRANCH"
       - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
-              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
-            displayName: "Download test plan script"
+              echo "Download test plan script(no)"
+            displayName: "Download test plan script(no)"
 
   - script: |
       set -e
