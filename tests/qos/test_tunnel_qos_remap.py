@@ -251,6 +251,7 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
 
 
 def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut,
+                                  setup_standby_ports_on_rand_unselected_tor,
         toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):  # noqa F811
     """
     The test case is to verify separated DSCP_TO_TC_MAP/TC_TO_QUEUE_MAP on uplink and downlink ports of dualtor
@@ -359,6 +360,7 @@ def pfc_pause_test(storm_handler, peer_info, prio, ptfadapter, dut, port, queue,
 
 
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+                                          setup_standby_ports_on_rand_selected_tor,
         toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
@@ -436,6 +438,7 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
 
 
 def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
+                                         setup_standby_ports_on_rand_unselected_tor,
         toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
