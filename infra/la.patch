@@ -1,14 +1,17 @@
 diff --git a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-index 7b84bdfe9e..be1b15ab3e 100644
+index be0ec2462..cf66cdc83 100644
 --- a/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
 +++ b/sonic-mgmt/ansible/roles/test/files/tools/loganalyzer/loganalyzer_common_ignore.txt
-@@ -61,6 +61,10 @@ r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
+@@ -63,6 +63,13 @@ r, ".* ERR swss#orchagent:.*setPortFec: Unsupported mode fc on port .*"
  
  r, ".* ERR syncd#syncd:.*SAI_LOG|SAI_API_TUNNEL: VLAN to VNI not implemented yet.*"
  
 +# Sim related - Cisco
 +r, ".* ERR pmon#pcied.*: PCIe device status check : FAILED.*"
 +r, ".* ERR pmon#CCmisApi.*: PCIe device status check : FAILED.*"
++r, ".* ERR pmon#xcvrd.*CMIS.* FAILED .*"
++r, ".* ERR swss#orchagent:.* doCfgSensorsTableTask: ASIC sensors : unsupported operation for poller state.*"
++r, ".* ERR monit.* 'routeCheck' status failed.*”
 +
  # White list below messages found on KVM for now. Need to address them later.
  r, ".* ERR macsec#wpa_supplicant.*l2_packet_send.*Network is down.*"
