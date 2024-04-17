@@ -43,7 +43,14 @@ from tests.ptf_runner import ptf_runner
 
 
 __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_intfs', 't1_lower_tor_intfs',
-           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor']
+           'upper_tor_host', 'lower_tor_host', 'force_active_tor', 'force_standby_tor',
+           'config_active_active_dualtor_active_standby', 'validate_active_active_dualtor_setup',
+           'setup_standby_ports_on_rand_selected_tor',
+           'setup_standby_ports_on_rand_unselected_tor',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
+           'setup_standby_ports_on_rand_unselected_tor_unconditionally',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
+           ]
 
 logger = logging.getLogger(__name__)
 
@@ -1588,9 +1595,7 @@ def validate_active_active_dualtor_setup(
 
 
 @pytest.fixture
-def config_active_active_dualtor_active_standby(
-    duthosts, active_active_ports, tbinfo, validate_active_active_dualtor_setup                         # noqa F811
-):
+def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):                         # noqa F811
     """Config the active-active dualtor that one ToR as active and the other as standby."""
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         yield
@@ -1607,16 +1612,18 @@ def config_active_active_dualtor_active_standby(
                 return False
         return True
 
-    def _config_the_active_active_dualtor(active_tor, standby_tor, ports):
+    def _config_the_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
         active_side_commands = []
         standby_side_commands = []
+        logging.info("Configuring {} as active".format(active_tor.hostname))
+        logging.info("Configuring {} as standby".format(standby_tor.hostname))
         for port in ports:
             if port not in active_active_ports:
                 raise ValueError("Port {} is not in the active-active ports".format(port))
             active_side_commands.append("config mux mode active {}".format(port))
             standby_side_commands.append("config mux mode standby {}".format(port))
 
-        if not check_active_active_port_status(active_tor, ports, 'active'):
+        if not check_active_active_port_status(active_tor, ports, 'active') or unconditionally:
             active_tor.shell_cmds(cmds=active_side_commands)
         standby_tor.shell_cmds(cmds=standby_side_commands)
 
@@ -1749,3 +1756,66 @@ def check_simulator_flap_counter(
         if unexpected_flap_mux_ports:
             logging.error(error_str)
             raise ValueError(error_str)
+
+
+@pytest.fixture
+def setup_standby_ports_on_rand_selected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                                             config_active_active_dualtor_active_standby,                                  # noqa F811
+                                             validate_active_active_dualtor_setup):                                        # noqa F811
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_rand_unselected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+                                               config_active_active_dualtor_active_standby,
+                                               validate_active_active_dualtor_setup):
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
+    active_active_ports,                                                   # noqa F811
+    enum_rand_one_per_hwsku_frontend_hostname,
+    config_active_active_dualtor_active_standby,
+    validate_active_active_dualtor_setup,
+    upper_tor_host,
+    lower_tor_host,
+    duthosts
+):
+    if active_active_ports:
+        active_tor = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+        config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_rand_unselected_tor_unconditionally(
+    active_active_ports,                                                   # noqa F811
+    rand_selected_dut,
+    rand_unselected_dut,
+    config_active_active_dualtor_active_standby
+):
+    if active_active_ports:
+        config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports, True)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally(
+    active_active_ports,                                                   # noqa F811
+    enum_rand_one_per_hwsku_frontend_hostname,
+    config_active_active_dualtor_active_standby,
+    upper_tor_host,
+    lower_tor_host,
+    duthosts
+):
+    if active_active_ports:
+        active_tor = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+        config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports, True)
+    return
