@@ -226,15 +226,15 @@ class TestPlanManager(object):
         t0_topos = ["t0", "t0-64-32", "dualtor"]
         t1_topos = ["t1-lag", "t1-8-lag"]
 
-        # Add topo args and device type for PR test
+        # Add topo and device type args for PR test
         if test_plan_type == "PR":
-            # Add topo args
+            # Add topo arg
             if topology in t0_topos:
                 common_extra_params = common_extra_params + " --topology=t0,any"
             elif topology in t1_topos:
                 common_extra_params = common_extra_params + " --topology=t1,any"
 
-            # Add device type
+            # Add device type arg
             common_extra_params = common_extra_params + " --device_type=vs"
 
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
