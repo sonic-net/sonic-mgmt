@@ -47,7 +47,7 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_conpl
     if loganalyzer:
         ignoreRegex = [
             ".*ERR route_check.py:.*",
-            ".*ERR.* \'routeCheck\' status failed.*",
+            ".*ERR.* 'routeCheck' status failed.*",
             ".*Process \'orchagent\' is stuck in namespace \'host\'.*",
             ".*ERR rsyslogd: .*"
         ]
