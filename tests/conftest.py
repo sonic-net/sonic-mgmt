@@ -38,6 +38,7 @@ from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
+from tests.common.utilities import is_ip_reachable
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_vars
 from tests.common.utilities import get_host_visible_vars
@@ -764,8 +765,13 @@ def creds_on_dut(duthost):
 
     creds["ansible_altpasswords"] = []
 
+    if is_ip_reachable(duthost, duthost.mgmt_ip):
+        dutip = duthost.mgmt_ip
+    else:
+        dutip = duthost.mgmt_ipv6
+
     passwords = creds["ansible_altpasswords"] + [creds["sonicadmin_password"]]
-    creds['sonicadmin_password'] = get_dut_current_passwd(duthost.mgmt_ip, creds['sonicadmin_user'], passwords)
+    creds['sonicadmin_password'] = get_dut_current_passwd(dutip, creds['sonicadmin_user'], passwords)
 
     for k, v in list(console_login_creds.items()):
         creds["console_user"][k] = v["user"]
