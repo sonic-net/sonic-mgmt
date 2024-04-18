@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 image_list = [
