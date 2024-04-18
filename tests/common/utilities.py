@@ -467,14 +467,6 @@ def get_test_server_visible_vars(inv_files, server):
     return vm.get_vars(host=test_server_host)
 
 
-def is_ip_reachable(duthost, ip_address):
-    ping_result = duthost.command("ping {} -c 1 -W 3".format(ip_address), module_ignore_errors=True)['stdout']
-    logger.info("IP ping result: {}".format(ping_result))
-    if "100% packet loss" in ping_result:
-        return False
-    return True
-
-
 def is_ipv4_address(ip_address):
     """Check if ip address is ipv4."""
     ip_address = ip_address.encode().decode()
