@@ -285,7 +285,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # successful reboot
     file_check = duthost.command('find /dev/shm/test_reboot', module_ignore_errors=True)['rc']
     if not file_check:
-        raise Exception('DUT {} reboot did not finish successfully'.format(hostname))
+        raise Exception('DUT {} did not reboot'.format(hostname))
 
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
