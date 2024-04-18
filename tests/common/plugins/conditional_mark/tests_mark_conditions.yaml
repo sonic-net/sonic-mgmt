@@ -580,7 +580,8 @@ ecmp/test_fgnhg.py:
       - "platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/7755
+      - "https://github.com/sonic-net/sonic-mgmt/issues/7755"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and 'msn2' in platform"
 
 #######################################
 #####         everflow            #####
@@ -1031,16 +1032,19 @@ platform_tests/mellanox/test_check_sfp_using_ethtool.py:
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
-    reason: "Get/Set low power mode is not supported in Cisco 8000 platform"
+    reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
+    conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+      - "asic_type in ['nvidia-bluefield']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
   skip:
     reason: "platform does not support sfp reset"
+    conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6218
+      - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
+      - "asic_type in ['nvidia-bluefield']"
 
 platform_tests/test_advanced_reboot.py:
   skip:
@@ -1070,6 +1074,18 @@ platform_tests/test_service_warm_restart.py:
     reason: "Only supported on Mellanox. Skip the test on feature branches as it's not required for now"
     conditions:
       - "asic_type not in ['mellanox'] or release in ['202205', '202305', 'internal']"
+
+platform_tests/test_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Fast reboot is broken on dualtor topology. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+
+platform_tests/test_reboot.py::test_warm_reboot:
+  skip:
+    reason: "Warm reboot is broken on dualtor topology. Skipping for now."
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
 
 #######################################
 #####           qos               #####
@@ -1256,6 +1272,21 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
       - https://github.com/sonic-net/sonic-mgmt/issues/11271
 
 #######################################
+#####           radv             #####
+#######################################
+radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
+  skip:
+    reason: "Test case has issue on the dualtor-64 topo."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
+
+radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
+  skip:
+    reason: "Test case has issue on the dualtor-64 topo."
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
+
+#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory/test_reset_factory.py:
@@ -1282,6 +1313,14 @@ restapi/test_restapi_vxlan_ecmp.py:
 #######################################
 #####           route             #####
 #######################################
+route/test_route_flap.py:
+  skip:
+    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo."
+    conditions_logical_operator: or
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11323 and 't0-56-po2vlan' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
+
 route/test_static_route.py:
   skip:
     reason: "Test not supported for 201911 images or older."
@@ -1497,6 +1536,15 @@ telemetry/test_telemetry.py::test_osbuild_version:
     reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/12021"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/12021
+
+#######################################
+#####        neighbor health      #####
+#######################################
+test_nbr_health.py:
+  skip:
+    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/7883"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/7883"
 
 #######################################
 #####         pktgen              #####
