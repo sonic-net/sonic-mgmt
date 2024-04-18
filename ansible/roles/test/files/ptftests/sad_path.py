@@ -2,6 +2,7 @@ import datetime
 import ipaddress
 import re
 import time
+import random
 
 from arista import Arista
 from device_connection import DeviceConnection
@@ -112,9 +113,9 @@ class SadPath(object):
         vm_index = datetime.datetime.now().day % vm_len if vm_len > 0 else 0
         exceed_len = vm_index + self.cnt - vm_len
         if exceed_len <= 0:
-            self.neigh_vms.extend(self.vm_list[vm_index:vm_index+self.cnt])
+            self.neigh_vms.extend(self.vm_list[vm_index:vm_index + self.cnt])
             self.vm_list = self.vm_list[0:vm_index] + \
-                self.vm_list[vm_index+self.cnt:]
+                self.vm_list[vm_index + self.cnt:]
         else:
             self.neigh_vms.extend(self.vm_list[vm_index:])
             self.neigh_vms.extend(self.vm_list[0:exceed_len])
@@ -159,9 +160,9 @@ class SadPath(object):
         exceed_len = vlan_index + self.cnt - vlan_len
         if exceed_len <= 0:
             self.down_vlan_info.extend(
-                self.if_port[vlan_index:vlan_index+self.cnt])
+                self.if_port[vlan_index:vlan_index + self.cnt])
             self.if_port = self.if_port[0:vlan_index] + \
-                self.if_port[vlan_index+self.cnt:]
+                self.if_port[vlan_index + self.cnt:]
         else:
             self.down_vlan_info.extend(self.if_port[vlan_index:])
             self.down_vlan_info.extend(self.if_port[0:exceed_len])
@@ -408,7 +409,13 @@ class SadOper(SadPath):
     def modify_routes(self):
         self.log = []
         if self.bp_ip:
-            for vm in self.neigh_vms:
+            # Each vm would use about 20 seconds to handle bgp route changes
+            # When vm number larger than 4, the process time would affect warm-reboot finalizer check step
+            if len(self.neigh_vms) <= 4:
+                neigh_vms = self.neigh_vms
+            else:
+                neigh_vms = random.sample(self.neigh_vms, 4)
+            for vm in neigh_vms:
                 if 'routing_add' in self.oper_type:
                     self.log.append('Adding %d routes from VM %s' %
                                     (2 * self.ip_cnt, vm))
@@ -505,7 +512,7 @@ class SadOper(SadPath):
                     cmd = "show ip bgp neighbors" if (
                         len(stdout) > 0 and "201811" in stdout[0]) else "show ipv6 bgp neighbors"
                 stdout, stderr, return_code = self.dut_connection.execCommand(
-                    cmd+' %s' % self.neigh_bgps[vm][key])
+                    cmd + ' %s' % self.neigh_bgps[vm][key])
                 if return_code == 0:
                     for line in stdout:
                         if 'BGP state' in line:
