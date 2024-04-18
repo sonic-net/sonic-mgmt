@@ -1688,7 +1688,8 @@ class QosSaiBase(QosBase):
         return
 
     @pytest.fixture(scope='class', autouse=True)
-    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host): # noqa F811
+    def dut_disable_ipv6(self, duthosts, get_src_dst_asic_and_duts, tbinfo, lower_tor_host, # noqa F811
+                         swapSyncd_on_selected_duts):
         for duthost in get_src_dst_asic_and_duts['all_duts']:
             docker0_ipv6_addr = \
                 duthost.shell("sudo ip -6  addr show dev docker0 | grep global" + " | awk '{print $2}'")[
