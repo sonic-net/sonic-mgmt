@@ -962,27 +962,22 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
 
     priority = MAX_DROP_RULE_PRIORITY
     json_patch = []
-    expected_rule_contents = {}
-    rule_number = 1
 
-    for port_name in setup["scale_port_names"]:
-        rule_name = "DROP_RULE_" + str(rule_number)
-        full_rule_name = "/ACL_RULE/DYNAMIC_ACL_TABLE|"+rule_name
-        rule_vals = {
-            "PRIORITY": str(priority),
-            "PACKET_ACTION": "DROP",
-            "IN_PORTS": port_name
-        }
-        patch = {
-            "op": "add",
-            "path": full_rule_name,
-            "value": rule_vals
-        }
-        json_patch.append(patch)
-        expected_content = ["DYNAMIC_ACL_TABLE", rule_name, str(priority), "DROP", "IN_PORTS: " + port_name, "Active"]
-        expected_rule_contents[rule_name] = expected_content
-        priority -= 1
-        rule_number += 1
+    rule_name = "DROP_RULE"
+    full_rule_name = "/ACL_RULE/DYNAMIC_ACL_TABLE|"+rule_name
+    all_ports = ",".join(setup["scale_port_names"])
+    rule_vals = {
+        "PRIORITY": str(priority),
+        "PACKET_ACTION": "DROP",
+        "IN_PORTS": all_ports
+    }
+    patch = {
+        "op": "add",
+        "path": full_rule_name,
+        "value": rule_vals
+    }
+    json_patch.append(patch)
+    expected_content = ["DYNAMIC_ACL_TABLE", rule_name, str(priority), "DROP", "IN_PORTS: " + all_ports, "Active"]
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -991,8 +986,7 @@ def dynamic_acl_apply_drop_scale_rules(duthost, setup):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        for rule_name, expected_content in expected_rule_contents.items():
-            expect_acl_rule_match(duthost, rule_name, expected_content)
+        expect_acl_rule_match(duthost, rule_name, expected_content)
 
     finally:
         delete_tmpfile(duthost, tmpfile)
