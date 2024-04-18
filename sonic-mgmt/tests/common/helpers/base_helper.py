@@ -1,5 +1,6 @@
 """
-A helper module for all test types. Helper functions here are run on the sonic management docker.
+A helper module for all test types.
+Helper functions here are run on the sonic management docker.
 """
 
 
