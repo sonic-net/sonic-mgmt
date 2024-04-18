@@ -7,7 +7,7 @@ from tests.tacacs.utils import check_output
 from tests.bgp.test_bgp_fact import run_bgp_facts
 from tests.test_features import run_show_features
 from tests.tacacs.test_ro_user import ssh_remote_run
-from tests.ntp.test_ntp import run_ntp
+from tests.ntp.test_ntp import run_ntp, setup_ntp # noqa F401
 from tests.common.helpers.assertions import pytest_require
 from tests.tacacs.conftest import tacacs_creds, check_tacacs_v6 # noqa F401
 from tests.syslog.test_syslog import run_syslog, check_default_route # noqa F401
