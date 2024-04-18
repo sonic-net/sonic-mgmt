@@ -879,6 +879,38 @@ def dynamic_acl_replace_rules(duthost):
     REPLACEMENT_IPV4_SUBNET = DST_IP_FORWARDED_REPLACEMENT + "/32"
     REPLACEMENT_IPV6_SUBNET = DST_IPV6_FORWARDED_REPLACEMENT + "/128"
 
+    remove_patch = [
+    {
+        "op": "remove",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_1"
+    },
+    {
+        "op": "remove",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_2"
+    }
+    ]
+
+    add_patch = [
+        {
+            "op": "replace",
+            "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_1",
+            "value": {
+                "DST_IP": REPLACEMENT_IPV4_SUBNET,
+                "PRIORITY": "9999",
+                "PACKET_ACTION": "FORWARD"
+            }
+        },
+        {
+        "op": "replace",
+        "path": "/ACL_RULE/DYNAMIC_ACL_TABLE|RULE_2",
+            "value": {
+                "DST_IPV6": REPLACEMENT_IPV6_SUBNET,
+                "PRIORITY": "9998",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    ]
+
     extra_vars = {
         'ipv4_subnet': REPLACEMENT_IPV4_SUBNET,
         'ipv6_subnet': REPLACEMENT_IPV6_SUBNET
@@ -897,7 +929,15 @@ def dynamic_acl_replace_rules(duthost):
                                "DST_IPV6: " + REPLACEMENT_IPV6_SUBNET,
                                "Active"]
 
-    output = format_and_apply_template(duthost, REPLACE_RULES_TEMPLATE, extra_vars)
+    #output = format_and_apply_template(duthost, REPLACE_RULES_TEMPLATE, extra_vars)
+
+    output = apply_patch(duthost, remove_patch)
+
+    expect_op_success(duthost, output)
+
+    time.sleep(2)
+
+    output = apply_patch(duthost, add_patch)
 
     expect_op_success(duthost, output)
 
