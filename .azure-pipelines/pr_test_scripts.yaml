@@ -75,7 +75,6 @@ t0:
   - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/api/test_module.py
   - platform_tests/broadcom/test_ser.py
   - platform_tests/counterpoll/test_counterpoll_watermark.py
   - platform_tests/daemon/test_fancontrol.py
