@@ -80,6 +80,7 @@ run_tortuga_controller_sanity:
 		python3.8 ./create_tortuga_topo.py \
 		--topo_type ${TOPOLOGY} \
 		--device_type ${PLATFORM} \
+		--tar_ball $(GOLDENCODE) \
 		-c --fabric_name sonic-test-${PIPELINE_TYPE}-${BUILD_ID} \
 		--cicd \
 	"
