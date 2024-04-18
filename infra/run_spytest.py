@@ -23,6 +23,16 @@ TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
+TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
+    "spine0": "SD1",
+    "spine1": "SD2",
+    "leaf0": "SD3",
+    "leaf1": "SD4",
+    "leaf2": "SD5"
+}
+
+device_ip_and_ports = []
+
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
     parser.add_argument('-b', '--tar_ball', type=str, help='Specify tar ball location',
@@ -73,8 +83,78 @@ def get_spirent_ip():
     ret = str(p.before)
     ret = ret.split("STCv-")[1].split("/dev")[0].replace("-", ".")
 
-    return ret
+    return ret.strip()
 
+def determine_spt_or_ixia(topology, platform):
+    print("determine_spt_or_ixia")
+    pyvxr_yaml_file = import_pyvxr_yaml_file(topology, platform)
+    with open(pyvxr_yaml_file, "r") as f:
+        pyvxr_topo = yaml.load(f, Loader=yaml.BaseLoader)
+
+    if "ixia" in pyvxr_topo["devices"]:
+        return "ixia"
+    elif "spt" in pyvxr_topo["devices"]:
+        return "spt"
+    else:
+        print("ERROR! Could not find ixia or spt in pyvxr yaml file!")
+        return None
+
+def find_devices(topo_file_str):
+    regex = r'^([ ]{0}|[ ]{4}|\t)(\w+):'
+    keys = re.findall(regex, topo_file_str, re.MULTILINE)
+
+    is_device = False
+    devices = []
+
+    for i, reg_match in enumerate(keys):
+        #got to devices key
+        if reg_match[1] == "devices":
+            is_device = True
+            continue
+
+        #reached end of devices list
+        if is_device and len(reg_match[0]) == 0:
+            break
+
+        if is_device:
+            devices.append(reg_match[1])
+
+    return devices
+
+# Define a function to perform the replacement
+def replace_device_ip_and_port_helper(match):
+    global device_ip_and_ports
+    curr_device = device_ip_and_ports.pop(0)
+    print(curr_device)
+    return match.group(1) + curr_device["ip"] + match.group(2) + curr_device["port"] + match.group(3)
+
+def replace_device_ip_and_port(topo_file_str):
+    regex = r'(\W+access:\s*\{.*?ip:\s*)\S+(,\s*port:\s*)\S+(}\n)' #match 'access' portion of devices config
+    data_replaced = re.sub(regex, replace_device_ip_and_port_helper, topo_file_str, flags=re.DOTALL)
+    return data_replaced
+
+def update_device_ip_and_ports(topo_file_str):
+    global device_ip_and_ports
+    devices = find_devices(topo_file_str)
+
+    ports_config = get_ports_config()
+
+    for device_name in devices:
+        device_access_info = {}
+        if "SD" in device_name:
+            device_access_info["ip"] = ports_config[device_name]["HostAgent"]
+            device_access_info["port"] = str(ports_config[device_name]["xr_redir22"])
+        elif device_name in TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING:
+            device_name_in_pyvxr_topo = TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING[device_name]
+            device_access_info["ip"] = ports_config[device_name_in_pyvxr_topo]["HostAgent"]
+            device_access_info["port"] = str(ports_config[device_name_in_pyvxr_topo]["xr_redir22"])
+        else:
+            continue
+            
+        device_ip_and_ports.append(device_access_info)
+    
+    new_topo_file_str = replace_device_ip_and_port(topo_file_str)
+    return new_topo_file_str
 
 def update_topo_file(topology, platform):
     print("Updating topo file")
@@ -84,26 +164,47 @@ def update_topo_file(topology, platform):
         return -1, "error! topo_file does not exist in config file!"
     
     with open(topo_file, "r") as f:
-        topo_config = yaml.load(f, Loader=yaml.BaseLoader)
-    
+        topo_file_str = f.read()
+
+    topo_file_str = update_device_ip_and_ports(topo_file_str)
+
     ports_config = get_ports_config()
 
 
-    for device in topo_config["devices"].keys():
-        if "SD" not in device:
-            continue
-        topo_config["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
-        topo_config["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
+    # for device in topo_config["devices"].keys():
+    #     if "SD" in device:
+    #         topo_config["devices"][device]["access"]["ip"] = ports_config[device]["HostAgent"]
+    #         topo_config["devices"][device]["access"]["port"] = ports_config[device]["xr_redir22"]
+    #     if device in TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING:
+    #         device_name_in_pyvxr_topo = TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING[device]
+    #         topo_config["devices"][device]["access"]["ip"] = ports_config[device_name_in_pyvxr_topo]["HostAgent"]
+    #         topo_config["devices"][device]["access"]["port"] = ports_config[device_name_in_pyvxr_topo]["xr_redir22"]
     
-    spt_ip = get_spirent_ip().strip()
-    print(f"spirent ip is {spt_ip}")
-    topo_config["devices"]["spt"]["properties"]["ip"] = spt_ip
-    
-    with open(topo_file, "w") as f:
-        yaml.safe_dump(topo_config, f)
 
-    #BaseLoader does not preserve custom data types. add datatype '!include' back into topo file
-    os.system(f"sed -E -i 's/([^[:space:]]+.yaml)/!include \\1/' {topo_file}")
+    spt_or_ixia = determine_spt_or_ixia(topology, platform)
+
+    if spt_or_ixia == "spt":
+        spt_ip = get_spirent_ip()
+        regex = r'(\W+properties:\s*\{type: stc.*?ip:\s*)\S+(,.*?\n)'
+        topo_file_str = re.sub(regex, fr'\1 {spt_ip}\2', topo_file_str)
+        print(f"spirent ip is {spt_ip}")
+        # topo_config["devices"]["spt"]["properties"]["ip"] = spt_ip
+    elif spt_or_ixia == 'ixia':
+        ixia_chassis_mgmt_ip = ports_config["ixia_chassis"]["mgmt_ip"]
+        ixia_gui_mgmt_ip = ports_config["ixia_gui"]["mgmt_ip"]
+        regex = r'(\W+properties:\s*\{type: ixia.*?ip:\s*)\S+(,\s*ix_server:\s*)\S+(}\n)'
+        topo_file_str = re.sub(regex, fr'\1 {ixia_chassis_mgmt_ip}\2 {ixia_gui_mgmt_ip}\3', topo_file_str)
+        # topo_config["devices"]["T1"]["properties"]["ip"] = ixia_chassis_mgmt_ip
+        # topo_config["devices"]["T1"]["properties"]["ix_server"] = ixia_gui_mgmt_ip
+    else:
+        return -1, "ERROR! Could not find ixia or spt in pyvxr yaml file!"
+
+        
+    with open(topo_file, "w") as f:
+        f.write(topo_file_str)
+
+    # #BaseLoader does not preserve custom data types. add datatype '!include' back into topo file
+    # os.system(f"sed -E -i 's/([^[:space:]]+.yaml)/!include \\1/' {topo_file}")
 
     return 0, ""
 
@@ -159,8 +260,8 @@ def exec_command_raise_error(client, cmd):
 
     return stdin, stdout, stderr
 
-def configure_vxr(topology, platform, tar_ball, script_file):
-    print("Starting step: configure_vxr")
+def configure_vxr_spt(topology, platform, tar_ball, script_file):
+    print("Configure VXR with Spitfire")
     ports_config = get_ports_config()
 
     client = paramiko.SSHClient()
@@ -171,16 +272,16 @@ def configure_vxr(topology, platform, tar_ball, script_file):
     try:
         tar_ball_name = tar_ball.split("/")[-1]
         #untar sonic-test golden-code
-        exec_command_raise_error(client, f"wget {tar_ball}")
+        exec_command_raise_error(client, f"wget -q {tar_ball}")
         exec_command_raise_error(client, f"tar -xvf {tar_ball_name}")
 
         #run sonic-mgmt docker
-        exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/golden-code/docker-sonic-mgmt.gz")
+        exec_command_raise_error(client, "wget -q http://172.29.93.10/sonic-images/golden-code/docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "docker load < docker-sonic-mgmt.gz")
         exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'docker-sonic-mgmt' -itd docker-sonic-mgmt /bin/bash")
 
         #install spirent related files
-        exec_command_raise_error(client, "wget http://172.29.93.10/sonic-images/spirent_projects_folder.tar.gz")
+        exec_command_raise_error(client, "wget -q http://172.29.93.10/sonic-images/spirent_projects_folder.tar.gz")
         exec_command_raise_error(client, "tar -xvf spirent_projects_folder.tar.gz -C sonic-test/sonic-mgmt/spytest")
 
     except paramiko.SSHException as e:
@@ -190,6 +291,42 @@ def configure_vxr(topology, platform, tar_ball, script_file):
     
     client.close()
 
+def configure_vxr_ixia(topology, platform, tar_ball, script_file):
+    print("Configure VXR with IXIA")
+    ports_config = get_ports_config()
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ports_config['sonic_mgmt']['HostAgent'], ports_config['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
+
+    try:
+        tar_ball_name = tar_ball.split("/")[-1]
+
+        #untar sonic-test golden-code
+        exec_command_raise_error(client, f"wget -q {tar_ball}")
+        exec_command_raise_error(client, f"tar -xvf {tar_ball_name}")
+
+        #run sonic-mgmt docker
+        exec_command_raise_error(client, "wget -q http://172.29.93.10/sonic-images/spytest/keysight-u18070.tar")
+        exec_command_raise_error(client, "docker load -i keysight-u18070.tar")
+        exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'ixia_sonic_mgmt' -itd spytest/keysight-u18:9.20.2201.70 /bin/bash")
+
+    except paramiko.SSHException as e:
+        return -1, e
+    except Exception as e:
+        return e.args[0], e.args[1]
+
+def configure_vxr(topology, platform, tar_ball, script_file):
+    print("Starting step: configure_vxr")
+    spt_or_ixia = determine_spt_or_ixia(topology, platform)
+
+    if spt_or_ixia == "spt":
+        configure_vxr_spt(topology, platform, tar_ball, script_file)
+    elif spt_or_ixia == "ixia":
+        configure_vxr_ixia(topology, platform, tar_ball, script_file)
+    else:
+        return -1, "ERROR! Could not find ixia or spt in pyvxr yaml file!"
+    
     rc, msg = update_topo_file(topology, platform)
     if rc != 0:
         return rc, msg
@@ -203,15 +340,24 @@ def configure_vxr(topology, platform, tar_ball, script_file):
     
     return 0, ""
         
-def wait_for_command_complete(chan, temination_str=":~$ ", show_output=False):
-    buff = ''
-    while not buff.endswith(temination_str):
-        resp = chan.recv(9999)
-        buff += resp.decode('utf-8')
+def execute_command_on_chan(chan, command='', show_output=False):
+    print(f"executing command: {command}")
+    termination_command = "\necho \"Command Completed, exit code is: $?\"\n"
+    termination_str = "Command Completed, exit code is:"
+    chan.send(command+termination_command)
+    while True:
+        resp = chan.recv(9999).decode('utf-8')
         if show_output:
-            print("resp: ", resp.decode('utf-8'))
+            print("resp: ", resp)
+        if termination_str in resp:
+            #the termination command command will show up initially in resp, ignore
+            if resp.count(termination_str) == 1 and "$?" in resp.split(termination_str)[1]:
+                continue
+            exit_code = resp.split(termination_str)[1]
+            print(f"Exit code for command {command} is: {exit_code}")
+            break
 
-def run_sanity(script_file): 
+def run_sanity(topology, platform, script_file): 
     print("Starting step: run_sanity")
     ports_config = get_ports_config()
 
@@ -220,22 +366,43 @@ def run_sanity(script_file):
     client.connect(ports_config['sonic_mgmt']['HostAgent'], ports_config['sonic_mgmt']['xr_redir22'], "vxr", "cisco123")
 
     chan = client.invoke_shell()
-    wait_for_command_complete(chan)
+    execute_command_on_chan(chan)
 
-    chan.send(f"docker exec -it docker-sonic-mgmt /bin/bash\n")
-    wait_for_command_complete(chan, show_output=True)
+    spt_or_ixia = determine_spt_or_ixia(topology, platform)
 
-    chan.send(f"sudo su\n")
-    wait_for_command_complete(chan, temination_str=":/var/AzDevOps# ", show_output=True)
+    if spt_or_ixia == "spt":
+        cmd = "docker exec -it docker-sonic-mgmt /bin/bash\n"
+        execute_command_on_chan(chan, show_output=True)
 
-    chan.send(f"cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n")
-    wait_for_command_complete(chan, temination_str=":/data# ", show_output=True)
+        cmd = "sudo su\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
 
-    chan.send(f"mkdir spytest_results; chmod 777 spytest_results; cd spytest_results\n")
-    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
+        cmd = "cd /data; cp -r projects /; /data/bin/tools_install.sh; export SPIRENTD_LICENSE_FILE=10.22.181.32\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
 
-    chan.send(f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n")
-    wait_for_command_complete(chan, temination_str=":/data/spytest_results# ", show_output=True)
+        cmd = "mkdir spytest_results; chmod 777 spytest_results; cd spytest_results\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+        cmd = f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+    elif spt_or_ixia == "ixia":
+        cmd = "docker exec -it ixia_sonic_mgmt bash\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+        cmd = "cd /data; pip install monotonic\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+        cmd = "unset https_proxy http_proxy\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+        cmd = "mkdir spytest_results; chmod 777 spytest_results; cd spytest_results\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+
+        cmd = f"env; /data/bin/spytest --testbed /data/topo --test-suite /data/{script_file}\n"
+        execute_command_on_chan(chan, cmd, show_output=True)
+    else:
+        return -1, "ERROR! Could not find ixia or spt in pyvxr yaml file!"
 
     time.sleep(120)
 
@@ -400,7 +567,7 @@ def main():
         print(f"error at configure_vxr! msg: {msg}")
         sys.exit(rc)
 
-    rc, msg = run_sanity(script_file)
+    rc, msg = run_sanity(topology, platform, script_file)
     if rc != 0:
         print(f"error at run_sanity! msg: {msg}")
         sys.exit(rc)
