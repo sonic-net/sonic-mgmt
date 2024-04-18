@@ -80,7 +80,8 @@ def test_loopback_action_port_flap(duthost, ptfadapter, ports_configuration):
             with allure.step("Check the TX_ERR in rif counter statistic will increase or not as expected"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
 
-# LogAnalyzer need to be disabled for this test because log is lost 
+
+# LogAnalyzer need to be disabled for this test because log is lost
 # if reboot is issued and log is put in tmpfs
 @pytest.mark.disable_loganalyzer
 def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_configuration):
