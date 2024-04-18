@@ -1120,7 +1120,6 @@
                 "scripts": [
                     "qos.test_buffer",
                     "qos.test_buffer_traditional",
-                    "qos.test_qos_dscp_mapping",
                     "qos.test_qos_sai",
                     "qos.test_tunnel_qos_remap"
                 ],
@@ -1141,6 +1140,13 @@
                 ],
                 "owner": "Rita Hui",
                 "email": "ritahui@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "qos.test_qos_dscp_mapping"
+                ],
+                "owner": "Dev Ojha",
+                "email": "devojha@microsoft.com"
             }
         ]
     },
