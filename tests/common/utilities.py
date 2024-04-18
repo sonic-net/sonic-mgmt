@@ -18,10 +18,12 @@ import traceback
 import copy
 import tempfile
 import uuid
+import socket
 import paramiko
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
+from paramiko.ssh_exception import AuthenticationException, NoValidConnectionsError
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -1151,13 +1153,13 @@ def _paramiko_ssh(ip_address, username, passwords):
             ssh.connect(ip_address, username=username, password=password,
                         allow_agent=False, look_for_keys=False, timeout=10)
             return ssh, password
-        except paramiko.AuthenticationException:
+        except AuthenticationException:
             continue
         except Exception as e:
             logging.info("Cannot access device {} via ssh, error: {}".format(ip_address, e))
             raise e
     logging.info("Cannot access device {} via ssh, error: Password incorrect".format(ip_address))
-    raise paramiko.AuthenticationException
+    raise AuthenticationException
 
 
 def paramiko_ssh(ip_address, username, passwords):
@@ -1165,6 +1167,10 @@ def paramiko_ssh(ip_address, username, passwords):
     return ssh
 
 
-def get_dut_current_passwd(ip_address, username, passwords):
-    _, pwd = _paramiko_ssh(ip_address, username, passwords)
-    return pwd
+def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
+    try:
+        return _paramiko_ssh(ipv4_address, username, passwords)
+    except (AuthenticationException, NoValidConnectionsError, socket.timeout) as e:
+        if not ipv6_address:
+            raise e
+        return _paramiko_ssh(ipv6_address, username, passwords)
