@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2'),
+    pytest.mark.device_type('physical')
 ]
 
 expected_running_status = "RUNNING"
