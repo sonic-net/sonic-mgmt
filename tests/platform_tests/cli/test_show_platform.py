@@ -278,7 +278,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
         led_status_list = ["N/A"]
     else:
-        led_status_list = ["green", "amber", "red", "off"]
+        led_status_list = ["green", "amber", "red", "off", "N/A"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current",
                          "power"]
