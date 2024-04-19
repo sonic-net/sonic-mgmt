@@ -18,12 +18,11 @@ import traceback
 import copy
 import tempfile
 import uuid
-import socket
 import paramiko
 from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
-from paramiko.ssh_exception import AuthenticationException, NoValidConnectionsError
+from paramiko.ssh_exception import AuthenticationException
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
