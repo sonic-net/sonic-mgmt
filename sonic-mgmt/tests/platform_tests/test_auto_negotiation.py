@@ -371,6 +371,43 @@ def test_force_speed(enum_speed_per_dutport_fixture):
     )
 
 
+def test_verify_portspeed_configuration_across_reboot(enum_speed_per_dutport_fixture):
+    """Verify port configuration across reboot
+    Step:1 Configure port speed to 40G
+    Step:2 Verify Portstatus
+    Step:3 Perform config save and reload
+    """
+    dutname, portname = enum_speed_per_dutport_fixture['dutname'], enum_speed_per_dutport_fixture['port']
+    duthost, dut_port, fanout, fanout_port = all_ports_by_dut[dutname][portname]
+    if duthost.facts['platform'] == 'x86_64-8101_32fh_o-r0':
+        new_speed = '40000'
+        logging.info("Step1:set port speed to 40G")
+        for dut, port in zip([duthost, fanout], [dut_port, fanout_port]):
+            logger.info('step1: Configure port speed 40G')
+            dut.set_speed(dut_port, new_speed)
+            logger.info('step2: Wait until the port status is up, expected speed: {}'.format(new_speed))
+            wait_result = wait_until(
+                     SINGLE_PORT_WAIT_TIME,
+                     PORT_STATUS_CHECK_INTERVAL,
+                     0,
+                     check_ports_up,
+                     duthost,
+                     [dut_port],
+                     new_speed
+                     )
+            pytest_assert(wait_result, '{} are still down'.format(dut_port))
+            logging.info("Step3: Perform config save and reload")
+            duthost.shell('sudo config save -y')
+            config_reload(duthost, config_source="config_db", wait=120)
+        logger.info('step4: verify port speed')
+        speed = dut.get_speed(dut_port)
+        pytest_assert(
+          speed == new_speed,
+          'expect fanout speed: {}, but got {}'.format(speed, new_speed))
+    else:
+        pytest.skip(f'This test is not supported on {duthost.facts["platform"]} platform')
+
+
 @pytest.fixture(scope='module', autouse=True)
 def change_cable_length(duthost):
     if is_mellanox_device(duthost):
