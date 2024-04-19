@@ -93,11 +93,11 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, pg_to_test, 
         else:
             asic_namespace_string = " -n " + str(asic)
 
-        up_ports = None
+        up_ports = []
         if 'up' in asic_facts[asic].keys():
             up_ports = asic_facts[asic]['up']
 
-        down_ports = None
+        down_ports = []
         if None in asic_facts[asic].keys():
             down_ports = asic_facts[asic][None]
 
