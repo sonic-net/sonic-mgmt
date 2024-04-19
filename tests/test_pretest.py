@@ -375,8 +375,8 @@ def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
         if "DATAACL" not in rule["table"]:
             continue
         if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
-            or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
-            or rule["status"] != "Active"):
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
             pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
