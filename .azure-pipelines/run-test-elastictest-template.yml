@@ -163,14 +163,18 @@ steps:
           fi
         displayName: "Download pr script"
   - ${{ else }}:
-      - script: echo "The value of MGMT_BRANCH is ${{ parameters.MGMT_BRANCH }}"
-        displayName: "Display MGMT_BRANCH"
-      - ${{ if ne(trim(parameters.MGMT_BRANCH), 'master') }}:
+      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
-              echo "Download test plan script(no)"
-            displayName: "Not master sonic-mgmt , Download test plan script(no)"
+              echo "The value of MGMT_BRANCH is ${{ parameters.MGMT_BRANCH }}."
+            displayName: "Not master sonic-mgmt"
+      - ${{ else }}:
+          - script: |
+              # Else, sonic-mgmt repo, master branch
+              set -ex
+              echo "sonic-mgmt master branch"
+            displayName: "master sonic-mgmt"
 
   - script: |
       set -e
