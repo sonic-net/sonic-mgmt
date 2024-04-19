@@ -68,7 +68,7 @@ from switch_sai_thrift.sai_headers import SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRES
     SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
 
 
-from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS
+from switch_sai_thrift.sai_headers import SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -820,6 +820,33 @@ def sai_thrift_read_port_counters(client, asic_type, port):
             queue_counters_results.append(thrift_results[0])
             queue1 += 1
     return (counters_results, queue_counters_results)
+
+
+def sai_thrift_get_voq_port_id(client, system_port_id):
+    object_id = client.sai_thrift_get_sys_port_obj_id_by_port_id(system_port_id)
+    voq_list = []
+    port_attr_list = client.sai_thrift_get_system_port_attribute(object_id)
+    attr_list = port_attr_list.attr_list
+    for attribute in attr_list:
+        if attribute.id == SAI_SYSTEM_PORT_ATTR_QOS_VOQ_LIST:
+            for voq_id in attribute.value.objlist.object_id_list:
+                voq_list.append(voq_id)
+    return (voq_list)
+
+
+def sai_thrift_read_port_voq_counters(client, voq_list):
+    cnt_ids = []
+    thrift_results = []
+    voq_counters_results = []
+    cnt_ids.append(SAI_QUEUE_STAT_PACKETS)
+    counter = 0
+    for voq in voq_list:
+        if counter <= 7:
+            thrift_results = client.sai_thrift_get_queue_stats(
+                voq, cnt_ids, len(cnt_ids))
+            voq_counters_results.append(thrift_results[0])
+            counter += 1
+    return (voq_counters_results)
 
 
 def sai_thrift_read_port_watermarks(client, port):
