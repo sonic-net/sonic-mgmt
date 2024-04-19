@@ -92,6 +92,7 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  - platform_tests/sfp/test_sfpshow.py
   - platform_tests/test_auto_negotiation.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
