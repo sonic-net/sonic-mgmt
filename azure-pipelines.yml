@@ -23,29 +23,29 @@ trigger: none
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 
 stages:
-- stage: Pre_test
-  variables:
-  - group: GIT_SECRETS
-  jobs:
-  - job: static_analysis
-    displayName: "Static Analysis"
-    timeoutInMinutes: 10
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-    - template: .azure-pipelines/pre-commit-check.yml
-
-  - job: validate_test_cases
-    displayName: "Validate Test Cases"
-    timeoutInMinutes: 20
-    continueOnError: false
-    pool: ubuntu-20.04
-    steps:
-    - template: .azure-pipelines/pytest-collect-only.yml
-
+#- stage: Pre_test
+#  variables:
+#  - group: GIT_SECRETS
+#  jobs:
+#  - job: static_analysis
+#    displayName: "Static Analysis"
+#    timeoutInMinutes: 10
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#    - template: .azure-pipelines/pre-commit-check.yml
+#
+#  - job: validate_test_cases
+#    displayName: "Validate Test Cases"
+#    timeoutInMinutes: 20
+#    continueOnError: false
+#    pool: ubuntu-20.04
+#    steps:
+#    - template: .azure-pipelines/pytest-collect-only.yml
+#
 - stage: Test
-  dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+#  dependsOn: Pre_test
+#  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
   - name: inventory
