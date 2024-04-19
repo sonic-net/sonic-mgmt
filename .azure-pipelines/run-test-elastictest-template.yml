@@ -163,7 +163,7 @@ steps:
           fi
         displayName: "Download pr script"
   - ${{ else }}:
-      - ${{ if ne(parameters.MGMT_BRANCH, 'master') }}:
+      - ${{ if not(eq(parameters.MGMT_BRANCH, 'master')) }}:
           - script: |
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
