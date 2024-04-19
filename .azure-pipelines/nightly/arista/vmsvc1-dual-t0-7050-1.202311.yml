@@ -4,11 +4,11 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "00 4 * * 0,1,2,3,4,5"
+  - cron: "00 16 * * 0,1,2,3"
     displayName: Nightly Scheduler
     branches:
       include:
-        - internal-202311
+      - internal-202311
     always: true
 
 variables:
@@ -18,7 +18,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: vms28-dual-t0-7260
+    default: vmsvc1-dual-t0-7050-1
     displayName: "Testbed Name"
 
   # Upgrade parameters
@@ -27,35 +27,26 @@ parameters:
     default: $(IMAGE_BRCM_ABOOT_202311)
     displayName: "Image URL"
 
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
   # Test Parameters
   - name: PY_SAITHRIFT_URL
     type: string
     default: $(SAITHRIFT_BRCM_202311)
     displayName: "py_saithrift URL"
 
-  # Deploy parameters
-  - name: ENABLE_DATAACL
-    type: boolean
-    default: false
-
-  # Testbed specific, to skip and/or include directories
   - name: TESTBED_SPECIFIC
     type: string
-    default: '-I "dualtor dualtor_io dualtor_mgmt platform_tests generic_config_updater crm autorestart fdb process_monitoring show_techsupport route override_config_table monit"'
+    default: '-I "bgp cacl decap dhcp_relay drop_packets dualtor dualtor_io dualtor_mgmt everflow fdb fib pc pfcwd qos show_techsupport snmp stress tacacs telemetry vlan vxlan"'
     displayName: Testbed specific
 
-  # Custom skip scripts
-  - name: SKIP_SCRIPTS
+  - name: AGENT_POOL
     type: string
-    default: "arp/test_wr_arp.py \
-              platform_tests/test_advanced_reboot.py \
-              platform_tests/test_cont_warm_reboot.py"
-    displayName: "Skip Scripts"
-
-  - name: SKIP_TEST_RESULTS_UPLOADING
-    type: boolean
-    default: false
-    displayName: "Skip uploading test results to Kusto"
+    default: nightly-svc
+    displayName: "Agent pool"
 
 stages:
   - template: ../templates/nightly_test.yml
@@ -64,6 +55,6 @@ stages:
       IMAGE_URL: ${{ parameters.IMAGE_URL }}
       PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
       ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      NIGHTLY_TEST_TIMEOUT: 1440  # 24 hours
       TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
-      SKIP_SCRIPTS: ${{ parameters.SKIP_SCRIPTS }}
-      SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
