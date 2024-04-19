@@ -804,16 +804,22 @@ class TestQosSai(QosSaiBase):
 
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            # Need to adjust hdrm_pool_size src_port_ids, dst_port_id and pgs_num based on how many source and dst ports
-            # present
+            # for 100G port speed the number of ports required to fill headroom is huge,
+            # hence skipping the test for 100G
+            if portSpeedCableLength != '400000_120000m':
+                pytest.skip("Insufficient number of ports to fill the headroom")
+            # Adjusted hdrm_pool_size src_port_ids needed to fill headroom pool
+            # per pg
             src_ports = dutConfig['testPortIds'][src_dut_index][src_asic_index]
-            if len(src_ports) < 10:
+            if len(src_ports) < 5:
                 pytest.skip("Insufficient number of src ports for testQosSaiHeadroomPoolSize")
-            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[0:9]
+            qosConfig["hdrm_pool_size"]["src_port_ids"] = src_ports[0:4]
             qosConfig["hdrm_pool_size"]["pgs_num"] = 2 * len(qosConfig["hdrm_pool_size"]["src_port_ids"])
             # dst port depends on the port_selection criteria, if its single asic, single_dut_multi_asic or multi_dut
             if get_src_dst_asic_and_duts['src_asic'] == get_src_dst_asic_and_duts['dst_asic']:
                 # Src and dst are the same asics, leave one for dst port and the rest for src ports
+                # if selected destination port is in LAG ,sometimes lag goes down due to
+                # voq credits getting exhausted during test runs.
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = src_ports[-1]
             else:
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][-1]

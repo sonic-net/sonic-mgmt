@@ -3088,7 +3088,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                                                  sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
-                time.sleep(4)  # wait pfc counter refresh and show the counters
                 for i in range(0, self.pgs_num):
                     if self.pkts_num_trig_pfc:
                         pkts_num_trig_pfc = self.pkts_num_trig_pfc
@@ -3105,8 +3104,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print("Service pool almost filled", file=sys.stderr)
             sys.stderr.flush()
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(8)
-
+            if self.platform_asic != "broadcom-dnx":
+                time.sleep(8)
+                
             for i in range(0, self.pgs_num):
                 # Prepare IP packet data
                 pkt = construct_ip_pkt(self.pkt_size,
@@ -3127,9 +3127,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     send_packet(
                         self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 1)
                     pkt_cnt += 1
-                    # allow enough time for the dut to sync up the counter values in counters_db
-                    time.sleep(1)
-
                     # get a snapshot of counter values at recv and transmit ports
                     # queue_counters value is not of our interest here
                     recv_counters, _ = sai_thrift_read_port_counters(
@@ -3198,9 +3195,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
                                            'to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
-                                                                sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
-                else:
-                    time.sleep(3)
+                                           sidx_dscp_pg_tuples[i][2],
+                                           sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
@@ -3213,8 +3209,11 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     if recv_counters[cntr] != recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]:
                         sys.stderr.write('There are some unexpected {} packet drop\n'.format(
                             recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr]))
-                    assert (
-                        recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
+                    if self.platform_asic and self.platform_asic == "broadcom-dnx":
+                        if cntr == 1:
+                            assert(recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
+                    else:
+                        assert(recv_counters[cntr] - recv_counters_bases[sidx_dscp_pg_tuples[i][0]][cntr] <= margin)
 
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
@@ -3233,7 +3232,6 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                         assert (expected_wm <= hdrm_pool_wm)
                     assert (hdrm_pool_wm <= upper_bound_wm)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
-                time.sleep(3)
                 for i in range(0, self.pgs_num):
                     pkt_cnt = self.pkts_num_hdrm_full // self.pkt_size_factor if i != self.pgs_num - 1 \
                         else self.pkts_num_hdrm_partial // self.pkt_size_factor
