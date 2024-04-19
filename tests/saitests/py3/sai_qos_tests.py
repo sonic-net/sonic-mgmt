@@ -3106,7 +3106,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             # allow enough time for the dut to sync up the counter values in counters_db
             if self.platform_asic != "broadcom-dnx":
                 time.sleep(8)
-                
+
             for i in range(0, self.pgs_num):
                 # Prepare IP packet data
                 pkt = construct_ip_pkt(self.pkt_size,
@@ -3195,8 +3195,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_base,
                                            'To fill headroom pool, send {} pkt with DSCP {} PG {} from src_port{} '
                                            'to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
-                                           sidx_dscp_pg_tuples[i][2],
-                                           sidx_dscp_pg_tuples[i][0]))
+                                                                sidx_dscp_pg_tuples[i][2], sidx_dscp_pg_tuples[i][0]))
 
                 recv_counters, _ = sai_thrift_read_port_counters(
                     self.src_client, self.asic_type, port_list['src'][self.src_port_ids[sidx_dscp_pg_tuples[i][0]]])
