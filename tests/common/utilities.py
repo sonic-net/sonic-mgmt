@@ -1170,7 +1170,7 @@ def paramiko_ssh(ip_address, username, passwords):
 def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     try:
         return _paramiko_ssh(ipv4_address, username, passwords)
-    except (AuthenticationException, NoValidConnectionsError, socket.timeout) as e:
-        if not ipv6_address:
-            raise e
+    except AuthenticationException:
+        raise
+    except Exception:
         return _paramiko_ssh(ipv6_address, username, passwords)
