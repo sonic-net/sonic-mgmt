@@ -170,7 +170,7 @@ steps:
               # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
               set -ex
               echo "Download test plan script(no)"
-            displayName: "Download test plan script(no)"
+            displayName: "Not master sonic-mgmt , Download test plan script(no)"
 
   - script: |
       set -e
