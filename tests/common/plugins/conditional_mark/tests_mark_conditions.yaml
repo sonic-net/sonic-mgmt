@@ -669,6 +669,14 @@ generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+generic_config_updater/test_eth_interface.py::test_update_speed:
+  skip:
+    reason: 'Skip this script due to this not being a production scenario and misleading StateDB output for valid speed'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+      - https://github.com/sonic-net/sonic-buildimage/issues/13267
+
 generic_config_updater/test_eth_interface.py::test_update_valid_invalid_index[33-True]:
   skip:
     reason: 'Skipping test on mellanox platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/7733'
