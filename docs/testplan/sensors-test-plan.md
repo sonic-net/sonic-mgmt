@@ -64,3 +64,4 @@ We will check the following scenarios:
 - New functionality check with multiple PSU sources - run the test on platforms with different PSUs, all listed in psu-sensors-data.yml.
 - Regression check with a single PSU source - run the test on platforms whose PSUs are all of the same model and are not listed in psu-sensors-data.yml.
 - Regression check with multiple PSU sources - run the test on platforms with different PSUs, some (or all) not listed in psu-sensors-data.yml.
+- Regression check with a single psu installed - run the test on platforms that have 1 psu installed.

@@ -6,15 +6,18 @@ import yaml
 
 PSU_SENSORS_DATA_FILE = "psu_data.yaml"
 PSU_SENSORS_JSON_FILE = "psu_sensors.json"
+MISSING_PSU_STATUS = "NOT PRESENT"
 PSU_NUM_SENSOR_PATTERN = r'PSU-(\d+)(?:\([A-Z]\))?'
 SKIPPED_CHECK_TYPES = ["psu_skips", "sensor_skip_per_version"]
 logger = logging.getLogger()
 
 
+# TODO - after RM issue #3831189 is fixed, add affected PSUs to psu_data.yml
+# TODO - after RM issue #3816778 is fixed, add MTEF-PSR-AC-C-SS1 to psu_Data.yml and remove skip on r-anaconda-15.
 def update_sensor(sensor_path, psu_num, bus_num, bus_address, psu_side):
     """
     Updates the sensor_path (original format can be seen in psu-data.yml) to contain platform related information
-    :param sensor_path: Sensor as taken from psu-data.yml (contains * in places where platform related data is needed)
+    :param sensor_path: Sensor path as taken from psu-data.yml (contains * in places where platform related data is needed)
     :param psu_num: The psu number
     :param bus_num: bus number of sensors from this psu number
     :param bus_address: bus address of sensors from this psu number
@@ -93,7 +96,7 @@ def update_sensor_data(alarm_data, psu_platform_data, psu_numbers):
     The function updates the alarm_data according to psu_platform_data for each of the psu_numbers listed
     :param alarm_data: a list of psu sensors of some alarm_type
     :param psu_platform_data: A dictionary containing for each psu number, the bus number, bus address and PSU slot side
-     (empty if it doesn't exist)
+     (empty if doesn't exist)
     :param psu_numbers: A list of numbers we want to retrieve psu info from psu_platform_data
     :return: a dictionary of installed PSUs entries, mapping psu slots (numbers) to the psu models
     """
@@ -115,6 +118,7 @@ class SensorHelper:
         Setup important variables of the class
         """
 
+        self.missing_psus = None
         self.supports_dynamic_psus = False
         self.psu_dict = None
         self.uncovered_psus = None
@@ -154,6 +158,7 @@ class SensorHelper:
         """
         self.psu_dict = dict()
         self.uncovered_psus = set()
+        self.missing_psus = set()
         if self.supports_dynamic_psus:
             psu_data = json.loads(self.duthost.shell('show platform psu --json')['stdout'])
             covered_psus = set(self.psu_sensors_checks.keys())
@@ -161,6 +166,9 @@ class SensorHelper:
                 psu_index, psu_model = psu["index"], psu["model"]
                 if psu_model in covered_psus:
                     self.psu_dict[psu_index] = psu_model
+                elif psu["status"] == MISSING_PSU_STATUS:
+                    self.missing_psus.add(psu_index)
+                    logger.warning(f"Slot {psu_index} is missing a PSU.")
                 else:
                     self.uncovered_psus.add(psu_model)
 
@@ -169,6 +177,12 @@ class SensorHelper:
         Getter function for the field supports_dynamic_psus
         """
         return self.supports_dynamic_psus
+
+    def get_missing_psus(self):
+        """
+        Getter function for the field missing_psus
+        """
+        return self.missing_psus
 
     def get_psu_index_model_dict(self):
         """
@@ -203,7 +217,7 @@ class SensorHelper:
     def get_sensor_psu_prefix(self):
         """
         This function will fetch the sensor bus pattern prefix from psu_sensors_data.
-        :return: psu sensor prefix without buss num and address of dut - for example, dps460-i2c of dps460-i2c-4-58"
+        :return: sensor psu sensor prefix without buss num and address of dut - for example, dps460-i2c of dps460-i2c-4-58"
         """
         psu_bus_path = list(self.psu_platform_data["default"]["chip"].keys())[0]  # grab some key from the chip part
         # the psu_bus_path will look something like dps460-i2c-*-58 - we want to generalize it - dps460-i2c-*-*
@@ -237,12 +251,13 @@ class SensorHelper:
 
     def parse_psu_json_mapping(self, psu_nums_to_replace, hardware_version):
         """
-        This function returns a dictionary that contains for each PSU slot in the device, the bus number,
-        bus address and psu side
+        This function returns a dictionary that contains for each PSU slot in the device, the bus number, bus address and
+        psu side
+        :param psu_json_mapping: mapping from platform to relevant data regarding the psu sensors
         :param psu_nums_to_replace: set  of psu numbers we want to fetch sensors for
+        :param platform: the platform of the dut
         :param hardware_version: hardware version as retrieved from mellanox_data.get_hardware_version
-        :returns: A dictionary containing for each psu number, the bus number, bus address
-        and PSU slot side (empty if it doesn't exist)
+        :returns: A dictionary containing for each psu number, the bus number, bus address and PSU slot side (empty if doesn't exist)
         """
 
         psu_json_data = dict()
@@ -257,7 +272,7 @@ class SensorHelper:
                 psu_num, psu_side = chip_value
             bus_address = chip_key.split('-')[-1]
             if psu_num in psu_nums_to_replace:
-                bus_number = chip_key.split('-')[-2]  # we try to get it from the bus_data of chip part, but it can be *
+                bus_number = chip_key.split('-')[-2]  # we try to get it from the bus_data of chip part but it can be *
                 if bus_number == '*':  # if the bus data is same for all slots, it will be * in the chip part and we
                     # take it from general bus_data part
                     bus_number = bus_data[0].split('-')[1]

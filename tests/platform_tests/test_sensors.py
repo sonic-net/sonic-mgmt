@@ -43,6 +43,11 @@ def update_sensors_checks(duthost, sensors_checks, hardware_version):
     """
     sensor_helper = SensorHelper(duthost)
     if sensor_helper.platform_supports_dynamic_psu():
+        # Remove sensors of PSUs that aren't installed on the dut
+        missing_psu_indexes = sensor_helper.get_missing_psus()
+        if missing_psu_indexes:
+            sensor_helper.remove_psu_checks(sensors_checks, missing_psu_indexes)
+
         psu_models_to_replace = sensor_helper.get_psu_index_model_dict()
         # We only replace psus that are covered by psu-sensors-data.yml
         if psu_models_to_replace:
