@@ -856,9 +856,12 @@ class BaseEverflowTest(object):
                 payload = binascii.unhexlify("0" * 44) + str(payload)
             else:
                 payload = binascii.unhexlify("0" * 44) + bytes(payload)
-
-        if duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"] or duthost.facts.get(
-                "platform_asic") in ["broadcom-dnx"] or duthost.facts["hwsku"] in ["rd98DX35xx", "rd98DX35xx_cn9131"]:
+        if (
+            duthost.facts["asic_type"] in ["barefoot", "cisco-8000", "innovium"]
+            or duthost.facts.get("platform_asic") in ["broadcom-dnx"]
+            or duthost.facts["hwsku"]
+            in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]
+        ):
             if six.PY2:
                 payload = binascii.unhexlify("0" * 24) + str(payload)
             else:
