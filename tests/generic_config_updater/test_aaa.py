@@ -304,6 +304,9 @@ def test_tc1_aaa_suite(rand_selected_dut):
         contian AAA table. So we remove AAA config at first.
     """
     aaa_add_init_config_without_table(rand_selected_dut)
+    # Recent AAA YANG update that passkey in TACPLUS must exist first for authorization tacacs+
+    # Since tc2 it will clean and retest TACPLUS table, we don't care TACPLUS residue after tc1
+    tacacs_global_tc2_add_config(rand_selected_dut)
     aaa_tc1_add_config(rand_selected_dut)
     aaa_tc1_replace(rand_selected_dut)
     aaa_tc1_add_duplicate(rand_selected_dut)

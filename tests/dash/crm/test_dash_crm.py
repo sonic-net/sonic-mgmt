@@ -62,7 +62,7 @@ def default_crm_facts(duthost, set_polling_interval):
 
 
 @pytest.fixture(scope="class")
-def apply_resources_configs(default_crm_facts, duthost, ptfhost):
+def apply_resources_configs(default_crm_facts, localhost, duthost, ptfhost):
     """
     Apply CRM configuration before run test
     :param default_crm_facts: CRM resources data collected before apply config
@@ -74,12 +74,12 @@ def apply_resources_configs(default_crm_facts, duthost, ptfhost):
         src_path = os.path.join(os.path.abspath(""), "dash/crm/files/{}".format(config))
         duthost.copy(src=src_path, dest=config)
     pytest.crm_res_cleanup_required = True
-    apply_gnmi_file(duthost, ptfhost, set_config)
+    apply_gnmi_file(localhost, duthost, ptfhost, set_config)
 
     yield set_config, del_config
 
     if pytest.crm_res_cleanup_required:
-        apply_gnmi_file(duthost, ptfhost, del_config)
+        apply_gnmi_file(localhost, duthost, ptfhost, del_config)
 
     duthost.shell("rm -f {}".format(set_config))
     duthost.shell("rm -f {}".format(del_config))
@@ -108,9 +108,10 @@ def cleanup(duthost):
 class TestDashCRM:
 
     @pytest.fixture(autouse=True)
-    def setup(self, duthost, ptfhost, default_crm_facts, apply_resources_configs):
+    def setup(self, localhost, duthost, ptfhost, default_crm_facts, apply_resources_configs):
         self.duthost = duthost
         self.ptfhost = ptfhost
+        self.localhost = localhost
         self.default_crm_facts = default_crm_facts
         self.crm_facts = self.duthost.get_crm_facts()
         self.set_config, self.del_config = apply_resources_configs
@@ -302,7 +303,7 @@ class TestDashCRM:
         """
         Validate that after cleanup CRM resources - CRM output the same as it was before test case(without config)
         """
-        apply_gnmi_file(self.duthost, self.ptfhost, self.del_config)
+        apply_gnmi_file(self.localhost, self.duthost, self.ptfhost, self.del_config)
         pytest.crm_res_cleanup_required = False
 
         time.sleep(CRM_UPDATE_TIME)
