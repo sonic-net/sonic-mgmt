@@ -101,7 +101,21 @@ cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
 
-2. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
+2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. Here is an example which uses ULA address to setup `/etc/docker/daemon.json` if no special requirement or no local docker configuration. Then restart docker daemon to take effect.
+
+```
+$ sudo bash -c "cat <<EOF > /etc/docker/daemon.json 
+{
+    "ipv6": true,
+    "fixed-cidr-v6": "fd00:1::1/64",
+    "experimental": true,
+    "ip6tables": true
+}
+EOF"
+$ sudo systemctl restart docker
+```
+
+3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
 
 
 You can enter your sonic-mgmt container with the following command:
@@ -202,7 +216,9 @@ foo ALL=(ALL) NOPASSWD:ALL
 
 4. Verify that you can login into the **host** (e.g. `ssh foo@172.17.0.1`, if the default docker bridge IP is `172.18.0.1/16`, follow https://docs.docker.com/network/bridge/#configure-the-default-bridge-network to change it to `172.17.0.1/16`, delete the current `sonic-mgmt` docker using command `docker rm -f <sonic-mgmt_container_name>`, then start over from step 1 of section **Setup sonic-mgmt docker** ) from the `sonic-mgmt` **container** without any password prompt.
 
-5. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
+5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt. 
+
+6. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
 
 ## Setup VMs on the server
 **(Skip this step if you are using cEOS - the containers will be automatically setup in a later step.)**
