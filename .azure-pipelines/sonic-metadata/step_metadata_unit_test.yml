@@ -3,10 +3,10 @@ steps:
     # set -x
     cd sonic-metadata
     cd scripts/tests
-    pytest test_reboot.py
-    pytest test_cleanup_firmware.py
-    pytest eos_to_sonic_test.py
-    pytest test_rvtysh.py
-    pytest test_fix_cat.py
-    pytest chassis_eos2sonic_test.py
+    python3 -m pytest test_reboot.py
+    python3 -m pytest test_cleanup_firmware.py
+    python3 -m pytest eos_to_sonic_test.py
+    python3 -m pytest test_rvtysh.py
+    python3 -m pytest test_fix_cat.py
+    python3 -m pytest chassis_eos2sonic_test.py
   displayName: Unit test SONiC metadata scripts
