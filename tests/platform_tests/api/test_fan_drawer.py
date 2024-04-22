@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis, fan_drawer
 
-from platform_api_test_base import PlatformApiTestBase
+from .platform_api_test_base import PlatformApiTestBase
 
 ###################################################
 # TODO: Remove this after we transition to Python 3
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 STATUS_LED_COLOR_GREEN = "green"

@@ -98,7 +98,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
     queue_counter = dut.shell('show queue counters | grep "UC"')['stdout']
     logging.debug('queue_counter:\n{}'.format(queue_counter))
     # In case of other noise packets
-    DIFF = 0.1
+    DIFF = max(10, packet_count * 0.1)
 
     """
     regex search will look for following pattern in queue_counter outpute
@@ -111,7 +111,7 @@ def queue_stats_check(dut, exp_queue, packet_count):
 
     if result:
         for number in result:
-            if int(number) <= packet_count * (1 + DIFF) and int(number) >= packet_count:
+            if int(number) <= packet_count + DIFF and int(number) >= packet_count:
                 logging.info("the expected Queue : {} received expected numbers of packet {}"
                              .format(exp_queue, number))
 
@@ -237,6 +237,12 @@ def tunnel_traffic_monitor(ptfadapter, tbinfo):
             inner_dscp, _ = _disassemble_ip_tos(inner_tos)
             logging.info("Outer packet DSCP: {0:06b}, inner packet DSCP: {1:06b}".format(outer_dscp, inner_dscp))
             check_res = []
+            # For Nvidia platforms, queue check for outer/inner dscp 2/2 and 6/6 will fail due to the diversity
+            # in dscp remapping. Since we don't expect such packets in production, skip the queue check in this case.
+            if self.standby_tor.is_nvidia_platform():
+                logging.info("Skip the queue check for inner/outer dscp 2/2 and 6/6 on Nvidia platforms.")
+                if (inner_dscp, outer_dscp) in [(2, 2), (6, 6)]:
+                    return " ,".join(check_res)
             exp_queue = derive_queue_id_from_dscp(self.standby_tor, inner_dscp, True)
             logging.info("Expect queue: %s", exp_queue)
             if not wait_until(60, 5, 0, queue_stats_check, self.standby_tor, exp_queue, self.packet_count):

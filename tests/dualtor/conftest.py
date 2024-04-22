@@ -65,7 +65,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="module", autouse=True)
 def common_setup_teardown(rand_selected_dut, request, tbinfo, vmhost):
     # Skip dualtor test cases on unsupported platform
-    supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus']
+    supported_platforms = ['broadcom_td3_hwskus', 'broadcom_th2_hwskus', 'cisco_hwskus', 'mellanox_dualtor_hwskus']
     hostvars = get_host_visible_vars(rand_selected_dut.host.options['inventory'], rand_selected_dut.hostname)
     hwsku = rand_selected_dut.facts['hwsku']
     skip = True
@@ -115,6 +115,11 @@ def run_arp_responder(rand_selected_dut, ptfhost, tbinfo):
     yield
 
     ptfhost.shell('supervisorctl stop arp_responder', module_ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def config_facts(rand_selected_dut):
+    return rand_selected_dut.config_facts(host=rand_selected_dut.hostname, source="running")['ansible_facts']
 
 
 def pytest_configure(config):

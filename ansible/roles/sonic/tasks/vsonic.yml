@@ -36,7 +36,7 @@
   when: hostname in configuration
 
 - name: create topo config
-  template: src="configdb-{{ base_topo }}-{{ props.swrole }}.j2"
+  template: src="configdb.j2"
             dest=config-topo.json
   when: hostname in configuration
 
@@ -56,3 +56,4 @@
     - copy: src="docker-ptf.tar" dest="docker-ptf.tar"
     - shell: docker load -i docker-ptf.tar || true
     - shell: rm -f docker-ptf.tar
+  when: ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

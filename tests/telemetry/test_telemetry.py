@@ -3,9 +3,13 @@ import threading
 import logging
 import re
 import pytest
+import random
 
 from tests.common.helpers.assertions import pytest_assert
-from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older, generate_client_cli
+from tests.common.utilities import wait_until
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from telemetry_utils import assert_equal, get_list_stdout, get_dict_stdout, skip_201911_and_older
+from telemetry_utils import generate_client_cli, parse_gnmi_output, check_gnmi_cli_running
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -13,32 +17,33 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
-TELEMETRY_PORT = 50051
 METHOD_SUBSCRIBE = "subscribe"
 METHOD_GET = "get"
 MEMORY_CHECKER_WAIT = 1
 MEMORY_CHECKER_CYCLES = 60
+SUBMODE_ONCHANGE = 1
 
 
 def test_config_db_parameters(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verifies required telemetry parameters from config_db.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
-    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|gnmi"',
+    gnmi = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "%s|gnmi"' % (env.gnmi_config_table),
                          module_ignore_errors=False)['stdout_lines']
     pytest_assert(gnmi is not None,
-                  "TELEMETRY|gnmi does not exist in config_db")
+                  "%s|gnmi does not exist in config_db" % (env.gnmi_config_table))
 
-    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "TELEMETRY|certs"',
+    certs = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "%s|certs"' % (env.gnmi_config_table),
                           module_ignore_errors=False)['stdout_lines']
     pytest_assert(certs is not None,
-                  "TELEMETRY|certs does not exist in config_db")
+                  "%s|certs does not exist in config_db" % (env.gnmi_config_table))
 
     d = get_dict_stdout(gnmi, certs)
     for key, value in list(d.items()):
         if str(key) == "port":
-            port_expected = str(TELEMETRY_PORT)
+            port_expected = str(env.gnmi_port)
             pytest_assert(str(value) == port_expected,
                           "'port' value is not '{}'".format(port_expected))
         if str(key) == "ca_crt":
@@ -59,8 +64,9 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
     """Verify telemetry should be enabled by default
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
-    status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|telemetry"',
+    status = duthost.shell('sonic-db-cli CONFIG_DB HGETALL "FEATURE|%s"' % (env.gnmi_container),
                            module_ignore_errors=False)['stdout_lines']
     status_list = get_list_stdout(status)
     # Elements in list alternate between key and value. Separate them and combine into a dict.
@@ -74,18 +80,20 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
                           "Telemetry feature is not enabled")
 
 
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, localhost, gnxi_path):
+                         setup_streaming_telemetry, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt COUNTERS_DB \
-           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -95,7 +103,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """ Test osbuild/version query.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -105,13 +113,13 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall(r'"build_version": "sonic\.', result)),
+    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
                  1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'sonic\.NA', result, flags=re.IGNORECASE)),
+    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
                  0, "invalid build_version value at {0}".format(result))
 
 
-def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
@@ -119,10 +127,11 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
     """
     logger.info("start test the dataset 'system uptime'")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
     cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
-           -o "ndastreamingservertest"'.format(dut_ip, TELEMETRY_PORT)
+           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
     found_system_uptime_field = False
@@ -159,7 +168,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
         pytest.fail("The value of system uptime was not updated correctly.")
 
 
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
@@ -182,8 +191,44 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd):
-    ptfhost.shell(cmd)
+def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
+    ret = ptfhost.shell(cmd)
+    assert ret["rc"] == 0, "PTF docker did not get a response"
+    callback(ret["stdout"])
+
+
+def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
+    logger.info("Testing on change update notifications")
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    skip_201911_and_older(duthost)
+    cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
+                              submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
+                              target="STATE_DB")
+
+    bgp_nbrs = list(duthost.get_bgp_neighbors().keys())
+    bgp_neighbor = random.choice(bgp_nbrs)
+    bgp_info = duthost.get_bgp_neighbor_info(bgp_neighbor)
+    original_state = bgp_info["bgpState"]
+    new_state = "Established" if original_state.lower() == "active" else "Active"
+
+    def callback(result):
+        logger.info("Assert that ptf client output is non empty and contains on change update")
+        try:
+            assert result != "", "Did not get output from PTF client"
+        finally:
+            duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                                    original_state))
+        ret = parse_gnmi_output(result, 1, bgp_neighbor)
+        assert ret is True, "Did not find key in update"
+
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
+    client_thread.start()
+
+    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                            new_state))
+    client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
 @pytest.mark.disable_loganalyzer
@@ -194,14 +239,16 @@ def test_mem_spike(duthosts, rand_one_dut_hostname, ptfhost, gnxi_path):
     logger.info("Starting to test the memory spike issue of telemetry container")
 
     duthost = duthosts[rand_one_dut_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               xpath="DOCKER_STATS", target="STATE_DB", update_count=1, create_connections=2000)
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd,))
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, None))
     client_thread.start()
 
     for i in range(MEMORY_CHECKER_CYCLES):
-        ret = duthost.shell("python3 /usr/bin/memory_checker telemetry 419430400", module_ignore_errors=True)
+        ret = duthost.shell("python3 /usr/bin/memory_checker %s 419430400" % (env.gnmi_container),
+                            module_ignore_errors=True)
         assert ret["rc"] == 0, "Memory utilization has exceeded threshold"
         time.sleep(MEMORY_CHECKER_WAIT)
 
