@@ -45,12 +45,6 @@ arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
     conditions:
       - "release not in ['202012']"
 
-arp/test_stress_arp.py:
-  skip:
-    resason: "Extremely long long run time."
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/7874
-
 arp/test_unknown_mac.py:
   skip:
     reason: "Behavior on cisco-8000 & Innovium(Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
@@ -311,20 +305,6 @@ dhcp_relay/test_dhcpv6_relay.py:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
-
-dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Test is not supported in dualtor-aa"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12045
-      - "'dualtor-aa' in topo_name"
-
-dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
-  skip:
-    reason: "Test is not supported in dualtor-aa"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12045
-      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -1540,6 +1520,12 @@ voq/test_fabric_reach.py:
     reason: "Skip test_fabric_reach on unsupported testbed."
     conditions:
       - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx']) or ('arista_7800' not in platform)"
+
+voq/test_voq_fabric_isolation.py:
+  skip:
+    reason: "Skip test_voq_fabric_isolation on unsupported testbed."
+    conditions:
+      - "('t2' not in topo_name) or (asic_subtype not in ['broadcom-dnx'])"
 
 voq/test_voq_fabric_status_all.py:
   skip:
