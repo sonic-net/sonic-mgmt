@@ -101,16 +101,18 @@ cd sonic-mgmt
 ./setup-container.sh -n <container name> -d /data
 ```
 
-2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. Here is an example "/etc/docker/daemon.json" which uses ULA address. Then restart docker daemon `sudo systemctl restart docker` to take effect.
+2. (Required for IPv6 test cases): Follow the steps [IPv6 for docker default bridge](https://docs.docker.com/config/daemon/ipv6/#use-ipv6-for-the-default-bridge-network) to enable IPv6 for container. Here is an example which uses ULA address to setup `/etc/docker/daemon.json` if no special requirement or no local docker configuration. Then restart docker daemon to take effect.
 
 ```
-$ cat /etc/docker/daemon.json
+$ sudo bash -c "cat <<EOF > /etc/docker/daemon.json 
 {
     "ipv6": true,
     "fixed-cidr-v6": "fd00:1::1/64",
     "experimental": true,
     "ip6tables": true
 }
+EOF"
+$ sudo systemctl restart docker
 ```
 
 3. From now on, **all steps are running inside the sonic-mgmt docker**, unless otherwise specified.
