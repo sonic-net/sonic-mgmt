@@ -180,7 +180,8 @@ class TestbedHealthChecker:
 
         for sonichost in self.sonichosts:
 
-            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout", None)
+            rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
+                                                                                                           None)
 
             # If valid stdout
             if rst is not None and rst.strip() != "":
