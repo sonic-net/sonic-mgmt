@@ -273,7 +273,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
-        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx"]:
+        elif hwsku in ["rd98DX35xx_cn9131", "rd98DX35xx", "Nokia-7215-A1"]:
             for i in range(0, 32):
                 port_alias_to_name_map["oneGigE%d" % i] = "Ethernet%d" % i
             for i in range(32, 48):
