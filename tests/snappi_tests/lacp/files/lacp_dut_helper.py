@@ -149,8 +149,8 @@ def __tgen_bgp_config(api,
                           i, location=temp_tg_port[i-1]['location'])
 
     lag0 = config.lags.lag(name="lag0")[-1]
+    lag0.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
     lp = lag0.ports.port(port_name='Test_Port_1')[-1]
-    lp.protocol.lacp.actor_system_id = "00:10:00:00:11:11"
     lp.ethernet.name = "eth0"
     lp.ethernet.mac = "00:11:02:00:10:01"
     lag1 = config.lags.lag(name="lag1")[-1]
@@ -160,7 +160,7 @@ def __tgen_bgp_config(api,
             m = '0'+hex(i).split('0x')[1]
         else:
             m = hex(i).split('0x')[1]
-        lagport.protocol.lacp.actor_system_id = "00:10:00:00:00:11"
+        lag1.protocol.lacp.actor_system_id = "00:10:00:00:00:%s" % m
         lagport.ethernet.name = "eth%d" % i
         lagport.ethernet.mac = "00:10:04:00:00:%s" % m
 

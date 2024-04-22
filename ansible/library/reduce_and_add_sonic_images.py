@@ -183,16 +183,14 @@ def download_new_sonic_image(module, new_image_url, save_as):
 
 def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
     log("install new sonic image")
-
-    log("Clean-up previous downloads first")
-    exec_command(
-        module,
-        cmd="rm -f {}".format("/host/downloaded-sonic-image"),
-        msg="clean up previously downloaded image",
-        ignore_error=True
-    )
-
     if not save_as:
+        log("Clean-up previous downloads first")
+        exec_command(
+            module,
+            cmd="rm -f {}".format("/host/downloaded-sonic-image"),
+            msg="clean up previously downloaded image",
+            ignore_error=True
+        )
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
 
@@ -392,12 +390,7 @@ def main():
     required_space = module.params['required_space']
 
     try:
-        if not new_image_url:
-            reduce_installed_sonic_images(module)
-            free_up_disk_space(module, disk_used_pcent)
-            # make sure 6100 can do cold reboot
-            work_around_for_reboot(module)
-        else:
+        if new_image_url or save_as:
             results["current_stage"] = "start"
             # make sure 6100 can do cold reboot to upgrade image
             work_around_for_reboot(module)
@@ -412,7 +405,10 @@ def main():
 
             install_new_sonic_image(module, new_image_url, save_as, required_space)
             results["current_stage"] = "complete"
-            # after image installation, workaround is lost, we have to enable cold reboot again
+        else:
+            reduce_installed_sonic_images(module)
+            free_up_disk_space(module, disk_used_pcent)
+            # make sure 6100 can do cold reboot
             work_around_for_reboot(module)
     except Exception:
         err = str(sys.exc_info())

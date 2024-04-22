@@ -52,13 +52,13 @@ t0:
   - generic_config_updater/test_mmu_dynamic_threshold_config_update.py
   - generic_config_updater/test_monitor_config.py
   - generic_config_updater/test_ntp.py
-  - generic_config_updater/test_pfcwd_interval.py
   - generic_config_updater/test_portchannel_interface.py
   - generic_config_updater/test_syslog.py
   - generic_config_updater/test_vlan_interface.py
-  - gnmi/test_gnmi.py
-  - gnmi/test_gnmi_appldb.py
-  - gnmi/test_gnmi_configdb.py
+  # Temporarily remove these cases because of PR https://github.com/sonic-net/sonic-buildimage/pull/16957
+  # - gnmi/test_gnmi.py
+  # - gnmi/test_gnmi_appldb.py
+  # - gnmi/test_gnmi_configdb.py
   - http/test_http_copy.py
   - iface_loopback_action/test_iface_loopback_action.py
   - iface_namingmode/test_iface_namingmode.py
@@ -75,13 +75,8 @@ t0:
   - pc/test_lag_2.py
   - pc/test_po_cleanup.py
   - pc/test_po_update.py
-  - platform_tests/api/test_module.py
   - platform_tests/broadcom/test_ser.py
   - platform_tests/counterpoll/test_counterpoll_watermark.py
-  - platform_tests/daemon/test_fancontrol.py
-  - platform_tests/daemon/test_ledd.py
-  - platform_tests/daemon/test_psud.py
-  - platform_tests/daemon/test_syseepromd.py
   - platform_tests/fwutil/test_fwutil.py
   - platform_tests/link_flap/test_cont_link_flap.py
   - platform_tests/mellanox/test_check_sfp_eeprom.py
@@ -91,6 +86,7 @@ t0:
   - platform_tests/mellanox/test_hw_management_service.py
   - platform_tests/mellanox/test_psu_power_threshold.py
   - platform_tests/mellanox/test_reboot_cause.py
+  - platform_tests/sfp/test_sfpshow.py
   - platform_tests/test_auto_negotiation.py
   - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py

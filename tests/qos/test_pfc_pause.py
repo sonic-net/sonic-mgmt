@@ -27,7 +27,7 @@ PTF_PORT_MAPPING_MODE = 'use_orig_interface'
 
 PFC_PKT_COUNT = 1000000000
 
-PTF_FILE_REMOTE_PATH = '~/ptftests/pfc_pause_test.py'
+PTF_FILE_REMOTE_PATH = '~/ptftests/py3/pfc_pause_test.py'
 PTF_PKT_COUNT = 20
 PTF_PKT_INTVL_SEC = 0.1
 PTF_PASS_RATIO_THRESH = 0.6
