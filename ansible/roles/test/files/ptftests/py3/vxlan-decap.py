@@ -439,12 +439,14 @@ class Vxlan(BaseTest):
     def Vxlan(self, test):
         if not self.is_active_active_dualtor:
             for i, n in enumerate(test['acc_ports']):
+                time.sleep(1)
                 for j, a in enumerate(test['acc_ports']):
                     res, out = self.checkVxlan(a, n, test, self.vlan_mac)
                     if not res:
                         return False, out + " | net_port_rel(acc)=%d acc_port_rel=%d" % (i, j)
 
         for i, n in enumerate(self.net_ports):
+            time.sleep(1)
             for j, a in enumerate(test['acc_ports']):
                 res, out = self.checkVxlan(a, n, test, self.dut_mac)
                 if not res:
