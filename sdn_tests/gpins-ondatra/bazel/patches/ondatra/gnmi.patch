@@ -1,0 +1,392 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index ca5484e..238dde9 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -13,6 +13,7 @@
+ # limitations under the License.
+ #
+ # Supporting infrastructure for implementing and testing PINS.
++load("@bazel_gazelle//:def.bzl", "gazelle")
+ 
+ package(
+     default_visibility = ["//visibility:public"],
+@@ -20,3 +21,6 @@ package(
+ )
+ 
+ exports_files(["LICENSE"])
++
++# gazelle:prefix github.com/openconfig/gnmi
++gazelle(name = "gazelle")
+diff --git a/WORKSPACE.bazel b/WORKSPACE.bazel
+deleted file mode 100644
+index 2f385f7..0000000
+--- a/WORKSPACE.bazel
++++ /dev/null
+@@ -1,45 +0,0 @@
+-# Copyright 2021 Google LLC
+-#
+-# Licensed under the Apache License, Version 2.0 (the "License");
+-# you may not use this file except in compliance with the License.
+-# You may obtain a copy of the License at
+-#
+-#     https://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing, software
+-# distributed under the License is distributed on an "AS IS" BASIS,
+-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-# See the License for the specific language governing permissions and
+-# limitations under the License.
+-
+-workspace(name = "gnmi")
+-
+-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+-
+-http_archive(
+-    name = "io_bazel_rules_go",
+-    sha256 = "d6b2513456fe2229811da7eb67a444be7785f5323c6708b38d851d2b51e54d83",
+-    urls = [
+-        "https://github.com/bazelbuild/rules_go/releases/download/v0.30.0/rules_go-v0.30.0.zip",
+-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.30.0/rules_go-v0.30.0.zip",
+-    ],
+-)
+-
+-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+-
+-go_rules_dependencies()
+-
+-go_register_toolchains(version = "1.17")
+-
+-# -- Load Dependencies ---------------------------------------------------------
+-load("gnmi_deps.bzl", "gnmi_deps")
+-
+-gnmi_deps()
+-
+-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+-
+-grpc_deps()
+-
+-load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+-
+-grpc_extra_deps()
+diff --git a/proto/gnmi/BUILD.bazel b/proto/gnmi/BUILD.bazel
+index f471488..f6bd3bd 100644
+--- a/proto/gnmi/BUILD.bazel
++++ b/proto/gnmi/BUILD.bazel
+@@ -16,6 +16,9 @@
+ #
+ 
+ load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
++load("@rules_proto//proto:defs.bzl", "proto_library")
+ 
+ package(
+     default_visibility = ["//visibility:public"],
+@@ -45,3 +48,13 @@ cc_grpc_library(
+     grpc_only = True,
+     deps = [":gnmi_cc_proto"],
+ )
++
++go_proto_library(
++    name = "gnmi_go_proto",
++    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
++    importpath = "github.com/openconfig/gnmi/proto/gnmi",
++    proto = ":gnmi_proto",
++    deps = [
++        "//proto/gnmi_ext:gnmi_ext_go_proto",
++    ],
++)
+diff --git a/proto/gnmi_ext/BUILD.bazel b/proto/gnmi_ext/BUILD.bazel
+index 2e0e9b4..5dcf6fb 100644
+--- a/proto/gnmi_ext/BUILD.bazel
++++ b/proto/gnmi_ext/BUILD.bazel
+@@ -14,6 +14,7 @@
+ #
+ # Supporting infrastructure for implementing and testing PINS.
+ #
++load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+ package(
+     default_visibility = ["//visibility:public"],
+     licenses = ["notice"],
+@@ -29,3 +30,10 @@ cc_proto_library(
+     name = "gnmi_ext_cc_proto",
+     deps = [":gnmi_ext_proto"],
+ )
++
++go_proto_library(
++    name = "gnmi_ext_go_proto",
++    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
++    importpath = "github.com/openconfig/gnmi/proto/gnmi_ext",
++    proto = ":gnmi_ext_proto",
++)
+\ No newline at end of file
+diff --git a/errlist/BUILD.bazel b/errlist/BUILD.bazel
+new file mode 100644
+index 0000000..2b112a8
+--- /dev/null
++++ b/errlist/BUILD.bazel
+@@ -0,0 +1,16 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "errlist",
++    srcs = [
++        "errlist.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/errlist",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":errlist",
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/value/BUILD.bazel b/value/BUILD.bazel
+new file mode 100644
+index 0000000..1b5e851
+--- /dev/null
++++ b/value/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "value",
++    srcs = [
++        "value.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/value",
++    visibility = ["//visibility:public"],
++    deps = [
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
++    ]
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":value",
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/cache/BUILD.bazel b/cache/BUILD.bazel
+new file mode 100644
+index 0000000..07971dd
+--- /dev/null
++++ b/cache/BUILD.bazel
+@@ -0,0 +1,33 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "cache",
++    srcs = [
++        "cache.go",
++    ],
++    deps = [
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
++        "@com_github_openconfig_gnmi//path",
++        "@com_github_openconfig_gnmi//ctree",
++        "@com_github_openconfig_gnmi//errlist",
++        "@com_github_openconfig_gnmi//value",
++        "@com_github_openconfig_gnmi//latency",
++        "@com_github_openconfig_gnmi//metadata",
++        "@org_golang_google_grpc//:go_default_library",
++        "@org_golang_google_grpc//codes:go_default_library",
++        "@org_golang_google_grpc//peer:go_default_library",
++        "@org_golang_google_grpc//status:go_default_library",
++        "@org_golang_x_net//context",
++        "@com_github_golang_glog//:glog",
++        "@org_golang_google_protobuf//encoding/prototext",
++        "@org_golang_google_protobuf//proto",
++    ],
++    importpath = "github.com/openconfig/gnmi/cache",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":cache",
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/subscribe/BUILD.bazel b/subscribe/BUILD.bazel
+new file mode 100644
+index 0000000..05b9be3
+--- /dev/null
++++ b/subscribe/BUILD.bazel
+@@ -0,0 +1,35 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "subscribe",
++    srcs = [
++        "subscribe.go",
++        "stats.go"
++    ],
++    importpath = "github.com/openconfig/gnmi/subscribe",
++    deps = [
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
++        "@com_github_openconfig_gnmi//path",
++        "@com_github_openconfig_gnmi//ctree",
++        "@com_github_openconfig_gnmi//errlist",
++        "@com_github_openconfig_gnmi//value",
++        "@com_github_openconfig_gnmi//latency",
++        "@com_github_openconfig_gnmi//cache",
++        "@com_github_openconfig_gnmi//coalesce",
++        "@com_github_openconfig_gnmi//match",
++        "@org_golang_google_grpc//:go_default_library",
++        "@org_golang_google_grpc//codes:go_default_library",
++        "@org_golang_google_grpc//peer:go_default_library",
++        "@org_golang_google_grpc//status:go_default_library",
++        "@org_golang_x_net//context",
++        "@org_golang_google_protobuf//proto",
++        "@com_github_golang_glog//:glog",
++    ],
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":subscribe",
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/ctree/BUILD.bazel b/ctree/BUILD.bazel
+new file mode 100644
+index 0000000..510cc34
+--- /dev/null
++++ b/ctree/BUILD.bazel
+@@ -0,0 +1,16 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "ctree",
++    srcs = [
++        "tree.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/ctree",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":ctree",
++    visibility = ["//visibility:public"],
++)
+diff --git a/latency/BUILD.bazel b/latency/BUILD.bazel
+new file mode 100644
+index 0000000..d110090
+--- /dev/null
++++ b/latency/BUILD.bazel
+@@ -0,0 +1,16 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "latency",
++    srcs = [
++        "latency.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/latency",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":latency",
++    visibility = ["//visibility:public"],
++)
+diff --git a/metadata/BUILD.bazel b/metadata/BUILD.bazel
+new file mode 100644
+index 0000000..aa715a9
+--- /dev/null
++++ b/metadata/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "metadata",
++    srcs = [
++        "metadata.go",
++    ],
++    deps = [
++        "@com_github_openconfig_gnmi//latency",
++    ],
++    importpath = "github.com/openconfig/gnmi/metadata",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":metadata",
++    visibility = ["//visibility:public"],
++)
+diff --git a/path/BUILD.bazel b/path/BUILD.bazel
+new file mode 100644
+index 0000000..65a7efd
+--- /dev/null
++++ b/path/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "path",
++    srcs = [
++        "path.go",
++    ],
++    deps = [
++        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
++    ],
++    importpath = "github.com/openconfig/gnmi/path",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":path",
++    visibility = ["//visibility:public"],
++)
+
+diff --git a/coalesce/BUILD.bazel b/coalesce/BUILD.bazel
+new file mode 100644
+index 0000000..887440e
+--- /dev/null
++++ b/coalesce/BUILD.bazel
+@@ -0,0 +1,16 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "coalesce",
++    srcs = [
++        "coalesce.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/coalesce",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":coalesce",
++    visibility = ["//visibility:public"],
++)
+diff --git a/match/BUILD.bazel b/match/BUILD.bazel
+new file mode 100644
+index 0000000..b09b9f3
+--- /dev/null
++++ b/match/BUILD.bazel
+@@ -0,0 +1,16 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "match",
++    srcs = [
++        "match.go",
++    ],
++    importpath = "github.com/openconfig/gnmi/match",
++    visibility = ["//visibility:public"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":match",
++    visibility = ["//visibility:public"],
++)
