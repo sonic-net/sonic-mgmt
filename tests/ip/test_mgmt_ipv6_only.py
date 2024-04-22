@@ -100,7 +100,7 @@ def test_image_download_ipv6_only(creds, duthosts, enum_dut_hostname,
 @pytest.mark.parametrize("dummy_syslog_server_ip_a, dummy_syslog_server_ip_b",
                          [("fd82:b34f:cc99::100", None),
                           ("fd82:b34f:cc99::100", "fd82:b34f:cc99::200")])
-def test_syslog_ipv6_only(rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
+def test_syslog_ipv6_only(duthosts, rand_selected_dut, dummy_syslog_server_ip_a, dummy_syslog_server_ip_b,
                           check_default_route, convert_and_restore_config_db_to_ipv6_only): # noqa F811
     # Add a temporary debug log to see if DUTs are reachable via IPv6 mgmt-ip. Will remove later
     log_eth0_interface_info(duthosts)
