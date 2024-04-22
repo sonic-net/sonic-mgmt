@@ -50,14 +50,16 @@ def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_host
     # Enable autorestart for all features
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     feature_list, _ = duthost.get_feature_status()
+    container_autorestart_states = duthost.get_container_autorestart_states()
     for feature, status in list(feature_list.items()):
-        # Enable container autorestart only if the feature is enabled.
-        if status == 'enabled':
+        # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
     yield
     for feature, status in list(feature_list.items()):
-        if status == 'enabled':
+        # Disable container autorestart back if it was initially disabled.
+        if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 
 
