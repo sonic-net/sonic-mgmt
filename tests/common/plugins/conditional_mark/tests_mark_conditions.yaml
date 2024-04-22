@@ -306,20 +306,6 @@ dhcp_relay/test_dhcpv6_relay.py:
     conditions:
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
-dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Test is not supported in dualtor-aa"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12045
-      - "'dualtor-aa' in topo_name"
-
-dhcp_relay/test_dhcpv6_relay.py::test_dhcpv6_relay_counter:
-  skip:
-    reason: "Test is not supported in dualtor-aa"
-    conditions:
-      - https://github.com/sonic-net/sonic-mgmt/issues/12045
-      - "'dualtor-aa' in topo_name"
-
 #######################################
 #####         drop_packets        #####
 #######################################
