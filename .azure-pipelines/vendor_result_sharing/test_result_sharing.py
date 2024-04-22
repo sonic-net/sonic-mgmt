@@ -386,14 +386,14 @@ def main(args):
         # update counter and log data
         counter_map[vendor] += 1
         temp_json.update({'upload_status': 'True'})
+        kustochecker.upload_data(temp_json)
         report_json.append(temp_json)
         shutil.rmtree(base_path + '/' + buildid)
         os.remove(local_artifact_path)
 
     logger.info('Actual upload to azure storage counter summary: {}'.format(counter_map))
-    logger.info('Will ingest {} records to kusto'.format(len(report_json)))
-    logger.info('Upload detail summary to kusto: {}'.format(report_json))
-    kustochecker.upload_data(report_json)
+    logger.info('Ingested {} records to kusto'.format(len(report_json)))
+    logger.info('Detailed summary: {}'.format(report_json))
 
     return
 
