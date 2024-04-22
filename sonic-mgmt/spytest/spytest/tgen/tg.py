@@ -1807,7 +1807,7 @@ class TGIxia(TGBase):
         if self.ix_port == "443":
             # ixnetwork linux VM
             params.user_name = "admin"
-            params.user_password = "Ixia123!Ixia123!"
+            params.user_password = "admin"
             if self.tg_virtual:
                 params.ixnetwork_license_servers = "10.59.135.10"
                 params.ixnetwork_license_type = "subscription_tier1"

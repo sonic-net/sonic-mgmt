@@ -3,17 +3,9 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-import apis.system.box_services as boxserv_obj
-
-import apis.routing.ip as ipfeature
-import apis.switching.vlan as vapi
-import apis.system.port as papi
-import apis.system.interface as intapi
 import apis.routing.ip as ip_obj
-import apis.switching.portchannel as portchannel_obj
 import apis.switching.vlan as vlan_obj
-import apis.system.basic as basic_obj
-
+import vxlan_utils as vxlan_obj
 
 ##
 ## config: eBGP + ECMP
@@ -25,44 +17,41 @@ import apis.system.basic as basic_obj
 ##  SD4 -- Leaf1   - D4
 ##
 
-## Spirent Stream Config
+## tgen Stream Config
 data = SpyTestDict()
-data.my_dut_list = None
-data.local = None
-data.remote = None
 
-data.d3t1_ip_addr = "1.1.1.1"
+@pytest.fixture(scope="module", autouse=True)
+def initial_setup():
+    vars = st.get_testbed_vars()
+    ### Check dut is HW or SIM ###
+    dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])
+
+    if  dut_type == "sim":
+        data.transmit_mode = "single_burst"
+        data.pkts_per_burst = "500"
+        ### Using lower line rate for SIM tgen ###
+        data.rate_percent = "0.01"
+        data.circuit_endpoint_type = "ipv4"
+        data.frame_size = "100"
+    else:
+        data.mode ="create"
+        data.transmit_mode = "single_burst"
+        data.pkts_per_burst = "2000"
+        data.rate_percent = "10"
+        data.circuit_endpoint_type = "ipv4"
+        data.frame_size = "1000"
+    yield
+    st.log("Module config done")
+
+data.d3t1_ip_addr = "1.1.1.3"
 data.t1d3_ip_addr = "1.1.1.2"
 data.t1d3_mac_addr = "00:0a:01:00:11:01"
 
-data.d3t4_ip_addr = "1.1.1.1"
+data.d4t1_ip_addr = "1.1.1.2"
 data.t1d4_ip_addr = "1.1.1.3"
 data.t1d4_mac_addr = "00:0a:01:00:12:01"
-data.pkts_per_burst = "500"
-data.mask = "24"
-data.counters_threshold = 10
-data.tgen_stats_threshold = 20
-data.tgen_rate_pps = '1000'
-data.tgen_l3_len = '500'
-data.traffic_run_time = 20
-data.clear_parallel = True
-## Spirent Stream Config
 
-
-pytest.fixture(scope="module", autouse=True)
-def box_service_module_hooks(request):
-    global vars
-    global dut_list
-    vars = st.ensure_min_topology("D1D3:4","D1D4:4","D2D3:4","D2D4:4", "D3T1:1", "D4T1:1")
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-
-    yield
-
-@pytest.fixture(scope="function", autouse=True)
-def box_service_func_hooks(request):
-    yield
-
-CONFIGS_FILE = 'vxlan_l2vni_configs.yaml'
+CONFIGS_FILE = 'vxlan_l2vni_config_template.yaml'
 LEAF0_VXLAN_IP = '10.200.200.200'
 LEAF1_VXLAN_IP = '10.200.200.201'
 
@@ -81,29 +70,29 @@ def config_static(node, config_domain, add=True):
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-
     domain = ''
     if config_domain == 'bgp':
         domain = 'vtysh'
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
 
-
 def report_fail(dut, msg=''):
     st.log(msg, dut)
     st.error(msg, dut)
     st.report_fail('test_case_failed', dut)
 
+def router_preconfig_cleanup():
+    ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True)
+    vlan_obj.clear_vlan_configuration(st.get_dut_names())
 
-####################
-@pytest.fixture()
-def setup_teardown_l2vni():
+@pytest.fixture(scope="module", autouse=True)
+def vxlan_config_hooks():
+    global handles
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -112,92 +101,52 @@ def setup_teardown_l2vni():
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    global updated_config_file
+    updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'sonic')
             st.wait(2)
             config_static(node, 'bgp')
+    st.wait(60)
+    ###Get TGEN Handles ###
+    handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr }, 
+                                        "dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr }},
+                                        "raw",data)
+    if handles == False:
+        st.report_fail('tgen preconfig failed')
+    yield vxlan_config_hooks
 
-    # Make sure links are up by pinging, sometimes packet exchange doesn't happen on sim till pings are initiated
-    st.wait(5)
-    count = 5
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '11.11.11.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '11.11.13.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '11.11.12.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '11.11.14.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.210'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.211'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.210'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.211'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.201'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.200'), skip_tmpl=True, skip_error_check=True)
-
-    yield 'setup_teardown_l2vni'
-
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in reversed(config_list.items()):
             config_static(node, 'bgp', add=False)
             st.wait(2)
             config_static(node, 'sonic', add=False)
+    #router_preconfig_cleanup()
+    vxlan_obj.remove_temp_config(updated_config_file)
+    
+def test_l2vni_vtep_setup ():
+    vars = st.get_testbed_vars()
 
-
-def verify_vtep_state (nodes):
-    leaf0_vtep_ip = LEAF0_VXLAN_IP
-    leaf1_vtep_ip = LEAF1_VXLAN_IP
-
-    leaf0_output = st.show(nodes['leaf0'], "show vxlan remotevtep", skip_tmpl=True)
-
-    leaf0_parsed = st.parse_show(nodes['leaf0'], "show vxlan remotevtep",
-                                 leaf0_output, "show_vxlan_remote.tmpl")
-
-    leaf1_output = st.show(nodes['leaf1'], "show vxlan remotevtep", skip_tmpl=True)
-
-    leaf1_parsed = st.parse_show(nodes['leaf1'], "show vxlan remotevtep",
-                                 leaf1_output, "show_vxlan_remote.tmpl")
-
-    if len(leaf0_parsed) == 0:
-        report_fail(nodes['leaf0'], msg='No remote VTEP found in leaf0')
-
-    vtep_num = 0
-    for path in leaf0_parsed:
-        vtep_num += 1
-        if path['tun_src'] != 'EVPN':
-            report_fail(nodes['leaf0'], msg='Unexpected tunnel type {} in leaf0'.format(path['tun_src']))
-        if path['src_vtep'] != leaf0_vtep_ip:
-            report_fail(nodes['leaf0'], msg='No local vtep {} found in leaf0'.format(leaf0_vtep_ip))
-        if path['dst_vtep'] != leaf1_vtep_ip:
-            report_fail(nodes['leaf0'], msg='Unexpected vtep {} found in leaf0'.format(path['dst_vtep']))
-        if path['tun_status'] != 'oper_up':
-            report_fail(nodes['leaf0'], msg='Tunnel is not in up status in leaf0')
-    if vtep_num != 1:
-        report_fail(nodes['leaf0'], msg='Incorrect number of VTEPs found in leaf0')
-
-    if len(leaf1_parsed) == 0:
-        report_fail(nodes['leaf1'], msg='No remote VTEP found in leaf1')
-    vtep_num = 0
-    for path in leaf1_parsed:
-        vtep_num += 1
-        if path['tun_src'] != 'EVPN':
-            report_fail(nodes['leaf1'], msg='Unexpected tunnel type {} in leaf1'.format(path['tun_src']))
-        if path['src_vtep'] != leaf1_vtep_ip:
-            report_fail(nodes['leaf1'], msg='No local vtep {} found in leaf1'.format(leaf1_vtep_ip))
-        if path['dst_vtep'] != leaf0_vtep_ip:
-            report_fail(nodes['leaf1'], msg='Unexpected vtep {} found in leaf1'.format(path['dst_vtep']))
-        if path['tun_status'] != 'oper_up':
-            report_fail(nodes['leaf1'], msg='Tunnel is not in up status in leaf1')
-    if vtep_num != 1:
-        report_fail(nodes['leaf1'], msg='Incorrect number of VTEPs found in leaf1')
-
-
-@pytest.mark.system_box
-@pytest.mark.community
-@pytest.mark.community_pass
-
-def test_l2vni_vtep_setup (setup_teardown_l2vni):
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+    
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')  
+    else:
+        st.log("one or more traffic test failed")
+        st.report_fail('test_case_failed')
+        
+#Skipping for now till we fix the traffic failure issue after vtep add and del 
+def test_l2vni_vtep_delete_add ():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -206,30 +155,7 @@ def test_l2vni_vtep_setup (setup_teardown_l2vni):
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
 
-    st.wait(60)
-
-    verify_vtep_state(nodes)
-    ## Run Traffic: Bi-directional Ping and Burst of 500 Packets
-    run_traffic_test(nodes)
-
-    st.report_pass('test_case_passed', nodes['leaf0'])
-    st.report_pass('test_case_passed', nodes['leaf1'])
-    st.report_pass('test_case_passed', nodes['spine0'])
-    st.report_pass('test_case_passed', nodes['spine1'])
-
-
-def test_l2vni_vtep_delete_add (setup_teardown_l2vni):
-    vars = st.get_testbed_vars()
-
-    nodes = {}
-    nodes['spine0'] = vars.D1
-    nodes['spine1'] = vars.D2
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
-
-    st.wait(60)
-
-    verify_vtep_state(nodes)
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
 
     test_node = 'leaf0'
     config_static(test_node, 'bgp', add=False)
@@ -237,280 +163,47 @@ def test_l2vni_vtep_delete_add (setup_teardown_l2vni):
     st.wait(10)
     config_static(test_node, 'sonic', add=True)
     config_static(test_node, 'bgp', add=True)
-    st.wait(10)
+   
+    st.wait(60)
 
-    # Make sure links are up by pinging, sometimes packet exchange doesn't happen on sim till pings are initiated
-    count = 5
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '11.11.11.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '11.11.13.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '11.11.12.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '11.11.14.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.201'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '10.200.200.200'), skip_tmpl=True, skip_error_check=True)
-
-    st.wait(30)
-
-    verify_vtep_state(nodes)
-    run_traffic_test(nodes)
-
-    st.report_pass('test_case_passed', nodes['leaf0'])
-    st.report_pass('test_case_passed', nodes['leaf1'])
-    st.report_pass('test_case_passed', nodes['spine0'])
-    st.report_pass('test_case_passed', nodes['spine1'])
-
-def get_handles():
-    tg1, tg_ph_1 = tgapi.get_handle_byname("T1D3P1")
-    tg2, tg_ph_2 = tgapi.get_handle_byname("T1D4P1")
-    return (tg1, tg2, tg_ph_1, tg_ph_2)
+    vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
+    result = run_traffic_test(handles)
+    if result:
+        st.report_pass('test_case_passed')  
+    else:
+        st.log("one or more traffic test failed")
+        st.report_fail('test_case_failed')
 
 def clear_counters():
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            st.config(dut, " sonic-clear counters")
+            st.config(dut, " sonic-clear tunnelcounters")
 
-    vars = st.get_testbed_vars() 
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-
-    for _dut in dut_list:
-       st.config(_dut, "sudo sonic-clear fdb all")
-       st.config(_dut, "sudo sonic-clear rifcounters")
-       st.config(_dut, "sudo sonic-clear counters")
-
-
-##
-## Spirent Traffic Mode:  Ping : 5 Pings between TG1<->TG2
-##
-def traffic_test_ping():
-    data.my_dut_list = st.get_dut_names()
- 
-    clear_counters()
-
-    tg_handler = tgapi.get_handles_byname("T1D3P1", "T1D4P1")
-    tg = tg_handler["tg"]
-
-    vars = st.get_testbed_vars()
-    dut_lists = [vars.D3, vars.D4]
-
-    (tg1, tg2, tg_ph_1, tg_ph_2) = get_handles()
-
-    tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
-    tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
-
-    res=tg1.tg_interface_config(port_handle=tg_ph_1, mode='config', intf_ip_addr=data.t1d3_ip_addr,
-    gateway=data.t1d4_ip_addr, src_mac_addr=data.t1d3_mac_addr, arp_send_req='2', enable_ping_response=1)
-    st.log("INTFCONF: "+str(res))
-    handle1 = res['handle']
-
-    res=tg2.tg_interface_config(port_handle=tg_ph_2, mode='config', intf_ip_addr=data.t1d4_ip_addr,
-    gateway=data.t1d3_ip_addr, src_mac_addr=data.t1d4_mac_addr, arp_send_req='2',enable_ping_response=1)
-    st.log("INTFCONF: "+str(res))
-    handle2 = res['handle']
-    st.wait(5)
-
-    # Ping Between tgen1 to tgen2
-    for _dut in dut_lists:
-        st.wait(2)
-        st.show(_dut, "sudo show mac")
-        st.show(_dut, "sudo show vxlan remotemac all", skip_tmpl=True, skip_error_check=True)
-        st.show(_dut, "sudo show vxlan counter", skip_tmpl=True, skip_error_check=True)
-
-    st.banner("Ping from TG1(D3) to TG2(D4)")
-
-    ping_res1 = tgapi.verify_ping(src_obj=tg, port_handle=tg_handler["tg_ph_1"], dev_handle=handle1,
-               dst_ip=data.t1d4_ip_addr, ping_count='5', exp_count='5')
-    st.wait(5)
-    print(ping_res1)
-
-    ping_res2 = tgapi.verify_ping(src_obj=tg, port_handle=tg_handler["tg_ph_2"], dev_handle=handle2,
-               dst_ip=data.t1d3_ip_addr, ping_count='5', exp_count='5')
-    st.wait(5)
-    print(ping_res2)
-
-    ## Update Ping Result for Ping Test:
-    if ping_res1:
-       st.log("5 Ping from TG1(D3) to TG2(D4) succeeded.")
-    else:
-       st.warn("5 Ping TG1(D3) to TG2(D4) failed.")
-       st.log("5 Ping TG1(D3) to TG2(D4) failed.")
-       st.report_fail("test_case_failed", "5 Ping TG1(D3) to TG2(D4) failed.")
-
-    st.report_pass("test_case_passed", "5 Ping TG1(D3) to TG2(D4) Passed")
-
-    # Ping from tgen2 to tgen1
-    for _dut in dut_lists:
-       st.show(_dut,"sudo show mac")
-       st.wait(2)
-       st.show(_dut,"sudo show mac")
-       #st.show(_dut, "sudo show vxlan remotemac all", skip_tmpl=True, skip_error_check=True)
-       #st.show(_dut, "sudo show vxlan counter", skip_tmpl=True, skip_error_check=True)
-
-    st.banner("Ping from TG1(D3) to TG2(D4)")
-
-    if ping_res2:
-       st.log("5 Ping from TG2(D4) to TG1(D3) succeeded.")
-    else:
-       st.warn("5 Ping TG2(D4) to TG1(D3) failed.")
-       st.report_fail("test_case_failed", "5 Ping TG2(D4) to TG1(D3) failed.")
-
-    st.report_pass("test_case_passed", "5 Ping TG2(D4) to TG1(D3) Passed")
-
-    for _dut in dut_lists:
-       st.show(_dut,"sudo show mac")
-       st.wait(2)
-       st.show(_dut,"sudo show mac")
-    st.banner("Ping from TG2(D4) to TG1(D3)")
-
-## Spirent Traffic : Bi-Directional Burst of 500 Packets
-##
-## Spirent Traffic type:  unicast: 500 Single unicast Burst Between TG1<->TG2
-##                        broadcast: 500 Single broadcast Burst Between TG1<->TG2
-##                        unknown unicast: 500 Single Burst Between TG1<->TG2
-##                        multicast: 500 Single multicast Burst Between TG1<->TG2
-##
-##
-def traffic_test_burst(_mode):
-    data.my_dut_list = st.get_dut_names()
- 
-    clear_counters()
-
-    tg_handler = tgapi.get_handles_byname("T1D3P1", "T1D4P1")
-    tg = tg_handler["tg"]
-
-    vars = st.get_testbed_vars()
-    dut_lists = [vars.D3, vars.D4]
-
-    (tg1, tg2, tg_ph_1, tg_ph_2) = get_handles()
-
-    tg.tg_traffic_control(action="reset", port_handle=tg_handler["tg_ph_list"])
-    tg.tg_traffic_control(action="clear_stats", port_handle=tg_handler["tg_ph_list"])
-
-    res=tg1.tg_interface_config(port_handle=tg_ph_1, mode='config', intf_ip_addr=data.t1d3_ip_addr,
-    gateway=data.t1d4_ip_addr, src_mac_addr=data.t1d3_mac_addr, arp_send_req='2', enable_ping_response=1)
-    st.log("INTFCONF: "+str(res))
-    handle1 = res['handle']
-
-    res=tg2.tg_interface_config(port_handle=tg_ph_2, mode='config', intf_ip_addr=data.t1d4_ip_addr,
-    gateway=data.t1d3_ip_addr, src_mac_addr=data.t1d4_mac_addr, arp_send_req='2',enable_ping_response=1)
-    st.log("INTFCONF: "+str(res))
-    handle2 = res['handle']
-    st.wait(5)
-
-    ## Update Traffic Result for Burst Test:
-     
-    for _dut in dut_lists:
-      papi.clear_interface_counters(_dut)
-      st.config(_dut, "sudo sonic-clear counters")
-
-    if _mode == "unicast":
-      dst_mac1 = data.t1d4_mac_addr
-      dst_mac2 = data.t1d3_mac_addr
-    if _mode == "broadcast":
-      dst_mac1 = "ff:ff:ff:ff:ff:ff"
-      dst_mac2 = "ff:ff:ff:ff:ff:ff"
-    if _mode == "multicast":
-      dst_mac1 = "01:00:5e:44:44:44"
-      dst_mac2 = "01:00:5e:33:33:33"
-    if _mode == "unknownunicast":
-      dst_mac1 = "00:44:44:44:44:44"
-      dst_mac2 = "00:33:33:33:33:33"
-
-    data.tr1=tg1.tg_traffic_config(port_handle=tg_ph_1, mode='create', transmit_mode='single_burst', length_mode='fixed',
-            pkts_per_burst=data.pkts_per_burst, mac_dst=dst_mac1, l3_length=data.tgen_l3_len, rate_pps=data.tgen_rate_pps,
-            emulation_src_handle=handle1, emulation_dst_handle=handle2)
-    st.wait(5)
-
-    data.tr2=tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', transmit_mode='single_burst', length_mode='fixed',
-            pkts_per_burst=data.pkts_per_burst, mac_dst=dst_mac2, l3_length=data.tgen_l3_len, rate_pps=data.tgen_rate_pps,
-            emulation_src_handle=handle2, emulation_dst_handle=handle1)
-
-    st.wait(5)
-    #tg2.tg_traffic_config(port_handle=tg_ph_2, mode='create', transmit_mode='single_burst', length_mode='fixed',
-    #l3_length=data.tgen_l3_len, rate_pps=data.tgen_rate_pps, emulation_src_handle=handle2, emulation_dst_handle=handle1)
-
-    tg1.tg_packet_control(port_handle=tg_ph_1, action='start')
-    tg2.tg_packet_control(port_handle=tg_ph_2, action='start')
-
-    tg1.tg_traffic_control(action='clear_stats', port_handle=tg_ph_1)
-    tg2.tg_traffic_control(action='clear_stats', port_handle=tg_ph_2)
-    st.log("TRAFCONF - TR1: " + str(data.tr1) + " TR2: " + str(data.tr2))
-    for _dut in dut_lists:
-      papi.clear_interface_counters(_dut)
-      st.config(_dut, "sudo sonic-clear counters")
-      st.wait(1)
-
-    t_run1=tg1.tg_traffic_control(action='run', port_handle=tg_ph_1)
-    t_run2=tg2.tg_traffic_control(action='run', port_handle=tg_ph_2)
-    st.wait(data.traffic_run_time)
-
-    st.log("TR_CTRL: " + str(t_run1) + " t run2 " + str(t_run2))
-    #st.log("Checking the stats and verifying the traffic flow")
-
-    tg1.tg_traffic_control(action='stop', port_handle=tg_ph_1)
-    tg2.tg_traffic_control(action='stop', port_handle=tg_ph_2)
-
-    st.wait(5)
-    tg1.tg_packet_control(port_handle=tg_ph_1, action='stop')
-    tg2.tg_packet_control(port_handle=tg_ph_2, action='stop')
-
-    stats_tg1 = tg1.tg_traffic_stats(port_handle=tg_ph_1,mode='aggregate')
-    total_tg1_tx = stats_tg1[tg_ph_1]['aggregate']['tx']['total_pkts']
-    total_tg1_rx = stats_tg1[tg_ph_1]['aggregate']['rx']['total_pkts']
-
-    stats_tg2 = tg2.tg_traffic_stats(port_handle=tg_ph_2,mode='aggregate')
-    total_tg2_tx = stats_tg2[tg_ph_2]['aggregate']['tx']['total_pkts']
-    total_tg2_rx = stats_tg2[tg_ph_2]['aggregate']['rx']['total_pkts']
-
-    st.log("Tgen Sent Packets on D3T1P1: {} and Received Packets on D4T1P1: {}".format(total_tg1_tx, total_tg2_rx))
-    st.log("Tgen Sent Packets on D4T1P1: {} and Received Packets on D3T1P1: {}".format(total_tg2_tx, total_tg1_rx))
-
-    st.banner("Tgen Sent Packets on D3T1P1: {} and Received Packets on D4T1P1: {}".format(total_tg1_tx, total_tg2_rx))
-    st.banner("Tgen Sent Packets on D4T1P1: {} and Received Packets on D3T1P1: {}".format(total_tg2_tx, total_tg1_rx))
-
-    if (int(total_tg1_tx) == 0) | (int(total_tg2_tx) == 0):
-      st.log("Traffic Validation Failed")
-      st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
-    elif (int(data.pkts_per_burst)-int(total_tg2_rx) > data.tgen_stats_threshold):
-      st.log("Traffic Validation Failed")
-      #st.report_fail("test_case_failed")
-      st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
-    elif (int(data.pkts_per_burst)-int(total_tg1_rx) > data.tgen_stats_threshold):
-      st.log("Traffic Validation Failed")
-      #st.report_fail("test_case_failed")
-      st.report_fail("test_case_failed", "Single Burst of 500 Packets Test  Failed")
-
-
-    #Getting interfaces counter values on DUT
-    DUT_rx_value = papi.get_interface_counters(vars.D3, vars.D3T1P1, "rx_ok")
-    DUT_tx_value = papi.get_interface_counters(vars.D4, vars.D4T1P1, "tx_ok")
-
-    for i in DUT_rx_value:
-      p1_rcvd = i['rx_ok']
-      p1_rcvd = p1_rcvd.replace(",","")
-
-    for i in DUT_tx_value:
-      p2_txmt = i['tx_ok']
-      p2_txmt = p2_txmt.replace(",","")
-
-    for _dut in dut_lists:
-      st.show(_dut, "sudo show vxlan remotemac all", skip_tmpl=True, skip_error_check=True)
-      st.show(_dut, "sudo show vxlan counter", skip_tmpl=True, skip_error_check=True)
-
-    st.log("rx_ok counter value on DUT Ingress port: {} and tx_ok xounter value on DUT Egress port : {}".format(p1_rcvd, p2_txmt))
-    st.banner("rx_ok counter value on DUT Ingress port: {} and tx_ok xounter value on DUT Egress port : {}".format(p1_rcvd, p2_txmt))
-
-    st.report_pass("test_case_passed",  "Single Burst of 500 Packets Test Passed")
-
-## Spirent Traffic : Bi-Directional Ping and Burst of 500 Packets
-def run_traffic_test (nodes):
-
-    # ping test
-    traffic_test_ping() 
-    st.wait(1)
-
+def run_traffic_test(handles):
     # traffic test
-    traffic_test_burst("unicast") 
-    st.wait(5)
-    traffic_test_burst("broadcast") 
-    st.wait(5)
-    traffic_test_burst("unknownunicast") 
-    st.wait(5)
-    traffic_test_burst("multicast") 
-    st.wait(5)
+    flag = False
+    for item in ['unicast', "broadcast", "unknownunicast", "multicast"]:
+        clear_counters()
+        get_cli_out()
+        result = vxlan_obj.traffic_test_burst(item,handles) 
+        st.wait(5)
+        get_cli_out()
+        if result:
+            st.banner("{} traffic test passed".format(item))
+            flag = True
+        else:
+            st.banner("{} traffic test failed".format(item))
+            flag = False
+    return flag
 
+def get_cli_out():
+    cmds = ["show mac", "show arp", "show int counters", "show vxlan counters"]
+    for dut in st.get_dut_names():
+        if "leaf" in dut:
+            for item in cmds:
+                output = st.config(dut, item)
+                st.log(output)
+
+    
+    

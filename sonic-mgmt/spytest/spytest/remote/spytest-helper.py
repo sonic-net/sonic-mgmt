@@ -96,8 +96,6 @@ def read_port_inifile():
     :return:
     """
     Platform, HwSKU = get_hw_values()
-    if HwSKU.split("-")[0] == "Cisco":
-        return ""
     int_file = "{}/{}/{}/port_config.ini".format(port_config_file, Platform, HwSKU)
     cmd = "cat {} | tail -1".format(int_file)
     output = execute_check_cmd(cmd)

@@ -5,16 +5,22 @@
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4d_single_link.yaml"
         }
     },
-    "t0-t1-5d": {
-        "mth32": {
-            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_stc.yaml",
-            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_5d.yaml"
-        }
-    },
     "t0-t1-5d-carib": {
         "mth32": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_stc_Carib.yaml",
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_5d.yaml"
+        }
+    },
+    "t0-t1-5d-ixia_cmono": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_cmono.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_cmono.yaml"
+        }
+    },
+    "t0-t1-5d-ixia_mathilda": {
+        "mth32": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_mathilda.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_mathilda.yaml"
         }
     },
     "t2-min-VG": {

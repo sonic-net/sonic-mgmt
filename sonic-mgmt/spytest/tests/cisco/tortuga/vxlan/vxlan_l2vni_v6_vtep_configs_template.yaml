@@ -1,17 +1,17 @@
 spine0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet16
-        sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface startup D1D3P1 
+        sudo config interface startup D1D4P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P1 
+        sudo config interface ipv6 enable use-link-local-only D1D4P1 
         sudo config interface ip add Loopback27 fd27::2cb:8b5a:196/128
         sudo config interface startup Loopback27
       deconfig: |
         sudo config interface shutdown Loopback27
         sudo config interface ip rem Loopback27 fd27::2cb:8b5a:196/128
-        sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface ipv6 disable use-link-local-only D1D4P1 
+        sudo config interface ipv6 disable use-link-local-only D1D3P1 
 
     bgp:
       config: |
@@ -31,8 +31,8 @@ spine0:
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY
-        neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet16 interface peer-group TRANSIT
+        neighbor D1D3P1 interface peer-group TRANSIT
+        neighbor D1D4P1 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -54,17 +54,17 @@ spine0:
 spine1:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet16
-        sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface startup D2D3P1 
+        sudo config interface startup D2D4P1 
+        sudo config interface ipv6 enable use-link-local-only D2D3P1 
+        sudo config interface ipv6 enable use-link-local-only D2D4P1 
         sudo config interface ip add Loopback27 fd27::234:377f:6b3/128
         sudo config interface startup Loopback27
       deconfig: |
         sudo config interface shutdown Loopback27
         sudo config interface ip rem Loopback27 fd27::234:377f:6b3/128
-        sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface ipv6 disable use-link-local-only D2D4P1 
+        sudo config interface ipv6 disable use-link-local-only D2D3P1 
 
     bgp:
       config: |
@@ -84,8 +84,8 @@ spine1:
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
-        neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet16 interface peer-group TRANSIT
+        neighbor D2D3P1 interface peer-group TRANSIT
+        neighbor D2D4P1 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -107,28 +107,28 @@ spine1:
 leaf0:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet16
-        sudo config interface startup Ethernet32
-        sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface startup D3D1P1 
+        sudo config interface startup D3D2P1 
+        sudo config interface startup D3T1P1 
+        sudo config interface ipv6 enable use-link-local-only D3D1P1 
+        sudo config interface ipv6 enable use-link-local-only D3D2P1 
         sudo config interface ip add Loopback27 fd27::280:10f1:25f/128
         sudo config vxlan add Vtep fd27::280:10f1:25f
         sudo config vxlan evpn_nvo add NVO Vtep
         sudo config vlan add 100
-        sudo config interface ipv6 disable use-link-local-only Ethernet32
-        sudo config vlan member add -u 100 Ethernet32
+        sudo config interface ipv6 disable use-link-local-only D3T1P1 
+        sudo config vlan member add -u 100 D3T1P1 
         sudo config vxlan map add Vtep 100 2727
       deconfig: |
         sudo config vxlan map del Vtep 100 2727
-        sudo config vlan member del 100 Ethernet32
+        sudo config vlan member del 100 D3T1P1 
         sudo config vlan del 100
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del Vtep
         sudo config interface ip rem Loopback27 fd27::280:10f1:25f/128
-        sudo config interface ipv6 disable use-link-local-only Ethernet32
-        sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface ipv6 disable use-link-local-only D3T1P1 
+        sudo config interface ipv6 disable use-link-local-only D3D2P1 
+        sudo config interface ipv6 disable use-link-local-only D3D1P1 
 
 
     bgp:
@@ -149,8 +149,8 @@ leaf0:
         neighbor fd27::22d:b87f:214b peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY
-        neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet16 interface peer-group TRANSIT
+        neighbor D3D1P1 interface peer-group TRANSIT
+        neighbor D3D2P1 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate
@@ -172,28 +172,28 @@ leaf0:
 leaf1:
     sonic:
       config: |
-        sudo config interface startup Ethernet0
-        sudo config interface startup Ethernet16
-        sudo config interface startup Ethernet32
-        sudo config interface ipv6 enable use-link-local-only Ethernet0
-        sudo config interface ipv6 enable use-link-local-only Ethernet16
+        sudo config interface startup D4D1P1 
+        sudo config interface startup D4D2P1 
+        sudo config interface startup D4T1P1 
+        sudo config interface ipv6 enable use-link-local-only D4D1P1 
+        sudo config interface ipv6 enable use-link-local-only D4D2P1 
         sudo config interface ip add Loopback27 fd27::22d:b87f:214b/128
         sudo config vxlan add Vtep fd27::22d:b87f:214b
         sudo config vxlan evpn_nvo add NVO Vtep
         sudo config vlan add 100
-        sudo config interface ipv6 disable use-link-local-only Ethernet32
-        sudo config vlan member add -u 100 Ethernet32
+        sudo config interface ipv6 disable use-link-local-only D4T1P1
+        sudo config vlan member add -u 100 D4T1P1 
         sudo config vxlan map add Vtep 100 2727
       deconfig: |
         sudo config vxlan map del Vtep 100 2727
-        sudo config vlan member del 100 Ethernet32
+        sudo config vlan member del 100 D4T1P1 
         sudo config vlan del 100
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del Vtep
         sudo config interface ip rem Loopback27 fd27::22d:b87f:214b/128
-        sudo config interface ipv6 disable use-link-local-only Ethernet32
-        sudo config interface ipv6 disable use-link-local-only Ethernet16
-        sudo config interface ipv6 disable use-link-local-only Ethernet0
+        sudo config interface ipv6 disable use-link-local-only D4T1P1 
+        sudo config interface ipv6 disable use-link-local-only D4D2P1 
+        sudo config interface ipv6 disable use-link-local-only D4D1P1 
 
     bgp:
       config: |
@@ -213,8 +213,8 @@ leaf1:
         neighbor fd27::280:10f1:25f peer-group OVERLAY
         neighbor fd27::2cb:8b5a:196 peer-group OVERLAY
         neighbor fd27::234:377f:6b3 peer-group OVERLAY
-        neighbor Ethernet0 interface peer-group TRANSIT
-        neighbor Ethernet16 interface peer-group TRANSIT
+        neighbor D4D1P1 interface peer-group TRANSIT
+        neighbor D4D2P1 interface peer-group TRANSIT
         address-family ipv4 unicast
         redistribute connected
         neighbor TRANSIT activate

@@ -3,39 +3,25 @@ import yaml
 import pytest
 from spytest import st
 import vxlan_utils as vu
-import apis.system.box_services as boxserv_obj
+import vxlan_utils as vxlan_obj
 
 ##
 ##  Topology : 2 Spine + 2 Leafs + 2 Host
 ##
-##  SD1 -- Leaf0   - D1
-##  SD2 -- Leaf1   - D2
+##  SD1 -- Spine0   - D1
+##  SD2 -- Spine1   - D2
 ##
-##  SD3 -- Spine0  - D3
-##  SD4 -- Spine1  - D4
+##  SD3 -- Leaf0  - D3
+##  SD4 -- Leaf1  - D4
 ##
 ##
-
-V6_VTEP_CONFIG_FILE = 'vxlan_l2vni_v6_vtep_configs.yaml'
+CONFIGS_FILE = 'vxlan_l2vni_v6_vtep_configs_template.yaml'
 
 REMOTE_VTEP_COUNT = '1'
 SPINE0_VTEP_IP = 'fd27::2cb:8b5a:196'
 SPINE1_VTEP_IP = 'fd27::234:377f:6b3'
 LEAF0_VTEP_IP  = 'fd27::280:10f1:25f'
 LEAF1_VTEP_IP  = 'fd27::22d:b87f:214b'
-
-pytest.fixture(scope="module", autouse=True)
-def box_service_module_hooks(request):
-    global vars
-    global dut_list
-    vars = st.ensure_min_topology("D1D3:1", "D1D4:1", "D2D3:1", "D2D4:1")
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-    yield
-
-
-@pytest.fixture(scope="function", autouse=True)
-def box_service_func_hooks(request):
-    yield
 
 
 def config_node(node, config, type='', skip_errors=False):
@@ -55,19 +41,16 @@ def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
 
     nodes = {}
-
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-
     domain = ''
     if config_domain == 'bgp':
         domain = 'vtysh'
 
-    with open(dir_path + '/' + V6_VTEP_CONFIG_FILE) as c:
+    with open(updated_config_file) as c: 
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
@@ -85,9 +68,10 @@ def setup_and_teardown():
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    global updated_config_file
+    updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
-    with open(dir_path + '/' + V6_VTEP_CONFIG_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'sonic')
@@ -98,7 +82,7 @@ def setup_and_teardown():
 
     yield 'setup_and_teardown'
 
-    with open(dir_path + '/' + V6_VTEP_CONFIG_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
@@ -247,11 +231,11 @@ def test_v6_vtep_port_flap():
     verify_vtep_state(nodes)
 
     st.banner("Flapping Spine links on LEAF0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet16")
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D2P1))
     st.wait(10)
-    st.config(nodes['leaf0'], "config interface startup Ethernet0")
-    st.config(nodes['leaf0'], "config interface startup Ethernet16")
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D2P1))
     st.wait(40)
     st.banner("Spine links restored on LEAF0")
 
@@ -270,9 +254,9 @@ def test_v6_vtep_multiple_vni():
 
     verify_vtep_state(nodes)
 
-    l2vni = {'vlan2' : {'vlan' : '2', 'members' : ['Ethernet40'], 'vni' : '2222'},
-             'vlan3' : {'vlan' : '3', 'members' : ['Ethernet48'], 'vni' : '3333'},
-             'vlan4' : {'vlan' : '4', 'members' : ['Ethernet56'], 'vni' : '4444'}}
+    l2vni = {'vlan2' : {'vlan' : '2', 'members' : [vars.D3T1P2], 'vni' : '2222'},
+             'vlan3' : {'vlan' : '3', 'members' : [vars.D3T1P3], 'vni' : '3333'},
+             'vlan4' : {'vlan' : '4', 'members' : [vars.D3T1P4], 'vni' : '4444'}}
 
     # Start Configuration
     '''

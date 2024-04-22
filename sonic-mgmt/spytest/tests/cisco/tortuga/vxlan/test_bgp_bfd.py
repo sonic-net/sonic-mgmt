@@ -5,21 +5,11 @@ import json
 import pytest
 from spytest import st
 import utilities.utils as utils_obj
-
-pytest.fixture(scope='module', autouse=True)
-def box_service_module_hooks(request):
-    global vars
-    global dut_list
-    vars = st.ensure_min_topology('D1D3:1',  'D1D4:1', 'D2D3:1',  'D2D4:1')
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
-    yield
-
-@pytest.fixture(scope='function', autouse=True)
-def box_service_func_hooks(request):
-    yield
+import vxlan_utils as vu
+import vxlan_utils as vxlan_obj
 
 # TODO: Parameterize the configs. For now, use static configs
-CONFIGS_FILE = 'bgp_bfd_configs.yaml'
+CONFIGS_FILE = 'bgp_bfd_configs_template.yaml'
 
 def config_node(node, config, type=''):
     if type:
@@ -32,22 +22,6 @@ def report_fail(dut, msg=''):
     st.error(msg, dut)
     st.report_fail('test_case_failed', dut)
 
-####################
-#                  #
-#    D1 = Leaf0    #
-#    D2 = Leaf1    #
-#    D3 = Spine0   #
-#    D4 = Spine1   #
-#                  #
-####################
-
-####################################################################
-#                                                                  #
-#   leaf0.Ethernet0  ---- spine0.Ethernet0                         #
-#   leaf1.Ethernet12 ---- spine0.Ethernet28                        #
-#                                                                  #
-####################################################################
-
 def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
 
@@ -57,13 +31,11 @@ def config_static(node, config_domain, add=True):
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-
     domain = ''
     if config_domain == 'bgp':
         domain = 'vtysh'
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
@@ -80,21 +52,18 @@ def setup_teardown_l3vni():
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    global updated_config_file
+    updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            # Disabling drake so that there are no automatic underlay configs
-            st.config(nodes[node], "systemctl stop drake", skip_error_check=False, conf=True)
-            st.config(nodes[node], "no router bgp", type='vtysh', skip_error_check=False, conf=True)
-
             config_static(node, 'sonic')
             config_static(node, 'bgp')
 
     yield 'setup_teardown_l3vni'
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp', add=False)
@@ -192,14 +161,14 @@ def test_bgp_bfd_basic():
     if 'ipv4Unicast' not in js and 'ipv6Unicast' not in js:
         report_fail(nodes['leaf0'], msg='Neither ipv4Unicase nor ipv6 unicase in bgp')
     if 'ipv4Unicast' in js:
-        if js['ipv4Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D3D1P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D3D2P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet16 is not Established')
     if 'ipv6Unicast' in js:
-        if js['ipv6Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv6Unicast']['peers'][vars.D3D1P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D3D2P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet16 is not Established')
 
     cmd_output = st.show(nodes['leaf1'], 'show bgp sum json', type='vtysh', skip_tmpl=True, skip_error_check=True)
@@ -210,14 +179,14 @@ def test_bgp_bfd_basic():
     if 'ipv4Unicast' not in js and 'ipv6Unicast' not in js:
         report_fail(nodes['leaf1'], msg='Neither ipv4Unicase nor ipv6 unicase in bgp')
     if 'ipv4Unicast' in js:
-        if js['ipv4Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D4D1P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D4D2P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet16 is not Established')
     if 'ipv6Unicast' in js:
-        if js['ipv6Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv6Unicast']['peers'][vars.D4D1P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D4D2P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet16 is not Established')
 
     #[{'count': '2', 'address': 'fe80::7acf:35ff:fe5b:ca00', 'interface': 'Ethernet16', 'vrf': 'default', 'state': 'Up'}, {'count': '2', 'address': 'fe80::7a9a:1cff:fee9:c600', 'interface': 'Ethernet0', 'vrf': 'default', 'state': 'Up'}]
@@ -275,9 +244,9 @@ def test_bgp_bfd_basic():
         report_fail(nodes['leaf0'], msg='number of bfd sessions less than 2 (2 bfd sessions for 2 spine)')
     else: 
         for bs in js:
-            if bs['interface'] == "Ethernet0" and bs["status"] != "up":
+            if bs['interface'] == vars.D3D1P1 and bs["status"] != "up":
                 report_fail(nodes['leaf0'], msg='bfd sessions (Ethernet0) is not up')
-            if bs['interface'] == "Ethernet16" and bs["status"] != "down":
+            if bs['interface'] == vars.D3D2P1 and bs["status"] != "down":
                 report_fail(nodes['leaf0'], msg='bfd sessions (Ethernet16) is not down')
 
     print("************************leaf1 bfdd output************************")
@@ -289,9 +258,9 @@ def test_bgp_bfd_basic():
         report_fail(nodes['leaf1'], msg='number of bfd sessions less than 2 (2 bfd sessions for 2 spine)')
     else: 
         for bs in js:
-            if bs['interface'] == "Ethernet0" and bs["status"] != "up":
+            if bs['interface'] == vars.D4D1P1 and bs["status"] != "up":
                 report_fail(nodes['leaf1'], msg='bfd sessions (Ethernet0) is not up')
-            if bs['interface'] == "Ethernet16" and bs["status"] != "down":
+            if bs['interface'] == vars.D4D2P1 and bs["status"] != "down":
                 report_fail(nodes['leaf1'], msg='bfd sessions (Ethernet16) is not down')
 
     print("************************leaf0 bgp sum json************************")
@@ -301,14 +270,14 @@ def test_bgp_bfd_basic():
     if 'ipv4Unicast' not in js and 'ipv6Unicast' not in js:
         report_fail(nodes['leaf0'], msg='Neither ipv4Unicase nor ipv6 unicase in bgp')
     if 'ipv4Unicast' in js:
-        if js['ipv4Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D3D1P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] == 'Established':
+        if js['ipv4Unicast']['peers'][vars.D3D2P1]['state'] == 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet16 should not be Established')
     if 'ipv6Unicast' in js:
-        if js['ipv6Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv6Unicast']['peers'][vars.D3D1P1]['state'] != 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet0 is not Established')
-        if js['ipv6Unicast']['peers']['Ethernet16']['state'] == 'Established':
+        if js['ipv6Unicast']['peers'][vars.D3D2P1]['state'] == 'Established':
             report_fail(nodes['leaf0'], msg='peer Ethernet16 should not be Established')
 
     print("************************leaf1 bgp sum json************************")
@@ -318,14 +287,14 @@ def test_bgp_bfd_basic():
     if 'ipv4Unicast' not in js and 'ipv6Unicast' not in js:
         report_fail(nodes['leaf1'], msg='Neither ipv4Unicase nor ipv6 unicase in bgp')
     if 'ipv4Unicast' in js:
-        if js['ipv4Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv4Unicast']['peers'][vars.D4D1P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet0 is not Established')
-        if js['ipv4Unicast']['peers']['Ethernet16']['state'] == 'Established':
+        if js['ipv4Unicast']['peers'][vars.D4D2P1]['state'] == 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet16 should not be Established')
     if 'ipv6Unicast' in js:
-        if js['ipv6Unicast']['peers']['Ethernet0']['state'] != 'Established':
+        if js['ipv6Unicast']['peers'][vars.D4D1P1]['state'] != 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet0 is not Established')
-        if js['ipv6Unicast']['peers']['Ethernet16']['state'] == 'Established':
+        if js['ipv6Unicast']['peers'][vars.D4D2P1]['state'] == 'Established':
             report_fail(nodes['leaf1'], msg='peer Ethernet16 should not be Established')
 
     #[{'count': '2', 'address': 'fe80::7acf:35ff:fe5b:ca00', 'interface': 'Ethernet16', 'vrf': 'default', 'state': 'Up'}, {'count': '2', 'address': 'fe80::7a9a:1cff:fee9:c600', 'interface': 'Ethernet0', 'vrf': 'default', 'state': 'Up'}]
@@ -340,9 +309,9 @@ def test_bgp_bfd_basic():
     else:
         for bs in cmd_parsed:
             print(bs)
-            if bs['interface'] == 'Ethernet0' and bs['state'] != 'Up': 
+            if bs['interface'] == vars.D3D1P1 and bs['state'] != 'Up': 
                 report_fail(nodes['leaf0'], msg='bfd session (Ethernet0) is not Up (show bfd sum)')
-            if bs['interface'] == 'Ethernet16' and bs['state'] != 'Down': 
+            if bs['interface'] == vars.D3D2P1 and bs['state'] != 'Down': 
                 report_fail(nodes['leaf0'], msg='bfd session (Ethernet16) is not Down (show bfd sum)')
 
     cmd_output = st.show(nodes['leaf1'], 'show bfd sum', skip_tmpl=True, skip_error_check=True)
@@ -355,9 +324,9 @@ def test_bgp_bfd_basic():
     else:
         for bs in cmd_parsed:
             print(bs)
-            if bs['interface'] == 'Ethernet0' and bs['state'] != 'Up': 
+            if bs['interface'] == vars.D4D1P1 and bs['state'] != 'Up': 
                 report_fail(nodes['leaf1'], msg='bfd session (Ethernet0) is not Up (show bfd sum)')
-            if bs['interface'] == 'Ethernet16' and bs['state'] != 'Down': 
+            if bs['interface'] == vars.D4D2P1 and bs['state'] != 'Down': 
                 report_fail(nodes['leaf1'], msg='bfd session (Ethernet16) is not Down (show bfd sum)')
 
     st.report_pass('test_case_passed', nodes['leaf0'])

@@ -1,27 +1,57 @@
 import os
-import time
 import yaml
 import pytest
-from spytest import st, SpyTestDict
-import vxlan_utils as vu
 
+from spytest import st, tgapi, SpyTestDict
+import apis.routing.ip as ip_obj
+import apis.switching.vlan as vlan_obj
+import vxlan_utils as vxlan_obj
+
+##
+## config: eBGP + ECMP
+##  Topology : 2x Spine + 2 Leafs
+##
+##  SD1 -- Spine0  - D1
+##  SD1 -- Spine1  - D2
+##  SD2 -- Leaf0   - D3
+##  SD4 -- Leaf1   - D4
+##
+
+## tgen Stream Config
 data = SpyTestDict()
 data.config_vrfs = []
 
-pytest.fixture(scope='module', autouse=True)
-def box_service_module_hooks(request):
-    global vars
-    global dut_list
-    vars = st.ensure_min_topology('D1D3:1',  'D1D4:1', 'D2D3:1',  'D2D4:1')
-    dut_list = [vars.D1, vars.D2, vars.D3, vars.D4]
+@pytest.fixture(scope="module", autouse=True)
+def initial_setup():
+    vars = st.get_testbed_vars()
+    ### Check dut is HW or SIM ###
+    dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])
+
+    if  dut_type == "sim":
+        data.transmit_mode = "single_burst"
+        data.pkts_per_burst = "500"
+        ### Using lower line rate for SIM tgen ###
+        data.rate_percent = "0.01"
+        data.circuit_endpoint_type = "ipv4"
+        data.frame_size = "100"
+    else:
+        data.mode ="create"
+        data.transmit_mode = "single_burst"
+        data.pkts_per_burst = "2000"
+        data.rate_percent = "10"
+        data.circuit_endpoint_type = "ipv4"
+        data.frame_size = "1000"
     yield
 
-@pytest.fixture(scope='function', autouse=True)
-def box_service_func_hooks(request):
-    yield
+data.d3t1_ip_addr = "1.1.1.3"
+data.t1d3_ip_addr = "1.1.1.2"
+data.t1d3_mac_addr = "00:0a:01:00:11:01"
 
-# TODO: Parameterize the configs. For now, use static configs
-CONFIGS_FILE = 'vxlan_l3vni_v6_vtep_configs.yaml'
+data.d4t1_ip_addr = "1.1.1.2"
+data.t1d4_ip_addr = "1.1.1.3"
+data.t1d4_mac_addr = "00:0a:01:00:12:01"
+
+CONFIGS_FILE = 'vxlan_l3vni_v6_vtep_config_template.yaml'
 
 def config_node(node, config, type=''):
     if type:
@@ -29,84 +59,72 @@ def config_node(node, config, type=''):
     else:
         st.config(node, config, skip_error_check=False, conf=True)
 
-def report_fail(dut, msg=''):
-    st.log(msg, dut)
-    st.error(msg, dut)
-    st.report_fail('test_case_failed', dut)
-
-####################
-#                  #
-#    D1 = Leaf0    #
-#    D2 = Leaf1    #
-#    D3 = Spine0   #
-#    D4 = Spine1   #
-#                  #
-####################
-
-####################################################################
-#                                                                  #
-#   leaf0.Ethernet0-11.11.11.2  ---- spine0.Ethernet0-11.11.11.1   #
-#   leaf1.Ethernet12-11.11.12.2 ---- spine0.Ethernet28-11.11.12.1  #
-#                                                                  #
-####################################################################
-
 def config_static(node, config_domain, add=True):
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
 
     domain = ''
     if config_domain == 'bgp':
         domain = 'vtysh'
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         if add:
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
 
-@pytest.fixture()
-def setup_teardown_v6_l3vni():
+def report_fail(dut, msg=''):
+    st.log(msg, dut)
+    st.error(msg, dut)
+    st.report_fail('test_case_failed', dut)
+
+def router_preconfig_cleanup():
+    ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True)
+    vlan_obj.clear_vlan_configuration(st.get_dut_names())
+
+@pytest.fixture(scope="function", autouse=True)
+def vxlan_config_hooks():
     vars = st.get_testbed_vars()
 
     nodes = {}
-    nodes['leaf0'] = vars.D3
-    nodes['leaf1'] = vars.D4
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    global updated_config_file
+    updated_config_file = vxlan_obj.modify_config_file(CONFIGS_FILE,vars)
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'sonic')
+            st.wait(2)
             config_static(node, 'bgp')
+    st.wait(60)
+    yield vxlan_config_hooks
 
-    # Make sure links are up by pinging, sometimes packet exchange doesn't happen on sim till pings are initiated
-    count = 5
-    st.show(nodes['leaf0'], 'sudo ping -c {} {} -q'.format(count, '11.11.11.1'), skip_tmpl=True, skip_error_check=True)
-    st.show(nodes['leaf1'], 'sudo ping -c {} {} -q'.format(count, '11.11.12.1'), skip_tmpl=True, skip_error_check=True)
-
-    yield 'setup_teardown_v6_l3vni'
-
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for node, config in config_list.items():
+        for node, config in reversed(config_list.items()):
             config_static(node, 'bgp', add=False)
+            st.wait(2)
             config_static(node, 'sonic', add=False)
 
     for vrf in data.config_vrfs:
-        vu.config_vrf(nodes['leaf0'], vrf, add=False)
-        vu.config_vrf(nodes['leaf1'], vrf, add=False)
-    data.config_vrfs.clear()
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf, add=False)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
+
+    data.config_vrfs = []
+
+    #router_preconfig_cleanup()
+    vxlan_obj.remove_temp_config(updated_config_file)
 
 def configure_and_validate_basic_l3vni(overlay_afamily):
     vars = st.get_testbed_vars()
@@ -135,28 +153,28 @@ def configure_and_validate_basic_l3vni(overlay_afamily):
     '''
     a. add vrf
     '''
-    vu.config_vrf(nodes['leaf0'], vrf)
-    vu.config_vrf(nodes['leaf1'], vrf)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf)
+    vxlan_obj.config_vrf(nodes['leaf1'], vrf)
 
     '''
     b. add vlan
     '''
-    vu.config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf)
-    vu.config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf)
+    vxlan_obj.config_vlan(nodes['leaf0'], leaf0_vlan, members=[vars.D3T1P1], vrf=vrf)
+    vxlan_obj.config_vlan(nodes['leaf1'], leaf1_vlan, members=[vars.D4T1P1], vrf=vrf)
 
     '''
     c. add dummy vlan
     '''
-    vu.config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf)
-    vu.config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf)
+    vxlan_obj.config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf)
+    vxlan_obj.config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf)
 
     '''
     d. add vlan to vni map
 
     e. add vrf to vni map
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
 
     '''
     f. add IP address on vlan
@@ -164,8 +182,8 @@ def configure_and_validate_basic_l3vni(overlay_afamily):
     st.config(nodes['leaf0'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf0_vlan, leaf0_vlan_ip))
     st.config(nodes['leaf1'], 'sudo config interface ip add {} {}'.format('Vlan' + leaf1_vlan, leaf1_vlan_ip))
 
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     # Start Verification
     if overlay_afamily == 'ipv6':
@@ -243,20 +261,20 @@ def deconfigure_basic_l3vni(overlay_afamily):
     d. delete vlan to vni map
 
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
 
     '''
     c. remove dummy vlan
     '''
-    vu.config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf, add=False)
-    vu.config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf, add=False)
+    vxlan_obj.config_vlan(nodes['leaf0'], dummy_vlan, vrf=vrf, add=False)
+    vxlan_obj.config_vlan(nodes['leaf1'], dummy_vlan, vrf=vrf, add=False)
 
     '''
     b. remove vlan
     '''
-    vu.config_vlan(nodes['leaf0'], leaf0_vlan, members=['Ethernet32'], vrf=vrf, add=False)
-    vu.config_vlan(nodes['leaf1'], leaf1_vlan, members=['Ethernet32'], vrf=vrf, add=False)
+    vxlan_obj.config_vlan(nodes['leaf0'], leaf0_vlan, members=[vars.D3T1P1], vrf=vrf, add=False)
+    vxlan_obj.config_vlan(nodes['leaf1'], leaf1_vlan, members=[vars.D4T1P1], vrf=vrf, add=False)
 
     '''
     a. delete vrf
@@ -265,7 +283,7 @@ def deconfigure_basic_l3vni(overlay_afamily):
 
 
 # v6 over v6 tests
-def test_l3vni_v6_v6_vtep_basic_config(setup_teardown_v6_l3vni):
+def test_l3vni_v6_v6_vtep_basic_config():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -286,7 +304,7 @@ def test_l3vni_v6_v6_vtep_basic_config(setup_teardown_v6_l3vni):
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
+def test_l3vni_v6_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -295,9 +313,9 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : ['Ethernet32'], 'vni' : '2000', 'dummy_vlan' : '200'},
-             'Vrf03' : { 'vlan' : '3', 'members' : ['Ethernet40'], 'vni' : '3000', 'dummy_vlan' : '300' },
-             'Vrf04' : { 'vlan' : '4', 'members' : ['Ethernet48'], 'vni' : '4000', 'dummy_vlan' : '400' }}
+    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : [vars.D3T1P1], 'vni' : '2000', 'dummy_vlan' : '200'},
+             'Vrf03' : { 'vlan' : '3', 'members' : [vars.D3T1P2], 'vni' : '3000', 'dummy_vlan' : '300' },
+             'Vrf04' : { 'vlan' : '4', 'members' : [vars.D3T1P3], 'vni' : '4000', 'dummy_vlan' : '400' }}
 
     svi_ips = { 'leaf0' : [ { 'vlan' : '2', 'ip' : '2002:db8:1::1/64', 'vni' : '2000' },
                             { 'vlan' : '3', 'ip' : '2003:db8:1::1/64', 'vni' : '3000' },
@@ -311,22 +329,22 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     a. add vrf
     '''
     for vrf, value in vrfs.items():
-        vu.config_vrf(nodes['leaf0'], vrf)
-        vu.config_vrf(nodes['leaf1'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf)
 
     '''
     b. add vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
-        vu.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
 
     '''
     c. add dummy vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
-        vu.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
 
     '''
     d. add vlan to vni map
@@ -334,8 +352,8 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     e. add vrf to vni map
     '''
     for vrf, value in vrfs.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
-        vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
 
     '''
     f. add IP address on vlan
@@ -344,8 +362,8 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
         for v in value:
             st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
 
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     # Start Verification
     for value in svi_ips['leaf1']:
@@ -398,22 +416,22 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
 
     '''
     for vrf, value in vrfs.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
-        vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
 
     '''
     c. del dummy vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
-        vu.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
 
     '''
     b. del vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
-        vu.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
 
     '''
     a. del vrf
@@ -427,7 +445,7 @@ def test_l3vni_v6_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
+def test_l3vni_v6_v6_vtep_remove_add_bgp():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -460,22 +478,22 @@ def test_l3vni_v6_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     '''
     a. Remove l3vni mapping
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
 
     '''
     b. Remove BGP
     '''
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             if 'spine' not in node:
                 config_static(node, 'bgp', add=False)
 
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     '''
     c. Check if the routes are withdrawn
@@ -497,22 +515,23 @@ def test_l3vni_v6_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     '''
     d. add vlan to vni map
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
 
     '''
     e. Add BGP
     '''
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
-            config_static(node, 'bgp')
+            if 'spine' not in node:
+                config_static(node, 'bgp')
 
     '''
     f. Check if the routes are back
     '''
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     # Start Verification
     leaf0_vrf_prefix = '2002:db8:1::'
@@ -559,7 +578,7 @@ def test_l3vni_v6_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     st.report_pass('test_case_passed', nodes['spine1'])
 
 
-def test_l3vni_v6_v6_vtep_port_flap(setup_teardown_v6_l3vni):
+def test_l3vni_v6_v6_vtep_port_flap():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -582,8 +601,8 @@ def test_l3vni_v6_v6_vtep_port_flap(setup_teardown_v6_l3vni):
     configure_and_validate_basic_l3vni('ipv6')
 
     st.banner("Flapping Spine links on LEAF0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet16")
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D2P1))
     st.wait(10)
 
     '''
@@ -598,9 +617,9 @@ def test_l3vni_v6_v6_vtep_port_flap(setup_teardown_v6_l3vni):
             st.log("Remote VTEP is not seen anymore", nodes['leaf0'])
 
     # Bringup the spine interfaces
-    st.config(nodes['leaf0'], "config interface startup Ethernet0")
-    st.config(nodes['leaf0'], "config interface startup Ethernet16")
-    st.wait(40)
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D2P1))
+    st.wait(60)
     st.banner("Spine links restored on LEAF0")
 
     # Start Verification if routes are back
@@ -660,7 +679,7 @@ def test_l3vni_v6_v6_vtep_port_flap(setup_teardown_v6_l3vni):
 # a temporary work around till the time parameterization is actually made to work.
 # TODO: As noted in skip reason, test cases fail due to a zebra crash, we need to get a handle on that.
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_basic_config(setup_teardown_v6_l3vni):
+def test_l3vni_v4_v6_vtep_basic_config():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -682,7 +701,7 @@ def test_l3vni_v4_v6_vtep_basic_config(setup_teardown_v6_l3vni):
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
+def test_l3vni_v4_v6_vtep_multiple_vni():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -691,9 +710,9 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     nodes['spine0'] = vars.D1
     nodes['spine1'] = vars.D2
 
-    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : ['Ethernet32'], 'vni' : '2000', 'dummy_vlan' : '200'},
-             'Vrf03' : { 'vlan' : '3', 'members' : ['Ethernet40'], 'vni' : '3000', 'dummy_vlan' : '300' },
-             'Vrf04' : { 'vlan' : '4', 'members' : ['Ethernet48'], 'vni' : '4000', 'dummy_vlan' : '400' }}
+    vrfs = { 'Vrf02' : { 'vlan' : '2', 'members' : [vars.D3T1P1], 'vni' : '2000', 'dummy_vlan' : '200'},
+             'Vrf03' : { 'vlan' : '3', 'members' : [vars.D3T1P2], 'vni' : '3000', 'dummy_vlan' : '300' },
+             'Vrf04' : { 'vlan' : '4', 'members' : [vars.D3T1P3], 'vni' : '4000', 'dummy_vlan' : '400' }}
 
     svi_ips = { 'leaf0' : [ { 'vlan' : '2', 'ip' : '100.100.102.254/24', 'vni' : '2000' },
                             { 'vlan' : '3', 'ip' : '100.100.103.254/24', 'vni' : '3000' },
@@ -707,22 +726,22 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     a. add vrf
     '''
     for vrf, value in vrfs.items():
-        vu.config_vrf(nodes['leaf0'], vrf)
-        vu.config_vrf(nodes['leaf1'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf0'], vrf)
+        vxlan_obj.config_vrf(nodes['leaf1'], vrf)
 
     '''
     b. add vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
-        vu.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf)
 
     '''
     c. add dummy vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
-        vu.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf)
 
     '''
     d. add vlan to vni map
@@ -730,8 +749,8 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
     e. add vrf to vni map
     '''
     for vrf, value in vrfs.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
-        vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'])
 
     '''
     f. add IP address on vlan
@@ -740,8 +759,8 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
         for v in value:
             st.config(nodes[leaf], 'sudo config interface ip add {} {}'.format('Vlan' + v['vlan'], v['ip']))
 
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     # Start Verification
     for value in svi_ips['leaf1']:
@@ -794,22 +813,22 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
 
     '''
     for vrf, value in vrfs.items():
-        vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
-        vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
+        vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', value['vni'], vrf=vrf, vlan=value['dummy_vlan'], add=False)
 
     '''
     c. del dummy vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
-        vu.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['dummy_vlan'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['dummy_vlan'], vrf=vrf, add=False)
 
     '''
     b. del vlan
     '''
     for vrf, value in vrfs.items():
-        vu.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
-        vu.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf0'], value['vlan'], value['members'], vrf=vrf, add=False)
+        vxlan_obj.config_vlan(nodes['leaf1'], value['vlan'], value['members'], vrf=vrf, add=False)
 
     '''
     a. del vrf
@@ -824,7 +843,7 @@ def test_l3vni_v4_v6_vtep_multiple_vni(setup_teardown_v6_l3vni):
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
+def test_l3vni_v4_v6_vtep_remove_add_bgp():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -857,22 +876,22 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     '''
     a. Remove l3vni mapping
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan, add=False)
 
     '''
     b. Remove BGP
     '''
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             if 'spine' not in node:
                 config_static(node, 'bgp', add=False)
 
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     '''
     c. Check if the routes are withdrawn
@@ -894,13 +913,13 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     '''
     d. add vlan to vni map
     '''
-    vu.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
-    vu.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf0'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
+    vxlan_obj.config_vxlan_map(nodes['leaf1'], 'VXLAN', vni, vrf=vrf, vlan=dummy_vlan)
 
     '''
     e. Add BGP
     '''
-    with open(dir_path + '/' + CONFIGS_FILE) as c:
+    with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
             config_static(node, 'bgp')
@@ -908,8 +927,8 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
     '''
     f. Check if the routes are back
     '''
-    # sleep for 30 seconds for BGP to converge
-    time.sleep(30)
+    # sleep for 60 seconds for BGP to converge
+    st.wait(60)
 
     # Start Verification
     leaf0_vrf_prefix = '100.100.100.0'
@@ -957,7 +976,7 @@ def test_l3vni_v4_v6_vtep_remove_add_bgp(setup_teardown_v6_l3vni):
 
 
 @pytest.mark.skip(reason="Sometimes the tests fail due to zebra crash, cannot enable till it is fixed")
-def test_l3vni_v4_v6_vtep_port_flap(setup_teardown_v6_l3vni):
+def test_l3vni_v4_v6_vtep_port_flap():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -980,8 +999,8 @@ def test_l3vni_v4_v6_vtep_port_flap(setup_teardown_v6_l3vni):
     configure_and_validate_basic_l3vni('ipv4')
 
     st.banner("Flapping Spine links on LEAF0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet0")
-    st.config(nodes['leaf0'], "config interface shutdown Ethernet16")
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface shutdown {}".format(vars.D3D2P1))
     st.wait(10)
 
     '''
@@ -996,9 +1015,9 @@ def test_l3vni_v4_v6_vtep_port_flap(setup_teardown_v6_l3vni):
             st.log("Remote VTEP is not seen anymore", nodes['leaf0'])
 
     # Bringup the spine interfaces
-    st.config(nodes['leaf0'], "config interface startup Ethernet0")
-    st.config(nodes['leaf0'], "config interface startup Ethernet16")
-    st.wait(40)
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D1P1))
+    st.config(nodes['leaf0'], "config interface startup {}".format(vars.D3D2P1))
+    st.wait(60)
     st.banner("Spine links restored on LEAF0")
 
     # Start Verification if routes are back

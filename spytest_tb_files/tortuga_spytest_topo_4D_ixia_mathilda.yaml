@@ -1,0 +1,77 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    spine0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.22, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    spine1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.49, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.159, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 192.168.122.141, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 9.20, ip: 192.168.122.248, ix_server: 192.168.122.168}
+
+topology:
+    spine0:
+        interfaces:
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
+            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet24, params: def_link}
+    spine1:
+        interfaces:
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet16, params: def_link}
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet24, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
+            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+    leaf0:
+        interfaces:
+            Ethernet32: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
+            Ethernet40: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
+            Ethernet48: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet56: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
+  
+    leaf1:
+        interfaces:
+            Ethernet32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
+            Ethernet40: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
+            Ethernet48: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
+            Ethernet56: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+           
+
+# ('D1D3P1', 'Ethernet0'), ('D3D1P1', 'Ethernet0'), ('D1D3P2', 'Ethernet8'), ('D3D1P2', 'Ethernet8'), 
+# ('D1D4P1', 'Ethernet16'), ('D4D1P1', 'Ethernet16'), ('D1D4P2', 'Ethernet24'), ('D4D1P2', 'Ethernet24'),
+# ('D2D3P1', 'Ethernet0'), ('D3D2P1', 'Ethernet16'), ('D2D3P2', 'Ethernet8'), ('D3D2P2', 'Ethernet24'), 
+# ('D2D4P1', 'Ethernet16'), ('D4D2P1', 'Ethernet0'), ('D2D4P2', 'Ethernet24'), ('D4D2P2', 'Ethernet8'), 
+# ('T1D3P1', '1/1'), ('D3T1P1', 'Ethernet32'), ('T1D3P2', '1/2'), ('D3T1P2', 'Ethernet40'), ('T1D3P3', '1/3'), ('D3T1P3', 'Ethernet48'), ('T1D3P4', '1/4'), ('D3T1P4', 'Ethernet56')
+# ('T1D4P1', '1/5'), ('D4T1P1', 'Ethernet32'), ('T1D4P2', '1/6'), ('D4T1P2', 'Ethernet40'), ('T1D4P3', '1/7'), ('D4T1P3', 'Ethernet48'), ('T1D4P4', '1/8'), ('D4T1P4', 'Ethernet56')
