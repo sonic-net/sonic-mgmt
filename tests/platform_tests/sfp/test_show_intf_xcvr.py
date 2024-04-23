@@ -19,7 +19,8 @@ cmd_sfp_lpmode = "show interface transceiver lpmode"
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.device_type('physical')
 ]
 
 
