@@ -42,7 +42,7 @@ stages:
     pool: ubuntu-20.04
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
-#
+
 - stage: Test
   dependsOn: Pre_test
   condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))

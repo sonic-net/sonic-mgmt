@@ -223,18 +223,16 @@ class TestPlanManager(object):
 
         common_extra_params = common_extra_params + " --completeness_level=confident --allow_recover"
 
-        t0_topos = ["t0", "t0-64-32", "dualtor"]
-        t1_topos = ["t1-lag", "t1-8-lag"]
-        dpu_topos = ["dpu"]
-
         # Add topo and device type args for PR test
         if test_plan_type == "PR":
             # Add topo arg
-            if topology in t0_topos:
+            if topology in ["t0", "t0-64-32"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
-            elif topology in t1_topos:
+            elif topology in ["t1-lag", "t1-8-lag"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
-            elif topology in dpu_topos:
+            elif topology == "dualtor":
+                common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
+            elif topology == "dpu":
                 common_extra_params = common_extra_params + " --topology=dpu,any"
 
             # Add device type arg
