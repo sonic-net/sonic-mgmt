@@ -51,6 +51,7 @@ def _parse_timestamp(timestamp):
 
     return time
 
+
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
