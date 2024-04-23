@@ -97,7 +97,7 @@ class VNET(BaseTest):
 
     def checkPeer(self, test):
         for peers in self.peering:
-            for key, peer in peers.items():
+            for key, peer in list(peers.items()):
                 if test['name'] == key:
                     ptest = dict(test)
                     ptest['name'] = peer
@@ -109,7 +109,7 @@ class VNET(BaseTest):
 
     def checklocal(self, graph, test):
         for routes in graph['vnet_local_routes']:
-            for name, rt_list in routes.items():
+            for name, rt_list in list(routes.items()):
                 if test['name'] == name.split('_')[0]:
                     if self.total_routes <= self.max_routes_wo_scaling:
                         for entry in rt_list:
@@ -124,7 +124,7 @@ class VNET(BaseTest):
         peer_vnets = []
         peer_tests = []
         for peers in self.peering:
-            for key, peer in peers.items():
+            for key, peer in list(peers.items()):
                 if test['name'] == key:
                     peer_vnets.append(peer)
 
@@ -178,14 +178,14 @@ class VNET(BaseTest):
     def calculateTotalRoutes(self, graph):
         self.total_routes = 0
         for routes in graph['vnet_routes']:
-            for name, rt_list in routes.items():
+            for name, rt_list in list(routes.items()):
                 self.total_routes += len(rt_list)
                 for peers in graph['vnet_peers']:
-                    for key, peer in peers.items():
+                    for key, peer in list(peers.items()):
                         if name.split('_')[0] == key:
                             self.total_routes += len(rt_list)
                 for l_routes in graph['vnet_local_routes']:
-                    for l_name, l_rt_list in l_routes.items():
+                    for l_name, l_rt_list in list(l_routes.items()):
                         if name == l_name:
                             self.total_routes += len(l_rt_list)
 
@@ -222,7 +222,7 @@ class VNET(BaseTest):
 
         self.pc_info = []
         self.net_ports = []
-        for name, val in graph['minigraph_portchannels'].items():
+        for name, val in list(graph['minigraph_portchannels'].items()):
             members = [graph['minigraph_port_indices'][member]
                        for member in val['members']]
             self.net_ports.extend(members)
@@ -239,7 +239,7 @@ class VNET(BaseTest):
             self.pc_info.append((ip, members))
 
         self.acc_ports = []
-        for name, data in graph['minigraph_vlans'].items():
+        for name, data in list(graph['minigraph_vlans'].items()):
             ports = [graph['minigraph_port_indices'][member]
                      for member in data['members'][1:]]
             self.acc_ports.extend(ports)
@@ -278,7 +278,7 @@ class VNET(BaseTest):
 
         self.tests = []
         for routes in graph['vnet_routes']:
-            for name, rt_list in routes.items():
+            for name, rt_list in list(routes.items()):
                 if self.total_routes <= self.max_routes_wo_scaling:
                     for entry in rt_list:
                         self.addTest(graph, name, entry)
@@ -345,9 +345,9 @@ class VNET(BaseTest):
         if not self.vxlan_enabled:
             return
 
-        print
+        print()
         for test in self.tests:
-            print(test['name'])
+            print((test['name']))
             self.FromServer(test)
             print("  FromServer passed")
             self.FromVM(test)
@@ -527,7 +527,7 @@ class VNET(BaseTest):
             self.packets.append((test['port'], str(pkt).encode("base64")))
 
         finally:
-            print
+            print()
 
     def Serv2Serv(self, test):
         try:
@@ -589,4 +589,4 @@ class VNET(BaseTest):
                 self.packets.append((test['port'], str(pkt).encode("base64")))
 
         finally:
-            print
+            print()
