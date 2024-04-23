@@ -1,6 +1,8 @@
 simulation:
   slurm_flags:
-        hours: 120
+    pending_timeout: 60
+    hours: 30
+    partition: regression
   no_image_copy: true
   pyvxr_flags:
     port_file_timeout: 1200
