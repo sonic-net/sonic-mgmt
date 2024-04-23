@@ -1,0 +1,59 @@
+diff --git a/authz/authz.proto b/authz/authz.proto
+index ecb3f3f..c6216b8 100644
+--- a/authz/authz.proto
++++ b/authz/authz.proto
+@@ -132,6 +132,9 @@ service Authz {
+   // together with its version and created-on information.
+   // If no policy has been set, Get() returns FAILED_PRECONDITION.
+   rpc Get(GetRequest) returns (GetResponse);
++
++  rpc Install(stream InstallAuthzRequest)
++      returns (stream InstallAuthzResponse);
+ }
+ 
+ // Request messages to rotate existing gRPC-level Authorization Policy on
+@@ -152,6 +155,16 @@ message RotateAuthzRequest {
+   bool force_overwrite = 3;
+ }
+ 
++// Request messages to install a new Authz Policy on
++// the target.
++message InstallAuthzRequest {
++  // Request Messages.
++  oneof install_request {
++    UploadRequest upload_request = 1;
++    FinalizeRequest finalize_installation = 2;
++  }
++}
++
+ // Response messages from the target.
+ message RotateAuthzResponse {
+   // Response messages.
+@@ -160,6 +173,14 @@ message RotateAuthzResponse {
+   }
+ }
+ 
++// Response messages from the target.
++message InstallAuthzResponse {
++  // Response messages.
++  oneof install_response {
++    UploadResponse upload_response = 1;
++  }
++}
++
+ // A Finalize message is sent to the target to confirm the rotation of
+ // the gRPC-level Authorization Policy, indicating that it should not be
+ // rolled back when the stream concludes.
+diff --git a/version/BUILD.bazel b/version/BUILD.bazel
+index e047013..5dbb1c6 100644
+--- a/version/BUILD.bazel
++++ b/version/BUILD.bazel
+@@ -11,7 +11,7 @@ proto_library(
+     srcs = [
+         "version.proto",
+     ],
+-    deps = ["@com_github_openconfig_gnoi//types:types_proto"],
++    deps = ["@com_github_openconfig_gnoi//types:gnoi_types_proto"],
+     import_prefix = "github.com/openconfig/gnsi",
+     visibility = ["//visibility:public"],
+ )
