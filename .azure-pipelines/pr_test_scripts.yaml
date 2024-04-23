@@ -158,18 +158,74 @@ t0:
   - vxlan/test_vnet_route_leak.py
 
 t0-2vlans:
+  - arp/test_arp_extended.py
+  - arp/test_neighbor_mac.py
+  - arp/test_neighbor_mac_noptf.py
+  - arp/test_tagged_arp.py
+  - bgp/test_bgp_speaker.py
+  - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
+  - fdb/test_fdb.py
+  - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_expire.py
+  - fdb/test_fdb_mac_move.py
+  - ipfwd/test_dip_sip.py
+  - pc/test_lag_2.py
+  - pc/test_po_update.py
+  - qos/test_buffer.py
+  - radv/test_radv_ipv6_ra.py
+  - route/test_route_perf.py
+  - route/test_static_route.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_fdb.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_loopback.py
+  - snmp/test_snmp_memory.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
+  - vlan/test_host_vlan.py
+  - vlan/test_vlan_ping.py
+  - voq/test_voq_ipfwd.py
 
 t0-sonic:
+  - arp/test_arp_extended.py
+  - arp/test_neighbor_mac_noptf.py
+  - arp/test_tagged_arp.py
   - bgp/test_bgp_fact.py
+  - bgp/test_bgp_speaker.py
+  - dhcp_relay/test_dhcp_pkt_recv.py
+  - dhcp_relay/test_dhcpv6_relay.py
+  - fdb/test_fdb.py
+  - fdb/test_fdb_flush.py
+  - fdb/test_fdb_mac_expire.py
+  - fdb/test_fdb_mac_move.py
+  - ipfwd/test_dip_sip.py
   - macsec/test_controlplane.py
   - macsec/test_dataplane.py
   - macsec/test_deployment.py
   - macsec/test_fault_handling.py
   - macsec/test_interop_protocol.py
+  - pc/test_po_update.py
   - pc/test_retry_count.py
   - platform_tests/test_advanced_reboot.py::test_warm_reboot
+  - qos/test_buffer.py
+  - radv/test_radv_ipv6_ra.py
+  - route/test_route_perf.py
+  - route/test_static_route.py
+  - snmp/test_snmp_cpu.py
+  - snmp/test_snmp_default_route.py
+  - snmp/test_snmp_fdb.py
+  - snmp/test_snmp_interfaces.py
+  - snmp/test_snmp_lldp.py
+  - snmp/test_snmp_loopback.py
+  - snmp/test_snmp_memory.py
+  - snmp/test_snmp_pfc_counters.py
+  - snmp/test_snmp_queue.py
+  - snmp/test_snmp_v2mib.py
 
 dualtor:
   - arp/test_arp_extended.py
