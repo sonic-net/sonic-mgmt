@@ -17,7 +17,6 @@ stages:
   - stage: ElastictestDataMonitor
     jobs:
       - job: ElastictestDataMonitor
-        pool: nightly
         timeoutInMinutes: 180
         variables:
           - group: KUSTO_SECRETS
