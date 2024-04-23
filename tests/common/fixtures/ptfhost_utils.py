@@ -353,8 +353,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if tbinfo['topo']['type'] == 't0':
         garp_config = {}
-        vlans = config_facts['VLAN']
-        vlan_intfs = config_facts['VLAN_INTERFACE']
+        vlans = config_facts.get('VLAN', {})
+        vlan_intfs = config_facts.get('VLAN_INTERFACE', {})
         dut_mac = ''
         for vlan_details in list(vlans.values()):
             if 'dualtor' in tbinfo['topo']['name']:
