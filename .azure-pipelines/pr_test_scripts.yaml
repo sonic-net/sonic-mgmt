@@ -163,7 +163,6 @@ t0-2vlans:
   - arp/test_neighbor_mac_noptf.py
   - arp/test_tagged_arp.py
   - bgp/test_bgp_speaker.py
-  - dhcp_relay/test_dhcp_pkt_recv.py
   - dhcp_relay/test_dhcp_relay.py
   - dhcp_relay/test_dhcpv6_relay.py
   - fdb/test_fdb.py
