@@ -190,7 +190,7 @@ class TestPlanManager(object):
             "scope": get_scope(self.url)
         }
         attempt = 0
-        while (attempt < MAX_GET_TOKEN_RETRY_TIMES):
+        while(attempt < MAX_GET_TOKEN_RETRY_TIMES):
             try:
                 resp = requests.post(token_url, headers=headers, data=payload, timeout=10).json()
                 self._token = resp["access_token"]
@@ -891,12 +891,12 @@ if __name__ == "__main__":
 
             test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                repo=repo,
-                reason=reason,
-                pr_id=pr_id,
-                build_id=build_id,
-                job_name=job_name
-            ).replace(' ', '_')
+                    repo=repo,
+                    reason=reason,
+                    pr_id=pr_id,
+                    build_id=build_id,
+                    job_name=job_name
+                ).replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
