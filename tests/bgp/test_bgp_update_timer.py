@@ -247,7 +247,7 @@ def match_bgp_update(packet, src_ip, dst_ip, action, route):
 def is_neighbor_sessions_established(duthost, neighbors):
     is_established = True
 
-    # handle both multi-sic and single-asic
+    # handle both multi-asic and single-asic
     bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
         "ansible_facts"
     ]
