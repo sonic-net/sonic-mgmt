@@ -672,6 +672,9 @@ def convert_and_restore_config_db_to_ipv6_only(duthosts):
                     logger.info(f"Host[{duthost.hostname}] IPv6[{ip_addr}]")
                     ipv6_address[duthost.hostname].append(ip_addr_without_mask)
                     try:
+                        # Add a temporary debug log to see if the DUT is reachable via IPv6 mgmt-ip. Will remove later
+                        duthost_interface = duthost.shell("sudo ifconfig eth0")['stdout']
+                        logging.debug(f"Checking host[{duthost.hostname}] ifconfig eth0:[{duthost_interface}]")
                         ssh_client.connect(ip_addr_without_mask,
                                            username="WRONG_USER", password="WRONG_PWD", timeout=15)
                     except AuthenticationException:
