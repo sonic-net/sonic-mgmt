@@ -280,7 +280,7 @@ class TestbedHealthChecker:
             # catch other exceptions
             logger.info("{}: {}".format(type(e).__name__, e))
             self.check_result.code = 4
-            self.check_result.errmsg = ["An error occurred."]
+            self.check_result.errmsg = [type(e).__name__]
             self.check_result.data = str(e)
 
         finally:
