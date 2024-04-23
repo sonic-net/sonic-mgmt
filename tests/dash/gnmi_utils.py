@@ -370,9 +370,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:$/root/%s" % (k, filename)
                 else:
-                    path = "/APPL_DB/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/localhost/%s:@/root/%s" % (k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -380,7 +380,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/%s" % (k)
+                path = "/APPL_DB/localhost/%s" % (k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])

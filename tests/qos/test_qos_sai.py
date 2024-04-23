@@ -67,8 +67,11 @@ def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer
     ignore_regex = [
         ".*ERR syncd[0-9]*#syncd.*brcm_sai_set_switch_attribute.*updating switch mac addr failed with error.*",
         # The following error log is related to the bug of https://github.com/sonic-net/sonic-buildimage/issues/13265
+        ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*unable to connect to socket.*",
         ".*ERR lldp#lldpmgrd.*Command failed.*lldpcli.*configure.*ports.*lldp.*unknown command from argument"
         ".*configure.*command was failed.*times, disabling retry.*"
+        # Error related to syncd socket-timeout intermittenly
+        ".*ERR syncd[0-9]*#dsserve: _ds2tty broken pipe.*"
     ]
 
     if loganalyzer:
@@ -135,8 +138,6 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-D48C8'
     ]
-
-    BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
     @pytest.fixture(scope='function')
     def change_port_speed(
@@ -309,6 +310,7 @@ class TestQosSai(QosSaiBase):
                 else:   # not list, just one port
                     qosParams[idName] = portIds[startPos]
                     startPos += 1
+        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
@@ -788,7 +790,8 @@ class TestQosSai(QosSaiBase):
         if not qosConfig['hdrm_pool_size'].get('src_port_ids', None):
             pytest.skip("No enough test ports on this DUT")
 
-        if not dutConfig['dualTor']:
+        # run 4 pgs and 4 dscps test for dualtor and T1 dualtor scenario
+        if not dutConfig['dualTor'] and not dutConfig['dualTorScenario']:
             qosConfig['hdrm_pool_size']['pgs'] = qosConfig['hdrm_pool_size']['pgs'][:2]
             qosConfig['hdrm_pool_size']['dscps'] = qosConfig['hdrm_pool_size']['dscps'][:2]
 
@@ -1167,6 +1170,7 @@ class TestQosSai(QosSaiBase):
             "buffer_max_size": ingressLossyProfile["static_th"],
             "headroom_size": ingressLossyProfile["size"],
             "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_sys_ports": dutConfig["testPorts"]["dst_sys_ports"],
             "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
             "dst_port_2_id": dutConfig["testPorts"]["dst_port_2_id"],
             "dst_port_2_ip": dutConfig["testPorts"]["dst_port_2_ip"],
@@ -1243,16 +1247,25 @@ class TestQosSai(QosSaiBase):
 
         dst_port_id = dutConfig["testPorts"]["dst_port_id"]
         dst_port_ip = dutConfig["testPorts"]["dst_port_ip"]
+        src_port_id = dutConfig["testPorts"]["src_port_id"]
+        src_port_ip = dutConfig["testPorts"]["src_port_ip"]
+
         if separated_dscp_to_tc_map_on_uplink(dut_qos_maps):
             # We need to choose only the downlink port ids, which are associated
             # with AZURE dscp_to_tc mapping. The uplink ports have a
             # different mapping.
-            for index in range(len(dutConfig['testPorts']['downlink_port_ids'])):
-                if dutConfig["testPorts"]["src_port_id"] != \
-                        dutConfig['testPorts']['downlink_port_ids'][index]:
-                    dst_port_id = index
-                    dst_port_ip = dutConfig['testPorts']['downlink_port_ips'][index]
-                    break
+            if src_port_id not in dutConfig["testPorts"]["downlink_port_ids"]:
+                for port_index, port_id in enumerate(dutConfig["testPorts"]["downlink_port_ids"]):
+                    if port_id != dst_port_id:
+                        src_port_id = port_id
+                        src_port_ip = dutConfig["testPorts"]["downlink_port_ips"][port_index]
+                        break
+            if dst_port_id not in dutConfig["testPorts"]["downlink_port_ids"]:
+                for port_index, port_id in enumerate(dutConfig["testPorts"]["downlink_port_ids"]):
+                    if port_id != src_port_id:
+                        dst_port_id = port_id
+                        dst_port_ip = dutConfig["testPorts"]["downlink_port_ips"][port_index]
+                        break
 
         try:
             testParams = dict()
@@ -1261,8 +1274,8 @@ class TestQosSai(QosSaiBase):
                 "dscp": qosConfig[LossyVoq]["dscp"],
                 "ecn": qosConfig[LossyVoq]["ecn"],
                 "pg": qosConfig[LossyVoq]["pg"],
-                "src_port_id": dutConfig["testPorts"]["src_port_id"],
-                "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+                "src_port_id": src_port_id,
+                "src_port_ip": src_port_ip,
                 "dst_port_id": dst_port_id,
                 "dst_port_ip": dst_port_ip,
                 "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],

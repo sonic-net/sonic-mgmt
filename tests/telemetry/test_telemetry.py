@@ -80,8 +80,9 @@ def test_telemetry_enabledbydefault(duthosts, enum_rand_one_per_hwsku_hostname):
                           "Telemetry feature is not enabled")
 
 
+@pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
-                         setup_streaming_telemetry, localhost, gnxi_path):
+                         setup_streaming_telemetry, gnxi_path):
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -102,7 +103,7 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                   "SAI_PORT_STAT_IF_IN_ERRORS not found in gnmi_output")
 
 
-def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """ Test osbuild/version query.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -112,13 +113,13 @@ def test_osbuild_version(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, lo
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     result = str(show_gnmi_out)
 
-    assert_equal(len(re.findall(r'"build_version": "sonic\.', result)),
+    assert_equal(len(re.findall(r'"build_version": "SONiC\.', result)),
                  1, "build_version value at {0}".format(result))
-    assert_equal(len(re.findall(r'sonic\.NA', result, flags=re.IGNORECASE)),
+    assert_equal(len(re.findall(r'SONiC\.NA', result, flags=re.IGNORECASE)),
                  0, "invalid build_version value at {0}".format(result))
 
 
-def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """
     @summary: Run pyclient from ptfdocker and test the dataset 'system uptime' to check
               whether the value of 'system uptime' was float number and whether the value was
@@ -167,7 +168,7 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhos
         pytest.fail("The value of system uptime was not updated correctly.")
 
 
-def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     """Run pyclient from ptfdocker to stream a virtual-db query multiple times.
     """
     logger.info('start virtual db sample streaming testing')
@@ -190,14 +191,13 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
                  "Timestamp markers for each update message in:\n{0}".format(result))
 
 
-def invoke_py_cli_from_ptf(ptfhost, cmd, results):
+def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker did not get a response"
-    if results is not None and len(results) > 0:
-        results[0] = ret["stdout"]
+    callback(ret["stdout"])
 
 
-def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, localhost, gnxi_path):
+def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_path):
     logger.info("Testing on change update notifications")
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -205,7 +205,6 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=2, xpath="NEIGH_STATE_TABLE",
                               target="STATE_DB")
-    results = [""]
 
     bgp_nbrs = list(duthost.get_bgp_neighbors().keys())
     bgp_neighbor = random.choice(bgp_nbrs)
@@ -213,22 +212,23 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     original_state = bgp_info["bgpState"]
     new_state = "Established" if original_state.lower() == "active" else "Active"
 
-    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, results,))
+    def callback(result):
+        logger.info("Assert that ptf client output is non empty and contains on change update")
+        try:
+            assert result != "", "Did not get output from PTF client"
+        finally:
+            duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
+                                                                                                    original_state))
+        ret = parse_gnmi_output(result, 1, bgp_neighbor)
+        assert ret is True, "Did not find key in update"
+
+    client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
     wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
     duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                             new_state))
-
-    client_thread.join(30)
-
-    try:
-        assert results[0] != "", "Did not get output from PTF client"
-    finally:
-        duthost.shell("sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
-                                                                                                original_state))
-    ret = parse_gnmi_output(results[0], 1, bgp_neighbor)
-    assert ret is True, "Did not find key in update"
+    client_thread.join(60)  # max timeout of 60s, expect update to come in <=30s
 
 
 @pytest.mark.disable_loganalyzer

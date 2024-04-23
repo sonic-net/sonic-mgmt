@@ -495,21 +495,6 @@
             line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
         become: true
 
-      - name: disable automatic minigraph update if we are deploying new minigraph into SONiC
-        lineinfile:
-            name: /etc/sonic/updategraph.conf
-            regexp: '^enabled='
-            line: 'enabled=false'
-        become: true
-        register: updategraph_conf
-
-      - name: restart automatic minigraph update service
-        become: true
-        service:
-          name: updategraph
-          state: restarted
-        when: updategraph_conf.changed
-
       - name: docker status
         shell: docker ps
         register: docker_status
@@ -524,6 +509,19 @@
         retries: 3
         delay: 10
         until: result is not failed
+
+      - name: Cleanup /etc/sonic folder before loading new minigraph
+        block:
+        - name: Ensure /etc/sonic/acl.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/acl.json
+            state: absent
+        - name: Ensure /etc/sonic/port_config.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/port_config.json
+            state: absent
 
       - name: execute cli "config load_minigraph -y" to apply new minigraph
         become: true
@@ -557,6 +555,11 @@
             ignore_errors: true
             async: 60
             poll: 10
+
+          - name: Set the RTC from the system time
+            become: true
+            command: hwclock --systohc
+            ignore_errors: true
 
           - name: Start ntp.service on DUT
             become: true
