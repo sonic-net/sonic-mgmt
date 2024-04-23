@@ -323,11 +323,11 @@ class TrafficSendVerify(object):
                 logger.info("Pkt count dropped on interface {}: {}, Expected: {}".format(intf, actual_cnt, exp_cnt))
                 if actual_cnt < exp_cnt:
                     return False
-         return True
+        return True
 
     def verifyIntfCounters(self):
-        exp_cnt = self.pre_rx_drops[intf] + TEST_PKT_CNT
-        pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters), "Drop counters failed to increment, Expected Drops: {}".format(exp_cnt))
+        pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters),
+                      "Drop counters failed to increment")
 
     def runTest(self):
         """
