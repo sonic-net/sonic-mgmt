@@ -1030,6 +1030,12 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
 
+platform_tests/test_secure_upgrade.py:
+  skip:
+    reason: "platform does not support secure upgrade"
+    conditions:
+      - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
+
 #######################################
 #####           qos               #####
 #######################################
