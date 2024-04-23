@@ -19,9 +19,12 @@ from .mellanox.mellanox_thermal_control_test_helper import suspend_hw_tc_service
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), "templates")
-FMT = "%Y %b %d %H:%M:%S.%f"
+
+FMT = "%b %d %H:%M:%S.%f"
+FMT_YEAR = "%Y %b %d %H:%M:%S.%f"
 FMT_SHORT = "%b %d %H:%M:%S"
 FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
+
 LOGS_ON_TMPFS_PLATFORMS = [
     "x86_64-arista_7050_qx32",
     "x86_64-arista_7050_qx32s",
@@ -41,9 +44,12 @@ def _parse_timestamp(timestamp):
         try:
             time = datetime.strptime(timestamp, FMT_SHORT)
         except ValueError:
-            time = datetime.strptime(timestamp, FMT_ALT)
-    return time
+            try:
+                time = datetime.strptime(timestamp, FMT_ALT)
+            except ValueError:
+                time = datetime.strptime(timestamp, FMT_YEAR)
 
+    return time
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
