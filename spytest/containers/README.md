@@ -17,7 +17,7 @@ cp ./IxNetworkAPI10.00.2312.4Linux64.bin ./sonic-mgmt/spytest/containers/keysigh
 # build container
 ```
 cd sonic-mgmt/spytest/containers/keysight-ubuntu/
-docker build --no-cache --tag spytest/keysight:latest .
+docker build --no-cache --tag spytest/keysight:latest ./sonic-mgmt/spytest/containers/keysight-ubuntu
 docker tag spytest/keysight:latest spytest/keysight:10.00.2312.4
 ```
 
