@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//tests/ondatra:ondatra_test.bzl", "ondatra_test", "ondatra_test_suite")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+# gNMI Features: Long Stress Test
+ondatra_test(
+    name = "gnmi_long_stress_test",
+    srcs = ["gnmi_long_stress_test.go"],
+    run_timeout = "500m",
+    deps = [
+        ":gnmi_stress_helper",
+        "//ondatra/binding:gpinsbind",
+        "//ondatra/pinstesthelper",
+        "@com_github_openconfig_ondatra//:go_default_library",
+    ],
+)
+
