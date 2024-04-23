@@ -484,14 +484,14 @@ def _oper_up_dut_intfs(tor_host, dut_intfs):
     are shutdown.
     """
 
-    logger.info("zhangjing: dut_intfs: {}".format(dut_intfs))
+    logger.debug("dut_intfs: {}".format(dut_intfs))
 
     intfs_status = tor_host.show_and_parse("show interface status")
-    logger.info("zhangjing: show interface status: {}".format(intfs_status))
+    logger.debug("show interface status: {}".format(intfs_status))
 
     up_dut_intfs = [intf['interface'] for intf in intfs_status
                     if intf['interface'] in dut_intfs and intf['oper'] == 'up']
-    logger.info("zhangjing: up_dut_intfs: {}".format(up_dut_intfs))
+    logger.debug("up_dut_intfs: {}".format(up_dut_intfs))
 
     return up_dut_intfs
 
