@@ -372,7 +372,7 @@ def run_sanity(topology, platform, script_file):
 
     if spt_or_ixia == "spt":
         cmd = "docker exec -it docker-sonic-mgmt /bin/bash\n"
-        execute_command_on_chan(chan, show_output=True)
+        execute_command_on_chan(chan, cmd, show_output=True)
 
         cmd = "sudo su\n"
         execute_command_on_chan(chan, cmd, show_output=True)
