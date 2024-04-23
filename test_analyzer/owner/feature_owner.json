@@ -840,15 +840,15 @@
     },
     {
         "feature": "mvrf",
-        "owner": "Prince Sunny",
-        "email": "prsunny@microsoft.com",
+        "owner": "Storm Liang",
+        "email": "stormliang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "mvrf.test_mgmtvrf"
                 ],
-                "owner": "Prince Sunny",
-                "email": "prsunny@microsoft.com"
+                "owner": "Storm Liang",
+                "email": "stormliang@microsoft.com"
             }
         ]
     },
@@ -1029,7 +1029,6 @@
                     "platform_tests.test_power_off_reboot",
                     "platform_tests.test_reboot",
                     "platform_tests.test_sensors",
-                    "platform_tests.test_service_warm_restart",
                     "platform_tests.test_var_log_tmpfs",
                     "platform_tests.test_xcvr_info_in_db"
                 ],
@@ -1053,7 +1052,8 @@
             {
                 "scripts": [
                     "platform_tests.test_advanced_reboot",
-                    "platform_tests.test_cont_warm_reboot"
+                    "platform_tests.test_cont_warm_reboot",
+                    "platform_tests.test_service_warm_restart"
                 ],
                 "owner": "Vaibhav Hemant Dixit",
                 "email": "vadixit@microsoft.com"
