@@ -278,10 +278,10 @@ class TestbedHealthChecker:
 
         except Exception as e:
             # catch other exceptions
-            logger.info("{}: {}".format(type(e).__name__, e))
+            logger.info(repr(e))
             self.check_result.code = 4
-            self.check_result.errmsg = [type(e).__name__]
-            self.check_result.data = str(e)
+            self.check_result.errmsg = [repr(e)]
+            self.check_result.data = None
 
         finally:
             # If output file is specified, write result to it.
