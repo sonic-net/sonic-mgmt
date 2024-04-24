@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 4 * * *"
+  - cron: "0 8 * * *"
     displayName: Baseline test Scheduler
     branches:
       include:
