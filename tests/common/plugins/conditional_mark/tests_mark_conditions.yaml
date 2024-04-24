@@ -569,6 +569,12 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
     conditions:
       - "asic_type in ['marvell']"
 
+everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_policer:
+  skip:
+    reason: "Test not supported on Mellanox platforms"
+    conditions:
+      - "asic_type in ['mellanox']"
+
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "Due to HW resource limitation, need to skip the test on the Mellanox t0-120 setup"
@@ -958,6 +964,12 @@ pfcwd/test_pfcwd_warm_reboot.py:
 #######################################
 #####         platform_tests      #####
 #######################################
+platform_tests/api/test_psu.py::test_temperature:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   skip:
     reason: "platform does not support sfp reset"
@@ -1018,6 +1030,36 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
 
+platform_tests/test_platform_info.py::test_show_platform_fanstatus_mocked:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/test_platform_info.py::test_show_platform_temperature_mocked:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/test_platform_info.py::test_thermal_control_fan_status:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_format_json:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
+platform_tests/test_platform_info.py::test_thermal_control_load_invalid_value_json:
+  skip:
+    reason: "Test not supported on Mellanox Platforms."
+    conditions:
+      - "asic_type in ['mellanox']"
+
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Fast reboot is broken on dualtor topology. Skipping for now."
@@ -1050,6 +1092,12 @@ qos/test_buffer.py:
     reason: "These tests don't apply to cisco 8000 platforms or T2, since they support only traditional model."
     conditions:
       - "asic_type in ['cisco-8000'] or 't2' in topo_name"
+
+qos/test_buffer.py::test_buffer_model_test:
+  skip:
+    reason: "Running only on mellanox devices and covered by unit testing"
+    conditions:
+      - "asic_type in ['mellanox']"
 
 qos/test_buffer_traditional.py:
   skip:
