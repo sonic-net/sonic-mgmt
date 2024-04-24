@@ -101,6 +101,24 @@ class BGPNeighbor(object):
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
         self.ptfhost.exabgp(name=self.name, state="absent")
 
+    def teardown_session(self):
+        msg = "neighbor {} teardown 3"
+        msg = msg.format(self.peer_ip)
+        logging.debug("teardown session: %s", msg)
+        url = "http://%s:%d" % (self.ptfip, self.port)
+        resp = requests.post(url, data={"commands": msg})
+        logging.debug("teardown session return: %s" % resp)
+        assert resp.status_code == 200
+
+        self.ptfhost.exabgp(name=self.name, state="stopped")
+        if not wait_tcp_connection(self.ptfhost, self.ptfip, self.port, timeout_s=60):
+            raise RuntimeError("Failed to stop BGP neighbor %s" % self.name)
+
+        if not self.is_passive:
+            for asichost in self.duthost.asics:
+                logging.debug("update CONFIG_DB admin_status to down")
+                asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
+
     def announce_route(self, route):
         if "aspath" in route:
             msg = "announce route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
