@@ -11,7 +11,7 @@ GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
 CONFIG_DB = "/etc/sonic/config_db.json"
 CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
