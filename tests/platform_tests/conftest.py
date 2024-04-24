@@ -38,19 +38,13 @@ LOGS_ON_TMPFS_PLATFORMS = [
 
 
 def _parse_timestamp(timestamp):
-    try:
-        time = datetime.strptime(timestamp, FMT)
-    except ValueError:
+    for format in [FMT, FMT_YEAR, FMT_SHORT, FMT_ALT]:
         try:
-            time = datetime.strptime(timestamp, FMT_SHORT)
+            time = datetime.strptime(timestamp, format)
+            return time
         except ValueError:
-            try:
-                time = datetime.strptime(timestamp, FMT_ALT)
-            except ValueError:
-                time = datetime.strptime(timestamp, FMT_YEAR)
-
-    return time
-
+            continue
+    raise ValueError("Unable to parse {} with any known format".format(timestamp))
 
 @pytest.fixture(autouse=True, scope="module")
 def skip_on_simx(duthosts, rand_one_dut_hostname):
