@@ -5,7 +5,8 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from .files.pfcwd_helper import start_wd_on_ports
+from .files.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 
 
@@ -14,6 +15,13 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="class")
+def pfc_queue_idx(pfcwd_timer_setup_restore):
+    # This is used by the common code, this needs to be defined
+    # before using start_background_traffic() fixture.
+    yield pfcwd_timer_setup_restore['storm_handle'].pfc_queue_idx
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -154,7 +162,7 @@ def set_storm_params(dut, fanout_info, fanout, peer_params):
     return storm_handle
 
 
-@pytest.mark.usefixtures('pfcwd_timer_setup_restore')
+@pytest.mark.usefixtures('pfcwd_timer_setup_restore', 'start_background_traffic')
 class TestPfcwdAllTimer(object):
     """ PFCwd timer test class """
     def run_test(self):
