@@ -283,8 +283,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     # Verify if the temporary file created in tmpfs is deleted after reboot, to determine a
     # successful reboot
-    file_check = duthost.command('find /dev/shm/test_reboot', module_ignore_errors=True)['rc']
-    if not file_check:
+    file_check = duthost.stat(path="/dev/shm/test_reboot")
+    if file_check['stat']['exists']:
+        duthost.command("sudo rm /dev/shm/test_reboot")
         raise Exception('DUT {} did not reboot'.format(hostname))
 
     DUT_ACTIVE.set()
