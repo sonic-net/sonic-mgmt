@@ -38,7 +38,7 @@ parameters:
 
   - name: TESTBED_NAME
     type: string
-    default: "vms11-t0-7050qx-acs-4"
+    default: "vms11-t0-7050qx-acs-4, testbed-bjw-can-7050qx-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
