@@ -1808,13 +1808,13 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.141/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-lc3-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.98/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.105/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-s6100-acs-7">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.171/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-lc4-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.98/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.98/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8102-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.120/23"/>
@@ -2296,10 +2296,10 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.237/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-lc2-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.97/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.109/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-lc1-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.78/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.27/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8101-fanout-03">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.192/23"/>
@@ -2831,10 +2831,10 @@
       <InterfaceVlan mode="Access" portname="Ethernet244" vlanids="2268"/>
     </DevicesL2Info>
     <DevicesL3Info Hostname="str3-8800-sup-2">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.97/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-8800-sup-1">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.95/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.97/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str3-7260cx3-acs-fan-10">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.159/23"/>

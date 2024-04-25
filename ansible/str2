@@ -1788,6 +1788,7 @@ sonic_cisco_sup:
     str2-8800-sup-3:
       ansible_host: 10.3.146.198
       ansible_hostv6: 2a01:111:e210:3000::a03:92c6
+      mgmt_subnet_mask_length: 24
       hwsku: Cisco-8800-RP
       model: '8800-RP'
       num_asics: 16
