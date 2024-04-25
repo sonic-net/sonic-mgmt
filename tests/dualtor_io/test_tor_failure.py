@@ -154,7 +154,8 @@ def test_standby_tor_reboot_downstream_active(
     Send downstream traffic to the active ToR and reboot the standby ToR.
     Confirm no switchover occurred and no disruption
     """
-    with LogAnalyzer(ansible_host=upper_tor_host,marker_prefix="test_standby_tor_reboot_downstream_active"):
+    with LogAnalyzer(ansible_host=upper_tor_host,
+                     marker_prefix="test_standby_tor_reboot_downstream_active"):
         send_t1_to_server_with_action(
             upper_tor_host, verify=True,
             action=toggle_lower_tor_pdu, stop_after=60
