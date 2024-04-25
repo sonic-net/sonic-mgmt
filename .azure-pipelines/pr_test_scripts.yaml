@@ -88,7 +88,8 @@ t0:
   - platform_tests/mellanox/test_reboot_cause.py
   - platform_tests/sfp/test_sfpshow.py
   - platform_tests/test_auto_negotiation.py
-  - platform_tests/test_cont_warm_reboot.py
+  #  Temporarily remove for blocking builimage and take too much time to complete on KVM
+  # - platform_tests/test_cont_warm_reboot.py
   - platform_tests/test_cpu_memory_usage.py
   - platform_tests/test_first_time_boot_password_change/test_first_time_boot_password_change.py
   - platform_tests/test_port_toggle.py
