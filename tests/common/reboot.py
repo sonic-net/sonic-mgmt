@@ -285,7 +285,6 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     # successful reboot
     file_check = duthost.stat(path="/dev/shm/test_reboot")
     if file_check['stat']['exists']:
-        duthost.command("sudo rm /dev/shm/test_reboot")
         raise Exception('DUT {} did not reboot'.format(hostname))
 
     DUT_ACTIVE.set()
