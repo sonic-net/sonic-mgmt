@@ -9,7 +9,8 @@ go_library(
     name = "testhelper",
     testonly = 1,
     srcs = [
-        "gnmi.go"
+        "gnmi.go",
+	"gnoi.go"
     ],
     importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper",
     deps = [
