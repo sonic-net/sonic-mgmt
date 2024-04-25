@@ -1,0 +1,51 @@
+version: 2.0
+
+services: {default: !include ip_fabric_service.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    SD1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.171, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    SD2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.172, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    LEAF0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.173, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    LEAF1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.158.174, port: 22}
+        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+
+topology:
+    SD1:
+        interfaces:
+            Ethernet0: {EndDevice: SD2, EndPort: Ethernet0, params: def_link}
+            Ethernet4: {EndDevice: LEAF0, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: LEAF1, EndPort: Ethernet0, params: def_link}
+    SD2:
+        interfaces:
+            Ethernet4: {EndDevice: LEAF0, EndPort: Ethernet4, params: def_link}
+            Ethernet8: {EndDevice: LEAF1, EndPort: Ethernet4, params: def_link}
