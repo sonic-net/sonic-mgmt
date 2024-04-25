@@ -149,16 +149,24 @@ def cleanup_dut(asichost, intf_neighs):
         asichost.config_ip_intf(intf_neigh["interface"], intf_neigh["ip"], "remove")
 
 
-def generate_intf_neigh(asichost, num_neigh, ip_version):
-    interfaces = asichost.show_interface(command="status")["ansible_facts"][
-        "int_status"
-    ]
+def generate_intf_neigh(asichost, num_neigh, ip_version, mg_facts, is_backend_topology):
     up_interfaces = []
-    for intf, values in list(interfaces.items()):
-        if values["admin_state"] == "up" and values["oper_state"] == "up":
-            up_interfaces.append(intf)
-    if not up_interfaces:
-        raise Exception("DUT does not have up interfaces")
+    if is_backend_topology:
+        # Backend topologies use vlan sub interfaces instead of regular interfaces so retrieving
+        # interfaces from the DUT will not work. Instead, we will use the vlan sub interfaces.
+        interfaces = mg_facts["minigraph_vlan_sub_interfaces"]
+        unique_backend_sub_intfs = set()
+        for intf_info in interfaces:
+            # duplicates may appear since each intf holds both ipv4 and ipv6 addresses
+            unique_backend_sub_intfs.add(intf_info["attachto"])
+        up_interfaces = list(unique_backend_sub_intfs)
+    else:
+        interfaces = asichost.show_interface(command="status")["ansible_facts"]["int_status"]
+        for intf, values in list(interfaces.items()):
+            if values["admin_state"] == "up" and values["oper_state"] == "up":
+                up_interfaces.append(intf)
+        if not up_interfaces:
+            raise Exception("DUT does not have up interfaces")
 
     # Generate interfaces and neighbors
     intf_neighs = []
@@ -166,12 +174,14 @@ def generate_intf_neigh(asichost, num_neigh, ip_version):
 
     idx_neigh = 0
     for itfs_name in up_interfaces:
-        if not itfs_name.startswith("PortChannel") and interfaces[itfs_name][
-            "vlan"
-        ].startswith("PortChannel"):
-            continue
-        if interfaces[itfs_name]["vlan"] == "trunk":
-            continue
+        if not is_backend_topology:
+            # All backend intfs get added as neighbors
+            if not itfs_name.startswith("PortChannel") and interfaces[itfs_name][
+                "vlan"
+            ].startswith("PortChannel"):
+                continue
+            if interfaces[itfs_name]["vlan"] == "trunk":
+                continue
         if ip_version == 4:
             intf_neigh = {
                 "interface": itfs_name,
@@ -325,9 +335,11 @@ def test_perf_add_remove_routes(
     check_config,
     ip_versions,
     enum_rand_one_frontend_asic_index,
+    is_backend_topology
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     max_scale = request.config.getoption("--max_scale")
     # Number of routes for test
     set_num_routes = request.config.getoption("--num_routes")
@@ -339,7 +351,7 @@ def test_perf_add_remove_routes(
     # Generate interfaces and neighbors
     NUM_NEIGHS = 50  # Update max num neighbors for multi-asic
     intf_neighs, str_intf_nexthop = generate_intf_neigh(
-        asichost, NUM_NEIGHS, ip_versions
+        asichost, NUM_NEIGHS, ip_versions, mg_facts, is_backend_topology
     )
 
     route_tag = "ipv{}_route".format(ip_versions)
@@ -413,9 +425,9 @@ def test_perf_add_remove_routes(
         )
 
         # Traffic verification with 10 random routes
-        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts["minigraph_ptf_indices"]
-        nexthop_intf = str_intf_nexthop["ifname"].split(",")
+        # split off the vlan id from the interface name separated by the . delimiter
+        nexthop_intf = [nh_intf.split(".")[0] for nh_intf in str_intf_nexthop["ifname"].split(",")]
         src_port = random.choice(nexthop_intf)
         ptf_src_port = (
             port_indices[mg_facts["minigraph_portchannels"][src_port]["members"][0]]
@@ -470,7 +482,7 @@ def send_and_verify_traffic(
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ipv6_src="2001:db8:85a3::8a2e:370:7334",
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -480,7 +492,7 @@ def send_and_verify_traffic(
     else:
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port),
             ip_src="1.1.1.1",
             ip_dst=ip_dst,
             ip_ttl=64,
