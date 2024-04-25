@@ -14,46 +14,46 @@ schedules:
         - internal
     always: true
 
-stages:
-  - stage: Inspect
-    jobs:
-      - job: Inspect
-        timeoutInMinutes: 30
-        variables:
-          - group: KUSTO_SECRETS
-          - group: GIT_SECRETS
-          - name: skipComponentGovernanceDetection
-            value: true
+variables:
+  - group: KUSTO_SECRETS
+  - group: SERVICE_CONNECTIONS
 
-        steps:
+jobs:
+  - job: Inspect
+    timeoutInMinutes: 30
+    steps:
 
-          - task: Bash@3
-            displayName: Inspect Nightly Pipelines
-            inputs:
-              targetType: 'inline'
-              script: |
-                set -x
+      - template: ../nightly/templates/get_token.yml  # Get accessToken and store in ACCESS_TOKEN variable
+        parameters:
+          SERVICE_CONNECTION: $(SC_AZDEVOPS_MSSONIC)   # From variable group SERVICE_CONNECTIONS
 
-                rm -f expected_runs.json
+      - task: Bash@3
+        displayName: Inspect Nightly Pipelines
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
 
-                pip3 install wheel pyyaml crontab
-                python3 ./.azure-pipelines/testbed/inspect_nightly_pipelines.py > expected_runs.json
-                ls -l expected_runs.json
-                cat expected_runs.json
-            env:
-              AZURE_DEVOPS_MSSONIC_TOKEN: $(MSSONIC_TOKEN)
+            rm -f expected_runs.json
 
-          - task: Bash@3
-            displayName: Upload Inspection Results
-            inputs:
-              targetType: 'inline'
-              script: |
-                set -x
+            pip3 install wheel pyyaml crontab
+            python3 ./.azure-pipelines/testbed/inspect_nightly_pipelines.py > expected_runs.json
+            ls -l expected_runs.json
+            cat expected_runs.json
+        env:
+          AZURE_DEVOPS_MSSONIC_TOKEN: $(ACCESS_TOKEN)
 
-                pip3 install -r test_reporting/requirements.txt
-                python3 test_reporting/report_uploader.py -c "expected_runs" expected_runs.json SonicTestData
-            env:
-              TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
-              TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
-              TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
-              TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)
+      - task: Bash@3
+        displayName: Upload Inspection Results
+        inputs:
+          targetType: 'inline'
+          script: |
+            set -x
+
+            pip3 install -r test_reporting/requirements.txt
+            python3 test_reporting/report_uploader.py -c "expected_runs" expected_runs.json SonicTestData
+        env:
+          TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+          TEST_REPORT_AAD_TENANT_ID: $(TEST_REPORT_AAD_TENANT_ID)
+          TEST_REPORT_AAD_CLIENT_ID: $(TEST_REPORT_AAD_CLIENT_ID)
+          TEST_REPORT_AAD_CLIENT_KEY: $(TEST_REPORT_AAD_CLIENT_KEY)

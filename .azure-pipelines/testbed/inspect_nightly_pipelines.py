@@ -2,8 +2,8 @@ from __future__ import print_function
 
 import json
 import os
-import yaml
 import requests
+import yaml
 
 from datetime import datetime
 from datetime import timedelta
@@ -14,12 +14,12 @@ BASE_URL = 'https://dev.azure.com/mssonic/internal/_apis'
 TOKEN = os.environ.get('AZURE_DEVOPS_MSSONIC_TOKEN')
 if not TOKEN:
     raise Exception('Must export environment variable AZURE_DEVOPS_MSSONIC_TOKEN')
-AUTH = ('', TOKEN)
 
 urls = {
     'build_definitions': BASE_URL + '/build/definitions',
     'git_item': BASE_URL + '/git/repositories/{}/items'
 }
+headers = {"Authorization": "Bearer " + TOKEN}
 
 
 def get_nightly_build_definitions():
@@ -28,7 +28,8 @@ def get_nightly_build_definitions():
     Returns:
         list: List of build definitions. Each item is a dict.
     """
-    build_definitions = requests.get(urls['build_definitions'], auth=AUTH).json()['value']
+    resp = requests.get(urls['build_definitions'], headers=headers)
+    build_definitions= resp.json()['value']
 
     nightly_pipelines = []
     for build in build_definitions:
@@ -53,7 +54,7 @@ def get_git_item(repo, branch, path):
         'versionDescriptor.versionType': 'branch',
         'versionDescriptor.version': branch
     }
-    return requests.get(url, params=params, auth=AUTH).text
+    return requests.get(url, params=params, headers=headers).text
 
 
 def extract_pipeline_info(pipeline):
@@ -128,7 +129,7 @@ def parse_testbeds_crons(build_definitions):
     """
     testbeds_crons = {}
     for build in build_definitions:
-        build_detail = requests.get(build['url'], auth=AUTH).json()
+        build_detail = requests.get(build['url'], headers=headers).json()
         repo_id = build_detail['repository']['id']
         branch = build_detail['repository']['defaultBranch'].lstrip('refs/heads/')
         yamlFileName = build_detail['process']['yamlFilename']
