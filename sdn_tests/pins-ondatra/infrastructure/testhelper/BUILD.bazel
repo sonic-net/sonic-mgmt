@@ -11,8 +11,12 @@ go_library(
     srcs = [
         "gnmi.go",
 	"gnoi.go",
-	"lacp.go"
+	"lacp.go",
+	"p4rt.go"
     ],
+    data = [
+		    "//infrastructure/data",
+	],
     importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper",
     deps = [
         "@com_github_golang_glog//:glog",
