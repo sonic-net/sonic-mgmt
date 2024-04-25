@@ -27,14 +27,14 @@ var (
 	icName                 = "integrated_circuit0"
 	defaultDeviceID uint64 = 183934027
 
-	pinstesthelperPortIDGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (int, error) {
+	testhelperPortIDGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (int, error) {
 		idInfo, present := gnmi.Lookup(t, d, gnmi.OC().Interface(port).Id().State()).Val()
 		if present {
 			return int(idInfo), nil
 		}
 		return 0, errors.Errorf("failed to get port ID for port %v from switch", port)
 	}
-	pinstesthelperDeviceIDGet = func(t *testing.T, d *ondatra.DUTDevice) (uint64, error) {
+	testhelperDeviceIDGet = func(t *testing.T, d *ondatra.DUTDevice) (uint64, error) {
 		deviceInfo, present := gnmi.Lookup(t, d, gnmi.OC().Component(icName).IntegratedCircuit().State()).Val()
 		if present && deviceInfo.NodeId != nil {
 			return *deviceInfo.NodeId, nil
@@ -207,7 +207,7 @@ func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient,
 		p4Client.p4Info = options.p4info
 	}
 	var err error
-	p4Client.deviceID, err = pinstesthelperDeviceIDGet(t, d)
+	p4Client.deviceID, err = testhelperDeviceIDGet(t, d)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (p *P4RTClient) SendPacketOut(t *testing.T, packetOut *PacketOut) error {
 	if packetOut.SubmitToIngress {
 		submitToIngress = []byte{1}
 	} else {
-		egressPortID, err := pinstesthelperPortIDGet(t, p.dut, packetOut.EgressPort)
+		egressPortID, err := testhelperPortIDGet(t, p.dut, packetOut.EgressPort)
 		if err != nil {
 			return errors.Errorf("failed to get ID for port %v: %v", packetOut.EgressPort, err)
 		}

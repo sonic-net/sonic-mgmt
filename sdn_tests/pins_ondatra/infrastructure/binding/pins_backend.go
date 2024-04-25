@@ -13,7 +13,7 @@ import (
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
 	opb "github.com/openconfig/ondatra/proto"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/bindingbackend"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
