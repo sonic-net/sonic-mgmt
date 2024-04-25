@@ -409,20 +409,20 @@ sonic_mlnx_40:
       ansible_hostv6: 2a01:111:e210:3000::a03:92d7
       mgmt_subnet_mask_length: 24
       model: MSN2700-CS2R2OS
-      serial: MT2338XZ03WL
-      base_mac: FC:6A:1C:49:4F:00
+      serial: MT2338XZ03WM
+      base_mac: FC:6A:1C:49:4F:80
       syseeprom_info:
         "0x21": "MSN2700-A1"
         "0x22": "MSN2700-CS2R2OS"
-        "0x23": "MT2338XZ03WL"
-        "0x24": "FC:6A:1C:49:4F:00"
-        "0x25": "09/29/2023 01:49:21"
+        "0x23": "MT2338XZ03WM"
+        "0x24": "FC:6A:1C:49:4F:80"
+        "0x25": "09/27/2023 16:29:40"
         "0x26": "19"
         "0x28": "x86_64-mlnx_msn2700a1-r0"
         "0x29": "2022.08-5.3.0010-115200"
         "0x2A": "128"
         "0x2B": "Mellanox"
-        "0xFE": "0x2D371972"
+        "0xFE": "0x02012007"
     str-msn2700-02:
       hwsku: Mellanox-SN2700-A1
       ansible_host: 10.3.146.163
