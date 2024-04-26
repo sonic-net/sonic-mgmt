@@ -732,73 +732,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
         return loganalyzer
 
-    def storm_detect_path_cisco_8000(self, dut, port, action):
-        """
-        Storm detection action and associated verifications
-
-        Args:
-            dut(AnsibleHost) : DUT instance
-            port(string) : DUT port
-            action(string) : PTF test action
-
-        Returns:
-            loganalyzer(Loganalyzer) : instance
-        """
-        restore_time = self.timers['pfc_wd_restore_time_large']
-        detect_time = self.timers['pfc_wd_detect_time']
-
-        loganalyzer = LogAnalyzer(ansible_host=self.dut,
-                                  marker_prefix="pfc_function_storm_detect_{}_port_{}".format(action, port))
-        marker = loganalyzer.init()
-        ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
-        reg_exp = loganalyzer.parse_regexp_file(src=ignore_file)
-        loganalyzer.ignore_regex.extend(reg_exp)
-        loganalyzer.expect_regex = []
-        loganalyzer.match_regex = []
-
-        if action != "dontcare":
-            start_wd_on_ports(dut, port, restore_time, detect_time, action)
-
-        if not self.pfc_wd['fake_storm']:
-            self.storm_hndle.start_storm()
-
-        if action == "dontcare":
-            start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
-
-        # placing this here to cover all action types. for 'dontcare' action,
-        # wd is started much later after the pfc storm is started
-        if self.pfc_wd['fake_storm']:
-            PfcCmd.set_storm_status(dut, self.queue_oid, "enabled")
-        time.sleep(5)
-
-        # Verify that watchdog is not yet triggered.
-        # test pfcwd functionality on a storm, without traffic.
-        if self.pfc_wd['fake_storm']:
-            loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
-        else:
-            loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
-        loganalyzer.analyze(marker)
-        marker2 = loganalyzer.init()
-        loganalyzer.expect_regex = []
-        loganalyzer.match_regex = []
-        if self.pfc_wd['fake_storm']:
-            loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
-        else:
-            loganalyzer.expect_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
-
-        # Watchdog was not triggered until this point.
-        # Finally send traffic and trigger watchdog. Until this point,
-        # there was no data traffic. Only pfc storm was being sent.
-        self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
-        # storm detect
-        logger.info("Verify if PFC storm is detected on port {}".format(port))
-        loganalyzer.analyze(marker2)
-
-        # test pfcwd functionality on a storm after triggering the watchdog.
-        self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
-        self.stats.get_pkt_cnts(self.queue_oid, begin=True)
-        return loganalyzer
-
     def storm_restore_path(self, dut, loganalyzer, port, action):
         """
         Storm restoration action and associated verifications
@@ -838,11 +771,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         """
         if detect:
             logger.info("--- Storm detection path for port {} ---".format(port))
-            if dut.facts['asic_type'] == 'cisco-8000':
-                loganalyzer = self.storm_detect_path_cisco_8000(
-                    dut, port, action)
-            else:
-                loganalyzer = self.storm_detect_path(dut, port, action)
+            loganalyzer = self.storm_detect_path(dut, port, action)
 
             self.log_handle[port] = loganalyzer
 
