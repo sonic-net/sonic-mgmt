@@ -728,7 +728,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         logger.info("Verify if PFC storm is detected on port {}".format(port))
         if dut.facts['asic_type'] == "cisco-8000":
             # The function get_pkt_cnts() works only if pfcwd is triggered.
-            # When the WD is not triggered, this redis-cli command returnes
+            # When the WD is not triggered, this redis-cli command returns
             # (nil), so this function call fails.
             self.traffic_inst.verify_tx_egress(self.tx_action)
         else:
