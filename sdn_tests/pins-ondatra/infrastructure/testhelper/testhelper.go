@@ -2,6 +2,7 @@
 package testhelper
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
@@ -130,6 +131,26 @@ var (
 		return gnmi.Get(t, d, gnmi.OC().Component(physicalPort).Port().BreakoutMode().State())
 	}
 
+	testhelperPortPmdTypeGet = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, error) {
+		if pph.PortToTransceiver == nil {
+			pph.PortToTransceiver = make(map[string]string)
+		}
+
+		xcvr := ""
+		if pph.PortToTransceiver[port] == "" {
+			xcvr = PortTransceiver(t, d, port)
+			if xcvr == "" {
+				return "", fmt.Errorf("transceiver not found for %v:%v", d.Name(), port)
+			}
+			pph.PortToTransceiver[port] = xcvr
+		}
+
+		pmd := string(EthernetPMD(t, d, xcvr))
+		if pmd == "" {
+			return "", fmt.Errorf("pmd not found for transceiver:%v", xcvr)
+		}
+		return pmd, nil
+	}
 
 	testhelperTransceiverEmpty = func(t *testing.T, d *ondatra.DUTDevice, port string) bool {
 		return gnmi.Get(t, d, gnmi.OC().Component(port).Empty().State())

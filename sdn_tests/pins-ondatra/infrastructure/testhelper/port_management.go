@@ -166,6 +166,26 @@ func FrontPanelPortToIndexMappingForDevice(t *testing.T, dut *ondatra.DUTDevice)
 	return portToIndexMap, nil
 }
 
+// SupportedSpeedsForPort returns list of supported speeds for given interface.
+func SupportedSpeedsForPort(t *testing.T, dut *ondatra.DUTDevice, interfaceName string) ([]oc.E_IfEthernet_ETHERNET_SPEED, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	lanes := len(testhelperIntfPhysicalChannelsGet(t, dut, interfaceName))
+	pmd, err := testhelperPortPmdTypeGet(t, dut, interfaceName)
+	if err != nil {
+		return nil, err
+	}
+	pmdProperty, err := info.PMDProperty(PMDType(pmd))
+	if err != nil {
+		return nil, err
+	}
+	if v := pmdProperty.SupportedSpeeds[Lanes(lanes)]; len(v) != 0 {
+		return v, nil
+	}
+	return nil, errors.Errorf("no supported speeds found for interface %v pmd %v with %v lanes", interfaceName, pmd, lanes)
+}
 
 // TransceiverEmpty returns true if the transceiver status is 0, false if the status is 1
 func TransceiverEmpty(t *testing.T, d *ondatra.DUTDevice, port string) (bool, error) {
@@ -229,7 +249,77 @@ func CurrentBreakoutModeForPort(t *testing.T, dut *ondatra.DUTDevice, port strin
 	return breakoutModeFromGroup(port, groups)
 }
 
+// SupportedBreakoutModesForPort returns list of supported breakout modes for given interface.
+func SupportedBreakoutModesForPort(t *testing.T, dut *ondatra.DUTDevice, interfaceName string, breakoutType BreakoutType) ([]string, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	_, ok := info.PortProperties[interfaceName]
+	if !ok {
+		return nil, errors.Errorf("no entry found for interface %v in front panel port list", interfaceName)
+	}
 
+	pmd, err := testhelperPortPmdTypeGet(t, dut, interfaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: the function should take port into consideration.
+	pmdProperty, err := info.PMDProperty(PMDType(pmd))
+	if err != nil {
+		return nil, err
+	}
+
+	// Return requested type of breakout modes only.
+	var supportedBreakoutModesOfBreakoutType []string
+	if breakoutType == Mixed {
+		for _, mode := range pmdProperty.SupportedBreakoutModes {
+			if strings.Contains(mode, "+") {
+				supportedBreakoutModesOfBreakoutType = append(supportedBreakoutModesOfBreakoutType, mode)
+			}
+		}
+		//pmdProperty.SupportedBreakoutModes = supportedBreakoutModesOfBreakoutType
+	}
+	if breakoutType == NonMixed {
+		for _, mode := range pmdProperty.SupportedBreakoutModes {
+			if !strings.Contains(mode, "+") {
+				supportedBreakoutModesOfBreakoutType = append(supportedBreakoutModesOfBreakoutType, mode)
+			}
+		}
+		//pmdProperty.SupportedBreakoutModes = supportedBreakoutModesOfBreakoutType
+	}
+	if breakoutType == Channelized {
+		for _, mode := range pmdProperty.SupportedBreakoutModes {
+			values := strings.Split(mode, "x")
+			if len(values) < 2 {
+				return nil, errors.Errorf("invalid breakout format (%v)", mode)
+			}
+			numBreakouts, err := strconv.Atoi(values[0])
+			if err != nil {
+				return nil, errors.Wrapf(err, "error parsing numBreakouts for breakout mode %v", mode)
+			}
+			if strings.Contains(mode, "+") || numBreakouts > 1 {
+				supportedBreakoutModesOfBreakoutType = append(supportedBreakoutModesOfBreakoutType, mode)
+			}
+		}
+		//pmdProperty.SupportedBreakoutModes = supportedBreakoutModesOfBreakoutType
+	}
+	return supportedBreakoutModesOfBreakoutType, nil
+}
+
+// PortMediaType returns the media type of the requested port.
+func PortMediaType(t *testing.T, dut *ondatra.DUTDevice, interfaceName string) (string, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	port, ok := info.PortProperties[interfaceName]
+	if !ok {
+		return "", errors.Errorf("no entry found for interface %v in front panel port list", interfaceName)
+	}
+	return port.MediaType, nil
+}
 
 func slotPortLaneForPort(port string) ([]string, error) {
 	if !IsFrontPanelPort(port) {
@@ -583,6 +673,143 @@ func breakoutModeSupportedTypes(breakoutMode string) (map[BreakoutType]bool, err
 	return supportedBreakoutTypes, nil
 }
 
+// RandomPortWithSupportedBreakoutModes attempts to get a random port from list of front panel ports
+// that supports at least one more breakout mode other than the currently configured breakout mode.
+func RandomPortWithSupportedBreakoutModes(t *testing.T, dut *ondatra.DUTDevice, params *RandomPortWithSupportedBreakoutModesParams) (*RandomPortBreakoutInfo, error) {
+	t.Helper()
+	var portList []string
+	newBreakoutType := Unset
+	currBreakoutType := Unset
+	reqSpeedChangeOnlyPortCount := 0
+	// Parse additional parameters
+	if params != nil {
+		portList = params.PortList
+		newBreakoutType = params.NewBreakoutType
+		currBreakoutType = params.CurrBreakoutType
+		reqSpeedChangeOnlyPortCount = params.SpeedChangeOnlyPortCount
+	}
+	// A port is randomly picked from given list (we start with all front panel ports if portList is not specified).
+	var err error
+	if len(portList) == 0 {
+		portList, err = FrontPanelPortListForDevice(t, dut)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch front panel port list")
+		}
+	}
+
+	// Maintain a map of interfaces to allow fast deletion of port from portList (if it does not meet the test requirements).
+	portMap := make(map[string]bool)
+	for _, port := range portList {
+		portMap[port] = true
+	}
+
+	// Keep trying to get a random port till one with at least one supported breakout mode is found.
+	var port, breakoutMode, currBreakoutMode string
+	for len(portMap) != 0 {
+		// Construct portList from port map.
+		var portList []string
+		for p := range portMap {
+			portList = append(portList, p)
+		}
+		randomInterfaceParams := RandomInterfaceParams{
+			PortList: portList,
+			IsParent: true,
+		}
+		port, err = RandomInterface(t, dut, &randomInterfaceParams)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to fetch random interface")
+		}
+
+		// Get current breakout mode for the port.
+		currBreakoutMode, err = CurrentBreakoutModeForPort(t, dut, port)
+		if err != nil || currBreakoutMode == "" {
+			return nil, errors.Wrapf(err, "failed to fetch current breakout mode for port %v", port)
+		}
+
+		// Supported breakout modes are not required for cases where only the current breakout mode for
+		// a port is of importance.
+		// Eg: Port sfec tests require a channelized port but do not perform any breakout operations,
+		// so the port is not required to support other breakout modes.
+		if newBreakoutType == Unset {
+			return &RandomPortBreakoutInfo{
+					PortName:              port,
+					CurrBreakoutMode:      currBreakoutMode,
+					SupportedBreakoutMode: "",
+				},
+				nil
+		}
+
+		// Check if current breakout mode is of the requested type.
+		if currBreakoutType != Any {
+			currBreakoutTypes, err := breakoutModeSupportedTypes(currBreakoutMode)
+			if err != nil {
+				return nil, errors.Errorf("failed to get types supported by current breakout mode %v", currBreakoutMode)
+			}
+
+			// Do not consider port if requested breakout mode type is not supported by the current breakout mode.
+			if _, ok := currBreakoutTypes[currBreakoutType]; !ok {
+				delete(portMap, port)
+				continue
+			}
+		}
+
+		// Get supported breakout modes for the port.
+		supportedBreakoutModes, err := SupportedBreakoutModesForPort(t, dut, port, newBreakoutType)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to fetch supported breakout modes for port %v", port)
+		}
+		if len(supportedBreakoutModes) == 0 {
+			if newBreakoutType == Mixed {
+				log.Infof("No supported mixed breakout modes found for port %v!", port)
+				delete(portMap, port)
+				continue
+			} else {
+				// Each port must support at least one breakout mode.
+				return nil, errors.Errorf("no supported breakout modes found for port %v", port)
+			}
+		}
+
+		// Get a supported breakout mode different from current breakout mode.
+		// Ignore breakout modes that will only result in a speed change.
+		for _, mode := range supportedBreakoutModes {
+			speedChangeOnly, speedChangeOnlyPortCount, err := SpeedChangeOnlyPorts(t, dut, port, currBreakoutMode, mode)
+			if err != nil {
+				return nil, errors.Errorf("failed to determine if mode %v is a port speed change only from mode %v for port %v: %v", mode, currBreakoutMode, port, err)
+			}
+			if mode != currBreakoutMode {
+				if newBreakoutType != SpeedChangeOnly {
+					if !speedChangeOnly {
+						breakoutMode = mode
+						break
+					}
+				} else {
+					if speedChangeOnly && speedChangeOnlyPortCount >= reqSpeedChangeOnlyPortCount {
+						breakoutMode = mode
+						break
+					}
+				}
+			}
+		}
+		if breakoutMode != "" {
+			// Found a supported breakout mode other than current breakout mode.
+			break
+		}
+
+		log.Infof("No other supported breakout mode found for port %v", port)
+		delete(portMap, port)
+	}
+	if breakoutMode == "" {
+		return nil, errors.Errorf("no ports with supported breakout modes found")
+	}
+
+	log.Infof("Using interface %v with current breakout mode %v, new breakout mode: %v", port, currBreakoutMode, breakoutMode)
+	return &RandomPortBreakoutInfo{
+			PortName:              port,
+			CurrBreakoutMode:      currBreakoutMode,
+			SupportedBreakoutMode: breakoutMode,
+		},
+		nil
+}
 
 // PhysicalPort returns the physical port corresponding to the given interface.
 func PhysicalPort(t *testing.T, dut *ondatra.DUTDevice, interfaceName string) (string, error) {
@@ -677,4 +904,9 @@ func ParentPortNumber(port string) (string, error) {
 		return "", err
 	}
 	return slotPortLane[portIndex], nil
+}
+
+// PortPMDFromModel returns the port pmdtype from the model.
+func PortPMDFromModel(t *testing.T, dut *ondatra.DUTDevice, port string) (string, error) {
+	return testhelperPortPmdTypeGet(t, dut, port)
 }
