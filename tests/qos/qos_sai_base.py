@@ -720,6 +720,9 @@ class QosSaiBase(QosBase):
                 dstPorts = dst_port_ids
             elif len(dst_test_port_ids) >= 4:
                 dstPorts = [0, 2, 3]
+                if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["asic_type"]
+                        in ['cisco-8000']):
+                    dstPorts = [2, 3, 4]
             elif len(dst_test_port_ids) == 3:
                 dstPorts = [0, 2, 2]
             else:
