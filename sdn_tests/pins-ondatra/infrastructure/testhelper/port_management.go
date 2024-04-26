@@ -3,9 +3,14 @@ package testhelper
 // This file provides helper APIs to perform ports related operations.
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
+	"testing"
+	"time"
 
+	log "github.com/golang/glog"
+	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/pkg/errors"
 )
@@ -117,6 +122,20 @@ func Uint16ListToString(a []uint16) string {
 	return strings.Join(s, ",")
 }
 
+// CollateralFlapAllowed indicates if collateral link flap is allowed on the platform, pmd type.
+func CollateralFlapAllowed(t *testing.T, dut *ondatra.DUTDevice, pmdType string) (bool, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	if pmdProperty, err := info.PMDProperty(PMDType(pmdType)); err == nil {
+		return pmdProperty.CollateralFlap, nil
+	}
+
+	// Assume collateral flap is not allowed if entry doesn't exist!
+	log.Infof("Update collateralFlap map to include PMD type: %v!", pmdType)
+	return false, nil
+}
 
 // EthernetSpeedToBpsString returns speed in string format in bits/second.
 func EthernetSpeedToBpsString(speed oc.E_IfEthernet_ETHERNET_SPEED) (string, error) {
@@ -134,12 +153,37 @@ func EthernetSpeedToUint64(speed oc.E_IfEthernet_ETHERNET_SPEED) (uint64, error)
 	return enumToSpeedInfoMap[speed].speedInt, nil
 }
 
+// FrontPanelPortToIndexMappingForDevice returns list of front panel port to index mapping.
+func FrontPanelPortToIndexMappingForDevice(t *testing.T, dut *ondatra.DUTDevice) (map[string]int, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	portToIndexMap := make(map[string]int)
+	for port, value := range info.PortProperties {
+		portToIndexMap[port] = value.Index
+	}
+	return portToIndexMap, nil
+}
 
 
+// TransceiverEmpty returns true if the transceiver status is 0, false if the status is 1
+func TransceiverEmpty(t *testing.T, d *ondatra.DUTDevice, port string) (bool, error) {
+	transceiverNumber, err := TransceiverNumberForPort(t, d, port)
+	if err != nil {
+		return false, err
+	}
+	return testhelperTransceiverEmpty(t, d, FrontPanelPortPrefix+strconv.Itoa(transceiverNumber)), nil
+}
 
-
-
-
+// MaxLanesPerPort returns the maximum number of ASIC lanes per port on the dut.
+func MaxLanesPerPort(t *testing.T, dut *ondatra.DUTDevice) (uint8, error) {
+	info, err := portInfoForDevice(t, dut)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to fetch platform specific information")
+	}
+	return uint8(info.MaxLanes), nil
+}
 
 func breakoutModeFromGroup(port string, groups *oc.Component_Port_BreakoutMode) (string, error) {
 	currentBreakoutMode := ""
@@ -162,8 +206,148 @@ func breakoutModeFromGroup(port string, groups *oc.Component_Port_BreakoutMode) 
 	return currentBreakoutMode, nil
 }
 
+// CurrentBreakoutModeForPort returns the currently configured breakout mode for given port.
+func CurrentBreakoutModeForPort(t *testing.T, dut *ondatra.DUTDevice, port string) (string, error) {
+	// Check if requested port is a parent port. Breakout is applicable to parent port only.
+	isParent, err := IsParentPort(t, dut, port)
+	if err != nil {
+		return "", errors.Wrap(err, "IsParentPort() failed")
+	}
+	if !isParent {
+		return "", errors.Errorf("port: %v is not a parent port", port)
+	}
+	// Get the physical port for given port.
+	physicalPort, err := PhysicalPort(t, dut, port)
+	if err != nil {
+		return "", errors.Errorf("failed to get physical port for interface %v", port)
+	}
+	// Get breakout group information from component state paths.
+	groups := testhelperBreakoutModeGet(t, dut, physicalPort)
+	if groups == nil {
+		return "", errors.Errorf("failed to get breakout mode for port %v", port)
+	}
+	return breakoutModeFromGroup(port, groups)
+}
 
 
+
+func slotPortLaneForPort(port string) ([]string, error) {
+	if !IsFrontPanelPort(port) {
+		return nil, errors.Errorf("requested port (%v) is not a front panel port", port)
+	}
+	slotPortLane := port[len(FrontPanelPortPrefix):]
+	values := strings.Split(slotPortLane, "/")
+	if len(values) != 3 {
+		return nil, errors.Errorf("invalid port name format for port %v", port)
+	}
+	return values, nil
+}
+
+// ExpectedPortInfoForBreakoutMode returns the expected port list, physical channels and port speed for a given breakout mode.
+// Eg. Ethernet0 configured to a breakout mode of "2x100G(4) + 1x200G(4)" will return the following:
+// Ethernet0:{0,1}, Ethernet2:{2,3}, Ethernet4:{4,5,6,7}
+// The number of physical channels per breakout mode is used to compute the offset from the parent port number.
+func ExpectedPortInfoForBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, interfaceName string, breakoutMode string) (map[string]*PortBreakoutInfo, error) {
+	if len(breakoutMode) == 0 {
+		return nil, errors.Errorf("found empty breakout mode")
+	}
+	// For a mixed breakout mode, get "+" separated breakout groups.
+	// Eg. For a mixed breakout mode of "2x100G(4) + 1x200G(4)"; modes = {2x100G(4), 1x200G(4)}
+	modes := strings.Split(breakoutMode, "+")
+	// Get maximum physical channels in a breakout group which is max lanes per physical port/number of groups in a breakout mode.
+	maxLanes, err := MaxLanesPerPort(t, dut)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch max lanes")
+	}
+	maxChannelsInGroup := int(maxLanes) / len(modes)
+	slotPortLane, err := slotPortLaneForPort(interfaceName)
+	if err != nil {
+		return nil, err
+	}
+	currLaneNumber, err := strconv.Atoi(slotPortLane[laneIndex])
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert lane number (%v) to int", currLaneNumber)
+	}
+
+	// For each breakout group, get numBreakouts and breakoutSpeed. Breakout group is in the format "numBreakouts x breakoutSpeed"
+	// Eg. mode = 2x100G
+	currPhysicalChannel := 0
+	portBreakoutInfo := make(map[string]*PortBreakoutInfo)
+	interfaceToPhysicalChannelsMap := make(map[string][]uint16)
+	for _, mode := range modes {
+		values := strings.Split(mode, "x")
+		if len(values) != 2 {
+			return nil, errors.Errorf("invalid breakout format (%v)", mode)
+		}
+		numBreakouts, err := strconv.Atoi(values[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "error parsing numBreakouts for breakout mode %v", mode)
+		}
+		// Extract speed from breakout_speed(num_physical_channels) eg:100G(4)
+		speed := strings.Split(values[1], "(")
+		breakoutSpeed, ok := stringToEnumSpeedMap[speed[0]]
+		if !ok {
+			return nil, errors.Errorf("found invalid breakout speed (%v) when parsing breakout mode %v", values[1], mode)
+		}
+		// For each resulting interface, construct the front panel interface name using offset from the parent port.
+		// For a breakout mode of Ethernet0 => 2x100G(4)+1x200G(4), the max channels per group would be 4 (considering 8 max lanes per physical port).
+		// Hence, breakout mode 2x100G (numBreakouts=2) would have an offset of 2 and 1x200G(numBreakouts=1) would have an offset of 1
+		// leading to interfaces Ethernet0, Ethernet2 for mode 2x100G and Ethernet4 for mode 1x200G.
+		for i := 0; i < numBreakouts; i++ {
+			port := fmt.Sprintf("%s%s/%s/%d", FrontPanelPortPrefix, slotPortLane[slotIndex], slotPortLane[portIndex], currLaneNumber)
+			// Populate expected physical channels for each port.
+			// Physical channels are between 0 to 7.
+			offset := maxChannelsInGroup / numBreakouts
+			for j := currPhysicalChannel; j < offset+currPhysicalChannel; j++ {
+				interfaceToPhysicalChannelsMap[port] = append(interfaceToPhysicalChannelsMap[port], uint16(j))
+			}
+			currPhysicalChannel += offset
+			currLaneNumber += offset
+			portBreakoutInfo[port] = &PortBreakoutInfo{
+				PhysicalChannels: interfaceToPhysicalChannelsMap[port],
+				PortSpeed:        breakoutSpeed,
+			}
+		}
+	}
+	return portBreakoutInfo, nil
+}
+
+func computePortIDForPort(t *testing.T, d *ondatra.DUTDevice, intfName string) (uint32, error) {
+	// Try to get currently configured id for the port from the switch.
+	var id int
+	id, err := testhelperPortIDGet(t, d, intfName)
+	// Generate ID same as that used by controller, if not found on switch.
+	if err != nil {
+		isParent, err := IsParentPort(t, d, intfName)
+		if err != nil {
+			return 0, err
+		}
+		parentPortNumberStr, err := ParentPortNumber(intfName)
+		if err != nil {
+			return 0, err
+		}
+		parentPortNumber, err := strconv.Atoi(parentPortNumberStr)
+		if err != nil {
+			return 0, err
+		}
+		// Port ID is same as port index/parent port number for parent ports.
+		if isParent {
+			return uint32(parentPortNumber), nil
+		}
+		// Port ID is computed for child ports using
+		// (laneIndex*512 + parentPortNumber + 1)
+		slotPortLane, err := slotPortLaneForPort(intfName)
+		if err != nil {
+			return 0, err
+		}
+		laneIndex, err := strconv.Atoi(slotPortLane[laneIndex])
+		if err != nil {
+			return 0, err
+		}
+		return uint32(laneIndex*512 + parentPortNumber + 1), nil
+	}
+	return uint32(id), nil
+}
 
 func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEthernet_INTERFACE_FEC {
 	switch portSpeed {
@@ -190,6 +374,190 @@ func fecMode(portSpeed oc.E_IfEthernet_ETHERNET_SPEED, lanes uint8) oc.E_IfEther
 	return oc.IfEthernet_INTERFACE_FEC_FEC_DISABLED
 }
 
+func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string, breakoutSpeed oc.E_IfEthernet_ETHERNET_SPEED, fec oc.E_IfEthernet_INTERFACE_FEC) (*oc.Interface, error) {
+	subinterfaceIndex := uint32(0)
+	unnumberedEnabled := true
+	mtu := uint16(9216)
+	enabled := true
+	id, err := computePortIDForPort(t, d, intfName)
+	if err != nil {
+		return nil, err
+	}
+	interfaceConfig := &oc.Interface{
+		Enabled:      &enabled,
+		LoopbackMode: oc.Interfaces_LoopbackModeType_NONE,
+		Mtu:          &mtu,
+		Name:         &intfName,
+		Id:           &id,
+		Ethernet: &oc.Interface_Ethernet{
+			PortSpeed: breakoutSpeed,
+			FecMode:   fec,
+		},
+		Subinterface: map[uint32]*oc.Interface_Subinterface{
+			0: &oc.Interface_Subinterface{
+				Index: &subinterfaceIndex,
+				Ipv6: &oc.Interface_Subinterface_Ipv6{
+					Unnumbered: &oc.Interface_Subinterface_Ipv6_Unnumbered{
+						Enabled: &unnumberedEnabled,
+					},
+				},
+			},
+		},
+	}
+	return interfaceConfig, nil
+}
+
+// ConfigFromBreakoutMode returns config with component and interface paths for given breakout mode.
+// Breakout mode is in the format "numBreakouts1 x breakoutSpeed1 + numBreakouts2 x breakoutSpeed2 + ...
+// Eg: "1x400G", 2x100G(4) + 1x200G(4)"
+func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, port string) (*oc.Root, error) {
+	if len(breakoutMode) == 0 {
+		return nil, errors.Errorf("found empty breakout mode")
+	}
+
+	// Check if requested port is a parent port. Breakout is applicable to parent port only.
+	isParent, err := IsParentPort(t, dut, port)
+	if err != nil {
+		return nil, errors.Wrap(err, "IsParentPort() failed")
+	}
+	if !isParent {
+		return nil, errors.Errorf("port: %v is not a parent port", port)
+	}
+	// Get lane number for port.
+	slotPortLane, err := slotPortLaneForPort(port)
+	if err != nil {
+		return nil, err
+	}
+	currLaneNumber, err := strconv.Atoi(slotPortLane[laneIndex])
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to convert lane number (%v) to int", currLaneNumber)
+	}
+
+	maxLanes, err := MaxLanesPerPort(t, dut)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch max lanes")
+	}
+
+	// For a mixed breakout mode, get "+" separated breakout groups.
+	// Eg. For a breakout mode of "2x100G(4)+1x200G(4)", modes = {2x100G, 1x200G}
+	modes := strings.Split(breakoutMode, "+")
+	// Get maximum physical channels in a breakout group which is max lanes per physical port/number of groups in a breakout mode.
+	maxChannelsInGroup := maxLanes / uint8(len(modes))
+	index := 0
+	breakoutGroups := make(map[uint8]*oc.Component_Port_BreakoutMode_Group)
+	interfaceConfig := make(map[string]*oc.Interface)
+
+	// For each breakout group, get numBreakouts and breakoutSpeed. Breakout group is in the format "numBreakouts x breakoutSpeed(numPhysicalChannels)"
+	// Eg. 2x100G(4)
+	for _, mode := range modes {
+		values := strings.Split(mode, "x")
+		if len(values) != 2 {
+			return nil, errors.Errorf("invalid breakout format (%v)", mode)
+		}
+		numBreakouts, err := strconv.Atoi(values[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "error parsing numBreakouts for breakout mode %v", mode)
+		}
+		u8numBreakouts := uint8(numBreakouts)
+		// Extract speed from breakout_speed(num_physical_channels) eg:100G(4)
+		speed := strings.Split(values[1], "(")
+		breakoutSpeed, ok := stringToEnumSpeedMap[speed[0]]
+		if !ok {
+			return nil, errors.Errorf("found invalid breakout speed (%v) when parsing breakout mode %v", values[1], mode)
+		}
+		// Physical channels per breakout group are equally divided amongst breakouts in the group.
+		numPhysicalChannels := maxChannelsInGroup / uint8(numBreakouts)
+		currIndex := uint8(index)
+		// Construct config corresponding to each breakout group.
+		group := oc.Component_Port_BreakoutMode_Group{
+			Index:               &currIndex,
+			BreakoutSpeed:       breakoutSpeed,
+			NumBreakouts:        &u8numBreakouts,
+			NumPhysicalChannels: &numPhysicalChannels,
+		}
+		// Add breakout group config to breakout config using index as key.
+		// Index is strictly ordered staring from 0.
+		breakoutGroups[currIndex] = &group
+
+		// Get the interface config for all interfaces corresponding to current breakout group.
+		for i := 1; i <= numBreakouts; i++ {
+			intfName := fmt.Sprintf("%s%s/%s/%d", FrontPanelPortPrefix, slotPortLane[slotIndex], slotPortLane[portIndex], currLaneNumber)
+			interfaceConfig[intfName], err = interfaceConfigForPort(t, dut, intfName, breakoutSpeed, fecMode(breakoutSpeed, numPhysicalChannels))
+			if err != nil {
+				return nil, err
+			}
+			offset := int(maxChannelsInGroup) / numBreakouts
+			currLaneNumber += offset
+		}
+		index++
+	}
+
+	// Get port ID.
+	frontPanelPortToIndexMap, err := FrontPanelPortToIndexMappingForDevice(t, dut)
+	if err != nil {
+		return nil, errors.Errorf("failed to fetch front panel port to index mapping from device %v", testhelperDUTNameGet(dut))
+	}
+	if _, ok := frontPanelPortToIndexMap[port]; !ok {
+		return nil, errors.Errorf("port %v not found in list of front panel port", port)
+	}
+	portIndex := frontPanelPortToIndexMap[port]
+
+	// Construct component path config from created breakout groups.
+	componentName := "1/" + strconv.Itoa(portIndex)
+	componentConfig := map[string]*oc.Component{
+		componentName: &oc.Component{
+			Name: &componentName,
+			Port: &oc.Component_Port{
+				BreakoutMode: &oc.Component_Port_BreakoutMode{Group: breakoutGroups},
+			},
+		},
+	}
+
+	// Construct overall config from component and interface config.
+	deviceConfig := &oc.Root{
+		Interface: interfaceConfig,
+		Component: componentConfig,
+	}
+	return deviceConfig, nil
+}
+
+// SpeedChangeOnlyPorts returns
+// 1. Whether changing from currBrekaoutMode to newBreakoutMode is overall a speed change operation.
+// 2. Number of ports that will result in speed change only if 1 is true.
+func SpeedChangeOnlyPorts(t *testing.T, dut *ondatra.DUTDevice, port string, currBreakoutMode string, newBreakoutMode string) (bool, int, error) {
+	t.Helper()
+	// Get list of interfaces for current and new breakout modes.
+	currPortInfo, err := ExpectedPortInfoForBreakoutMode(t, dut, port, currBreakoutMode)
+	if err != nil {
+		return false, 0, errors.Wrapf(err, "failed to get expected port information for breakout mode (%v) for port %v", currBreakoutMode, port)
+	}
+	if currPortInfo == nil {
+		return false, 0, errors.Errorf("got empty port information for breakout mode %v for port %v", currBreakoutMode, port)
+	}
+	newPortInfo, err := ExpectedPortInfoForBreakoutMode(t, dut, port, newBreakoutMode)
+	if err != nil {
+		return false, 0, errors.Wrapf(err, "failed to get expected port information for breakout mode (%v) for port %v", newBreakoutMode, port)
+	}
+	if newPortInfo == nil {
+		return false, 0, errors.Errorf("got empty port information for breakout mode %v for port %v", newBreakoutMode, port)
+	}
+	speedChangeOnlyPortCount := 0
+	unchangedPortCount := 0
+	for port, info := range currPortInfo {
+		if _, ok := newPortInfo[port]; ok {
+			if Uint16ListToString(info.PhysicalChannels) == Uint16ListToString(newPortInfo[port].PhysicalChannels) {
+				if info.PortSpeed != newPortInfo[port].PortSpeed {
+					speedChangeOnlyPortCount++
+				} else {
+					unchangedPortCount++
+				}
+			}
+		} else {
+			return false, 0, nil
+		}
+	}
+	return ((speedChangeOnlyPortCount + unchangedPortCount) == len(currPortInfo)), speedChangeOnlyPortCount, nil
+}
 
 func breakoutModeSupportedTypes(breakoutMode string) (map[BreakoutType]bool, error) {
 	supportedBreakoutTypes := map[BreakoutType]bool{
@@ -213,4 +581,100 @@ func breakoutModeSupportedTypes(breakoutMode string) (map[BreakoutType]bool, err
 		}
 	}
 	return supportedBreakoutTypes, nil
+}
+
+
+// PhysicalPort returns the physical port corresponding to the given interface.
+func PhysicalPort(t *testing.T, dut *ondatra.DUTDevice, interfaceName string) (string, error) {
+	t.Helper()
+	portToIndexMap, err := FrontPanelPortToIndexMappingForDevice(t, dut)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to fetch front panel port to index mapping")
+	}
+	if _, ok := portToIndexMap[interfaceName]; !ok {
+		return "", errors.Errorf("no entry found for interface %v in front panel port list", interfaceName)
+	}
+	return "1/" + strconv.Itoa(portToIndexMap[interfaceName]), nil
+}
+
+// BreakoutStateInfoForPort returns the state values of physical channels and operational status information for ports in a given breakout mode.
+func BreakoutStateInfoForPort(t *testing.T, dut *ondatra.DUTDevice, port string, currBreakoutMode string) (map[string]*PortBreakoutInfo, error) {
+	t.Helper()
+	// Get list of interfaces for breakout mode.
+	portInfo, err := ExpectedPortInfoForBreakoutMode(t, dut, port, currBreakoutMode)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get expected port information for breakout mode (%v) for port %v", currBreakoutMode, port)
+	}
+	if portInfo == nil {
+		return nil, errors.Errorf("got empty port information for breakout mode %v for port %v", currBreakoutMode, port)
+	}
+	// Get physical channels and operational statuses for list of ports in given breakout mode.
+	for p := range portInfo {
+		physicalChannels := testhelperIntfPhysicalChannelsGet(t, dut, p)
+		operStatus := testhelperIntfOperStatusGet(t, dut, p)
+		portSpeed := testhelperStatePortSpeedGet(t, dut, p)
+		portInfo[p] = &PortBreakoutInfo{physicalChannels, operStatus, portSpeed}
+	}
+	return portInfo, nil
+}
+
+// WaitForInterfaceState polls interface oper-status until it matches the expected oper-status.
+func WaitForInterfaceState(t *testing.T, dut *ondatra.DUTDevice, intfName string, expectedOperSatus oc.E_Interface_OperStatus, timeout time.Duration) error {
+	t.Helper()
+	// Verify oper-status by polling interface oper-status.
+	var got oc.E_Interface_OperStatus
+	for start := time.Now(); time.Since(start) < timeout; {
+		if got = testhelperIntfOperStatusGet(t, dut, intfName); got == expectedOperSatus {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return errors.Errorf("port oper-status match failed for port %v. got: %v, want: %v", intfName, got, expectedOperSatus)
+}
+
+// TransceiverNumberForPort fetches the transceiver corresponding to the port.
+func TransceiverNumberForPort(t *testing.T, dut *ondatra.DUTDevice, port string) (int, error) {
+	if !IsFrontPanelPort(port) {
+		return 0, errors.Errorf("port: %v is not a front panel port", port)
+	}
+
+	// Hardware port is of the format 1/X, where X represents the
+	// transceiver number.
+	prefix := "1/"
+	hardwarePort := testhelperIntfHardwarePortGet(t, dut, port)
+	if !strings.HasPrefix(hardwarePort, prefix) {
+		return 0, errors.Errorf("invalid hardware-port: %v for port: %v. It must start with %v", hardwarePort, port, prefix)
+	}
+	transceiver, err := strconv.Atoi(strings.TrimPrefix(hardwarePort, prefix))
+	if err != nil {
+		return 0, errors.Wrapf(err, "unable to convert %v to integer for port: %v", strings.TrimPrefix(hardwarePort, prefix), port)
+	}
+	return transceiver, nil
+}
+
+// IsParentPort returns whether the specified port is a parent port or not.
+func IsParentPort(t *testing.T, dut *ondatra.DUTDevice, port string) (bool, error) {
+	if !IsFrontPanelPort(port) {
+		return false, errors.Errorf("port: %v is not a front panel port", port)
+	}
+
+	slotPortLane, err := slotPortLaneForPort(port)
+	if err != nil {
+		return false, err
+	}
+	currLaneNumber, err := strconv.Atoi(slotPortLane[laneIndex])
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to convert lane number (%v) to int", currLaneNumber)
+	}
+	// Lane number for a parent port is always 1.
+	return currLaneNumber == 1, nil
+}
+
+// ParentPortNumber returns the port number of the parent of the port.
+func ParentPortNumber(port string) (string, error) {
+	slotPortLane, err := slotPortLaneForPort(port)
+	if err != nil {
+		return "", err
+	}
+	return slotPortLane[portIndex], nil
 }
