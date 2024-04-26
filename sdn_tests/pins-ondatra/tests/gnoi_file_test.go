@@ -1,6 +1,6 @@
 package gnoi_file_test
 
-// This suite of tests is to end-to-end test the gNOI File service. These tests are GPINs specific
+// This suite of tests is to end-to-end test the gNOI File service. These tests are PINs specific
 // and depend on the files that are permitted to be modiified.
 
 import (
