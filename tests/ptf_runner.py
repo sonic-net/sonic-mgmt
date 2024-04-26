@@ -48,7 +48,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     # ptf will load all scripts under ptftests, it will throw error for py2 scripts.
     # So move migrated scripts to seperated py3 folder avoid impacting py2 scripts.
     dut_type = get_dut_type(host)
-    if dut_type == "kvm" and params.get("kvm_support") is not True:
+    if dut_type == "kvm" and params.get("kvm_support", True) is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
