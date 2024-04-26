@@ -25,5 +25,5 @@ bazel build ... --strip=never --compilation_mode=dbg
 ```
 dlv --wd=$PWD/tests/ exec bazel-bin/tests/test_name_/test_name -- --testbed=$PWD/testbeds/testbed.textproto
 // inside dlv; map path for debugging:
-config substitute-path external bazel-pins-ondatra/external
+config substitute-path external bazel-pins_ondatra/external
 ```

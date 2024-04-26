@@ -13,12 +13,12 @@ import (
 	"github.com/openconfig/gnoigo"
 	"github.com/openconfig/ondatra/binding"
 	"github.com/openconfig/ondatra/binding/grpcutil"
-	pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/pinsbackend"
+	pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend"
 	"google.golang.org/grpc"
 
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/openconfig/ondatra/proxy"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/bindingbackend"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 
