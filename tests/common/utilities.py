@@ -983,7 +983,6 @@ def recover_acl_rule(duthost, data_acl):
             acl_entry_config[seq_id]["config"]["sequence-id"] = seq_id
             acl_entry_config[seq_id]["l2"]["config"]["ethertype"] = value["ETHER_TYPE"]
             acl_entry_config[seq_id]["l2"]["config"]["vlan_id"] = value["VLAN_ID"]
-            acl_entry_config[seq_id]["input_interface"]["interface_ref"]["config"]["interface"] = value["IN_PORTS"]
 
     with tempfile.NamedTemporaryFile(suffix=".json", prefix="acl_config", mode="w") as fp:
         json.dump(acl_config, fp)
