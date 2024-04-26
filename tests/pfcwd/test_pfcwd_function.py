@@ -782,7 +782,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         if detect:
             logger.info("--- Storm detection path for port {} ---".format(port))
             loganalyzer = self.storm_detect_path(dut, port, action)
-
             self.log_handle[port] = loganalyzer
 
         if mmu_action is not None:
