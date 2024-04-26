@@ -10,8 +10,8 @@ import (
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/pinsbind"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 )
 
 var (
