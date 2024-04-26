@@ -100,7 +100,7 @@ devices:
       sudo config hostname tortuga-2x2-leaf0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -145,7 +145,7 @@ devices:
       sudo config hostname tortuga-2x2-leaf1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -190,7 +190,7 @@ devices:
       sudo config hostname tortuga-2x2-spine0
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -235,7 +235,7 @@ devices:
       sudo config hostname tortuga-2x2-spine1
       sudo config save -y
       curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      cp /etc/sonic/config_db.json config_db.json.fresh
+      sudo cp /etc/sonic/config_db.json config_db.json.fresh
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep2.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
