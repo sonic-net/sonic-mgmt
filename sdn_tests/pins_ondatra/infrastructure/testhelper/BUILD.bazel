@@ -17,12 +17,13 @@ go_library(
         "platform_components.go",
         "platform_info.go",
         "port_management.go",
+	"results.go",
         "//infrastructure/testhelper/platform_info:platform_info",
     ],
     data = [
         "//infrastructure/data",
     ],
-    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper",
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper",
     deps = [
         "@com_github_golang_glog//:glog",
         "@com_github_openconfig_goyang//pkg/yang:go_default_library",
