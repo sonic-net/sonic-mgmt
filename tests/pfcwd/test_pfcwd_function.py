@@ -726,10 +726,20 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # storm detect
         logger.info("Verify if PFC storm is detected on port {}".format(port))
-        loganalyzer.analyze(marker)
+        if dut.facts['asic_type'] == "cisco-8000":
+            # The function get_pkt_cnts() works only if pfcwd is triggered.
+            # When the WD is not triggered, this redis-cli command returnes
+            # (nil), so this function call fails.
+            self.traffic_inst.verify_tx_egress(self.tx_action)
+        else:
+            loganalyzer.analyze(marker)
+
         self.stats.get_pkt_cnts(self.queue_oid, begin=True)
         # test pfcwd functionality on a storm
         self.traffic_inst.verify_wd_func(action, self.rx_action, self.tx_action)
+        if dut.facts['asic_type'] == "cisco-8000":
+            loganalyzer.analyze(marker)
+
         return loganalyzer
 
     def storm_restore_path(self, dut, loganalyzer, port, action):
