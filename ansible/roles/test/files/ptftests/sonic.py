@@ -299,7 +299,8 @@ class Sonic(host_device.HostDevice):
         result['PortChannel was down (seconds)'] = po_carrier_data[-1][0] - po_carrier_data[0][0] \
             if po_carrier_data else 0
         for if_name in sorted(result_if.keys()):
-            result['Interface %s was down (times)' % if_name] = list(map(itemgetter(1), result_if[if_name])).count("down")
+            result['Interface %s was down (times)' % if_name] = \
+                list(map(itemgetter(1), result_if[if_name])).count("down")
 
         bgp_po_offset = abs(initial_time_if - initial_time_bgp)
         result['BGP went down after portchannel went down (seconds)'] = bgp_po_offset
