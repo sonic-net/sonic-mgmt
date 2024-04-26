@@ -1,6 +1,6 @@
 package gnoi_file_test
 
-// This suite of tests is to end-to-end test the gNOI File service. These tests are GPINs specific
+// This suite of tests is to end-to-end test the gNOI File service. These tests are PINs specific
 // and depend on the files that are permitted to be modiified.
 
 import (
@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/openconfig/ondatra"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/pinsbind"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 
 	filepb "github.com/openconfig/gnoi/file"
 )
