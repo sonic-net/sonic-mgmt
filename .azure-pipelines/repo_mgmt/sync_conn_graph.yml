@@ -38,6 +38,7 @@ stages:
         timeoutInMinutes: 30
         variables:
           - group: GIT_SECRETS
+          - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -57,4 +58,4 @@ stages:
             env:
               MGMT_REPOSITOR_ID: $(MGMT_REPOSITOR_ID)
               MSSONIC_USERNAME: $(MSSONIC_USERNAME)
-              MSSONIC_PUBLIC_TOKEN: $(MSSONIC_PUBLIC_TOKEN)
+              MSSONIC_PUBLIC_TOKEN: $(MSSONIC-TOKEN)
