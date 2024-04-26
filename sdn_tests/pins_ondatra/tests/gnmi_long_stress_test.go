@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	"github.com/openconfig/ondatra"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/binding/pinsbind"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/infrastructure/testhelper/testhelper"
-	gst "github.com/sonic-net/sonic-mgmt/sdn_tests/pins-ondatra/tests/gnmi_stress_helper"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
+	gst "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/tests/gnmi_stress_helper"
 )
 
 func TestMain(m *testing.M) {
