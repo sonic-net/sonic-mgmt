@@ -14,7 +14,7 @@ def initial_setup():
 def file_transfer():
     ## Download image to local path ##
     try:
-        location = "http://10.194.84.241/IMAGES/10257/sonic-cisco-8000.bin"
+        location = "wget http://10.194.84.241/IMAGES/10257/sonic-cisco-8000.bin"
         image_name = location.split("/")[-1]
         result = os.system(location)
         if result == 0:
@@ -51,7 +51,7 @@ def test_image_upgrade():
     for dut in st.get_dut_names():
         st.config(dut,"docker ps -a")
         st.config(dut,"show version")
-    st.report_pass("Image upgrade completed")
+    st.report_pass("test_case_passed")
 
 def scp_upload(local_path, remote_path, hostname, username, password, port=22):
     try:
