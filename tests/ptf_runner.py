@@ -36,8 +36,14 @@ def get_dut_type(host):
     dut_type_exists = host.stat(path="/sonic/dut_type.txt")
     if dut_type_exists["stat"]["exists"]:
         dut_type = host.shell("cat /sonic/dut_type.txt")["stdout"]
-        logger.info("DUT type is {}".format(dut_type))
-        return dut_type.lower()
+        if dut_type:
+            logger.info("DUT type is {}".format(dut_type))
+            return dut_type.lower()
+        else:
+            logger.warning("DUT type file is empty.")
+    else:
+        logger.warning("DUT type file doesn't exist.")
+    return "Unknown"
 
 
 def ptf_runner(host, testdir, testname, platform_dir=None, params={},
