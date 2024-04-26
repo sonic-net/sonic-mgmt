@@ -77,7 +77,7 @@ def close_previous_pull_requests(branch):
                 logger.info(f"Failed to abandon pull request {pr_id}. Status code: {response.status_code}, Response: {response.text}")
 
 
-def remove_useless_remote_branches_and_prs(repo, url_with_token):
+def remove_useless_remote_branches_and_prs(repo, url_with_token, pull_request_info):
     """Remove remote branches that are not in the target branch list"""
     # Fetch the latest changes from the remote repository
     repo.git.execute(['git', 'fetch', url_with_token])
@@ -85,10 +85,19 @@ def remove_useless_remote_branches_and_prs(repo, url_with_token):
     remote_branches = [ref.remote_head for ref in repo.remotes.origin.refs if NEW_BRANCH_HEADER in ref.remote_head]
     logger.info(f"Remote branches: {remote_branches}")
 
+    pr_sub_string = '/' + str(pull_request_info['pullRequestId']) + '/' if pull_request_info else ''
+    logger.info(f"pr_sub_string: {pr_sub_string}")
+    is_pr_already_created = False
+
     for branch in remote_branches:
+        if pr_sub_string and pr_sub_string in branch:
+            logger.info(f"Skip branch {branch} since pull request {pull_request_info['pullRequestId']} has been created.")
+            is_pr_already_created = True
+            continue
         logger.info(f"Delete branch {branch} since pull request is completed or abandoned.")
         repo.git.execute(['git', 'push', url_with_token, '--delete', branch])
         close_previous_pull_requests(branch)
+    return is_pr_already_created
 
 
 def get_graph_files(repo_path):
@@ -212,7 +221,7 @@ def compare_and_create_pull_request(repo, repo_path, url_with_token, source_bran
         files_to_compare.append(os.path.join(LAB_GRAPHFILE_PATH, LAB_GRAPH_GROUPS_FILE))
 
     if pull_request_info:
-        branch_suffix = str(pull_request_info['pullRequestId'])
+        branch_suffix = str(pull_request_info['pullRequestId']) + '/' + datetime.now().strftime('%Y%m%d%H%M%S')
     else:
         branch_suffix = datetime.now().strftime('%Y%m%d%H%M%S')
     new_branch = NEW_BRANCH_HEADER + '/' + target_branch + '/' + branch_suffix
@@ -321,11 +330,13 @@ if __name__ == "__main__":
     set_up_git_env(repo)
     url_with_token = f'https://x-access-token:{MSSONIC_PUBLIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int'
 
-    remove_useless_remote_branches_and_prs(repo, url_with_token)
     graph_groups, graph_files = get_graph_files(repo_path)
     logger.info(f"Graph groups: {graph_groups}, files to compare: {graph_files}")
 
     pull_request_info = get_source_pull_request_info(repo, graph_files)
+    is_pr_already_created = remove_useless_remote_branches_and_prs(repo, url_with_token, pull_request_info)
+    if is_pr_already_created:
+        sys.exit(0)
 
     for branch in TARGET_BRANCH:
         logger.info("################################################################################################")

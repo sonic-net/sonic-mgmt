@@ -2878,7 +2878,7 @@
   </PhysicalNetworkGraphDeclaration>
   <DataPlaneGraph>
     <DevicesL3Info Hostname="str2-8800-lc1-2">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.176/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.199/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-z9332f-02">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.84/23"/>
@@ -3015,7 +3015,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.35/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-lc3-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.180/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.214/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-bluefield-host-01">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.64.246.248/23"/>
@@ -3302,7 +3302,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.133/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-lc2-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.179/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.205/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7260cx3-acs-fan-18">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.144/23"/>
@@ -4276,10 +4276,10 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.130/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-sup-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.175/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.198/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-sup-2">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.175/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.198/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7260cx3-d10-u21">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.9/23"/>
@@ -4426,7 +4426,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.232/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-lc2-2">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.177/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.200/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-n3164-acs-4">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.124/23"/>
@@ -4456,7 +4456,7 @@
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.13/23"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-8800-lc1-3">
-      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.178/23"/>
+      <ManagementIPInterface Name="ManagementIp" Prefix="10.3.146.201/24"/>
     </DevicesL3Info>
     <DevicesL3Info Hostname="str2-7804-lc6-1">
       <ManagementIPInterface Name="ManagementIp" Prefix="10.3.147.16/23"/>
