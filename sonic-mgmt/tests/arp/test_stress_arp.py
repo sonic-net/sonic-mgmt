@@ -17,7 +17,7 @@ ENTRIES_NUMBERS = 12000
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('t0')
 ]
 
 LOOP_TIMES_LEVEL_MAP = {

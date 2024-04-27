@@ -364,6 +364,22 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
 """
 
 
+def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("t0-backend" in tbinfo["topo"]["name"],
+                   "Skip 'test_backend_acl_load' on non t0-backend testbeds.")
+    out = duthost.command("systemctl restart backend-acl.service")
+    pytest_assert(out["rc"] == 0, "Failed to load backend acl: {}".format(out["stderr"]))
+    rules = duthost.show_and_parse("show acl rule DATAACL")
+    for rule in rules:
+        if "DATAACL" not in rule["table"]:
+            continue
+        if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
+            pytest.fail("Backend acl not installed succesfully: {}".format(rule))
+
+
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.
 def test_generate_running_golden_config(duthosts):
     """
