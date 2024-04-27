@@ -33,8 +33,8 @@ def ptf_collect(host, log_file, skip_pcap=False):
 
 
 def get_dut_type(host):
-    dut_type_exists = host.stat(path="/sonic/dut_type.txt")
-    if dut_type_exists["stat"]["exists"]:
+    dut_type_stat = host.stat(path="/sonic/dut_type.txt")
+    if dut_type_stat["stat"]["exists"]:
         dut_type = host.shell("cat /sonic/dut_type.txt")["stdout"]
         if dut_type:
             logger.info("DUT type is {}".format(dut_type))
