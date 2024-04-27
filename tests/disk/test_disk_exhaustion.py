@@ -91,6 +91,15 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     # use first port of first peer_ip_ifaces pair as input port
     # all ports in second peer_ip_ifaces pair will be output/forward port
     ptf_port_idx = mg_facts["minigraph_ptf_indices"][peer_ip_ifaces_pair[0][1][0].split(".")[0]]
+
+    # get router mac per asic for multi-asic dut
+    if duthost.is_multi_asic:
+        namespace = mg_facts['minigraph_neighbors'][peer_ip_ifaces_pair[0][1][0]]['namespace']
+        asic_idx = duthost.get_asic_id_from_namespace(namespace)
+        router_mac = duthost.asic_instance(asic_idx).get_router_mac()
+    else:
+        router_mac = duthost.facts["router_mac"]
+
     # Some platforms do not support rif counter
     try:
         rif_counter_out = parse_rif_counters(duthost.show_and_parse("show interfaces counters rif"))
@@ -101,7 +110,7 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
         rif_support = False
 
     pkt = testutils.simple_ip_packet(
-        eth_dst=duthost.facts["router_mac"],
+        eth_dst=router_mac,
         eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
         ip_src=peer_ip_ifaces_pair[0][0],
         ip_dst=peer_ip_ifaces_pair[1][0])
