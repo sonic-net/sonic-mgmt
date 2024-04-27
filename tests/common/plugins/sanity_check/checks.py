@@ -802,9 +802,9 @@ def check_processes(duthosts):
             for container_name, processes in list(processes_status.items()):
                 if processes['status'] is False or len(processes['exited_critical_process']) > 0:
                     logger.info("The status of checking process in container '{}' is: {}"
-                        .format(container_name, processes["status"]))
+                                .format(container_name, processes["status"]))
                     logger.info("The processes not running in container '{}' are: '{}'"
-                        .format(container_name, processes["exited_critical_process"]))
+                                .format(container_name, processes["exited_critical_process"]))
                     check_result['failed'] = True
                 check_result["services_status"].update({container_name: processes['status']})
         else:  # Retry checking processes status
@@ -818,9 +818,9 @@ def check_processes(duthosts):
                 for container_name, processes in list(processes_status.items()):
                     if processes['status'] is False or len(processes['exited_critical_process']) > 0:
                         logger.info("The status of checking process in container '{}' is: {}"
-                            .format(container_name, processes["status"]))
+                                    .format(container_name, processes["status"]))
                         logger.info("The processes not running in container '{}' are: '{}'"
-                            .format(container_name, processes["exited_critical_process"]))
+                                    .format(container_name, processes["exited_critical_process"]))
                         check_result['failed'] = True
                     check_result["services_status"].update({container_name: processes['status']})
 
