@@ -1,8 +1,17 @@
 import json
 
 
-def generate_intf_neigh(asichost, num_neigh, ip_version, mg_facts, is_backend_topology):
+def generate_intf_neigh(asichost, num_neigh, ip_version, mg_facts=None, is_backend_topology=False):
+    """
+    Generate interfaces and neighbors for the test
+    :param asichost (ansible object): DUT host object
+    :param num_neigh (int): Number of neighbors to generate
+    :param ip_version (string): IP version to use (4 or 6)
+    :param mg_facts (dict): Minigraph facts (used for backend topologies)
+    :param is_backend_topology (bool): Whether the test is using a backend topology
+    """
     up_interfaces = []
+
     if is_backend_topology:
         # Backend topologies use vlan sub interfaces instead of regular interfaces so retrieving
         # interfaces from the DUT will not work. Instead, we will use the vlan sub interfaces.
