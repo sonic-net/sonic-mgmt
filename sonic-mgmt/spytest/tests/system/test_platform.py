@@ -25,7 +25,9 @@ platform_summary_data = {
     "voltage_sensors" : ["MB_GB_VDDS_L1_VIN", "MB_GB_VDDA_L2_VOUT", "MB_GB_VDDS_L1_VOUT", "CPU_U17_PVCCIN_VIN", "CPU_U17_PVCCIN_VOUT", "CPU_U17_P1P05V_VOUT", "MB_3_3V_R_L1_VIN", "MB_3_3V_R_L1_VOUT", "MB_GB_VDDCK_L2_VOUT", "MB_3_3V_L_L1_VIN", "MB_3_3V_L_L1_VOUT", "GB_PCIE_VDDH", "GB_PCIE_VDDACK", "GB_P1V8_VDDIO", "GB_P1V8_PLLVDD", "CPU_U117_P1P2V_VIN", "CPU_U117_P1P2V_VOUT", "CPU_U117_P1P05V_VOUT", "MB_A1V8", "MB_A1V", "MB_A3V3", "MB_A1V2", "MB_P3V3", "MB_GB_CORE_VIN_L1", "MB_GB_CORE_VOUT_L1", "MB_GB_CORE_IOUT_L1"],
     "current_sensors" : ["MB_GB_VDDS_L1_IIN","MB_GB_VDDS_L1_IOUT","MB_GB_VDDA_L2_IOUT","CPU_U17_PVCCIN_IIN","CPU_U17_PVCCIN_IOUT","CPU_U17_P1P05V_IOUT", "MB_3_3V_R_L1_IIN", "MB_GB_CORE_IIN_L1", "MB_3_3V_R_L1_IOUT", "MB_GB_VDDCK_L2_IOUT", "MB_3_3V_L_L1_IIN", "MB_3_3V_L_L1_IOUT", "CPU_U117_P1P2V_IIN", "CPU_U117_P1P2V_IOUT", "CPU_U117_P1P05V_IOUT"]
     },
-    "churchill": {"platform": "x86_64-8201_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8201-32FH-O","udi_desc":"Cisco 8200 32x400G QSFPDD 1RU"}
+    "churchill": {"platform": "x86_64-8201_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8201-32FH-O","udi_desc":"Cisco 8200 32x400G QSFPDD 1RU"},
+    "churchill-mono": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "32x400Gb", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"},
+    "churchill-mono-carib": {"platform": "x86_64-8101_32fh_o-r0", "hwsku": "Cisco-8101-O8C8A32S32", "asic": "cisco-8000", "product_name": "8101-32FH-O","udi_desc":"Cisco 8100 32x400G QSFPDD 1RU"}
 }
 
 docker_data = {
@@ -102,6 +104,7 @@ def verify_platform_idprom_valid(dut):
         print("Type of error occured:", sys.exc_info()[0])
         return False
 
+@pytest.mark.alpha
 def test_ft_platform_idprom_with_reboot():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -139,6 +142,7 @@ def test_ft_platform_idprom_with_reboot():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_platform_idprom_valid():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -272,6 +276,7 @@ def test_ft_platform_syseeprom_valid():
     Author: Deekshitha Kankanala <dkankana@cisco.com>
     Validate 'show platform syseeprom' command
     """
+
     vars = st.get_testbed_vars()
     dut = vars.D1
     try:
@@ -291,7 +296,8 @@ def test_ft_platform_syseeprom_valid():
         st.log(err)
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
-        
+ 
+@pytest.mark.alpha
 def test_ft_platform_inventory():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -545,6 +551,7 @@ def verify_platform_temperature_valid(dut):
         print("Type of error occured:", sys.exc_info()[0])
         return False
 
+@pytest.mark.alpha
 def test_ft_platform_temperature_valid():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -571,6 +578,7 @@ def test_ft_platform_temperature_valid():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_platform_temperature_with_reboot():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -611,6 +619,7 @@ def test_ft_platform_temperature_with_reboot():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_show_system_memory():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -839,6 +848,7 @@ def verify_platform_summary(dut):
         print("Type of error occured:", sys.exc_info()[0])
         return False
 
+@pytest.mark.alpha
 def test_ft_platform_summary():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -865,6 +875,7 @@ def test_ft_platform_summary():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
     
+@pytest.mark.alpha
 def test_ft_platform_rebootcause():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -899,6 +910,7 @@ def test_ft_platform_rebootcause():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_platform_rebootcause_valid():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -947,7 +959,8 @@ def test_ft_platform_rebootcause_valid():
         st.log(err)
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
- 
+
+@pytest.mark.alpha
 def test_ft_users():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -1028,6 +1041,7 @@ def test_ft_show_boot():
         print("Type of error :", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_show_mgmt_vrf():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -1174,6 +1188,7 @@ def test_ft_show_services():
         print("Type of Error Occurred:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_cpu_usage():
     """
     Author: Harsha Golla <harsgoll@cisco.com>
@@ -1198,6 +1213,7 @@ def test_ft_cpu_usage():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
     
+@pytest.mark.alpha
 def test_ft_memory_usage():
     """
     Author: Harsha Golla <harsgoll@cisco.com>
@@ -1324,6 +1340,7 @@ def test_ft_show_int_transceiver_presence():
         print("Type of error occured:", sys.exc_info()[0])
         st.report_fail("test_case_failed")
 
+@pytest.mark.alpha
 def test_ft_show_int_transceiver_lpmode():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -1983,6 +2000,7 @@ def verify_platform_ssdhealth(dut):
         print("Type of error occured:", sys.exc_info()[0])
         return False
 
+@pytest.mark.alpha
 def test_ft_platform_ssdhealth():
     """
     Author: Deekshitha Kankanala <dkankana@cisco.com>
@@ -2380,6 +2398,7 @@ def test_ft_temp_major_alarm():
         st.report_fail("test_case_failed")
 
 
+@pytest.mark.alpha
 def test_ft_watchdog_arm_reload():
     """
     Verify the watchdog arm 
