@@ -520,5 +520,5 @@ def test_bfd_echo_mode(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
 
         # No need for temporary BFD echo mode config file or cleanup for it
 
-        # Use vtysh directly to disable BFD echo mode
+        # FRR commands to disable bfd instance
         duthost.shell("vtysh -c 'configure terminal' -c 'no bfd' -c 'end' -c 'do write' -c 'exit'")
