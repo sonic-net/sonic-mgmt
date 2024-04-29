@@ -889,12 +889,12 @@ if __name__ == "__main__":
 
             test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                repo=repo,
-                reason=reason,
-                pr_id=pr_id,
-                build_id=build_id,
-                job_name=job_name
-            ).replace(' ', '_')
+                    repo=repo,
+                    reason=reason,
+                    pr_id=pr_id,
+                    build_id=build_id,
+                    job_name=job_name
+                ).replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
