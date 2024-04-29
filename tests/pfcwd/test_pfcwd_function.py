@@ -4,6 +4,7 @@ import os
 import pytest
 import time
 import six
+import re
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -50,6 +51,15 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
+
+
+def is_longlink(dut, profile):
+    if dut.sonichost._facts['platform'] in \
+            ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        match = re.search("_([0-9]*)m_", profile)
+        if match:
+            return int(match.group(1)) > 2000
+    return False
 
 
 class PfcCmd(object):
@@ -137,7 +147,7 @@ class PfcCmd(object):
             db = "4"
         table_template = BF_PROFILE if db == "4" else BF_PROFILE_TABLE
 
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, profile):
             asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HSET", table_template.format(profile), "static_th", static_th
@@ -191,7 +201,7 @@ class PfcCmd(object):
 
         alpha = 0
         static_th = 0
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, pg_profile):
             static_th = six.text_type(asic.run_redis_cmd(
                 argv=[
                     "redis-cli", "-n", db, "HGET", table_template.format(pg_profile), "static_th"
@@ -392,7 +402,7 @@ class SetupPfcwdFunc(object):
         """
         new_alpha = self.alpha
         new_static_th = self.static_th
-        if dut.sonichost._facts['platform'] in ["x86_64-88_lc0_36fh_mo-r0", "x86_64-88_lc0_36fh_m-r0"]:
+        if is_longlink(dut, self.pg_profile):
             if int(self.static_th) > 0:
                 new_static_th = int(int(self.static_th) / 2)
         else:
@@ -549,7 +559,7 @@ class SendVerifyTraffic():
         else:
             dst_port = "[ " + str(self.pfc_wd_rx_port_id) + " ]"
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.tx_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': self.pfc_queue_index,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -615,7 +625,7 @@ class SendVerifyTraffic():
             other_pg = self.pfc_queue_index + 1
 
         ptf_params = {'router_mac': self.tx_mac,
-                      'vlan_mac': self.tx_mac,
+                      'vlan_mac': self.vlan_mac,
                       'queue_index': other_pg,
                       'pkt_count': self.pfc_wd_test_pkt_count,
                       'port_src': self.pfc_wd_test_port_id,
@@ -784,6 +794,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_actions(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                            ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                           setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
                            pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         PFCwd functional test
@@ -807,6 +818,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.test_ports_info = setup_info['test_ports']
+        if self.dut.topo_type == 't2':
+            key, value = list(self.ports.items())[0]
+            self.ports = {key: value}
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm
@@ -854,6 +868,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_multi_port(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                               ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
                               pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Tests pfcwd behavior when 2 ports are under pfc storm one after the other
@@ -931,6 +946,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_mmu_change(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,   # noqa F811
                               ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, dualtor_ports, # noqa F811
+                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,       # noqa F811
                               pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Tests if mmu changes impact Pfcwd functionality
@@ -1021,6 +1037,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def test_pfcwd_port_toggle(self, request, fake_storm, setup_pfc_test, setup_dut_test_params, enum_fanout_graph_facts,  # noqa F811
                                tbinfo, ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
+                               setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,         # noqa F811
                                pause_icmp_responder, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m): # noqa F811
         """
         Test PfCWD functionality after toggling port
@@ -1055,6 +1072,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.timers = setup_info['pfc_timers']
         self.ports = setup_info['selected_test_ports']
         self.test_ports_info = setup_info['test_ports']
+        if self.dut.topo_type == 't2':
+            key, value = list(self.ports.items())[0]
+            self.ports = {key: value}
         self.neighbors = setup_info['neighbors']
         self.peer_dev_list = dict()
         self.fake_storm = fake_storm

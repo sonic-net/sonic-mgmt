@@ -163,6 +163,14 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
     except KeyError:
         is_dhcp_server_enable = None
+
+    output = duthost.command('config syslog --help')['stdout']
+    manually_enable_feature = False
+    if 'rate-limit-feature' in output:
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        duthost.command('config syslog rate-limit-feature enable')
+        manually_enable_feature = True
     for feature_name, state in list(features_dict.items()):
         if 'enabled' not in state:
             continue
@@ -175,6 +183,8 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
             if "sonic-telemetry" not in output:
                 continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
+    if manually_enable_feature:
+        duthost.command('config syslog rate-limit-feature disable')
 
 
 def collect_dut_lossless_prio(dut):
@@ -352,6 +362,22 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+
+def test_backend_acl_load(duthosts, enum_dut_hostname, tbinfo):
+    duthost = duthosts[enum_dut_hostname]
+    pytest_require("t0-backend" in tbinfo["topo"]["name"],
+                   "Skip 'test_backend_acl_load' on non t0-backend testbeds.")
+    out = duthost.command("systemctl restart backend-acl.service")
+    pytest_assert(out["rc"] == 0, "Failed to load backend acl: {}".format(out["stderr"]))
+    rules = duthost.show_and_parse("show acl rule DATAACL")
+    for rule in rules:
+        if "DATAACL" not in rule["table"]:
+            continue
+        if ((rule["rule"].startswith("RULE") and rule["action"] != "FORWARD")
+                or (rule["rule"].startswith("DEFAULT") and rule["action"] != "DROP")
+                or rule["status"] != "Active"):
+            pytest.fail("Backend acl not installed succesfully: {}".format(rule))
 
 
 # This one is special. It is public, but we need to ensure that it is the last one executed in pre-test.

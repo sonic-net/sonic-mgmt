@@ -10,7 +10,8 @@ from .test_authorization import ssh_connect_remote_retry, ssh_run_command, \
         remove_all_tacacs_server
 from .utils import stop_tacacs_server, start_tacacs_server, \
         check_server_received, per_command_accounting_skip_versions, \
-        change_and_wait_aaa_config_update, ensure_tacacs_server_running_after_ut  # noqa: F401
+        change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
+        ensure_tacacs_server_running_after_ut  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -84,13 +85,18 @@ def check_tacacs_server_no_other_user_log(ptfhost, tacacs_creds):
 
 def check_local_log_exist(duthost, tacacs_creds, command):
     """
+        Remove all ansible command log with /D command,
+        which will match following format:
+            "ansible.legacy.command Invoked"
+
         Find logs run by tacacs_rw_user from syslog:
             Find logs match following format:
                 "INFO audisp-tacplus: Accounting: user: tacacs_rw_user,.*, command: .*command,"
             Print matched logs with /P command.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus.+Accounting: user: {0},.*, command: .*{1},/P" \
                   .format(username, command)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
     pytest_assert(len(logs) > 0)
@@ -105,6 +111,9 @@ def check_local_log_exist(duthost, tacacs_creds, command):
 def check_local_no_other_user_log(duthost, tacacs_creds):
     """
         Find logs not run by tacacs_rw_user from syslog:
+            Remove all ansible command log with /D command,
+            which will match following format:
+                "ansible.legacy.command Invoked"
 
             Remove all tacacs_rw_user's log with /D command,
             which will match following format:
@@ -116,7 +125,9 @@ def check_local_no_other_user_log(duthost, tacacs_creds):
             Print matched logs with /P command, which are not run by tacacs_rw_user.
     """
     username = tacacs_creds['tacacs_rw_user']
-    log_pattern = "/INFO audisp-tacplus: Accounting: user: {0},/D;/INFO audisp-tacplus: Accounting: user:/P" \
+    log_pattern = "/ansible.legacy.command Invoked/D;\
+                  /INFO audisp-tacplus: Accounting: user: {0},/D;\
+                  /INFO audisp-tacplus: Accounting: user:/P" \
                   .format(username)
     logs = wait_for_log(duthost, "/var/log/syslog", log_pattern)
 
@@ -219,11 +230,19 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     invalid_tacacs_server_ip = "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
+
+    # when tacacs config change multiple time in short time
+    # auditd service may been request reload during reloading
+    # when this happen, auditd will ignore request and only reload once
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
     duthost.shell("sudo config tacacs add %s" % invalid_tacacs_server_ip)
     duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
+    change_and_wait_aaa_config_update(duthost,
+                                      "sudo config aaa accounting tacacs+",
+                                      last_timestamp)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 

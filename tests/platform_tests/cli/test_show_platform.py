@@ -82,7 +82,12 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
         expected_hwsku = dut_vars['sonic_hwsku'] if 'sonic_hwsku' in dut_vars else None
     expected_platform = dut_vars['sonic_hw_platform'] if 'sonic_hw_platform' in dut_vars else None
     expected_asic = dut_vars['asic_type'] if 'asic_type' in dut_vars else None
-    expected_num_asic = str(dut_vars['num_asics']) if 'num_asics' in dut_vars else None
+
+    # for expected_num_asic, get number of asics listed in asics_present list in dut_vars
+    expected_num_asic = str(len(dut_vars['asics_present'])) if 'asics_present' in dut_vars else None
+    # if expected_num_asic is still None use 'num_asics' from dut_vars
+    if not expected_num_asic:
+        expected_num_asic = str(dut_vars['num_asics']) if 'num_asics' in dut_vars else None
 
     expected_fields_values = {expected_platform, expected_hwsku, expected_asic}
     if len(unexpected_fields) != 0:
@@ -94,6 +99,21 @@ def test_show_platform_summary(duthosts, enum_rand_one_per_hwsku_hostname, dut_v
                   "Unexpected value of fields, actual={}, expected={} on host '{}'".format(actual_fields_values,
                                                                                            expected_fields_values,
                                                                                            duthost.hostname))
+
+
+def test_platform_serial_no(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
+    """
+    @summary: Verify device's serial no with output of `sudo decode-syseeprom -s`
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    cmd = "sudo decode-syseeprom -s"
+    get_serial_no_cmd = duthost.command(cmd)
+    logging.info("Verifying output of '{}' on '{}' ...".format(get_serial_no_cmd, duthost.hostname))
+    get_serial_no_output = get_serial_no_cmd["stdout"].replace('\x00', '')
+    expected_serial_no = dut_vars['serial']
+    pytest_assert(get_serial_no_output == expected_serial_no,
+                  "Expected serial_no '{}' is not matching with {} in syseeprom on '{}'".
+                  format(expected_serial_no, get_serial_no_output, duthost.hostname))
 
 
 def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut_vars):
@@ -211,7 +231,7 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     duthost = duthosts[enum_supervisor_dut_hostname]
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
-        check_pmon_daemon_status(duthost),
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
         "Not all pmon daemons running on '{}'".format(duthost.hostname)
     )
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus"])
@@ -244,7 +264,9 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
         pytest.skip("JSON output not available in this version")
 
     logging.info("Check pmon daemon status")
-    pytest_assert(check_pmon_daemon_status(duthost), "Not all pmon daemons running.")
+    pytest_assert(
+        wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
+        "Not all pmon daemons running.")
 
     cmd = " ".join([CMD_SHOW_PLATFORM, "psustatus", "--json"])
 
@@ -256,7 +278,7 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     if duthost.facts["platform"] == "x86_64-dellemc_z9332f_d1508-r0":
         led_status_list = ["N/A"]
     else:
-        led_status_list = ["green", "amber", "red", "off"]
+        led_status_list = ["green", "amber", "red", "off", "N/A"]
     for psu_info in psu_info_list:
         expected_keys = ["index", "name", "presence", "status", "led_status", "model", "serial", "voltage", "current",
                          "power"]

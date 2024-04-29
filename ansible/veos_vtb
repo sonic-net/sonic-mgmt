@@ -47,6 +47,7 @@ all:
           - wan-ecmp
           - wan-pub-isis
           - dpu
+          - dpu-1
       children:
         server_1:
     lab:
@@ -96,6 +97,7 @@ all:
     sonic:
       vars:
         mgmt_subnet_mask_length: 24
+        mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
         ansible_altpassword: YourPaSsWoRd
       hosts:
@@ -109,7 +111,7 @@ all:
           ansible_user: admin
         vlab-02:
           ansible_host: 10.250.0.114
-          ansible_hostv6: fec0::ffff:afa:2
+          ansible_hostv6: fec0::ffff:afa:e
           type: kvm
           hwsku: Force10-S6100
           serial_port: 9095

@@ -61,7 +61,7 @@ def extract_fw_data(fw_pkg_path):
 @pytest.fixture(scope='function')
 def random_component(duthost, fw_pkg):
     chass = list(show_firmware(duthost)["chassis"].keys())[0]
-    components = list(fw_pkg["chassis"].get(chass, {}).get("component", []).keys())
+    components = list(fw_pkg["chassis"].get(chass, {}).get("component", {}).keys())
     if 'ONIE' in components:
         components.remove('ONIE')
     if len(components) == 0:

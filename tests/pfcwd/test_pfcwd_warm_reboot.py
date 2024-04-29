@@ -85,6 +85,7 @@ class PfcCmd(object):
             queue_oid(string) : queue oid for which the storm status needs to be set
             storm_status(string) : debug storm status (enabled/disabled)
         """
+        logger.info("Setting DEBUG storm status {} on queue oid {}".format(storm_status, queue_oid))
         cmd = "redis-cli -n 2 HSET COUNTERS:{} DEBUG_STORM {}"
         dut.command(cmd.format(queue_oid, storm_status))
 
@@ -146,7 +147,7 @@ class SetupPfcwdFunc(object):
             self.pfc_wd['test_port_ids'] = self.ports[port]['test_portchannel_members']
         elif self.pfc_wd['port_type'] in ["vlan", "interface"]:
             self.pfc_wd['test_port_ids'] = [self.pfc_wd['test_port_id']]
-        self.pfc_wd['fake_storm'] = False if not idx else self.fake_storm
+        self.pfc_wd['fake_storm'] = self.fake_storm
 
     def resolve_arp(self, vlan):
         """
@@ -341,6 +342,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
                 self.storm_handle[port][queue].start_storm()
                 time.sleep(15 * len(self.pfc_wd['queue_indices']))
             else:
+                logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
                 PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
                 time.sleep(5)
         else:
@@ -374,6 +376,7 @@ class TestPfcwdWb(SetupPfcwdFunc):
             self.storm_handle[port][queue].stop_storm()
             time.sleep(15)
         else:
+            logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
             PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
             time.sleep(5)
 
@@ -384,9 +387,11 @@ class TestPfcwdWb(SetupPfcwdFunc):
     def defer_fake_storm(self, port, queue, start_defer, stop_defer):
         time.sleep(start_defer)
         DUT_ACTIVE.wait()
+        logger.info("Enable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "enabled")
         time.sleep(stop_defer)
         DUT_ACTIVE.wait()
+        logger.info("Disable DEBUG fake storm on port {} queue {}".format(port, queue))
         PfcCmd.set_storm_status(self.dut, self.oid_map[(port, queue)], "disabled")
 
     def run_test(self, port, queue, detect=True, storm_start=True, first_detect_after_wb=False,
@@ -503,9 +508,17 @@ class TestPfcwdWb(SetupPfcwdFunc):
 
         for t_idx, test_action in enumerate(testcase_actions):
             if 'warm-reboot' in test_action:
-                reboot(self.dut, localhost, reboot_type="warm")
+                reboot(self.dut, localhost, reboot_type="warm", wait_warmboot_finalizer=True)
                 continue
 
+            # Need to wait some time after warm-reboot for the counters to be created
+            # if create_only_config_db_buffers is not enabled
+            if t_idx > 0 and test_action == 'detect' and testcase_actions[t_idx - 1] == "warm-reboot":
+                config_facts = duthost.get_running_config_facts()
+                if config_facts["DEVICE_METADATA"]['localhost'].get("create_only_config_db_buffers") != 'true':
+                    time.sleep(20)
+                    logger.info("Wait 20s before the first detect after the warm-reboot "
+                                "for the counters to be created")
             # one of the factors to decide if the storm needs to be started
             storm_restored = bitmask and (bitmask & 2)
             # if the action prior to the warm-reboot was a 'storm_defer', ensure that all the storms are

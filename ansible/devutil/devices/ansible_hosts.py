@@ -35,6 +35,7 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible.inventory.manager import InventoryManager
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
+from ansible.vars.hostvars import HostVars
 from ansible.playbook.play import Play
 
 from ansible.plugins.callback import CallbackBase
@@ -238,10 +239,17 @@ class AnsibleHostsBase(object):
         else:
             self.vm = VariableManager(loader=self.loader, inventory=self.im)
 
+        # Trigger ansible to load and render host variables
+        # After this operation, self.vm._hostvars will be populated with content
+        # self.vm._hostvars["example_hostname"] will return all variables visible by "example_hostname"
+        # The best part is that if the variable is a template, it is automatically rendered with correct data type
+        HostVars(inventory=self.im, variable_manager=self.vm, loader=self.loader)
+
         self.options = {
             "forks": 6,
             "connection": "smart",
             "verbosity": 2,
+            "timeout": 30,
             "become_method": "sudo"
         }
         if options:

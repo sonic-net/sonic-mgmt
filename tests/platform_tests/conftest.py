@@ -49,7 +49,9 @@ def _parse_timestamp(timestamp):
 def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
-    if "simx" in platform:
+    hwsku = duthost.facts['hwsku']
+    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280']
+    if "simx" in platform and hwsku not in support_platform_simx_hwsku_list:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
 
@@ -75,6 +77,12 @@ def xcvr_skip_list(duthosts):
             dut.has_sku = False
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
+
+        # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
+        if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
+            sfp_list = ['Ethernet0', 'Ethernet1', 'Ethernet2', 'Ethernet3']
+            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
+            intf_skip_list[dut.hostname].extend(sfp_list)
 
     return intf_skip_list
 
@@ -191,7 +199,7 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
 
 def get_kexec_time(duthost, messages, result):
     reboot_pattern = re.compile(
-        r'.* NOTICE admin: Rebooting with /sbin/kexec -e to.*...')
+        r'.* NOTICE (?:admin|root): Rebooting with /sbin/kexec -e to.*...')
     reboot_time = "N/A"
     logging.info("FINDING REBOOT PATTERN")
     for message in messages:
@@ -410,10 +418,11 @@ def verify_required_events(duthost, event_counters, timing_data, verification_er
             observed_end_count = timing_data.get(
                 key, {}).get(pattern, {}).get("End count", 0)
             expected_count = event_counters.get(pattern)
-            # If we're checking PORT_READY, and there are 0 port state change messages captured instead of however many
-            # was expected, treat it as a success. Some platforms (Mellanox, Dell S6100) have 0, some platforms (Arista
-            #  050cx3) have however many ports are up.
-            if observed_start_count != expected_count and (pattern != 'PORT_READY' or observed_start_count != 0):
+            # If we're checking PORT_READY, allow any number of PORT_READY messages between 0 and the number of ports.
+            # Some platforms appear to have a random number of these messages, other platforms have however many ports
+            # are up.
+            if observed_start_count != expected_count and (
+                    pattern != 'PORT_READY' or observed_start_count > expected_count):
                 verification_errors.append("FAIL: Event {} was found {} times, when expected exactly {} times".
                                            format(pattern, observed_start_count, expected_count))
             if key == "time_span" and observed_start_count != observed_end_count:

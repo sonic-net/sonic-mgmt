@@ -2,7 +2,7 @@
 
 import logging
 import sys
-from datetime import datetime
+import time
 from os import path
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.debug_utils import config_module_logging
@@ -37,7 +37,8 @@ results = {"downloaded_image_version": "Unknown", "current_stage": "Unknown", "m
 def log(msg):
     global results
 
-    timestamp = datetime.utcnow()
+    current_time = time.time()
+    timestamp = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(current_time))
     results["messages"].append("{} {}".format(str(timestamp), msg))
     logging.debug(msg)
 
@@ -66,14 +67,23 @@ def get_memory_sizes(module):
     """
     _, out, _ = exec_command(module, cmd="free -m", msg="checking memory total/free sizes")
     lines = out.split('\n')
-    if len(lines) < 2:
-        return -1, -1
 
-    fields = lines[1].split()
-    if len(fields) < 3:
-        return -1, -1
+    for line in lines:
+        if line.startswith("Mem:"):
+            fields = line.split()
+            if len(fields) < 3:
+                return -1, -1
+            else:
+                total_mem, avail_mem = int(fields[1]), int(fields[-1])
+        elif line.startswith("Swap:"):
+            fields = line.split()
+            if len(fields) < 3:
+                return -1, -1
+            else:
+                total_swap, avail_swap = int(fields[1]), int(fields[-1])
 
-    total, avail = int(fields[1]), int(fields[-1])
+    total = total_mem + total_swap
+    avail = avail_mem + avail_swap
     return total, avail
 
 
@@ -101,21 +111,35 @@ def setup_swap_if_necessary(module):
 def reduce_installed_sonic_images(module):
     log("reduce_installed_sonic_images")
 
-    _, out, _ = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    rc, out, _ = exec_command(module, cmd="sonic_installer list", ignore_error=True)
+    if rc != 0:
+        log("Failed to get sonic image list. Will try to install new image anyway.")
+        return
+
     lines = out.split('\n')
 
-    # if next boot image not same with current, set current as next boot, and delete the orinal next image
+    # if next boot image not same with current, set current as next boot, and delete the original next image
+    curr_image = ""
+    next_image = ""
     for line in lines:
         if 'Current:' in line:
             curr_image = line.split(':')[1].strip()
         elif 'Next:' in line:
             next_image = line.split(':')[1].strip()
 
+    if curr_image == "":
+        log("Failed to get current image. Will try to install new image anyway.")
+        return
+
+    if next_image == "":
+        log("Failed to get next image. Will try to install new image anyway.")
+        return
+
     if curr_image != next_image:
         log("set-next-boot")
         exec_command(module, cmd="sonic_installer set-next-boot {}".format(curr_image), ignore_error=True)
 
-    log("clearnup old image")
+    log("cleanup old image")
     exec_command(module, cmd="sonic_installer cleanup -y", ignore_error=True)
 
     log("Done reduce_installed_sonic_images")
@@ -143,21 +167,46 @@ def download_new_sonic_image(module, new_image_url, save_as):
         log("Completed downloading image")
 
     free_disk_size = get_disk_free_size(module, "/")
-    log("After downloaded sonic image, latest free disk size: {}".format(free_disk_size))
+    total, avail = get_memory_sizes(module)
+    log("After downloaded sonic image, latest free disk size: {}, "
+        "memory total {} available {}".format(free_disk_size, total, avail))
 
     if path.exists(save_as):
         log("Checking downloaded image version")
         _, out, _ = exec_command(module, cmd="sonic_installer binary_version {}".format(save_as))
         results["downloaded_image_version"] = out.rstrip('\n')
         log("Downloaded image version: {}".format(results["downloaded_image_version"]))
+        # Save the binary version to file
+        exec_command(module, cmd="sudo echo {} > /tmp/downloaded-sonic-image-version".format(
+            results["downloaded_image_version"]))
 
 
-def install_new_sonic_image(module, new_image_url, save_as=None):
+def install_new_sonic_image(module, new_image_url, save_as=None, required_space=1600):
     log("install new sonic image")
-
     if not save_as:
+        log("Clean-up previous downloads first")
+        exec_command(
+            module,
+            cmd="rm -f {}".format("/host/downloaded-sonic-image"),
+            msg="clean up previously downloaded image",
+            ignore_error=True
+        )
         avail = get_disk_free_size(module, "/host")
         save_as = "/host/downloaded-sonic-image" if avail >= 2000 else "/tmp/tmpfs/downloaded-sonic-image"
+
+    free_disk_size = get_disk_free_size(module, "/")
+    total, avail = get_memory_sizes(module)
+    log("Before install sonic image, free disk {}, memory total {} available {}".format(free_disk_size, total, avail))
+    if avail < 1024 or free_disk_size < required_space:
+        log("free memory or disk space size is not enough to install a new image")
+        module.fail_json(
+            msg="Image installation failed: rc=%d, out=%s, err=%s" % (
+                -1,
+                "free memory or disk space size is not enough to install a new image",
+                ""
+            )
+        )
+        return
 
     if save_as.startswith("/tmp/tmpfs"):
         log("Create a tmpfs partition to download image to install")
@@ -228,9 +277,14 @@ def free_up_disk_space(module, disk_used_pcent):
         output = exec_command(module, cmd="df -BM --output=pcent /host")[1]
         return int(output.splitlines()[-1][:-1])
 
+    def get_disk_total_size(module):
+        output = exec_command(module, cmd="df -BM --output=size /host")[1]
+        return int(output.splitlines()[-1][:-1])
+
     current_used_percent = get_disk_used_percent(module)
-    log("current used percent: {}".format(current_used_percent))
-    if current_used_percent > disk_used_pcent:
+    total_size = get_disk_total_size(module)
+    log("current used percent: {}, total_size {}".format(current_used_percent, total_size))
+    if current_used_percent > disk_used_pcent or total_size < 4096:
         log("Trying to free up spaces at best effort")
         exec_command(module, "rm -f /var/log/*.gz", ignore_error=True)
         exec_command(module, "rm -f /var/core/*", ignore_error=True)
@@ -243,6 +297,58 @@ def free_up_disk_space(module, disk_used_pcent):
 
     free_disk_size = get_disk_free_size(module, "/host")
     log("After free up disk space, latest free disk size: {}".format(free_disk_size))
+
+
+def free_up_memory_drop_caches(module):
+    """
+    To free pagecache:
+        echo 1 > /proc/sys/vm/drop_caches
+    To free reclaimable slab objects (includes dentries and inodes):
+        echo 2 > /proc/sys/vm/drop_caches
+    To free slab objects and pagecache:
+        echo 3 > /proc/sys/vm/drop_caches
+    """
+    for index in range(1, 4):
+        cmd = 'echo {} >  /proc/sys/vm/drop_caches'.format(index)
+        exec_command(module, cmd, ignore_error=True)
+        cmd = 'sync'
+        exec_command(module, cmd, ignore_error=True)
+        log("drop {} cache to free up memory space".format(index))
+    return
+
+
+def free_up_memory_stop_process(module):
+    """
+    stop the process which not need during upgrade
+    not start it here since it will be started after reboot
+    sudo systemctl list-units --type=service --state=running
+    """
+
+    processes = ['monit.service', 'telemetry.service', 'stop pmon.service']
+    for process in processes:
+        cmd = 'systemctl stop {}'.format(process)
+        exec_command(module, cmd, ignore_error=True)
+        log("stop process {}".format(process))
+
+    return
+
+
+def free_up_memory_space(module, free_space_needed=1024):
+    """for low memory device, drop cache and disable process which not need during upgrade."""
+    log("free up memory space at best effort")
+
+    total, avail = get_memory_sizes(module)
+    if avail > free_space_needed:
+        log("Available memory {}, no need to free up memory space".format(avail))
+        return
+
+    free_up_memory_drop_caches(module)
+    free_up_memory_stop_process(module)
+
+    total, avail = get_memory_sizes(module)
+    log("After free up, current available memory {}".format(avail))
+
+    return
 
 
 def work_around_for_reboot(module):
@@ -275,18 +381,17 @@ def main():
             disk_used_pcent=dict(required=False, type='int', default=8),
             new_image_url=dict(required=False, type='str', default=None),
             save_as=dict(required=False, type='str', default=None),
+            required_space=dict(required=False, type='int', default=1600),
         ),
         supports_check_mode=False)
 
     disk_used_pcent = module.params['disk_used_pcent']
     new_image_url = module.params['new_image_url']
     save_as = module.params['save_as']
+    required_space = module.params['required_space']
 
     try:
-        if not new_image_url:
-            reduce_installed_sonic_images(module)
-            free_up_disk_space(module, disk_used_pcent)
-        else:
+        if new_image_url or save_as:
             results["current_stage"] = "start"
 
             work_around_for_reboot(module)
@@ -295,11 +400,15 @@ def main():
             results["current_stage"] = "prepare"
 
             free_up_disk_space(module, disk_used_pcent)
+            free_up_memory_space(module)
             setup_swap_if_necessary(module)
             results["current_stage"] = "install"
 
-            install_new_sonic_image(module, new_image_url, save_as)
+            install_new_sonic_image(module, new_image_url, save_as, required_space)
             results["current_stage"] = "complete"
+        else:
+            reduce_installed_sonic_images(module)
+            free_up_disk_space(module, disk_used_pcent)
     except Exception:
         err = str(sys.exc_info())
         module.fail_json(msg="Exception raised during image upgrade", results=results, err=err)
