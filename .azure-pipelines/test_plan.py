@@ -235,9 +235,6 @@ class TestPlanManager(object):
             elif topology == "dpu":
                 common_extra_params = common_extra_params + " --topology=dpu,any"
 
-            # Add device type arg
-            common_extra_params = common_extra_params + " --device_type=vs"
-
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
         if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
