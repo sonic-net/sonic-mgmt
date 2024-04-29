@@ -235,6 +235,9 @@ class TestPlanManager(object):
             elif topology == "dpu":
                 common_extra_params = common_extra_params + " --topology=dpu,any"
 
+            # Add device type arg
+            common_extra_params = common_extra_params + " --device_type=vs"
+
         # If triggered by the internal repos, use internal sonic-mgmt repo as the code base
         sonic_mgmt_repo_url = GITHUB_SONIC_MGMT_REPO
         if kwargs.get("source_repo") in INTERNAL_REPO_LIST:
@@ -886,12 +889,12 @@ if __name__ == "__main__":
 
             test_plan_prefix = "{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}" \
                 .format(
-                    repo=repo,
-                    reason=reason,
-                    pr_id=pr_id,
-                    build_id=build_id,
-                    job_name=job_name
-                ).replace(' ', '_')
+                repo=repo,
+                reason=reason,
+                pr_id=pr_id,
+                build_id=build_id,
+                job_name=job_name
+            ).replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
