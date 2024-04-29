@@ -157,6 +157,7 @@ def test_bgp_peer_shutdown(
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     n0 = common_setup_teardown
+    announced_route = {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
 
     try:
         n0.start_session()
@@ -169,7 +170,6 @@ def test_bgp_peer_shutdown(
         ):
             pytest.fail("Could not establish bgp sessions")
 
-        announced_route = {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
         n0.announce_route(announced_route)
         time.sleep(constants.sleep_interval)
         announced_route_on_dut_before_shutdown = duthost.get_route(announced_route["prefix"], n0.namespace)
@@ -205,3 +205,4 @@ def test_bgp_peer_shutdown(
             pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
     finally:
         n0.stop_session()
+        duthost.shell("ip route flush %s" % announced_route["prefix"])
