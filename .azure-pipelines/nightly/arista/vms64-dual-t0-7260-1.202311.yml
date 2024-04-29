@@ -1,0 +1,60 @@
+name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "08 4 * * 0,1,2,3,4,5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+      - internal-202311
+    always: true
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: vms64-dual-t0-7260-1
+    displayName: "Testbed Name"
+
+  # Upgrade parameters
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_BRCM_ABOOT_202311)
+    displayName: "Image URL"
+
+  # Deploy parameters
+  - name: ENABLE_DATAACL
+    type: boolean
+    default: false
+
+  # Test Parameters
+  - name: PY_SAITHRIFT_URL
+    type: string
+    default: $(SAITHRIFT_BRCM_202311)
+    displayName: "py_saithrift URL"
+
+  - name: TESTBED_SPECIFIC
+    type: string
+    default: '-I "bgp cacl decap dhcp_relay drop_packets dualtor dualtor_io dualtor_mgmt everflow fdb fib pc pfcwd qos show_techsupport snmp stress tacacs telemetry vlan vxlan"'
+    displayName: Testbed specific
+
+  - name: AGENT_POOL
+    type: string
+    default: nightly
+    displayName: "Agent pool"
+
+stages:
+  - template: ../templates/nightly_test.yml
+    parameters:
+      TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+      IMAGE_URL: ${{ parameters.IMAGE_URL }}
+      PY_SAITHRIFT_URL: ${{ parameters.PY_SAITHRIFT_URL }}
+      ENABLE_DATAACL: ${{ parameters.ENABLE_DATAACL }}
+      NIGHTLY_TEST_TIMEOUT: 1440  # 24 hours
+      TESTBED_SPECIFIC: ${{ parameters.TESTBED_SPECIFIC }}
+      AGENT_POOL: ${{ parameters.AGENT_POOL }}
