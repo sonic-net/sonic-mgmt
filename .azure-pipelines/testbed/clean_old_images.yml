@@ -1,0 +1,61 @@
+# This job specifically targets and removes "dangling" images on test servers,
+#  which are images that have no tag associated with them.
+#  These are typically leftover or unused images that can consume disk space.
+
+name: CleanOldImagesPipelines_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "02 02 * * *"                     # execute at 2:02 AM (UTC) every day.
+    displayName: CleanOldImagesPipelines
+    branches:
+      include:
+        - internal
+    always: true
+
+
+parameters:
+
+  - name: INVENTORY_INFO
+    displayName: "Key is inventory name. Value 'pool' is agent pool for this inventory."
+    type: object
+    default:
+      str:
+        pool: nightly
+      str2:
+        pool: nightly
+      str3:
+        pool: nightly
+      strsvc:
+        pool: nightly-svc
+      strsvc2:
+        pool: nightly-svc
+      strtk5:
+        pool: nightly-tk5
+      bjw:
+        pool: nightly-bjw
+
+
+jobs:
+- ${{ each INVENTORY in parameters.INVENTORY_INFO }}:
+    - job: CleanOldImages_${{ INVENTORY.key }}
+      pool: ${{ INVENTORY.value.pool }}
+      timeoutInMinutes: 30
+      variables:
+        - group: SECRETS_JSON
+
+      steps:
+        - template: ../nightly/templates/get_secrets.yml
+
+        - task: Bash@3
+          displayName: Clean old images
+          inputs:
+            targetType: 'inline'
+            script: |
+              set -x
+
+              cd ansible
+            
+              python3 ../.azure-pipelines/testbed/clean_old_images.py -i ${{ INVENTORY.key }}
