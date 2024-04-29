@@ -143,7 +143,6 @@ def match_bgp_notification(packet, src_ip, dst_ip, action):
 def is_neighbor_session_down(duthost, neighbor):
     # handle both multi-asic and single-asic
     bgp_neighbors = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())["ansible_facts"]["bgp_neighbors"]
-    logging.debug("bgp neighbors: %s", bgp_neighbors)
     return (neighbor.ip in bgp_neighbors and
             bgp_neighbors[neighbor.ip]["admin"] == "down" and
             bgp_neighbors[neighbor.ip]["state"] == "idle")

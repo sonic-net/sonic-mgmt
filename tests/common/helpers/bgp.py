@@ -102,6 +102,7 @@ class BGPNeighbor(object):
         self.ptfhost.exabgp(name=self.name, state="absent")
 
     def teardown_session(self):
+        # error_subcode 3: Peer De-configured. References: RFC 4271
         msg = "neighbor {} teardown 3"
         msg = msg.format(self.peer_ip)
         logging.debug("teardown session: %s", msg)
