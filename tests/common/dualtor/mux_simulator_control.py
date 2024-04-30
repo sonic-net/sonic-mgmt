@@ -807,7 +807,7 @@ def simulator_flap_counter(url):
     def _simulator_flap_counter(interface_name):
         server_url = url(interface_name, FLAP_COUNTER)
         counter = _get(server_url)
-        assert(counter and len(counter) == 1)
+        assert (counter and len(counter) == 1)
         return list(counter.values())[0]
 
     return _simulator_flap_counter
